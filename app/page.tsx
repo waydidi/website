@@ -272,7 +272,7 @@ export default function Home() {
             aria-label="Waydidi home"
           >
             <WaydidiLogo
-              className={`${stage === "search" ? "h-[88px]" : "h-11"} w-auto`}
+              className={`${stage === "search" ? "h-[70px]" : "h-11"} w-auto`}
             />
           </a>
           {stage === "search" ? (
