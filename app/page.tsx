@@ -3,8 +3,6 @@
 import {
   ArrowLeft,
   ArrowRight,
-  BadgeDollarSign,
-  CalendarCheck2,
   CalendarDays,
   CarFront,
   Check,
@@ -16,7 +14,6 @@ import {
   MapPin,
   Menu,
   Minus,
-  Headphones,
   Plus,
   Printer,
   ShieldCheck,
@@ -592,46 +589,6 @@ export default function Home() {
                     Search vehicles <ArrowRight size={18} />
                   </button>
                 </div>
-              </div>
-              <div
-                className="mt-3 grid grid-cols-2 overflow-hidden rounded-[18px] border border-white/40 bg-white text-slate-950 shadow-md shadow-orange-950/10 lg:grid-cols-4 lg:divide-x lg:divide-slate-200"
-                aria-label="Waydidi service guarantees"
-              >
-                {[
-                  {
-                    icon: BadgeDollarSign,
-                    title: "Fixed prices",
-                    detail: "No surprise fees",
-                  },
-                  {
-                    icon: ShieldCheck,
-                    title: "Professional drivers",
-                    detail: "Verified local service",
-                  },
-                  {
-                    icon: CalendarCheck2,
-                    title: "Free cancellation",
-                    detail: "Up to 24 hours before",
-                  },
-                  {
-                    icon: Headphones,
-                    title: "Customer support",
-                    detail: "Help when you need it",
-                  },
-                ].map(({ icon: Icon, title, detail }) => (
-                  <div
-                    key={title}
-                    className="flex min-h-[76px] items-center gap-3 border-b border-slate-100 px-4 py-3 odd:border-r lg:border-b-0 lg:border-r-0"
-                  >
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[#D96F00]">
-                      <Icon size={18} strokeWidth={2.2} />
-                    </span>
-                    <span className="min-w-0">
-                      <strong className="block text-sm leading-5">{title}</strong>
-                      <span className="block text-xs leading-4 text-slate-500">{detail}</span>
-                    </span>
-                  </div>
-                ))}
               </div>
               {dateOpen && (
                 <DateTimePicker
