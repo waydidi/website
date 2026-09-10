@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1788680299878,
+      "tag": "0000_lazy_maggott",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788757075519,
+      "tag": "0001_rapid_susan_delgado",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788758121927,
+      "tag": "0002_conscious_blur",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788758959368,
+      "tag": "0003_nasty_orphan",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788849135154,
+      "tag": "0004_brown_ricochet",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788959089372,
+      "tag": "0005_closed_sister_grimm",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789013494784,
+      "tag": "0006_productive_exiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1789025257871,
+      "tag": "0007_last_war_machine",
+      "breakpoints": true
+    }
+  ]
+}
