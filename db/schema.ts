@@ -53,12 +53,56 @@ export const bookings = sqliteTable(
     basePrice: integer("base_price"),
     distanceSurcharge: integer("distance_surcharge"),
     pricingVersion: integer("pricing_version"),
+    serviceType: text("service_type").notNull().default("transfer"),
+    bookedHours: integer("booked_hours"),
+    scheduledEndAt: text("scheduled_end_at"),
+    hourlyQuoteId: text("hourly_quote_id"),
+    includedDistanceMeters: integer("included_distance_meters"),
+    extraHourRate: integer("extra_hour_rate"),
+    extraDistanceRate: integer("extra_distance_rate"),
   },
   (table) => [
     index("idx_bookings_email").on(table.customerEmail),
     index("idx_bookings_status").on(table.status),
     index("idx_bookings_pickup_date_status").on(table.pickupDate, table.status),
   ],
+);
+
+export const hourlyPackages = sqliteTable(
+  "hourly_packages",
+  {
+    id: text("id").primaryKey(),
+    areaId: text("area_id").notNull().default("ANY"),
+    vehicleId: text("vehicle_id").notNull(),
+    minimumHours: integer("minimum_hours").notNull().default(3),
+    basePrice: integer("base_price").notNull(),
+    additionalHourPrice: integer("additional_hour_price").notNull(),
+    includedKmPerHour: integer("included_km_per_hour").notNull(),
+    extraPricePerKm: integer("extra_price_per_km").notNull(),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    version: integer("version").notNull().default(1),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_hourly_packages_area_vehicle").on(table.areaId, table.vehicleId)],
+);
+
+export const hourlyQuotes = sqliteTable(
+  "hourly_quotes",
+  {
+    id: text("id").primaryKey(),
+    pickupPlaceId: text("pickup_place_id").notNull(),
+    pickupText: text("pickup_text").notNull(),
+    pickupLatitude: real("pickup_latitude"),
+    pickupLongitude: real("pickup_longitude"),
+    areaId: text("area_id"),
+    areaName: text("area_name").notNull(),
+    bookedHours: integer("booked_hours").notNull(),
+    vehiclePricesJson: text("vehicle_prices_json").notNull(),
+    pricingVersion: integer("pricing_version").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("idx_hourly_quotes_expires_at").on(table.expiresAt)],
 );
 
 export const pricingAreas = sqliteTable(

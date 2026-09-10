@@ -18,6 +18,8 @@ type ConfirmationEmailInput = {
   total: number;
   paymentMethod: string;
   retryId?: string;
+  serviceType?: string;
+  bookedHours?: number | null;
 };
 
 function toBase64(bytes: Uint8Array) {
@@ -91,6 +93,7 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
 <p style="margin:0 0 10px;color:#211726;font-size:17px;line-height:1.6">Hi ${safeName},</p>
 <p style="margin:0 0 24px;color:#586579;font-size:16px;line-height:1.6">Your private transfer is confirmed. Keep this email and the attached PDF for your pickup.</p>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+${detailRow("Service", input.serviceType === "hourly" ? `${input.bookedHours}-hour private driver` : "Private transfer")}
 ${detailRow("Pickup", input.pickup)}
 ${detailRow("Drop-off", input.dropoff)}
 ${detailRow("Date & time", formattedDate)}

@@ -24,12 +24,16 @@ export function GoogleRoutePicker({
   onPickupChange,
   onDropoffChange,
   onRouteChange,
+  pickupOnly = false,
+  onPickupPlaceChange,
 }: {
   pickup: string;
   dropoff: string;
   onPickupChange: (value: string) => void;
   onDropoffChange: (value: string) => void;
   onRouteChange: (value: RouteInfo | null) => void;
+  pickupOnly?: boolean;
+  onPickupPlaceChange?: (placeId: string) => void;
 }) {
   const pickupRef = useRef<HTMLInputElement>(null);
   const dropoffRef = useRef<HTMLInputElement>(null);
@@ -79,23 +83,23 @@ export function GoogleRoutePicker({
     if (
       !mapReady ||
       !window.google?.maps ||
-      !mapRef.current ||
       !pickupRef.current ||
-      !dropoffRef.current
+      (!pickupOnly && !mapRef.current) ||
+      (!pickupOnly && !dropoffRef.current)
     )
       return;
     const maps = window.google.maps;
-    const map = new maps.Map(mapRef.current, {
+    const map = mapRef.current ? new maps.Map(mapRef.current, {
       center: { lat: 13.7563, lng: 100.5018 },
       zoom: 10,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
-    });
-    const renderer = new maps.DirectionsRenderer({
+    }) : null;
+    const renderer = map ? new maps.DirectionsRenderer({
       map,
       polylineOptions: { strokeColor: "#FF8A05", strokeWeight: 5 },
-    });
+    }) : null;
     const service = new maps.DirectionsService();
     const options = {
       componentRestrictions: { country: "th" },
@@ -105,10 +109,9 @@ export function GoogleRoutePicker({
       pickupRef.current,
       options,
     );
-    const dropoffAutocomplete = new maps.places.Autocomplete(
-      dropoffRef.current,
-      options,
-    );
+    const dropoffAutocomplete = dropoffRef.current
+      ? new maps.places.Autocomplete(dropoffRef.current, options)
+      : null;
     const calculate = () => {
       if (!pickupRef.current?.value || !dropoffRef.current?.value) return;
       service.route(
@@ -123,7 +126,7 @@ export function GoogleRoutePicker({
             onRouteChange(null);
             return;
           }
-          renderer.setDirections(result);
+          renderer?.setDirections(result);
           const leg = result.routes?.[0]?.legs?.[0];
           const info =
             leg?.distance?.text && leg?.duration?.text
@@ -144,10 +147,11 @@ export function GoogleRoutePicker({
     const selectPickup = () => {
       const place = pickupAutocomplete.getPlace();
       pickupPlaceIdRef.current = place.place_id ?? "";
+      onPickupPlaceChange?.(pickupPlaceIdRef.current);
       onPickupChange(
         place.formatted_address || place.name || pickupRef.current?.value || "",
       );
-      window.setTimeout(calculate, 0);
+      if (!pickupOnly) window.setTimeout(calculate, 0);
     };
     const selectDropoff = () => {
       const place = dropoffAutocomplete.getPlace();
@@ -161,13 +165,13 @@ export function GoogleRoutePicker({
       window.setTimeout(calculate, 0);
     };
     pickupAutocomplete.addListener("place_changed", selectPickup);
-    dropoffAutocomplete.addListener("place_changed", selectDropoff);
+    dropoffAutocomplete?.addListener("place_changed", selectDropoff);
     calculate();
     return () => {
       maps.event.clearInstanceListeners(pickupAutocomplete);
-      maps.event.clearInstanceListeners(dropoffAutocomplete);
+      if (dropoffAutocomplete) maps.event.clearInstanceListeners(dropoffAutocomplete);
     };
-  }, [mapReady]);
+  }, [mapReady, pickupOnly]);
 
   const fieldClass =
     "w-full bg-transparent text-[16px] text-slate-950 outline-none placeholder:text-slate-400";
@@ -193,7 +197,7 @@ export function GoogleRoutePicker({
           />
         </span>
       </label>
-      <label className="flex min-h-[64px] items-center gap-3 border-b border-slate-100 px-4 py-3 lg:border-b-0">
+      {!pickupOnly && <label className="flex min-h-[64px] items-center gap-3 border-b border-slate-100 px-4 py-3 lg:border-b-0">
         <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[#D96F00]">
           <MapPin size={18} />
         </span>
@@ -212,8 +216,8 @@ export function GoogleRoutePicker({
             autoComplete="off"
           />
         </span>
-      </label>
-      {mapReady && (
+      </label>}
+      {mapReady && !pickupOnly && (
         <div className="col-span-full border-t border-slate-200 bg-white p-3">
           <div
             ref={mapRef}

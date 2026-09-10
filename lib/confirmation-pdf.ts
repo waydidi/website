@@ -7,6 +7,7 @@ type Confirmation = {
   customerPhone: string; flightNumber: string | null; pickupSign: string | null;
   pickupInstructions: string | null; childSeats: number; oversizedLuggage: boolean;
   specialRequests: string | null; paymentMethod?: string;
+  serviceType?: string; bookedHours?: number | null; includedDistanceMeters?: number | null; extraHourRate?: number | null; extraDistanceRate?: number | null;
 };
 
 const orange = rgb(1, 0.541, 0.02);
@@ -43,6 +44,7 @@ export async function createConfirmationPdf(booking: Confirmation) {
   page.drawText(booking.reference, { x: 159, y: 577, size: 12, font: bold, color: rgb(1, 1, 1) });
 
   const fields = [
+    ["Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : "Private transfer"],
     ["Passenger", booking.customerName],
     ["Email", booking.customerEmail],
     ["Phone / WhatsApp", booking.customerPhone],
@@ -53,7 +55,7 @@ export async function createConfirmationPdf(booking: Confirmation) {
     ["Vehicle", booking.vehicle],
     ["Payment", booking.paymentMethod === "cash" ? "Cash at pickup" : "Paid online"],
     ["Total", `THB ${booking.total.toLocaleString()}`],
-  ];
+  ].slice(0, 10);
 
   fields.forEach(([label, value], index) => {
     const column = index % 2;

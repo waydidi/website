@@ -7,6 +7,7 @@ import {
   bookings,
   checkoutAttempts,
   fareQuotes,
+  hourlyQuotes,
 } from "@/db/schema";
 import { createCheckoutSession, VEHICLES, type VehicleId } from "@/lib/stripe";
 import { fulfillBooking } from "@/lib/booking-fulfillment";
@@ -38,6 +39,9 @@ type Payload = {
   termsAccepted: boolean;
   paymentMethod?: "card" | "cash";
   fareQuoteId?: string;
+  serviceType?: "transfer" | "hourly";
+  bookedHours?: number;
+  hourlyQuoteId?: string;
 };
 
 const POLICY_VERSION = "2026-09-07";
@@ -66,7 +70,7 @@ function valid(input: Payload) {
     typeof input.customerPhone === "string" &&
     /^[+0-9() .-]{7,30}$/.test(input.customerPhone.trim()) &&
     input.pickup?.trim().length >= 2 &&
-    input.dropoff?.trim().length >= 2 &&
+    (input.serviceType === "hourly" || input.dropoff?.trim().length >= 2) &&
     validPickup(input.pickupDate, input.pickupTime) &&
     Number.isInteger(input.passengers) &&
     input.passengers > 0 &&
@@ -86,6 +90,7 @@ function valid(input: Payload) {
     textWithin(input.pickupInstructions ?? "", 500) &&
     textWithin(input.specialRequests ?? "", 500) &&
     (!input.fareQuoteId || /^[0-9a-f-]{36}$/i.test(input.fareQuoteId))
+    && (input.serviceType !== "hourly" || (Number.isInteger(input.bookedHours) && input.bookedHours! >= 3 && input.bookedHours! <= 12 && !!input.hourlyQuoteId && /^[0-9a-f-]{36}$/i.test(input.hourlyQuoteId)))
   );
 }
 
@@ -178,7 +183,17 @@ export async function POST(request: Request) {
       dropoffLatitude: number | null;
       dropoffLongitude: number | null;
     } | null = null;
-    if (input.fareQuoteId) {
+    let hourlyData: { id:string;pickupText:string;areaName:string;bookedHours:number;pricingVersion:number;basePrice:number;includedDistanceMeters:number;extraHourRate:number;extraDistanceRate:number;pickupLatitude:number|null;pickupLongitude:number|null } | null = null;
+    if (input.serviceType === "hourly") {
+      const [quote] = await getDb().select().from(hourlyQuotes).where(eq(hourlyQuotes.id,input.hourlyQuoteId!)).limit(1);
+      if (!quote || new Date(quote.expiresAt).getTime() <= Date.now() || quote.bookedHours !== input.bookedHours) return NextResponse.json({error:"Your hourly price expired. Please search again."},{status:409});
+      const prices=JSON.parse(quote.vehiclePricesJson) as Record<string,{total:number;basePrice:number;includedDistanceMeters:number;extraHourRate:number;extraDistanceRate:number}>;
+      const price=prices[input.vehicle];
+      if (!price || !Number.isInteger(price.total)) return NextResponse.json({error:"This vehicle is unavailable for hourly booking."},{status:409});
+      total=price.total;
+      hourlyData={id:quote.id,pickupText:quote.pickupText,areaName:quote.areaName,bookedHours:quote.bookedHours,pricingVersion:quote.pricingVersion,basePrice:price.basePrice,includedDistanceMeters:price.includedDistanceMeters,extraHourRate:price.extraHourRate,extraDistanceRate:price.extraDistanceRate,pickupLatitude:quote.pickupLatitude,pickupLongitude:quote.pickupLongitude};
+    }
+    if (input.serviceType !== "hourly" && input.fareQuoteId) {
       const [quote] = await getDb()
         .select()
         .from(fareQuotes)
@@ -244,8 +259,8 @@ export async function POST(request: Request) {
         customerName: input.customerName.trim(),
         customerEmail: input.customerEmail.trim().toLowerCase(),
         customerPhone: input.customerPhone.trim(),
-        pickup: quoteData?.pickupText ?? input.pickup.trim(),
-        dropoff: quoteData?.dropoffText ?? input.dropoff.trim(),
+        pickup: hourlyData?.pickupText ?? quoteData?.pickupText ?? input.pickup.trim(),
+        dropoff: input.serviceType === "hourly" ? "Flexible itinerary — hourly service" : quoteData?.dropoffText ?? input.dropoff.trim(),
         pickupDate: input.pickupDate,
         pickupTime: input.pickupTime,
         passengers: input.passengers,
@@ -267,16 +282,23 @@ export async function POST(request: Request) {
         createdAt: now,
         updatedAt: now,
         fareQuoteId: quoteData?.id,
-        pricingArea: quoteData?.areaName,
+        pricingArea: hourlyData?.areaName ?? quoteData?.areaName,
         routeDistanceMeters: quoteData?.distanceMeters,
         routeDurationSeconds: quoteData?.durationSeconds,
-        pickupLatitude: quoteData?.pickupLatitude,
-        pickupLongitude: quoteData?.pickupLongitude,
+        pickupLatitude: hourlyData?.pickupLatitude ?? quoteData?.pickupLatitude,
+        pickupLongitude: hourlyData?.pickupLongitude ?? quoteData?.pickupLongitude,
         dropoffLatitude: quoteData?.dropoffLatitude,
         dropoffLongitude: quoteData?.dropoffLongitude,
-        basePrice: quoteData?.basePrice,
+        basePrice: hourlyData?.basePrice ?? quoteData?.basePrice,
         distanceSurcharge: quoteData?.distanceSurcharge,
-        pricingVersion: quoteData?.pricingVersion,
+        pricingVersion: hourlyData?.pricingVersion ?? quoteData?.pricingVersion,
+        serviceType: input.serviceType === "hourly" ? "hourly" : "transfer",
+        bookedHours: hourlyData?.bookedHours,
+        scheduledEndAt: hourlyData ? new Date(new Date(`${input.pickupDate}T${input.pickupTime}:00+07:00`).getTime()+hourlyData.bookedHours*3600000).toISOString() : null,
+        hourlyQuoteId: hourlyData?.id,
+        includedDistanceMeters: hourlyData?.includedDistanceMeters,
+        extraHourRate: hourlyData?.extraHourRate,
+        extraDistanceRate: hourlyData?.extraDistanceRate,
       });
     if (input.paymentMethod === "cash") {
       const [cashBooking] = await getDb()

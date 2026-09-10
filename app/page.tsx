@@ -36,6 +36,7 @@ import {
 } from "@/components/google-route-picker";
 
 type Stage = "search" | "vehicle" | "payment" | "confirmation";
+type ServiceType = "transfer" | "hourly";
 type Booking = {
   pickup: string;
   dropoff: string;
@@ -53,6 +54,7 @@ type Booking = {
   oversizedLuggage: boolean;
   specialRequests: string;
   termsAccepted: boolean;
+  bookedHours: number;
 };
 type FareQuote = {
   quoteId: string;
@@ -63,6 +65,13 @@ type FareQuote = {
     string,
     { total: number; basePrice: number; distanceSurcharge: number }
   >;
+  expiresAt: string;
+};
+type HourlyQuote = {
+  quoteId: string;
+  area: { id: string; name: string; color: string };
+  bookedHours: number;
+  prices: Record<string, { total:number;basePrice:number;includedDistanceMeters:number;extraHourRate:number;extraDistanceRate:number }>;
   expiresAt: string;
 };
 
@@ -116,6 +125,7 @@ const vehicles = [
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [stage, setStage] = useState<Stage>("search");
+  const [serviceType, setServiceType] = useState<ServiceType>("transfer");
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [booking, setBooking] = useState<Booking>({
@@ -137,11 +147,14 @@ export default function Home() {
     oversizedLuggage: false,
     specialRequests: "",
     termsAccepted: false,
+    bookedHours: 3,
   });
   const [vehicle, setVehicle] = useState("economy_sedan");
   const [payment, setPayment] = useState<"card" | "cash">("card");
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
   const [fareQuote, setFareQuote] = useState<FareQuote | null>(null);
+  const [hourlyQuote, setHourlyQuote] = useState<HourlyQuote | null>(null);
+  const [pickupPlaceId, setPickupPlaceId] = useState("");
   const [pricingMessage, setPricingMessage] = useState("");
   const [reference, setReference] = useState("");
   const [loading, setLoading] = useState(false);
@@ -151,9 +164,9 @@ export default function Home() {
     () =>
       vehicles.map((item) => ({
         ...item,
-        price: fareQuote?.prices[item.id]?.total ?? item.price,
+        price: hourlyQuote?.prices[item.id]?.total ?? fareQuote?.prices[item.id]?.total ?? item.price,
       })),
-    [fareQuote],
+    [fareQuote, hourlyQuote],
   );
   const chosenVehicle = useMemo(
     () =>
@@ -163,8 +176,19 @@ export default function Home() {
   const change = <K extends keyof Booking>(key: K, value: Booking[K]) =>
     setBooking((current) => ({ ...current, [key]: value }));
 
-  function search(event: FormEvent<HTMLFormElement>) {
+  async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (serviceType === "hourly" && !hourlyQuote) {
+      if (!pickupPlaceId) { setPricingMessage("Select a pickup location from Google Maps."); return; }
+      try {
+        setLoading(true); setPricingMessage("");
+        const response = await fetch("/api/hourly-quote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pickupPlaceId,bookedHours:booking.bookedHours})});
+        const result = await response.json() as HourlyQuote & {error?:string};
+        if (!response.ok) { setPricingMessage(result.error??"Hourly pricing is unavailable."); return; }
+        setHourlyQuote(result);
+      } catch { setPricingMessage("Hourly pricing is temporarily unavailable."); return; }
+      finally { setLoading(false); }
+    }
     setMenuOpen(false);
     setStage("vehicle");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -238,6 +262,9 @@ export default function Home() {
           vehicle,
           paymentMethod: payment,
           fareQuoteId: fareQuote?.quoteId,
+          serviceType,
+          bookedHours: serviceType === "hourly" ? booking.bookedHours : undefined,
+          hourlyQuoteId: hourlyQuote?.quoteId,
         }),
       });
       const result = (await response.json()) as {
@@ -493,10 +520,10 @@ export default function Home() {
               </h1>
             </div>
             <div className="mb-4 flex max-w-md gap-6 border-b border-white/35 text-base sm:text-lg">
-              <button className="border-b-2 border-white px-2 pb-3 font-semibold text-white">
+              <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`${serviceType === "transfer" ? "border-b-2 border-white font-semibold text-white" : "text-white/80"} px-2 pb-3`}>
                 Transfers
               </button>
-              <button className="px-1.5 pb-3 text-white/80" type="button">
+              <button onClick={()=>{setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`${serviceType === "hourly" ? "border-b-2 border-white font-semibold text-white" : "text-white/80"} px-1.5 pb-3`} type="button">
                 Hourly driver
               </button>
               <button className="px-1.5 pb-3 text-white/80" type="button">
@@ -505,7 +532,7 @@ export default function Home() {
             </div>
 
             <form onSubmit={search} className="w-full">
-              <div className="overflow-visible rounded-[18px] border border-slate-200 bg-white text-slate-950 shadow-lg shadow-slate-900/10 lg:grid lg:grid-cols-[1.15fr_1.15fr_.72fr_.7fr_auto] lg:divide-x lg:divide-slate-200">
+              <div className={`overflow-visible rounded-[18px] border border-slate-200 bg-white text-slate-950 shadow-lg shadow-slate-900/10 lg:grid ${serviceType === "hourly" ? "lg:grid-cols-[1.5fr_.72fr_.62fr_.7fr_auto]" : "lg:grid-cols-[1.15fr_1.15fr_.72fr_.7fr_auto]"} lg:divide-x lg:divide-slate-200`}>
                 <GoogleRoutePicker
                   pickup={booking.pickup}
                   dropoff={booking.dropoff}
@@ -518,6 +545,8 @@ export default function Home() {
                     setFareQuote(null);
                   }}
                   onRouteChange={handleRouteChange}
+                  pickupOnly={serviceType === "hourly"}
+                  onPickupPlaceChange={(id)=>{setPickupPlaceId(id);setHourlyQuote(null);}}
                 />
                 <button
                   type="button"
@@ -541,6 +570,7 @@ export default function Home() {
                     size={18}
                   />
                 </button>
+                {serviceType === "hourly" && <label className="flex min-h-[64px] items-center gap-3 border-b border-slate-100 px-4 py-3 lg:border-b-0"><Clock3 size={19}/><span className="w-full"><span className="block text-xs font-bold uppercase tracking-wider text-slate-400">Duration</span><select value={booking.bookedHours} onChange={(e)=>{change("bookedHours",Number(e.target.value));setHourlyQuote(null);}} className="w-full bg-transparent text-[16px] outline-none">{Array.from({length:10},(_,i)=>i+3).map(hours=><option key={hours} value={hours}>{hours} hours</option>)}</select></span></label>}
                 <div className="relative flex min-h-[64px] items-center px-4 py-3">
                   <button
                     type="button"
@@ -586,7 +616,7 @@ export default function Home() {
                     className="flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[#FF8A05] px-6 text-base font-bold text-white transition hover:bg-[#E97D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A05] focus-visible:ring-offset-2 lg:w-auto"
                     type="submit"
                   >
-                    Search vehicles <ArrowRight size={18} />
+                    {loading ? "Calculating…" : "Search vehicles"} <ArrowRight size={18} />
                   </button>
                 </div>
               </div>
@@ -622,6 +652,7 @@ export default function Home() {
                   )}
                 </div>
               )}
+              {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-[#FF8A05]"/><strong>{hourlyQuote.bookedHours}-hour private driver</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">Includes {Math.round((hourlyQuote.prices.economy_sedan?.includedDistanceMeters??0)/1000)} km · price locked 20 minutes</span></div>}
             </form>
           </div>
         )}
@@ -631,7 +662,7 @@ export default function Home() {
         <section className="bg-white pb-28">
           <div className="mx-auto max-w-[1320px] px-5 py-9 lg:px-10 lg:py-12">
             <h1 className="mb-7 text-4xl font-bold tracking-[-.045em] sm:text-5xl">
-              Select your ride
+              Select your {serviceType === "hourly" ? `${booking.bookedHours}-hour ride` : "ride"}
             </h1>
             <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,836px)_360px] lg:gap-14">
               <div className="rounded-3xl bg-white p-4 shadow-sm sm:p-5">

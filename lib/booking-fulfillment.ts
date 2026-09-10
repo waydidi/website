@@ -18,6 +18,7 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
     pickupTime: booking.pickupTime, vehicle: booking.vehicle, customerPhone: booking.customerPhone,
     passengers: booking.passengers, luggage: booking.luggage, total: booking.total,
     paymentMethod: booking.paymentMethod,
+    serviceType: booking.serviceType, bookedHours: booking.bookedHours,
   });
   await sendOperationsAlert(booking);
 
