@@ -15,6 +15,7 @@ import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AdminKeyLogin } from "@/components/admin-key-login";
+import { RefundActions } from "@/components/refund-actions";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -45,6 +46,7 @@ export default async function BookingAdminPage() {
   const emailIssues = rows.filter(
     (row) => row.status === "confirmed" && row.emailStatus !== "sent",
   ).length;
+  const pendingRefunds = rows.filter((row) => row.refundStatus === "awaiting_approval").length;
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-[#1f1726] sm:px-8">
@@ -75,6 +77,11 @@ export default async function BookingAdminPage() {
             <span className="rounded-full bg-amber-100 px-4 py-2 text-amber-900">
               {pending} pending
             </span>
+            {pendingRefunds > 0 && (
+              <span className="rounded-full bg-orange-100 px-4 py-2 text-[#B85D00]">
+                {pendingRefunds} refund approval{pendingRefunds === 1 ? "" : "s"}
+              </span>
+            )}
             {emailIssues > 0 && (
               <span className="rounded-full bg-red-100 px-4 py-2 text-red-800">
                 {emailIssues} email issues
@@ -124,6 +131,7 @@ export default async function BookingAdminPage() {
                   <th className="px-5 py-4">Pickup</th>
                   <th className="px-5 py-4">Vehicle</th>
                   <th className="px-5 py-4">Total</th>
+                  <th className="px-5 py-4">Refund</th>
                   <th className="px-5 py-4">Email</th>
                 </tr>
               </thead>
@@ -177,6 +185,22 @@ export default async function BookingAdminPage() {
                       ฿{row.total.toLocaleString()}
                     </td>
                     <td className="px-5 py-4">
+                      {row.refundStatus === "awaiting_approval" ? (
+                        <div className="space-y-3">
+                          <div>
+                            <span className="inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-black text-[#B85D00]">Awaiting approval</span>
+                            <p className="mt-2 max-w-64 text-xs leading-5 text-slate-500">{row.cancellationReason}</p>
+                            <p className="mt-1 text-xs font-bold">฿{(row.refundAmount ?? row.total).toLocaleString()}</p>
+                          </div>
+                          <RefundActions reference={row.reference} />
+                        </div>
+                      ) : row.refundStatus ? (
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${row.refundStatus === "succeeded" ? "bg-emerald-100 text-emerald-800" : row.refundStatus === "declined" ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-700"}`}>{row.refundStatus.replaceAll("_", " ")}</span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
                       {row.emailStatus === "sent" ? (
                         <span className="inline-flex items-center gap-1.5 font-bold text-emerald-700">
                           <CheckCircle2 size={16} /> Sent
@@ -199,7 +223,7 @@ export default async function BookingAdminPage() {
                 {rows.length === 0 && (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-5 py-16 text-center text-slate-500"
                     >
                       No bookings yet.

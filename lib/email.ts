@@ -227,8 +227,16 @@ export async function sendBookingManagementEmail(input: TripReminderInput & { to
   const cancelled = input.action === "cancelled";
   const title = cancelled ? "Your booking is cancelled." : "Your pickup time is updated.";
   const intro = cancelled
-    ? `Hi ${input.name}, booking ${input.reference} has been cancelled.${input.refundStatus && input.refundStatus !== "not_required" ? ` Refund status: ${input.refundStatus}.` : ""}`
+    ? `Hi ${input.name}, booking ${input.reference} has been cancelled.${input.refundStatus === "awaiting_approval" ? " Your refund request is awaiting Waydidi administrator approval." : input.refundStatus && input.refundStatus !== "not_required" ? ` Refund status: ${input.refundStatus.replaceAll("_", " ")}.` : ""}`
     : `Hi ${input.name}, we saved the new pickup date and time for booking ${input.reference}.`;
   const html = reminderShell(cancelled ? "Cancellation confirmed" : "Schedule updated", title, intro, `${detailRow("Booking", input.reference)}${detailRow("Pickup", input.pickup)}${detailRow("Drop-off", input.dropoff)}${detailRow("Date & time", displayDate(input.pickupDate, input.pickupTime))}${detailRow("Vehicle", input.vehicle)}`);
   return resend({to:[input.to],subject:`${title} · ${input.reference}`,html,text:`${title}\n${intro}\nPickup: ${input.pickup}\nDrop-off: ${input.dropoff}\nDate and time: ${displayDate(input.pickupDate,input.pickupTime)}`},`booking-${input.action}-${input.reference}-${Date.now()}`);
+}
+
+export async function sendRefundDecisionEmail(input:{to:string;name:string;reference:string;amount:number;decision:"approved"|"declined";reason?:string}){
+  const approved=input.decision==="approved";
+  const title=approved?"Your refund is approved.":"Refund request update.";
+  const intro=approved?`Hi ${input.name}, Waydidi approved your refund. THB ${input.amount.toLocaleString("en-US")} is being returned to your original payment method.`:`Hi ${input.name}, Waydidi could not approve the refund request for booking ${input.reference}.${input.reason?` Reason: ${input.reason}`:""}`;
+  const html=reminderShell(approved?"Refund approved":"Refund decision",title,intro,`${detailRow("Booking",input.reference)}${detailRow("Amount",`THB ${input.amount.toLocaleString("en-US")}`)}${detailRow("Status",approved?"Approved — processing by payment provider":"Declined")}`);
+  return resend({to:[input.to],subject:`${title} · ${input.reference}`,html,text:`${title}\n${intro}\nBooking: ${input.reference}\nAmount: THB ${input.amount.toLocaleString("en-US")}`},`refund-${input.decision}-${input.reference}`);
 }
