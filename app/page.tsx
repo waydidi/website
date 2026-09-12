@@ -291,7 +291,7 @@ export default function Home() {
         className={`relative overflow-hidden border-b border-slate-100 ${stage === "search" ? "bg-[#FF8A05] text-white" : "bg-white text-[#17171a]"}`}
       >
         <header
-          className={`relative z-20 flex w-full items-center justify-between bg-[#FF8A05] px-5 text-white lg:px-8 ${stage === "search" ? "h-[112px]" : "h-[72px]"}`}
+          className={`z-20 flex w-full items-center justify-between bg-[#FF8A05] px-5 text-white lg:px-8 ${stage === "search" ? "fixed inset-x-0 top-0 h-[102px] shadow-sm" : "relative h-[72px]"}`}
         >
           <a
             href="/"
@@ -371,7 +371,7 @@ export default function Home() {
                 🇹🇭 <span>EN</span> <ChevronDown size={18} />
               </button>
               <a
-                href="/booking/check"
+                href="/booking/manage"
                 className="flex h-12 items-center gap-2 rounded-full bg-white px-6 font-bold text-[#D96F00]"
               >
                 <CarFront size={20} /> Check your booking
@@ -497,7 +497,7 @@ export default function Home() {
                   </button>
                   <SheetClose asChild>
                     <a
-                      href="/booking/check"
+                      href="/booking/manage"
                       className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-4 font-bold text-white"
                     >
                       <CarFront size={20} /> Check your booking
@@ -510,7 +510,7 @@ export default function Home() {
         </header>
 
         {stage === "search" && (
-          <div className="relative z-10 w-full px-5 pb-12 pt-8 lg:px-10 lg:pb-18 lg:pt-12">
+          <div className="relative z-10 w-full px-5 pb-12 pt-[134px] lg:px-10 lg:pb-18 lg:pt-[150px]">
             <div className="mb-6 max-w-2xl">
               <p className="mb-3 text-xs font-bold uppercase tracking-[.18em] text-white/80">
                 Private transfers across Thailand
@@ -1245,7 +1245,7 @@ function WaydidiFooter() {
         <div className="mt-16 flex flex-col gap-5 border-t border-slate-200 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-x-6 gap-y-3 font-semibold">
             <a href="#support">Help center</a>
-            <a href="/booking/check">Check booking</a>
+            <a href="/booking/manage">Manage booking</a>
             <a href="#support">Contact Waydidi</a>
           </div>
           <div className="flex flex-wrap gap-5">
@@ -1269,7 +1269,7 @@ function FooterLinks({ title, links }: { title: string; links: string[] }) {
             <a
               href={
                 link === "Check your booking"
-                  ? "/booking/check"
+                  ? "/booking/manage"
                   : link.includes("policy")
                     ? "/terms"
                     : "#services"

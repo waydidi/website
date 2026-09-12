@@ -60,6 +60,13 @@ export const bookings = sqliteTable(
     includedDistanceMeters: integer("included_distance_meters"),
     extraHourRate: integer("extra_hour_rate"),
     extraDistanceRate: integer("extra_distance_rate"),
+    bookingVersion: integer("booking_version").notNull().default(1),
+    cancellationReason: text("cancellation_reason"),
+    cancelledBy: text("cancelled_by"),
+    refundStatus: text("refund_status"),
+    refundAmount: integer("refund_amount"),
+    refundRequestedAt: text("refund_requested_at"),
+    refundCompletedAt: text("refund_completed_at"),
   },
   (table) => [
     index("idx_bookings_email").on(table.customerEmail),
@@ -198,6 +205,37 @@ export const bookingEvents = sqliteTable(
   (table) => [index("idx_booking_events_reference").on(table.bookingReference)],
 );
 
+export const bookingManagementSessions = sqliteTable(
+  "booking_management_sessions",
+  {
+    id: text("id").primaryKey(),
+    bookingReference: text("booking_reference").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: text("expires_at").notNull(),
+    createdAt: text("created_at").notNull(),
+    lastUsedAt: text("last_used_at").notNull(),
+  },
+  (table) => [
+    index("idx_management_sessions_reference").on(table.bookingReference),
+    index("idx_management_sessions_expires").on(table.expiresAt),
+  ],
+);
+
+export const bookingChanges = sqliteTable(
+  "booking_changes",
+  {
+    id: text("id").primaryKey(),
+    bookingReference: text("booking_reference").notNull(),
+    changeType: text("change_type").notNull(),
+    previousJson: text("previous_json"),
+    nextJson: text("next_json"),
+    reason: text("reason"),
+    actor: text("actor").notNull().default("customer"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("idx_booking_changes_reference_created").on(table.bookingReference, table.createdAt)],
+);
+
 export const checkoutAttempts = sqliteTable(
   "checkout_attempts",
   {
@@ -242,6 +280,7 @@ export const bookingAssignments = sqliteTable(
     revokedAt: text("revoked_at"),
     completedAt: text("completed_at"),
     updatedAt: text("updated_at").notNull(),
+    reconfirmationRequired: integer("reconfirmation_required", { mode: "boolean" }).notNull().default(false),
   },
   (table) => [
     index("idx_assignments_booking_active").on(table.bookingReference, table.revokedAt),

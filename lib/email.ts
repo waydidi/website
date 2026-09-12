@@ -72,7 +72,7 @@ async function resend(payload: Record<string, unknown>, idempotencyKey: string) 
 export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
   const formattedDate = displayDate(input.pickupDate, input.pickupTime);
   const payment = input.paymentMethod === "cash" ? "Cash at pickup" : "Paid online";
-  const checkUrl = `${siteUrl()}/booking/check`;
+  const checkUrl = `${siteUrl()}/booking/manage`;
   const safeName = escapeHtml(input.name);
   const safeReference = escapeHtml(input.reference);
   const total = `THB ${input.total.toLocaleString("en-US")}`;
@@ -221,4 +221,14 @@ export async function sendLateJourneyAlert(input: TripReminderInput & { alertTyp
     html,
     text: `${input.title}\n${input.details}\nBooking ${input.reference}\n${input.pickup} to ${input.dropoff}\n${displayDate(input.pickupDate, input.pickupTime)}`,
   }, `late-alert-${input.alertType}-${input.reference}`);
+}
+
+export async function sendBookingManagementEmail(input: TripReminderInput & { to: string; name: string; action: "rescheduled" | "cancelled"; refundStatus?: string }) {
+  const cancelled = input.action === "cancelled";
+  const title = cancelled ? "Your booking is cancelled." : "Your pickup time is updated.";
+  const intro = cancelled
+    ? `Hi ${input.name}, booking ${input.reference} has been cancelled.${input.refundStatus && input.refundStatus !== "not_required" ? ` Refund status: ${input.refundStatus}.` : ""}`
+    : `Hi ${input.name}, we saved the new pickup date and time for booking ${input.reference}.`;
+  const html = reminderShell(cancelled ? "Cancellation confirmed" : "Schedule updated", title, intro, `${detailRow("Booking", input.reference)}${detailRow("Pickup", input.pickup)}${detailRow("Drop-off", input.dropoff)}${detailRow("Date & time", displayDate(input.pickupDate, input.pickupTime))}${detailRow("Vehicle", input.vehicle)}`);
+  return resend({to:[input.to],subject:`${title} · ${input.reference}`,html,text:`${title}\n${intro}\nPickup: ${input.pickup}\nDrop-off: ${input.dropoff}\nDate and time: ${displayDate(input.pickupDate,input.pickupTime)}`},`booking-${input.action}-${input.reference}-${Date.now()}`);
 }

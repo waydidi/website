@@ -2,6 +2,12 @@
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
 
+.public-path-header { position: sticky; top: 0; z-index: 50; }
+.public-path-header > header { position: relative; width: 100%; }
+.public-path-header + main > header:first-child { display: none; }
+.public-path-header + main > article > a:first-child { display: none; }
+.public-path-header + main > article { padding-left: 1.25rem; padding-right: 1.25rem; }
+
 @utility scrollbar-thin {
   scrollbar-width: thin;
 }

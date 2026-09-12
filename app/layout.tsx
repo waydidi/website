@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { PublicPathHeader } from "@/components/public-header";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://waydidi-private-transfer.dankbangkok.chatgpt.site"),
@@ -35,7 +36,7 @@ export default function RootLayout({
   };
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased"><PublicPathHeader />{children}</body>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
     </html>
   );
