@@ -155,3 +155,32 @@ html {
   .booking-confirmation { position: absolute; inset: 0; width: 100%; box-shadow: none; }
   .no-print { display: none !important; }
 }
+
+
+/* Animated Waydidi booking walkthrough */
+.booking-demo-stage { min-height: 560px; display: grid; place-items: center; perspective: 1200px; }
+.booking-demo-orb { position: absolute; width: 82%; aspect-ratio: 1; border-radius: 999px; background: #ff8a05; opacity: .95; transform: translate(5%, 2%); }
+.booking-demo-phone { position: relative; z-index: 2; width: min(330px, 76vw); min-height: 540px; padding: 10px; border-radius: 46px; background: #151515; box-shadow: 0 32px 70px rgb(31 23 38 / 28%); transform: rotate(6deg) rotateY(-9deg); transition: transform .5s ease; }
+.booking-demo-stage:hover .booking-demo-phone { transform: rotate(3deg) rotateY(-4deg) translateY(-5px); }
+.booking-demo-speaker { position: absolute; z-index: 5; left: 50%; top: 17px; width: 72px; height: 7px; border-radius: 99px; background: #0a0a0a; transform: translateX(-50%); }
+.booking-demo-screen { min-height: 520px; overflow: hidden; border-radius: 37px; background: white; color: #21140a; }
+.booking-demo-panel { display: none; animation: bookingDemoIn .45s cubic-bezier(.2,.8,.2,1) both; }
+.booking-demo-panel.is-active { display: block; }
+.booking-demo-float { position: absolute; z-index: 4; right: -1%; bottom: 7%; width: 230px; border-radius: 22px; background: white; padding: 16px 18px; box-shadow: 0 20px 50px rgb(31 23 38 / 20%); animation: bookingDemoFloat 4s ease-in-out infinite; }
+@keyframes bookingDemoIn { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes bookingDemoFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@media (max-width: 1023px) {
+  .booking-demo-stage { min-height: 540px; }
+  .booking-demo-phone { transform: rotate(2deg); }
+  .booking-demo-float { right: 2%; }
+}
+@media (max-width: 520px) {
+  .booking-demo-stage { min-height: 500px; }
+  .booking-demo-orb { width: 94%; }
+  .booking-demo-phone { width: 278px; min-height: 475px; border-radius: 39px; transform: none; }
+  .booking-demo-screen { min-height: 455px; border-radius: 31px; }
+  .booking-demo-float { right: 0; bottom: 2%; width: 205px; padding: 13px 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .booking-demo-phone, .booking-demo-float, .booking-demo-panel { animation: none !important; transition: none !important; }
+}
