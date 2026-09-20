@@ -30,6 +30,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { WaydidiLogo } from "@/components/waydidi-logo";
+import { BookingDemo } from "@/components/booking-demo";
 import {
   GoogleRoutePicker,
   type RouteInfo,
@@ -657,6 +658,8 @@ export default function Home() {
           </div>
         )}
       </section>
+
+      {stage === "search" && <BookingDemo />}
 
       {stage === "vehicle" && (
         <section className="bg-white pb-28">
