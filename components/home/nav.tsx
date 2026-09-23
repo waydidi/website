@@ -59,7 +59,7 @@ export function NavDropdown({
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex cursor-pointer items-center gap-2 rounded-full px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+        className="flex cursor-pointer items-center gap-2 rounded-full px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/60"
       >
         {label}
         <ChevronDown
@@ -71,7 +71,7 @@ export function NavDropdown({
         <div
           role="menu"
           aria-label={label}
-          className="absolute left-0 top-full z-50 mt-5 w-64 rounded-2xl bg-white p-2 text-[#21140A] shadow-xl"
+          className="absolute left-0 top-full z-50 mt-5 w-64 rounded-2xl bg-white p-2 text-ink shadow-xl"
         >
           {links.map((link) => (
             <Link

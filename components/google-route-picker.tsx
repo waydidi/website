@@ -186,7 +186,7 @@ export function GoogleRoutePicker({
     <>
       <label className={`block min-w-0 ${connectedMobile ? "order-2 lg:order-none" : ""}`}>
         <span className={`flex min-h-14 items-center gap-2 px-3 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
-        <span className="grid size-8 shrink-0 place-items-center text-[#FF8A05]">
+        <span className="grid size-8 shrink-0 place-items-center text-brand">
           <MapPin size={18} />
         </span>
         <span className="min-w-0 flex-1">
@@ -205,7 +205,7 @@ export function GoogleRoutePicker({
       </label>
       {!pickupOnly && <label className={`block min-w-0 ${connectedMobile ? "order-3 lg:order-none" : "mt-3 lg:mt-0"}`}>
         <span className={`flex min-h-14 items-center gap-2 px-3 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
-        <span className="grid size-8 shrink-0 place-items-center text-[#FF8A05]">
+        <span className="grid size-8 shrink-0 place-items-center text-brand">
           <MapPin size={18} />
         </span>
         <span className="min-w-0 flex-1">
@@ -231,7 +231,7 @@ export function GoogleRoutePicker({
           />
           <div className="mt-3 flex flex-wrap items-center gap-4 px-1 text-sm font-semibold text-slate-700">
             <span className="flex items-center gap-2">
-              <Route size={17} className="text-[#D96F00]" />
+              <Route size={17} className="text-brand-deep" />
               Location details
             </span>
             {routeInfo && (

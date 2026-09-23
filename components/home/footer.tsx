@@ -14,14 +14,14 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
     "G Pay",
   ];
   return (
-    <footer id="support" className="no-print mt-14 bg-white text-[#1f1726]">
+    <footer id="support" className="no-print mt-14 bg-white text-ink">
       <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
         <div className="border-t border-slate-200 pt-12">
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_.8fr_.8fr_.8fr]">
             <div>
               <Link
                 href="/"
-                className="inline-flex text-[#FF8A05]"
+                className="inline-flex text-brand"
                 aria-label={t("nav.home")}
               >
                 <WaydidiLogo className="h-16 w-auto" />
@@ -101,7 +101,7 @@ function FooterLinks({
       <ul className="mt-5 space-y-3 text-sm text-slate-600">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="hover:text-[#D96F00]">
+            <Link href={link.href} className="hover:text-brand-deep">
               {link.label}
             </Link>
           </li>

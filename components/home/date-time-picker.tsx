@@ -63,7 +63,7 @@ export function DateTimePicker({
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="max-h-[96dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-[#17171a] data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 lg:left-1/2 lg:max-w-3xl lg:-translate-x-1/2"
+        className="max-h-[96dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-ink data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 lg:left-1/2 lg:max-w-3xl lg:-translate-x-1/2"
       >
         <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" aria-hidden="true" />
         <SheetHeader className="flex-row items-center justify-between px-0 pb-3 pt-5 text-left">
@@ -73,7 +73,7 @@ export function DateTimePicker({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="grid size-12 place-items-center rounded-full bg-slate-100 text-[#D96F00] transition hover:bg-orange-50"
+            className="grid size-12 place-items-center rounded-full bg-slate-100 text-brand-deep transition hover:bg-orange-50"
             aria-label={t(departure ? "picker.closeDeparture" : "picker.closeReturn")}
           >
             <X size={25} />
@@ -119,7 +119,7 @@ export function DateTimePicker({
             if (effectiveTime !== time) onTimeChange(effectiveTime);
             onDone();
           }}
-          className="mt-6 min-h-14 w-full rounded-full bg-[#FF8A05] px-7 text-lg font-bold text-[#21140A] transition hover:bg-[#E97D00]"
+          className="mt-6 min-h-14 w-full rounded-full bg-brand px-7 text-lg font-bold text-ink transition hover:bg-brand-hover"
         >
           {t("common.done")}
         </button>
@@ -224,7 +224,7 @@ function CalendarMonth({
                   disabled={disabled}
                   aria-disabled={disabled}
                   onClick={() => onSelect(value)}
-                  className={`mx-auto grid size-10 place-items-center rounded-full text-[16px] transition ${active ? "bg-[#FF8A05] font-bold text-[#21140A]" : disabled ? "cursor-not-allowed text-slate-300" : "hover:bg-orange-100"}`}
+                  className={`mx-auto grid size-10 place-items-center rounded-full text-[16px] transition ${active ? "bg-brand font-bold text-ink" : disabled ? "cursor-not-allowed text-slate-300" : "hover:bg-orange-100"}`}
                 >
                   {day}
                 </button>
