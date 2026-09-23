@@ -36,6 +36,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
+        <a
+          href="#booking-search"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-white focus:px-5 focus:py-3 focus:font-bold focus:text-[#D96F00] focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#FF8A05]"
+        >
+          Skip to booking
+        </a>
         <PublicPathHeader />
         {children}
         <script

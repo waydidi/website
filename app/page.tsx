@@ -133,6 +133,108 @@ const defaultPickupDate = new Date(Date.now() + 86_400_000).toLocaleDateString(
   { timeZone: "Asia/Bangkok" },
 );
 
+// Today in the operating timezone, not the visitor's. A traveler browsing from
+// Europe must not be offered a pickup slot Bangkok has already driven past.
+function bangkokToday() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+}
+
+function bangkokNowTime() {
+  return new Date().toLocaleTimeString("en-GB", {
+    timeZone: "Asia/Bangkok",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+// Every navigation label resolves to a page that actually exists. Header,
+// mobile drawer and footer all read from here so they cannot drift apart.
+const navMenus = [
+  {
+    label: "Ride",
+    links: [
+      { label: "Airport transfer", href: "/airport-transfer" },
+      { label: "A to B", href: "/a-to-b-transfer" },
+      { label: "Long journey", href: "/long-journeys" },
+    ],
+  },
+  {
+    label: "Trip",
+    links: [
+      { label: "Hourly private driver", href: "/hourly-driver" },
+      { label: "Destinations", href: "/destinations" },
+      { label: "Airport pickup guide", href: "/airport-pickup-instructions" },
+    ],
+  },
+] as const;
+
+const aboutHref = "/about";
+
+function NavDropdown({
+  label,
+  links,
+}: {
+  label: string;
+  links: readonly { label: string; href: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!container.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={container}>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="flex cursor-pointer items-center gap-2 rounded-full px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+      >
+        {label}
+        <ChevronDown
+          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          size={18}
+        />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          aria-label={label}
+          className="absolute left-0 top-full z-50 mt-5 w-64 rounded-2xl bg-white p-2 text-[#21140A] shadow-xl"
+        >
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              role="menuitem"
+              href={link.href}
+              onClick={() => setOpen(false)}
+              className="block rounded-xl px-4 py-3 hover:bg-orange-50 focus-visible:outline-none focus-visible:bg-orange-50"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const vehicles = [
   {
     id: "economy_sedan",
@@ -216,6 +318,8 @@ export default function Home() {
   const [recoveryNotice, setRecoveryNotice] = useState("");
   const [isOnline, setIsOnline] = useState(true);
   const [draftReady, setDraftReady] = useState(false);
+  const [minPickupDate, setMinPickupDate] = useState("");
+  const [minPickupTime, setMinPickupTime] = useState("");
   const checkoutAttemptRef = useRef("");
   const restoringDraftRef = useRef(false);
 
@@ -251,6 +355,9 @@ export default function Home() {
         // Restore one coherent browser-session snapshot after hydration.
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setStage(draft.stage);
+        // Give the restored step a history entry of its own, so Back does not
+        // immediately leave the site.
+        window.history.replaceState({ waydidiStage: draft.stage }, "");
         setServiceType(draft.serviceType);
         setBooking({ ...draft.booking, surname: draft.booking.surname ?? "" });
         setVehicle(draft.vehicle);
@@ -280,7 +387,11 @@ export default function Home() {
             ? "Payment was cancelled. Your trip details were restored, and you can continue when ready."
             : "Payment was cancelled. No booking was charged; review your trip and try again when ready.",
         );
-        window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+        window.history.replaceState(
+          { waydidiStage: valid && draft ? draft.stage : "search" },
+          "",
+          window.location.pathname + window.location.hash,
+        );
       } else if (valid && draft && draft.stage !== "search") {
         setRecoveryNotice("Your unfinished booking was restored in this tab.");
       }
@@ -292,10 +403,38 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const updateHeader = () => setHeaderScrolled(window.scrollY > 18);
+    const onPopState = (event: PopStateEvent) => {
+      const restored = (event.state as { waydidiStage?: Stage } | null)?.waydidiStage;
+      setStage(restored && restored !== "confirmation" ? restored : "search");
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    // Recomputed whenever a picker opens so a tab left open past Bangkok
+    // midnight cannot offer a slot that has already gone.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMinPickupDate(bangkokToday());
+    setMinPickupTime(bangkokNowTime());
+  }, [dateOpen, returnDateOpen]);
+
+  useEffect(() => {
+    let frame = 0;
+    const updateHeader = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        setHeaderScrolled(window.scrollY > 18);
+      });
+    };
     updateHeader();
     window.addEventListener("scroll", updateHeader, { passive: true });
-    return () => window.removeEventListener("scroll", updateHeader);
+    return () => {
+      window.removeEventListener("scroll", updateHeader);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => {
@@ -370,6 +509,23 @@ export default function Home() {
     }
   };
 
+  // Each booking step gets its own history entry, so the browser Back button
+  // steps back through the flow instead of abandoning the booking.
+  function goToStage(
+    next: Stage,
+    { replace = false, scroll = true }: { replace?: boolean; scroll?: boolean } = {},
+  ) {
+    setStage(next);
+    try {
+      const entry = { waydidiStage: next };
+      if (replace) window.history.replaceState(entry, "");
+      else window.history.pushState(entry, "");
+    } catch {
+      // Navigation still works if the history API is unavailable.
+    }
+    if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function continueToReview() {
     const errors = validateBookingReview(booking);
     setFieldErrors(errors);
@@ -381,8 +537,7 @@ export default function Home() {
       return;
     }
     setError("");
-    setStage("review");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    goToStage("review");
   }
   const changeAdults = (value: number) => {
     const adults = Math.max(1, value);
@@ -444,8 +599,7 @@ export default function Home() {
       }
     }
     setMenuOpen(false);
-    setStage("vehicle");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    goToStage("vehicle");
   }
 
   async function handleRouteChange(info: RouteInfo | null) {
@@ -570,7 +724,7 @@ export default function Home() {
     if (firstInvalidField) {
       setFieldErrors(reviewErrors);
       setError("");
-      setStage("payment");
+      goToStage("payment", { scroll: false });
       window.setTimeout(() => {
         document.querySelector<HTMLElement>(`[data-booking-field="${firstInvalidField}"]`)?.focus();
       }, 0);
@@ -643,7 +797,7 @@ export default function Home() {
       ) {
         checkoutAttemptRef.current = "";
         const refreshed = await calculateTransferQuotes(routeInfo);
-        setStage("vehicle");
+        goToStage("vehicle", { scroll: false });
         setError("");
         setPricingMessage(
           refreshed
@@ -719,75 +873,18 @@ export default function Home() {
           </Link>
           {stage === "search" ? (
             <nav className="hidden items-center gap-10 text-[16px] font-semibold xl:flex">
-              <details className="group relative">
-                <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
-                  Ride{" "}
-                  <ChevronDown
-                    className="transition group-open:rotate-180"
-                    size={18}
-                  />
-                </summary>
-                <div className="absolute left-0 top-full z-50 mt-5 w-56 rounded-2xl bg-white p-2 text-[#21140A] shadow-xl">
-                  <a
-                    href="#services"
-                    className="block rounded-xl px-4 py-3 hover:bg-orange-50"
-                  >
-                    Airport transfer
-                  </a>
-                  <a
-                    href="#services"
-                    className="block rounded-xl px-4 py-3 hover:bg-orange-50"
-                  >
-                    A to B
-                  </a>
-                  <a
-                    href="#services"
-                    className="block rounded-xl px-4 py-3 hover:bg-orange-50"
-                  >
-                    Long journey
-                  </a>
-                </div>
-              </details>
-              <details className="group relative">
-                <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
-                  Trip{" "}
-                  <ChevronDown
-                    className="transition group-open:rotate-180"
-                    size={18}
-                  />
-                </summary>
-                <div className="absolute left-0 top-full z-50 mt-5 w-56 rounded-2xl bg-white p-2 text-[#21140A] shadow-xl">
-                  <a
-                    href="#services"
-                    className="block rounded-xl px-4 py-3 hover:bg-orange-50"
-                  >
-                    Day trip
-                  </a>
-                  <a
-                    href="#services"
-                    className="block rounded-xl px-4 py-3 hover:bg-orange-50"
-                  >
-                    Multi-day trip
-                  </a>
-                  <a
-                    href="#services"
-                    className="block rounded-xl px-4 py-3 hover:bg-orange-50"
-                  >
-                    Dinner cruise
-                  </a>
-                </div>
-              </details>
-              <a href="#support">About Waydidi</a>
-              <button
-                type="button"
-                className="flex items-center gap-2"
-                aria-label="Change language"
+              {navMenus.map((menu) => (
+                <NavDropdown key={menu.label} label={menu.label} links={menu.links} />
+              ))}
+              <Link
+                href={aboutHref}
+                className="rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
               >
-                🇹🇭 <span>EN</span> <ChevronDown size={18} />
-              </button>
+                About Waydidi
+              </Link>
               <Link
                 href="/booking/manage"
-                className="flex h-12 items-center gap-2 rounded-full bg-white px-6 font-bold text-[#D96F00] transition-colors duration-500 hover:bg-orange-50"
+                className="flex h-12 items-center gap-2 rounded-full bg-white px-6 font-bold text-[#D96F00] transition-colors duration-500 hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#FF8A05]"
               >
                 <CarFront size={20} /> Check your booking
               </Link>
@@ -826,94 +923,41 @@ export default function Home() {
                   className="flex-1 overflow-y-auto px-6 py-3 text-black"
                   aria-label="Mobile navigation"
                 >
-                  <div className="border-b border-slate-200 py-5">
-                    <p className="mb-3 text-xs font-black uppercase tracking-[.16em] text-slate-400">
-                      Ride
-                    </p>
-                    <div className="grid">
-                      <SheetClose asChild>
-                        <a
-                          href="#services"
-                          className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
-                        >
-                          Airport transfer
-                        </a>
-                      </SheetClose>
-                      <SheetClose asChild>
-                        <a
-                          href="#services"
-                          className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
-                        >
-                          A to B
-                        </a>
-                      </SheetClose>
-                      <SheetClose asChild>
-                        <a
-                          href="#services"
-                          className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
-                        >
-                          Long journey
-                        </a>
-                      </SheetClose>
+                  {navMenus.map((menu) => (
+                    <div key={menu.label} className="border-b border-slate-200 py-5">
+                      <p className="mb-3 text-xs font-black uppercase tracking-[.16em] text-slate-400">
+                        {menu.label}
+                      </p>
+                      <div className="grid">
+                        {menu.links.map((link) => (
+                          <SheetClose asChild key={link.label}>
+                            <Link
+                              href={link.href}
+                              className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
+                            >
+                              {link.label}
+                            </Link>
+                          </SheetClose>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div className="border-b border-slate-200 py-5">
-                    <p className="mb-3 text-xs font-black uppercase tracking-[.16em] text-slate-400">
-                      Trip
-                    </p>
-                    <div className="grid">
-                      <SheetClose asChild>
-                        <a
-                          href="#services"
-                          className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
-                        >
-                          Day trip
-                        </a>
-                      </SheetClose>
-                      <SheetClose asChild>
-                        <a
-                          href="#services"
-                          className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
-                        >
-                          Multi-day trip
-                        </a>
-                      </SheetClose>
-                      <SheetClose asChild>
-                        <a
-                          href="#services"
-                          className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
-                        >
-                          Dinner cruise
-                        </a>
-                      </SheetClose>
-                    </div>
-                  </div>
+                  ))}
                   <div className="grid border-b border-slate-200 py-5">
                     <SheetClose asChild>
-                      <a
-                        href="#support"
+                      <Link
+                        href={aboutHref}
                         className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
                       >
                         About Waydidi
-                      </a>
+                      </Link>
                     </SheetClose>
                   </div>
                 </nav>
                 <div className="mt-auto border-t border-slate-200 bg-white px-6 py-6">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-left font-bold text-black"
-                  >
-                    <span className="flex items-center gap-3">
-                      <span aria-hidden="true">🇹🇭</span>
-                      <span>English</span>
-                    </span>
-                    <ChevronDown size={18} />
-                  </button>
                   <SheetClose asChild>
                     <Link
                       href="/booking/manage"
-                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-4 font-bold text-white"
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-4 font-bold text-white"
                     >
                       <CarFront size={20} /> Check your booking
                     </Link>
@@ -1075,6 +1119,8 @@ export default function Home() {
                 time={booking.time}
                 onDateChange={(value) => { change("date", value); setFareQuote(null); setReturnFareQuote(null); setQuoteSummary(null); }}
                 onTimeChange={(value) => { change("time", value); setFareQuote(null); setReturnFareQuote(null); setQuoteSummary(null); }}
+                min={minPickupDate}
+                minTime={minPickupTime}
                 onOpenChange={setDateOpen}
                 onDone={() => {
                   setDepartureSelected(true);
@@ -1090,6 +1136,8 @@ export default function Home() {
                 timeLabel="Return time"
                 onDateChange={(value) => { setReturnDate(value); setReturnFareQuote(null); setQuoteSummary(null); }}
                 onTimeChange={(value) => { setReturnTime(value); setReturnFareQuote(null); setQuoteSummary(null); }}
+                min={booking.date}
+                minTime={booking.time}
                 onOpenChange={setReturnDateOpen}
                 onDone={() => {
                   setReturnTrip(true);
@@ -1222,10 +1270,10 @@ export default function Home() {
           loading={routeLoading}
           error={pricingMessage}
           onSelectVehicle={setVehicle}
-          onEdit={() => setStage("search")}
+          onEdit={() => goToStage("search")}
           onRetry={retryRoute}
-          onContinue={() => { setStage("payment"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-        /> : <section className="bg-white pb-28"><div className="mx-auto max-w-[1100px] px-5 py-12"><h1 className="text-4xl font-bold">Select your {booking.bookedHours}-hour ride</h1><div className="mt-8 grid gap-3">{pricedVehicles.map(item=><button key={item.id} onClick={()=>setVehicle(item.id)} className={`rounded-2xl border-2 p-5 text-left ${vehicle===item.id?"border-[#FF8A05] bg-[#FFF2E2]":"border-slate-200"}`}><span className="font-bold">{item.name}</span><strong className="float-right">฿{item.price.toLocaleString()}</strong></button>)}</div><button onClick={()=>setStage("payment")} className="mt-6 min-h-14 w-full rounded-full bg-[#FF8A05] font-black">Continue</button></div></section>
+          onContinue={() => goToStage("payment")}
+        /> : <section className="bg-white pb-28"><div className="mx-auto max-w-[1100px] px-5 py-12"><h1 className="text-4xl font-bold">Select your {booking.bookedHours}-hour ride</h1><div className="mt-8 grid gap-3">{pricedVehicles.map(item=><button key={item.id} onClick={()=>setVehicle(item.id)} className={`rounded-2xl border-2 p-5 text-left ${vehicle===item.id?"border-[#FF8A05] bg-[#FFF2E2]":"border-slate-200"}`}><span className="font-bold">{item.name}</span><strong className="float-right">฿{item.price.toLocaleString()}</strong></button>)}</div><button onClick={()=>goToStage("payment")} className="mt-6 min-h-14 w-full rounded-full bg-[#FF8A05] font-black">Continue</button></div></section>
       )}
 
       {stage === "payment" && (
@@ -1455,7 +1503,7 @@ export default function Home() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setError(""); setStage("vehicle"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                      onClick={() => { setError(""); goToStage("vehicle"); }}
                       className="min-h-11 rounded-full border border-red-200 bg-white px-4 text-red-800"
                     >
                       Review trip
@@ -1465,7 +1513,7 @@ export default function Home() {
               )}
             </div>
             <button
-              onClick={() => setStage("vehicle")}
+              onClick={() => goToStage("vehicle")}
               className="mt-5 flex items-center gap-2 text-sm font-bold text-slate-600"
             >
               <ArrowLeft size={18} /> Back to vehicles
@@ -1539,7 +1587,7 @@ export default function Home() {
             <p className="mt-3 text-slate-600">Check the journey and passenger details before confirming. Times are shown in Thailand time.</p>
 
             <div className="mt-8 space-y-4">
-              <ReviewSection title="Journey" onEdit={() => setStage("search")} editLabel="Edit journey">
+              <ReviewSection title="Journey" onEdit={() => goToStage("search")} editLabel="Edit journey">
                 <ReviewDetail label="Pickup" value={booking.pickup} />
                 <ReviewDetail label="Destination" value={serviceType === "hourly" ? "Flexible hourly itinerary" : booking.dropoff} />
                 <ReviewDetail label="Departure" value={`${formatCompactDate(booking.date)} · ${formatTimeLabel(booking.time)} · Thailand time`} />
@@ -1547,12 +1595,12 @@ export default function Home() {
                 <ReviewDetail label="Travelers" value={`${booking.passengers} passengers · ${booking.luggage} luggage`} />
               </ReviewSection>
 
-              <ReviewSection title="Ride" onEdit={() => setStage("vehicle")} editLabel="Edit vehicle">
+              <ReviewSection title="Ride" onEdit={() => goToStage("vehicle")} editLabel="Edit vehicle">
                 <ReviewDetail label="Vehicle" value={chosenVehicle.name} />
                 <ReviewDetail label="Service" value={serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : returnTrip ? "Round trip private transfer" : "One-way private transfer"} />
               </ReviewSection>
 
-              <ReviewSection title="Passenger" onEdit={() => setStage("payment")} editLabel="Edit passenger details">
+              <ReviewSection title="Passenger" onEdit={() => goToStage("payment")} editLabel="Edit passenger details">
                 <ReviewDetail label="Lead passenger" value={booking.name} />
                 <ReviewDetail label="Surname" value={booking.surname} />
                 <ReviewDetail label="Email" value={booking.email} />
@@ -1563,12 +1611,12 @@ export default function Home() {
                 {booking.specialRequests && <ReviewDetail label="Special requests" value={booking.specialRequests} />}
               </ReviewSection>
 
-              <ReviewSection title="Payment" onEdit={() => setStage("payment")} editLabel="Edit payment method">
+              <ReviewSection title="Payment" onEdit={() => goToStage("payment")} editLabel="Edit payment method">
                 <ReviewDetail label="Method" value={payment === "card" ? "Secure online payment with Stripe" : "Cash to the driver at pickup"} />
                 <ReviewDetail label="Terms" value="Accepted" />
               </ReviewSection>
             </div>
-            <button onClick={() => setStage("payment")} className="mt-5 inline-flex min-h-11 items-center gap-2 font-bold text-slate-600">
+            <button onClick={() => goToStage("payment")} className="mt-5 inline-flex min-h-11 items-center gap-2 font-bold text-slate-600">
               <ArrowLeft size={18} /> Back to passenger details
             </button>
           </div>
@@ -1649,7 +1697,7 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => {
-                    setStage("search");
+                    goToStage("search", { replace: true });
                     setReference("");
                   }}
                   className="h-13 rounded-full border border-slate-200 px-7 font-bold"
@@ -1756,28 +1804,28 @@ function WaydidiFooter() {
             <FooterLinks
               title="Ride"
               links={[
-                "Airport transfer",
-                "A to B",
-                "Long journey",
-                "Check your booking",
+                { label: "Airport transfer", href: "/airport-transfer" },
+                { label: "A to B", href: "/a-to-b-transfer" },
+                { label: "Long journey", href: "/long-journeys" },
+                { label: "Check your booking", href: "/booking/manage" },
               ]}
             />
             <FooterLinks
               title="Trips"
               links={[
-                "Day trip",
-                "Multi-day trip",
-                "Dinner cruise",
-                "Private driver",
+                { label: "Hourly private driver", href: "/hourly-driver" },
+                { label: "Destinations", href: "/destinations" },
+                { label: "Airport pickup guide", href: "/airport-pickup-instructions" },
+                { label: "Luggage policy", href: "/luggage-policy" },
               ]}
             />
             <FooterLinks
               title="Help"
               links={[
-                "Waydidi help",
-                "Cancellation policy",
-                "Contact us",
-                "Safety & security",
+                { label: "Waydidi help", href: "/faq" },
+                { label: "Cancellation policy", href: "/cancellation-refund-policy" },
+                { label: "Contact us", href: "/contact" },
+                { label: "Safety & security", href: "/safety-driver-standards" },
               ]}
             />
           </div>
@@ -1785,9 +1833,9 @@ function WaydidiFooter() {
 
         <div className="mt-16 flex flex-col gap-5 border-t border-slate-200 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-x-6 gap-y-3 font-semibold">
-            <a href="#support">Help center</a>
+            <Link href="/faq">Help center</Link>
             <Link href="/booking/manage">Manage booking</Link>
-            <a href="#support">Contact Waydidi</a>
+            <Link href="/contact">Contact Waydidi</Link>
           </div>
           <div className="flex flex-wrap gap-5">
             <Link href="/terms">Terms of Use</Link>
@@ -1800,25 +1848,22 @@ function WaydidiFooter() {
   );
 }
 
-function FooterLinks({ title, links }: { title: string; links: string[] }) {
+function FooterLinks({
+  title,
+  links,
+}: {
+  title: string;
+  links: { label: string; href: string }[];
+}) {
   return (
     <div>
       <h3 className="font-black">{title}</h3>
       <ul className="mt-5 space-y-3 text-sm text-slate-600">
         {links.map((link) => (
-          <li key={link}>
-            <a
-              href={
-                link === "Check your booking"
-                  ? "/booking/manage"
-                  : link.includes("policy")
-                    ? "/terms"
-                    : "#services"
-              }
-              className="hover:text-[#D96F00]"
-            >
-              {link}
-            </a>
+          <li key={link.href}>
+            <Link href={link.href} className="hover:text-[#D96F00]">
+              {link.label}
+            </Link>
           </li>
         ))}
       </ul>
@@ -1836,6 +1881,8 @@ function DateTimePicker({
   onOpenChange,
   onDone,
   timeLabel = "Departure time",
+  min,
+  minTime,
 }: {
   open: boolean;
   title: string;
@@ -1846,6 +1893,8 @@ function DateTimePicker({
   onOpenChange: (open: boolean) => void;
   onDone: () => void;
   timeLabel?: string;
+  min?: string;
+  minTime?: string;
 }) {
   const selected = dateFromValue(date);
   const [visibleMonth, setVisibleMonth] = useState(
@@ -1856,6 +1905,16 @@ function DateTimePicker({
       (current) =>
         new Date(current.getFullYear(), current.getMonth() + amount, 1),
     );
+  // A slot only counts as past when the chosen day is the earliest allowed one.
+  const earliestTime = min && date === min ? minTime : undefined;
+  const selectableTimes = earliestTime
+    ? pickupTimes.filter((option) => option.value >= earliestTime)
+    : pickupTimes;
+  // Moving to today can strip the slot that was already chosen; show and commit
+  // the earliest still-bookable one rather than an empty select.
+  const effectiveTime = selectableTimes.some((option) => option.value === time)
+    ? time
+    : selectableTimes[0]?.value ?? time;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -1885,6 +1944,7 @@ function DateTimePicker({
             onSelect={onDateChange}
             onPrevious={() => moveMonth(-1)}
             onNext={() => moveMonth(1)}
+            min={min}
           />
         </div>
         <div className="mt-5 grid overflow-hidden rounded-2xl border border-slate-200 grid-cols-2">
@@ -1899,11 +1959,11 @@ function DateTimePicker({
               {timeLabel}
             </span>
             <select
-              value={time}
+              value={effectiveTime}
               onChange={(event) => onTimeChange(event.target.value)}
               className="w-full bg-transparent text-[16px] font-semibold outline-none"
             >
-              {pickupTimes.map((option) => (
+              {selectableTimes.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -1913,7 +1973,10 @@ function DateTimePicker({
         </div>
         <button
           type="button"
-          onClick={onDone}
+          onClick={() => {
+            if (effectiveTime !== time) onTimeChange(effectiveTime);
+            onDone();
+          }}
           className="mt-6 min-h-14 w-full rounded-full bg-[#FF8A05] px-7 text-lg font-bold text-[#21140A] transition hover:bg-[#E97D00]"
         >
           Done
@@ -1930,6 +1993,7 @@ function CalendarMonth({
   onPrevious,
   onNext,
   nextMobileOnly = false,
+  min,
 }: {
   month: Date;
   selected: string;
@@ -1937,6 +2001,7 @@ function CalendarMonth({
   onPrevious?: () => void;
   onNext?: () => void;
   nextMobileOnly?: boolean;
+  min?: string;
 }) {
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
   const daysInMonth = new Date(
@@ -1948,6 +2013,11 @@ function CalendarMonth({
     const day = index - firstDay + 1;
     return day >= 1 && day <= daysInMonth ? day : null;
   });
+  // Day 0 of this month is the last day of the previous one. If even that sits
+  // before the minimum, there is nothing selectable back there.
+  const atMinMonth = Boolean(
+    min && dateValue(new Date(month.getFullYear(), month.getMonth(), 0)) < min,
+  );
 
   return (
     <div>
@@ -1956,7 +2026,8 @@ function CalendarMonth({
           <button
             type="button"
             onClick={onPrevious}
-            className="grid size-11 place-items-center rounded-full bg-slate-100"
+            disabled={atMinMonth}
+            className="grid size-11 place-items-center rounded-full bg-slate-100 transition disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300"
             aria-label="Previous month"
           >
             <ArrowLeft size={20} />
@@ -1998,12 +2069,15 @@ function CalendarMonth({
                 new Date(month.getFullYear(), month.getMonth(), day),
               );
               const active = value === selected;
+              const disabled = Boolean(min) && value < min!;
               return (
                 <button
                   type="button"
                   key={value}
+                  disabled={disabled}
+                  aria-disabled={disabled}
                   onClick={() => onSelect(value)}
-                  className={`mx-auto grid size-10 place-items-center rounded-full text-[16px] transition ${active ? "bg-[#FF8A05] font-bold text-[#21140A]" : "hover:bg-orange-100"}`}
+                  className={`mx-auto grid size-10 place-items-center rounded-full text-[16px] transition ${active ? "bg-[#FF8A05] font-bold text-[#21140A]" : disabled ? "cursor-not-allowed text-slate-300" : "hover:bg-orange-100"}`}
                 >
                   {day}
                 </button>
@@ -2022,18 +2096,21 @@ function ServiceCards() {
   const cards = [
     {
       title: "Ride",
+      href: "/a-to-b-transfer",
       text: "Go anywhere in Thailand with Waydidi. Reserve your private ride, hop in, and enjoy.",
       image: "/service-ride-orange.png",
       alt: "Orange Waydidi private car",
     },
     {
       title: "Reserve",
+      href: "/faq",
       text: "Reserve your ride in advance so you can relax on the day of your trip.",
       image: "/service-reserve.png",
       alt: "Reservation calendar",
     },
     {
       title: "Day trips",
+      href: "/hourly-driver",
       text: "Book a private driver and explore several destinations in one comfortable day.",
       image: "/service-daytrip-route-vertical.png",
       alt: "Three location pins connected along a vertical day-trip route",
@@ -2060,16 +2137,13 @@ function ServiceCards() {
                 {card.text}
               </p>
             </div>
-            <a
-              href="#"
-              onClick={(event) => {
-                event.preventDefault();
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className="absolute bottom-4 left-5 z-10 inline-flex rounded-full bg-white px-4 py-2 text-sm font-bold"
+            <Link
+              href={card.href}
+              className="absolute bottom-4 left-5 z-10 inline-flex rounded-full bg-white px-4 py-2 text-sm font-bold transition hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A05]"
             >
               Details
-            </a>
+              <span className="sr-only"> about {card.title}</span>
+            </Link>
             <img
               className={`service-card-image ${card.imageClass ?? ""}`}
               src={card.image}
