@@ -18,7 +18,7 @@ export type MapQuote = {
   dropoff?: { latitude: number; longitude: number };
 };
 
-type Vehicle = {
+export type Vehicle = {
   id: string;
   name: string;
   tagline: string;
@@ -167,16 +167,7 @@ export function BookingResultsMap(props: Props) {
       <div className="mt-3 space-y-3">
         {props.vehicles.map((item) => {
           const active = item.id === props.selectedVehicle;
-          return <button key={item.id} type="button" disabled={!props.quote} onClick={() => props.onSelectVehicle(item.id)} aria-pressed={active} className={`relative grid min-h-[118px] w-full grid-cols-[92px_1fr_auto] items-center gap-3 rounded-[22px] border-2 p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-45 ${active ? "border-brand bg-cream shadow-md shadow-orange-950/5" : "border-slate-200 bg-white enabled:hover:border-orange-200"}`}>
-            {item.popular && <span className="absolute -top-2.5 left-4 rounded-full bg-ink px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[.06em] text-white">Most popular</span>}
-            <span className="grid h-[82px] place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className="max-h-[78px] w-full object-contain"/> : <span className="grid size-16 place-items-center rounded-full bg-brand-soft text-brand-deep"><CarFront size={30} aria-hidden="true"/></span>}</span>
-            <span className="min-w-0"><strong className="block text-base text-ink">{item.name}</strong><span className="mt-0.5 block text-xs text-slate-500">{item.tagline}</span></span>
-            <span className="flex flex-col items-end gap-2 self-stretch py-1 text-right">
-              <span><strong className="block whitespace-nowrap text-xl font-black tracking-[-.02em] text-ink">฿{item.price.toLocaleString()}</strong>{props.returnTrip && <span className="block text-[11px] font-semibold text-slate-500">round trip</span>}</span>
-              {/* Every card shows the selection state, not just the chosen one. */}
-              {active ? <CheckCircle2 className="mt-auto text-brand-deep" size={22} aria-hidden="true"/> : <span className="mt-auto size-[22px] rounded-full border-2 border-slate-300" aria-hidden="true"/>}
-            </span>
-          </button>;
+          return <VehicleOption key={item.id} item={item} active={active} disabled={!props.quote} note={props.returnTrip ? "round trip" : undefined} onSelect={() => props.onSelectVehicle(item.id)} />;
         })}
       </div>
       {props.returnTrip && selected && props.priceBreakdown?.[selected.id] && (
@@ -190,4 +181,18 @@ export function BookingResultsMap(props: Props) {
       <p className="mt-3 text-center text-xs text-slate-500">Private ride · price shown before payment</p>
     </div>
   </section>;
+}
+
+// Shared by the transfer results and the hourly vehicle step so both look alike.
+export function VehicleOption({ item, active, disabled = false, note, onSelect }: { item: Vehicle; active: boolean; disabled?: boolean; note?: string; onSelect: () => void }) {
+  return <button type="button" disabled={disabled} onClick={onSelect} aria-pressed={active} className={`relative grid min-h-[118px] w-full grid-cols-[92px_1fr_auto] items-center gap-3 rounded-[22px] border-2 p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-45 ${active ? "border-brand bg-cream shadow-md shadow-orange-950/5" : "border-slate-200 bg-white enabled:hover:border-orange-200"}`}>
+    {item.popular && <span className="absolute -top-2.5 left-4 rounded-full bg-ink px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[.06em] text-white">Most popular</span>}
+    <span className="grid h-[82px] place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className="max-h-[78px] w-full object-contain"/> : <span className="grid size-16 place-items-center rounded-full bg-brand-soft text-brand-deep"><CarFront size={30} aria-hidden="true"/></span>}</span>
+    <span className="min-w-0"><strong className="block text-base text-ink">{item.name}</strong><span className="mt-0.5 block text-xs text-slate-500">{item.tagline}</span></span>
+    <span className="flex flex-col items-end gap-2 self-stretch py-1 text-right">
+      <span><strong className="block whitespace-nowrap text-xl font-black tracking-[-.02em] text-ink">฿{item.price.toLocaleString()}</strong>{note && <span className="block text-[11px] font-semibold text-slate-500">{note}</span>}</span>
+      {/* Every card shows the selection state, not just the chosen one. */}
+      {active ? <CheckCircle2 className="mt-auto text-brand-deep" size={22} aria-hidden="true"/> : <span className="mt-auto size-[22px] rounded-full border-2 border-slate-300" aria-hidden="true"/>}
+    </span>
+  </button>;
 }
