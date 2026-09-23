@@ -134,6 +134,7 @@ type BookingRecoveryDraft = {
   childPassengers: number;
   extraBagSets: number;
   checkoutAttemptId: string;
+  quoteRequest?: boolean;
 };
 
 const RECOVERY_DRAFT_KEY = "waydidi-booking-recovery-v1";
@@ -253,6 +254,11 @@ export function BookingFlow({
   const [recoveryNotice, setRecoveryNotice] = useState("");
   const [isOnline, setIsOnline] = useState(true);
   const [draftReady, setDraftReady] = useState(false);
+  // Without a Google Maps key there are no address suggestions, so nobody could
+  // pass the search. Until keys are added the search takes typed addresses and
+  // the flow runs as a quote request: no price, no payment.
+  const [mapsAvailable, setMapsAvailable] = useState(true);
+  const [quoteRequest, setQuoteRequest] = useState(false);
   const [minPickupDate, setMinPickupDate] = useState("");
   const [minPickupTime, setMinPickupTime] = useState("");
   const checkoutAttemptRef = useRef("");
@@ -310,6 +316,7 @@ export function BookingFlow({
         setAdultPassengers(draft.adultPassengers);
         setChildPassengers(draft.childPassengers);
         setExtraBagSets(draft.extraBagSets);
+        setQuoteRequest(Boolean(draft.quoteRequest));
         checkoutAttemptRef.current = draft.checkoutAttemptId;
       } else if (raw) {
         sessionStorage.removeItem(RECOVERY_DRAFT_KEY);
@@ -338,6 +345,13 @@ export function BookingFlow({
     // Restores once per mount. Each language is its own route with its own
     // mount, so the translations this reads cannot change underneath it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/maps/config", { cache: "no-store" })
+      .then((response) => response.json() as Promise<{ apiKey?: string }>)
+      .then(({ apiKey }) => setMapsAvailable(Boolean(apiKey)))
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -399,6 +413,7 @@ export function BookingFlow({
       childPassengers,
       extraBagSets,
       checkoutAttemptId: checkoutAttemptRef.current,
+      quoteRequest,
     };
     try {
       sessionStorage.setItem(RECOVERY_DRAFT_KEY, JSON.stringify(draft));
@@ -418,6 +433,7 @@ export function BookingFlow({
     quoteSummary,
     hourlyQuote,
     pickupPlaceId,
+    quoteRequest,
     departureSelected,
     returnTrip,
     returnDate,
@@ -515,6 +531,19 @@ export function BookingFlow({
       setDateOpen(true);
       return;
     }
+    if (!mapsAvailable) {
+      const needsDropoff = serviceType === "transfer";
+      if (booking.pickup.trim().length < 3 || (needsDropoff && booking.dropoff.trim().length < 3)) {
+        setPricingMessage(t(needsDropoff ? "search.enterAddresses" : "search.enterPickup"));
+        return;
+      }
+      setPricingMessage("");
+      setQuoteRequest(true);
+      setMenuOpen(false);
+      goToStage("vehicle");
+      return;
+    }
+    setQuoteRequest(false);
     if (serviceType === "transfer" && (!routeInfo?.pickupPlaceId || !routeInfo.dropoffPlaceId)) {
       setPricingMessage(t("search.selectBoth"));
       return;
@@ -767,20 +796,29 @@ export function BookingFlow({
   // Mobile keeps the total and the next step on screen; the booking summary
   // otherwise sits below the whole form. Each step's own rules decide when its
   // button is enabled, so the bar can never skip one.
-  const hasPrice = serviceType === "transfer" ? Boolean(fareQuote) : Boolean(hourlyQuote);
+  const hasPrice = !quoteRequest && (serviceType === "transfer" ? Boolean(fareQuote) : Boolean(hourlyQuote));
+  const priceText = quoteRequest ? "Quote on request" : hasPrice ? `฿${chosenVehicle.price.toLocaleString()}` : "—";
   const priceBar =
     stage === "vehicle"
       ? {
           label: chosenVehicle.name,
           action: "Continue",
           onClick: () => goToStage("payment"),
-          disabled:
-            serviceType === "transfer"
+          disabled: quoteRequest
+            ? false
+            : serviceType === "transfer"
               ? !fareQuote || routeLoading || (returnTrip && !(returnFareQuote && quoteSummary))
               : !hourlyQuote,
         }
       : stage === "payment"
         ? { label: chosenVehicle.name, action: "Review booking", onClick: continueToReview, disabled: !isOnline }
+        : stage === "review" && quoteRequest
+          ? {
+              label: chosenVehicle.name,
+              action: "Contact us",
+              onClick: () => window.location.assign("/contact"),
+              disabled: false,
+            }
         : stage === "review"
           ? {
               label: chosenVehicle.name,
@@ -1259,7 +1297,7 @@ export function BookingFlow({
       {/* Keyed by stage so each step fades in rather than swapping abruptly. */}
       <div key={stage} className="animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
       {stage === "vehicle" && (
-        serviceType === "transfer" ? <BookingResultsMap
+        serviceType === "transfer" && !quoteRequest ? <BookingResultsMap
           pickup={booking.pickup}
           dropoff={booking.dropoff}
           date={booking.date}
@@ -1289,8 +1327,20 @@ export function BookingFlow({
               <ArrowLeft size={16} aria-hidden="true" /> Edit search
             </button>
             <h1 className="mt-5 text-3xl font-black tracking-[-.03em] text-ink sm:text-4xl">
-              Select your {booking.bookedHours}-hour ride
+              {serviceType === "hourly" ? `Select your ${booking.bookedHours}-hour ride` : "Select your ride"}
             </h1>
+            {quoteRequest && (
+              <div className="mt-5 rounded-2xl border border-orange-200 bg-cream p-4 text-sm leading-6 text-ink">
+                <p className="font-bold">Live pricing isn&apos;t connected yet.</p>
+                <p className="mt-1 text-ink/80">
+                  Choose your vehicle and add your details. We&apos;ll confirm the exact price with you before anything is charged.
+                </p>
+                <p className="mt-2 truncate text-ink/70">
+                  {booking.pickup}
+                  {serviceType === "transfer" && ` → ${booking.dropoff}`}
+                </p>
+              </div>
+            )}
             {hourlyQuote && (
               <dl className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
                 <div className="min-w-0 rounded-2xl bg-brand-soft p-3 sm:p-4">
@@ -1316,8 +1366,9 @@ export function BookingFlow({
                   key={item.id}
                   item={item}
                   active={vehicle === item.id}
-                  disabled={!hourlyQuote}
-                  note={`${booking.bookedHours} hours`}
+                  disabled={!hourlyQuote && !quoteRequest}
+                  note={serviceType === "hourly" ? `${booking.bookedHours} hours` : undefined}
+                  priceText={quoteRequest ? "On request" : undefined}
                   onSelect={() => setVehicle(item.id)}
                 />
               ))}
@@ -1325,13 +1376,13 @@ export function BookingFlow({
             <button
               type="button"
               onClick={() => goToStage("payment")}
-              disabled={!hourlyQuote}
+              disabled={!hourlyQuote && !quoteRequest}
               className="mt-6 hidden min-h-14 w-full items-center justify-center gap-2 rounded-full bg-brand text-base font-black text-ink shadow-lg shadow-orange-900/15 transition hover:bg-brand-hover disabled:opacity-50 lg:flex"
             >
               Continue with {chosenVehicle.name} <ArrowRight size={18} aria-hidden="true" />
             </button>
             <p className="mt-3 text-center text-xs text-slate-500">
-              Private driver · price locked for 20 minutes
+              {quoteRequest ? "Private driver · price confirmed before payment" : "Private driver · price locked for 20 minutes"}
             </p>
           </div>
         </section>
@@ -1449,9 +1500,6 @@ export function BookingFlow({
               </div>
               <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-4 text-sm">
                 <input
-                  data-booking-field="termsAccepted"
-                  aria-invalid={Boolean(fieldErrors.termsAccepted)}
-                  aria-describedby={fieldErrors.termsAccepted ? "terms-error" : undefined}
                   type="checkbox"
                   checked={booking.oversizedLuggage}
                   onChange={(e) => change("oversizedLuggage", e.target.checked)}
@@ -1465,7 +1513,6 @@ export function BookingFlow({
                   </span>
                 </span>
               </label>
-              {fieldErrors.termsAccepted && <p id="terms-error" role="alert" className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.termsAccepted}</p>}
               <h3 className="mt-8 text-lg font-black">Payment method</h3>
               <div className="mt-4 grid gap-3">
                 <button
@@ -1522,6 +1569,9 @@ export function BookingFlow({
               </div>
               <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 p-4 text-sm leading-6">
                 <input
+                  data-booking-field="termsAccepted"
+                  aria-invalid={Boolean(fieldErrors.termsAccepted)}
+                  aria-describedby={fieldErrors.termsAccepted ? "terms-error" : undefined}
                   type="checkbox"
                   required
                   checked={booking.termsAccepted}
@@ -1550,6 +1600,7 @@ export function BookingFlow({
                   .
                 </span>
               </label>
+              {fieldErrors.termsAccepted && <p id="terms-error" role="alert" className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.termsAccepted}</p>}
               {error && (
                 <div role="alert" className="mt-5 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-800">
                   <p>{error}</p>
@@ -1625,8 +1676,8 @@ export function BookingFlow({
             )}
             <div className="flex items-end justify-between">
               <span className="text-sm text-white/65">Total</span>
-              <span className="text-3xl font-black">
-                ฿{chosenVehicle.price.toLocaleString()}
+              <span className={`${quoteRequest ? "text-xl" : "text-3xl"} font-black`}>
+                {quoteRequest ? "Quote on request" : `฿${chosenVehicle.price.toLocaleString()}`}
               </span>
             </div>
             <button
@@ -1696,18 +1747,35 @@ export function BookingFlow({
             )}
             <div className="flex items-end justify-between">
               <span className="text-sm text-white/65">Total</span>
-              <strong className="text-3xl">฿{chosenVehicle.price.toLocaleString()}</strong>
+              <strong className={quoteRequest ? "text-xl" : "text-3xl"}>
+                {quoteRequest ? "Quote on request" : `฿${chosenVehicle.price.toLocaleString()}`}
+              </strong>
             </div>
-            <p className="mt-3 text-sm leading-6 text-white/65">The server verifies the current journey and price again before confirmation.</p>
+            <p className="mt-3 text-sm leading-6 text-white/65">
+              {quoteRequest
+                ? "Online booking needs live route pricing, which isn't connected yet. Contact us with these details and we'll confirm your ride and price."
+                : "The server verifies the current journey and price again before confirmation."}
+            </p>
             {error && <p role="alert" className="mt-4 rounded-xl bg-red-950/40 p-4 text-sm font-semibold text-red-100">{error}</p>}
-            <button
-              onClick={confirmBooking}
-              disabled={loading || !isOnline}
-              className="mt-6 flex h-14 w-full items-center justify-center gap-3 rounded-full bg-brand font-bold text-ink disabled:opacity-60"
-            >
-              {loading ? "Verifying booking…" : payment === "cash" ? "Confirm cash booking" : "Confirm and pay"}
-              {!loading && <ArrowRight size={19} />}
-            </button>
+            {/* The server only accepts bookings backed by a live quote, so a
+                quote request ends in contact instead of a payment that would fail. */}
+            {quoteRequest ? (
+              <Link
+                href="/contact"
+                className="mt-6 flex h-14 w-full items-center justify-center gap-3 rounded-full bg-brand font-bold text-ink"
+              >
+                Contact us to confirm <ArrowRight size={19} />
+              </Link>
+            ) : (
+              <button
+                onClick={confirmBooking}
+                disabled={loading || !isOnline}
+                className="mt-6 flex h-14 w-full items-center justify-center gap-3 rounded-full bg-brand font-bold text-ink disabled:opacity-60"
+              >
+                {loading ? "Verifying booking…" : payment === "cash" ? "Confirm cash booking" : "Confirm and pay"}
+                {!loading && <ArrowRight size={19} />}
+              </button>
+            )}
           </aside>
         </section>
       )}
@@ -1786,7 +1854,7 @@ export function BookingFlow({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-semibold text-slate-500">{priceBar.label}</p>
                 <p className="text-xl font-black tracking-[-.02em] text-ink" aria-live="polite">
-                  {hasPrice ? `฿${chosenVehicle.price.toLocaleString()}` : "—"}
+                  {priceText}
                 </p>
               </div>
               <button

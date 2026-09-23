@@ -526,5 +526,13 @@
   "payment.cancelled": {
     "text": "การชำระเงินถูกยกเลิก ไม่มีการเรียกเก็บเงินสำหรับการจอง โปรดตรวจสอบการเดินทางและลองอีกครั้งเมื่อพร้อม",
     "status": "machine"
+  },
+  "search.enterAddresses": {
+    "text": "กรุณาระบุที่อยู่จุดรับและจุดส่ง",
+    "status": "machine"
+  },
+  "search.enterPickup": {
+    "text": "กรุณาระบุที่อยู่จุดรับ",
+    "status": "machine"
   }
 }
