@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { ArrowLeft, ArrowRightLeft, CarFront, CheckCircle2, Clock3, MapPin } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, CarFront, CheckCircle2, Clock3, Luggage, MapPin, Users } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
@@ -25,6 +25,10 @@ export type Vehicle = {
   price: number;
   image?: string;
   popular?: boolean;
+  passengers?: number;
+  bags?: number;
+  // False when the group is larger than the vehicle carries.
+  fits?: boolean;
 };
 
 type Props = {
@@ -177,7 +181,7 @@ export function BookingResultsMap(props: Props) {
           <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 font-black text-ink"><span>Round-trip total</span><span>฿{props.priceBreakdown[selected.id].total.toLocaleString()}</span></div>
         </div>
       )}
-      <button disabled={!props.quote || props.loading || !selected || props.checkoutReady === false} onClick={props.onContinue} className="mt-5 flex min-h-14 w-full items-center justify-center rounded-full bg-brand px-6 text-base font-black uppercase tracking-[.04em] text-ink shadow-lg shadow-orange-900/15 transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Book {selected?.name ?? "this ride"}</button>
+      <button disabled={!props.quote || props.loading || !selected || selected.fits === false || props.checkoutReady === false} onClick={props.onContinue} className="mt-5 flex min-h-14 w-full items-center justify-center rounded-full bg-brand px-6 text-base font-black uppercase tracking-[.04em] text-ink shadow-lg shadow-orange-900/15 transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Book {selected?.name ?? "this ride"}</button>
       <p className="mt-3 text-center text-xs text-slate-500">Private ride · price shown before payment</p>
     </div>
   </section>;
@@ -185,10 +189,14 @@ export function BookingResultsMap(props: Props) {
 
 // Shared by the transfer results and the hourly vehicle step so both look alike.
 export function VehicleOption({ item, active, disabled = false, note, priceText, onSelect }: { item: Vehicle; active: boolean; disabled?: boolean; note?: string; priceText?: string; onSelect: () => void }) {
-  return <button type="button" disabled={disabled} onClick={onSelect} aria-pressed={active} className={`relative grid min-h-[118px] w-full grid-cols-[92px_1fr_auto] items-center gap-3 rounded-[22px] border-2 p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-45 ${active ? "border-brand bg-cream shadow-md shadow-orange-950/5" : "border-slate-200 bg-white enabled:hover:border-orange-200"}`}>
+  const tooSmall = item.fits === false;
+  return <button type="button" disabled={disabled || tooSmall} onClick={onSelect} aria-pressed={active} className={`relative grid min-h-[118px] w-full grid-cols-[92px_1fr_auto] items-center gap-3 rounded-[22px] border-2 p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-45 ${active ? "border-brand bg-cream shadow-md shadow-orange-950/5" : "border-slate-200 bg-white enabled:hover:border-orange-200"}`}>
     {item.popular && <span className="absolute -top-2.5 left-4 rounded-full bg-ink px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[.06em] text-white">Most popular</span>}
     <span className="grid h-[82px] place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className="max-h-[78px] w-full object-contain"/> : <span className="grid size-16 place-items-center rounded-full bg-brand-soft text-brand-deep"><CarFront size={30} aria-hidden="true"/></span>}</span>
-    <span className="min-w-0"><strong className="block text-base text-ink">{item.name}</strong><span className="mt-0.5 block text-xs text-slate-500">{item.tagline}</span></span>
+    <span className="min-w-0"><strong className="block text-base text-ink">{item.name}</strong><span className="mt-0.5 block text-xs text-slate-500">{item.tagline}</span>
+      {item.passengers !== undefined && item.bags !== undefined && <span className="mt-1.5 flex items-center gap-3 text-xs font-semibold text-slate-600" aria-label={`Up to ${item.passengers} passengers and ${item.bags} bags`}><span className="inline-flex items-center gap-1"><Users size={13} aria-hidden="true"/>{item.passengers}</span><span className="inline-flex items-center gap-1"><Luggage size={13} aria-hidden="true"/>{item.bags}</span></span>}
+      {tooSmall && <span className="mt-1 block text-xs font-bold text-brand-deep">Too small for your group</span>}
+    </span>
     <span className="flex flex-col items-end gap-2 self-stretch py-1 text-right">
       <span><strong className={`block whitespace-nowrap font-black tracking-[-.02em] text-ink ${priceText ? "text-sm" : "text-xl"}`}>{priceText ?? `฿${item.price.toLocaleString()}`}</strong>{note && <span className="block text-[11px] font-semibold text-slate-500">{note}</span>}</span>
       {/* Every card shows the selection state, not just the chosen one. */}

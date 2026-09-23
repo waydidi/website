@@ -43,6 +43,7 @@ import {
   type RouteInfo,
 } from "@/components/google-route-picker";
 import { validateBookingReview, type ReviewFieldErrors } from "@/lib/booking-review";
+import { VEHICLES, smallestFittingVehicle, vehicleFits, type VehicleId } from "@/lib/vehicles";
 import { aboutHref, navMenus, NavDropdown } from "./nav";
 import { DateTimePicker } from "./date-time-picker";
 import { LanguageSwitcher } from "./language-switcher";
@@ -138,6 +139,10 @@ type BookingRecoveryDraft = {
 };
 
 const RECOVERY_DRAFT_KEY = "waydidi-booking-recovery-v1";
+
+// The largest vehicle bounds the group: nothing carries more than this.
+const MAX_GROUP_PASSENGERS = Math.max(...Object.values(VEHICLES).map((vehicle) => vehicle.passengers));
+const MAX_GROUP_BAGS = Math.max(...Object.values(VEHICLES).map((vehicle) => vehicle.bags));
 const RECOVERY_DRAFT_TTL = 2 * 60 * 60 * 1000;
 
 const defaultPickupDate = new Date(Date.now() + 86_400_000).toLocaleDateString(
@@ -447,9 +452,12 @@ export function BookingFlow({
     () =>
       vehicles.map((item) => ({
         ...item,
+        passengers: VEHICLES[item.id as VehicleId].passengers,
+        bags: VEHICLES[item.id as VehicleId].bags,
+        fits: vehicleFits(item.id as VehicleId, booking.passengers, booking.luggage),
         price: hourlyQuote?.prices[item.id]?.total ?? quoteSummary?.prices[item.id]?.total ?? fareQuote?.prices[item.id]?.total ?? item.price,
       })),
-    [fareQuote, hourlyQuote, quoteSummary],
+    [fareQuote, hourlyQuote, quoteSummary, booking.passengers, booking.luggage],
   );
   const chosenVehicle = useMemo(
     () =>
@@ -493,8 +501,16 @@ export function BookingFlow({
     setError("");
     goToStage("review");
   }
+  // When the group outgrows the chosen vehicle, move to the smallest one that fits.
+  const fitVehicleToGroup = (passengers: number, bags: number) =>
+    setVehicle((current) =>
+      vehicleFits(current as VehicleId, passengers, bags)
+        ? current
+        : smallestFittingVehicle(passengers, bags) ?? current,
+    );
   const changeAdults = (value: number) => {
     const adults = Math.max(1, value);
+    fitVehicleToGroup(adults + childPassengers, adults + childPassengers + extraBagSets);
     setAdultPassengers(adults);
     setBooking((current) => ({
       ...current,
@@ -505,6 +521,7 @@ export function BookingFlow({
   const changeChildren = (value: number) => {
     const children = Math.max(0, value);
     setChildPassengers(children);
+    fitVehicleToGroup(adultPassengers + children, adultPassengers + children + extraBagSets);
     setBooking((current) => ({
       ...current,
       passengers: adultPassengers + children,
@@ -514,6 +531,7 @@ export function BookingFlow({
   const changeExtraBagSets = (value: number) => {
     const extraSets = Math.max(0, value);
     setExtraBagSets(extraSets);
+    fitVehicleToGroup(adultPassengers + childPassengers, adultPassengers + childPassengers + extraSets);
     setBooking((current) => ({
       ...current,
       luggage: adultPassengers + childPassengers + extraSets,
@@ -804,7 +822,9 @@ export function BookingFlow({
           label: chosenVehicle.name,
           action: "Continue",
           onClick: () => goToStage("payment"),
-          disabled: quoteRequest
+          disabled: !chosenVehicle.fits
+            ? true
+            : quoteRequest
             ? false
             : serviceType === "transfer"
               ? !fareQuote || routeLoading || (returnTrip && !(returnFareQuote && quoteSummary))
@@ -1248,6 +1268,7 @@ export function BookingFlow({
               description={t("pax.adultsHint")}
               value={adultPassengers}
               min={1}
+              max={Math.min(MAX_GROUP_PASSENGERS - childPassengers, MAX_GROUP_BAGS - childPassengers - extraBagSets)}
               onChange={changeAdults}
             />
             <SheetCounter
@@ -1255,6 +1276,7 @@ export function BookingFlow({
               description={t("pax.childrenHint")}
               value={childPassengers}
               min={0}
+              max={Math.min(MAX_GROUP_PASSENGERS - adultPassengers, MAX_GROUP_BAGS - adultPassengers - extraBagSets)}
               onChange={changeChildren}
             />
             <SheetCounter
@@ -1262,6 +1284,7 @@ export function BookingFlow({
               description={t("pax.extraBagsHint")}
               value={extraBagSets}
               min={0}
+              max={MAX_GROUP_BAGS - adultPassengers - childPassengers}
               onChange={changeExtraBagSets}
             />
           </div>
@@ -1879,12 +1902,14 @@ function SheetCounter({
   description,
   value,
   min,
+  max,
   onChange,
 }: {
   label: string;
   description: string;
   value: number;
   min: number;
+  max?: number;
   onChange: (value: number) => void;
 }) {
   const { t } = useI18n();
@@ -1907,8 +1932,9 @@ function SheetCounter({
         <strong className="w-10 text-center text-xl">{value}</strong>
         <button
           type="button"
-          onClick={() => onChange(value + 1)}
-          className="grid size-11 place-items-center rounded-full text-slate-700 transition hover:bg-orange-50 hover:text-brand-deep"
+          onClick={() => onChange(max === undefined ? value + 1 : Math.min(max, value + 1))}
+          disabled={max !== undefined && value >= max}
+          className="grid size-11 place-items-center rounded-full text-slate-700 transition hover:bg-orange-50 hover:text-brand-deep disabled:cursor-not-allowed disabled:text-slate-300"
           aria-label={t("pax.increase", { label })}
         >
           <Plus size={19} />
