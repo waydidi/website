@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  CalendarX,
   CarFront,
   Check,
   CheckCircle2,
@@ -11,16 +12,19 @@ import {
   Clock3,
   CreditCard,
   Luggage,
+  MapPin,
   Menu,
   Minus,
   Plus,
   Printer,
   RefreshCw,
   ShieldCheck,
+  Tag,
   Users,
   WifiOff,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -762,12 +766,12 @@ export function BookingFlow({
 
   return (
     <I18nProvider locale={locale} messages={messages}>
-    <main className="min-h-screen bg-white text-[#1f1726]">
+    <main className="min-h-screen bg-white text-ink">
       {!isOnline && (
         <div
           role="status"
           aria-live="polite"
-          className="fixed inset-x-4 bottom-4 z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-[#21140A] px-5 py-4 text-sm font-semibold text-white shadow-2xl"
+          className="fixed inset-x-4 bottom-4 z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-ink px-5 py-4 text-sm font-semibold text-white shadow-2xl"
         >
           <WifiOff className="shrink-0 text-[#FFB45E]" size={20} />
           <span>{t("notice.offline")}</span>
@@ -777,14 +781,14 @@ export function BookingFlow({
         <div
           role="status"
           aria-live="polite"
-          className="fixed inset-x-4 bottom-4 z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-orange-200 bg-white px-5 py-4 text-sm font-semibold text-[#21140A] shadow-2xl"
+          className="fixed inset-x-4 bottom-4 z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-orange-200 bg-white px-5 py-4 text-sm font-semibold text-ink shadow-2xl"
         >
-          <RefreshCw className="shrink-0 text-[#D96F00]" size={20} />
+          <RefreshCw className="shrink-0 text-brand-deep" size={20} />
           <span className="flex-1">{recoveryNotice}</span>
           <button
             type="button"
             onClick={() => setRecoveryNotice("")}
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-orange-50 text-[#B85E00]"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-orange-50 text-brand-deep"
             aria-label={t("notice.dismiss")}
           >
             <X size={18} />
@@ -792,10 +796,10 @@ export function BookingFlow({
         </div>
       )}
       <section
-        className={`relative ${stage === "search" ? "bg-[#FF8A05] text-white" : "bg-white text-[#17171a]"}`}
+        className={`relative ${stage === "search" ? "overflow-hidden bg-brand text-ink" : "bg-white text-ink"}`}
       >
         <header
-          className={`z-40 flex w-full items-center justify-between px-5 lg:px-8 ${stage === "search" ? `fixed inset-x-0 top-0 h-[49px] lg:h-[87px] ${headerScrolled ? "bg-[#FF8A05] text-white shadow-lg shadow-orange-950/10" : "bg-transparent text-white"}` : "relative h-[72px] bg-[#FF8A05] text-white"}`}
+          className={`z-40 flex w-full items-center justify-between px-5 lg:px-8 ${stage === "search" ? `fixed inset-x-0 top-0 h-[49px] lg:h-[87px] ${headerScrolled ? "bg-brand text-ink shadow-lg shadow-orange-950/10" : "bg-transparent text-ink"}` : "relative h-[72px] bg-brand text-ink"}`}
         >
           <Link
             href="/"
@@ -813,14 +817,14 @@ export function BookingFlow({
               ))}
               <Link
                 href={aboutHref}
-                className="rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                className="rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/60"
               >
                 {t("nav.about")}
               </Link>
               <LanguageSwitcher />
               <Link
                 href="/booking/manage"
-                className="flex h-12 items-center gap-2 rounded-full bg-white px-6 font-bold text-[#D96F00] transition-colors duration-500 hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#FF8A05]"
+                className="flex h-12 items-center gap-2 rounded-full bg-white px-6 font-bold text-brand-deep transition-colors duration-500 hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
               >
                 <CarFront size={20} /> {t("nav.checkBooking")}
               </Link>
@@ -844,7 +848,7 @@ export function BookingFlow({
                 showCloseButton={false}
               >
                 <SheetHeader className="flex-row items-center justify-between border-b border-slate-200 px-6 py-5">
-                  <SheetTitle className="flex text-[#FF8A05]">
+                  <SheetTitle className="flex text-brand">
                     <WaydidiLogo className="h-20 w-auto" />
                     <span className="sr-only">Waydidi</span>
                   </SheetTitle>
@@ -869,7 +873,7 @@ export function BookingFlow({
                           <SheetClose asChild key={link.href}>
                             <Link
                               href={link.href}
-                              className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
+                              className="rounded-xl py-3 text-lg font-bold hover:text-brand-deep"
                             >
                               {t(link.labelKey)}
                             </Link>
@@ -882,7 +886,7 @@ export function BookingFlow({
                     <SheetClose asChild>
                       <Link
                         href={aboutHref}
-                        className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
+                        className="rounded-xl py-3 text-lg font-bold hover:text-brand-deep"
                       >
                         {t("nav.about")}
                       </Link>
@@ -896,7 +900,7 @@ export function BookingFlow({
                   <SheetClose asChild>
                     <Link
                       href="/booking/manage"
-                      className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-4 font-bold text-white"
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-brand px-5 py-4 font-bold text-white"
                     >
                       <CarFront size={20} /> {t("nav.checkBooking")}
                     </Link>
@@ -908,21 +912,49 @@ export function BookingFlow({
         </header>
 
         {stage === "search" && (
+          <>
+            {/* Warm light from the top left gives the flat orange some depth. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgb(255_196_120/0.55),transparent_42%)]"
+            />
+            {/* Large screens only: the photo is decorative and too costly for mobile data. */}
+            {/* Starts below the 87px header so the nav always sits on solid
+                orange. The masks fade the photo itself into the orange, left and
+                top, rather than stacking overlay layers on it. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-0 right-0 top-[87px] hidden w-[54%] [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent,black_45%),linear-gradient(to_bottom,transparent,black_64px)] lg:block"
+            >
+              <Image
+                src="/hero-driver-customer.webp"
+                alt=""
+                fill
+                priority
+                // The Worker has no Cloudflare Images binding, so the
+                // optimizer route would fail; serve the file as-is.
+                unoptimized
+                className="object-cover object-[38%_20%]"
+              />
+            </div>
+          </>
+        )}
+        {stage === "search" && (
           <div className="relative z-10 w-full px-5 pb-12 pt-[88px] lg:px-6 lg:pb-18 lg:pt-[150px]">
             <div className="mb-6 max-w-2xl">
-              <h1 className={`${locale === "en" ? "" : "text-balance "}text-[33.5px] font-medium leading-[1.08] tracking-[-.045em] sm:text-[46.3px] lg:text-[52.7px]`}>
+              <h1 className={`${locale === "en" ? "" : "text-balance "}text-[33.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[46.3px] lg:text-[52.7px]`}>
                 {t("hero.title")}
               </h1>
-              <p className="mt-3 text-lg font-medium text-[#E6DED5] sm:text-xl lg:text-2xl">
+              <p className="mt-3 text-lg font-medium text-ink/80 sm:text-xl lg:text-2xl">
                 {t("hero.subtitle")}
               </p>
             </div>
             <form id="booking-search" onSubmit={search} className="w-full scroll-mt-28">
               <div className="inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-sm font-bold text-slate-500 shadow-md shadow-orange-950/10 lg:inline-flex lg:h-auto lg:w-auto lg:rounded-b-none lg:rounded-t-[26px] lg:p-1.5 lg:pb-0 lg:text-base lg:shadow-none">
-                <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "transfer" ? "bg-[#FF8A05] text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
+                <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
                   <CarFront className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.transfer")}
                 </button>
-                <button onClick={()=>{setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "hourly" ? "bg-[#FF8A05] text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
+                <button onClick={()=>{setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
                   <Clock3 className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.hourly")}
                 </button>
               </div>
@@ -978,7 +1010,7 @@ export function BookingFlow({
                       className="flex h-full min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left sm:px-3.5"
                       aria-expanded={dateOpen}
                     >
-                      <CalendarDays className="shrink-0 text-[#FF8A05]" size={18} />
+                      <CalendarDays className="shrink-0 text-brand" size={18} />
                       {departureSelected ? (
                         <span className="min-w-0 text-[15px] font-semibold leading-[18px] text-slate-950 lg:text-base lg:leading-5">
                           <span className="block truncate">{formatDate(booking.date)}</span>
@@ -1021,9 +1053,9 @@ export function BookingFlow({
                       aria-label={returnTrip ? t("hero.editReturnLabel") : t("hero.addReturnLabel")}
                     >
                       {returnTrip ? (
-                        <CalendarDays className="shrink-0 text-[#FF8A05]" size={20} />
+                        <CalendarDays className="shrink-0 text-brand" size={20} />
                       ) : (
-                        <Plus className={`shrink-0 ${departureSelected ? "text-[#FF8A05]" : ""}`} size={23} />
+                        <Plus className={`shrink-0 ${departureSelected ? "text-brand" : ""}`} size={23} />
                       )}
                       <span className="min-w-0">
                         {returnTrip ? (
@@ -1044,7 +1076,7 @@ export function BookingFlow({
                 </div>
                 <div className="mt-2.5 flex items-center lg:mt-0">
                   <button
-                    className="flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-[#FF8A05] px-8 text-base font-black text-white shadow-lg shadow-orange-900/20 transition hover:bg-[#E97D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A05] focus-visible:ring-offset-2 lg:min-h-[88px] lg:w-auto lg:rounded-xl lg:text-sm"
+                    className="flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-brand px-8 text-base font-black text-white shadow-lg shadow-orange-900/20 transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 lg:min-h-[88px] lg:w-auto lg:rounded-xl lg:text-sm"
                     type="submit"
                   >
                     {loading ? t("hero.calculating") : t("hero.seePrices")} <ArrowRight size={18} />
@@ -1103,15 +1135,23 @@ export function BookingFlow({
                   )}
                 </div>
               )}
-              {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-[#FF8A05]"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">{t("hero.includesKm", { km: Math.round((hourlyQuote.prices.economy_sedan?.includedDistanceMeters??0)/1000) })} · {t("legal.priceLocked")}</span></div>}
+              {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-brand"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">{t("hero.includesKm", { km: Math.round((hourlyQuote.prices.economy_sedan?.includedDistanceMeters??0)/1000) })} · {t("legal.priceLocked")}</span></div>}
             </form>
-            <p className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-sm font-medium text-white/75 sm:text-base lg:mt-7 lg:text-lg">
-              <span>{t("hero.thailandWide")}</span>
-              <span aria-hidden="true">·</span>
-              <span>{t("legal.fixedPrice")}</span>
-              <span aria-hidden="true">·</span>
-              <span>{t("legal.freeCancellation")}</span>
-            </p>
+            <ul className="mt-5 flex flex-wrap gap-2 lg:mt-6">
+              {[
+                { icon: MapPin, label: t("hero.thailandWide") },
+                { icon: Tag, label: t("legal.fixedPrice") },
+                { icon: CalendarX, label: t("legal.freeCancellation") },
+              ].map(({ icon: Icon, label }) => (
+                <li
+                  key={label}
+                  className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3.5 py-2 text-sm font-semibold text-ink shadow-sm shadow-orange-950/10"
+                >
+                  <Icon size={16} className="text-brand-deep" aria-hidden="true" />
+                  {label}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </section>
@@ -1121,7 +1161,7 @@ export function BookingFlow({
           id="passenger-luggage-sheet"
           side="bottom"
           showCloseButton={false}
-          className="max-h-[92dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-[#17171A] data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 lg:left-1/2 lg:max-w-3xl lg:-translate-x-1/2"
+          className="max-h-[92dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-ink data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 lg:left-1/2 lg:max-w-3xl lg:-translate-x-1/2"
         >
           <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" aria-hidden="true" />
           <SheetHeader className="flex-row items-center justify-between px-0 pb-2 pt-5 text-left">
@@ -1131,7 +1171,7 @@ export function BookingFlow({
             <button
               type="button"
               onClick={() => setPeopleOpen(false)}
-              className="grid size-12 place-items-center rounded-full bg-slate-100 text-[#D96F00] transition hover:bg-orange-50"
+              className="grid size-12 place-items-center rounded-full bg-slate-100 text-brand-deep transition hover:bg-orange-50"
               aria-label={t("pax.close")}
             >
               <X size={25} />
@@ -1183,7 +1223,7 @@ export function BookingFlow({
           <button
             type="button"
             onClick={() => setPeopleOpen(false)}
-            className="mt-5 min-h-14 w-full rounded-full bg-[#FF8A05] px-6 text-lg font-bold text-[#21140A] transition hover:bg-[#E97D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A05] focus-visible:ring-offset-2"
+            className="mt-5 min-h-14 w-full rounded-full bg-brand px-6 text-lg font-bold text-ink transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             {t("common.done")}
           </button>
@@ -1211,7 +1251,7 @@ export function BookingFlow({
           onEdit={() => goToStage("search")}
           onRetry={retryRoute}
           onContinue={() => goToStage("payment")}
-        /> : <section className="bg-white pb-28"><div className="mx-auto max-w-[1100px] px-5 py-12"><h1 className="text-4xl font-bold">Select your {booking.bookedHours}-hour ride</h1><div className="mt-8 grid gap-3">{pricedVehicles.map(item=><button key={item.id} onClick={()=>setVehicle(item.id)} className={`rounded-2xl border-2 p-5 text-left ${vehicle===item.id?"border-[#FF8A05] bg-[#FFF2E2]":"border-slate-200"}`}><span className="font-bold">{item.name}</span><strong className="float-right">฿{item.price.toLocaleString()}</strong></button>)}</div><button onClick={()=>goToStage("payment")} className="mt-6 min-h-14 w-full rounded-full bg-[#FF8A05] font-black">Continue</button></div></section>
+        /> : <section className="bg-white pb-28"><div className="mx-auto max-w-[1100px] px-5 py-12"><h1 className="text-4xl font-bold">Select your {booking.bookedHours}-hour ride</h1><div className="mt-8 grid gap-3">{pricedVehicles.map(item=><button key={item.id} onClick={()=>setVehicle(item.id)} className={`rounded-2xl border-2 p-5 text-left ${vehicle===item.id?"border-brand bg-brand-soft":"border-slate-200"}`}><span className="font-bold">{item.name}</span><strong className="float-right">฿{item.price.toLocaleString()}</strong></button>)}</div><button onClick={()=>goToStage("payment")} className="mt-6 min-h-14 w-full rounded-full bg-brand font-black">Continue</button></div></section>
       )}
 
       {stage === "payment" && (
@@ -1237,7 +1277,7 @@ export function BookingFlow({
                     required
                     value={booking.name}
                     onChange={(e) => change("name", e.target.value)}
-                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-[#FF8A05] ${fieldErrors.name ? "border-red-400 bg-red-50" : "border-slate-200"}`}
+                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-brand ${fieldErrors.name ? "border-red-400 bg-red-50" : "border-slate-200"}`}
                     placeholder="Given names"
                   />
                   {fieldErrors.name && <span id="name-error" className="mt-2 block text-sm font-semibold text-red-700">{fieldErrors.name}</span>}
@@ -1251,7 +1291,7 @@ export function BookingFlow({
                     required
                     value={booking.surname}
                     onChange={(e) => change("surname", e.target.value)}
-                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-[#FF8A05] ${fieldErrors.surname ? "border-red-400 bg-red-50" : "border-slate-200"}`}
+                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-brand ${fieldErrors.surname ? "border-red-400 bg-red-50" : "border-slate-200"}`}
                     placeholder="Family name"
                   />
                   {fieldErrors.surname && <span id="surname-error" className="mt-2 block text-sm font-semibold text-red-700">{fieldErrors.surname}</span>}
@@ -1266,7 +1306,7 @@ export function BookingFlow({
                     type="email"
                     value={booking.email}
                     onChange={(e) => change("email", e.target.value)}
-                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-[#FF8A05] ${fieldErrors.email ? "border-red-400 bg-red-50" : "border-slate-200"}`}
+                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-brand ${fieldErrors.email ? "border-red-400 bg-red-50" : "border-slate-200"}`}
                     placeholder="you@email.com"
                   />
                   {fieldErrors.email && <span id="email-error" className="mt-2 block text-sm font-semibold text-red-700">{fieldErrors.email}</span>}
@@ -1281,7 +1321,7 @@ export function BookingFlow({
                     type="tel"
                     value={booking.phone}
                     onChange={(e) => change("phone", e.target.value)}
-                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-[#FF8A05] ${fieldErrors.phone ? "border-red-400 bg-red-50" : "border-slate-200"}`}
+                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-brand ${fieldErrors.phone ? "border-red-400 bg-red-50" : "border-slate-200"}`}
                     placeholder="+66 81 234 5678"
                   />
                   {fieldErrors.phone && <span id="phone-error" className="mt-2 block text-sm font-semibold text-red-700">{fieldErrors.phone}</span>}
@@ -1293,7 +1333,7 @@ export function BookingFlow({
                     value={booking.flightNumber}
                     onChange={(e) => change("flightNumber", e.target.value)}
                     maxLength={30}
-                    className="mt-2 h-13 w-full rounded-xl border border-slate-200 px-4 text-base uppercase outline-none focus:border-[#FF8A05]"
+                    className="mt-2 h-13 w-full rounded-xl border border-slate-200 px-4 text-base uppercase outline-none focus:border-brand"
                     placeholder="TG 123"
                   />
                 </label>
@@ -1305,7 +1345,7 @@ export function BookingFlow({
                     value={booking.pickupSign}
                     onChange={(e) => change("pickupSign", e.target.value)}
                     maxLength={80}
-                    className="mt-2 h-13 w-full rounded-xl border border-slate-200 px-4 text-base outline-none focus:border-[#FF8A05]"
+                    className="mt-2 h-13 w-full rounded-xl border border-slate-200 px-4 text-base outline-none focus:border-brand"
                     placeholder="Name shown on the sign"
                   />
                 </label>
@@ -1319,7 +1359,7 @@ export function BookingFlow({
                     onChange={(e) => change("specialRequests", e.target.value)}
                     maxLength={500}
                     rows={3}
-                    className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-[#FF8A05]"
+                    className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-brand"
                     placeholder="Accessibility needs or other requests"
                   />
                 </label>
@@ -1332,7 +1372,7 @@ export function BookingFlow({
                   type="checkbox"
                   checked={booking.oversizedLuggage}
                   onChange={(e) => change("oversizedLuggage", e.target.checked)}
-                  className="mt-1 size-4 accent-[#FF8A05]"
+                  className="mt-1 size-4 accent-brand"
                 />
                 <span>
                   <strong className="block">Oversized luggage</strong>
@@ -1348,9 +1388,9 @@ export function BookingFlow({
                 <button
                   type="button"
                   onClick={() => setPayment("card")}
-                  className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${payment === "card" ? "border-[#FF8A05] bg-orange-50" : "border-slate-200 bg-white"}`}
+                  className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${payment === "card" ? "border-brand bg-orange-50" : "border-slate-200 bg-white"}`}
                 >
-                  <CreditCard className="text-[#D96F00]" size={25} />
+                  <CreditCard className="text-brand-deep" size={25} />
                   <span>
                     <strong className="block">Stripe secure checkout</strong>
                     <span className="text-sm text-slate-500">
@@ -1359,7 +1399,7 @@ export function BookingFlow({
                   </span>
                   {payment === "card" && (
                     <CheckCircle2
-                      className="ml-auto text-[#D96F00]"
+                      className="ml-auto text-brand-deep"
                       size={21}
                     />
                   )}
@@ -1367,9 +1407,9 @@ export function BookingFlow({
                 <button
                   type="button"
                   onClick={() => setPayment("cash")}
-                  className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${payment === "cash" ? "border-[#FF8A05] bg-orange-50" : "border-slate-200 bg-white"}`}
+                  className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${payment === "cash" ? "border-brand bg-orange-50" : "border-slate-200 bg-white"}`}
                 >
-                  <span className="grid size-7 place-items-center rounded-md bg-[#FF8A05] text-sm font-black text-white">
+                  <span className="grid size-7 place-items-center rounded-md bg-brand text-sm font-black text-white">
                     ฿
                   </span>
                   <span>
@@ -1380,7 +1420,7 @@ export function BookingFlow({
                   </span>
                   {payment === "cash" && (
                     <CheckCircle2
-                      className="ml-auto text-[#D96F00]"
+                      className="ml-auto text-brand-deep"
                       size={21}
                     />
                   )}
@@ -1388,7 +1428,7 @@ export function BookingFlow({
               </div>
               <div className="mt-6 flex items-start gap-3 rounded-2xl bg-orange-50 p-4 text-sm leading-6 text-slate-700">
                 <ShieldCheck
-                  className="mt-0.5 shrink-0 text-[#D96F00]"
+                  className="mt-0.5 shrink-0 text-brand-deep"
                   size={21}
                 />
                 <p>
@@ -1405,14 +1445,14 @@ export function BookingFlow({
                   onChange={(event) =>
                     change("termsAccepted", event.target.checked)
                   }
-                  className="mt-1 size-5 shrink-0 accent-[#FF8A05]"
+                  className="mt-1 size-5 shrink-0 accent-brand"
                 />
                 <span>
                   I agree to the{" "}
                   <a
                     href="/terms"
                     target="_blank"
-                    className="font-bold text-[#B85E00] underline underline-offset-2"
+                    className="font-bold text-brand-deep underline underline-offset-2"
                   >
                     booking terms and 24-hour cancellation policy
                   </a>
@@ -1420,7 +1460,7 @@ export function BookingFlow({
                   <a
                     href="/privacy"
                     target="_blank"
-                    className="font-bold text-[#B85E00] underline underline-offset-2"
+                    className="font-bold text-brand-deep underline underline-offset-2"
                   >
                     privacy notice
                   </a>
@@ -1435,7 +1475,7 @@ export function BookingFlow({
                       type="button"
                       onClick={continueToReview}
                       disabled={!isOnline}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#21140A] px-4 text-white disabled:opacity-50"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full bg-ink px-4 text-white disabled:opacity-50"
                     >
                       <RefreshCw size={16} /> Review again
                     </button>
@@ -1509,7 +1549,7 @@ export function BookingFlow({
             <button
               onClick={continueToReview}
               disabled={!isOnline}
-              className="mt-6 flex h-14 w-full items-center justify-center gap-3 rounded-full bg-[#FF8A05] font-bold text-[#21140A] disabled:opacity-60"
+              className="mt-6 flex h-14 w-full items-center justify-center gap-3 rounded-full bg-brand font-bold text-ink disabled:opacity-60"
             >
               Review booking <ArrowRight size={19} />
             </button>
@@ -1520,7 +1560,7 @@ export function BookingFlow({
       {stage === "review" && (
         <section className="mx-auto grid max-w-[1100px] gap-6 px-5 py-10 pb-28 lg:grid-cols-[1fr_360px] lg:px-10 lg:py-16">
           <div>
-            <p className="text-sm font-black uppercase tracking-[.16em] text-[#B85E00]">Final check</p>
+            <p className="text-sm font-black uppercase tracking-[.16em] text-brand-deep">Final check</p>
             <h2 className="mt-2 text-3xl font-black tracking-[-.04em] sm:text-4xl">Review your booking</h2>
             <p className="mt-3 text-slate-600">Check the journey and passenger details before confirming. Times are shown in Thailand time.</p>
 
@@ -1580,7 +1620,7 @@ export function BookingFlow({
             <button
               onClick={confirmBooking}
               disabled={loading || !isOnline}
-              className="mt-6 flex h-14 w-full items-center justify-center gap-3 rounded-full bg-[#FF8A05] font-bold text-[#21140A] disabled:opacity-60"
+              className="mt-6 flex h-14 w-full items-center justify-center gap-3 rounded-full bg-brand font-bold text-ink disabled:opacity-60"
             >
               {loading ? "Verifying booking…" : payment === "cash" ? "Confirm cash booking" : "Confirm and pay"}
               {!loading && <ArrowRight size={19} />}
@@ -1592,7 +1632,7 @@ export function BookingFlow({
       {stage === "confirmation" && (
         <section className="mx-auto max-w-[900px] px-5 py-12 lg:px-10 lg:py-16">
           <div className="booking-confirmation overflow-hidden rounded-[32px] bg-white shadow-xl shadow-orange-950/10">
-            <div className="bg-[#FF8A05] p-7 text-white sm:p-10">
+            <div className="bg-brand p-7 text-white sm:p-10">
               <Link href="/" className="mb-8 inline-flex text-white" aria-label="Waydidi home"><WaydidiLogo className="h-20 w-auto" /></Link>
               <span className="grid size-14 place-items-center rounded-full bg-white/20 text-white">
                 <Check size={30} strokeWidth={3} />
@@ -1629,7 +1669,7 @@ export function BookingFlow({
               <div className="no-print mt-8 flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={() => window.print()}
-                  className="flex h-13 items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-7 font-bold text-[#21140A]"
+                  className="flex h-13 items-center justify-center gap-2 rounded-full bg-brand px-7 font-bold text-ink"
                 >
                   <Printer size={19} /> Save confirmation as PDF
                 </button>
@@ -1683,7 +1723,7 @@ function SheetCounter({
           type="button"
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
-          className="grid size-11 place-items-center rounded-full text-slate-700 transition hover:bg-orange-50 hover:text-[#D96F00] disabled:cursor-not-allowed disabled:text-slate-300"
+          className="grid size-11 place-items-center rounded-full text-slate-700 transition hover:bg-orange-50 hover:text-brand-deep disabled:cursor-not-allowed disabled:text-slate-300"
           aria-label={t("pax.decrease", { label })}
         >
           <Minus size={19} />
@@ -1692,7 +1732,7 @@ function SheetCounter({
         <button
           type="button"
           onClick={() => onChange(value + 1)}
-          className="grid size-11 place-items-center rounded-full text-slate-700 transition hover:bg-orange-50 hover:text-[#D96F00]"
+          className="grid size-11 place-items-center rounded-full text-slate-700 transition hover:bg-orange-50 hover:text-brand-deep"
           aria-label={t("pax.increase", { label })}
         >
           <Plus size={19} />
@@ -1722,7 +1762,7 @@ function Progress({
           >
             <span className="flex shrink-0 flex-col items-center">
               <span
-                className={`grid ${inHeader ? "size-7 text-xs" : "size-8 text-sm"} place-items-center rounded-full font-bold ${inHeader ? (index + 1 <= active ? "bg-[#E87000] text-white ring-1 ring-white/40" : "bg-white/25 text-white/80") : index + 1 <= active ? "bg-[#FF8A05] text-white" : "bg-slate-100 text-slate-500"}`}
+                className={`grid ${inHeader ? "size-7 text-xs" : "size-8 text-sm"} place-items-center rounded-full font-bold ${inHeader ? (index + 1 <= active ? "bg-ink text-white" : "bg-white/45 text-ink/80") : index + 1 <= active ? "bg-brand text-white" : "bg-slate-100 text-slate-500"}`}
               >
                 {index + 1 < active ? (
                   <Check size={inHeader ? 14 : 16} />
@@ -1731,14 +1771,14 @@ function Progress({
                 )}
               </span>
               <span
-                className={`${inHeader ? "mt-1 text-[10px]" : "mt-1.5 text-xs"} hidden whitespace-nowrap font-semibold sm:block ${inHeader ? (index + 1 <= active ? "text-white" : "text-white/70") : index + 1 <= active ? "text-[#21140A]" : "text-slate-400"}`}
+                className={`${inHeader ? "mt-1 text-[10px]" : "mt-1.5 text-xs"} hidden whitespace-nowrap font-semibold sm:block ${inHeader ? (index + 1 <= active ? "text-ink" : "text-ink/80") : index + 1 <= active ? "text-ink" : "text-slate-400"}`}
               >
                 {label}
               </span>
             </span>
             {index < steps.length - 1 && (
               <span
-                className={`${inHeader ? "mx-2 mt-3.5 sm:mx-2.5" : "mx-2 mt-4 sm:mx-3"} h-0.5 min-w-5 flex-1 ${inHeader ? (index + 1 < active ? "bg-white" : "bg-white/30") : index + 1 < active ? "bg-[#FF8A05]" : "bg-slate-200"}`}
+                className={`${inHeader ? "mx-2 mt-3.5 sm:mx-2.5" : "mx-2 mt-4 sm:mx-3"} h-0.5 min-w-5 flex-1 ${inHeader ? (index + 1 < active ? "bg-ink" : "bg-ink/20") : index + 1 < active ? "bg-brand" : "bg-slate-200"}`}
               />
             )}
           </div>
@@ -1762,7 +1802,7 @@ function ReviewSection({
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-lg font-black">{title}</h3>
-        <button type="button" onClick={onEdit} aria-label={editLabel} className="min-h-11 rounded-full bg-orange-50 px-4 text-sm font-bold text-[#B85E00]">
+        <button type="button" onClick={onEdit} aria-label={editLabel} className="min-h-11 rounded-full bg-orange-50 px-4 text-sm font-bold text-brand-deep">
           Edit
         </button>
       </div>

@@ -103,7 +103,7 @@ export function ThailandDestinationMap() {
           <div className="pt-1 lg:sticky lg:top-28">
             <h2
               id="destination-map-heading"
-              className="max-w-[460px] text-[23.67px] font-bold tracking-[-.04em] text-[#211726] sm:text-[2rem]"
+              className="max-w-[460px] text-[23.67px] font-bold tracking-[-.04em] text-ink sm:text-[2rem]"
             >
               {t("map.heading")}
             </h2>
@@ -267,7 +267,7 @@ function DestinationColumn({ title, items, color, ring = false, activeSlug, onSe
               onExpand(item.slug);
             }}
             onBlur={onCollapse}
-            className={`px-2 py-1.5 text-left transition-colors focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8a05] ${activeSlug === item.slug ? "font-black text-black" : "hover:text-black"}`}
+            className={`px-2 py-1.5 text-left transition-colors focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${activeSlug === item.slug ? "font-black text-black" : "hover:text-black"}`}
           >
             {t(`dest.${item.slug}` as MessageKey)}
           </button>
@@ -285,15 +285,15 @@ function DestinationColumn({ title, items, color, ring = false, activeSlug, onSe
             aria-expanded={isOpen}
             aria-controls={panelId}
             onClick={() => setIsOpen((open) => !open)}
-            className="flex w-full items-center justify-between border-y border-[#a7adb6] py-6 text-left text-sm font-black uppercase tracking-[.13em] text-[#211726] transition-colors hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff8a05] sm:py-7"
+            className="flex w-full items-center justify-between border-y border-[#a7adb6] py-6 text-left text-sm font-black uppercase tracking-[.13em] text-ink transition-colors hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand sm:py-7"
           >
             <span className="flex items-center gap-4">
-              <span className={`size-3 rounded-full ${ring ? "border-[3px] border-[#ff8a05]" : ""}`} style={{ backgroundColor: color }} />
+              <span className={`size-3 rounded-full ${ring ? "border-[3px] border-brand" : ""}`} style={{ backgroundColor: color }} />
               {title}
             </span>
             <span className="relative mr-1 block size-7" aria-hidden="true">
-              <span className="absolute left-0 top-1/2 h-[2px] w-7 -translate-y-1/2 rounded-full bg-[#211726]" />
-              <span className={`absolute left-1/2 top-0 h-7 w-[2px] -translate-x-1/2 rounded-full bg-[#211726] transition-transform duration-300 ease-out ${isOpen ? "scale-y-0" : "scale-y-100"}`} />
+              <span className="absolute left-0 top-1/2 h-[2px] w-7 -translate-y-1/2 rounded-full bg-ink" />
+              <span className={`absolute left-1/2 top-0 h-7 w-[2px] -translate-x-1/2 rounded-full bg-ink transition-transform duration-300 ease-out ${isOpen ? "scale-y-0" : "scale-y-100"}`} />
             </span>
           </button>
         </h3>
@@ -305,8 +305,8 @@ function DestinationColumn({ title, items, color, ring = false, activeSlug, onSe
       </div>
 
       <div className="hidden lg:block">
-        <h3 className="flex items-center gap-4 text-sm font-black uppercase tracking-[.13em] text-[#211726]">
-          <span className={`size-3 rounded-full ${ring ? "border-[3px] border-[#ff8a05]" : ""}`} style={{ backgroundColor: color }} />
+        <h3 className="flex items-center gap-4 text-sm font-black uppercase tracking-[.13em] text-ink">
+          <span className={`size-3 rounded-full ${ring ? "border-[3px] border-brand" : ""}`} style={{ backgroundColor: color }} />
           {title}
         </h3>
         {destinationItems("mt-6 grid grid-cols-4 gap-x-5 gap-y-2.5 text-[15px] font-semibold text-slate-600")}

@@ -1,3 +1,5 @@
+import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { getMessages, translate, type Locale } from "@/lib/i18n";
 
@@ -9,23 +11,22 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
       title: t("services.ride.title"),
       href: "/a-to-b-transfer",
       text: t("services.ride.text"),
-      image: "/service-ride-orange.png",
+      image: { src: "/service-ride-orange.png", width: 520, height: 340 },
       alt: t("services.ride.alt"),
     },
     {
       title: t("services.reserve.title"),
       href: "/faq",
       text: t("services.reserve.text"),
-      image: "/service-reserve.png",
+      image: { src: "/service-reserve.png", width: 220, height: 180 },
       alt: t("services.reserve.alt"),
     },
     {
       title: t("services.dayTrips.title"),
       href: "/hourly-driver",
       text: t("services.dayTrips.text"),
-      image: "/service-daytrip-route-vertical.png",
+      image: { src: "/service-daytrip-route-vertical.png", width: 360, height: 540 },
       alt: t("services.dayTrips.alt"),
-      imageClass: "service-card-image--large",
     },
   ];
   return (
@@ -33,33 +34,40 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
       id="services"
       className="mx-auto max-w-[1024px] px-5 pt-10 lg:px-0 lg:pt-14"
     >
-      <h2 className={`${locale === "en" ? "whitespace-nowrap" : "text-balance"} text-[23.67px] font-bold tracking-[-.04em] sm:text-[2rem]`}>
+      {/* Wraps in every language: forcing one line pushed the English
+          heading 25px past a 390px phone screen. */}
+      <h2 className="text-balance text-[23.67px] font-bold tracking-[-.03em] sm:text-[2rem]">
         {t("services.heading")}
       </h2>
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         {cards.map((card) => (
           <article
             key={card.title}
-            className="relative min-h-[190px] overflow-hidden rounded-2xl bg-[#f3f3f3] p-5"
+            className="group flex min-h-[190px] flex-col rounded-2xl bg-surface p-5 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
-            <div className="relative z-10 w-[70%]">
-              <h3 className="text-lg font-bold">{card.title}</h3>
-              <p className="mt-2 text-sm leading-5 text-[#17171a]">
-                {card.text}
-              </p>
+            <div className="grid flex-1 grid-cols-[1fr_96px] items-start gap-4">
+              <div>
+                <h3 className="text-lg font-bold">{card.title}</h3>
+                <p className="mt-2 text-sm leading-5 text-ink/80">{card.text}</p>
+              </div>
+              {/* Real dimensions reserve the space, so the card does not jump as it loads. */}
+              <Image
+                src={card.image.src}
+                width={card.image.width}
+                height={card.image.height}
+                alt={card.alt}
+                unoptimized
+                className="h-[92px] w-full object-contain transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+              />
             </div>
             <Link
               href={card.href}
-              className="absolute bottom-4 left-5 z-10 inline-flex rounded-full bg-white px-4 py-2 text-sm font-bold transition hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A05]"
+              className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-bold shadow-sm transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               {t("services.details")}
               <span className="sr-only"> {t("services.detailsAbout", { title: card.title })}</span>
+              <ArrowRight size={15} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5" />
             </Link>
-            <img
-              className={`service-card-image ${card.imageClass ?? ""}`}
-              src={card.image}
-              alt={card.alt}
-            />
           </article>
         ))}
       </div>

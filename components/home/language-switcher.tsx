@@ -95,7 +95,7 @@ export function LanguageSwitcher({ tone = "light" }: { tone?: "light" | "dark" }
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={t("lang.changeLabel", { name: current.name })}
-        className={`flex items-center gap-2.5 rounded-full py-1 text-[15px] font-medium focus-visible:outline-none focus-visible:ring-2 ${tone === "light" ? "text-white focus-visible:ring-white/70" : "text-[#21140A] focus-visible:ring-[#FF8A05]"}`}
+        className={`flex items-center gap-2.5 rounded-full py-1 text-[15px] font-medium focus-visible:outline-none focus-visible:ring-2 ${tone === "light" ? "text-ink focus-visible:ring-ink/60" : "text-ink focus-visible:ring-brand"}`}
       >
         <Flag code={current.code} />
         <span>
@@ -106,7 +106,7 @@ export function LanguageSwitcher({ tone = "light" }: { tone?: "light" | "dark" }
         <div
           role="listbox"
           aria-label={t("lang.choose")}
-          className="absolute left-1/2 top-full z-50 mt-3 w-[180px] -translate-x-1/2 rounded-[3px] bg-white text-[15px] text-[#21140A] shadow-[0_6px_24px_rgb(0_0_0/0.18)]"
+          className="absolute left-1/2 top-full z-50 mt-3 w-[180px] -translate-x-1/2 rounded-[3px] bg-white text-[15px] text-ink shadow-[0_6px_24px_rgb(0_0_0/0.18)]"
         >
           <span
             aria-hidden="true"
