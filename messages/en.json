@@ -130,5 +130,7 @@
   "footer.privacy": "Privacy Policy",
   "footer.rights": "© 2026 Waydidi. All rights reserved.",
   "payment.cancelledRestored": "Payment was cancelled. Your trip details were restored, and you can continue when ready.",
-  "payment.cancelled": "Payment was cancelled. No booking was charged; review your trip and try again when ready."
+  "payment.cancelled": "Payment was cancelled. No booking was charged; review your trip and try again when ready.",
+  "search.enterAddresses": "Enter your pickup and drop-off addresses.",
+  "search.enterPickup": "Enter your pickup address."
 }

@@ -526,5 +526,13 @@
   "payment.cancelled": {
     "text": "付款已取消，未产生任何扣款。请核对行程，准备好后重试。",
     "status": "machine"
+  },
+  "search.enterAddresses": {
+    "text": "请输入上车和下车地址。",
+    "status": "machine"
+  },
+  "search.enterPickup": {
+    "text": "请输入上车地址。",
+    "status": "machine"
   }
 }
