@@ -41,6 +41,7 @@ import {
 import { validateBookingReview, type ReviewFieldErrors } from "@/lib/booking-review";
 import { aboutHref, navMenus, NavDropdown } from "./nav";
 import { DateTimePicker } from "./date-time-picker";
+import { LanguageSwitcher } from "./language-switcher";
 import { formatCompactDate, formatTimeLabel } from "./dates";
 
 type Stage = "search" | "vehicle" | "payment" | "review" | "confirmation";
@@ -800,6 +801,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
               >
                 About Waydidi
               </Link>
+              <LanguageSwitcher />
               <Link
                 href="/booking/manage"
                 className="flex h-12 items-center gap-2 rounded-full bg-white px-6 font-bold text-[#D96F00] transition-colors duration-500 hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#FF8A05]"
@@ -872,6 +874,9 @@ export function BookingFlow({ children }: { children: ReactNode }) {
                   </div>
                 </nav>
                 <div className="mt-auto border-t border-slate-200 bg-white px-6 py-6">
+                  <div className="mb-4 flex justify-center">
+                    <LanguageSwitcher tone="dark" />
+                  </div>
                   <SheetClose asChild>
                     <Link
                       href="/booking/manage"
