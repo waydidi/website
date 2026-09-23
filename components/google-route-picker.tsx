@@ -3,6 +3,7 @@
 
 import { MapPin, Route } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 
 declare global {
   interface Window {
@@ -40,6 +41,7 @@ export function GoogleRoutePicker({
   connectedMobile?: boolean;
   showPreviewMap?: boolean;
 }) {
+  const { t } = useI18n();
   const pickupRef = useRef<HTMLInputElement>(null);
   const dropoffRef = useRef<HTMLInputElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -188,15 +190,15 @@ export function GoogleRoutePicker({
           <MapPin size={18} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-slate-500">From</span>
+          <span className="block text-sm font-semibold text-slate-500">{t("route.from")}</span>
           <input
             ref={pickupRef}
             required
             value={pickup}
             onChange={(event) => onPickupChange(event.target.value)}
             className={fieldClass}
-            placeholder="Enter your pick-up location"
-            aria-label="Pickup location"
+            placeholder={t("route.pickupPlaceholder")}
+            aria-label={t("route.pickupLabel")}
             autoComplete="off"
           />
         </span></span>
@@ -207,15 +209,15 @@ export function GoogleRoutePicker({
           <MapPin size={18} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-slate-500">To</span>
+          <span className="block text-sm font-semibold text-slate-500">{t("route.to")}</span>
           <input
             ref={dropoffRef}
             required
             value={dropoff}
             onChange={(event) => onDropoffChange(event.target.value)}
             className={fieldClass}
-            placeholder="Where are you headed?"
-            aria-label="Drop-off location"
+            placeholder={t("route.dropoffPlaceholder")}
+            aria-label={t("route.dropoffLabel")}
             autoComplete="off"
           />
         </span></span>
