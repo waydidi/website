@@ -9,13 +9,18 @@ import {
   Truck,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { getDb } from "@/db";
-import { bookings } from "@/db/schema";
+import { bookingPayments, bookings } from "@/db/schema";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AdminKeyLogin } from "@/components/admin-key-login";
 import { RefundActions } from "@/components/refund-actions";
+import { BookingDeleteButton } from "@/components/booking-delete-button";
+import { PaymentReconciliationButton } from "@/components/payment-reconciliation-button";
+import { backfillUnifiedPaymentFields } from "@/lib/payment-backfill";
+import { legacyPaymentProvider } from "@/lib/payment-model";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -28,25 +33,34 @@ const statusStyle: Record<string, string> = {
   pending_payment: "bg-amber-100 text-amber-900",
   cancelled: "bg-red-100 text-red-800",
   completed: "bg-blue-100 text-blue-800",
+  binned: "bg-slate-200 text-slate-700",
+  expired: "bg-slate-200 text-slate-700",
 };
 
-export default async function BookingAdminPage() {
+export default async function BookingAdminPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
   const access = await requireWaydidiAdmin("/admin/bookings");
   if (!access.authorized) {
     return <AdminKeyLogin configured={access.configured} />;
   }
+  const view = (await searchParams).view === "bin" ? "bin" : "active";
+  await backfillUnifiedPaymentFields();
 
-  const rows = await getDb()
+  const allRows = await getDb()
     .select()
     .from(bookings)
     .orderBy(desc(bookings.createdAt))
     .limit(100);
-  const confirmed = rows.filter((row) => row.status === "confirmed").length;
-  const pending = rows.filter((row) => row.status === "pending_payment").length;
-  const emailIssues = rows.filter(
+  const paymentRows = await getDb().select().from(bookingPayments).orderBy(desc(bookingPayments.createdAt)).limit(200);
+  const paymentsByBooking = new Map(paymentRows.map((payment) => [payment.bookingReference, payment]));
+  const binRows = allRows.filter((row) => row.status === "binned");
+  const activeRows = allRows.filter((row) => row.status !== "binned");
+  const rows = view === "bin" ? binRows : activeRows;
+  const confirmed = activeRows.filter((row) => row.status === "confirmed").length;
+  const pending = activeRows.filter((row) => row.status === "pending_payment").length;
+  const emailIssues = activeRows.filter(
     (row) => row.status === "confirmed" && row.emailStatus !== "sent",
   ).length;
-  const pendingRefunds = rows.filter((row) => row.refundStatus === "awaiting_approval").length;
+  const pendingRefunds = activeRows.filter((row) => row.refundStatus === "awaiting_approval").length;
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-[#1f1726] sm:px-8">
@@ -67,10 +81,11 @@ export default async function BookingAdminPage() {
               Bookings
             </h1>
             <p className="mt-2 text-slate-500">
-              Latest 100 bookings · signed in as {access.user.email}
+              {view === "bin" ? "Bookings are permanently deleted 30 days after they enter the bin." : `Latest 100 bookings · signed in as ${access.user.email}`}
             </p>
           </div>
           <div className="flex gap-2 text-sm font-bold">
+            <PaymentReconciliationButton auto={pending > 0} />
             <span className="rounded-full bg-emerald-100 px-4 py-2 text-emerald-800">
               {confirmed} confirmed
             </span>
@@ -119,6 +134,7 @@ export default async function BookingAdminPage() {
             Pricing areas
           </a>
         </nav>
+        <div className="mt-6 flex w-fit gap-1 rounded-full bg-slate-200 p-1 text-sm font-bold"><Link href="/admin/bookings" className={`rounded-full px-4 py-2 ${view === "active" ? "bg-white text-[#211726] shadow-sm" : "text-slate-600"}`}>Active bookings</Link><Link href="/admin/bookings?view=bin" className={`rounded-full px-4 py-2 ${view === "bin" ? "bg-white text-[#211726] shadow-sm" : "text-slate-600"}`}>Bin ({binRows.length})</Link></div>
         <section className="mt-7 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1150px] text-left text-sm">
@@ -131,8 +147,10 @@ export default async function BookingAdminPage() {
                   <th className="px-5 py-4">Pickup</th>
                   <th className="px-5 py-4">Vehicle</th>
                   <th className="px-5 py-4">Total</th>
+                  <th className="px-5 py-4">Payment</th>
                   <th className="px-5 py-4">Refund</th>
                   <th className="px-5 py-4">Email</th>
+                  <th className="px-5 py-4">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -168,12 +186,29 @@ export default async function BookingAdminPage() {
                     <td className="max-w-[300px] px-5 py-4">
                       <p className="font-bold">{row.pickup}</p>
                       <p className="mt-1 text-slate-500">to {row.dropoff}</p>
+                      {row.returnDate && (
+                        <p className="mt-2 border-t border-slate-100 pt-2 text-xs font-bold text-[#B85E00]">
+                          Return: {row.returnPickup ?? row.dropoff} to {row.returnDropoff ?? row.pickup}
+                        </p>
+                      )}
+                      {row.flightNumber && (
+                        <div className="mt-2 rounded-xl bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                          <p className="font-black">Flight {row.flightNumber.toUpperCase()}{row.flightStatus ? ` · ${row.flightStatus.replaceAll("_", " ")}` : ""}</p>
+                          {row.flightAirline && <p className="mt-1">{row.flightAirline}</p>}
+                          {(row.flightEstimatedArrival || row.flightScheduledArrival) && <p className="mt-1">Arrival {new Date(row.flightEstimatedArrival ?? row.flightScheduledArrival!).toLocaleString("en-GB", { timeZone: "Asia/Bangkok" })}{row.flightArrivalAirport ? ` · ${row.flightArrivalAirport}` : ""}</p>}
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-4 font-bold">
                       {row.pickupDate}
                       <p className="mt-1 font-normal text-slate-500">
                         {row.pickupTime}
                       </p>
+                      {row.returnDate && row.returnTime && (
+                        <p className="mt-2 text-xs font-bold text-[#B85E00]">
+                          Return {row.returnDate} · {row.returnTime}
+                        </p>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       {row.vehicle}
@@ -185,7 +220,14 @@ export default async function BookingAdminPage() {
                       ฿{row.total.toLocaleString()}
                     </td>
                     <td className="px-5 py-4">
-                      {row.refundStatus === "awaiting_approval" ? (
+                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{paymentsByBooking.get(row.reference)?.provider ?? legacyPaymentProvider(row.paymentMethod)}</p>
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${row.paymentStatus === "paid" ? "bg-emerald-100 text-emerald-800" : row.paymentStatus === "failed" || row.paymentStatus === "expired" || row.paymentStatus === "disputed" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-900"}`}>{(row.paymentMethod === "cash" && row.paymentStatus === "pending" ? "cash_due" : row.paymentStatus).replaceAll("_", " ")}</span>
+                      {row.paymentMethod === "stripe" && row.paymentStatus !== "paid" && <div className="mt-2"><PaymentReconciliationButton reference={row.reference} /></div>}
+                    </td>
+                    <td className="px-5 py-4">
+                      {view === "bin" ? (
+                        <span className="text-slate-500">Preserved</span>
+                      ) : row.refundStatus === "awaiting_approval" ? (
                         <div className="space-y-3">
                           <div>
                             <span className="inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-black text-[#B85D00]">Awaiting approval</span>
@@ -218,15 +260,16 @@ export default async function BookingAdminPage() {
                         </span>
                       )}
                     </td>
+                    <td className="px-5 py-4"><BookingDeleteButton reference={row.reference} binned={view === "bin"} purgeAfter={row.purgeAfter} /></td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={11}
                       className="px-5 py-16 text-center text-slate-500"
                     >
-                      No bookings yet.
+                      {view === "bin" ? "The bin is empty." : "No bookings yet."}
                     </td>
                   </tr>
                 )}

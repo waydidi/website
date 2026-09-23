@@ -14,7 +14,7 @@ export async function POST(request:Request){
   if(!canManageStatus(booking.status)||pickupInstant(booking.pickupDate,booking.pickupTime)-Date.now()<24*HOUR)return NextResponse.json({error:"Online cancellation closes 24 hours before pickup."},{status:409});
   if(booking.bookingVersion!==input.bookingVersion)return NextResponse.json({error:"This booking changed in another session. Refresh and try again."},{status:409});
   const active=await getDb().select().from(bookingAssignments).where(and(eq(bookingAssignments.bookingReference,booking.reference),isNull(bookingAssignments.revokedAt)));
-  if(active.some(a=>["going_to_standby","standby","passenger_picked_up","completed"].includes(a.currentStatus)))return NextResponse.json({error:"This journey has started. Contact Waydidi support."},{status:409});
+  if(active.some(a=>["going_to_standby","standby","passenger_verified","trip_started","passenger_picked_up","completed"].includes(a.currentStatus)))return NextResponse.json({error:"Your driver has started this journey. Contact Waydidi support."},{status:409});
   const refundStatus=booking.paymentMethod==="cash"?"not_required":"awaiting_approval";
   if(booking.paymentMethod!=="cash"&&!booking.paymentIntentId)return NextResponse.json({error:"Payment details are not ready. Contact Waydidi support."},{status:409});
   const now=new Date().toISOString();

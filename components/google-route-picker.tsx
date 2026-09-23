@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { MapPin, Route } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -26,6 +27,8 @@ export function GoogleRoutePicker({
   onRouteChange,
   pickupOnly = false,
   onPickupPlaceChange,
+  connectedMobile = false,
+  showPreviewMap = false,
 }: {
   pickup: string;
   dropoff: string;
@@ -34,6 +37,8 @@ export function GoogleRoutePicker({
   onRouteChange: (value: RouteInfo | null) => void;
   pickupOnly?: boolean;
   onPickupPlaceChange?: (placeId: string) => void;
+  connectedMobile?: boolean;
+  showPreviewMap?: boolean;
 }) {
   const pickupRef = useRef<HTMLInputElement>(null);
   const dropoffRef = useRef<HTMLInputElement>(null);
@@ -84,12 +89,12 @@ export function GoogleRoutePicker({
       !mapReady ||
       !window.google?.maps ||
       !pickupRef.current ||
-      (!pickupOnly && !mapRef.current) ||
+      (!pickupOnly && showPreviewMap && !mapRef.current) ||
       (!pickupOnly && !dropoffRef.current)
     )
       return;
     const maps = window.google.maps;
-    const map = mapRef.current ? new maps.Map(mapRef.current, {
+    const map = showPreviewMap && mapRef.current ? new maps.Map(mapRef.current, {
       center: { lat: 13.7563, lng: 100.5018 },
       zoom: 10,
       mapTypeControl: false,
@@ -171,54 +176,52 @@ export function GoogleRoutePicker({
       maps.event.clearInstanceListeners(pickupAutocomplete);
       if (dropoffAutocomplete) maps.event.clearInstanceListeners(dropoffAutocomplete);
     };
-  }, [mapReady, pickupOnly]);
+  }, [mapReady, pickupOnly, showPreviewMap]);
 
   const fieldClass =
-    "w-full bg-transparent text-[16px] text-slate-950 outline-none placeholder:text-slate-400";
+    "w-full bg-transparent text-[15px] font-semibold text-slate-950 outline-none placeholder:font-normal placeholder:text-slate-400 lg:text-base";
   return (
     <>
-      <label className="flex min-h-[64px] items-center gap-3 border-b border-slate-100 px-4 py-3 lg:border-b-0">
-        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[#D96F00]">
+      <label className={`block min-w-0 ${connectedMobile ? "order-2 lg:order-none" : ""}`}>
+        <span className={`flex min-h-14 items-center gap-2 px-3 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
+        <span className="grid size-8 shrink-0 place-items-center text-[#FF8A05]">
           <MapPin size={18} />
         </span>
-        <span className="w-full">
-          <span className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-            From
-          </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-slate-500">From</span>
           <input
             ref={pickupRef}
             required
             value={pickup}
             onChange={(event) => onPickupChange(event.target.value)}
             className={fieldClass}
-            placeholder="City, hotel or airport"
+            placeholder="Enter your pick-up location"
             aria-label="Pickup location"
             autoComplete="off"
           />
-        </span>
+        </span></span>
       </label>
-      {!pickupOnly && <label className="flex min-h-[64px] items-center gap-3 border-b border-slate-100 px-4 py-3 lg:border-b-0">
-        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[#D96F00]">
+      {!pickupOnly && <label className={`block min-w-0 ${connectedMobile ? "order-3 lg:order-none" : "mt-3 lg:mt-0"}`}>
+        <span className={`flex min-h-14 items-center gap-2 px-3 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
+        <span className="grid size-8 shrink-0 place-items-center text-[#FF8A05]">
           <MapPin size={18} />
         </span>
-        <span className="w-full">
-          <span className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-            To
-          </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-slate-500">To</span>
           <input
             ref={dropoffRef}
             required
             value={dropoff}
             onChange={(event) => onDropoffChange(event.target.value)}
             className={fieldClass}
-            placeholder="City, hotel or airport"
+            placeholder="Where are you headed?"
             aria-label="Drop-off location"
             autoComplete="off"
           />
-        </span>
+        </span></span>
       </label>}
-      {mapReady && !pickupOnly && (
-        <div className="col-span-full border-t border-slate-200 bg-white p-3">
+      {showPreviewMap && mapReady && !pickupOnly && (
+        <div className={`col-span-full border-t border-slate-200 bg-white p-3 ${connectedMobile ? "order-6 lg:order-none" : ""}`}>
           <div
             ref={mapRef}
             className="h-[260px] w-full overflow-hidden rounded-xl bg-slate-100"

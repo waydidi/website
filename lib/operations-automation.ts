@@ -108,7 +108,7 @@ function activeAlert(booking: Booking, assignment: Assignment | undefined, now: 
     return { type: "standby_late", severity: "critical", title: "Driver is late to standby", details: "The driver is not marked as standing by 15 minutes after pickup time.", expectedAt: pickup + 15 * MINUTE };
   }
   const expectedDropoff = pickup + Math.max(15 * MINUTE, (booking.routeDurationSeconds ?? DEFAULT_ROUTE_SECONDS) * 1000);
-  if (now >= expectedDropoff + 30 * MINUTE && assignment.currentStatus === "passenger_picked_up") {
+  if (now >= expectedDropoff + 30 * MINUTE && ["trip_started", "passenger_picked_up"].includes(assignment.currentStatus)) {
     return { type: "dropoff_late", severity: "critical", title: "Drop-off is overdue", details: "The journey is still active 30 minutes after the estimated drop-off time.", expectedAt: expectedDropoff + 30 * MINUTE };
   }
   return null;

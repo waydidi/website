@@ -1,10 +1,13 @@
 import { env } from "cloudflare:workers";
-import { and, count, eq, gt, lt } from "drizzle-orm";
+import { and, count, eq, gt } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { checkoutAttempts, fareQuotes } from "@/db/schema";
+import { BOOKING_TIMEZONE, bangkokDepartureIso } from "@/lib/booking-time";
+import { fareQuoteInputSchema, validationError } from "@/lib/booking-validation";
 import { matchPublishedArea, pricesForArea } from "@/lib/pricing";
 import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
+import { logOperationalError, monitoredHeaders, requestIdFor } from "@/lib/observability";
 
 type Place = {
   id: string;
@@ -27,6 +30,8 @@ async function getPlace(placeId: string, key: string) {
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
+  const requestId = requestIdFor(request);
   if (!sameOrigin(request) || !isJsonRequest(request))
     return NextResponse.json({ error: "Request blocked" }, { status: 403 });
   if (!env.GOOGLE_MAPS_SERVER_KEY)
@@ -59,20 +64,9 @@ export async function POST(request: Request) {
       fingerprintHash: fingerprint,
       createdAt: new Date().toISOString(),
     });
-  const input = (await request.json()) as {
-    pickupPlaceId?: string;
-    dropoffPlaceId?: string;
-  };
-  if (
-    !input.pickupPlaceId ||
-    !input.dropoffPlaceId ||
-    input.pickupPlaceId.length > 300 ||
-    input.dropoffPlaceId.length > 300
-  )
-    return NextResponse.json(
-      { error: "Select both locations from Google Maps" },
-      { status: 400 },
-    );
+  const parsed = fareQuoteInputSchema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json(validationError(parsed), { status: 400 });
+  const input = parsed.data;
   try {
     const [pickup, dropoff] = await Promise.all([
       getPlace(input.pickupPlaceId, env.GOOGLE_MAPS_SERVER_KEY),
@@ -89,6 +83,7 @@ export async function POST(request: Request) {
         { error: "This destination needs a custom quote", manualReview: true },
         { status: 422 },
       );
+    const departureTime = bangkokDepartureIso(input.pickupDate, input.pickupTime)!;
     const routeResponse = await fetch(
       "https://routes.googleapis.com/directions/v2:computeRoutes",
       {
@@ -96,7 +91,7 @@ export async function POST(request: Request) {
         headers: {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": env.GOOGLE_MAPS_SERVER_KEY,
-          "X-Goog-FieldMask": "routes.distanceMeters,routes.duration",
+          "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline",
         },
         body: JSON.stringify({
           origin: {
@@ -116,13 +111,14 @@ export async function POST(request: Request) {
             },
           },
           travelMode: "DRIVE",
-          routingPreference: "TRAFFIC_AWARE",
+          routingPreference: departureTime ? "TRAFFIC_AWARE_OPTIMAL" : "TRAFFIC_AWARE",
+          ...(departureTime ? { departureTime, trafficModel: "BEST_GUESS" } : {}),
         }),
       },
     );
     if (!routeResponse.ok) throw new Error("ROUTE_LOOKUP_FAILED");
     const routeData = (await routeResponse.json()) as {
-      routes?: Array<{ distanceMeters?: number; duration?: string }>;
+      routes?: Array<{ distanceMeters?: number; duration?: string; polyline?: { encodedPolyline?: string } }>;
     };
     const route = routeData.routes?.[0];
     if (!route?.distanceMeters || !route.duration)
@@ -138,15 +134,7 @@ export async function POST(request: Request) {
       );
     const id = crypto.randomUUID();
     const now = new Date();
-    const expires = new Date(now.getTime() + 20 * 60 * 1000);
-    await getDb()
-      .delete(fareQuotes)
-      .where(
-        lt(
-          fareQuotes.expiresAt,
-          new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        ),
-      );
+    const expiresAt = "9999-12-31T23:59:59.999Z";
     await getDb()
       .insert(fareQuotes)
       .values({
@@ -159,13 +147,17 @@ export async function POST(request: Request) {
         areaName: area.name,
         distanceMeters: route.distanceMeters,
         durationSeconds,
+        routePolyline: route.polyline?.encodedPolyline ?? null,
         pickupLatitude: pickup.location.latitude,
         pickupLongitude: pickup.location.longitude,
         dropoffLatitude: dropoff.location.latitude,
         dropoffLongitude: dropoff.location.longitude,
         vehiclePricesJson: JSON.stringify(prices),
         pricingVersion: area.version,
-        expiresAt: expires.toISOString(),
+        departureDate: input.pickupDate,
+        departureTime: input.pickupTime,
+        timezone: input.timezone,
+        expiresAt,
         createdAt: now.toISOString(),
       });
     return NextResponse.json({
@@ -178,14 +170,23 @@ export async function POST(request: Request) {
       },
       distanceMeters: route.distanceMeters,
       durationSeconds,
+      averageDurationMinutes: Math.max(5, Math.round(durationSeconds / 300) * 5),
+      encodedPolyline: route.polyline?.encodedPolyline ?? "",
+      pickup: pickup.location,
+      dropoff: dropoff.location,
+      departure: {
+        localDate: input.pickupDate,
+        localTime: input.pickupTime,
+        timezone: BOOKING_TIMEZONE,
+      },
       prices,
-      expiresAt: expires.toISOString(),
+      expiresAt,
     });
   } catch (error) {
-    console.error("Fare quote failed", error);
+    logOperationalError("fare_quote.failed", requestId, error);
     return NextResponse.json(
-      { error: "We could not price this route. Please try again." },
-      { status: 503 },
+      { code: "FARE_QUOTE_UNAVAILABLE", error: "We could not price this route. Please try again.", retryable: true, requestId },
+      { status: 503, headers: monitoredHeaders(requestId, startedAt) },
     );
   }
 }

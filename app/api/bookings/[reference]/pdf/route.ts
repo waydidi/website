@@ -10,7 +10,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   const { reference } = await context.params;
   const token = new URL(request.url).searchParams.get("token") ?? "";
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
-  if (!booking || !token || !constantTimeEqual(await sha256(token), booking.accessTokenHash)) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+  if (!booking || booking.status === "binned" || !token || !constantTimeEqual(await sha256(token), booking.accessTokenHash)) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
   if (booking.status !== "confirmed") return NextResponse.json({ error: "PDF is not ready." }, { status: 409 });
   const pdf = await createConfirmationPdf(booking);
   if (booking.pdfKey && env.BUCKET) {

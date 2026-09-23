@@ -7,6 +7,8 @@ export const DRIVER_STATUSES = [
   "assigned",
   "going_to_standby",
   "standby",
+  "passenger_verified",
+  "trip_started",
   "passenger_picked_up",
   "completed",
 ] as const;
@@ -16,7 +18,9 @@ export type DriverStatus = (typeof DRIVER_STATUSES)[number];
 export const NEXT_DRIVER_STATUS: Partial<Record<DriverStatus, DriverStatus>> = {
   assigned: "going_to_standby",
   going_to_standby: "standby",
-  standby: "passenger_picked_up",
+  standby: "passenger_verified",
+  passenger_verified: "trip_started",
+  trip_started: "completed",
   passenger_picked_up: "completed",
 };
 
@@ -24,6 +28,8 @@ export const DRIVER_STATUS_COPY: Record<DriverStatus, { thai: string; english: s
   assigned: { thai: "เตรียมเดินทาง", english: "Assigned" },
   going_to_standby: { thai: "กำลังไปสแตนบาย", english: "Going to standby" },
   standby: { thai: "สแตนบาย", english: "Standing by" },
+  passenger_verified: { thai: "ยืนยันผู้โดยสารแล้ว", english: "Passenger verified" },
+  trip_started: { thai: "เริ่มการเดินทาง", english: "Trip started" },
   passenger_picked_up: { thai: "รับลูกค้า", english: "Passenger picked up" },
   completed: { thai: "ส่งลูกค้าเรียบร้อย", english: "Drop-off completed" },
 };
@@ -54,4 +60,12 @@ export function distanceMetres(a: { latitude: number; longitude: number }, b: { 
 
 export function evidenceRequired(status: DriverStatus) {
   return status === "standby" || status === "passenger_picked_up" || status === "completed";
+}
+
+export function locationRequired(status: DriverStatus) {
+  return status === "standby" || status === "trip_started" || status === "passenger_picked_up" || status === "completed";
+}
+
+export function adminReviewRequired(status: DriverStatus) {
+  return status === "completed";
 }

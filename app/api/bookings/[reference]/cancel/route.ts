@@ -10,7 +10,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   const { reference } = await context.params;
   const input = await request.json() as { token?: string };
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
-  if (!booking || !input.token || !constantTimeEqual(await sha256(input.token), booking.accessTokenHash)) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+  if (!booking || booking.status === "binned" || !input.token || !constantTimeEqual(await sha256(input.token), booking.accessTokenHash)) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
   if (booking.status === "cancelled") return NextResponse.json({ status: "cancelled", refundStatus: booking.refundStatus });
   if (booking.status !== "confirmed") return NextResponse.json({ error: "This booking cannot be cancelled online." }, { status: 409 });
   const pickup = new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime();

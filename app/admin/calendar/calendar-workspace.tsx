@@ -80,6 +80,8 @@ const statusNames: Record<string, string> = {
   assigned: "Assigned",
   going_to_standby: "Going to standby",
   standby: "Standing by",
+  passenger_verified: "Passenger verified",
+  trip_started: "Trip active",
   passenger_picked_up: "Passenger picked up",
   completed: "Completed",
 };
@@ -237,7 +239,7 @@ export default function CalendarWorkspace({ email }: { email: string }) {
       total: rows.length,
       unassigned: rows.filter((row) => row.status === "confirmed" && !row.assignment).length,
       attention: rows.filter((row) => ["critical", "warning"].includes(row.attention.level)).length,
-      inProgress: rows.filter((row) => row.assignment && ["going_to_standby", "standby", "passenger_picked_up"].includes(row.assignment.currentStatus)).length,
+      inProgress: rows.filter((row) => row.assignment && ["going_to_standby", "standby", "passenger_verified", "trip_started", "passenger_picked_up"].includes(row.assignment.currentStatus)).length,
       completed: rows.filter((row) => row.status === "completed").length,
     };
   }, [data]);

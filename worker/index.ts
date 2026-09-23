@@ -48,7 +48,7 @@ const worker = {
     secured.headers.set("X-Frame-Options", "DENY");
     secured.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
     secured.headers.set("Permissions-Policy", "camera=(self), microphone=(), geolocation=(self)");
-    secured.headers.set("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com");
+    secured.headers.set("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com; connect-src 'self' https://maps.googleapis.com https://*.googleapis.com https://maps.gstatic.com; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com");
     return secured;
   },
   async scheduled(controller: { scheduledTime: number }, _env: Env, ctx: ExecutionContext): Promise<void> {

@@ -8,6 +8,7 @@ type Confirmation = {
   pickupInstructions: string | null; childSeats: number; oversizedLuggage: boolean;
   specialRequests: string | null; paymentMethod?: string;
   serviceType?: string; bookedHours?: number | null; includedDistanceMeters?: number | null; extraHourRate?: number | null; extraDistanceRate?: number | null;
+  returnPickup?: string | null; returnDropoff?: string | null; returnDate?: string | null; returnTime?: string | null;
 };
 
 const orange = rgb(1, 0.541, 0.02);
@@ -51,11 +52,15 @@ export async function createConfirmationPdf(booking: Confirmation) {
     ["Pickup", booking.pickup],
     ["Drop-off", booking.dropoff],
     ["Date & time", `${booking.pickupDate} at ${booking.pickupTime}`],
+    ...(booking.returnDate && booking.returnTime ? [
+      ["Return", `${booking.returnPickup ?? booking.dropoff} to ${booking.returnDropoff ?? booking.pickup}`],
+      ["Return date & time", `${booking.returnDate} at ${booking.returnTime}`],
+    ] : []),
     ["Travelers", `${booking.passengers} passengers - ${booking.luggage} bags`],
     ["Vehicle", booking.vehicle],
     ["Payment", booking.paymentMethod === "cash" ? "Cash at pickup" : "Paid online"],
     ["Total", `THB ${booking.total.toLocaleString()}`],
-  ].slice(0, 10);
+  ].slice(0, 10) as string[][];
 
   fields.forEach(([label, value], index) => {
     const column = index % 2;

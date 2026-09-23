@@ -1,7 +1,7 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { bookingAssignments, bookingEvents, bookingNotifications, bookings, drivers, driverAvailability, driverStatusEvents } from "@/db/schema";
+import { bookingAssignments, bookingEvents, bookingNotifications, bookings, drivers, driverAvailability, driverStatusEvents, journeyExceptions, journeyLocations, passengerVerifications } from "@/db/schema";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { sendDriverAssignmentEmail } from "@/lib/email";
 import { bookingWindow, rangesOverlap } from "@/lib/operations-calendar";
@@ -18,11 +18,13 @@ function emailValid(value: string) {
 export async function GET() {
   const admin = await getWaydidiAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const [bookingRows, driverRows, assignmentRows, eventRows] = await Promise.all([
+  const [bookingRows, driverRows, assignmentRows, eventRows, locationRows, exceptionRows] = await Promise.all([
     getDb().select().from(bookings).orderBy(desc(bookings.createdAt)).limit(150),
     getDb().select().from(drivers).orderBy(drivers.fullName),
     getDb().select().from(bookingAssignments).orderBy(desc(bookingAssignments.assignedAt)).limit(250),
     getDb().select().from(driverStatusEvents).orderBy(desc(driverStatusEvents.createdAt)).limit(600),
+    getDb().select().from(journeyLocations).orderBy(desc(journeyLocations.serverTimestamp)).limit(1000),
+    getDb().select().from(journeyExceptions).orderBy(desc(journeyExceptions.updatedAt)).limit(300),
   ]);
   return NextResponse.json({
     bookings: bookingRows.map((row) => ({
@@ -31,12 +33,13 @@ export async function GET() {
       pickupDate: row.pickupDate, pickupTime: row.pickupTime, passengers: row.passengers,
       luggage: row.luggage, vehicle: row.vehicle, total: row.total, status: row.status,
     })),
-    drivers: driverRows,
+    drivers: driverRows.map((row) => ({ id: row.id, fullName: row.fullName, phone: row.phone, email: row.email, remindersEnabled: row.remindersEnabled, status: row.status, createdAt: row.createdAt, updatedAt: row.updatedAt, idImageKey: row.idImageKey ? "available" : null, carImageKey: row.carImageKey ? "available" : null })),
     assignments: assignmentRows.map((row) => ({
       id: row.id, bookingReference: row.bookingReference, driverId: row.driverId,
       currentStatus: row.currentStatus, assignedBy: row.assignedBy, assignedAt: row.assignedAt,
       tokenExpiresAt: row.tokenExpiresAt, revokedAt: row.revokedAt, completedAt: row.completedAt,
       updatedAt: row.updatedAt,
+      passengerVerifiedAt: row.passengerVerifiedAt, passengerVerificationMethod: row.passengerVerificationMethod,
     })),
     events: eventRows.map((row) => ({
       id: row.id, assignmentId: row.assignmentId, bookingReference: row.bookingReference,
@@ -47,6 +50,8 @@ export async function GET() {
       verifiedBy: row.verifiedBy, verifiedAt: row.verifiedAt,
       rejectionReason: row.rejectionReason, createdAt: row.createdAt,
     })),
+    locations: locationRows.map((row) => ({ id: row.id, bookingReference: row.bookingReference, assignmentId: row.assignmentId, latitude: row.latitude, longitude: row.longitude, accuracyMetres: row.accuracyMetres, clientTimestamp: row.clientTimestamp, serverTimestamp: row.serverTimestamp, sequenceNumber: row.sequenceNumber, quality: row.quality })),
+    exceptions: exceptionRows,
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -122,6 +127,22 @@ export async function POST(request: Request) {
     if (!assignment) return NextResponse.json({ error: "Assignment not found." }, { status: 404 });
     await getDb().update(bookingAssignments).set({ revokedAt: now, updatedAt: now }).where(eq(bookingAssignments.id, assignment.id));
     await getDb().insert(bookingEvents).values({ bookingReference: assignment.bookingReference, eventType: "driver_access_revoked", providerEventId: `revoked:${assignment.id}`, createdAt: now });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (input.action === "override_passenger_verification") {
+    const reason = input.reason?.trim() ?? "";
+    if (reason.length < 3 || reason.length > 300) return NextResponse.json({ error: "Add an override reason (3–300 characters)." }, { status: 400 });
+    const [assignment] = await getDb().select().from(bookingAssignments).where(eq(bookingAssignments.id, input.assignmentId ?? "")).limit(1);
+    if (!assignment) return NextResponse.json({ error: "Assignment not found." }, { status: 404 });
+    if (assignment.currentStatus !== "standby" || assignment.passengerVerifiedAt) return NextResponse.json({ error: "This passenger cannot be overridden at the current trip step." }, { status: 409 });
+    const [{ attempts }] = await getDb().select({ attempts: count() }).from(passengerVerifications).where(eq(passengerVerifications.assignmentId, assignment.id));
+    await getDb().transaction(async (tx) => {
+      await tx.update(bookingAssignments).set({ currentStatus: "passenger_verified", passengerVerifiedAt: now, passengerVerificationMethod: "operations_override", passengerVerifiedBy: admin.email, updatedAt: now }).where(eq(bookingAssignments.id, assignment.id));
+      await tx.insert(passengerVerifications).values({ id: crypto.randomUUID(), bookingReference: assignment.bookingReference, assignmentId: assignment.id, driverId: assignment.driverId, result: "override", attemptNumber: attempts + 1, actor: admin.email, reason, createdAt: now });
+      await tx.insert(driverStatusEvents).values({ id: crypto.randomUUID(), assignmentId: assignment.id, bookingReference: assignment.bookingReference, status: "passenger_verified", previousStatus: "standby", verificationStatus: "verified", verifiedBy: admin.email, verifiedAt: now, driverNote: `Operations override: ${reason}`, createdAt: now });
+      await tx.insert(bookingEvents).values({ bookingReference: assignment.bookingReference, eventType: "passenger_verification_override", providerEventId: `passenger-override:${assignment.id}`, createdAt: now });
+    });
     return NextResponse.json({ ok: true });
   }
 

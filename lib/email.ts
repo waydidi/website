@@ -20,6 +20,13 @@ type ConfirmationEmailInput = {
   retryId?: string;
   serviceType?: string;
   bookedHours?: number | null;
+  tripPin: string;
+  returnPickup?: string | null;
+  returnDropoff?: string | null;
+  returnDate?: string | null;
+  returnTime?: string | null;
+  outboundTotal?: number | null;
+  returnTotal?: number | null;
 };
 
 function toBase64(bytes: Uint8Array) {
@@ -76,6 +83,12 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
   const safeName = escapeHtml(input.name);
   const safeReference = escapeHtml(input.reference);
   const total = `THB ${input.total.toLocaleString("en-US")}`;
+  const returnDetails = input.returnDate && input.returnTime
+    ? `${detailRow("Return pickup", input.returnPickup ?? input.dropoff)}${detailRow("Return drop-off", input.returnDropoff ?? input.pickup)}${detailRow("Return date & time", displayDate(input.returnDate, input.returnTime))}`
+    : "";
+  const fareDetails = input.returnTotal
+    ? `${detailRow("Outbound fare", `THB ${(input.outboundTotal ?? input.total - input.returnTotal).toLocaleString("en-US")}`)}${detailRow("Return fare", `THB ${input.returnTotal.toLocaleString("en-US")}`)}`
+    : "";
   const html = `<!doctype html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"></head>
 <body style="margin:0;background:#f3f5f8;color:#211726;font-family:Arial,Helvetica,sans-serif">
@@ -92,15 +105,18 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
 <tr><td style="padding:34px 38px 38px">
 <p style="margin:0 0 10px;color:#211726;font-size:17px;line-height:1.6">Hi ${safeName},</p>
 <p style="margin:0 0 24px;color:#586579;font-size:16px;line-height:1.6">Your private transfer is confirmed. Keep this email and the attached PDF for your pickup.</p>
+<div style="margin:0 0 24px;padding:22px;border-radius:18px;background:#fff0de;text-align:center"><p style="margin:0;color:#b85e00;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Trip PIN</p><p style="margin:8px 0 4px;color:#211726;font-size:34px;font-weight:800;letter-spacing:.22em">${escapeHtml(input.tripPin)}</p><p style="margin:0;color:#6d7889;font-size:13px">Tell this PIN to your driver at pickup. Do not send it in advance.</p></div>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
 ${detailRow("Service", input.serviceType === "hourly" ? `${input.bookedHours}-hour private driver` : "Private transfer")}
 ${detailRow("Pickup", input.pickup)}
 ${detailRow("Drop-off", input.dropoff)}
 ${detailRow("Date & time", formattedDate)}
+${returnDetails}
 ${detailRow("Travelers", `${input.passengers} passengers - ${input.luggage} bags`)}
 ${detailRow("Vehicle", input.vehicle)}
 ${detailRow("Phone / WhatsApp", input.customerPhone)}
 ${detailRow("Payment", payment)}
+${fareDetails}
 ${detailRow("Total", total)}
 </table>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding-top:30px">
@@ -113,8 +129,10 @@ ${detailRow("Total", total)}
 
   const text = [
     "Your ride is booked.", `Booking reference: ${input.reference}`, "", `Hi ${input.name},`,
-    "Your private transfer is confirmed.", "", `Pickup: ${input.pickup}`, `Drop-off: ${input.dropoff}`,
-    `Date and time: ${formattedDate}`, `Travelers: ${input.passengers} passengers - ${input.luggage} bags`,
+    "Your private transfer is confirmed.", "", `Trip PIN: ${input.tripPin}`, "Tell this PIN to your driver at pickup. Do not send it in advance.", "", `Pickup: ${input.pickup}`, `Drop-off: ${input.dropoff}`,
+    `Date and time: ${formattedDate}`,
+    ...(input.returnDate && input.returnTime ? [`Return: ${input.returnPickup ?? input.dropoff} to ${input.returnDropoff ?? input.pickup}`, `Return date and time: ${displayDate(input.returnDate, input.returnTime)}`] : []),
+    `Travelers: ${input.passengers} passengers - ${input.luggage} bags`,
     `Vehicle: ${input.vehicle}`, `Payment: ${payment}`, `Total: ${total}`, "", `Check your booking: ${checkUrl}`,
   ].join("\n");
 
@@ -133,15 +151,19 @@ ${detailRow("Total", total)}
 export async function sendOperationsAlert(booking: {
   reference: string; customerName: string; customerEmail: string; customerPhone: string; pickup: string; dropoff: string;
   pickupDate: string; pickupTime: string; passengers: number; luggage: number; vehicle: string; total: number; paymentMethod: string;
+  returnPickup?: string | null; returnDropoff?: string | null; returnDate?: string | null; returnTime?: string | null;
 }) {
   if (!env.BOOKING_ALERT_EMAIL) return { status: "pending_configuration" };
   const payment = booking.paymentMethod === "cash" ? "Cash at pickup" : "Paid online";
-  const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:auto;color:#211726"><div style="background:#ff8a05;padding:28px 32px;color:#fff;border-radius:20px 20px 0 0"><p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#ffe1c2">New confirmed booking</p><h1 style="margin:0;font-size:28px">${escapeHtml(booking.reference)}</h1></div><div style="padding:28px 32px;border:1px solid #e6e9ef;border-top:0;border-radius:0 0 20px 20px"><table style="width:100%;border-collapse:collapse">${detailRow("Passenger", booking.customerName)}${detailRow("Email", booking.customerEmail)}${detailRow("Phone", booking.customerPhone)}${detailRow("Pickup", booking.pickup)}${detailRow("Drop-off", booking.dropoff)}${detailRow("Date & time", displayDate(booking.pickupDate, booking.pickupTime))}${detailRow("Travelers", `${booking.passengers} passengers - ${booking.luggage} bags`)}${detailRow("Vehicle", booking.vehicle)}${detailRow("Payment", payment)}${detailRow("Total", `THB ${booking.total.toLocaleString("en-US")}`)}</table></div></div>`;
+  const returnRows = booking.returnDate && booking.returnTime
+    ? `${detailRow("Return pickup", booking.returnPickup ?? booking.dropoff)}${detailRow("Return drop-off", booking.returnDropoff ?? booking.pickup)}${detailRow("Return date & time", displayDate(booking.returnDate, booking.returnTime))}`
+    : "";
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:auto;color:#211726"><div style="background:#ff8a05;padding:28px 32px;color:#fff;border-radius:20px 20px 0 0"><p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#ffe1c2">New confirmed booking</p><h1 style="margin:0;font-size:28px">${escapeHtml(booking.reference)}</h1></div><div style="padding:28px 32px;border:1px solid #e6e9ef;border-top:0;border-radius:0 0 20px 20px"><table style="width:100%;border-collapse:collapse">${detailRow("Passenger", booking.customerName)}${detailRow("Email", booking.customerEmail)}${detailRow("Phone", booking.customerPhone)}${detailRow("Pickup", booking.pickup)}${detailRow("Drop-off", booking.dropoff)}${detailRow("Date & time", displayDate(booking.pickupDate, booking.pickupTime))}${returnRows}${detailRow("Travelers", `${booking.passengers} passengers - ${booking.luggage} bags`)}${detailRow("Vehicle", booking.vehicle)}${detailRow("Payment", payment)}${detailRow("Total", `THB ${booking.total.toLocaleString("en-US")}`)}</table></div></div>`;
   return resend({
     to: [env.BOOKING_ALERT_EMAIL],
     subject: `New confirmed booking · ${booking.reference}`,
     html,
-    text: `New confirmed booking ${booking.reference}\n${booking.customerName} · ${booking.customerPhone}\n${booking.pickup} to ${booking.dropoff}\n${booking.pickupDate} at ${booking.pickupTime}\n${booking.vehicle} · THB ${booking.total.toLocaleString("en-US")} · ${payment}`,
+    text: `New confirmed booking ${booking.reference}\n${booking.customerName} · ${booking.customerPhone}\n${booking.pickup} to ${booking.dropoff}\n${booking.pickupDate} at ${booking.pickupTime}${booking.returnDate && booking.returnTime ? `\nReturn: ${booking.returnPickup ?? booking.dropoff} to ${booking.returnDropoff ?? booking.pickup}\n${booking.returnDate} at ${booking.returnTime}` : ""}\n${booking.vehicle} · THB ${booking.total.toLocaleString("en-US")} · ${payment}`,
   }, `operations-${booking.reference}`);
 }
 

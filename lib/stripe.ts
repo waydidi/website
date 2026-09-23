@@ -1,33 +1,6 @@
 import { env } from "cloudflare:workers";
-
-export const VEHICLES = {
-  economy_sedan: {
-    name: "Economy sedan",
-    total: 1250,
-    capacity: 3,
-    luggageCapacity: 2,
-  },
-  comfort_bmw: {
-    name: "Comfort BMW",
-    total: 1800,
-    capacity: 3,
-    luggageCapacity: 3,
-  },
-  comfort_suv: {
-    name: "Comfort SUV",
-    total: 2200,
-    capacity: 4,
-    luggageCapacity: 4,
-  },
-  premium_minivan: {
-    name: "Premium Minivan",
-    total: 2850,
-    capacity: 9,
-    luggageCapacity: 8,
-  },
-} as const;
-
-export type VehicleId = keyof typeof VEHICLES;
+import { VEHICLES, type VehicleId } from "@/lib/vehicles";
+export { VEHICLES, type VehicleId } from "@/lib/vehicles";
 
 export async function createCheckoutSession(input: {
   reference: string;
@@ -36,6 +9,7 @@ export async function createCheckoutSession(input: {
   vehicle: VehicleId;
   total: number;
   origin: string;
+  idempotencyKey: string;
 }) {
   if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_NOT_CONFIGURED");
   const selected = VEHICLES[input.vehicle];
@@ -49,13 +23,14 @@ export async function createCheckoutSession(input: {
     "line_items[0][price_data][product_data][name]": `Waydidi · ${selected.name}`,
     "line_items[0][quantity]": "1",
     "metadata[booking_reference]": input.reference,
+    "payment_intent_data[metadata][booking_reference]": input.reference,
   });
   const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "Idempotency-Key": `checkout-${input.reference}`,
+      "Idempotency-Key": `checkout-${input.idempotencyKey}`,
     },
     body: params,
   });
@@ -71,6 +46,18 @@ export async function createCheckoutSession(input: {
   return { id: result.id, url: result.url };
 }
 
+export type StripeCheckoutSession = {
+  id?: string;
+  payment_intent?: string;
+  payment_status?: string;
+  status?: string;
+  url?: string | null;
+  amount_total?: number;
+  currency?: string;
+  metadata?: { booking_reference?: string };
+  error?: { message?: string };
+};
+
 export async function retrieveCheckoutSession(sessionId: string) {
   if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_NOT_CONFIGURED");
   if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) throw new Error("INVALID_SESSION");
@@ -80,15 +67,7 @@ export async function retrieveCheckoutSession(sessionId: string) {
       headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` },
     },
   );
-  const result = (await response.json()) as {
-    id?: string;
-    payment_intent?: string;
-    payment_status?: string;
-    amount_total?: number;
-    currency?: string;
-    metadata?: { booking_reference?: string };
-    error?: { message?: string };
-  };
+  const result = (await response.json()) as StripeCheckoutSession;
   if (!response.ok || !result.id)
     throw new Error(result.error?.message ?? "Stripe session unavailable.");
   return result;

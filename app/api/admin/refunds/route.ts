@@ -4,8 +4,9 @@ import { getDb } from "@/db";
 import { bookingChanges, bookingEvents, bookings, operationsAlerts } from "@/db/schema";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { sendRefundDecisionEmail } from "@/lib/email";
+import { legacyPaymentProvider } from "@/lib/payment-model";
+import { paymentProviderFor } from "@/lib/payments/provider";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
-import { refundPayment } from "@/lib/stripe";
 
 export async function POST(request:Request){
   const admin=await getWaydidiAdmin();
@@ -28,9 +29,9 @@ export async function POST(request:Request){
     return NextResponse.json({ok:true,status:"declined"});
   }
   if(!booking.paymentIntentId)return NextResponse.json({error:"This booking has no card payment to refund."},{status:409});
-  const refund=await refundPayment(booking.paymentIntentId,reference);
+  const refund=await paymentProviderFor(legacyPaymentProvider(booking.paymentMethod)).refundPayment(booking.paymentIntentId,reference);
   const refundStatus=refund.status==="succeeded"?"succeeded":"processing";
-  await getDb().update(bookings).set({refundId:refund.id,refundStatus,refundCompletedAt:refundStatus==="succeeded"?now:null,bookingVersion:booking.bookingVersion+1,updatedAt:now}).where(and(eq(bookings.reference,reference),eq(bookings.refundStatus,"awaiting_approval")));
+  await getDb().update(bookings).set({refundId:refund.id,refundStatus,paymentStatus:refundStatus==="succeeded"?"refunded":booking.paymentStatus,paymentStatusUpdatedAt:now,refundCompletedAt:refundStatus==="succeeded"?now:null,bookingVersion:booking.bookingVersion+1,updatedAt:now}).where(and(eq(bookings.reference,reference),eq(bookings.refundStatus,"awaiting_approval")));
   await getDb().insert(bookingChanges).values({id:crypto.randomUUID(),bookingReference:reference,changeType:"refund_approved",previousJson:JSON.stringify({refundStatus:"awaiting_approval"}),nextJson:JSON.stringify({refundStatus,refundId:refund.id}),actor:admin.email,createdAt:now});
   await getDb().insert(bookingEvents).values({bookingReference:reference,eventType:"refund_approved",providerEventId:`refund:${refund.id}`,createdAt:now});
   await resolveAlert(reference,now,`Approved by ${admin.email}`);

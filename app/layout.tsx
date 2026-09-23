@@ -11,7 +11,6 @@ export const metadata: Metadata = {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
   },
-  alternates: { canonical: "/" },
   openGraph: {
     title: "Waydidi — Private Transfers in Thailand",
     description: "Book a comfortable private transfer across Thailand with trusted local drivers.",
@@ -36,8 +35,16 @@ export default function RootLayout({
   };
   return (
     <html lang="en">
-      <body className="antialiased"><PublicPathHeader />{children}</body>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
+      <body className="antialiased">
+        <PublicPathHeader />
+        {children}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+          }}
+        />
+      </body>
     </html>
   );
 }
