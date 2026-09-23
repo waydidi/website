@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n";
+
 export const pickupTimes = Array.from({ length: 96 }, (_, index) => {
   const hours = Math.floor(index / 4);
   const minutes = (index % 4) * 15;
@@ -18,24 +20,9 @@ export function dateValue(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function formatDateLabel(value: string) {
-  return dateFromValue(value).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-export function formatCompactDate(value: string) {
-  return dateFromValue(value).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-export function formatTimeLabel(value: string) {
+// English reads 12-hour; Thai and Chinese readers expect the 24-hour clock.
+export function formatTimeLabel(value: string, locale: Locale = "en") {
+  if (locale !== "en") return value;
   const option = pickupTimes.find((item) => item.value === value);
   return option?.label ?? value;
 }

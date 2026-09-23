@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 
 export function PublicPathHeader() {
   const pathname = usePathname();
-  if (pathname === "/" || pathname.startsWith("/booking/confirmation") || pathname.startsWith("/admin") || pathname.startsWith("/driver")) return null;
+  if (pathname === "/" || pathname === "/th" || pathname === "/zh" || pathname.startsWith("/booking/confirmation") || pathname.startsWith("/admin") || pathname.startsWith("/driver")) return null;
   return <div className="public-path-header"><PublicHeader /></div>;
 }
 

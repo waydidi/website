@@ -1,17 +1,7 @@
-import { BookingFlow } from "@/components/home/booking-flow";
-import { ThailandDestinationMap } from "@/components/home/destination-map";
-import { WaydidiFooter } from "@/components/home/footer";
-import { ServiceCards } from "@/components/home/service-cards";
+import { HomePage, homeMetadata } from "@/components/home/home-page";
 
-// The booking flow is interactive and owns the page; the marketing sections
-// below it render on the server and are handed in as children, so they ship
-// as HTML rather than as part of the client bundle.
+export const metadata = homeMetadata("en");
+
 export default function Home() {
-  return (
-    <BookingFlow>
-      <ServiceCards />
-      <ThailandDestinationMap />
-      <WaydidiFooter />
-    </BookingFlow>
-  );
+  return <HomePage locale="en" />;
 }

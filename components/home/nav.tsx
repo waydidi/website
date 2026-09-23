@@ -3,25 +3,26 @@
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import type { MessageKey } from "@/lib/i18n";
 
 export const navMenus = [
   {
-    label: "Ride",
+    labelKey: "nav.ride",
     links: [
-      { label: "Airport transfer", href: "/airport-transfer" },
-      { label: "A to B", href: "/a-to-b-transfer" },
-      { label: "Long journey", href: "/long-journeys" },
+      { labelKey: "nav.airportTransfer", href: "/airport-transfer" },
+      { labelKey: "nav.aToB", href: "/a-to-b-transfer" },
+      { labelKey: "nav.longJourney", href: "/long-journeys" },
     ],
   },
   {
-    label: "Trip",
+    labelKey: "nav.trip",
     links: [
-      { label: "Hourly private driver", href: "/hourly-driver" },
-      { label: "Destinations", href: "/destinations" },
-      { label: "Airport pickup guide", href: "/airport-pickup-instructions" },
+      { labelKey: "nav.hourlyDriver", href: "/hourly-driver" },
+      { labelKey: "nav.destinations", href: "/destinations" },
+      { labelKey: "nav.pickupGuide", href: "/airport-pickup-instructions" },
     ],
   },
-] as const;
+] as const satisfies readonly { labelKey: MessageKey; links: readonly { labelKey: MessageKey; href: string }[] }[];
 
 export const aboutHref = "/about";
 

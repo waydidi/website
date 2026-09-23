@@ -1,16 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-
-export type Locale = "en" | "th" | "zh";
+import { useI18n } from "@/components/i18n-provider";
+import { localeInfo, locales, type Locale } from "@/lib/i18n";
 
 const LOCALE_COOKIE = "waydidi-lang";
-
-const languages: { code: Locale; name: string; htmlLang: string }[] = [
-  { code: "en", name: "English", htmlLang: "en" },
-  { code: "th", name: "ไทย", htmlLang: "th" },
-  { code: "zh", name: "中文", htmlLang: "zh-Hans" },
-];
 
 // Emoji flags render as bare letters on Windows, so the flags are drawn.
 function Flag({ code, size = 22 }: { code: Locale; size?: number }) {
@@ -53,26 +48,16 @@ function Flag({ code, size = 22 }: { code: Locale; size?: number }) {
   );
 }
 
-function readLocale(): Locale {
-  const match = document.cookie.match(/(?:^|;\s*)waydidi-lang=(en|th|zh)/);
-  return (match?.[1] as Locale | undefined) ?? "en";
-}
-
-function persistLocale(code: Locale, htmlLang: string) {
+// Remembered for pages that are not translated yet, so they can follow later.
+function rememberLocale(code: Locale) {
   document.cookie = `${LOCALE_COOKIE}=${code}; path=/; max-age=31536000; samesite=lax`;
-  document.documentElement.lang = htmlLang;
 }
 
 export function LanguageSwitcher({ tone = "light" }: { tone?: "light" | "dark" }) {
-  const [locale, setLocale] = useState<Locale>("en");
+  const { locale, t } = useI18n();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // The cookie is only readable after hydration.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLocale(readLocale());
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -90,14 +75,16 @@ export function LanguageSwitcher({ tone = "light" }: { tone?: "light" | "dark" }
     };
   }, [open]);
 
-  const current = languages.find((language) => language.code === locale) ?? languages[0];
-  const others = languages.filter((language) => language.code !== locale);
+  const current = { code: locale, ...localeInfo[locale] };
+  const others = locales
+    .filter((code) => code !== locale)
+    .map((code) => ({ code, ...localeInfo[code] }));
 
   function choose(code: Locale) {
-    const language = languages.find((item) => item.code === code)!;
-    persistLocale(code, language.htmlLang);
-    setLocale(code);
+    rememberLocale(code);
     setOpen(false);
+    // Any unfinished booking is kept in sessionStorage and restored there.
+    router.push(localeInfo[code].path);
   }
 
   return (
@@ -107,18 +94,18 @@ export function LanguageSwitcher({ tone = "light" }: { tone?: "light" | "dark" }
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        aria-label={`Language: ${current.name}. Change language`}
+        aria-label={t("lang.changeLabel", { name: current.name })}
         className={`flex items-center gap-2.5 rounded-full py-1 text-[15px] font-medium focus-visible:outline-none focus-visible:ring-2 ${tone === "light" ? "text-white focus-visible:ring-white/70" : "text-[#21140A] focus-visible:ring-[#FF8A05]"}`}
       >
         <Flag code={current.code} />
         <span>
-          {current.name} (<span className="underline underline-offset-2">Change</span>)
+          {current.name} (<span className="underline underline-offset-2">{t("lang.change")}</span>)
         </span>
       </button>
       {open && (
         <div
           role="listbox"
-          aria-label="Choose language"
+          aria-label={t("lang.choose")}
           className="absolute left-1/2 top-full z-50 mt-3 w-[180px] -translate-x-1/2 rounded-[3px] bg-white text-[15px] text-[#21140A] shadow-[0_6px_24px_rgb(0_0_0/0.18)]"
         >
           <span

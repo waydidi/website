@@ -42,7 +42,10 @@ import { validateBookingReview, type ReviewFieldErrors } from "@/lib/booking-rev
 import { aboutHref, navMenus, NavDropdown } from "./nav";
 import { DateTimePicker } from "./date-time-picker";
 import { LanguageSwitcher } from "./language-switcher";
-import { formatCompactDate, formatTimeLabel } from "./dates";
+import { formatTimeLabel } from "./dates";
+import { formatDate, translate, type Locale, type MessageKey, type Messages } from "@/lib/i18n";
+import enMessages from "@/messages/en.json";
+import { I18nProvider, useI18n } from "@/components/i18n-provider";
 
 type Stage = "search" | "vehicle" | "payment" | "review" | "confirmation";
 type ServiceType = "transfer" | "hourly";
@@ -185,7 +188,16 @@ const vehicles = [
   },
 ];
 
-export function BookingFlow({ children }: { children: ReactNode }) {
+export function BookingFlow({
+  children,
+  locale = "en",
+  messages = enMessages,
+}: {
+  children: ReactNode;
+  locale?: Locale;
+  messages?: Messages;
+}) {
+  const t = (key: MessageKey, vars?: Record<string, string | number>) => translate(messages, key, vars);
   const [menuOpen, setMenuOpen] = useState(false);
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const [stage, setStage] = useState<Stage>("search");
@@ -303,8 +315,8 @@ export function BookingFlow({ children }: { children: ReactNode }) {
       if (params.get("payment") === "cancelled") {
         setRecoveryNotice(
           valid
-            ? "Payment was cancelled. Your trip details were restored, and you can continue when ready."
-            : "Payment was cancelled. No booking was charged; review your trip and try again when ready.",
+            ? t("payment.cancelledRestored")
+            : t("payment.cancelled"),
         );
         window.history.replaceState(
           { waydidiStage: valid && draft ? draft.stage : "search" },
@@ -312,13 +324,16 @@ export function BookingFlow({ children }: { children: ReactNode }) {
           window.location.pathname + window.location.hash,
         );
       } else if (valid && draft && draft.stage !== "search") {
-        setRecoveryNotice("Your unfinished booking was restored in this tab.");
+        setRecoveryNotice(t("notice.draftRestored"));
       }
     } catch {
       sessionStorage.removeItem(RECOVERY_DRAFT_KEY);
     } finally {
       setDraftReady(true);
     }
+    // Restores once per mount. Each language is its own route with its own
+    // mount, so the translations this reads cannot change underneath it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -488,27 +503,27 @@ export function BookingFlow({ children }: { children: ReactNode }) {
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!navigator.onLine) {
-      setPricingMessage("You are offline. Reconnect to calculate your route and prices.");
+      setPricingMessage(t("search.offline"));
       return;
     }
     if (!departureSelected) {
-      setPricingMessage("Choose your departure date and time first.");
+      setPricingMessage(t("search.chooseDeparture"));
       setDateOpen(true);
       return;
     }
     if (serviceType === "transfer" && (!routeInfo?.pickupPlaceId || !routeInfo.dropoffPlaceId)) {
-      setPricingMessage("Select both locations from the Google suggestions to calculate your route.");
+      setPricingMessage(t("search.selectBoth"));
       return;
     }
     if (serviceType === "hourly" && !hourlyQuote) {
-      if (!pickupPlaceId) { setPricingMessage("Select a pickup location from Google Maps."); return; }
+      if (!pickupPlaceId) { setPricingMessage(t("search.selectPickup")); return; }
       try {
         setLoading(true); setPricingMessage("");
         const response = await fetch("/api/hourly-quote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pickupPlaceId,bookedHours:booking.bookedHours,pickupDate:booking.date,pickupTime:booking.time,timezone:"Asia/Bangkok"})});
         const result = await response.json() as HourlyQuote & {error?:string};
-        if (!response.ok) { setPricingMessage(result.error??"Hourly pricing is unavailable."); return; }
+        if (!response.ok) { setPricingMessage(result.error??t("search.hourlyUnavailable")); return; }
         setHourlyQuote(result);
-      } catch { setPricingMessage("Hourly pricing is temporarily unavailable."); return; }
+      } catch { setPricingMessage(t("search.hourlyTempUnavailable")); return; }
       finally { setLoading(false); }
     }
     if (serviceType === "transfer") {
@@ -543,12 +558,12 @@ export function BookingFlow({ children }: { children: ReactNode }) {
       });
       const result = (await response.json()) as FareQuote & { error?: string };
       if (!response.ok) {
-        setPricingMessage(result.error ?? "This route needs a custom quote.");
+        setPricingMessage(result.error ?? t("search.customQuote"));
         return;
       }
       setFareQuote(result);
     } catch {
-      setPricingMessage("Route pricing is temporarily unavailable.");
+      setPricingMessage(t("search.routeUnavailable"));
     } finally {
       setRouteLoading(false);
     }
@@ -746,6 +761,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
   }
 
   return (
+    <I18nProvider locale={locale} messages={messages}>
     <main className="min-h-screen bg-white text-[#1f1726]">
       {!isOnline && (
         <div
@@ -754,7 +770,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
           className="fixed inset-x-4 bottom-4 z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-[#21140A] px-5 py-4 text-sm font-semibold text-white shadow-2xl"
         >
           <WifiOff className="shrink-0 text-[#FFB45E]" size={20} />
-          <span>You’re offline. Your booking details stay saved in this tab.</span>
+          <span>{t("notice.offline")}</span>
         </div>
       )}
       {isOnline && recoveryNotice && (
@@ -769,7 +785,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
             type="button"
             onClick={() => setRecoveryNotice("")}
             className="grid size-10 shrink-0 place-items-center rounded-full bg-orange-50 text-[#B85E00]"
-            aria-label="Dismiss recovery message"
+            aria-label={t("notice.dismiss")}
           >
             <X size={18} />
           </button>
@@ -784,7 +800,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
           <Link
             href="/"
             className="inline-flex text-white transition-colors duration-500"
-            aria-label="Waydidi home"
+            aria-label={t("nav.home")}
           >
             <WaydidiLogo
               className={`${stage === "search" ? "h-12 sm:h-[62px] lg:h-[83px]" : "h-[43px] sm:h-[53px]"} w-auto`}
@@ -793,20 +809,20 @@ export function BookingFlow({ children }: { children: ReactNode }) {
           {stage === "search" ? (
             <nav className="hidden items-center gap-10 text-[16px] font-semibold xl:flex">
               {navMenus.map((menu) => (
-                <NavDropdown key={menu.label} label={menu.label} links={menu.links} />
+                <NavDropdown key={menu.labelKey} label={t(menu.labelKey)} links={menu.links.map((link) => ({ href: link.href, label: t(link.labelKey) }))} />
               ))}
               <Link
                 href={aboutHref}
                 className="rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
               >
-                About Waydidi
+                {t("nav.about")}
               </Link>
               <LanguageSwitcher />
               <Link
                 href="/booking/manage"
                 className="flex h-12 items-center gap-2 rounded-full bg-white px-6 font-bold text-[#D96F00] transition-colors duration-500 hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#FF8A05]"
               >
-                <CarFront size={20} /> Check your booking
+                <CarFront size={20} /> {t("nav.checkBooking")}
               </Link>
             </nav>
           ) : (
@@ -817,9 +833,9 @@ export function BookingFlow({ children }: { children: ReactNode }) {
               <SheetTrigger asChild>
                 <button
                   className="flex items-center gap-3 text-lg font-bold xl:hidden"
-                  aria-label="Open navigation menu"
+                  aria-label={t("nav.openMenu")}
                 >
-                  Menu <Menu />
+                  {t("nav.menu")} <Menu />
                 </button>
               </SheetTrigger>
               <SheetContent
@@ -834,28 +850,28 @@ export function BookingFlow({ children }: { children: ReactNode }) {
                   </SheetTitle>
                   <SheetClose
                     className="grid size-11 place-items-center rounded-full bg-slate-100 text-black transition hover:bg-slate-200"
-                    aria-label="Close navigation menu"
+                    aria-label={t("nav.closeMenu")}
                   >
                     <X size={23} />
                   </SheetClose>
                 </SheetHeader>
                 <nav
                   className="flex-1 overflow-y-auto px-6 py-3 text-black"
-                  aria-label="Mobile navigation"
+                  aria-label={t("nav.mobileNav")}
                 >
                   {navMenus.map((menu) => (
-                    <div key={menu.label} className="border-b border-slate-200 py-5">
+                    <div key={menu.labelKey} className="border-b border-slate-200 py-5">
                       <p className="mb-3 text-xs font-black uppercase tracking-[.16em] text-slate-400">
-                        {menu.label}
+                        {t(menu.labelKey)}
                       </p>
                       <div className="grid">
                         {menu.links.map((link) => (
-                          <SheetClose asChild key={link.label}>
+                          <SheetClose asChild key={link.href}>
                             <Link
                               href={link.href}
                               className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
                             >
-                              {link.label}
+                              {t(link.labelKey)}
                             </Link>
                           </SheetClose>
                         ))}
@@ -868,7 +884,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
                         href={aboutHref}
                         className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
                       >
-                        About Waydidi
+                        {t("nav.about")}
                       </Link>
                     </SheetClose>
                   </div>
@@ -882,7 +898,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
                       href="/booking/manage"
                       className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-4 font-bold text-white"
                     >
-                      <CarFront size={20} /> Check your booking
+                      <CarFront size={20} /> {t("nav.checkBooking")}
                     </Link>
                   </SheetClose>
                 </div>
@@ -894,20 +910,20 @@ export function BookingFlow({ children }: { children: ReactNode }) {
         {stage === "search" && (
           <div className="relative z-10 w-full px-5 pb-12 pt-[88px] lg:px-6 lg:pb-18 lg:pt-[150px]">
             <div className="mb-6 max-w-2xl">
-              <h1 className="text-[33.5px] font-medium leading-[1.08] tracking-[-.045em] sm:text-[46.3px] lg:text-[52.7px]">
-                A private ride that moves at your pace.
+              <h1 className={`${locale === "en" ? "" : "text-balance "}text-[33.5px] font-medium leading-[1.08] tracking-[-.045em] sm:text-[46.3px] lg:text-[52.7px]`}>
+                {t("hero.title")}
               </h1>
               <p className="mt-3 text-lg font-medium text-[#E6DED5] sm:text-xl lg:text-2xl">
-                Book Your Ride Anywhere in Thailand
+                {t("hero.subtitle")}
               </p>
             </div>
             <form id="booking-search" onSubmit={search} className="w-full scroll-mt-28">
               <div className="inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-sm font-bold text-slate-500 shadow-md shadow-orange-950/10 lg:inline-flex lg:h-auto lg:w-auto lg:rounded-b-none lg:rounded-t-[26px] lg:p-1.5 lg:pb-0 lg:text-base lg:shadow-none">
                 <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "transfer" ? "bg-[#FF8A05] text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
-                  <CarFront className="size-[17px] lg:size-[19px]" aria-hidden="true" /> Transfer
+                  <CarFront className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.transfer")}
                 </button>
                 <button onClick={()=>{setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "hourly" ? "bg-[#FF8A05] text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
-                  <Clock3 className="size-[17px] lg:size-[19px]" aria-hidden="true" /> By the hour
+                  <Clock3 className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.hourly")}
                 </button>
               </div>
               <div className={`mt-2.5 overflow-visible rounded-[22px] bg-white p-2.5 text-slate-950 shadow-xl shadow-slate-900/10 lg:mt-0 lg:grid lg:items-end lg:gap-3 lg:rounded-tl-none lg:p-6 ${serviceType === "hourly" ? "lg:grid-cols-[.42fr_1.55fr_1.4fr_.58fr_auto]" : "lg:grid-cols-[.42fr_1.15fr_1.15fr_1.55fr_auto]"}`}>
@@ -918,7 +934,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
                   className="order-1 flex min-h-14 w-full items-center justify-between rounded-[14px] border border-slate-200 bg-white px-3.5 py-2 text-left lg:order-none lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]"
                   aria-expanded={peopleOpen}
                   aria-controls="passenger-luggage-sheet"
-                  aria-label={`${booking.passengers} passengers and ${booking.luggage} bags`}
+                  aria-label={t("hero.travellersLabel", { passengers: booking.passengers, bags: booking.luggage })}
                 >
                   <span className="flex items-center gap-3.5 text-[15px] font-semibold text-slate-950 lg:text-base">
                     <span className="flex items-center gap-2">
@@ -965,11 +981,11 @@ export function BookingFlow({ children }: { children: ReactNode }) {
                       <CalendarDays className="shrink-0 text-[#FF8A05]" size={18} />
                       {departureSelected ? (
                         <span className="min-w-0 text-[15px] font-semibold leading-[18px] text-slate-950 lg:text-base lg:leading-5">
-                          <span className="block truncate">{formatCompactDate(booking.date)}</span>
-                          <span className="block">{formatTimeLabel(booking.time)}</span>
+                          <span className="block truncate">{formatDate(booking.date)}</span>
+                          <span className="block">{formatTimeLabel(booking.time, locale)}</span>
                         </span>
                       ) : (
-                        <span className="text-[15px] font-semibold text-slate-600 lg:text-base">Departure</span>
+                        <span className="text-[15px] font-semibold text-slate-600 lg:text-base">{t("hero.departure")}</span>
                       )}
                     </button>
                     {departureSelected && (
@@ -984,7 +1000,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
                           setQuoteSummary(null);
                         }}
                         className="mr-2 grid size-9 shrink-0 place-items-center rounded-full bg-slate-400 text-white transition hover:bg-slate-500"
-                        aria-label="Remove departure date"
+                        aria-label={t("hero.removeDeparture")}
                       >
                         <X size={18} />
                       </button>
@@ -1002,7 +1018,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
                         setReturnDateOpen(true);
                       }}
                       className="flex min-w-0 items-center gap-1.5 px-2.5 py-2 text-left text-slate-500 transition enabled:hover:bg-orange-50 disabled:cursor-not-allowed disabled:text-slate-300 sm:px-3.5"
-                      aria-label={returnTrip ? "Edit return journey" : "Add return journey"}
+                      aria-label={returnTrip ? t("hero.editReturnLabel") : t("hero.addReturnLabel")}
                     >
                       {returnTrip ? (
                         <CalendarDays className="shrink-0 text-[#FF8A05]" size={20} />
@@ -1012,32 +1028,32 @@ export function BookingFlow({ children }: { children: ReactNode }) {
                       <span className="min-w-0">
                         {returnTrip ? (
                           <>
-                            <span className="block truncate text-base font-semibold leading-5 text-slate-950">{formatCompactDate(returnDate)}</span>
-                            <span className="block text-base font-semibold leading-5 text-slate-950">{formatTimeLabel(returnTime)}</span>
+                            <span className="block truncate text-base font-semibold leading-5 text-slate-950">{formatDate(returnDate)}</span>
+                            <span className="block text-base font-semibold leading-5 text-slate-950">{formatTimeLabel(returnTime, locale)}</span>
                           </>
                         ) : (
-                          <span className="text-[15px] font-semibold lg:text-base">Add return</span>
+                          <span className="text-[15px] font-semibold lg:text-base">{t("hero.addReturn")}</span>
                         )}
                       </span>
                     </button>
                   ) : (
-                    <span className="flex items-center px-4 text-sm text-slate-400">One-way hourly booking</span>
+                    <span className="flex items-center px-4 text-sm text-slate-400">{t("hero.hourlyOneWay")}</span>
                   )}
                 </div>
-                {serviceType === "hourly" && <label className="order-5 flex min-h-14 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-2 lg:order-none lg:mt-0 lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]"><Clock3 size={18}/><span className="w-full"><span className="block text-sm font-semibold text-slate-500">Duration</span><select value={booking.bookedHours} onChange={(e)=>{change("bookedHours",Number(e.target.value));setHourlyQuote(null);}} className="w-full bg-transparent text-[15px] font-semibold outline-none lg:text-base">{Array.from({length:10},(_,i)=>i+3).map(hours=><option key={hours} value={hours}>{hours} hours</option>)}</select></span></label>}
+                {serviceType === "hourly" && <label className="order-5 flex min-h-14 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-2 lg:order-none lg:mt-0 lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]"><Clock3 size={18}/><span className="w-full"><span className="block text-sm font-semibold text-slate-500">{t("hero.duration")}</span><select value={booking.bookedHours} onChange={(e)=>{change("bookedHours",Number(e.target.value));setHourlyQuote(null);}} className="w-full bg-transparent text-[15px] font-semibold outline-none lg:text-base">{Array.from({length:10},(_,i)=>i+3).map(hours=><option key={hours} value={hours}>{t("hero.hours", { count: hours })}</option>)}</select></span></label>}
                 </div>
                 <div className="mt-2.5 flex items-center lg:mt-0">
                   <button
                     className="flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-[#FF8A05] px-8 text-base font-black text-white shadow-lg shadow-orange-900/20 transition hover:bg-[#E97D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A05] focus-visible:ring-offset-2 lg:min-h-[88px] lg:w-auto lg:rounded-xl lg:text-sm"
                     type="submit"
                   >
-                    {loading ? "Calculating…" : "See prices"} <ArrowRight size={18} />
+                    {loading ? t("hero.calculating") : t("hero.seePrices")} <ArrowRight size={18} />
                   </button>
                 </div>
               </div>
               <DateTimePicker
                 open={dateOpen}
-                title="Departure"
+                kind="departure"
                 date={booking.date}
                 time={booking.time}
                 onDateChange={(value) => { change("date", value); setFareQuote(null); setReturnFareQuote(null); setQuoteSummary(null); }}
@@ -1053,10 +1069,9 @@ export function BookingFlow({ children }: { children: ReactNode }) {
               />
               <DateTimePicker
                 open={returnDateOpen}
-                title="Return"
+                kind="return"
                 date={returnDate}
                 time={returnTime}
-                timeLabel="Return time"
                 onDateChange={(value) => { setReturnDate(value); setReturnFareQuote(null); setQuoteSummary(null); }}
                 onTimeChange={(value) => { setReturnTime(value); setReturnFareQuote(null); setQuoteSummary(null); }}
                 min={booking.date}
@@ -1081,21 +1096,21 @@ export function BookingFlow({ children }: { children: ReactNode }) {
                       <span>
                         {(fareQuote.distanceMeters / 1000).toFixed(1)} km
                       </span>
-                      {returnTrip && returnFareQuote && <span className="text-slate-500">Outbound and return ready</span>}
+                      {returnTrip && returnFareQuote && <span className="text-slate-500">{t("hero.outboundReturnReady")}</span>}
                     </>
                   ) : (
                     pricingMessage
                   )}
                 </div>
               )}
-              {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-[#FF8A05]"/><strong>{hourlyQuote.bookedHours}-hour private driver</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">Includes {Math.round((hourlyQuote.prices.economy_sedan?.includedDistanceMeters??0)/1000)} km · price locked 20 minutes</span></div>}
+              {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-[#FF8A05]"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">{t("hero.includesKm", { km: Math.round((hourlyQuote.prices.economy_sedan?.includedDistanceMeters??0)/1000) })} · {t("legal.priceLocked")}</span></div>}
             </form>
             <p className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-sm font-medium text-white/75 sm:text-base lg:mt-7 lg:text-lg">
-              <span>Thailand-wide</span>
+              <span>{t("hero.thailandWide")}</span>
               <span aria-hidden="true">·</span>
-              <span>Fixed price</span>
+              <span>{t("legal.fixedPrice")}</span>
               <span aria-hidden="true">·</span>
-              <span>Free cancellation</span>
+              <span>{t("legal.freeCancellation")}</span>
             </p>
           </div>
         )}
@@ -1111,13 +1126,13 @@ export function BookingFlow({ children }: { children: ReactNode }) {
           <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" aria-hidden="true" />
           <SheetHeader className="flex-row items-center justify-between px-0 pb-2 pt-5 text-left">
             <SheetTitle className="text-[28px] font-semibold tracking-[-.03em] sm:text-[34px]">
-              Passengers
+              {t("pax.title")}
             </SheetTitle>
             <button
               type="button"
               onClick={() => setPeopleOpen(false)}
               className="grid size-12 place-items-center rounded-full bg-slate-100 text-[#D96F00] transition hover:bg-orange-50"
-              aria-label="Close passenger and luggage selection"
+              aria-label={t("pax.close")}
             >
               <X size={25} />
             </button>
@@ -1125,22 +1140,22 @@ export function BookingFlow({ children }: { children: ReactNode }) {
 
           <div className="grid gap-6 py-4">
             <SheetCounter
-              label="Adults"
-              description="Age 12 and over"
+              label={t("pax.adults")}
+              description={t("pax.adultsHint")}
               value={adultPassengers}
               min={1}
               onChange={changeAdults}
             />
             <SheetCounter
-              label="Children"
-              description="Age 0–11"
+              label={t("pax.children")}
+              description={t("pax.childrenHint")}
               value={childPassengers}
               min={0}
               onChange={changeChildren}
             />
             <SheetCounter
-              label="Extra sets of bags"
-              description="1 checked bag + 1 carry-on each"
+              label={t("pax.extraBags")}
+              description={t("pax.extraBagsHint")}
               value={extraBagSets}
               min={0}
               onChange={changeExtraBagSets}
@@ -1148,19 +1163,19 @@ export function BookingFlow({ children }: { children: ReactNode }) {
           </div>
 
           <p className="text-base leading-6 text-slate-500">
-            You can add extra sets of bags at no extra cost, but you might need a bigger vehicle.
+            {t("pax.note")}
           </p>
 
           <div className="mt-5 rounded-[24px] bg-slate-100 p-5 text-slate-600">
-            <p className="mb-4 font-semibold">Your group can bring</p>
+            <p className="mb-4 font-semibold">{t("pax.groupCanBring")}</p>
             <div className="grid gap-4 text-base sm:grid-cols-2">
               <span className="flex items-center gap-3">
                 <Luggage size={24} aria-hidden="true" />
-                <strong>{booking.luggage} × checked bags</strong>
+                <strong>{t("pax.checkedBags", { count: booking.luggage })}</strong>
               </span>
               <span className="flex items-center gap-3">
                 <Luggage size={21} aria-hidden="true" />
-                <strong>{booking.luggage} × carry-on bags</strong>
+                <strong>{t("pax.carryOn", { count: booking.luggage })}</strong>
               </span>
             </div>
           </div>
@@ -1170,7 +1185,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
             onClick={() => setPeopleOpen(false)}
             className="mt-5 min-h-14 w-full rounded-full bg-[#FF8A05] px-6 text-lg font-bold text-[#21140A] transition hover:bg-[#E97D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A05] focus-visible:ring-offset-2"
           >
-            Done
+            {t("common.done")}
           </button>
         </SheetContent>
       </Sheet>
@@ -1458,8 +1473,8 @@ export function BookingFlow({ children }: { children: ReactNode }) {
               />
               {returnTrip && (
                 <>
-                  <SummaryLine label="Outbound" value={`${formatCompactDate(booking.date)} · ${formatTimeLabel(booking.time)}`} />
-                  <SummaryLine label="Return" value={`${formatCompactDate(returnDate)} · ${formatTimeLabel(returnTime)}`} />
+                  <SummaryLine label="Outbound" value={`${formatDate(booking.date)} · ${formatTimeLabel(booking.time)}`} />
+                  <SummaryLine label="Return" value={`${formatDate(returnDate)} · ${formatTimeLabel(returnTime)}`} />
                 </>
               )}
               <SummaryLine
@@ -1513,8 +1528,8 @@ export function BookingFlow({ children }: { children: ReactNode }) {
               <ReviewSection title="Journey" onEdit={() => goToStage("search")} editLabel="Edit journey">
                 <ReviewDetail label="Pickup" value={booking.pickup} />
                 <ReviewDetail label="Destination" value={serviceType === "hourly" ? "Flexible hourly itinerary" : booking.dropoff} />
-                <ReviewDetail label="Departure" value={`${formatCompactDate(booking.date)} · ${formatTimeLabel(booking.time)} · Thailand time`} />
-                {returnTrip && <ReviewDetail label="Return" value={`${formatCompactDate(returnDate)} · ${formatTimeLabel(returnTime)} · Thailand time`} />}
+                <ReviewDetail label="Departure" value={`${formatDate(booking.date)} · ${formatTimeLabel(booking.time)} · Thailand time`} />
+                {returnTrip && <ReviewDetail label="Return" value={`${formatDate(returnDate)} · ${formatTimeLabel(returnTime)} · Thailand time`} />}
                 <ReviewDetail label="Travelers" value={`${booking.passengers} passengers · ${booking.luggage} luggage`} />
               </ReviewSection>
 
@@ -1639,6 +1654,7 @@ export function BookingFlow({ children }: { children: ReactNode }) {
         </>
       )}
     </main>
+    </I18nProvider>
   );
 }
 
@@ -1655,6 +1671,7 @@ function SheetCounter({
   min: number;
   onChange: (value: number) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center justify-between gap-5">
       <span className="min-w-0">
@@ -1667,7 +1684,7 @@ function SheetCounter({
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
           className="grid size-11 place-items-center rounded-full text-slate-700 transition hover:bg-orange-50 hover:text-[#D96F00] disabled:cursor-not-allowed disabled:text-slate-300"
-          aria-label={`Remove ${label.toLowerCase()}`}
+          aria-label={t("pax.decrease", { label })}
         >
           <Minus size={19} />
         </button>
@@ -1676,7 +1693,7 @@ function SheetCounter({
           type="button"
           onClick={() => onChange(value + 1)}
           className="grid size-11 place-items-center rounded-full text-slate-700 transition hover:bg-orange-50 hover:text-[#D96F00]"
-          aria-label={`Add ${label.toLowerCase()}`}
+          aria-label={t("pax.increase", { label })}
         >
           <Plus size={19} />
         </button>

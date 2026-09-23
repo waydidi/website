@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
+import type { MessageKey } from "@/lib/i18n";
 
 const thailandDotColumnsByRow = [
   [8,9],
@@ -84,6 +86,8 @@ const destinationVisuals: Record<string, { image: string; position: string }> = 
 };
 
 export function ThailandDestinationMap() {
+  const { locale, t } = useI18n();
+  const placeName = (slug: string) => t(`dest.${slug}` as MessageKey);
   const [activeSlug, setActiveSlug] = useState("bangkok");
   const [expandedSlug, setExpandedSlug] = useState<string | null>(null);
   const activeDestination = destinationMarkers.find((destination) => destination.slug === activeSlug) ?? destinationMarkers[4];
@@ -101,18 +105,18 @@ export function ThailandDestinationMap() {
               id="destination-map-heading"
               className="max-w-[460px] text-[23.67px] font-bold tracking-[-.04em] text-[#211726] sm:text-[2rem]"
             >
-              Where Waydidi takes you
+              {t("map.heading")}
             </h2>
           </div>
 
           <div>
-            <div className="relative mx-auto aspect-[4/5] w-full max-w-[620px]" aria-label="Map of Waydidi destinations in Thailand">
+            <div className="relative mx-auto aspect-[4/5] w-full max-w-[620px]" aria-label={t("map.label")}>
               <div className="absolute inset-[3%_6%_1%_4%]">
                 <svg
                   className="h-full w-full overflow-visible"
                   viewBox="280 30 720 1230"
                   role="img"
-                  aria-label="Dotted map of Thailand"
+                  aria-label={t("map.dotsLabel")}
                 >
                   {thailandDotColumnsByRow.flatMap((columns, row) =>
                     columns.map((column) => (
@@ -133,14 +137,14 @@ export function ThailandDestinationMap() {
                     const expanded = destination.slug === expandedSlug;
                     const cx = 318 + destination.column * 26;
                     const cy = 58 + destination.row * 26;
-                    const labelWidth = Math.max(126, destination.name.length * 13 + 48);
+                    const labelWidth = Math.max(126, placeName(destination.slug).length * (locale === "zh" ? 22 : 13) + 48);
 
                     return (
                       <g
-                        key={destination.name}
+                        key={destination.slug}
                         role="button"
                         tabIndex={0}
-                        aria-label={`Show ${destination.name}`}
+                        aria-label={t("map.show", { name: placeName(destination.slug) })}
                         aria-pressed={active}
                         className="destination-map-marker cursor-pointer outline-none"
                         onClick={() => {
@@ -186,7 +190,7 @@ export function ThailandDestinationMap() {
                           y={cy + 7}
                           className={`destination-marker-name ${expanded ? "destination-marker-name--open" : ""}`}
                         >
-                          {destination.name}
+                          {placeName(destination.slug)}
                         </text>
                         <circle
                           cx={cx}
@@ -212,7 +216,7 @@ export function ThailandDestinationMap() {
                   </div>
                   <img
                     src="/vehicle-comfort-suv.webp"
-                    alt="Waydidi private transfer vehicle"
+                    alt={t("map.vehicleAlt")}
                     className="absolute bottom-0 left-0 z-10 w-full drop-shadow-[0_16px_12px_rgba(33,23,38,.18)]"
                   />
                 </div>
@@ -224,7 +228,7 @@ export function ThailandDestinationMap() {
 
         <div className="mt-12 sm:mt-16">
           <DestinationColumn
-            title="Cities"
+            title={t("map.cities")}
             items={destinationMarkers}
             color="#ff8a05"
             activeSlug={activeSlug}
@@ -239,6 +243,7 @@ export function ThailandDestinationMap() {
 }
 
 function DestinationColumn({ title, items, color, ring = false, activeSlug, onSelect, onExpand, onCollapse }: { title: string; items: readonly DestinationMarker[]; color: string; ring?: boolean; activeSlug: string; onSelect: (slug: string) => void; onExpand: (slug: string) => void; onCollapse: () => void }) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const panelId = `destination-${title.toLowerCase().replace(/\s+/g, "-")}-panel`;
 
@@ -264,7 +269,7 @@ function DestinationColumn({ title, items, color, ring = false, activeSlug, onSe
             onBlur={onCollapse}
             className={`px-2 py-1.5 text-left transition-colors focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8a05] ${activeSlug === item.slug ? "font-black text-black" : "hover:text-black"}`}
           >
-            {item.name}
+            {t(`dest.${item.slug}` as MessageKey)}
           </button>
         </li>
       ))}

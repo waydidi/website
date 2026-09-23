@@ -1,27 +1,30 @@
 import Link from "next/link";
+import { getMessages, translate, type Locale } from "@/lib/i18n";
 
-export function ServiceCards() {
+export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
+  const messages = getMessages(locale);
+  const t = (key: Parameters<typeof translate>[1], vars?: Record<string, string>) => translate(messages, key, vars);
   const cards = [
     {
-      title: "Ride",
+      title: t("services.ride.title"),
       href: "/a-to-b-transfer",
-      text: "Go anywhere in Thailand with Waydidi. Reserve your private ride, hop in, and enjoy.",
+      text: t("services.ride.text"),
       image: "/service-ride-orange.png",
-      alt: "Orange Waydidi private car",
+      alt: t("services.ride.alt"),
     },
     {
-      title: "Reserve",
+      title: t("services.reserve.title"),
       href: "/faq",
-      text: "Reserve your ride in advance so you can relax on the day of your trip.",
+      text: t("services.reserve.text"),
       image: "/service-reserve.png",
-      alt: "Reservation calendar",
+      alt: t("services.reserve.alt"),
     },
     {
-      title: "Day trips",
+      title: t("services.dayTrips.title"),
       href: "/hourly-driver",
-      text: "Book a private driver and explore several destinations in one comfortable day.",
+      text: t("services.dayTrips.text"),
       image: "/service-daytrip-route-vertical.png",
-      alt: "Three location pins connected along a vertical day-trip route",
+      alt: t("services.dayTrips.alt"),
       imageClass: "service-card-image--large",
     },
   ];
@@ -30,8 +33,8 @@ export function ServiceCards() {
       id="services"
       className="mx-auto max-w-[1024px] px-5 pt-10 lg:px-0 lg:pt-14"
     >
-      <h2 className="whitespace-nowrap text-[23.67px] font-bold tracking-[-.04em] sm:text-[2rem]">
-        Explore what you can do with Waydidi
+      <h2 className={`${locale === "en" ? "whitespace-nowrap" : "text-balance"} text-[23.67px] font-bold tracking-[-.04em] sm:text-[2rem]`}>
+        {t("services.heading")}
       </h2>
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         {cards.map((card) => (
@@ -49,8 +52,8 @@ export function ServiceCards() {
               href={card.href}
               className="absolute bottom-4 left-5 z-10 inline-flex rounded-full bg-white px-4 py-2 text-sm font-bold transition hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A05]"
             >
-              Details
-              <span className="sr-only"> about {card.title}</span>
+              {t("services.details")}
+              <span className="sr-only"> {t("services.detailsAbout", { title: card.title })}</span>
             </Link>
             <img
               className={`service-card-image ${card.imageClass ?? ""}`}

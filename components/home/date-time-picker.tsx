@@ -8,33 +8,36 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { dateFromValue, dateValue, formatDateLabel, pickupTimes } from "./dates";
+import { dateFromValue, dateValue, formatTimeLabel, pickupTimes } from "./dates";
+import { formatDate, intlLocale } from "@/lib/i18n";
+import { useI18n } from "@/components/i18n-provider";
 
 export function DateTimePicker({
   open,
-  title,
+  kind,
   date,
   time,
   onDateChange,
   onTimeChange,
   onOpenChange,
   onDone,
-  timeLabel = "Departure time",
   min,
   minTime,
 }: {
   open: boolean;
-  title: string;
+  kind: "departure" | "return";
   date: string;
   time: string;
   onDateChange: (value: string) => void;
   onTimeChange: (value: string) => void;
   onOpenChange: (open: boolean) => void;
   onDone: () => void;
-  timeLabel?: string;
   min?: string;
   minTime?: string;
 }) {
+  const { locale, t } = useI18n();
+  const departure = kind === "departure";
+  const title = t(departure ? "picker.departure" : "picker.return");
   const selected = dateFromValue(date);
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(selected.getFullYear(), selected.getMonth(), 1),
@@ -71,7 +74,7 @@ export function DateTimePicker({
             type="button"
             onClick={() => onOpenChange(false)}
             className="grid size-12 place-items-center rounded-full bg-slate-100 text-[#D96F00] transition hover:bg-orange-50"
-            aria-label={`Close ${title.toLowerCase()} date selection`}
+            aria-label={t(departure ? "picker.closeDeparture" : "picker.closeReturn")}
           >
             <X size={25} />
           </button>
@@ -89,13 +92,13 @@ export function DateTimePicker({
         <div className="mt-5 grid overflow-hidden rounded-2xl border border-slate-200 grid-cols-2">
           <div className="px-5 py-3">
             <span className="block text-sm font-semibold text-slate-500">
-              {title} date
+              {t(departure ? "picker.departureDate" : "picker.returnDate")}
             </span>
-            <strong className="font-semibold">{formatDateLabel(date)}</strong>
+            <strong className="font-semibold">{formatDate(date)}</strong>
           </div>
           <label className="bg-slate-100 px-5 py-3">
             <span className="block text-sm font-semibold text-slate-500">
-              {timeLabel}
+              {t(departure ? "picker.departureTime" : "picker.returnTime")}
             </span>
             <select
               value={effectiveTime}
@@ -104,7 +107,7 @@ export function DateTimePicker({
             >
               {selectableTimes.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {formatTimeLabel(option.value, locale)}
                 </option>
               ))}
             </select>
@@ -118,7 +121,7 @@ export function DateTimePicker({
           }}
           className="mt-6 min-h-14 w-full rounded-full bg-[#FF8A05] px-7 text-lg font-bold text-[#21140A] transition hover:bg-[#E97D00]"
         >
-          Done
+          {t("common.done")}
         </button>
       </SheetContent>
     </Sheet>
@@ -142,6 +145,11 @@ function CalendarMonth({
   nextMobileOnly?: boolean;
   min?: string;
 }) {
+  const { locale, t } = useI18n();
+  // 4 January 2026 is a Sunday; the grid starts on Sunday.
+  const weekdays = Array.from({ length: 7 }, (_, index) =>
+    new Date(2026, 0, 4 + index).toLocaleDateString(intlLocale(locale), { weekday: "short" }),
+  );
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
   const daysInMonth = new Date(
     month.getFullYear(),
@@ -167,7 +175,7 @@ function CalendarMonth({
             onClick={onPrevious}
             disabled={atMinMonth}
             className="grid size-11 place-items-center rounded-full bg-slate-100 transition disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300"
-            aria-label="Previous month"
+            aria-label={t("picker.previousMonth")}
           >
             <ArrowLeft size={20} />
           </button>
@@ -175,7 +183,7 @@ function CalendarMonth({
           <span />
         )}
         <h3 className="text-center text-xl font-bold">
-          {month.toLocaleDateString("en-GB", {
+          {month.toLocaleDateString(intlLocale(locale), {
             month: "long",
             year: "numeric",
           })}
@@ -185,7 +193,7 @@ function CalendarMonth({
             type="button"
             onClick={onNext}
             className={`grid size-11 place-items-center rounded-full bg-slate-100 ${nextMobileOnly ? "md:hidden" : ""}`}
-            aria-label="Next month"
+            aria-label={t("picker.nextMonth")}
           >
             <ArrowRight size={20} />
           </button>
@@ -194,7 +202,7 @@ function CalendarMonth({
         )}
       </div>
       <div className="grid grid-cols-7 text-center text-sm font-bold">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+        {weekdays.map((day) => (
           <span key={day} className="py-2">
             {day}
           </span>

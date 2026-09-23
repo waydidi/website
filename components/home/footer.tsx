@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { WaydidiLogo } from "@/components/waydidi-logo";
+import { getMessages, translate, type Locale, type MessageKey } from "@/lib/i18n";
 
-export function WaydidiFooter() {
+export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
+  const messages = getMessages(locale);
+  const t = (key: MessageKey) => translate(messages, key);
   const paymentBadges = [
     "stripe",
     "VISA",
@@ -19,15 +22,14 @@ export function WaydidiFooter() {
               <Link
                 href="/"
                 className="inline-flex text-[#FF8A05]"
-                aria-label="Waydidi home"
+                aria-label={t("nav.home")}
               >
                 <WaydidiLogo className="h-16 w-auto" />
               </Link>
               <p className="mt-5 max-w-sm text-sm leading-6 text-slate-600">
-                Private car transfers across Thailand with professional drivers,
-                clear pricing, and secure online booking.
+                {t("footer.tagline")}
               </p>
-              <h3 className="mt-8 font-black">Accepted Payments</h3>
+              <h3 className="mt-8 font-black">{t("footer.payments")}</h3>
               <div className="mt-4 flex max-w-sm flex-wrap gap-2">
                 {paymentBadges.map((badge) => (
                   <span
@@ -40,30 +42,30 @@ export function WaydidiFooter() {
               </div>
             </div>
             <FooterLinks
-              title="Ride"
+              title={t("footer.ride")}
               links={[
-                { label: "Airport transfer", href: "/airport-transfer" },
-                { label: "A to B", href: "/a-to-b-transfer" },
-                { label: "Long journey", href: "/long-journeys" },
-                { label: "Check your booking", href: "/booking/manage" },
+                { label: t("nav.airportTransfer"), href: "/airport-transfer" },
+                { label: t("nav.aToB"), href: "/a-to-b-transfer" },
+                { label: t("nav.longJourney"), href: "/long-journeys" },
+                { label: t("nav.checkBooking"), href: "/booking/manage" },
               ]}
             />
             <FooterLinks
-              title="Trips"
+              title={t("footer.trips")}
               links={[
-                { label: "Hourly private driver", href: "/hourly-driver" },
-                { label: "Destinations", href: "/destinations" },
-                { label: "Airport pickup guide", href: "/airport-pickup-instructions" },
-                { label: "Luggage policy", href: "/luggage-policy" },
+                { label: t("nav.hourlyDriver"), href: "/hourly-driver" },
+                { label: t("nav.destinations"), href: "/destinations" },
+                { label: t("nav.pickupGuide"), href: "/airport-pickup-instructions" },
+                { label: t("footer.luggagePolicy"), href: "/luggage-policy" },
               ]}
             />
             <FooterLinks
-              title="Help"
+              title={t("footer.help")}
               links={[
-                { label: "Waydidi help", href: "/faq" },
-                { label: "Cancellation policy", href: "/cancellation-refund-policy" },
-                { label: "Contact us", href: "/contact" },
-                { label: "Safety & security", href: "/safety-driver-standards" },
+                { label: t("footer.waydidiHelp"), href: "/faq" },
+                { label: t("footer.cancellationPolicy"), href: "/cancellation-refund-policy" },
+                { label: t("footer.contactUs"), href: "/contact" },
+                { label: t("footer.safety"), href: "/safety-driver-standards" },
               ]}
             />
           </div>
@@ -71,15 +73,15 @@ export function WaydidiFooter() {
 
         <div className="mt-16 flex flex-col gap-5 border-t border-slate-200 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-x-6 gap-y-3 font-semibold">
-            <Link href="/faq">Help center</Link>
-            <Link href="/booking/manage">Manage booking</Link>
-            <Link href="/contact">Contact Waydidi</Link>
+            <Link href="/faq">{t("footer.helpCenter")}</Link>
+            <Link href="/booking/manage">{t("footer.manageBooking")}</Link>
+            <Link href="/contact">{t("footer.contactWaydidi")}</Link>
           </div>
           <div className="flex flex-wrap gap-5">
-            <Link href="/terms">Terms of Use</Link>
-            <Link href="/privacy">Privacy Policy</Link>
+            <Link href="/terms">{t("footer.terms")}</Link>
+            <Link href="/privacy">{t("footer.privacy")}</Link>
           </div>
-          <p className="text-slate-500">© 2026 Waydidi. All rights reserved.</p>
+          <p className="text-slate-500">{t("footer.rights")}</p>
         </div>
       </div>
     </footer>
