@@ -54,7 +54,7 @@ export type DestinationJourney = { title:string; time:string; text:string };
 export type Destination = {
   slug:string; name:string; kicker:string; intro:string; color:string; highlights:string[]; routes:string[]; note:string; region:DestinationRegion;
   // Optional SEO content. The city page renders each section only when it is filled in.
-  h1?:string; seoTitle?:string; seoDescription?:string; areas?:string[]; journeys?:DestinationJourney[]; tips?:string[]; faq?:{ q:string; a:string }[]; nearby?:string[];
+  image?:string; h1?:string; seoTitle?:string; seoDescription?:string; areas?:string[]; journeys?:DestinationJourney[]; tips?:string[]; faq?:{ q:string; a:string }[]; nearby?:string[];
 };
 export const destinations: Destination[] = [
   {slug:"bangkok",region:"Bangkok & Central",
