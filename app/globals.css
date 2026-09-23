@@ -161,6 +161,16 @@ html {
   scroll-behavior: smooth;
 }
 
+/* A visible keyboard focus ring on every interactive element. In the base
+   layer with zero specificity, so components that draw their own ring with
+   focus-visible:ring-* utilities (and outline-none) keep theirs. */
+@layer base {
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--brand-deep);
+    outline-offset: 2px;
+  }
+}
+
 ::selection {
   background: #ff8a05;
   color: #21140a;
@@ -220,6 +230,12 @@ html {
   stroke-width: 5px;
   transition: fill 180ms ease, r 260ms cubic-bezier(.22, 1, .36, 1);
   filter: drop-shadow(0 5px 8px rgb(33 23 38 / 18%));
+}
+
+/* SVG groups cannot show a CSS outline, so a focused marker rings its dot. */
+.destination-map-marker:focus-visible .destination-marker-dot {
+  stroke: var(--ink);
+  stroke-width: 7px;
 }
 
 .destination-marker-dot--open {

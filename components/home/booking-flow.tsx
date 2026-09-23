@@ -36,7 +36,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { WaydidiLogo } from "@/components/waydidi-logo";
-import { BookingResultsMap } from "@/components/booking-results-map";
+import { BookingResultsMap, VehicleOption } from "@/components/booking-results-map";
 import { FlightLookup } from "@/components/flight-lookup";
 import {
   GoogleRoutePicker,
@@ -764,6 +764,32 @@ export function BookingFlow({
     }
   }
 
+  // Mobile keeps the total and the next step on screen; the booking summary
+  // otherwise sits below the whole form. Each step's own rules decide when its
+  // button is enabled, so the bar can never skip one.
+  const hasPrice = serviceType === "transfer" ? Boolean(fareQuote) : Boolean(hourlyQuote);
+  const priceBar =
+    stage === "vehicle"
+      ? {
+          label: chosenVehicle.name,
+          action: "Continue",
+          onClick: () => goToStage("payment"),
+          disabled:
+            serviceType === "transfer"
+              ? !fareQuote || routeLoading || (returnTrip && !(returnFareQuote && quoteSummary))
+              : !hourlyQuote,
+        }
+      : stage === "payment"
+        ? { label: chosenVehicle.name, action: "Review booking", onClick: continueToReview, disabled: !isOnline }
+        : stage === "review"
+          ? {
+              label: chosenVehicle.name,
+              action: loading ? "Verifying…" : payment === "cash" ? "Confirm booking" : "Confirm and pay",
+              onClick: confirmBooking,
+              disabled: loading || !isOnline,
+            }
+          : null;
+
   return (
     <I18nProvider locale={locale} messages={messages}>
     <main className="min-h-screen bg-white text-ink">
@@ -771,7 +797,7 @@ export function BookingFlow({
         <div
           role="status"
           aria-live="polite"
-          className="fixed inset-x-4 bottom-4 z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-ink px-5 py-4 text-sm font-semibold text-white shadow-2xl"
+          className={`fixed inset-x-4 ${priceBar ? "bottom-24 lg:bottom-4" : "bottom-4"} z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-ink px-5 py-4 text-sm font-semibold text-white shadow-2xl`}
         >
           <WifiOff className="shrink-0 text-[#FFB45E]" size={20} />
           <span>{t("notice.offline")}</span>
@@ -781,7 +807,7 @@ export function BookingFlow({
         <div
           role="status"
           aria-live="polite"
-          className="fixed inset-x-4 bottom-4 z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-orange-200 bg-white px-5 py-4 text-sm font-semibold text-ink shadow-2xl"
+          className={`fixed inset-x-4 ${priceBar ? "bottom-24 lg:bottom-4" : "bottom-4"} z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-orange-200 bg-white px-5 py-4 text-sm font-semibold text-ink shadow-2xl`}
         >
           <RefreshCw className="shrink-0 text-brand-deep" size={20} />
           <span className="flex-1">{recoveryNotice}</span>
@@ -940,7 +966,7 @@ export function BookingFlow({
           </>
         )}
         {stage === "search" && (
-          <div className="relative z-10 w-full px-5 pb-12 pt-[88px] lg:px-6 lg:pb-18 lg:pt-[150px]">
+          <div className="relative z-10 w-full px-5 pb-12 pt-[88px] animate-in fade-in duration-300 motion-reduce:animate-none lg:px-6 lg:pb-18 lg:pt-[150px]">
             <div className="mb-6 max-w-2xl">
               <h1 className={`${locale === "en" ? "" : "text-balance "}text-[33.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[46.3px] lg:text-[52.7px]`}>
                 {t("hero.title")}
@@ -1230,6 +1256,8 @@ export function BookingFlow({
         </SheetContent>
       </Sheet>
 
+      {/* Keyed by stage so each step fades in rather than swapping abruptly. */}
+      <div key={stage} className="animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
       {stage === "vehicle" && (
         serviceType === "transfer" ? <BookingResultsMap
           pickup={booking.pickup}
@@ -1251,7 +1279,62 @@ export function BookingFlow({
           onEdit={() => goToStage("search")}
           onRetry={retryRoute}
           onContinue={() => goToStage("payment")}
-        /> : <section className="bg-white pb-28"><div className="mx-auto max-w-[1100px] px-5 py-12"><h1 className="text-4xl font-bold">Select your {booking.bookedHours}-hour ride</h1><div className="mt-8 grid gap-3">{pricedVehicles.map(item=><button key={item.id} onClick={()=>setVehicle(item.id)} className={`rounded-2xl border-2 p-5 text-left ${vehicle===item.id?"border-brand bg-brand-soft":"border-slate-200"}`}><span className="font-bold">{item.name}</span><strong className="float-right">฿{item.price.toLocaleString()}</strong></button>)}</div><button onClick={()=>goToStage("payment")} className="mt-6 min-h-14 w-full rounded-full bg-brand font-black">Continue</button></div></section>
+        /> : <section className="bg-white">
+          <div className="mx-auto max-w-[760px] px-5 py-8 lg:py-12">
+            <button
+              type="button"
+              onClick={() => goToStage("search")}
+              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-slate-100 px-4 text-sm font-bold text-ink transition hover:bg-slate-200"
+            >
+              <ArrowLeft size={16} aria-hidden="true" /> Edit search
+            </button>
+            <h1 className="mt-5 text-3xl font-black tracking-[-.03em] text-ink sm:text-4xl">
+              Select your {booking.bookedHours}-hour ride
+            </h1>
+            {hourlyQuote && (
+              <dl className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="min-w-0 rounded-2xl bg-brand-soft p-3 sm:p-4">
+                  <dt className="text-[11px] font-bold uppercase tracking-[.08em] text-slate-500 sm:text-xs">Duration</dt>
+                  <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">{hourlyQuote.bookedHours} hours</dd>
+                </div>
+                <div className="min-w-0 rounded-2xl bg-brand-soft p-3 sm:p-4">
+                  <dt className="text-[11px] font-bold uppercase tracking-[.08em] text-slate-500 sm:text-xs">Area</dt>
+                  <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">{hourlyQuote.area.name}</dd>
+                </div>
+                <div className="min-w-0 rounded-2xl bg-brand-soft p-3 sm:p-4">
+                  <dt className="text-[11px] font-bold uppercase tracking-[.08em] text-slate-500 sm:text-xs">Included</dt>
+                  <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">
+                    {Math.round((hourlyQuote.prices.economy_sedan?.includedDistanceMeters ?? 0) / 1000)} km
+                  </dd>
+                </div>
+              </dl>
+            )}
+            <h2 className="mt-8 text-sm font-black uppercase tracking-[.12em] text-ink">Choose your ride</h2>
+            <div className="mt-3 space-y-3">
+              {pricedVehicles.map((item) => (
+                <VehicleOption
+                  key={item.id}
+                  item={item}
+                  active={vehicle === item.id}
+                  disabled={!hourlyQuote}
+                  note={`${booking.bookedHours} hours`}
+                  onSelect={() => setVehicle(item.id)}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => goToStage("payment")}
+              disabled={!hourlyQuote}
+              className="mt-6 hidden min-h-14 w-full items-center justify-center gap-2 rounded-full bg-brand text-base font-black text-ink shadow-lg shadow-orange-900/15 transition hover:bg-brand-hover disabled:opacity-50 lg:flex"
+            >
+              Continue with {chosenVehicle.name} <ArrowRight size={18} aria-hidden="true" />
+            </button>
+            <p className="mt-3 text-center text-xs text-slate-500">
+              Private driver · price locked for 20 minutes
+            </p>
+          </div>
+        </section>
       )}
 
       {stage === "payment" && (
@@ -1688,9 +1771,34 @@ export function BookingFlow({
         </section>
       )}
 
+      </div>
+
       {stage === "search" && (
         <>
           {children}
+        </>
+      )}
+      {priceBar && (
+        <>
+          <div aria-hidden="true" className="h-24 lg:hidden" />
+          <div className="no-print fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgb(33_20_10/0.08)] lg:hidden">
+            <div className="mx-auto flex max-w-xl items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-slate-500">{priceBar.label}</p>
+                <p className="text-xl font-black tracking-[-.02em] text-ink" aria-live="polite">
+                  {hasPrice ? `฿${chosenVehicle.price.toLocaleString()}` : "—"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={priceBar.onClick}
+                disabled={priceBar.disabled}
+                className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-full bg-brand px-5 font-black text-ink shadow-md shadow-orange-900/15 transition hover:bg-brand-hover disabled:opacity-50"
+              >
+                {priceBar.action} <ArrowRight size={17} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
         </>
       )}
     </main>
