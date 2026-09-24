@@ -117,6 +117,25 @@ export function noShowEligibleAt(booking: NoShowBooking) {
   return Math.max(pickup, landed + AIRPORT_FREE_WAIT_MINUTES * 60_000);
 }
 
+// ---- Driver late to pickup ----
+
+export const HOTEL_STANDBY_LEAD_MINUTES = 30;
+export const AIRPORT_STANDBY_AFTER_LANDING_MINUTES = 10;
+
+/**
+ * When the driver must be waiting at pickup (epoch ms). Airports: 10 minutes
+ * after the flight lands (latest estimate, else schedule, else the booked
+ * pickup time). Everywhere else: 30 minutes before the booked pickup time.
+ */
+export function standbyDeadline(booking: NoShowBooking) {
+  const pickup = bangkokDepartureTimestamp(booking.pickupDate, booking.pickupTime)
+    ?? parseTime(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`);
+  if (pickup === null) return null;
+  if (!isAirportPickup(booking)) return pickup - HOTEL_STANDBY_LEAD_MINUTES * 60_000;
+  const landed = parseTime(booking.flightEstimatedArrival) ?? parseTime(booking.flightScheduledArrival);
+  return landed === null ? pickup : landed + AIRPORT_STANDBY_AFTER_LANDING_MINUTES * 60_000;
+}
+
 // ---- Offline step replay ----
 
 export const OFFLINE_REPLAY_MAX_AGE_MS = 6 * 60 * 60 * 1000;
