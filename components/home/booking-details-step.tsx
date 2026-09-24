@@ -57,6 +57,13 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
   const toggle = (key: keyof typeof open) => setOpen((current) => ({ ...current, [key]: !current[key] }));
   const phone = splitPhone(booking.phone);
   const [signHelp, setSignHelp] = useState(false);
+  // The Meet & Greet sign follows the lead passenger's name until the customer types their own.
+  const autoSign = `${booking.name} ${booking.surname}`.trim();
+  const [signEdited, setSignEdited] = useState(() => Boolean(booking.pickupSign) && booking.pickupSign !== autoSign);
+  useEffect(() => {
+    if (!signEdited && booking.pickupSign !== autoSign) change("pickupSign", autoSign);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSign, signEdited]);
   const [dialOpen, setDialOpen] = useState(false);
   const [dialQuery, setDialQuery] = useState("");
   const dialNeedle = dialQuery.trim().toLowerCase().replace(/^\+/, "");
@@ -116,7 +123,7 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
           <div>
             <div className="relative">
               <label className="sr-only" htmlFor="lead-sign">Meet &amp; Greet sign name</label>
-              <input id="lead-sign" value={booking.pickupSign} onChange={(e) => change("pickupSign", e.target.value)} maxLength={80} placeholder="Meet & Greet name (optional)" className={`${field(false)} pr-12`} />
+              <input id="lead-sign" value={booking.pickupSign} onChange={(e) => { setSignEdited(e.target.value !== "" && e.target.value !== autoSign); change("pickupSign", e.target.value); }} maxLength={80} placeholder="Meet & Greet name (optional)" className={`${field(false)} pr-12`} />
               <button type="button" onClick={() => setSignHelp(!signHelp)} aria-expanded={signHelp} aria-label="About Meet & Greet" className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-[#6B6B6B]"><CircleHelp size={20} /></button>
             </div>
             {signHelp && <p className="mt-2 flex gap-2 text-sm text-[#6B6B6B]"><Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />The name your driver shows on the sign at the meeting point. Leave empty to use the lead passenger&apos;s name.</p>}
