@@ -143,3 +143,21 @@ test("saved places and travellers are always scoped to the signed-in customer", 
   const rebook = await read("app/api/account/trips/[reference]/rebook/route.ts");
   assert.match(rebook, /customerBooking\(session\.customer, reference\.toUpperCase\(\)\)/);
 });
+
+test("only admins can delete a member account", async () => {
+  const { access } = await import("node:fs/promises");
+  await assert.rejects(access(new URL("../app/api/account/route.ts", import.meta.url)), "customers must not have a self-delete route");
+  const adminRoute = await read("app/api/admin/users/[id]/route.ts");
+  const guard = adminRoute.indexOf("if (!admin) return");
+  const remove = adminRoute.indexOf("deleteCustomerAccount(id)");
+  assert.ok(guard > 0 && remove > guard, "admin check comes before deletion");
+  assert.match(adminRoute, /sameOrigin\(request\)/);
+  const settings = await read("components/account/settings-panel.tsx");
+  assert.doesNotMatch(settings, /method: "DELETE"[^)]*\/api\/account"|fetch\("\/api\/account", \{ method: "DELETE"/);
+});
+
+test("the Users list qualifies outer columns inside subqueries", async () => {
+  const admin = await read("lib/customer-admin.ts");
+  assert.doesNotMatch(admin, /from customer_identities i where i\.customer_id = \$\{customers\.id\}/);
+  assert.match(admin, /i\.customer_id = "customers"\."id"/);
+});

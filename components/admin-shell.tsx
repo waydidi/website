@@ -8,6 +8,7 @@ import {
   PanelLeftOpen,
   Send,
   Truck,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -42,6 +43,13 @@ const tabs = [
     mobileLabel: "Areas",
     title: "Pricing areas",
     icon: MapPinned,
+  },
+  {
+    href: "/admin/users",
+    label: "Users",
+    mobileLabel: "Users",
+    title: "Users",
+    icon: Users,
   },
   {
     href: "/admin/hourly",
