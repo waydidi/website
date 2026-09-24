@@ -4,10 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
-// Promotions for first-time customers (tiket.com style). EXAMPLES ONLY:
-// checkout does not apply promo codes yet. Replace with real offers, and
-// set PROMOTIONS_READY once checkout honours the codes.
-export const PROMOTIONS_READY = false;
+// Promotions (tiket.com style). Real offers come from Admin → Promotions
+// (/api/promotions); the examples below only show with /?promos=preview.
 type Promotion = {
   title: string;
   code: string;
@@ -16,7 +14,7 @@ type Promotion = {
   service: string;
   offer: string[];
 };
-const PROMOTIONS: Promotion[] = [
+const EXAMPLES: Promotion[] = [
   { title: "[New Users] 10% off your first private transfer", code: "WAYDIDINEW", period: "1 October – 31 December 2026", travel: "Anytime", service: "Private transfers",
     offer: ["Discount 10% up to THB 300 with a minimum fare of THB 1,000.", "Valid for your first Waydidi booking only (per email, phone and account)."] },
   { title: "THB 200 off Bangkok ⇄ Pattaya transfers", code: "PATTAYA200", period: "1 October – 31 December 2026", travel: "Anytime", service: "Private transfers between Bangkok and Pattaya, both directions",
@@ -25,11 +23,37 @@ const PROMOTIONS: Promotion[] = [
     offer: ["Discount 15% up to THB 1,000 on bookings of 5 hours or more.", "Extra hours and extra distance are charged at the normal rate."] },
 ];
 
+type PublicPromotion = {
+  code: string; title: string; startsAt: string | null; endsAt: string | null; service: string; minFare: number;
+  discountType: string; discountValue: number; maxDiscount: number | null; firstBookingOnly: boolean; perCustomerLimit: number; offerTerms: string[];
+};
+
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Bangkok" });
+
+// Builds the T&C text from the code's real rules.
+function toPromotion(p: PublicPromotion): Promotion {
+  const amount = p.discountType === "percent" ? `${p.discountValue}%${p.maxDiscount ? ` up to THB ${p.maxDiscount.toLocaleString("en-US")}` : ""}` : `THB ${p.discountValue.toLocaleString("en-US")}`;
+  const rules = [
+    `Discount ${amount}${p.minFare ? ` with a minimum fare of THB ${p.minFare.toLocaleString("en-US")}` : ""}.`,
+    ...(p.firstBookingOnly ? ["Valid for your first Waydidi booking only (per email, phone and account)."] : []),
+  ];
+  return {
+    title: p.title,
+    code: p.code,
+    period: p.startsAt || p.endsAt ? `${p.startsAt ? day(p.startsAt) : "Now"} – ${p.endsAt ? day(p.endsAt) : "until further notice"}` : "Until further notice",
+    travel: "Anytime",
+    service: p.service === "hourly" ? "Hourly private driver" : p.service === "transfer" ? "Private transfers" : "Private transfers and hourly private driver",
+    offer: [...rules, ...p.offerTerms.filter((line) => !rules.includes(line))],
+  };
+}
+
 function PromoCard({ promo, onTerms }: { promo: Promotion; onTerms: () => void }) {
   const { title, code } = promo;
   const [copied, setCopied] = useState(false);
   async function copy() {
     try { await navigator.clipboard.writeText(code); } catch { /* still show the code */ }
+    // "Use": the Payment step picks this up and fills in the promo box.
+    try { sessionStorage.setItem("waydidi-promo", code); } catch { /* storage unavailable */ }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }
@@ -51,16 +75,27 @@ function PromoCard({ promo, onTerms }: { promo: Promotion; onTerms: () => void }
 
 export function Promotions() {
   // Until real codes work at checkout, show only when previewing: /?promos=preview
-  const [preview, setPreview] = useState(false);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [terms, setTerms] = useState<Promotion | null>(null);
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the URL after hydration
-  useEffect(() => setPreview(new URLSearchParams(window.location.search).get("promos") === "preview"), []);
-  if (!PROMOTIONS_READY && !preview) return null;
+  useEffect(() => {
+    const preview = new URLSearchParams(window.location.search).get("promos") === "preview";
+    let alive = true;
+    fetch("/api/promotions")
+      .then((r) => (r.ok ? r.json() : { promotions: [] }))
+      .then((body: { promotions?: PublicPromotion[] }) => {
+        if (!alive) return;
+        const live = (body.promotions ?? []).map(toPromotion);
+        setPromotions(live.length ? live : preview ? EXAMPLES : []);
+      })
+      .catch(() => { if (alive && preview) setPromotions(EXAMPLES); });
+    return () => { alive = false; };
+  }, []);
+  if (!promotions.length) return null;
   return <section className="bg-gradient-to-b from-[#FFF3E6] to-[#FFF9F3] py-8" aria-labelledby="promotions-heading">
     <h2 id="promotions-heading" className="mx-auto max-w-[1180px] px-5 text-[19px] font-semibold tracking-[-.01em] sm:text-[22px] text-[#1C1C1C] lg:px-0">Special promotion for your first transaction</h2>
     {/* Native horizontal scroll with snap: smooth with a finger or trackpad. */}
     <ul className="mx-auto mt-4 flex max-w-[1180px] snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto overscroll-x-contain px-5 pb-3 [scrollbar-width:none] lg:scroll-px-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
-      {PROMOTIONS.map((promo) => <PromoCard key={promo.code} promo={promo} onTerms={() => setTerms(promo)} />)}
+      {promotions.map((promo) => <PromoCard key={promo.code} promo={promo} onTerms={() => setTerms(promo)} />)}
     </ul>
     <TermsSheet promo={terms} onClose={() => setTerms(null)} />
   </section>;

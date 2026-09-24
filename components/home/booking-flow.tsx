@@ -256,6 +256,11 @@ export function BookingFlow({
   const [quoteRequest, setQuoteRequest] = useState(false);
   // Results screen: "edit trip" popup (passengers, date and time).
   const [tripEditOpen, setTripEditOpen] = useState(false);
+  // Promo code applied at the Payment step (amount set by the server).
+  const [promo, setPromo] = useState<{ code: string; title: string; discount: number } | null>(null);
+  const [promoInput, setPromoInput] = useState("");
+  const [promoError, setPromoError] = useState("");
+  const [promoChecking, setPromoChecking] = useState(false);
   // Set while a picker opened from that popup is showing; brings it back after.
   const [returnToTripEdit, setReturnToTripEdit] = useState(false);
   // Prototype route shown on the map screen while live pricing is off.
@@ -271,7 +276,7 @@ export function BookingFlow({
       return;
     }
     checkoutAttemptRef.current = "";
-  }, [booking, vehicle, payment, serviceType, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId]);
+  }, [booking, vehicle, payment, serviceType, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId, promo?.code]);
 
   useEffect(() => {
     // Browser connectivity is only available after hydration.
@@ -539,6 +544,45 @@ export function BookingFlow({
       pricedVehicles.find((item) => item.id === vehicle) ?? pricedVehicles[0],
     [vehicle, pricedVehicles],
   );
+  const discount = promo?.discount ?? 0;
+  const payable = Math.max(0, chosenVehicle.price - discount);
+
+  // A different car or price needs the code checked again.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clears a discount computed for the old price
+    setPromo(null);
+  }, [vehicle, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId, quoteSummary]);
+
+  // A code copied from the homepage ("Copy & Use") is waiting in the box.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("waydidi-promo");
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reads a saved code after hydration
+      if (saved) setPromoInput(saved);
+    } catch { /* storage unavailable */ }
+  }, []);
+
+  async function applyPromo() {
+    const code = promoInput.trim();
+    if (!code) { setPromoError("Enter a promo code."); return; }
+    setPromoChecking(true);
+    setPromoError("");
+    try {
+      const response = await fetch("/api/promo/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, total: chosenVehicle.price, serviceType, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
+      });
+      const result = (await response.json()) as { ok: boolean; code?: string; title?: string; discount?: number; reason?: string };
+      if (!result.ok || !result.code || !result.discount) { setPromo(null); setPromoError(result.reason ?? "This promo code isn't valid."); return; }
+      setPromo({ code: result.code, title: result.title ?? result.code, discount: result.discount });
+      try { sessionStorage.removeItem("waydidi-promo"); } catch { /* ignore */ }
+    } catch {
+      setPromoError("Couldn't check the code. Please try again.");
+    } finally {
+      setPromoChecking(false);
+    }
+  }
   const change = <K extends keyof Booking>(key: K, value: Booking[K]) => {
     setBooking((current) => ({ ...current, [key]: value }));
     if (["name", "surname", "email", "phone", "termsAccepted"].includes(String(key))) {
@@ -869,6 +913,7 @@ export function BookingFlow({
           serviceType,
           bookedHours: serviceType === "hourly" ? booking.bookedHours : undefined,
           hourlyQuoteId: hourlyQuote?.quoteId,
+          promoCode: promo?.code,
         }),
       });
       const result = (await response.json()) as {
@@ -895,6 +940,13 @@ export function BookingFlow({
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
+      if (!response.ok && result.code === "PROMO_INVALID") {
+        checkoutAttemptRef.current = "";
+        setPromo(null);
+        setPromoError(result.error ?? "This promo code isn't valid.");
+        goToStage("payment");
+        return;
+      }
       if (!response.ok || !result.checkoutUrl)
         throw new Error(result.error ?? "Checkout could not start");
       window.location.assign(result.checkoutUrl);
@@ -918,7 +970,7 @@ export function BookingFlow({
   // otherwise sits below the whole form. Each step's own rules decide when its
   // button is enabled, so the bar can never skip one.
   const hasPrice = !quoteRequest && (serviceType === "transfer" ? Boolean(fareQuote) : Boolean(hourlyQuote));
-  const priceText = quoteRequest ? "Quote on request" : hasPrice ? money(chosenVehicle.price) : "—";
+  const priceText = quoteRequest ? "Quote on request" : hasPrice ? money(payable) : "—";
   useEffect(() => {
     if (!returnToTripEdit || peopleOpen || dateOpen) return;
     // A picker opened from the edit popup has closed: show the popup again.
@@ -1493,7 +1545,7 @@ export function BookingFlow({
             phone: traveller.phone || current.phone,
             specialRequests: traveller.notes && !current.specialRequests ? traveller.notes : current.specialRequests,
           }))}
-          total={quoteRequest && !demoRoute ? "Quote on request" : money(chosenVehicle.price)}
+          total={quoteRequest && !demoRoute ? "Quote on request" : money(payable)}
           onBack={() => goToStage("vehicle")}
           onContinue={continueToPayment}
         />
@@ -1505,6 +1557,39 @@ export function BookingFlow({
               Payment
             </h2>
             <div className="mt-8 rounded-3xl bg-[#f3f3f3] p-6 sm:p-8">
+              {!quoteRequest && (
+                <div className="mb-7">
+                  <h3 className="text-lg font-black">Promo code</h3>
+                  {promo ? (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4">
+                      <span className="min-w-0">
+                        <strong className="block tracking-wide text-emerald-900">{promo.code}</strong>
+                        <span className="block truncate text-sm text-emerald-800">{promo.title} · −{money(promo.discount)}</span>
+                      </span>
+                      <button type="button" onClick={() => { setPromo(null); setPromoError(""); }} className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-900">Remove</button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-3 flex gap-2">
+                        <label className="sr-only" htmlFor="promo-code">Promo code</label>
+                        <input
+                          id="promo-code"
+                          value={promoInput}
+                          onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(""); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void applyPromo(); } }}
+                          maxLength={32}
+                          autoCapitalize="characters"
+                          placeholder="Have a promo code?"
+                          aria-invalid={Boolean(promoError)}
+                          className={`h-13 min-w-0 flex-1 rounded-xl border bg-white px-4 text-base uppercase tracking-wide outline-none placeholder:normal-case placeholder:tracking-normal focus:border-brand ${promoError ? "border-red-400" : "border-slate-200"}`}
+                        />
+                        <button type="button" onClick={() => void applyPromo()} disabled={promoChecking} className="h-13 shrink-0 rounded-xl bg-brand px-5 font-bold text-white disabled:opacity-60">{promoChecking ? "Checking…" : "Apply"}</button>
+                      </div>
+                      {promoError && <p role="alert" className="mt-2 text-sm font-semibold text-red-700">{promoError}</p>}
+                    </>
+                  )}
+                </div>
+              )}
               <h3 className="text-lg font-black">Payment method</h3>
               <div className="mt-4 grid gap-3">
                 <button
@@ -1666,10 +1751,16 @@ export function BookingFlow({
                 <SummaryLine label="Return fare" value={money(quoteSummary.prices[vehicle].return)} />
               </div>
             )}
+            {promo && !quoteRequest && (
+              <div className="mb-3 flex items-center justify-between text-sm">
+                <span className="text-white/65">Discount ({promo.code})</span>
+                <span className="font-semibold text-emerald-300">−{money(promo.discount)}</span>
+              </div>
+            )}
             <div className="flex items-end justify-between">
               <span className="text-sm text-white/65">Total</span>
               <span className={`${quoteRequest ? "text-xl" : "text-3xl"} font-black`}>
-                {quoteRequest ? "Quote on request" : money(chosenVehicle.price)}{!quoteRequest && currency !== "THB" && <span className="mt-1 block text-xs font-medium text-slate-500">Charged in THB: {thb(chosenVehicle.price)}</span>}
+                {quoteRequest ? "Quote on request" : money(payable)}{!quoteRequest && currency !== "THB" && <span className="mt-1 block text-xs font-medium text-slate-500">Charged in THB: {thb(payable)}</span>}
               </span>
             </div>
             <button
@@ -1741,10 +1832,16 @@ export function BookingFlow({
                 <SummaryLine label="Return" value={money(quoteSummary.prices[vehicle].return)} />
               </div>
             )}
+            {promo && !quoteRequest && (
+              <div className="mb-3 flex items-center justify-between text-sm">
+                <span className="text-white/65">Discount ({promo.code})</span>
+                <span className="font-semibold text-emerald-300">−{money(promo.discount)}</span>
+              </div>
+            )}
             <div className="flex items-end justify-between">
               <span className="text-sm text-white/65">Total</span>
               <strong className={quoteRequest ? "text-xl" : "text-3xl"}>
-                {quoteRequest ? "Quote on request" : money(chosenVehicle.price)}{!quoteRequest && currency !== "THB" && <span className="mt-1 block text-xs font-medium text-slate-500">Charged in THB: {thb(chosenVehicle.price)}</span>}
+                {quoteRequest ? "Quote on request" : money(payable)}{!quoteRequest && currency !== "THB" && <span className="mt-1 block text-xs font-medium text-slate-500">Charged in THB: {thb(payable)}</span>}
               </strong>
             </div>
             <p className="mt-3 text-sm leading-6 text-white/65">
@@ -1808,9 +1905,10 @@ export function BookingFlow({
                   value={`${booking.passengers} passengers · ${booking.luggage} bags`}
                 />
                 <Detail label="Vehicle" value={chosenVehicle.name} />
+                {promo && <Detail label={`Discount (${promo.code})`} value={`−${thb(promo.discount)}`} />}
                 <Detail
                   label="Total"
-                  value={thb(chosenVehicle.price)}
+                  value={thb(payable)}
                 />
               </div>
               <div className="no-print mt-8 flex flex-col gap-3 sm:flex-row">

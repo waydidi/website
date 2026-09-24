@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { customerFromRequest } from "@/lib/customer-auth";
-import { customerBookingLinks } from "@/db/schema";
+import { customerBookingLinks, promoRedemptions } from "@/db/schema";
+import { normalizeCode } from "@/lib/promo";
+import { checkPromo, normalizePhone } from "@/lib/promo-db";
 import { and, count, eq, gt, lt } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db";
@@ -334,6 +336,28 @@ export async function POST(request: Request) {
         total = price.total + returnPrice.total;
       }
     }
+    // Promo code: checked here against the real quote price; the browser's
+    // preview is never trusted.
+    const account = await customerFromRequest(request);
+    let promoApplied: { promoId: string; code: string; originalTotal: number; discount: number } | null = null;
+    if (input.promoCode) {
+      const result = await checkPromo({
+        code: normalizeCode(input.promoCode),
+        total,
+        serviceType: input.serviceType === "hourly" ? "hourly" : "transfer",
+        vehicle: input.vehicle,
+        email: input.customerEmail,
+        phone: input.customerPhone,
+        customerId: account?.customer.id ?? null,
+      });
+      if (!result.ok || !result.promo)
+        return NextResponse.json(
+          { code: "PROMO_INVALID", error: result.ok ? "This promo code isn't valid." : result.reason, field: "promoCode" },
+          { status: 409 },
+        );
+      promoApplied = { promoId: result.promo.id, code: result.promo.code, originalTotal: total, discount: result.discount };
+      total = result.finalTotal;
+    }
     const reference = await uniqueBookingReference();
     const accessToken = recoveryToken;
     const now = new Date().toISOString();
@@ -419,7 +443,19 @@ export async function POST(request: Request) {
       });
     // Bookings made while signed in are linked to the customer's account,
     // even when booked for someone else's email.
-    const account = await customerFromRequest(request);
+    if (promoApplied) await getDb().insert(promoRedemptions).values({
+      id: crypto.randomUUID(),
+      promoId: promoApplied.promoId,
+      code: promoApplied.code,
+      bookingReference: reference,
+      customerEmail: input.customerEmail.trim().toLowerCase(),
+      customerPhone: normalizePhone(input.customerPhone),
+      customerId: account?.customer.id ?? null,
+      originalTotal: promoApplied.originalTotal,
+      discount: promoApplied.discount,
+      finalTotal: total,
+      createdAt: now,
+    }).onConflictDoNothing();
     if (account) await getDb().insert(customerBookingLinks).values({ bookingReference: reference, customerId: account.customer.id, createdAt: now }).onConflictDoNothing();
     await getDb().insert(bookingPayments).values({
       id: `primary:${reference}`,

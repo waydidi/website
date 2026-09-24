@@ -319,6 +319,56 @@ export const routeInclusions = sqliteTable(
   (table) => [index("idx_route_inclusions_active").on(table.active, table.priority)],
 );
 
+// Promo codes (admin-managed). Amounts are whole THB; percent is 1-100.
+export const promoCodes = sqliteTable(
+  "promo_codes",
+  {
+    id: text("id").primaryKey(),
+    code: text("code").notNull().unique(),
+    title: text("title").notNull(),
+    discountType: text("discount_type").notNull(), // "percent" | "fixed"
+    discountValue: integer("discount_value").notNull(),
+    maxDiscount: integer("max_discount"),
+    minFare: integer("min_fare").notNull().default(0),
+    startsAt: text("starts_at"),
+    endsAt: text("ends_at"),
+    maxUses: integer("max_uses"),
+    perCustomerLimit: integer("per_customer_limit").notNull().default(1),
+    firstBookingOnly: integer("first_booking_only", { mode: "boolean" }).notNull().default(false),
+    service: text("service").notNull().default("any"), // "any" | "transfer" | "hourly"
+    vehiclesJson: text("vehicles_json"),
+    offerTermsJson: text("offer_terms_json"),
+    showOnHomepage: integer("show_on_homepage", { mode: "boolean" }).notNull().default(false),
+    status: text("status").notNull().default("draft"), // "draft" | "active" | "paused"
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_promo_codes_status").on(table.status)],
+);
+
+// One row per booking that used a code. A use counts while its booking is live
+// (not expired, cancelled or refunded), so abandoned checkouts free it again.
+export const promoRedemptions = sqliteTable(
+  "promo_redemptions",
+  {
+    id: text("id").primaryKey(),
+    promoId: text("promo_id").notNull(),
+    code: text("code").notNull(),
+    bookingReference: text("booking_reference").notNull().unique(),
+    customerEmail: text("customer_email").notNull(),
+    customerPhone: text("customer_phone").notNull(),
+    customerId: text("customer_id"),
+    originalTotal: integer("original_total").notNull(),
+    discount: integer("discount").notNull(),
+    finalTotal: integer("final_total").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("idx_promo_redemptions_promo").on(table.promoId),
+    index("idx_promo_redemptions_email").on(table.customerEmail),
+  ],
+);
+
 export const pricingAudit = sqliteTable(
   "pricing_audit",
   {

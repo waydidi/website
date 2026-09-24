@@ -75,6 +75,7 @@ export const checkoutInputSchema = z.object({
   serviceType: z.enum(["transfer", "hourly"]).default("transfer"),
   fareQuoteId: z.string().uuid().optional(),
   returnFareQuoteId: z.string().uuid().optional(),
+  promoCode: z.string().trim().max(40).optional(),
   returnDate: bookingDateSchema.optional(),
   returnTime: bookingTimeSchema.optional(),
   bookedHours: z.number().int().min(3).max(12).optional(),
