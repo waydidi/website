@@ -553,7 +553,7 @@ export function BookingResultsMap(props: Props) {
             const off = !props.quote || item.fits === false;
             const badge = item.fits === false ? null : item.id === cheapest?.id ? "best" : item.popular ? "popular" : null;
             return <li key={item.id}>
-              <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`relative grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-[#FF8A05] bg-white" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
+              <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`relative grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-[#FF8A05] bg-white" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
                 <span className="grid h-14 place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className={`max-h-14 w-full object-contain ${item.id === "comfort_suv" ? "scale-110" : ""}`} /> : <CarFront size={44} className="text-[#9A9A9A]" aria-hidden="true" />}</span>
                 <span className="min-w-0">
                   <strong className="block text-[17px] font-semibold leading-tight text-[#1C1C1C]">{item.name}</strong>
