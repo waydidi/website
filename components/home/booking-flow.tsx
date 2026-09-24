@@ -13,7 +13,6 @@ import {
   CreditCard,
   Luggage,
   MapPin,
-  UsersRound,
   Minus,
   Plus,
   Printer,
@@ -34,7 +33,6 @@ import {
 } from "@/components/ui/sheet";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { BookingResultsMap, VehicleOption } from "@/components/booking-results-map";
-import { FlightLookup } from "@/components/flight-lookup";
 import {
   GoogleRoutePicker,
   type RouteInfo,
@@ -42,6 +40,7 @@ import {
 import { validateBookingReview, type ReviewFieldErrors } from "@/lib/booking-review";
 import { VEHICLES, smallestFittingVehicle, vehicleFits, type VehicleId } from "@/lib/vehicles";
 import { DateTimePicker } from "./date-time-picker";
+import { BookingDetailsStep } from "./booking-details-step";
 import { SiteHeader } from "@/components/site-header";
 import { useCurrency } from "@/components/use-currency";
 import { DEMO_DROPOFF, DEMO_PICKUP, DEMO_PRICES, fetchDemoRoute, isDemoRoute } from "@/lib/demo-route";
@@ -50,9 +49,9 @@ import { formatDate, translate, type Locale, type MessageKey, type Messages } fr
 import enMessages from "@/messages/en.json";
 import { I18nProvider, useI18n } from "@/components/i18n-provider";
 
-type Stage = "search" | "vehicle" | "payment" | "review" | "confirmation";
+type Stage = "search" | "vehicle" | "details" | "payment" | "review" | "confirmation";
 type ServiceType = "transfer" | "hourly";
-type Booking = {
+export type Booking = {
   pickup: string;
   dropoff: string;
   date: string;
@@ -562,8 +561,28 @@ export function BookingFlow({
     if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  // Step 1 (details) checks the lead passenger only; terms come on step 2.
+  function continueToPayment() {
+    const { termsAccepted: _terms, ...errors } = validateBookingReview({ ...booking, termsAccepted: true });
+    void _terms;
+    setFieldErrors(errors);
+    const firstField = Object.keys(errors)[0];
+    if (firstField) {
+      window.setTimeout(() => document.querySelector<HTMLElement>(`[data-booking-field="${firstField}"]`)?.focus(), 0);
+      return;
+    }
+    setError("");
+    goToStage("payment");
+  }
+
   function continueToReview() {
     const errors = validateBookingReview(booking);
+    // Passenger fields live on step 1: send the customer back there to fix them.
+    if (Object.keys(errors).some((key) => key !== "termsAccepted")) {
+      setFieldErrors(errors);
+      goToStage("details");
+      return;
+    }
     setFieldErrors(errors);
     const firstField = Object.keys(errors)[0];
     if (firstField) {
@@ -913,7 +932,7 @@ export function BookingFlow({
       ? {
           label: chosenVehicle.name,
           action: "Continue",
-          onClick: () => goToStage("payment"),
+          onClick: () => goToStage("details"),
           disabled: !chosenVehicle.fits
             ? true
             : quoteRequest
@@ -1386,7 +1405,7 @@ export function BookingFlow({
           onRetry={retryRoute}
           passengers={booking.passengers}
           onEditTrip={() => setTripEditOpen(true)}
-          onContinue={() => goToStage("payment")}
+          onContinue={() => goToStage("details")}
         /> : <section className="bg-white">
           <div className="mx-auto max-w-[760px] px-5 py-8 lg:py-12">
             <button
@@ -1458,159 +1477,33 @@ export function BookingFlow({
         </section>
       )}
 
+      {stage === "details" && (
+        <BookingDetailsStep
+          booking={booking}
+          change={change}
+          fieldErrors={fieldErrors}
+          savedTravellers={savedTravellers}
+          applyTraveller={(traveller) => setBooking((current) => ({
+            ...current,
+            name: traveller.name,
+            surname: traveller.surname,
+            email: traveller.email || current.email,
+            phone: traveller.phone || current.phone,
+            specialRequests: traveller.notes && !current.specialRequests ? traveller.notes : current.specialRequests,
+          }))}
+          total={quoteRequest && !demoRoute ? "Quote on request" : money(chosenVehicle.price)}
+          onBack={() => goToStage("vehicle")}
+          onContinue={continueToPayment}
+        />
+      )}
       {stage === "payment" && (
         <section className="mx-auto grid max-w-[1100px] gap-6 px-5 py-12 lg:grid-cols-[1fr_360px] lg:px-10 lg:py-16">
           <div>
             <h2 className="text-3xl font-black tracking-[-.04em] sm:text-4xl">
-              Passenger & payment
+              Payment
             </h2>
             <div className="mt-8 rounded-3xl bg-[#f3f3f3] p-6 sm:p-8">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h3 className="text-lg font-black">Lead passenger</h3>
-                {savedTravellers.length > 0 && (
-                  <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
-                    <UsersRound size={17} aria-hidden="true" />
-                    <span className="sr-only sm:not-sr-only">Saved traveller</span>
-                    <select
-                      defaultValue=""
-                      onChange={(event) => {
-                        const traveller = savedTravellers.find((item) => item.id === event.target.value);
-                        if (!traveller) return;
-                        setBooking((current) => ({
-                          ...current,
-                          name: traveller.name,
-                          surname: traveller.surname,
-                          email: traveller.email || current.email,
-                          phone: traveller.phone || current.phone,
-                          specialRequests: traveller.notes && !current.specialRequests ? traveller.notes : current.specialRequests,
-                        }));
-                      }}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base text-slate-900 outline-none focus:border-brand"
-                    >
-                      <option value="" disabled>Choose…</option>
-                      {savedTravellers.map((item) => <option key={item.id} value={item.id}>{item.name} {item.surname}</option>)}
-                    </select>
-                  </label>
-                )}
-              </div>
-              {/airport|\bBKK\b|\bDMK\b/i.test(booking.pickup) && (
-                <p className="mt-2 rounded-xl bg-orange-50 px-4 py-3 text-sm font-medium text-slate-700">
-                  Airport pickup: add the flight number so operations can identify arrival changes and the correct terminal.
-                </p>
-              )}
-              <div className="mt-5 grid gap-5 sm:grid-cols-2">
-                <label className="text-sm font-bold">
-                  First and middle names
-                  <input
-                    data-booking-field="name"
-                    aria-invalid={Boolean(fieldErrors.name)}
-                    aria-describedby={fieldErrors.name ? "name-error" : undefined}
-                    required
-                    value={booking.name}
-                    onChange={(e) => change("name", e.target.value)}
-                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-brand ${fieldErrors.name ? "border-red-400 bg-red-50" : "border-slate-200"}`}
-                    placeholder="Given names"
-                  />
-                  {fieldErrors.name && <span id="name-error" className="mt-2 block text-sm font-semibold text-red-700">{fieldErrors.name}</span>}
-                </label>
-                <label className="text-sm font-bold">
-                  Surname / family name
-                  <input
-                    data-booking-field="surname"
-                    aria-invalid={Boolean(fieldErrors.surname)}
-                    aria-describedby={fieldErrors.surname ? "surname-error" : undefined}
-                    required
-                    value={booking.surname}
-                    onChange={(e) => change("surname", e.target.value)}
-                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-brand ${fieldErrors.surname ? "border-red-400 bg-red-50" : "border-slate-200"}`}
-                    placeholder="Family name"
-                  />
-                  {fieldErrors.surname && <span id="surname-error" className="mt-2 block text-sm font-semibold text-red-700">{fieldErrors.surname}</span>}
-                </label>
-                <label className="text-sm font-bold">
-                  Confirmation email
-                  <input
-                    data-booking-field="email"
-                    aria-invalid={Boolean(fieldErrors.email)}
-                    aria-describedby={fieldErrors.email ? "email-error" : undefined}
-                    required
-                    type="email"
-                    value={booking.email}
-                    onChange={(e) => change("email", e.target.value)}
-                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-brand ${fieldErrors.email ? "border-red-400 bg-red-50" : "border-slate-200"}`}
-                    placeholder="you@email.com"
-                  />
-                  {fieldErrors.email && <span id="email-error" className="mt-2 block text-sm font-semibold text-red-700">{fieldErrors.email}</span>}
-                </label>
-                <label className="text-sm font-bold">
-                  Phone or WhatsApp
-                  <input
-                    data-booking-field="phone"
-                    aria-invalid={Boolean(fieldErrors.phone)}
-                    aria-describedby={fieldErrors.phone ? "phone-error" : undefined}
-                    required
-                    type="tel"
-                    value={booking.phone}
-                    onChange={(e) => change("phone", e.target.value)}
-                    className={`mt-2 h-13 w-full rounded-xl border px-4 text-base outline-none focus:border-brand ${fieldErrors.phone ? "border-red-400 bg-red-50" : "border-slate-200"}`}
-                    placeholder="+66 81 234 5678"
-                  />
-                  {fieldErrors.phone && <span id="phone-error" className="mt-2 block text-sm font-semibold text-red-700">{fieldErrors.phone}</span>}
-                </label>
-                <label className="text-sm font-bold">
-                  Flight number{" "}
-                  <span className="font-normal text-slate-400">(optional)</span>
-                  <input
-                    value={booking.flightNumber}
-                    onChange={(e) => change("flightNumber", e.target.value)}
-                    maxLength={30}
-                    className="mt-2 h-13 w-full rounded-xl border border-slate-200 px-4 text-base uppercase outline-none focus:border-brand"
-                    placeholder="TG 123"
-                  />
-                </label>
-                <FlightLookup flightNumber={booking.flightNumber} flightDate={booking.date} />
-                <label className="text-sm font-bold">
-                  Pickup sign name{" "}
-                  <span className="font-normal text-slate-400">(optional)</span>
-                  <input
-                    value={booking.pickupSign}
-                    onChange={(e) => change("pickupSign", e.target.value)}
-                    maxLength={80}
-                    className="mt-2 h-13 w-full rounded-xl border border-slate-200 px-4 text-base outline-none focus:border-brand"
-                    placeholder="Name shown on the sign"
-                  />
-                </label>
-              </div>
-              <div className="mt-5">
-                <label className="text-sm font-bold">
-                  Special requests{" "}
-                  <span className="font-normal text-slate-400">(optional)</span>
-                  <textarea
-                    value={booking.specialRequests}
-                    onChange={(e) => change("specialRequests", e.target.value)}
-                    maxLength={500}
-                    rows={3}
-                    className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-brand"
-                    placeholder="Accessibility needs or other requests"
-                  />
-                </label>
-              </div>
-              <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-4 text-sm">
-                <input
-                  type="checkbox"
-                  checked={booking.oversizedLuggage}
-                  onChange={(e) => change("oversizedLuggage", e.target.checked)}
-                  className="mt-1 size-4 accent-brand"
-                />
-                <span>
-                  <strong className="block">Oversized luggage</strong>
-                  <span className="text-slate-500">
-                    Sports equipment, golf bags, surfboards, or unusually large
-                    items.
-                  </span>
-                </span>
-              </label>
-              <h3 className="mt-8 text-lg font-black">Payment method</h3>
+              <h3 className="text-lg font-black">Payment method</h3>
               <div className="mt-4 grid gap-3">
                 <button
                   type="button"
@@ -1722,10 +1615,10 @@ export function BookingFlow({
               )}
             </div>
             <button
-              onClick={() => goToStage("vehicle")}
+              onClick={() => goToStage("details")}
               className="mt-5 flex items-center gap-2 text-sm font-bold text-slate-600"
             >
-              <ArrowLeft size={18} /> Back to vehicles
+              <ArrowLeft size={18} /> Back to details
             </button>
           </div>
           <aside className="h-fit rounded-3xl bg-[#071c61] p-6 text-white lg:sticky lg:top-6">
@@ -2040,8 +1933,8 @@ function Progress({
   stage: Stage;
   inHeader?: boolean;
 }) {
-  const active = stage === "vehicle" ? 1 : stage === "payment" ? 2 : stage === "review" ? 3 : 4;
-  const steps = ["Select ride", "Passenger", "Review", "Confirmation"];
+  const active = stage === "vehicle" ? 1 : stage === "details" ? 2 : stage === "payment" ? 3 : stage === "review" ? 4 : 5;
+  const steps = ["Select ride", "Details", "Payment", "Review"];
   return (
     <div
       className={`${inHeader ? "ml-auto w-[min(520px,calc(100vw-120px))]" : "mx-auto max-w-3xl"} flex items-start justify-end`}
