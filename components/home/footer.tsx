@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { WaydidiLogo } from "@/components/waydidi-logo";
+import { WaydidiWordmark } from "@/components/waydidi-logo";
 import { destinations } from "@/lib/public-content";
 import { getMessages, translate, type Locale, type MessageKey } from "@/lib/i18n";
 
@@ -15,19 +15,19 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
     "G Pay",
   ];
   return (
-    <footer id="support" className="no-print mt-14 bg-white text-ink">
+    <footer id="support" className="no-print mt-14 bg-[#FF8A05] text-white">
       <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
-        <div className="border-t border-slate-200 pt-12">
+        <div className="pt-12">
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_.8fr_.8fr_.8fr_.8fr]">
             <div>
               <Link
                 href="/"
-                className="inline-flex text-brand"
+                className="inline-flex text-white"
                 aria-label={t("nav.home")}
               >
-                <WaydidiLogo className="h-16 w-auto" />
+                <WaydidiWordmark className="h-9 w-[142px]" />
               </Link>
-              <p className="mt-5 max-w-sm text-sm leading-6 text-slate-600">
+              <p className="mt-5 max-w-sm text-sm leading-6 text-white/90">
                 {t("footer.tagline")}
               </p>
               <h3 className="mt-8 font-black">{t("footer.payments")}</h3>
@@ -78,7 +78,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
           </div>
         </div>
 
-        <div className="mt-16 flex flex-col gap-5 border-t border-slate-200 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-16 flex flex-col gap-5 border-t border-white/30 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-x-6 gap-y-3 font-semibold">
             <Link href="/faq">{t("footer.helpCenter")}</Link>
             <Link href="/booking/manage">{t("footer.manageBooking")}</Link>
@@ -88,7 +88,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
             <Link href="/terms">{t("footer.terms")}</Link>
             <Link href="/privacy">{t("footer.privacy")}</Link>
           </div>
-          <p className="text-slate-500">{t("footer.rights")}</p>
+          <p className="text-white/80">{t("footer.rights")}</p>
         </div>
       </div>
     </footer>
@@ -105,10 +105,10 @@ function FooterLinks({
   return (
     <div>
       <h3 className="font-black">{title}</h3>
-      <ul className="mt-5 space-y-3 text-sm text-slate-600">
+      <ul className="mt-5 space-y-3 text-sm text-white/90">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="hover:text-brand-deep">
+            <Link href={link.href} className="hover:text-white hover:underline">
               {link.label}
             </Link>
           </li>
