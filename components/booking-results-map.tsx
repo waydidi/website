@@ -96,12 +96,12 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.ch
 const GRAB_FONT = `-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif`;
 
 function teardrop(fill: string) {
-  return `<svg width="40" height="50" viewBox="0 0 40 50" style="display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.28))"><path d="M20 49c-.9 0-1.6-.7-2.2-1.6C12.6 39.6 2.5 31.8 2.5 20 2.5 10.3 10.3 2.5 20 2.5S37.5 10.3 37.5 20c0 11.8-10.1 19.6-15.3 27.4-.6.9-1.3 1.6-2.2 1.6Z" fill="${fill}" stroke="#fff" stroke-width="2.5"/><circle cx="20" cy="20" r="7.5" fill="#fff"/></svg>`;
+  return `<svg width="32" height="40" viewBox="0 0 40 50" style="display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.28))"><path d="M20 49c-.9 0-1.6-.7-2.2-1.6C12.6 39.6 2.5 31.8 2.5 20 2.5 10.3 10.3 2.5 20 2.5S37.5 10.3 37.5 20c0 11.8-10.1 19.6-15.3 27.4-.6.9-1.3 1.6-2.2 1.6Z" fill="${fill}" stroke="#fff" stroke-width="2.5"/><circle cx="20" cy="20" r="7.5" fill="#fff"/></svg>`;
 }
 
-// Pin is 40×50; its round head is 35px across, centred 29px above the tip.
-const PIN_HEAD = 35;
-const HEAD_CENTRE = 29;
+// Pin is 32×40; its round head is 28px across, centred 23px above the tip.
+const PIN_HEAD = 28;
+const HEAD_CENTRE = 23;
 
 function placeTag(name: string, side: "right" | "left") {
   // Same height as the pin head; the end under the pin is hidden behind it.
@@ -115,7 +115,7 @@ function grabMarker(name: string, color: string, side: "right" | "left") {
   const tag = side === "right"
     ? `<div style="position:absolute;left:0;top:${tagTop}px">${placeTag(name, "right")}</div>`
     : `<div style="position:absolute;right:0;top:${tagTop}px">${placeTag(name, "left")}</div>`;
-  return `<div style="position:relative;width:0;height:0">${tag}<div style="position:absolute;left:-20px;top:-49px">${teardrop(color)}</div></div>`;
+  return `<div style="position:relative;width:0;height:0">${tag}<div style="position:absolute;left:-16px;top:-39px">${teardrop(color)}</div></div>`;
 }
 const grabPickup = (name: string) => grabMarker(name, "#E8543C", "right");
 const grabDropoff = (name: string) => grabMarker(name, "#3478F6", "left");
