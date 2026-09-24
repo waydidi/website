@@ -344,8 +344,14 @@ html {
 
 /* "Add-ons" speech bubble beside the + button gently floats. */
 @keyframes addons-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-.addons-bubble { animation: addons-float 2.4s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .addons-bubble { animation: none; } }
+.addons-bubble {
+  /* Red to Waydidi orange, slowly sweeping from the bottom-left to the top-right corner. */
+  background-image: linear-gradient(45deg, #D32F2F 0%, #FF8A05 50%, #D32F2F 100%);
+  background-size: 300% 300%;
+  animation: addons-float 2.4s ease-in-out infinite, addons-wave 6s ease-in-out infinite alternate;
+}
+@keyframes addons-wave { from { background-position: 0% 100%; } to { background-position: 100% 0%; } }
+@media (prefers-reduced-motion: reduce) { .addons-bubble { animation: none; background-position: 50% 50%; } }
 
 /* How it works, step 3: the route draws in while the car dot travels, then the hotel pulses. */
 .hiw-pulse { transform-origin: 235px 45px; animation: hiw-pulse 2s ease-out infinite; }
