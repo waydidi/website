@@ -511,7 +511,7 @@ export function BookingResultsMap(props: Props) {
         <p className="flex min-w-0 items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{money(total)}</strong></p>
         <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
       </div>
-      <button disabled={disabled} onClick={props.onContinue} className="mt-1.5 flex h-12 w-full items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-[#1C1C1C] transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
+      <button disabled={disabled} onClick={props.onContinue} className="mt-1.5 flex h-12 w-full items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
     </div>
 
     <DialogPrimitive.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
