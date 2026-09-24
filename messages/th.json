@@ -1,0 +1,842 @@
+{
+  "meta.title": {
+    "text": "Waydidi — บริการรถรับส่งส่วนตัวทั่วประเทศไทย",
+    "status": "machine"
+  },
+  "meta.description": {
+    "text": "จองรถรับส่งส่วนตัวที่สะดวกสบายทั่วประเทศไทย พร้อมคนขับมืออาชีพและราคาชัดเจนตั้งแต่ต้น",
+    "status": "machine"
+  },
+  "nav.ride": {
+    "text": "เดินทาง",
+    "status": "machine"
+  },
+  "nav.trip": {
+    "text": "ทริป",
+    "status": "machine"
+  },
+  "nav.airportTransfer": {
+    "text": "รถรับส่งสนามบิน",
+    "status": "machine"
+  },
+  "nav.aToB": {
+    "text": "จุดต่อจุด",
+    "status": "machine"
+  },
+  "nav.longJourney": {
+    "text": "เดินทางระยะไกล",
+    "status": "machine"
+  },
+  "nav.hourlyDriver": {
+    "text": "เหมาคนขับรายชั่วโมง",
+    "status": "machine"
+  },
+  "nav.destinations": {
+    "text": "จุดหมายปลายทาง",
+    "status": "machine"
+  },
+  "nav.pickupGuide": {
+    "text": "คู่มือรับที่สนามบิน",
+    "status": "machine"
+  },
+  "nav.about": {
+    "text": "เกี่ยวกับ Waydidi",
+    "status": "machine"
+  },
+  "nav.checkBooking": {
+    "text": "ตรวจสอบการจอง",
+    "status": "machine"
+  },
+  "nav.menu": {
+    "text": "เมนู",
+    "status": "machine"
+  },
+  "nav.openMenu": {
+    "text": "เปิดเมนูนำทาง",
+    "status": "machine"
+  },
+  "nav.closeMenu": {
+    "text": "ปิดเมนูนำทาง",
+    "status": "machine"
+  },
+  "nav.mobileNav": {
+    "text": "เมนูนำทางบนมือถือ",
+    "status": "machine"
+  },
+  "nav.home": {
+    "text": "หน้าแรก Waydidi",
+    "status": "machine"
+  },
+  "lang.change": {
+    "text": "เปลี่ยน",
+    "status": "machine"
+  },
+  "lang.changeLabel": {
+    "text": "ภาษา: {name} เปลี่ยนภาษา",
+    "status": "machine"
+  },
+  "lang.choose": {
+    "text": "เลือกภาษา",
+    "status": "machine"
+  },
+  "notice.offline": {
+    "text": "คุณออฟไลน์อยู่ รายละเอียดการจองยังถูกบันทึกไว้ในแท็บนี้",
+    "status": "machine"
+  },
+  "notice.dismiss": {
+    "text": "ปิดข้อความกู้คืน",
+    "status": "machine"
+  },
+  "notice.draftRestored": {
+    "text": "กู้คืนการจองที่ยังไม่เสร็จในแท็บนี้แล้ว",
+    "status": "machine"
+  },
+  "hero.title": {
+    "text": "รถส่วนตัวที่ไปตามจังหวะของคุณ",
+    "status": "machine"
+  },
+  "hero.subtitle": {
+    "text": "จองรถของคุณได้ทุกที่ในประเทศไทย",
+    "status": "machine"
+  },
+  "hero.transfer": {
+    "text": "รับส่ง",
+    "status": "machine"
+  },
+  "hero.hourly": {
+    "text": "รายชั่วโมง",
+    "status": "machine"
+  },
+  "hero.travellersLabel": {
+    "text": "ผู้โดยสาร {passengers} คน กระเป๋า {bags} ใบ",
+    "status": "machine"
+  },
+  "hero.departure": {
+    "text": "วันเดินทาง",
+    "status": "machine"
+  },
+  "hero.removeDeparture": {
+    "text": "ลบวันเดินทาง",
+    "status": "machine"
+  },
+  "hero.addReturn": {
+    "text": "เพิ่มขากลับ",
+    "status": "machine"
+  },
+  "hero.addReturnLabel": {
+    "text": "เพิ่มเที่ยวขากลับ",
+    "status": "machine"
+  },
+  "hero.editReturnLabel": {
+    "text": "แก้ไขเที่ยวขากลับ",
+    "status": "machine"
+  },
+  "hero.hourlyOneWay": {
+    "text": "จองรายชั่วโมงแบบเที่ยวเดียว",
+    "status": "machine"
+  },
+  "hero.duration": {
+    "text": "ระยะเวลา",
+    "status": "machine"
+  },
+  "hero.hours": {
+    "text": "{count} ชั่วโมง",
+    "status": "machine"
+  },
+  "hero.seePrices": {
+    "text": "ดูราคา",
+    "status": "machine"
+  },
+  "hero.calculating": {
+    "text": "กำลังคำนวณ…",
+    "status": "machine"
+  },
+  "hero.outboundReturnReady": {
+    "text": "ขาไปและขากลับพร้อมแล้ว",
+    "status": "machine"
+  },
+  "hero.hourlyDriverSummary": {
+    "text": "คนขับส่วนตัว {hours} ชั่วโมง",
+    "status": "machine"
+  },
+  "hero.includesKm": {
+    "text": "รวมระยะทาง {km} กม.",
+    "status": "machine"
+  },
+  "hero.thailandWide": {
+    "text": "ทั่วประเทศไทย",
+    "status": "machine"
+  },
+  "legal.fixedPrice": {
+    "text": "ราคาคงที่",
+    "status": "machine"
+  },
+  "legal.freeCancellation": {
+    "text": "ยกเลิกฟรี",
+    "status": "machine"
+  },
+  "legal.priceLocked": {
+    "text": "ล็อกราคา 20 นาที",
+    "status": "machine"
+  },
+  "search.offline": {
+    "text": "คุณออฟไลน์อยู่ กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อคำนวณเส้นทางและราคา",
+    "status": "machine"
+  },
+  "search.chooseDeparture": {
+    "text": "กรุณาเลือกวันและเวลาเดินทางก่อน",
+    "status": "machine"
+  },
+  "search.selectBoth": {
+    "text": "กรุณาเลือกทั้งสองสถานที่จากรายการแนะนำของ Google เพื่อคำนวณเส้นทาง",
+    "status": "machine"
+  },
+  "search.selectPickup": {
+    "text": "กรุณาเลือกจุดรับจาก Google Maps",
+    "status": "machine"
+  },
+  "search.hourlyUnavailable": {
+    "text": "ไม่สามารถคำนวณราคารายชั่วโมงได้",
+    "status": "machine"
+  },
+  "search.hourlyTempUnavailable": {
+    "text": "ราคารายชั่วโมงไม่พร้อมใช้งานชั่วคราว",
+    "status": "machine"
+  },
+  "search.customQuote": {
+    "text": "เส้นทางนี้ต้องขอใบเสนอราคาพิเศษ",
+    "status": "machine"
+  },
+  "search.routeUnavailable": {
+    "text": "ราคาเส้นทางไม่พร้อมใช้งานชั่วคราว",
+    "status": "machine"
+  },
+  "route.from": {
+    "text": "จาก",
+    "status": "machine"
+  },
+  "route.to": {
+    "text": "ไป",
+    "status": "machine"
+  },
+  "route.pickupPlaceholder": {
+    "text": "ระบุจุดรับของคุณ",
+    "status": "machine"
+  },
+  "route.dropoffPlaceholder": {
+    "text": "คุณจะไปที่ไหน?",
+    "status": "machine"
+  },
+  "route.pickupLabel": {
+    "text": "จุดรับ",
+    "status": "machine"
+  },
+  "route.dropoffLabel": {
+    "text": "จุดส่ง",
+    "status": "machine"
+  },
+  "pax.title": {
+    "text": "ผู้โดยสาร",
+    "status": "machine"
+  },
+  "pax.close": {
+    "text": "ปิดการเลือกผู้โดยสารและสัมภาระ",
+    "status": "machine"
+  },
+  "pax.adults": {
+    "text": "ผู้ใหญ่",
+    "status": "machine"
+  },
+  "pax.adultsHint": {
+    "text": "อายุ 12 ปีขึ้นไป",
+    "status": "machine"
+  },
+  "pax.children": {
+    "text": "เด็ก",
+    "status": "machine"
+  },
+  "pax.childrenHint": {
+    "text": "อายุ 0–11 ปี",
+    "status": "machine"
+  },
+  "pax.extraBags": {
+    "text": "สัมภาระชุดเพิ่มเติม",
+    "status": "machine"
+  },
+  "pax.extraBagsHint": {
+    "text": "ชุดละกระเป๋าโหลด 1 ใบ + กระเป๋าถือ 1 ใบ",
+    "status": "machine"
+  },
+  "pax.note": {
+    "text": "เพิ่มสัมภาระได้โดยไม่มีค่าใช้จ่ายเพิ่ม แต่อาจต้องใช้รถคันใหญ่ขึ้น",
+    "status": "machine"
+  },
+  "pax.groupCanBring": {
+    "text": "กลุ่มของคุณนำสัมภาระได้",
+    "status": "machine"
+  },
+  "pax.checkedBags": {
+    "text": "กระเป๋าโหลด {count} ใบ",
+    "status": "machine"
+  },
+  "pax.carryOn": {
+    "text": "กระเป๋าถือ {count} ใบ",
+    "status": "machine"
+  },
+  "pax.decrease": {
+    "text": "ลดลงหนึ่ง: {label}",
+    "status": "machine"
+  },
+  "pax.increase": {
+    "text": "เพิ่มหนึ่ง: {label}",
+    "status": "machine"
+  },
+  "common.done": {
+    "text": "เสร็จสิ้น",
+    "status": "machine"
+  },
+  "picker.departure": {
+    "text": "เที่ยวไป",
+    "status": "machine"
+  },
+  "picker.return": {
+    "text": "เที่ยวกลับ",
+    "status": "machine"
+  },
+  "picker.departureDate": {
+    "text": "วันเดินทางไป",
+    "status": "machine"
+  },
+  "picker.returnDate": {
+    "text": "วันเดินทางกลับ",
+    "status": "machine"
+  },
+  "picker.departureTime": {
+    "text": "เวลาเดินทางไป",
+    "status": "machine"
+  },
+  "picker.returnTime": {
+    "text": "เวลาเดินทางกลับ",
+    "status": "machine"
+  },
+  "picker.closeDeparture": {
+    "text": "ปิดการเลือกวันเดินทางไป",
+    "status": "machine"
+  },
+  "picker.closeReturn": {
+    "text": "ปิดการเลือกวันเดินทางกลับ",
+    "status": "machine"
+  },
+  "picker.previousMonth": {
+    "text": "เดือนก่อนหน้า",
+    "status": "machine"
+  },
+  "picker.nextMonth": {
+    "text": "เดือนถัดไป",
+    "status": "machine"
+  },
+  "services.heading": {
+    "text": "สำรวจสิ่งที่คุณทำได้กับ Waydidi",
+    "status": "machine"
+  },
+  "services.details": {
+    "text": "รายละเอียด",
+    "status": "machine"
+  },
+  "services.detailsAbout": {
+    "text": "เกี่ยวกับ{title}",
+    "status": "machine"
+  },
+  "services.ride.title": {
+    "text": "เดินทาง",
+    "status": "machine"
+  },
+  "services.ride.text": {
+    "text": "เดินทางได้ทุกที่ในไทยกับ Waydidi จองรถส่วนตัว ขึ้นรถ แล้วเพลิดเพลินได้เลย",
+    "status": "machine"
+  },
+  "services.ride.alt": {
+    "text": "รถส่วนตัว Waydidi สีส้ม",
+    "status": "machine"
+  },
+  "services.reserve.title": {
+    "text": "จองล่วงหน้า",
+    "status": "machine"
+  },
+  "services.reserve.text": {
+    "text": "จองรถล่วงหน้า เพื่อให้คุณสบายใจในวันเดินทาง",
+    "status": "machine"
+  },
+  "services.reserve.alt": {
+    "text": "ปฏิทินการจอง",
+    "status": "machine"
+  },
+  "services.dayTrips.title": {
+    "text": "ทริปวันเดียว",
+    "status": "machine"
+  },
+  "services.dayTrips.text": {
+    "text": "จองคนขับส่วนตัวแล้วเที่ยวหลายจุดหมายในวันเดียวอย่างสบาย",
+    "status": "machine"
+  },
+  "services.dayTrips.alt": {
+    "text": "หมุดสถานที่สามจุดเชื่อมต่อกันตามเส้นทางทริปวันเดียว",
+    "status": "machine"
+  },
+  "map.heading": {
+    "text": "Waydidi พาคุณไปที่ไหนได้บ้าง",
+    "status": "machine"
+  },
+  "map.label": {
+    "text": "แผนที่จุดหมายปลายทางของ Waydidi ในประเทศไทย",
+    "status": "machine"
+  },
+  "map.dotsLabel": {
+    "text": "แผนที่ประเทศไทยแบบจุด",
+    "status": "machine"
+  },
+  "map.show": {
+    "text": "แสดง{name}",
+    "status": "machine"
+  },
+  "map.vehicleAlt": {
+    "text": "รถรับส่งส่วนตัว Waydidi",
+    "status": "machine"
+  },
+  "map.cities": {
+    "text": "เมือง",
+    "status": "machine"
+  },
+  "dest.chiang-mai": {
+    "text": "เชียงใหม่",
+    "status": "machine"
+  },
+  "dest.kanchanaburi": {
+    "text": "กาญจนบุรี",
+    "status": "machine"
+  },
+  "dest.ayutthaya": {
+    "text": "อยุธยา",
+    "status": "machine"
+  },
+  "dest.don-mueang-airport": {
+    "text": "สนามบินดอนเมือง",
+    "status": "machine"
+  },
+  "dest.bangkok": {
+    "text": "กรุงเทพฯ",
+    "status": "machine"
+  },
+  "dest.suvarnabhumi-airport": {
+    "text": "สนามบินสุวรรณภูมิ",
+    "status": "machine"
+  },
+  "dest.pattaya": {
+    "text": "พัทยา",
+    "status": "machine"
+  },
+  "dest.hua-hin": {
+    "text": "หัวหิน",
+    "status": "machine"
+  },
+  "dest.koh-chang": {
+    "text": "เกาะช้าง",
+    "status": "machine"
+  },
+  "dest.koh-kood": {
+    "text": "เกาะกูด",
+    "status": "machine"
+  },
+  "dest.krabi": {
+    "text": "กระบี่",
+    "status": "machine"
+  },
+  "dest.phuket": {
+    "text": "ภูเก็ต",
+    "status": "machine"
+  },
+  "footer.tagline": {
+    "text": "บริการรถรับส่งส่วนตัวทั่วประเทศไทย คนขับมืออาชีพ ราคาชัดเจน และจองออนไลน์อย่างปลอดภัย",
+    "status": "machine"
+  },
+  "footer.payments": {
+    "text": "ช่องทางชำระเงิน",
+    "status": "machine"
+  },
+  "footer.ride": {
+    "text": "เดินทาง",
+    "status": "machine"
+  },
+  "footer.trips": {
+    "text": "ทริป",
+    "status": "machine"
+  },
+  "footer.help": {
+    "text": "ช่วยเหลือ",
+    "status": "machine"
+  },
+  "footer.luggagePolicy": {
+    "text": "นโยบายสัมภาระ",
+    "status": "machine"
+  },
+  "footer.waydidiHelp": {
+    "text": "ศูนย์ช่วยเหลือ Waydidi",
+    "status": "machine"
+  },
+  "footer.cancellationPolicy": {
+    "text": "นโยบายการยกเลิก",
+    "status": "machine"
+  },
+  "footer.contactUs": {
+    "text": "ติดต่อเรา",
+    "status": "machine"
+  },
+  "footer.safety": {
+    "text": "ความปลอดภัย",
+    "status": "machine"
+  },
+  "footer.helpCenter": {
+    "text": "ศูนย์ช่วยเหลือ",
+    "status": "machine"
+  },
+  "footer.manageBooking": {
+    "text": "จัดการการจอง",
+    "status": "machine"
+  },
+  "footer.contactWaydidi": {
+    "text": "ติดต่อ Waydidi",
+    "status": "machine"
+  },
+  "footer.terms": {
+    "text": "ข้อกำหนดการใช้งาน",
+    "status": "machine"
+  },
+  "footer.privacy": {
+    "text": "นโยบายความเป็นส่วนตัว",
+    "status": "machine"
+  },
+  "footer.rights": {
+    "text": "© 2026 Waydidi สงวนลิขสิทธิ์",
+    "status": "machine"
+  },
+  "payment.cancelledRestored": {
+    "text": "การชำระเงินถูกยกเลิก รายละเอียดการเดินทางของคุณถูกกู้คืนแล้ว และคุณสามารถดำเนินการต่อได้เมื่อพร้อม",
+    "status": "machine"
+  },
+  "payment.cancelled": {
+    "text": "การชำระเงินถูกยกเลิก ไม่มีการเรียกเก็บเงินสำหรับการจอง โปรดตรวจสอบการเดินทางและลองอีกครั้งเมื่อพร้อม",
+    "status": "machine"
+  },
+  "search.enterAddresses": {
+    "text": "กรุณาระบุที่อยู่จุดรับและจุดส่ง",
+    "status": "machine"
+  },
+  "search.enterPickup": {
+    "text": "กรุณาระบุที่อยู่จุดรับ",
+    "status": "machine"
+  },
+  "trip.title": {
+    "text": "การเดินทางของคุณ",
+    "status": "machine"
+  },
+  "trip.sharedTitle": {
+    "text": "การเดินทางที่แชร์ให้คุณ",
+    "status": "machine"
+  },
+  "trip.sharedNote": {
+    "text": "คุณกำลังดูการเดินทางที่มีคนแชร์ให้ หน้านี้อัปเดตเอง",
+    "status": "machine"
+  },
+  "trip.reference": {
+    "text": "การจอง {reference}",
+    "status": "machine"
+  },
+  "trip.loading": {
+    "text": "กำลังโหลดการเดินทาง…",
+    "status": "machine"
+  },
+  "trip.notFound": {
+    "text": "ไม่สามารถเปิดการเดินทางนี้ได้",
+    "status": "machine"
+  },
+  "trip.notFoundHelp": {
+    "text": "ใช้ลิงก์ในอีเมลการจอง หรือค้นหาการจองด้วยหมายเลขอ้างอิง",
+    "status": "machine"
+  },
+  "trip.findBooking": {
+    "text": "ค้นหาการจอง",
+    "status": "machine"
+  },
+  "trip.retry": {
+    "text": "ลองอีกครั้ง",
+    "status": "machine"
+  },
+  "trip.offline": {
+    "text": "คุณออฟไลน์อยู่ ระบบจะอัปเดตเมื่อเชื่อมต่อใหม่",
+    "status": "machine"
+  },
+  "trip.updated": {
+    "text": "อัปเดต {time}",
+    "status": "machine"
+  },
+  "trip.stage.confirmed": {
+    "text": "ยืนยันการจองแล้ว",
+    "status": "machine"
+  },
+  "trip.stage.assigned": {
+    "text": "ได้คนขับแล้ว",
+    "status": "machine"
+  },
+  "trip.stage.on_the_way": {
+    "text": "กำลังไปรับ",
+    "status": "machine"
+  },
+  "trip.stage.waiting": {
+    "text": "รอที่จุดรับ",
+    "status": "machine"
+  },
+  "trip.stage.on_trip": {
+    "text": "กำลังเดินทาง",
+    "status": "machine"
+  },
+  "trip.stage.arrived": {
+    "text": "ถึงแล้ว",
+    "status": "machine"
+  },
+  "trip.stage.no_show": {
+    "text": "คนขับไม่พบคุณ",
+    "status": "machine"
+  },
+  "trip.stage.cancelled": {
+    "text": "ยกเลิกการจองแล้ว",
+    "status": "machine"
+  },
+  "trip.headline.confirmed": {
+    "text": "เรากำลังจัดคนขับให้คุณ",
+    "status": "machine"
+  },
+  "trip.headline.assigned": {
+    "text": "คนขับพร้อมสำหรับการเดินทางของคุณ",
+    "status": "machine"
+  },
+  "trip.headline.on_the_way": {
+    "text": "คนขับกำลังไปรับคุณ",
+    "status": "machine"
+  },
+  "trip.headline.waiting": {
+    "text": "คนขับรอคุณอยู่ที่จุดรับ",
+    "status": "machine"
+  },
+  "trip.headline.on_trip": {
+    "text": "ขอให้เดินทางอย่างสบาย",
+    "status": "machine"
+  },
+  "trip.headline.arrived": {
+    "text": "ถึงที่หมายแล้ว",
+    "status": "machine"
+  },
+  "trip.headline.no_show": {
+    "text": "คนขับไม่พบคุณที่จุดรับ",
+    "status": "machine"
+  },
+  "trip.headline.cancelled": {
+    "text": "การจองนี้ถูกยกเลิก",
+    "status": "machine"
+  },
+  "trip.noShowHelp": {
+    "text": "กรุณาติดต่อ Waydidi โดยเร็วที่สุดเพื่อให้เราช่วยเหลือ",
+    "status": "machine"
+  },
+  "trip.contact": {
+    "text": "ติดต่อ Waydidi",
+    "status": "machine"
+  },
+  "trip.eta.pickup": {
+    "text": "คนขับจะถึงในประมาณ {minutes} นาที",
+    "status": "machine"
+  },
+  "trip.eta.dropoff": {
+    "text": "อีกประมาณ {minutes} นาทีถึงที่หมาย",
+    "status": "machine"
+  },
+  "trip.eta.unknown": {
+    "text": "เวลาถึงจะแสดงเมื่อได้รับตำแหน่งคนขับ",
+    "status": "machine"
+  },
+  "trip.map.label": {
+    "text": "แผนที่แสดงตำแหน่งคนขับ",
+    "status": "machine"
+  },
+  "trip.map.driver": {
+    "text": "คนขับของคุณ",
+    "status": "machine"
+  },
+  "trip.map.pickup": {
+    "text": "จุดรับ",
+    "status": "machine"
+  },
+  "trip.map.dropoff": {
+    "text": "จุดส่ง",
+    "status": "machine"
+  },
+  "trip.map.lastSeen": {
+    "text": "ตำแหน่งคนขับเมื่อ {time}",
+    "status": "machine"
+  },
+  "trip.map.open": {
+    "text": "เปิดใน Google Maps",
+    "status": "machine"
+  },
+  "trip.map.waiting": {
+    "text": "ตำแหน่งคนขับจะแสดงที่นี่ในไม่ช้า",
+    "status": "machine"
+  },
+  "trip.meet.title": {
+    "text": "การพบคนขับ",
+    "status": "machine"
+  },
+  "trip.meet.sign": {
+    "text": "คนขับถือป้ายชื่อ {name}",
+    "status": "machine"
+  },
+  "trip.meet.point": {
+    "text": "จุดนัดพบ",
+    "status": "machine"
+  },
+  "trip.meet.photoAlt": {
+    "text": "รูปจากคนขับที่จุดรับ",
+    "status": "machine"
+  },
+  "trip.meet.photoCaption": {
+    "text": "รูปจากคนขับที่จุดรับ",
+    "status": "machine"
+  },
+  "trip.pin.title": {
+    "text": "Trip PIN ของคุณ",
+    "status": "machine"
+  },
+  "trip.pin.help": {
+    "text": "บอก PIN นี้กับคนขับเมื่อพบกัน อย่าส่งล่วงหน้า",
+    "status": "machine"
+  },
+  "trip.route.pickup": {
+    "text": "จุดรับ",
+    "status": "machine"
+  },
+  "trip.route.dropoff": {
+    "text": "จุดส่ง",
+    "status": "machine"
+  },
+  "trip.route.when": {
+    "text": "{date} เวลา {time} น.",
+    "status": "machine"
+  },
+  "trip.route.flight": {
+    "text": "เที่ยวบิน {flight}",
+    "status": "machine"
+  },
+  "trip.timeline": {
+    "text": "ความคืบหน้าการเดินทาง",
+    "status": "machine"
+  },
+  "trip.share.title": {
+    "text": "แชร์การเดินทาง",
+    "status": "machine"
+  },
+  "trip.share.help": {
+    "text": "ส่งลิงก์แบบดูอย่างเดียวให้ครอบครัวหรือเพื่อนติดตามการเดินทาง ลิงก์จะไม่แสดง PIN และข้อมูลติดต่อ และหมดอายุ 2 ชั่วโมงหลังการเดินทาง",
+    "status": "machine"
+  },
+  "trip.share.create": {
+    "text": "สร้างลิงก์แชร์",
+    "status": "machine"
+  },
+  "trip.share.copy": {
+    "text": "คัดลอกลิงก์",
+    "status": "machine"
+  },
+  "trip.share.copied": {
+    "text": "คัดลอกลิงก์แล้ว",
+    "status": "machine"
+  },
+  "trip.share.send": {
+    "text": "แชร์",
+    "status": "machine"
+  },
+  "trip.share.stop": {
+    "text": "หยุดแชร์",
+    "status": "machine"
+  },
+  "trip.share.stopped": {
+    "text": "หยุดแชร์แล้ว ลิงก์ที่ส่งไปจะใช้ไม่ได้อีก",
+    "status": "machine"
+  },
+  "trip.share.error": {
+    "text": "ไม่สามารถอัปเดตการแชร์ได้ กรุณาลองอีกครั้ง",
+    "status": "machine"
+  },
+  "trip.share.message": {
+    "text": "ติดตามการเดินทาง Waydidi ของฉัน",
+    "status": "machine"
+  },
+  "trip.track": {
+    "text": "ติดตามการเดินทาง",
+    "status": "machine"
+  },
+  "trip.shareExpired": {
+    "text": "การเดินทางที่แชร์สิ้นสุดแล้ว",
+    "status": "machine"
+  },
+  "trip.shareExpiredHelp": {
+    "text": "ลิงก์ที่แชร์จะใช้ไม่ได้ 2 ชั่วโมงหลังการเดินทาง หรือเมื่อผู้เดินทางหยุดแชร์",
+    "status": "machine"
+  },
+  "nav.signIn": {
+    "text": "เข้าสู่ระบบ",
+    "status": "machine"
+  },
+  "nav.myAccount": {
+    "text": "บัญชีของฉัน",
+    "status": "machine"
+  },
+  "nav.signInCreate": {
+    "text": "เข้าสู่ระบบ / สร้างบัญชี",
+    "status": "machine"
+  },
+  "locale.button": {
+    "text": "ภาษาและสกุลเงิน: {language}, {currency}",
+    "status": "machine"
+  },
+  "locale.languages": {
+    "text": "ภาษา",
+    "status": "machine"
+  },
+  "locale.currency": {
+    "text": "สกุลเงิน",
+    "status": "machine"
+  },
+  "locale.allLanguages": {
+    "text": "ทุกภาษา",
+    "status": "machine"
+  },
+  "locale.topCurrencies": {
+    "text": "สกุลเงินยอดนิยม",
+    "status": "machine"
+  },
+  "locale.allCurrencies": {
+    "text": "สกุลเงินทั้งหมด",
+    "status": "machine"
+  },
+  "locale.close": {
+    "text": "ปิด",
+    "status": "machine"
+  },
+  "locale.remembered": {
+    "text": "ระบบจะจดจำตัวเลือกของคุณบนอุปกรณ์นี้",
+    "status": "machine"
+  },
+  "footer.allDestinations": {
+    "text": "จุดหมายทั้งหมด",
+    "status": "machine"
+  }
+}

@@ -24,7 +24,7 @@ import {
 } from "@/lib/operations-calendar";
 import { isJsonRequest, safeOrigin, sameOrigin, secureToken, sha256 } from "@/lib/security";
 
-const ACTIVE_BOOKING_STATUSES = new Set(["confirmed", "completed", "cancelled"]);
+const ACTIVE_BOOKING_STATUSES = new Set(["confirmed", "completed", "no_show", "cancelled"]);
 
 function rangeInstants(from: string, to: string) {
   return {
@@ -232,7 +232,7 @@ export async function POST(request: Request) {
     const candidateWindow = bookingWindow(booking);
     const bookingMap = new Map(allBookingRows.map((row) => [row.reference, row]));
     const conflictMessages: string[] = [];
-    for (const assignment of activeAssignments.filter((row) => row.driverId === driverId && row.bookingReference !== bookingReference && row.currentStatus !== "completed")) {
+    for (const assignment of activeAssignments.filter((row) => row.driverId === driverId && row.bookingReference !== bookingReference && row.currentStatus !== "completed" && row.currentStatus !== "no_show")) {
       const assignedBooking = bookingMap.get(assignment.bookingReference);
       if (!assignedBooking || assignedBooking.status !== "confirmed") continue;
       const assignedWindow = bookingWindow(assignedBooking);

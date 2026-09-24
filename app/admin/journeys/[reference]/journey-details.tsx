@@ -69,6 +69,7 @@ const labels: Record<string, string> = {
   trip_started: "Trip active — passenger onboard",
   passenger_picked_up: "Passenger picked up",
   completed: "Drop-off completed",
+  no_show: "Passenger no-show reported",
 };
 const money = (n: number) => `฿${n.toLocaleString("en-US")}`;
 

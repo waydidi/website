@@ -84,6 +84,7 @@ const statusNames: Record<string, string> = {
   trip_started: "Trip active",
   passenger_picked_up: "Passenger picked up",
   completed: "Completed",
+  no_show: "Passenger no-show",
 };
 const cardStyles: Record<Attention["level"], string> = {
   normal: "border-slate-200 bg-white hover:border-orange-300",

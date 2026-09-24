@@ -3,6 +3,7 @@
 
 import { MapPin, Route } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 
 declare global {
   interface Window {
@@ -40,6 +41,7 @@ export function GoogleRoutePicker({
   connectedMobile?: boolean;
   showPreviewMap?: boolean;
 }) {
+  const { t } = useI18n();
   const pickupRef = useRef<HTMLInputElement>(null);
   const dropoffRef = useRef<HTMLInputElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -183,39 +185,39 @@ export function GoogleRoutePicker({
   return (
     <>
       <label className={`block min-w-0 ${connectedMobile ? "order-2 lg:order-none" : ""}`}>
-        <span className={`flex min-h-14 items-center gap-2 px-3 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
-        <span className="grid size-8 shrink-0 place-items-center text-[#FF8A05]">
+        <span className={`flex min-h-14 items-center gap-2 px-3 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
+        <span className="grid size-8 shrink-0 place-items-center text-brand">
           <MapPin size={18} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-slate-500">From</span>
+          <span className="block text-sm font-semibold text-slate-500">{t("route.from")}</span>
           <input
             ref={pickupRef}
             required
             value={pickup}
             onChange={(event) => onPickupChange(event.target.value)}
             className={fieldClass}
-            placeholder="Enter your pick-up location"
-            aria-label="Pickup location"
+            placeholder={t("route.pickupPlaceholder")}
+            aria-label={t("route.pickupLabel")}
             autoComplete="off"
           />
         </span></span>
       </label>
       {!pickupOnly && <label className={`block min-w-0 ${connectedMobile ? "order-3 lg:order-none" : "mt-3 lg:mt-0"}`}>
-        <span className={`flex min-h-14 items-center gap-2 px-3 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
-        <span className="grid size-8 shrink-0 place-items-center text-[#FF8A05]">
+        <span className={`flex min-h-14 items-center gap-2 px-3 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
+        <span className="grid size-8 shrink-0 place-items-center text-brand">
           <MapPin size={18} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-slate-500">To</span>
+          <span className="block text-sm font-semibold text-slate-500">{t("route.to")}</span>
           <input
             ref={dropoffRef}
             required
             value={dropoff}
             onChange={(event) => onDropoffChange(event.target.value)}
             className={fieldClass}
-            placeholder="Where are you headed?"
-            aria-label="Drop-off location"
+            placeholder={t("route.dropoffPlaceholder")}
+            aria-label={t("route.dropoffLabel")}
             autoComplete="off"
           />
         </span></span>
@@ -229,7 +231,7 @@ export function GoogleRoutePicker({
           />
           <div className="mt-3 flex flex-wrap items-center gap-4 px-1 text-sm font-semibold text-slate-700">
             <span className="flex items-center gap-2">
-              <Route size={17} className="text-[#D96F00]" />
+              <Route size={17} className="text-brand-deep" />
               Location details
             </span>
             {routeInfo && (

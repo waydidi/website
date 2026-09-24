@@ -1,0 +1,842 @@
+{
+  "meta.title": {
+    "text": "Waydidi — 泰国私人专车接送",
+    "status": "machine"
+  },
+  "meta.description": {
+    "text": "预订泰国各地舒适的私人专车接送，专业司机，价格透明，事先确认。",
+    "status": "machine"
+  },
+  "nav.ride": {
+    "text": "出行",
+    "status": "machine"
+  },
+  "nav.trip": {
+    "text": "行程",
+    "status": "machine"
+  },
+  "nav.airportTransfer": {
+    "text": "机场接送",
+    "status": "machine"
+  },
+  "nav.aToB": {
+    "text": "点对点接送",
+    "status": "machine"
+  },
+  "nav.longJourney": {
+    "text": "长途出行",
+    "status": "machine"
+  },
+  "nav.hourlyDriver": {
+    "text": "按小时包车",
+    "status": "machine"
+  },
+  "nav.destinations": {
+    "text": "目的地",
+    "status": "machine"
+  },
+  "nav.pickupGuide": {
+    "text": "机场接机指南",
+    "status": "machine"
+  },
+  "nav.about": {
+    "text": "关于 Waydidi",
+    "status": "machine"
+  },
+  "nav.checkBooking": {
+    "text": "查询预订",
+    "status": "machine"
+  },
+  "nav.menu": {
+    "text": "菜单",
+    "status": "machine"
+  },
+  "nav.openMenu": {
+    "text": "打开导航菜单",
+    "status": "machine"
+  },
+  "nav.closeMenu": {
+    "text": "关闭导航菜单",
+    "status": "machine"
+  },
+  "nav.mobileNav": {
+    "text": "移动端导航",
+    "status": "machine"
+  },
+  "nav.home": {
+    "text": "Waydidi 首页",
+    "status": "machine"
+  },
+  "lang.change": {
+    "text": "切换",
+    "status": "machine"
+  },
+  "lang.changeLabel": {
+    "text": "语言：{name}。切换语言",
+    "status": "machine"
+  },
+  "lang.choose": {
+    "text": "选择语言",
+    "status": "machine"
+  },
+  "notice.offline": {
+    "text": "您已离线。预订信息仍保存在此标签页中。",
+    "status": "machine"
+  },
+  "notice.dismiss": {
+    "text": "关闭恢复提示",
+    "status": "machine"
+  },
+  "notice.draftRestored": {
+    "text": "已在此标签页中恢复您未完成的预订。",
+    "status": "machine"
+  },
+  "hero.title": {
+    "text": "按您的节奏出行的私人专车。",
+    "status": "machine"
+  },
+  "hero.subtitle": {
+    "text": "泰国全境，随处预订",
+    "status": "machine"
+  },
+  "hero.transfer": {
+    "text": "接送",
+    "status": "machine"
+  },
+  "hero.hourly": {
+    "text": "按小时",
+    "status": "machine"
+  },
+  "hero.travellersLabel": {
+    "text": "{passengers} 位乘客，{bags} 件行李",
+    "status": "machine"
+  },
+  "hero.departure": {
+    "text": "出发",
+    "status": "machine"
+  },
+  "hero.removeDeparture": {
+    "text": "移除出发日期",
+    "status": "machine"
+  },
+  "hero.addReturn": {
+    "text": "添加返程",
+    "status": "machine"
+  },
+  "hero.addReturnLabel": {
+    "text": "添加返程行程",
+    "status": "machine"
+  },
+  "hero.editReturnLabel": {
+    "text": "修改返程行程",
+    "status": "machine"
+  },
+  "hero.hourlyOneWay": {
+    "text": "单程按小时预订",
+    "status": "machine"
+  },
+  "hero.duration": {
+    "text": "时长",
+    "status": "machine"
+  },
+  "hero.hours": {
+    "text": "{count} 小时",
+    "status": "machine"
+  },
+  "hero.seePrices": {
+    "text": "查看价格",
+    "status": "machine"
+  },
+  "hero.calculating": {
+    "text": "正在计算…",
+    "status": "machine"
+  },
+  "hero.outboundReturnReady": {
+    "text": "去程和返程已就绪",
+    "status": "machine"
+  },
+  "hero.hourlyDriverSummary": {
+    "text": "{hours} 小时私人司机",
+    "status": "machine"
+  },
+  "hero.includesKm": {
+    "text": "含 {km} 公里",
+    "status": "machine"
+  },
+  "hero.thailandWide": {
+    "text": "覆盖泰国全境",
+    "status": "machine"
+  },
+  "legal.fixedPrice": {
+    "text": "固定价格",
+    "status": "machine"
+  },
+  "legal.freeCancellation": {
+    "text": "免费取消",
+    "status": "machine"
+  },
+  "legal.priceLocked": {
+    "text": "价格锁定 20 分钟",
+    "status": "machine"
+  },
+  "search.offline": {
+    "text": "您已离线。请重新联网以计算路线和价格。",
+    "status": "machine"
+  },
+  "search.chooseDeparture": {
+    "text": "请先选择出发日期和时间。",
+    "status": "machine"
+  },
+  "search.selectBoth": {
+    "text": "请从 Google 建议中选择上车和下车地点以计算路线。",
+    "status": "machine"
+  },
+  "search.selectPickup": {
+    "text": "请从 Google 地图中选择上车地点。",
+    "status": "machine"
+  },
+  "search.hourlyUnavailable": {
+    "text": "暂无法提供按小时价格。",
+    "status": "machine"
+  },
+  "search.hourlyTempUnavailable": {
+    "text": "按小时价格暂时无法提供。",
+    "status": "machine"
+  },
+  "search.customQuote": {
+    "text": "此路线需要单独报价。",
+    "status": "machine"
+  },
+  "search.routeUnavailable": {
+    "text": "路线价格暂时无法提供。",
+    "status": "machine"
+  },
+  "route.from": {
+    "text": "出发地",
+    "status": "machine"
+  },
+  "route.to": {
+    "text": "目的地",
+    "status": "machine"
+  },
+  "route.pickupPlaceholder": {
+    "text": "输入上车地点",
+    "status": "machine"
+  },
+  "route.dropoffPlaceholder": {
+    "text": "您要去哪里？",
+    "status": "machine"
+  },
+  "route.pickupLabel": {
+    "text": "上车地点",
+    "status": "machine"
+  },
+  "route.dropoffLabel": {
+    "text": "下车地点",
+    "status": "machine"
+  },
+  "pax.title": {
+    "text": "乘客",
+    "status": "machine"
+  },
+  "pax.close": {
+    "text": "关闭乘客和行李选择",
+    "status": "machine"
+  },
+  "pax.adults": {
+    "text": "成人",
+    "status": "machine"
+  },
+  "pax.adultsHint": {
+    "text": "12 岁及以上",
+    "status": "machine"
+  },
+  "pax.children": {
+    "text": "儿童",
+    "status": "machine"
+  },
+  "pax.childrenHint": {
+    "text": "0–11 岁",
+    "status": "machine"
+  },
+  "pax.extraBags": {
+    "text": "额外行李组",
+    "status": "machine"
+  },
+  "pax.extraBagsHint": {
+    "text": "每组含 1 件托运行李 + 1 件随身行李",
+    "status": "machine"
+  },
+  "pax.note": {
+    "text": "可免费添加额外行李，但可能需要更大的车型。",
+    "status": "machine"
+  },
+  "pax.groupCanBring": {
+    "text": "您的团队可携带",
+    "status": "machine"
+  },
+  "pax.checkedBags": {
+    "text": "{count} 件托运行李",
+    "status": "machine"
+  },
+  "pax.carryOn": {
+    "text": "{count} 件随身行李",
+    "status": "machine"
+  },
+  "pax.decrease": {
+    "text": "减少一位：{label}",
+    "status": "machine"
+  },
+  "pax.increase": {
+    "text": "增加一位：{label}",
+    "status": "machine"
+  },
+  "common.done": {
+    "text": "完成",
+    "status": "machine"
+  },
+  "picker.departure": {
+    "text": "出发",
+    "status": "machine"
+  },
+  "picker.return": {
+    "text": "返程",
+    "status": "machine"
+  },
+  "picker.departureDate": {
+    "text": "出发日期",
+    "status": "machine"
+  },
+  "picker.returnDate": {
+    "text": "返程日期",
+    "status": "machine"
+  },
+  "picker.departureTime": {
+    "text": "出发时间",
+    "status": "machine"
+  },
+  "picker.returnTime": {
+    "text": "返程时间",
+    "status": "machine"
+  },
+  "picker.closeDeparture": {
+    "text": "关闭出发日期选择",
+    "status": "machine"
+  },
+  "picker.closeReturn": {
+    "text": "关闭返程日期选择",
+    "status": "machine"
+  },
+  "picker.previousMonth": {
+    "text": "上个月",
+    "status": "machine"
+  },
+  "picker.nextMonth": {
+    "text": "下个月",
+    "status": "machine"
+  },
+  "services.heading": {
+    "text": "探索 Waydidi 能为您做什么",
+    "status": "machine"
+  },
+  "services.details": {
+    "text": "详情",
+    "status": "machine"
+  },
+  "services.detailsAbout": {
+    "text": "关于{title}",
+    "status": "machine"
+  },
+  "services.ride.title": {
+    "text": "出行",
+    "status": "machine"
+  },
+  "services.ride.text": {
+    "text": "乘坐 Waydidi 畅游泰国各地。预订私人专车，上车即享。",
+    "status": "machine"
+  },
+  "services.ride.alt": {
+    "text": "橙色 Waydidi 私人专车",
+    "status": "machine"
+  },
+  "services.reserve.title": {
+    "text": "提前预订",
+    "status": "machine"
+  },
+  "services.reserve.text": {
+    "text": "提前预订专车，出行当天轻松无忧。",
+    "status": "machine"
+  },
+  "services.reserve.alt": {
+    "text": "预订日历",
+    "status": "machine"
+  },
+  "services.dayTrips.title": {
+    "text": "一日游",
+    "status": "machine"
+  },
+  "services.dayTrips.text": {
+    "text": "预订私人司机，一天内舒适游览多个目的地。",
+    "status": "machine"
+  },
+  "services.dayTrips.alt": {
+    "text": "沿一日游路线相连的三个地点标记",
+    "status": "machine"
+  },
+  "map.heading": {
+    "text": "Waydidi 带您去哪里",
+    "status": "machine"
+  },
+  "map.label": {
+    "text": "Waydidi 泰国目的地地图",
+    "status": "machine"
+  },
+  "map.dotsLabel": {
+    "text": "泰国点状地图",
+    "status": "machine"
+  },
+  "map.show": {
+    "text": "显示{name}",
+    "status": "machine"
+  },
+  "map.vehicleAlt": {
+    "text": "Waydidi 私人接送车辆",
+    "status": "machine"
+  },
+  "map.cities": {
+    "text": "城市",
+    "status": "machine"
+  },
+  "dest.chiang-mai": {
+    "text": "清迈",
+    "status": "machine"
+  },
+  "dest.kanchanaburi": {
+    "text": "北碧府",
+    "status": "machine"
+  },
+  "dest.ayutthaya": {
+    "text": "大城府",
+    "status": "machine"
+  },
+  "dest.don-mueang-airport": {
+    "text": "廊曼机场",
+    "status": "machine"
+  },
+  "dest.bangkok": {
+    "text": "曼谷",
+    "status": "machine"
+  },
+  "dest.suvarnabhumi-airport": {
+    "text": "素万那普机场",
+    "status": "machine"
+  },
+  "dest.pattaya": {
+    "text": "芭提雅",
+    "status": "machine"
+  },
+  "dest.hua-hin": {
+    "text": "华欣",
+    "status": "machine"
+  },
+  "dest.koh-chang": {
+    "text": "象岛",
+    "status": "machine"
+  },
+  "dest.koh-kood": {
+    "text": "库德岛",
+    "status": "machine"
+  },
+  "dest.krabi": {
+    "text": "甲米",
+    "status": "machine"
+  },
+  "dest.phuket": {
+    "text": "普吉岛",
+    "status": "machine"
+  },
+  "footer.tagline": {
+    "text": "泰国全境私人专车接送，专业司机，价格清晰，在线预订安全可靠。",
+    "status": "machine"
+  },
+  "footer.payments": {
+    "text": "支持的付款方式",
+    "status": "machine"
+  },
+  "footer.ride": {
+    "text": "出行",
+    "status": "machine"
+  },
+  "footer.trips": {
+    "text": "行程",
+    "status": "machine"
+  },
+  "footer.help": {
+    "text": "帮助",
+    "status": "machine"
+  },
+  "footer.luggagePolicy": {
+    "text": "行李政策",
+    "status": "machine"
+  },
+  "footer.waydidiHelp": {
+    "text": "Waydidi 帮助",
+    "status": "machine"
+  },
+  "footer.cancellationPolicy": {
+    "text": "取消政策",
+    "status": "machine"
+  },
+  "footer.contactUs": {
+    "text": "联系我们",
+    "status": "machine"
+  },
+  "footer.safety": {
+    "text": "安全保障",
+    "status": "machine"
+  },
+  "footer.helpCenter": {
+    "text": "帮助中心",
+    "status": "machine"
+  },
+  "footer.manageBooking": {
+    "text": "管理预订",
+    "status": "machine"
+  },
+  "footer.contactWaydidi": {
+    "text": "联系 Waydidi",
+    "status": "machine"
+  },
+  "footer.terms": {
+    "text": "使用条款",
+    "status": "machine"
+  },
+  "footer.privacy": {
+    "text": "隐私政策",
+    "status": "machine"
+  },
+  "footer.rights": {
+    "text": "© 2026 Waydidi。保留所有权利。",
+    "status": "machine"
+  },
+  "payment.cancelledRestored": {
+    "text": "付款已取消。您的行程信息已恢复，准备好后可继续。",
+    "status": "machine"
+  },
+  "payment.cancelled": {
+    "text": "付款已取消，未产生任何扣款。请核对行程，准备好后重试。",
+    "status": "machine"
+  },
+  "search.enterAddresses": {
+    "text": "请输入上车和下车地址。",
+    "status": "machine"
+  },
+  "search.enterPickup": {
+    "text": "请输入上车地址。",
+    "status": "machine"
+  },
+  "trip.title": {
+    "text": "您的行程",
+    "status": "machine"
+  },
+  "trip.sharedTitle": {
+    "text": "共享的行程",
+    "status": "machine"
+  },
+  "trip.sharedNote": {
+    "text": "您正在查看他人与您共享的行程，页面会自动更新。",
+    "status": "machine"
+  },
+  "trip.reference": {
+    "text": "预订 {reference}",
+    "status": "machine"
+  },
+  "trip.loading": {
+    "text": "正在加载行程…",
+    "status": "machine"
+  },
+  "trip.notFound": {
+    "text": "无法打开此行程",
+    "status": "machine"
+  },
+  "trip.notFoundHelp": {
+    "text": "请使用预订邮件中的链接，或通过预订编号查找。",
+    "status": "machine"
+  },
+  "trip.findBooking": {
+    "text": "查找我的预订",
+    "status": "machine"
+  },
+  "trip.retry": {
+    "text": "重试",
+    "status": "machine"
+  },
+  "trip.offline": {
+    "text": "您已离线，重新联网后将自动更新。",
+    "status": "machine"
+  },
+  "trip.updated": {
+    "text": "更新于 {time}",
+    "status": "machine"
+  },
+  "trip.stage.confirmed": {
+    "text": "预订已确认",
+    "status": "machine"
+  },
+  "trip.stage.assigned": {
+    "text": "已分配司机",
+    "status": "machine"
+  },
+  "trip.stage.on_the_way": {
+    "text": "司机正在路上",
+    "status": "machine"
+  },
+  "trip.stage.waiting": {
+    "text": "在上车点等候",
+    "status": "machine"
+  },
+  "trip.stage.on_trip": {
+    "text": "行程中",
+    "status": "machine"
+  },
+  "trip.stage.arrived": {
+    "text": "已到达",
+    "status": "machine"
+  },
+  "trip.stage.no_show": {
+    "text": "司机未能找到您",
+    "status": "machine"
+  },
+  "trip.stage.cancelled": {
+    "text": "预订已取消",
+    "status": "machine"
+  },
+  "trip.headline.confirmed": {
+    "text": "我们正在为您安排司机",
+    "status": "machine"
+  },
+  "trip.headline.assigned": {
+    "text": "您的司机已准备就绪",
+    "status": "machine"
+  },
+  "trip.headline.on_the_way": {
+    "text": "司机正在前往接您",
+    "status": "machine"
+  },
+  "trip.headline.waiting": {
+    "text": "司机正在等您",
+    "status": "machine"
+  },
+  "trip.headline.on_trip": {
+    "text": "祝您旅途愉快",
+    "status": "machine"
+  },
+  "trip.headline.arrived": {
+    "text": "您已到达",
+    "status": "machine"
+  },
+  "trip.headline.no_show": {
+    "text": "司机未能在上车点找到您",
+    "status": "machine"
+  },
+  "trip.headline.cancelled": {
+    "text": "此预订已取消",
+    "status": "machine"
+  },
+  "trip.noShowHelp": {
+    "text": "请尽快联系 Waydidi，以便我们为您提供帮助。",
+    "status": "machine"
+  },
+  "trip.contact": {
+    "text": "联系 Waydidi",
+    "status": "machine"
+  },
+  "trip.eta.pickup": {
+    "text": "司机约 {minutes} 分钟后到达",
+    "status": "machine"
+  },
+  "trip.eta.dropoff": {
+    "text": "约 {minutes} 分钟后抵达目的地",
+    "status": "machine"
+  },
+  "trip.eta.unknown": {
+    "text": "获取司机位置后将显示到达时间。",
+    "status": "machine"
+  },
+  "trip.map.label": {
+    "text": "显示司机位置的地图",
+    "status": "machine"
+  },
+  "trip.map.driver": {
+    "text": "您的司机",
+    "status": "machine"
+  },
+  "trip.map.pickup": {
+    "text": "上车点",
+    "status": "machine"
+  },
+  "trip.map.dropoff": {
+    "text": "下车点",
+    "status": "machine"
+  },
+  "trip.map.lastSeen": {
+    "text": "司机位置（{time}）",
+    "status": "machine"
+  },
+  "trip.map.open": {
+    "text": "在 Google 地图中打开",
+    "status": "machine"
+  },
+  "trip.map.waiting": {
+    "text": "司机位置稍后将显示在此处。",
+    "status": "machine"
+  },
+  "trip.meet.title": {
+    "text": "与司机会合",
+    "status": "machine"
+  },
+  "trip.meet.sign": {
+    "text": "司机手持写有 {name} 的接机牌",
+    "status": "machine"
+  },
+  "trip.meet.point": {
+    "text": "会合点",
+    "status": "machine"
+  },
+  "trip.meet.photoAlt": {
+    "text": "司机在上车点拍摄的照片",
+    "status": "machine"
+  },
+  "trip.meet.photoCaption": {
+    "text": "司机在上车点拍摄的照片",
+    "status": "machine"
+  },
+  "trip.pin.title": {
+    "text": "您的行程 PIN",
+    "status": "machine"
+  },
+  "trip.pin.help": {
+    "text": "见到司机时告诉他此 PIN，切勿提前发送。",
+    "status": "machine"
+  },
+  "trip.route.pickup": {
+    "text": "上车",
+    "status": "machine"
+  },
+  "trip.route.dropoff": {
+    "text": "下车",
+    "status": "machine"
+  },
+  "trip.route.when": {
+    "text": "{date} {time}",
+    "status": "machine"
+  },
+  "trip.route.flight": {
+    "text": "航班 {flight}",
+    "status": "machine"
+  },
+  "trip.timeline": {
+    "text": "行程进度",
+    "status": "machine"
+  },
+  "trip.share.title": {
+    "text": "分享我的行程",
+    "status": "machine"
+  },
+  "trip.share.help": {
+    "text": "发送只读链接，让家人或朋友关注您的行程。链接不显示 PIN 和联系方式，行程结束 2 小时后失效。",
+    "status": "machine"
+  },
+  "trip.share.create": {
+    "text": "创建分享链接",
+    "status": "machine"
+  },
+  "trip.share.copy": {
+    "text": "复制链接",
+    "status": "machine"
+  },
+  "trip.share.copied": {
+    "text": "链接已复制",
+    "status": "machine"
+  },
+  "trip.share.send": {
+    "text": "分享",
+    "status": "machine"
+  },
+  "trip.share.stop": {
+    "text": "停止分享",
+    "status": "machine"
+  },
+  "trip.share.stopped": {
+    "text": "已停止分享，之前发送的链接已失效。",
+    "status": "machine"
+  },
+  "trip.share.error": {
+    "text": "无法更新分享设置，请重试。",
+    "status": "machine"
+  },
+  "trip.share.message": {
+    "text": "关注我的 Waydidi 行程",
+    "status": "machine"
+  },
+  "trip.track": {
+    "text": "跟踪行程",
+    "status": "machine"
+  },
+  "trip.shareExpired": {
+    "text": "共享的行程已结束",
+    "status": "machine"
+  },
+  "trip.shareExpiredHelp": {
+    "text": "分享链接会在行程结束 2 小时后或旅客停止分享时失效。",
+    "status": "machine"
+  },
+  "nav.signIn": {
+    "text": "登录",
+    "status": "machine"
+  },
+  "nav.myAccount": {
+    "text": "我的账户",
+    "status": "machine"
+  },
+  "nav.signInCreate": {
+    "text": "登录 / 创建账户",
+    "status": "machine"
+  },
+  "locale.button": {
+    "text": "语言和货币：{language}，{currency}",
+    "status": "machine"
+  },
+  "locale.languages": {
+    "text": "语言",
+    "status": "machine"
+  },
+  "locale.currency": {
+    "text": "货币",
+    "status": "machine"
+  },
+  "locale.allLanguages": {
+    "text": "所有语言",
+    "status": "machine"
+  },
+  "locale.topCurrencies": {
+    "text": "常用货币",
+    "status": "machine"
+  },
+  "locale.allCurrencies": {
+    "text": "所有货币",
+    "status": "machine"
+  },
+  "locale.close": {
+    "text": "关闭",
+    "status": "machine"
+  },
+  "locale.remembered": {
+    "text": "您的选择将保存在此设备上。",
+    "status": "machine"
+  },
+  "footer.allDestinations": {
+    "text": "所有目的地",
+    "status": "machine"
+  }
+}

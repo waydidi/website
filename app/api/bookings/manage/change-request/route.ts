@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { bookingChangeRequests, fareQuotes, operationsAlerts } from "@/db/schema";
 import { managedBooking, canManageStatus, HOUR, pickupInstant } from "@/lib/booking-management";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
-import { VEHICLES } from "@/lib/vehicles";
+import { VEHICLES, vehicleFits } from "@/lib/vehicles";
 
 export async function POST(request: Request) {
   if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
@@ -21,6 +21,9 @@ export async function POST(request: Request) {
   const vehicleId = input.vehicleId as keyof typeof VEHICLES;
   const vehicle = VEHICLES[vehicleId];
   if (!vehicle) return NextResponse.json({ error: "Choose an available vehicle." }, { status: 400 });
+  if (!vehicleFits(vehicleId, booking.passengers, booking.luggage)) {
+    return NextResponse.json({ error: `The ${vehicle.name} carries up to ${vehicle.passengers} passengers and ${vehicle.bags} bags. Choose a larger vehicle.` }, { status: 400 });
+  }
   const [quote] = await getDb().select().from(fareQuotes).where(eq(fareQuotes.id, input.fareQuoteId)).limit(1);
   if (!quote) return NextResponse.json({ error: "The revised route price is unavailable. Calculate it again." }, { status: 409 });
   const requestedDate = quote.departureDate;

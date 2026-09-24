@@ -2,8 +2,9 @@ import { env } from "cloudflare:workers";
 import { and, count, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { bookings, passengerVerifications } from "@/db/schema";
+import { bookings, drivers, passengerVerifications } from "@/db/schema";
 import { activeAssignmentForToken } from "@/lib/driver-operations";
+import { notifyLineOperationsAlert, notifyLineTripStatus } from "@/lib/line";
 import { constantTimeEqual, isJsonRequest, sameOrigin } from "@/lib/security";
 import { tripPinForReference, tripPinHash } from "@/lib/trip-pin";
 
@@ -40,6 +41,9 @@ export async function POST(request: Request) {
     const statements = [env.DB.prepare(`INSERT INTO passenger_verifications (id, booking_reference, assignment_id, driver_id, result, attempt_number, latitude, longitude, accuracy_metres, actor, created_at) VALUES (?, ?, ?, ?, 'failed', ?, ?, ?, ?, 'driver', ?)`).bind(verificationId, booking.reference, assignment.id, assignment.driverId, attemptNumber, latitude, longitude, accuracy, now)];
     if (attemptNumber >= 3) statements.push(env.DB.prepare(`INSERT OR IGNORE INTO operations_alerts (id, booking_reference, assignment_id, alert_type, severity, title, details, dedupe_key, status, detected_at, created_at, updated_at) VALUES (?, ?, ?, 'passenger_pin_failed', ?, 'Passenger PIN needs attention', ?, ?, 'open', ?, ?, ?)`).bind(crypto.randomUUID(), booking.reference, assignment.id, attemptNumber >= MAX_ATTEMPTS ? "critical" : "warning", `${attemptNumber} failed PIN attempts. Call the passenger or driver.`, `passenger-pin:${assignment.id}`, now, now, now));
     await env.DB.batch(statements);
+    if (attemptNumber === 3) {
+      await notifyLineOperationsAlert({ reference: booking.reference, severity: "warning", title: "3 wrong Trip PIN attempts", details: `The driver has entered a wrong Trip PIN 3 times at pickup. Call the passenger or driver. ${MAX_ATTEMPTS - attemptNumber} attempts left.` }).catch((error) => console.error("LINE alert failed", error));
+    }
     return NextResponse.json({ error: attemptNumber >= MAX_ATTEMPTS ? "Too many failed attempts. Contact Waydidi operations." : "That PIN does not match. Ask the passenger to check their confirmation.", attemptsRemaining: Math.max(0, MAX_ATTEMPTS - attemptNumber) }, { status: attemptNumber >= MAX_ATTEMPTS ? 429 : 401 });
   }
   const verificationId = crypto.randomUUID();
@@ -49,5 +53,10 @@ export async function POST(request: Request) {
     env.DB.prepare(`INSERT INTO driver_status_events (id, assignment_id, booking_reference, status, previous_status, latitude, longitude, accuracy_metres, verification_status, created_at) VALUES (?, ?, ?, 'passenger_verified', 'standby', ?, ?, ?, 'verified', ?)`).bind(crypto.randomUUID(), assignment.id, booking.reference, latitude, longitude, accuracy, now),
     env.DB.prepare(`INSERT INTO booking_events (booking_reference, event_type, provider_event_id, created_at) VALUES (?, 'passenger_verified', ?, ?)`).bind(booking.reference, `passenger-verification:${verificationId}`, now),
   ]);
+  const [driver] = await getDb().select().from(drivers).where(eq(drivers.id, assignment.driverId)).limit(1);
+  await notifyLineTripStatus({
+    eventId: verificationId, reference: booking.reference, driverName: driver?.fullName ?? "-", customerName: booking.customerName,
+    pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate, pickupTime: booking.pickupTime, vehicle: booking.vehicle,
+  }, "passenger_verified").catch((error) => console.error("LINE trip notification failed", error));
   return NextResponse.json({ ok: true, verifiedAt: now, attemptsRemaining: MAX_ATTEMPTS - attempts });
 }

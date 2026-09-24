@@ -9,6 +9,7 @@ import {
   pickupInstant,
 } from "@/lib/booking-management";
 import { tripPinForReference } from "@/lib/trip-pin";
+import { tripOwnerKey } from "@/lib/trip-access";
 
 export async function GET(request: Request) {
   const booking = await managedBooking(request);
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
         "trip_started",
         "passenger_picked_up",
         "completed",
+        "no_show",
       ].includes(a.currentStatus),
   );
   const tripPin = await tripPinForReference(booking.reference);
@@ -70,16 +72,15 @@ export async function GET(request: Request) {
         cancellationReason: booking.cancellationReason,
         bookingVersion: booking.bookingVersion,
         tripPin,
+        tripKey: await tripOwnerKey(booking.reference),
       },
       eligibility: {
         canReschedule:
           canManageStatus(booking.status) &&
           !journeyStarted &&
           remaining >= 72 * HOUR,
-        canCancel:
-          canManageStatus(booking.status) &&
-          !journeyStarted &&
-          remaining >= 24 * HOUR,
+        // Cancellations and refunds are handled by email.
+        canCancel: false,
         rescheduleCutoff: new Date(
           pickupInstant(booking.pickupDate, booking.pickupTime) - 72 * HOUR,
         ).toISOString(),

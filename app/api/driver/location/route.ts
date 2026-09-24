@@ -6,6 +6,7 @@ import { bookingEvents, bookings, journeyExceptions, journeyLocations, journeySt
 import { activeAssignmentForToken, distanceMetres as pointDistanceMetres } from "@/lib/driver-operations";
 import { decodePolyline, distanceToRouteMetres } from "@/lib/route-deviation";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { notifyLineOperationsAlert } from "@/lib/line";
 
 const RETENTION_DAYS = 90;
 
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
             env.DB.prepare(`INSERT INTO journey_exceptions (id, booking_reference, assignment_id, exception_type, status, severity, distance_metres, corridor_metres, consecutive_points, started_at, last_seen_at, created_at, updated_at) VALUES (?, ?, ?, 'route_deviation', 'open', 'warning', ?, ?, ?, ?, ?, ?, ?)`).bind(exceptionId, booking.reference, assignment.id, distanceMetres, corridorMetres, requiredPoints, startedAt, serverTimestamp, serverTimestamp, serverTimestamp),
             env.DB.prepare(`INSERT INTO booking_events (booking_reference, event_type, provider_event_id, created_at) VALUES (?, 'route_deviation_started', ?, ?)`).bind(booking.reference, `route-deviation-started:${exceptionId}`, serverTimestamp),
           ]);
+          await notifyLineOperationsAlert({ reference: booking.reference, severity: "warning", title: "Car is off route", details: `The car is about ${(distanceMetres / 1000).toFixed(1)} km from the expected route.` }).catch((error) => console.error("LINE alert failed", error));
           deviation = { status: "open", distanceMetres, corridorMetres };
         } else deviation = { status: "potential", distanceMetres, corridorMetres };
       }
@@ -90,7 +92,7 @@ export async function POST(request: Request) {
     const baseMinutes = booking.serviceType === "hourly"
       ? configuredNumber(env.WAYDIDI_STOP_HOURLY_MINUTES, 30, 10, 120)
       : configuredNumber(env.WAYDIDI_STOP_TRANSFER_MINUTES, 20, 10, 120);
-    const deviationMinutes = configuredNumber(env.WAYDIDI_STOP_ROUTE_DEVIATION_MINUTES, 15, 10, 120);
+    const deviationMinutes = configuredNumber(env.WAYDIDI_STOP_ROUTE_DEVIATION_MINUTES, 20, 10, 120);
     const minimumRemainingMetres = configuredNumber(env.WAYDIDI_STOP_MIN_REMAINING_METRES, 2_000, 0, 20_000);
     const resumeMetres = configuredNumber(env.WAYDIDI_STOP_RESUME_METRES, 200, 50, 2_000);
     const resumePoints = configuredNumber(env.WAYDIDI_STOP_RESUME_POINTS, 3, 2, 8);
@@ -148,6 +150,7 @@ export async function POST(request: Request) {
         env.DB.prepare(`INSERT INTO journey_exceptions (id, booking_reference, assignment_id, exception_type, status, severity, distance_metres, corridor_metres, consecutive_points, stop_duration_seconds, started_at, last_seen_at, created_at, updated_at) VALUES (?, ?, ?, 'abnormal_stop', 'open', 'warning', ?, ?, ?, ?, ?, ?, ?, ?)`).bind(exceptionId, booking.reference, assignment.id, remainingMetres ?? 0, stopRadiusMetres, stationary.length, durationSeconds, startedAt, serverTimestamp, serverTimestamp, serverTimestamp),
         env.DB.prepare(`INSERT INTO booking_events (booking_reference, event_type, provider_event_id, created_at) VALUES (?, 'abnormal_stop_started', ?, ?)`).bind(booking.reference, `abnormal-stop-started:${exceptionId}`, serverTimestamp),
       ]);
+      await notifyLineOperationsAlert({ reference: booking.reference, severity: "warning", title: "Unexplained stop", details: `The car has been stopped for ${Math.round(durationSeconds / 60)} minutes with a passenger on board and no stop reason from the driver.` }).catch((error) => console.error("LINE alert failed", error));
       abnormalStop = { status: "open", durationSeconds };
     } else {
       abnormalStop = { status: durationSeconds >= 10 * 60 ? "potential" : durationSeconds >= 5 * 60 ? "observe" : "normal", durationSeconds };

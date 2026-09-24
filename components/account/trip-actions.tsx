@@ -16,7 +16,7 @@ export function TripActions({ reference, canManage, hasReceipt }: { reference: s
   }
   const secondary = "flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 font-black transition hover:border-[#FF8A05]";
   return <div className="grid gap-3">
-    {canManage ? <button onClick={manage} disabled={loading} className="flex items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-3.5 font-black text-white disabled:opacity-60"><CalendarClock size={19} />{loading ? "Opening…" : "Change or cancel trip"}</button> : null}
+    {canManage ? <button onClick={manage} disabled={loading} className="flex items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-3.5 font-black text-white disabled:opacity-60"><CalendarClock size={19} />{loading ? "Opening…" : "Manage this trip"}</button> : null}
     {hasReceipt ? <a href={`/api/account/trips/${reference}/pdf`} className={secondary}><Download size={19} />Download receipt (PDF)</a> : null}
     <Link href="/#booking-search" className={secondary}><RotateCcw size={19} />Book again</Link>
     <Link href="/contact" className={secondary}><Headphones size={19} />Contact support</Link>

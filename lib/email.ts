@@ -180,20 +180,21 @@ function reminderShell(kicker: string, title: string, intro: string, rows: strin
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f3f5f8;color:#211726;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:28px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border-radius:24px;overflow:hidden"><tr><td style="background:#ff8a05;padding:30px 34px;color:#fff"><img src="${siteUrl()}/waydidi-logo.png" width="150" alt="Waydidi" style="display:block;width:150px;height:auto;margin-bottom:28px"><p style="margin:0 0 8px;color:#ffe1c2;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${escapeHtml(kicker)}</p><h1 style="margin:0;color:#fff;font-size:32px;line-height:1.12">${escapeHtml(title)}</h1></td></tr><tr><td style="padding:30px 34px"><p style="margin:0 0 22px;color:#586579;font-size:16px;line-height:1.6">${escapeHtml(intro)}</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rows}</table></td></tr></table></td></tr></table></body></html>`;
 }
 
-export async function sendCustomerTripReminder(input: TripReminderInput & { to: string; name: string; hoursBefore: 24 | 3 }) {
+export async function sendCustomerTripReminder(input: TripReminderInput & { to: string; name: string; hoursBefore: 24 | 3; tripKey?: string }) {
+  const tripUrl = input.tripKey ? `${siteUrl()}/trip/${encodeURIComponent(input.reference)}?key=${input.tripKey}` : null;
   const when = displayDate(input.pickupDate, input.pickupTime);
   const title = input.hoursBefore === 24 ? "Your ride is tomorrow." : "Your ride is coming up soon.";
   const html = reminderShell(
     `${input.hoursBefore}-hour reminder`,
     title,
     `Hi ${input.name}, this is a reminder for your confirmed Waydidi transfer.`,
-    `${detailRow("Booking", input.reference)}${detailRow("Pickup", input.pickup)}${detailRow("Drop-off", input.dropoff)}${detailRow("Date & time", when)}${detailRow("Vehicle", input.vehicle)}`,
+    `${detailRow("Booking", input.reference)}${detailRow("Pickup", input.pickup)}${detailRow("Drop-off", input.dropoff)}${detailRow("Date & time", when)}${detailRow("Vehicle", input.vehicle)}${tripUrl ? `<tr><td colspan="2" align="center" style="padding-top:26px"><a href="${escapeHtml(tripUrl)}" style="display:inline-block;background:#ff8a05;color:#21140a;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:15px;font-weight:700">Track your trip</a></td></tr>` : ""}`,
   );
   return resend({
     to: [input.to],
     subject: `${title} · ${input.reference}`,
     html,
-    text: `${title}\nBooking ${input.reference}\nPickup: ${input.pickup}\nDrop-off: ${input.dropoff}\nDate and time: ${when}\nVehicle: ${input.vehicle}`,
+    text: `${title}\nBooking ${input.reference}\nPickup: ${input.pickup}\nDrop-off: ${input.dropoff}\nDate and time: ${when}\nVehicle: ${input.vehicle}${tripUrl ? `\nTrack your trip: ${tripUrl}` : ""}`,
   }, `customer-reminder-${input.hoursBefore}h-${input.reference}`);
 }
 
@@ -253,14 +254,6 @@ export async function sendBookingManagementEmail(input: TripReminderInput & { to
     : `Hi ${input.name}, we saved the new pickup date and time for booking ${input.reference}.`;
   const html = reminderShell(cancelled ? "Cancellation confirmed" : "Schedule updated", title, intro, `${detailRow("Booking", input.reference)}${detailRow("Pickup", input.pickup)}${detailRow("Drop-off", input.dropoff)}${detailRow("Date & time", displayDate(input.pickupDate, input.pickupTime))}${detailRow("Vehicle", input.vehicle)}`);
   return resend({to:[input.to],subject:`${title} · ${input.reference}`,html,text:`${title}\n${intro}\nPickup: ${input.pickup}\nDrop-off: ${input.dropoff}\nDate and time: ${displayDate(input.pickupDate,input.pickupTime)}`},`booking-${input.action}-${input.reference}-${Date.now()}`);
-}
-
-export async function sendRefundDecisionEmail(input:{to:string;name:string;reference:string;amount:number;decision:"approved"|"declined";reason?:string}){
-  const approved=input.decision==="approved";
-  const title=approved?"Your refund is approved.":"Refund request update.";
-  const intro=approved?`Hi ${input.name}, Waydidi approved your refund. THB ${input.amount.toLocaleString("en-US")} is being returned to your original payment method.`:`Hi ${input.name}, Waydidi could not approve the refund request for booking ${input.reference}.${input.reason?` Reason: ${input.reason}`:""}`;
-  const html=reminderShell(approved?"Refund approved":"Refund decision",title,intro,`${detailRow("Booking",input.reference)}${detailRow("Amount",`THB ${input.amount.toLocaleString("en-US")}`)}${detailRow("Status",approved?"Approved — processing by payment provider":"Declined")}`);
-  return resend({to:[input.to],subject:`${title} · ${input.reference}`,html,text:`${title}\n${intro}\nBooking: ${input.reference}\nAmount: THB ${input.amount.toLocaleString("en-US")}`},`refund-${input.decision}-${input.reference}`);
 }
 
 export async function sendAccountSignInCode(input: { to: string; code: string; codeId: string }) {
