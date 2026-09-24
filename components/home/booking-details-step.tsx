@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Baby, ChevronDown, CircleHelp, Info, Minus, NotebookPen, Plane, Plus, Package, UsersRound, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, CircleHelp, Info, NotebookPen, Plane, Plus, UsersRound, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { FlightLookup } from "@/components/flight-lookup";
 import type { ReviewFieldErrors } from "@/lib/booking-review";
@@ -53,9 +53,7 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
   const airport = /airport|\bBKK\b|\bDMK\b|\bHKT\b|\bCNX\b/i.test(booking.pickup);
   const [open, setOpen] = useState({
     flight: Boolean(booking.flightNumber),
-    seats: booking.childSeats > 0,
     notes: Boolean(booking.specialRequests),
-    luggage: booking.oversizedLuggage,
   });
   const toggle = (key: keyof typeof open) => setOpen((current) => ({ ...current, [key]: !current[key] }));
   const phone = splitPhone(booking.phone);
@@ -78,19 +76,8 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
             <p className="mt-2 text-sm text-[#6B6B6B]">We use it to follow arrival changes and the right terminal.</p>
             <FlightLookup flightNumber={booking.flightNumber} flightDate={booking.date} />
           </div>}
-          <OptionPill icon={Baby} label="Need a child or booster seat?" open={open.seats} onClick={() => toggle("seats")} />
-          {open.seats && <div className="flex w-full items-center justify-between rounded-xl bg-[#F4F4F2] px-4 py-3">
-            <span className="text-[16px] text-[#1C1C1C]">Child or booster seats</span>
-            <span className="flex items-center gap-4">
-              <button type="button" aria-label="Fewer seats" disabled={booking.childSeats <= 0} onClick={() => change("childSeats", Math.max(0, booking.childSeats - 1))} className="grid size-9 place-items-center rounded-full border border-[#D9D9D9] bg-white disabled:opacity-40"><Minus size={16} /></button>
-              <span className="w-4 text-center text-[17px] font-semibold" aria-live="polite">{booking.childSeats}</span>
-              <button type="button" aria-label="More seats" disabled={booking.childSeats >= 4} onClick={() => change("childSeats", Math.min(4, booking.childSeats + 1))} className="grid size-9 place-items-center rounded-full border border-[#D9D9D9] bg-white disabled:opacity-40"><Plus size={16} /></button>
-            </span>
-          </div>}
           <OptionPill icon={NotebookPen} label="Add notes for the driver" open={open.notes} onClick={() => toggle("notes")} />
           {open.notes && <textarea value={booking.specialRequests} onChange={(e) => change("specialRequests", e.target.value)} maxLength={500} rows={3} placeholder="Accessibility needs, meeting point or other requests" className="w-full resize-none rounded-xl bg-[#F4F4F2] px-4 py-3 text-base outline-none placeholder:text-[#8A8A8A] focus:ring-2 focus:ring-brand" />}
-          <OptionPill icon={Package} label="Oversized luggage?" open={open.luggage} onClick={() => { toggle("luggage"); change("oversizedLuggage", !open.luggage); }} />
-          {open.luggage && <p className="text-sm text-[#6B6B6B]">Golf bags, surfboards, bikes or unusually large items. We&apos;ll confirm the vehicle fits.</p>}
         </div>
 
         <hr className="my-7 border-[#E6E4DF]" />
