@@ -13,6 +13,7 @@ import {
 import { GoogleRoutePicker, type RouteInfo } from "@/components/google-route-picker";
 type Booking = {
   tripPin: string;
+  tripKey?: string;
   reference: string;
   status: string;
   pickup: string;
@@ -327,6 +328,11 @@ export default function BookingLookup() {
                   <p className="mt-2 text-4xl font-black tracking-[.25em]">{b.tripPin}</p>
                   <p className="mt-2 text-sm text-slate-600">Give this PIN to your driver only when you meet at pickup.</p>
                 </div>
+                {b.status === "confirmed" && (
+                  <a href={`/trip/${encodeURIComponent(b.reference)}${b.tripKey ? `?key=${b.tripKey}` : ""}`} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-[#211726] px-6 font-bold text-white">
+                    Track your trip
+                  </a>
+                )}
                 <div className="mt-7 grid gap-6 sm:grid-cols-2">
                   <Detail label="Pickup" value={b.pickup} />
                   <Detail label="Drop-off" value={b.dropoff} />
