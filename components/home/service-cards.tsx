@@ -36,7 +36,7 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
     >
       {/* Wraps in every language: forcing one line pushed the English
           heading 25px past a 390px phone screen. */}
-      <h2 className="text-[35px] font-bold leading-[1.1] tracking-[-.03em]">
+      <h2 className="text-[33px] font-bold leading-[1.1] tracking-[-.03em]">
         {t("services.heading")}
       </h2>
       <div className="mt-6 grid gap-4 md:grid-cols-3">

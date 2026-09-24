@@ -42,8 +42,8 @@ export function HomePage({ locale }: { locale: Locale }) {
   return (
     <BookingFlow locale={locale} messages={getMessages(locale)}>
       <ReviewBadges />
-      <ServiceCards locale={locale} />
       <Promotions />
+      <ServiceCards locale={locale} />
       <ThailandDestinationMap />
       <HomeFaq />
       <WaydidiFooter locale={locale} />
