@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { ArrowLeft, ArrowRightLeft, Baby, Banknote, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Minus, Pencil, Plus, Route, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Baby, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Minus, Pencil, Plus, Route, Users, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
 import { useI18n } from "@/components/i18n-provider";
@@ -638,7 +638,7 @@ export function BookingResultsMap(props: Props) {
             </li>
             <li>
               <label className="flex cursor-pointer items-center gap-4 py-4">
-                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF3E6] text-brand"><Banknote size={22} aria-hidden="true" /></span>
+                <Image src="/addon-currency-exchange.webp" alt="" width={44} height={44} className="size-11 shrink-0 object-contain" />
                 <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">Currency exchange stop</span><span className="block text-[13px] text-[#6B6B6B]">A short stop at an exchange counter on the way</span></span>
                 <input type="checkbox" checked={exchange} onChange={(e) => setExtras({ childSeats: seats, exchangeStop: e.target.checked })} className="size-5 accent-[#FF8A05]" />
               </label>
