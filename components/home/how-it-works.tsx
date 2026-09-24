@@ -78,7 +78,10 @@ function RideVisual() {
       {streetsX.map((x) => <line key={`v${x}`} x1={x} y1="0" x2={x} y2="330" stroke="#E0DED8" strokeWidth={x === 60 || x === 140 ? 5 : 2} />)}
       {streetsY.map((y) => <line key={`h${y}`} x1="0" y1={y} x2="300" y2={y} stroke="#E0DED8" strokeWidth={y === 135 ? 5 : 2} />)}
       <path d={ROUTE} fill="none" stroke="#FF8A05" strokeOpacity=".18" strokeWidth="10" strokeLinejoin="round" />
-      <path d={ROUTE} pathLength={1} fill="none" stroke="#FF8A05" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" className="hiw-route" />
+      <path d={ROUTE} fill="none" stroke="#FF8A05" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" strokeDasharray="305" className="hiw-route">
+        {/* Same clock as the car below, so the line grows right behind it from the airport to the hotel. */}
+        <animate attributeName="stroke-dashoffset" values="305;0;0" keyTimes="0;.7;1" dur="4s" repeatCount="indefinite" />
+      </path>
       <circle cx="235" cy="45" r="14" fill="#FF8A05" opacity=".18" className="hiw-pulse" />
       <circle cx="235" cy="45" r="7" fill="#FF8A05" />
       {/* Airport marker */}

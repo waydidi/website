@@ -348,12 +348,9 @@ html {
 @media (prefers-reduced-motion: reduce) { .addons-bubble { animation: none; } }
 
 /* How it works, step 3: the route draws in while the car dot travels, then the hotel pulses. */
-.hiw-route { stroke-dasharray: 1; stroke-dashoffset: 1; animation: hiw-draw 4s linear infinite; }
-@keyframes hiw-draw { 0% { stroke-dashoffset: 1; } 70%, 100% { stroke-dashoffset: 0; } }
 .hiw-pulse { transform-origin: 235px 45px; animation: hiw-pulse 2s ease-out infinite; }
 @keyframes hiw-pulse { 0% { transform: scale(.6); opacity: .35; } 100% { transform: scale(1.6); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .hiw-route { animation: none; stroke-dashoffset: 0; }
   .hiw-pulse { animation: none; }
   .hiw-car { display: none; }
 }
