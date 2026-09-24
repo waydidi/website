@@ -1,7 +1,8 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { ArrowLeft, ArrowRightLeft, Banknote, CalendarDays, CarFront, CheckCircle2, ChevronDown, Clock3, CreditCard, Info, Luggage, MoreHorizontal, Users } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Pencil, Route, Users, X } from "lucide-react";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
@@ -51,8 +52,7 @@ type Props = {
   onEdit: () => void;
   onContinue: () => void;
   onRetry: () => void;
-  payment?: "card" | "cash";
-  onPaymentChange?: (value: "card" | "cash") => void;
+  passengers?: number;
 };
 
 function shortPlace(value: string) {
@@ -92,20 +92,48 @@ function htmlOverlay(maps: any, map: any, position: any, html: string, anchor: "
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-function pinSvg(color: string) {
-  return `<svg width="40" height="50" viewBox="0 0 40 50" style="display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))"><path d="M20 49c-1.2 0-2-1-2.8-2.3C12 38.8 2 31 2 19.5 2 9.3 10 2 20 2s18 7.3 18 17.5C38 31 28 38.8 22.8 46.7 22 48 21.2 49 20 49Z" fill="${color}"/><circle cx="20" cy="19" r="7" fill="#fff"/></svg>`;
+function squarePin(color: string) {
+  return `<div style="width:22px;height:22px;border-radius:4px;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translateY(11px)"></div>`;
 }
 
-function placeChip(label: string) {
-  return `<div style="display:flex;align-items:center;gap:6px;max-width:210px;margin-left:24px;padding:9px 14px;border-radius:999px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18);font:600 15px Poppins,Helvetica,Arial,sans-serif;color:#1C1C1C;white-space:nowrap"><span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(label)}</span><span style="color:#555">›</span></div>`;
+// Transfeero-style label: place on the left, time block on the right.
+function timeLabel(kind: string, place: string, time: string, timeBg: string, timeColor: string) {
+  const [clock, meridiem] = time.split(" ");
+  return `<div style="display:flex;align-items:stretch;max-width:250px;margin-bottom:14px;border-radius:6px;overflow:hidden;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15);font-family:Poppins,Helvetica,Arial,sans-serif;color:#1C1C1C;white-space:nowrap"><div style="min-width:0;padding:5px 10px"><div style="font-size:10px;color:#777">${kind}</div><div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis">${escapeHtml(place)}</div></div><div style="display:grid;place-items:center;padding:4px 8px;background:${timeBg};color:${timeColor};font-size:12px;font-weight:600;line-height:1.1;text-align:center">${escapeHtml(clock)}<br><span style="font-size:9px;font-weight:500">${escapeHtml(meridiem ?? "")}</span></div></div>`;
 }
+
+function clockLabel(date: string, time: string, addMinutes = 0) {
+  const value = new Date(new Date(`${date}T${time}:00+07:00`).getTime() + addMinutes * 60_000);
+  return value.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
+}
+
+function longDate(date: string) {
+  return new Date(`${date}T12:00:00+07:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" });
+}
+
+function placeParts(value: string) {
+  const [head, ...rest] = value.split(",");
+  return { name: head?.trim() || value, detail: rest.join(",").trim() };
+}
+
+const GREY_MAP = [
+  { elementType: "geometry", stylers: [{ saturation: -100 }, { lightness: 20 }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#6b6b6b" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "water", stylers: [{ color: "#d6d6d6" }] },
+];
 
 export function BookingResultsMap(props: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapReady, setMapReady] = useState(false);
-  const [showBreakdown, setShowBreakdown] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const selected = props.vehicles.find((item) => item.id === props.selectedVehicle) ?? props.vehicles[0];
   const minutes = props.quote ? props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60 : 0;
+  const cheapest = props.vehicles.filter((v) => v.fits !== false).reduce<Vehicle | undefined>((best, v) => !best || v.price < best.price ? v : best, undefined);
+  const total = selected ? props.priceBreakdown?.[selected.id]?.total ?? selected.price : 0;
+  const passengers = props.passengers ?? 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -130,126 +158,160 @@ export function BookingResultsMap(props: Props) {
   useEffect(() => {
     if (!mapReady || !mapRef.current || !props.quote?.pickup || !props.quote.dropoff || !window.google?.maps) return;
     const maps = window.google.maps;
-    const map = new maps.Map(mapRef.current, {
-      disableDefaultUI: true,
-      clickableIcons: false,
-      gestureHandling: "greedy",
-      mapId: "DEMO_MAP_ID",
-    });
+    // No mapId here: a mapId would ignore the grey styles below.
+    const map = new maps.Map(mapRef.current, { disableDefaultUI: true, clickableIcons: false, gestureHandling: "greedy", styles: GREY_MAP });
     const pickup = { lat: props.quote.pickup.latitude, lng: props.quote.pickup.longitude };
     const dropoff = { lat: props.quote.dropoff.latitude, lng: props.quote.dropoff.longitude };
     const route = props.quote.encodedPolyline && maps.geometry?.encoding
       ? maps.geometry.encoding.decodePath(props.quote.encodedPolyline)
       : [pickup, dropoff];
-    // A darker casing under the line, as in ride-hailing apps.
-    new maps.Polyline({ map, path: route, strokeColor: "#C96100", strokeOpacity: 1, strokeWeight: 9 });
-    new maps.Polyline({ map, path: route, strokeColor: "#FF8A05", strokeOpacity: 1, strokeWeight: 6 });
+    new maps.Polyline({ map, path: route, strokeColor: "#1C1C1C", strokeOpacity: 1, strokeWeight: 5 });
+    const travel = props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
     const overlays = [
-      htmlOverlay(maps, map, new maps.LatLng(pickup), pinSvg("#E8472E"), "pin"),
-      htmlOverlay(maps, map, new maps.LatLng(pickup), placeChip(shortPlace(props.pickup)), "chip"),
-      htmlOverlay(maps, map, new maps.LatLng(dropoff), pinSvg("#2F80ED"), "pin"),
-      htmlOverlay(maps, map, new maps.LatLng(dropoff), placeChip(shortPlace(props.dropoff)), "chip"),
+      htmlOverlay(maps, map, new maps.LatLng(pickup), squarePin("#1C1C1C"), "pin"),
+      htmlOverlay(maps, map, new maps.LatLng(dropoff), squarePin("#FF8A05"), "pin"),
+      htmlOverlay(maps, map, new maps.LatLng(pickup), timeLabel("Pick up", shortPlace(props.pickup), clockLabel(props.date, props.time), "#1C1C1C", "#fff"), "pin"),
+      htmlOverlay(maps, map, new maps.LatLng(dropoff), timeLabel("Drop-off", shortPlace(props.dropoff), clockLabel(props.date, props.time, travel), "#FF8A05", "#1C1C1C"), "pin"),
     ];
-    const middle = route[Math.floor(route.length / 2)];
-    const minutesText = `${Math.max(1, Math.round((props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60)))} min·${(props.quote.distanceMeters / 1000).toFixed(1)} km`;
-    overlays.push(htmlOverlay(maps, map, middle, `<div style="margin-bottom:6px;padding:8px 14px;border-radius:16px 16px 16px 4px;background:#C96100;color:#fff;font:500 15px/1.25 Poppins,Helvetica,Arial,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)"><div>Best</div><div style="font-size:14px">${minutesText}</div></div>`, "bubble"));
     const bounds = new maps.LatLngBounds();
     route.forEach((point: any) => bounds.extend(point));
     bounds.extend(pickup); bounds.extend(dropoff);
-    map.fitBounds(bounds, { top: 110, right: 70, bottom: 60, left: 40 });
+    map.fitBounds(bounds, { top: 90, right: 60, bottom: 50, left: 60 });
     return () => overlays.forEach((overlay) => overlay.setMap(null));
-  }, [mapReady, props.quote, props.pickup, props.dropoff]);
+  }, [mapReady, props.quote, props.pickup, props.dropoff, props.date, props.time]);
+
+  const disabled = !props.quote || props.loading || !selected || selected.fits === false || props.checkoutReady === false;
 
   return <section className="relative h-[100svh] overflow-hidden bg-white" aria-live="polite">
     {/* Map */}
-    <div className="absolute inset-x-0 top-0 h-[38svh] lg:inset-y-0 lg:right-0 lg:left-[440px] lg:h-auto">
-      <div ref={mapRef} className="absolute inset-0 bg-[linear-gradient(135deg,#f0eee9,#dfe7df)]" aria-label={`Route map from ${props.pickup} to ${props.dropoff}`} />
-      {!props.quote && !props.error && <div className="absolute inset-0 grid place-items-center bg-[#EEEAE3]">
+    <div className="absolute inset-x-0 top-0 h-[42svh] lg:inset-y-0 lg:left-[460px] lg:right-0 lg:h-auto">
+      <div ref={mapRef} className="absolute inset-0 bg-[#EDEDED]" aria-label={`Route map from ${props.pickup} to ${props.dropoff}`} />
+      {!props.quote && !props.error && <div className="absolute inset-0 grid place-items-center bg-[#EDEDED]">
         <div className="rounded-2xl bg-white/95 px-6 py-5 text-center shadow-xl">
           <span className="mx-auto block size-8 animate-spin rounded-full border-4 border-brand border-r-transparent motion-reduce:animate-none" />
           <p className="mt-3 font-medium text-ink">Calculating your route…</p>
         </div>
       </div>}
-      <div className="absolute inset-x-4 top-[max(16px,env(safe-area-inset-top))] z-10 flex items-center justify-between gap-3">
-        <button onClick={props.onEdit} className="grid size-11 shrink-0 place-items-center rounded-full bg-white text-[#1C1C1C] shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label="Edit trip">
-          <ArrowLeft size={24} />
-        </button>
-        <button onClick={props.onEdit} className="flex min-w-0 items-center gap-2 rounded-full bg-white px-5 py-2.5 text-base font-medium text-[#1C1C1C] shadow-md">
-          <Clock3 size={20} className="shrink-0 text-brand" aria-hidden="true" /><span className="truncate">{dateLabel(props.date, props.time)}</span>
-        </button>
-        <span className="size-11 shrink-0" aria-hidden="true" />
-      </div>
+      <button onClick={props.onEdit} className="absolute left-4 top-[max(16px,env(safe-area-inset-top))] z-10 grid size-11 place-items-center rounded-full bg-white text-[#1C1C1C] shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label="Edit trip">
+        <ArrowLeft size={22} />
+      </button>
     </div>
 
     {/* Sheet */}
-    <div className="absolute inset-x-0 bottom-0 top-[calc(38svh-20px)] z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_16px_rgba(0,0,0,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:top-0 lg:w-[440px] lg:rounded-none">
-      <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-[#E3E3E3]" aria-hidden="true" />
-      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3">
+    <div className="absolute inset-x-0 bottom-0 top-[calc(42svh-20px)] z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_16px_rgba(0,0,0,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:top-0 lg:w-[460px] lg:rounded-none">
+      <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-[#D9D9D9]" aria-hidden="true" />
+      <p className="flex shrink-0 items-center justify-center gap-2 border-b border-[#EEEEEE] py-3 text-[15px] text-[#4A4A4A]"><Check size={18} aria-hidden="true" />All prices are fixed totals for your private ride</p>
+      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-4">
+        <div className="mb-4 flex items-center gap-3">
+          <button type="button" onClick={props.onEdit} className="flex h-12 items-center gap-2 rounded-lg bg-[#F2F2F0] px-4 text-[15px] font-medium text-[#1C1C1C]"><Users size={18} aria-hidden="true" />{passengers} · {dateLabel(props.date, props.time)}</button>
+          <button type="button" onClick={props.onEdit} className="grid size-12 place-items-center rounded-lg bg-[#F2F2F0] text-[#1C1C1C]" aria-label="Edit trip"><Pencil size={20} aria-hidden="true" /></button>
+        </div>
+
         {props.error ? <div className="mb-3 rounded-2xl bg-orange-50 p-4 text-sm text-[#6D3700]">
           <strong className="block">We couldn&apos;t calculate this route.</strong>
           <span>Please check your pickup and destination.</span>
           <div className="mt-3 flex gap-2"><button onClick={props.onEdit} className="min-h-11 rounded-full bg-white px-4 font-medium">Edit trip</button><button onClick={props.onRetry} className="min-h-11 rounded-full bg-brand px-4 font-medium text-white">Try again</button></div>
         </div> : null}
 
-        {props.returnTrip && props.returnQuote && props.returnDate && props.returnTime && (
-          <div className="mb-3 flex items-center gap-3 rounded-2xl bg-[#FFF4E8] px-4 py-3 text-sm">
-            <ArrowRightLeft size={18} className="shrink-0 text-brand-deep" aria-hidden="true" />
-            <span className="min-w-0"><span className="block font-medium text-[#1C1C1C]">Return · {shortPlace(props.dropoff)} → {shortPlace(props.pickup)}</span><span className="block text-[#6B6B6B]">{dateLabel(props.returnDate, props.returnTime)}</span></span>
-          </div>
-        )}
-
-        <ul className="grid gap-1">
+        <ul className="grid gap-2">
           {props.vehicles.map((item) => {
             const active = item.id === selected?.id;
-            const disabled = !props.quote || item.fits === false;
-            const breakdown = props.priceBreakdown?.[item.id];
+            const off = !props.quote || item.fits === false;
+            const badge = item.fits === false ? null : item.id === cheapest?.id ? "best" : item.popular ? "popular" : null;
             return <li key={item.id}>
-              <button type="button" disabled={disabled} aria-pressed={active} onClick={() => active && breakdown ? setShowBreakdown(!showBreakdown) : props.onSelectVehicle(item.id)} className={`grid w-full grid-cols-[88px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl px-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-2 border-brand py-4" : "border-2 border-transparent py-5 enabled:hover:bg-[#FAFAFA]"}`}>
-                <span className="grid h-16 place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className="max-h-16 w-full object-contain" /> : <CarFront size={40} className="text-[#9A9A9A]" aria-hidden="true" />}</span>
+              <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-[#F5B85A] bg-[#FDF8F1]" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
+                <span className="grid h-16 place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className="max-h-16 w-full object-contain" /> : <CarFront size={44} className="text-[#9A9A9A]" aria-hidden="true" />}</span>
                 <span className="min-w-0">
-                  <strong className="block truncate text-[17px] font-semibold text-[#1C1C1C]">{item.name}</strong>
-                  <span className="mt-0.5 flex items-center gap-1.5 text-[15px] text-[#6B6B6B]">
-                    {props.quote ? `${durationLabel(minutes)}` : "—"}
-                    {item.passengers !== undefined && <><span aria-hidden="true">·</span><Users size={15} className="text-[#1C1C1C]" aria-hidden="true" /><span aria-label={`${item.passengers} passengers`}>{item.passengers}</span></>}
-                    {item.bags !== undefined && <><Luggage size={15} className="ml-1 text-[#1C1C1C]" aria-hidden="true" /><span aria-label={`${item.bags} bags`}>{item.bags}</span></>}
+                  <strong className="block text-[19px] font-semibold leading-tight text-[#1C1C1C]">{item.name}</strong>
+                  <span className="mt-1.5 flex items-center gap-1.5 text-[16px] text-[#4A4A4A]">
+                    {item.passengers !== undefined && <><span>{item.passengers}</span><Users size={18} className="text-[#1C1C1C]" aria-label="passengers" /></>}
+                    {item.bags !== undefined && <><span className="ml-2">{item.bags}</span><Luggage size={18} className="text-[#1C1C1C]" aria-label="bags" /></>}
+                    <span className="ml-2 text-[#9A9A9A]" title={item.tagline}><CircleHelp size={18} aria-label={item.tagline} /></span>
                   </span>
-                  {item.fits === false ? <span className="mt-1.5 block text-sm font-medium text-brand-deep">Too small for your group</span>
-                    : active && <span className="mt-2 flex min-w-0 items-center gap-2"><span className="truncate rounded-md bg-[#FFF1E0] px-2.5 py-1 text-[14px] text-[#B85800]">{item.tagline}</span><Info size={18} className="shrink-0 text-[#6B6B6B]" aria-hidden="true" /></span>}
+                  {item.fits === false ? <span className="mt-2 block text-sm font-medium text-brand-deep">Too small for your group</span>
+                    : badge === "best" ? <span className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#EEF7EE] px-2.5 py-1 text-[14px] font-medium text-[#2E7D32]"><Lightbulb size={15} aria-hidden="true" />Best value</span>
+                    : badge === "popular" ? <span className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#FDECEC] px-2.5 py-1 text-[14px] font-medium text-[#B3261E]"><Flame size={15} aria-hidden="true" />Most popular</span> : null}
                 </span>
-                <span className="flex items-center gap-1 self-start pt-1 text-[17px] font-semibold text-[#1C1C1C]">
-                  ฿{item.price.toLocaleString()}
-                  {active && breakdown && <ChevronDown size={20} className={`transition ${showBreakdown ? "rotate-180" : ""}`} aria-hidden="true" />}
+                <span className="self-start text-right">
+                  <span className="block whitespace-nowrap text-[#1C1C1C]"><span className="text-[15px] text-[#4A4A4A]">THB </span><strong className="text-[22px] font-semibold">{item.price.toLocaleString()}</strong></span>
+                  <span className="mt-1 block text-[13px] text-[#8A8A8A]">{props.returnTrip ? "Round trip" : "Total price"}</span>
                 </span>
               </button>
-              {active && breakdown && showBreakdown && <div className="mx-3 mt-2 rounded-xl bg-[#F7F7F7] p-4 text-sm">
-                <div className="flex justify-between text-[#6B6B6B]"><span>Outbound</span><span className="text-[#1C1C1C]">฿{breakdown.outbound.toLocaleString()}</span></div>
-                <div className="mt-2 flex justify-between text-[#6B6B6B]"><span>Return</span><span className="text-[#1C1C1C]">฿{breakdown.return.toLocaleString()}</span></div>
-                <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 font-semibold"><span>Round-trip total</span><span>฿{breakdown.total.toLocaleString()}</span></div>
-              </div>}
             </li>;
           })}
         </ul>
       </div>
 
       {/* Bottom bar */}
-      <div className="shrink-0 border-t border-[#EEEEEE] bg-white px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-1 shadow-[0_-6px_16px_rgba(0,0,0,.05)]">
-        <div className="grid grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)_1px_48px] items-center py-2 text-[15px] text-[#1C1C1C]">
-          <button type="button" onClick={() => props.onPaymentChange?.(props.payment === "cash" ? "card" : "cash")} className="flex min-h-11 min-w-0 items-center gap-2.5 text-left" aria-label={`Payment: ${props.payment === "cash" ? "cash to driver" : "card"}. Tap to change.`}>
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#1F3F66] text-white">{props.payment === "cash" ? <Banknote size={18} aria-hidden="true" /> : <CreditCard size={18} aria-hidden="true" />}</span>
-            <span className="truncate">{props.payment === "cash" ? "Cash" : "Card"}</span>
-          </button>
-          <span className="h-8 bg-[#E6E6E6]" aria-hidden="true" />
-          <span className="truncate px-2 text-center">{props.quote ? `${(props.quote.distanceMeters / 1000).toFixed(1)} km` : "—"}</span>
-          <span className="h-8 bg-[#E6E6E6]" aria-hidden="true" />
-          <button type="button" onClick={props.onEdit} className="grid min-h-11 place-items-center" aria-label="Edit trip"><MoreHorizontal size={24} aria-hidden="true" /></button>
+      <div className="shrink-0 border-t border-[#EEEEEE] bg-white px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="flex min-w-0 items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="truncate text-2xl font-semibold text-[#1C1C1C]">THB {total.toLocaleString()}</strong></p>
+          <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] font-medium text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
         </div>
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={props.onEdit} className="grid size-14 shrink-0 place-items-center rounded-full bg-[#FFF4E8] text-[#1C1C1C]" aria-label="Change pickup date and time"><CalendarDays size={26} aria-hidden="true" /></button>
-          <button disabled={!props.quote || props.loading || !selected || selected.fits === false || props.checkoutReady === false} onClick={props.onContinue} className="flex h-14 min-w-0 flex-1 items-center justify-center truncate rounded-full bg-brand px-6 text-lg font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Book {selected?.name ?? "this ride"}</button>
-        </div>
+        <button disabled={disabled} onClick={props.onContinue} className="mt-3 flex h-14 w-full items-center justify-center rounded-xl bg-brand text-lg font-semibold text-[#1C1C1C] transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
       </div>
     </div>
+
+    <DialogPrimitive.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[20px] bg-white text-[#1C1C1C] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
+          <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-[#D9D9D9]" aria-hidden="true" />
+          <div className="flex items-start justify-between px-5 pt-4">
+            <div>
+              <DialogPrimitive.Title className="text-[26px] font-semibold leading-tight">Your Booking</DialogPrimitive.Title>
+              <DialogPrimitive.Description className="text-[16px] text-[#6B6B6B]">{props.returnTrip ? "Return" : "One way"}</DialogPrimitive.Description>
+            </div>
+            <DialogPrimitive.Close className="grid size-10 place-items-center rounded-full hover:bg-slate-100" aria-label="Close"><X size={24} /></DialogPrimitive.Close>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 pb-8 pt-5">
+            <div className="flex items-center justify-between">
+              <strong className="text-[18px] font-medium">{props.returnTrip ? "Return" : "One way"}</strong>
+              <span className="flex items-center gap-2 rounded-full border border-[#D9D9D9] px-4 py-1.5 text-[15px] font-medium"><Users size={18} aria-hidden="true" />{passengers} Passenger{passengers === 1 ? "" : "s"}</span>
+            </div>
+
+            <Leg title="Outward" date={props.date} time={props.time} from={props.pickup} to={props.dropoff} quote={props.quote} onEdit={() => { setDetailsOpen(false); props.onEdit(); }} />
+            {props.returnTrip && props.returnDate && props.returnTime
+              ? <Leg title="Return" date={props.returnDate} time={props.returnTime} from={props.dropoff} to={props.pickup} quote={props.returnQuote ?? null} onEdit={() => { setDetailsOpen(false); props.onEdit(); }} />
+              : <button type="button" onClick={() => { setDetailsOpen(false); props.onEdit(); }} className="mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[#BDBDBD] text-[16px] text-[#1C1C1C]"><ArrowRightLeft size={20} className="text-brand" aria-hidden="true" />Add return</button>}
+
+            <div className="mt-8 border-t border-[#E6E6E6] pt-6">
+              <h3 className="flex items-center gap-3 text-[19px] font-medium"><Route size={22} aria-hidden="true" />Price and route</h3>
+              {props.returnTrip && selected && props.priceBreakdown?.[selected.id] && <>
+                <p className="mt-5 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>THB {props.priceBreakdown[selected.id].outbound.toLocaleString()}</span></p>
+                <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>THB {props.priceBreakdown[selected.id].return.toLocaleString()}</span></p>
+              </>}
+              <p className="mt-5 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">THB {total.toLocaleString()}</strong></p>
+              <p className="mt-1 text-right text-[14px] text-[#8A8A8A]">{selected?.name}</p>
+            </div>
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   </section>;
+}
+
+function Leg({ title, date, time, from, to, quote, onEdit }: { title: string; date: string; time: string; from: string; to: string; quote: MapQuote | null; onEdit: () => void }) {
+  const minutes = quote ? quote.averageDurationMinutes ?? quote.durationSeconds / 60 : 0;
+  const km = quote ? quote.distanceMeters / 1000 : 0;
+  const start = placeParts(from);
+  const end = placeParts(to);
+  return <div className="mt-8">
+    <div className="flex items-center justify-between">
+      <p className="text-[17px] text-[#6B6B6B]"><strong className="font-medium">{title}</strong> · {longDate(date)}</p>
+      <button type="button" onClick={onEdit} className="flex items-center gap-2 text-[16px]"><Pencil size={18} aria-hidden="true" />Edit</button>
+    </div>
+    <div className="relative mt-5 pl-9">
+      <span className="absolute bottom-3 left-[6px] top-2 w-[3px] bg-[#1C1C1C]" aria-hidden="true" />
+      <span className="absolute left-0 top-1.5 size-[15px] rounded-[3px] bg-[#1C1C1C]" aria-hidden="true" />
+      <span className="absolute bottom-1 left-0 size-[15px] rounded-[3px] bg-brand" aria-hidden="true" />
+      <div className="flex justify-between gap-3"><p className="min-w-0 truncate text-[18px]">{start.name}</p><p className="shrink-0 text-[17px] text-[#6B6B6B]">{clockLabel(date, time)}</p></div>
+      {start.detail && <p className="truncate text-[14px] text-[#8A8A8A]">{start.detail}</p>}
+      {quote && <div className="my-5 flex gap-1.5 text-[15px]"><span className="rounded-md border border-[#D9D9D9] px-2.5 py-0.5">~ {minutes >= 60 ? `${Math.floor(minutes / 60)} hr ${Math.round(minutes % 60)} min` : `${Math.round(minutes)} min`}</span><span className="rounded-md border border-[#D9D9D9] px-2.5 py-0.5">~ {Math.round(km)} Km / {Math.round(km * 0.621)} Mi</span></div>}
+      <div className="flex justify-between gap-3"><p className="min-w-0 truncate text-[18px]">{end.name}</p>{quote && <p className="shrink-0 text-[17px] text-[#6B6B6B]">{clockLabel(date, time, minutes)}</p>}</div>
+      {end.detail && <p className="truncate text-[14px] text-[#8A8A8A]">{end.detail}</p>}
+    </div>
+  </div>;
 }
 
 // Shared by the transfer results and the hourly vehicle step so both look alike.

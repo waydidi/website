@@ -1293,8 +1293,7 @@ export function BookingFlow({
           onSelectVehicle={setVehicle}
           onEdit={() => goToStage("search")}
           onRetry={retryRoute}
-          payment={payment}
-          onPaymentChange={setPayment}
+          passengers={booking.passengers}
           onContinue={() => goToStage("payment")}
         /> : <section className="bg-white">
           <div className="mx-auto max-w-[760px] px-5 py-8 lg:py-12">
