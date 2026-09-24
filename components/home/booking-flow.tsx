@@ -1077,7 +1077,7 @@ export function BookingFlow({
                       className="flex h-full min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-1.5 text-left lg:px-5"
                       aria-expanded={dateOpen}
                     >
-                      {departureSelected ? <DepartureIcon /> : <CalendarDays className="shrink-0 text-brand" size={20} />}
+                      {departureSelected ? <DepartureIcon /> : <CalendarDays className="shrink-0 text-slate-950" size={20} />}
                       {departureSelected ? (
                         <span className="min-w-0 font-normal text-slate-950">
                           <span className="block truncate text-[15px] leading-[21px] tracking-[-.01em] max-[359px]:text-[14px]">{shortDate(booking.date, locale)}</span>
@@ -1120,9 +1120,9 @@ export function BookingFlow({
                       aria-label={returnTrip ? t("hero.editReturnLabel") : t("hero.addReturnLabel")}
                     >
                       {returnTrip ? (
-                        <CalendarDays className="shrink-0 text-brand" size={20} />
+                        <CalendarDays className="shrink-0 text-slate-950" size={20} />
                       ) : (
-                        <Plus className={`shrink-0 ${departureSelected ? "text-brand" : ""}`} size={23} />
+                        <Plus className="shrink-0" size={20} />
                       )}
                       <span className="min-w-0">
                         {returnTrip ? (
