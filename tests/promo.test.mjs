@@ -36,3 +36,11 @@ test("rules reject the wrong bookings with a clear reason", () => {
   assert.match(no({ ...base, vehiclesJson: '["premium_minivan"]' }).reason, /selected car/);
   assert.match(promo.evaluatePromo(null, ctx).reason, /isn't valid/);
 });
+
+test("return-journey codes need a round trip transfer", () => {
+  const rule = { ...base, service: "return", firstBookingOnly: false, minFare: 0 };
+  const ctx = { total: 3000, serviceType: "transfer", vehicle: "economy_sedan", now: new Date(), usesSoFar: 0, customerUses: 0, hasPriorBooking: false };
+  assert.equal(promo.evaluatePromo(rule, ctx).ok, false);
+  assert.equal(promo.evaluatePromo(rule, { ...ctx, returnTrip: true }).ok, true);
+  assert.equal(promo.evaluatePromo(rule, { ...ctx, serviceType: "hourly", returnTrip: true }).ok, false);
+});

@@ -345,6 +345,7 @@ export async function POST(request: Request) {
         code: normalizeCode(input.promoCode),
         total,
         serviceType: input.serviceType === "hourly" ? "hourly" : "transfer",
+        returnTrip: Boolean(input.returnFareQuoteId),
         vehicle: input.vehicle,
         email: input.customerEmail,
         phone: input.customerPhone,

@@ -13,7 +13,7 @@ export type PromoRule = {
   maxUses: number | null;
   perCustomerLimit: number;
   firstBookingOnly: boolean;
-  service: string; // "any" | "transfer" | "hourly"
+  service: string; // "any" | "transfer" | "hourly" | "return" (transfer with a return journey)
   vehiclesJson: string | null;
   status: string;
 };
@@ -21,6 +21,7 @@ export type PromoRule = {
 export type PromoContext = {
   total: number; // THB, before discount
   serviceType: "transfer" | "hourly";
+  returnTrip?: boolean;
   vehicle: string;
   now: Date;
   usesSoFar: number; // live uses of this code by everyone
@@ -52,7 +53,9 @@ export function evaluatePromo(rule: PromoRule | null, ctx: PromoContext): PromoR
   const now = ctx.now.getTime();
   if (rule.startsAt && now < new Date(rule.startsAt).getTime()) return { ok: false, reason: "This promo code isn't active yet." };
   if (rule.endsAt && now > new Date(rule.endsAt).getTime()) return { ok: false, reason: "This promo code has expired." };
-  if (rule.service !== "any" && rule.service !== ctx.serviceType) {
+  if (rule.service === "return") {
+    if (ctx.serviceType !== "transfer" || !ctx.returnTrip) return { ok: false, reason: "This code is for transfers with a return journey." };
+  } else if (rule.service !== "any" && rule.service !== ctx.serviceType) {
     return { ok: false, reason: rule.service === "hourly" ? "This code is for hourly private driver bookings." : "This code is for private transfers." };
   }
   if (rule.vehiclesJson) {

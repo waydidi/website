@@ -44,6 +44,7 @@ export async function checkPromo(input: {
   code: string;
   total: number;
   serviceType: "transfer" | "hourly";
+  returnTrip?: boolean;
   vehicle: string;
   email?: string;
   phone?: string;
@@ -59,6 +60,6 @@ export async function checkPromo(input: {
     known ? liveUses(promo.id, { email: email || "-", phone: phone || "-", customerId: input.customerId }) : Promise.resolve(0),
     known && promo.firstBookingOnly ? priorBooking(email || "-", phone || "-") : Promise.resolve(false),
   ]);
-  const result = evaluatePromo(promo, { total: input.total, serviceType: input.serviceType, vehicle: input.vehicle, now: new Date(), usesSoFar, customerUses, hasPriorBooking });
+  const result = evaluatePromo(promo, { total: input.total, serviceType: input.serviceType, returnTrip: input.returnTrip, vehicle: input.vehicle, now: new Date(), usesSoFar, customerUses, hasPriorBooking });
   return { ...result, promo };
 }

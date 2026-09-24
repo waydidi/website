@@ -38,7 +38,7 @@ function toPromotion(p: PublicPromotion): Promotion {
     code: p.code,
     period: p.startsAt || p.endsAt ? `${p.startsAt ? day(p.startsAt) : "Now"} – ${p.endsAt ? day(p.endsAt) : "until further notice"}` : "Until further notice",
     travel: "Anytime",
-    service: p.service === "hourly" ? "Hourly private driver" : p.service === "transfer" ? "Private transfers" : "Private transfers and hourly private driver",
+    service: p.service === "hourly" ? "Hourly private driver" : p.service === "return" ? "Private transfers booked with a return journey" : p.service === "transfer" ? "Private transfers" : "Private transfers and hourly private driver",
     offer: [...rules, ...p.offerTerms.filter((line) => !rules.includes(line))],
   };
 }

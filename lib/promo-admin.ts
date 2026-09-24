@@ -33,7 +33,7 @@ export const promoInputSchema = z.object({
   maxUses: optionalInt,
   perCustomerLimit: z.number().int().min(1).max(100),
   firstBookingOnly: z.boolean(),
-  service: z.enum(["any", "transfer", "hourly"]),
+  service: z.enum(["any", "transfer", "hourly", "return"]),
   vehicles: z.array(z.enum(["economy_sedan", "comfort_bmw", "comfort_suv", "premium_minivan"])).max(4),
   offerTerms: z.array(z.string().trim().max(240)).max(8),
   showOnHomepage: z.boolean(),

@@ -12,7 +12,7 @@ const fromLocal = (value: string) => (value ? new Date(`${value}:00+07:00`).toIS
 
 type Form = {
   id?: string; code: string; title: string; discountType: "percent" | "fixed"; discountValue: string; maxDiscount: string; minFare: string;
-  startsAt: string; endsAt: string; maxUses: string; perCustomerLimit: string; firstBookingOnly: boolean; service: "any" | "transfer" | "hourly";
+  startsAt: string; endsAt: string; maxUses: string; perCustomerLimit: string; firstBookingOnly: boolean; service: "any" | "transfer" | "hourly" | "return";
   vehicles: string[]; offerTerms: string; showOnHomepage: boolean; status: "draft" | "active" | "paused";
 };
 const EMPTY: Form = { code: "", title: "", discountType: "percent", discountValue: "10", maxDiscount: "", minFare: "0", startsAt: "", endsAt: "", maxUses: "", perCustomerLimit: "1", firstBookingOnly: false, service: "any", vehicles: [], offerTerms: "", showOnHomepage: true, status: "draft" };
@@ -69,7 +69,7 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
           {promotions.map((p) => <tr key={p.id} className="border-t border-slate-100 align-top">
             <td className="px-4 py-3 font-bold tracking-wide">{p.code}{p.showOnHomepage && <span className="mt-1 block text-[11px] font-semibold text-[#C96100]">Homepage</span>}</td>
             <td className="px-4 py-3">{p.title}<span className="mt-1 block text-slate-500">{p.discountType === "percent" ? `${p.discountValue}%${p.maxDiscount ? ` up to ${thb(p.maxDiscount)}` : ""}` : thb(p.discountValue)}</span></td>
-            <td className="px-4 py-3 text-slate-600">{[p.minFare ? `Min ${thb(p.minFare)}` : null, p.service !== "any" ? (p.service === "hourly" ? "Hourly only" : "Transfers only") : null, p.firstBookingOnly ? "First booking" : null, `${p.perCustomerLimit}× per customer`].filter(Boolean).join(" · ")}</td>
+            <td className="px-4 py-3 text-slate-600">{[p.minFare ? `Min ${thb(p.minFare)}` : null, p.service !== "any" ? (p.service === "hourly" ? "Hourly only" : p.service === "return" ? "Round trips only" : "Transfers only") : null, p.firstBookingOnly ? "First booking" : null, `${p.perCustomerLimit}× per customer`].filter(Boolean).join(" · ")}</td>
             <td className="px-4 py-3 text-slate-600">{p.startsAt ? new Date(p.startsAt).toLocaleDateString("en-GB") : "Now"} – {p.endsAt ? new Date(p.endsAt).toLocaleDateString("en-GB") : "open"}</td>
             <td className="px-4 py-3">{p.uses}{p.maxUses != null && ` / ${p.maxUses}`}</td>
             <td className="px-4 py-3">{thb(p.discountGiven)}</td>
@@ -102,7 +102,7 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
           <label className="text-sm font-semibold">Ends (Bangkok time, optional)<input type="datetime-local" value={form.endsAt} onChange={(e) => set("endsAt", e.target.value)} className={input} /></label>
           <label className="text-sm font-semibold">Total uses allowed (optional)<input type="number" min={0} value={form.maxUses} onChange={(e) => set("maxUses", e.target.value)} className={input} placeholder="Unlimited" /></label>
           <label className="text-sm font-semibold">Uses per customer<input type="number" min={1} value={form.perCustomerLimit} onChange={(e) => set("perCustomerLimit", e.target.value)} className={input} /></label>
-          <label className="text-sm font-semibold">Service<select value={form.service} onChange={(e) => set("service", e.target.value as Form["service"])} className={input}><option value="any">Transfers and hourly</option><option value="transfer">Transfers only</option><option value="hourly">Hourly driver only</option></select></label>
+          <label className="text-sm font-semibold">Service<select value={form.service} onChange={(e) => set("service", e.target.value as Form["service"])} className={input}><option value="any">Transfers and hourly</option><option value="transfer">Transfers only</option><option value="hourly">Hourly driver only</option><option value="return">Round trip transfers only</option></select></label>
           <fieldset className="text-sm font-semibold sm:col-span-2"><legend>Cars (none ticked = all cars)</legend>
             <div className="mt-2 flex flex-wrap gap-3 font-normal">{VEHICLES.map(([id, name]) => <label key={id} className="flex items-center gap-2"><input type="checkbox" checked={form.vehicles.includes(id)} onChange={(e) => set("vehicles", e.target.checked ? [...form.vehicles, id] : form.vehicles.filter((v) => v !== id))} className="size-4 accent-[#FF8A05]" />{name}</label>)}</div>
           </fieldset>
