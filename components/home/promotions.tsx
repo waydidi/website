@@ -57,9 +57,8 @@ function PromoCard({ promo, onTerms }: { promo: Promotion; onTerms: () => void }
     {/* ticket notches, cut in the section's background colour */}
     <span aria-hidden="true" className="absolute -left-3 top-1/2 size-6 -translate-y-1/2 rounded-full bg-[#FFF3E6]" />
     <span aria-hidden="true" className="absolute -right-3 top-1/2 size-6 -translate-y-1/2 rounded-full bg-[#FFF3E6]" />
-    <p className="min-h-12 text-[16px] font-medium leading-6 text-[#1C1C1C]">
-      {title} <button type="button" onClick={onTerms} className="font-semibold text-[#E07400] underline-offset-2 hover:underline">T&amp;C</button>
-    </p>
+    <button type="button" onClick={onTerms} className="absolute right-4 top-3 text-[13px] font-semibold text-[#E07400] underline-offset-2 hover:underline">T&amp;C</button>
+    <p className="min-h-12 pr-8 text-[16px] font-medium leading-6 text-[#1C1C1C]">{title}</p>
     <div className="mt-4 flex items-center gap-3">
       <span className="flex h-11 min-w-0 flex-1 items-center truncate rounded-lg bg-[#F4F4F2] px-3 text-[15px] text-[#1C1C1C]">{code}</span>
       <button type="button" onClick={copy} className="h-11 shrink-0 rounded-lg bg-brand px-4 text-[15px] font-semibold text-white transition hover:bg-brand-hover" aria-live="polite">
