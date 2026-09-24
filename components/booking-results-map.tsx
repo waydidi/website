@@ -125,7 +125,20 @@ function grabBubble(minutes: number, km: number) {
 function collapsedOffset() {
   if (typeof window === "undefined") return 0;
   const h = window.innerHeight;
-  return Math.max(0, h * 0.7 - 20 - h * 0.14);
+  return Math.max(0, h * 0.7 - 20 - h * 0.35);
+}
+
+// Space the sheet covers at the bottom of the map, plus a margin.
+function mapBottomPadding(expanded: boolean) {
+  if (typeof window === "undefined" || window.innerWidth >= 1024) return 60;
+  const h = window.innerHeight;
+  const covered = expanded ? h * 0.7 - h * 0.35 : 20;
+  return Math.round(covered + (expanded ? 16 : 40));
+}
+
+// Room for the top buttons plus the pin's height above its point.
+function mapTopPadding(expanded: boolean) {
+  return expanded ? 125 : 170;
 }
 
 function pillLabel(date: string, time: string) {
@@ -184,6 +197,10 @@ export function BookingResultsMap(props: Props) {
   const [mapReady, setMapReady] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [leafletReady, setLeafletReady] = useState(false);
+  // Re-fits the route to the visible part of the map (set by whichever map is drawn).
+  const fitRef = useRef<((bottomPadding: number) => void) | null>(null);
+  const refitTimer = useRef<number | undefined>(undefined);
+  const expandedRef = useRef(false);
   const [traffic, setTraffic] = useState<TrafficRoute | null>(null);
 
   // Live traffic along the route, refreshed every 30 minutes while open.
@@ -267,8 +284,9 @@ export function BookingResultsMap(props: Props) {
     const bounds = new maps.LatLngBounds();
     route.forEach((point: any) => bounds.extend(point));
     bounds.extend(pickup); bounds.extend(dropoff);
-    map.fitBounds(bounds, { top: 190, right: 110, bottom: 60, left: 70 });
-    return () => { overlays.forEach((overlay) => overlay.setMap(null)); lines.forEach((line) => line.setMap(null)); };
+    fitRef.current = (bottom) => map.fitBounds(bounds, { top: mapTopPadding(expandedRef.current), right: 110, bottom, left: 70 });
+    fitRef.current(mapBottomPadding(expandedRef.current));
+    return () => { fitRef.current = null; overlays.forEach((overlay) => overlay.setMap(null)); lines.forEach((line) => line.setMap(null)); };
   }, [mapReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
 
 
@@ -294,8 +312,16 @@ export function BookingResultsMap(props: Props) {
     L.marker(line[Math.floor(line.length * 0.6)] ?? pickup, { icon: icon(grabBubble(travel, props.quote.distanceMeters / 1000)), interactive: false }).addTo(map);
     L.marker(dropoff, { icon: icon(grabDropoff(shortPlace(props.dropoff))), interactive: false, zIndexOffset: 500 }).addTo(map);
     L.marker(pickup, { icon: icon(grabPickup(shortPlace(props.pickup))), interactive: false, zIndexOffset: 1000 }).addTo(map);
-    map.fitBounds(L.latLngBounds(line), { paddingTopLeft: [70, 190], paddingBottomRight: [110, 60] });
-    return () => map.remove();
+    const routeBounds = L.latLngBounds(line);
+    let first = true;
+    fitRef.current = (bottom) => {
+      // Jump on first draw; afterwards glide to the new framing, like Grab.
+      const options = { paddingTopLeft: [70, mapTopPadding(expandedRef.current)], paddingBottomRight: [110, bottom] };
+      if (first) { map.fitBounds(routeBounds, options); first = false; }
+      else map.flyToBounds(routeBounds, { ...options, duration: 0.45, easeLinearity: 0.3 });
+    };
+    fitRef.current(mapBottomPadding(expandedRef.current));
+    return () => { fitRef.current = null; map.remove(); };
   }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
 
   // Bottom sheet, phone only: collapsed (map 70%) or expanded. The sheet is
@@ -306,7 +332,6 @@ export function BookingResultsMap(props: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
-  const expandedRef = useRef(false);
   const setSheet = useCallback((open: boolean, animate = true) => {
     const sheet = sheetRef.current;
     expandedRef.current = open;
@@ -315,6 +340,9 @@ export function BookingResultsMap(props: Props) {
     sheet.style.transition = animate ? "transform .42s cubic-bezier(.22,1,.36,1)" : "none";
     sheet.style.setProperty("--sheet-y", open ? "0px" : `${collapsedOffset()}px`);
     if (!open && listRef.current) listRef.current.scrollTop = 0;
+    // Once the sheet settles, re-frame the route in the map that is still visible.
+    window.clearTimeout(refitTimer.current);
+    refitTimer.current = window.setTimeout(() => fitRef.current?.(mapBottomPadding(open)), animate ? 380 : 0);
   }, []);
 
   useEffect(() => {
@@ -424,7 +452,7 @@ export function BookingResultsMap(props: Props) {
     </div>
 
     {/* Sheet */}
-    <div ref={sheetRef} className="absolute inset-x-0 bottom-0 top-[14svh] z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_16px_rgba(0,0,0,.08)] will-change-transform [transform:translate3d(0,var(--sheet-y,0px),0)] lg:inset-y-0 lg:left-0 lg:right-auto lg:top-0 lg:w-[460px] lg:rounded-none lg:[transform:none]">
+    <div ref={sheetRef} className="absolute inset-x-0 bottom-0 top-[35svh] z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_16px_rgba(0,0,0,.08)] will-change-transform [transform:translate3d(0,var(--sheet-y,0px),0)] lg:inset-y-0 lg:left-0 lg:right-auto lg:top-0 lg:w-[460px] lg:rounded-none lg:[transform:none]">
       {/* Drag (or tap) the handle to pull the list up over the map and back down. */}
       <button
         type="button"
