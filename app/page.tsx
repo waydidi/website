@@ -39,6 +39,7 @@ import {
   type RouteInfo,
 } from "@/components/google-route-picker";
 import { validateBookingReview, type ReviewFieldErrors } from "@/lib/booking-review";
+import { destinations } from "@/lib/public-content";
 
 type Stage = "search" | "vehicle" | "payment" | "review" | "confirmation";
 type ServiceType = "transfer" | "hourly";
@@ -163,13 +164,13 @@ const navMenus = [
     label: "Trip",
     links: [
       { label: "Hourly private driver", href: "/hourly-driver" },
-      { label: "Destinations", href: "/destinations" },
       { label: "Airport pickup guide", href: "/airport-pickup-instructions" },
     ],
   },
 ] as const;
 
 const aboutHref = "/about";
+const destinationsHref = "/destinations";
 
 function NavDropdown({
   label,
@@ -877,6 +878,12 @@ export default function Home() {
                 <NavDropdown key={menu.label} label={menu.label} links={menu.links} />
               ))}
               <Link
+                href={destinationsHref}
+                className="rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              >
+                Destinations
+              </Link>
+              <Link
                 href={aboutHref}
                 className="rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
               >
@@ -943,6 +950,14 @@ export default function Home() {
                     </div>
                   ))}
                   <div className="grid border-b border-slate-200 py-5">
+                    <SheetClose asChild>
+                      <Link
+                        href={destinationsHref}
+                        className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]"
+                      >
+                        Destinations
+                      </Link>
+                    </SheetClose>
                     <SheetClose asChild>
                       <Link
                         href={aboutHref}
@@ -1776,7 +1791,7 @@ function WaydidiFooter() {
     <footer id="support" className="no-print mt-14 bg-white text-[#1f1726]">
       <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
         <div className="border-t border-slate-200 pt-12">
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_.8fr_.8fr_.8fr]">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_.8fr_.8fr_.8fr_.8fr]">
             <div>
               <Link
                 href="/"
@@ -1814,9 +1829,15 @@ function WaydidiFooter() {
               title="Trips"
               links={[
                 { label: "Hourly private driver", href: "/hourly-driver" },
-                { label: "Destinations", href: "/destinations" },
                 { label: "Airport pickup guide", href: "/airport-pickup-instructions" },
                 { label: "Luggage policy", href: "/luggage-policy" },
+              ]}
+            />
+            <FooterLinks
+              title="Destinations"
+              links={[
+                ...destinations.map((d) => ({ label: d.name, href: `/destinations/${d.slug}` })),
+                { label: "All destinations", href: destinationsHref },
               ]}
             />
             <FooterLinks
