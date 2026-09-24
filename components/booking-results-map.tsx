@@ -606,7 +606,7 @@ export function BookingResultsMap(props: Props) {
         <p className="flex min-w-0 items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{money(total)}</strong>{currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}</p>
         <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
       </div>
-      <div className="mt-4 flex items-center gap-3">
+      <div className="mt-5 flex items-center gap-3">
         {props.onExtrasChange && <button type="button" onClick={() => setExtrasOpen(true)} aria-label="Additional services" className="relative grid size-12 shrink-0 place-items-center rounded-full bg-brand text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
           <Plus size={24} strokeWidth={2.5} aria-hidden="true" />
           <span aria-hidden="true" className="addons-bubble pointer-events-none absolute -top-5 -left-1 z-10 whitespace-nowrap rounded-full bg-[#D32F2F] px-2 py-0.5 text-[11px] font-bold leading-[15px] text-white shadow-[0_2px_6px_rgba(0,0,0,.2)]">Add-ons<span className="absolute -bottom-[4px] left-[21px] size-2 rotate-45 bg-[#D32F2F]" /></span>
