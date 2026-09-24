@@ -61,6 +61,8 @@ type Props = {
   error: string;
   onSelectVehicle: (id: string) => void;
   onEdit: () => void;
+  // Opens the full search box in a bottom sheet (route, date, return).
+  onEditRoute?: () => void;
   onContinue: () => void;
   onRetry: () => void;
   passengers?: number;
@@ -726,10 +728,10 @@ export function BookingResultsMap(props: Props) {
               <span className="flex items-center gap-2 rounded-full border border-[#D9D9D9] px-4 py-1.5 text-[15px] font-medium"><Users size={18} aria-hidden="true" />{passengers} Passenger{passengers === 1 ? "" : "s"}</span>
             </div>
 
-            <Leg title="Outward" date={props.date} time={props.time} from={props.pickup} to={props.dropoff} quote={props.quote} onEdit={() => { setDetailsOpen(false); props.onEdit(); }} />
+            <Leg title="Outward" date={props.date} time={props.time} from={props.pickup} to={props.dropoff} quote={props.quote} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
             {props.returnTrip && props.returnDate && props.returnTime
-              ? <Leg title="Return" date={props.returnDate} time={props.returnTime} from={props.dropoff} to={props.pickup} quote={props.returnQuote ?? null} onEdit={() => { setDetailsOpen(false); props.onEdit(); }} />
-              : <button type="button" onClick={() => { setDetailsOpen(false); props.onEdit(); }} className="mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[#BDBDBD] text-[16px] text-[#1C1C1C]"><ArrowRightLeft size={20} className="text-brand" aria-hidden="true" />Add return</button>}
+              ? <Leg title="Return" date={props.returnDate} time={props.returnTime} from={props.dropoff} to={props.pickup} quote={props.returnQuote ?? null} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
+              : <button type="button" onClick={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} className="mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[#BDBDBD] text-[16px] text-[#1C1C1C]"><ArrowRightLeft size={20} className="text-brand" aria-hidden="true" />Add return</button>}
 
             <div className="mt-8 border-t border-[#E6E6E6] pt-6">
               <h3 className="flex items-center gap-3 text-[19px] font-medium"><Route size={22} aria-hidden="true" />Price and route</h3>

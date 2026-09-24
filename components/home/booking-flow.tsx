@@ -258,6 +258,7 @@ export function BookingFlow({
   const [quoteRequest, setQuoteRequest] = useState(false);
   // Results screen: "edit trip" popup (passengers, date and time).
   const [tripEditOpen, setTripEditOpen] = useState(false);
+  const [routeEditOpen, setRouteEditOpen] = useState(false);
   // Promo code applied at the Payment step (amount set by the server).
   const [promo, setPromo] = useState<{ code: string; title: string; discount: number } | null>(null);
   const [promoInput, setPromoInput] = useState("");
@@ -1017,95 +1018,10 @@ export function BookingFlow({
             }
           : null;
 
-  return (
-    <I18nProvider locale={locale} messages={messages}>
-    <main className="font-home min-h-screen bg-white text-ink">
-      {!isOnline && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={`fixed inset-x-4 ${priceBar ? "bottom-24 lg:bottom-4" : "bottom-4"} z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-ink px-5 py-4 text-sm font-semibold text-white shadow-2xl`}
-        >
-          <WifiOff className="shrink-0 text-[#FFB45E]" size={20} />
-          <span>{t("notice.offline")}</span>
-        </div>
-      )}
-      {isOnline && recoveryNotice && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={`fixed inset-x-4 ${priceBar ? "bottom-24 lg:bottom-4" : "bottom-4"} z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-orange-200 bg-white px-5 py-4 text-sm font-semibold text-ink shadow-2xl`}
-        >
-          <RefreshCw className="shrink-0 text-brand-deep" size={20} />
-          <span className="flex-1">{recoveryNotice}</span>
-          <button
-            type="button"
-            onClick={() => setRecoveryNotice("")}
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-orange-50 text-brand-deep"
-            aria-label={t("notice.dismiss")}
-          >
-            <X size={18} />
-          </button>
-        </div>
-      )}
-      <section
-        className={`relative ${stage === "search" ? "overflow-hidden bg-brand text-white" : "bg-white text-ink"}`}
-      >
-        {stage === "search" ? (
-          <SiteHeader overlay />
-        ) : mapView ? null : (
-          <header className="relative z-40 flex h-[72px] w-full items-center justify-between bg-brand px-5 text-ink lg:px-8">
-            <Link href="/" className="inline-flex text-white" aria-label={t("nav.home")}>
-              <WaydidiLogo className="h-[47px] w-auto sm:h-[58px]" />
-            </Link>
-            <Progress stage={stage} inHeader />
-          </header>
-        )}
-
-        {stage === "search" && (
-          <>
-            {/* Large screens only: the photo is decorative and too costly for mobile data. */}
-            {/* Starts below the 97px header so the nav always sits on solid
-                orange. The masks fade the photo itself into the orange, left and
-                top, rather than stacking overlay layers on it. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-0 right-0 top-[97px] hidden w-[54%] [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent,black_45%),linear-gradient(to_bottom,transparent,black_64px)] lg:block"
-            >
-              <Image
-                src="/hero-driver-customer.webp"
-                alt=""
-                fill
-                priority
-                // The Worker has no Cloudflare Images binding, so the
-                // optimizer route would fail; serve the file as-is.
-                unoptimized
-                className="object-cover object-[38%_20%]"
-              />
-            </div>
-          </>
-        )}
-        {stage === "search" && (
-          <div className="relative z-10 w-full px-5 pb-12 pt-[98px] animate-in fade-in duration-300 motion-reduce:animate-none lg:px-6 lg:pb-18 lg:pt-[160px]">
-            <div className="mb-6 max-w-2xl">
-              <h1 className={`${locale === "en" ? "" : "text-balance "}text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px] lg:text-[51.7px]`}>
-                {t("hero.title")}
-              </h1>
-              <p className="mt-3 text-[17px]/[28px] font-medium text-white sm:text-[19px]/[28px] lg:text-[23px]/[32px]">
-                {t("hero.subtitle")}
-              </p>
-            </div>
-            <form id="booking-search" onSubmit={search} className="font-search w-full scroll-mt-28">
-              <div className="inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 lg:inline-flex lg:h-auto lg:w-auto lg:rounded-b-none lg:rounded-t-[26px] lg:p-1.5 lg:pb-0 lg:text-[15px]/[24px] lg:shadow-none">
-                <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
-                  <CarFront className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.transfer")}
-                </button>
-                <button onClick={()=>{setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
-                  <Clock3 className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.hourly")}
-                </button>
-              </div>
-              <div className={`mt-2.5 overflow-visible rounded-[22px] bg-white p-2.5 text-slate-950 shadow-xl shadow-slate-900/10 lg:mt-0 lg:grid lg:items-end lg:gap-3 lg:rounded-tl-none lg:p-6 ${serviceType === "hourly" ? "lg:grid-cols-[.42fr_1.55fr_1.4fr_.58fr_auto]" : "lg:grid-cols-[.42fr_1.15fr_1.15fr_1.55fr_auto]"}`}>
-                <div className="flex w-full flex-col gap-2 overflow-visible rounded-[18px] bg-white lg:contents lg:w-auto">
+  // The search box rows; reused by the "Edit" sheet on the results screen.
+  const searchCard = (compact: boolean) => (
+              <div className={compact ? "overflow-visible rounded-[22px] bg-white text-slate-950" : `mt-2.5 overflow-visible rounded-[22px] bg-white p-2.5 text-slate-950 shadow-xl shadow-slate-900/10 lg:mt-0 lg:grid lg:items-end lg:gap-3 lg:rounded-tl-none lg:p-6 ${serviceType === "hourly" ? "lg:grid-cols-[.42fr_1.55fr_1.4fr_.58fr_auto]" : "lg:grid-cols-[.42fr_1.15fr_1.15fr_1.55fr_auto]"}`}>
+                <div className={`flex w-full flex-col gap-2 overflow-visible rounded-[18px] bg-white ${compact ? "" : "lg:contents lg:w-auto"}`}>
                 <button
                   type="button"
                   onClick={() => setPeopleOpen(true)}
@@ -1228,6 +1144,96 @@ export function BookingFlow({
                   </button>
                 </div>
               </div>
+  );
+
+  return (
+    <I18nProvider locale={locale} messages={messages}>
+    <main className="font-home min-h-screen bg-white text-ink">
+      {!isOnline && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed inset-x-4 ${priceBar ? "bottom-24 lg:bottom-4" : "bottom-4"} z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-ink px-5 py-4 text-sm font-semibold text-white shadow-2xl`}
+        >
+          <WifiOff className="shrink-0 text-[#FFB45E]" size={20} />
+          <span>{t("notice.offline")}</span>
+        </div>
+      )}
+      {isOnline && recoveryNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed inset-x-4 ${priceBar ? "bottom-24 lg:bottom-4" : "bottom-4"} z-[70] mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-orange-200 bg-white px-5 py-4 text-sm font-semibold text-ink shadow-2xl`}
+        >
+          <RefreshCw className="shrink-0 text-brand-deep" size={20} />
+          <span className="flex-1">{recoveryNotice}</span>
+          <button
+            type="button"
+            onClick={() => setRecoveryNotice("")}
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-orange-50 text-brand-deep"
+            aria-label={t("notice.dismiss")}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+      <section
+        className={`relative ${stage === "search" ? "overflow-hidden bg-brand text-white" : "bg-white text-ink"}`}
+      >
+        {stage === "search" ? (
+          <SiteHeader overlay />
+        ) : mapView ? null : (
+          <header className="relative z-40 flex h-[72px] w-full items-center justify-between bg-brand px-5 text-ink lg:px-8">
+            <Link href="/" className="inline-flex text-white" aria-label={t("nav.home")}>
+              <WaydidiLogo className="h-[47px] w-auto sm:h-[58px]" />
+            </Link>
+            <Progress stage={stage} inHeader />
+          </header>
+        )}
+
+        {stage === "search" && (
+          <>
+            {/* Large screens only: the photo is decorative and too costly for mobile data. */}
+            {/* Starts below the 97px header so the nav always sits on solid
+                orange. The masks fade the photo itself into the orange, left and
+                top, rather than stacking overlay layers on it. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-0 right-0 top-[97px] hidden w-[54%] [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent,black_45%),linear-gradient(to_bottom,transparent,black_64px)] lg:block"
+            >
+              <Image
+                src="/hero-driver-customer.webp"
+                alt=""
+                fill
+                priority
+                // The Worker has no Cloudflare Images binding, so the
+                // optimizer route would fail; serve the file as-is.
+                unoptimized
+                className="object-cover object-[38%_20%]"
+              />
+            </div>
+          </>
+        )}
+        {stage === "search" && (
+          <div className="relative z-10 w-full px-5 pb-12 pt-[98px] animate-in fade-in duration-300 motion-reduce:animate-none lg:px-6 lg:pb-18 lg:pt-[160px]">
+            <div className="mb-6 max-w-2xl">
+              <h1 className={`${locale === "en" ? "" : "text-balance "}text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px] lg:text-[51.7px]`}>
+                {t("hero.title")}
+              </h1>
+              <p className="mt-3 text-[17px]/[28px] font-medium text-white sm:text-[19px]/[28px] lg:text-[23px]/[32px]">
+                {t("hero.subtitle")}
+              </p>
+            </div>
+            <form id="booking-search" onSubmit={search} className="font-search w-full scroll-mt-28">
+              <div className="inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 lg:inline-flex lg:h-auto lg:w-auto lg:rounded-b-none lg:rounded-t-[26px] lg:p-1.5 lg:pb-0 lg:text-[15px]/[24px] lg:shadow-none">
+                <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
+                  <CarFront className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.transfer")}
+                </button>
+                <button onClick={()=>{setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
+                  <Clock3 className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.hourly")}
+                </button>
+              </div>
+              {searchCard(false)}
               <DateTimePicker
                 open={dateOpen}
                 kind="departure"
@@ -1298,6 +1304,23 @@ export function BookingFlow({
 
       {stage === "vehicle" && (
         <>
+          {/* "Edit" on the results screen: the homepage search box, without the service tabs. */}
+          <Sheet open={routeEditOpen} onOpenChange={(open) => { if (!open && (dateOpen || returnDateOpen || peopleOpen)) return; setRouteEditOpen(open); }}>
+            <SheetContent
+              side="bottom"
+              showCloseButton={false}
+              className="font-search max-h-[92dvh] overflow-y-auto rounded-t-[28px] border-0 bg-white px-4 pb-[max(20px,env(safe-area-inset-bottom))] pt-3 text-ink sm:px-6 lg:left-1/2 lg:max-w-xl lg:-translate-x-1/2"
+            >
+              <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-300" aria-hidden="true" />
+              <SheetHeader className="flex-row items-center justify-between px-0 pb-2 pt-4 text-left">
+                <SheetTitle className="font-home text-2xl font-semibold tracking-[-.02em]">Edit your trip</SheetTitle>
+                <button type="button" onClick={() => setRouteEditOpen(false)} className="grid size-10 place-items-center rounded-full bg-slate-100 text-slate-700" aria-label="Close"><X size={20} /></button>
+              </SheetHeader>
+              <form onSubmit={(event) => { setRouteEditOpen(false); void search(event); }}>
+                {searchCard(true)}
+              </form>
+            </SheetContent>
+          </Sheet>
           <Sheet open={tripEditOpen} onOpenChange={setTripEditOpen}>
             <SheetContent
               side="bottom"
@@ -1442,6 +1465,7 @@ export function BookingFlow({
           error={pricingMessage}
           onSelectVehicle={setVehicle}
           onEdit={() => goToStage("search")}
+          onEditRoute={() => setRouteEditOpen(true)}
           onRetry={retryRoute}
           passengers={booking.passengers}
           onEditTrip={() => setTripEditOpen(true)}
