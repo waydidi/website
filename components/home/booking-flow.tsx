@@ -708,6 +708,30 @@ export function BookingFlow({
           prices: Object.fromEntries(Object.entries(DEMO_PRICES).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
           expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
         });
+        // Prototype round trip: the return leg reuses the sample route and prices.
+        if (returnTrip) {
+          const journey = (quoteId: string, pickup: string, dropoff: string, date: string, time: string): QuoteJourney => ({ quoteId, pickup, dropoff, departureDate: date, departureTime: time, timezone: "Asia/Bangkok", distanceMeters: route.distanceMeters, durationSeconds: route.durationSeconds });
+          setReturnFareQuote({
+            quoteId: "demo-return",
+            area: { id: "demo", name: "Prototype", color: "#FF8A05", pricingType: "demo" },
+            distanceMeters: route.distanceMeters,
+            durationSeconds: route.durationSeconds,
+            path: [...route.path].reverse(),
+            pickup: DEMO_DROPOFF,
+            dropoff: DEMO_PICKUP,
+            prices: Object.fromEntries(Object.entries(DEMO_PRICES).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
+            expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+          });
+          setQuoteSummary({
+            currency: "THB",
+            outbound: journey("demo", booking.pickup, booking.dropoff, booking.date, booking.time),
+            return: journey("demo-return", booking.dropoff, booking.pickup, returnDate, returnTime),
+            prices: Object.fromEntries(Object.entries(DEMO_PRICES).map(([id, total]) => [id, { outbound: total, return: total, total: total * 2 }])),
+          });
+        } else {
+          setReturnFareQuote(null);
+          setQuoteSummary(null);
+        }
         return;
       }
       goToStage("vehicle");
@@ -1375,6 +1399,19 @@ export function BookingFlow({
             minTime={minPickupTime}
             onOpenChange={setDateOpen}
             onDone={() => { setDepartureSelected(true); setDateOpen(false); }}
+          />
+          {/* Return picker for the Edit sheet's "Add return". */}
+          <DateTimePicker
+            open={returnDateOpen}
+            kind="return"
+            date={returnDate}
+            time={returnTime}
+            onDateChange={(value) => { setReturnDate(value); setReturnFareQuote(null); setQuoteSummary(null); }}
+            onTimeChange={(value) => { setReturnTime(value); setReturnFareQuote(null); setQuoteSummary(null); }}
+            min={booking.date}
+            minTime={booking.time}
+            onOpenChange={setReturnDateOpen}
+            onDone={() => { setReturnTrip(true); setReturnDateOpen(false); }}
           />
         </>
       )}
