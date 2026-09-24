@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
-  CalendarX,
   CarFront,
   Check,
   CheckCircle2,
@@ -20,7 +19,6 @@ import {
   Printer,
   RefreshCw,
   ShieldCheck,
-  Tag,
   Users,
   WifiOff,
   X,
@@ -1190,21 +1188,6 @@ export function BookingFlow({
               )}
               {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-brand"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">{t("hero.includesKm", { km: Math.round((hourlyQuote.prices.economy_sedan?.includedDistanceMeters??0)/1000) })} · {t("legal.priceLocked")}</span></div>}
             </form>
-            <ul className="mt-5 flex flex-wrap gap-2 lg:mt-6">
-              {[
-                { icon: MapPin, label: t("hero.thailandWide") },
-                { icon: Tag, label: t("legal.fixedPrice") },
-                { icon: CalendarX, label: t("legal.freeCancellation") },
-              ].map(({ icon: Icon, label }) => (
-                <li
-                  key={label}
-                  className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3.5 py-2 text-sm font-semibold text-ink shadow-sm shadow-orange-950/10"
-                >
-                  <Icon size={16} className="text-brand-deep" aria-hidden="true" />
-                  {label}
-                </li>
-              ))}
-            </ul>
           </div>
         )}
       </section>
