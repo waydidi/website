@@ -11,7 +11,7 @@ import {
   hourlyQuotes,
 } from "@/db/schema";
 import { paymentProviderFor } from "@/lib/payments/provider";
-import { VEHICLES } from "@/lib/vehicles";
+import { VEHICLES, vehicleFits } from "@/lib/vehicles";
 import { fulfillBooking } from "@/lib/booking-fulfillment";
 import { checkoutInputSchema, validationError, type CheckoutInput } from "@/lib/booking-validation";
 import { tripPinForReference, tripPinHash } from "@/lib/trip-pin";
@@ -186,6 +186,17 @@ export async function POST(request: Request) {
       );
     await expireAbandonedCheckouts();
     const selected = VEHICLES[input.vehicle];
+    if (!vehicleFits(input.vehicle, input.passengers, input.luggage)) {
+      return NextResponse.json(
+        {
+          code: "VEHICLE_TOO_SMALL",
+          error: `The ${selected.name} carries up to ${selected.passengers} passengers and ${selected.bags} bags. Choose a larger vehicle.`,
+          field: "vehicle",
+          retryable: false,
+        },
+        { status: 400 },
+      );
+    }
     let total: number = selected.total;
     let quoteData: {
       id: string;
