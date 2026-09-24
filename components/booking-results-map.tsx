@@ -58,6 +58,8 @@ type Props = {
   onContinue: () => void;
   onRetry: () => void;
   passengers?: number;
+  // Opens the edit-trip popup (passengers, date and time).
+  onEditTrip?: () => void;
 };
 
 function shortPlace(value: string) {
@@ -467,7 +469,7 @@ export function BookingResultsMap(props: Props) {
       <button onClick={props.onEdit} className="absolute left-4 top-[max(16px,env(safe-area-inset-top))] z-10 grid size-11 place-items-center rounded-full bg-white text-[#1C1C1C] shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label="Edit trip">
         <ArrowLeft size={22} />
       </button>
-      <button type="button" onClick={props.onEdit} className="absolute left-1/2 top-[max(16px,env(safe-area-inset-top))] z-10 flex h-11 max-w-[calc(100%-140px)] -translate-x-1/2 items-center gap-2 rounded-full bg-white px-5 text-[16px] font-medium text-[#1C1C1C] shadow-md" aria-label="Edit passengers, date and time">
+      <button type="button" onClick={props.onEditTrip ?? props.onEdit} className="absolute left-1/2 top-[max(16px,env(safe-area-inset-top))] z-10 flex h-11 max-w-[calc(100%-140px)] -translate-x-1/2 items-center gap-2 rounded-full bg-white px-5 text-[16px] font-medium text-[#1C1C1C] shadow-md" aria-label="Edit passengers, date and time">
         <Users size={20} className="shrink-0 text-brand" aria-hidden="true" /><span className="truncate">{passengers} · {pillLabel(props.date, props.time)}</span>
       </button>
     </div>

@@ -253,6 +253,10 @@ export function BookingFlow({
   // the flow runs as a quote request: no price, no payment.
   const [mapsAvailable, setMapsAvailable] = useState(true);
   const [quoteRequest, setQuoteRequest] = useState(false);
+  // Results screen: "edit trip" popup (passengers, date and time).
+  const [tripEditOpen, setTripEditOpen] = useState(false);
+  // Set while a picker opened from that popup is showing; brings it back after.
+  const [returnToTripEdit, setReturnToTripEdit] = useState(false);
   // Prototype route shown on the map screen while live pricing is off.
   const [demoRoute, setDemoRoute] = useState(false);
   const [minPickupDate, setMinPickupDate] = useState("");
@@ -903,6 +907,14 @@ export function BookingFlow({
   // button is enabled, so the bar can never skip one.
   const hasPrice = !quoteRequest && (serviceType === "transfer" ? Boolean(fareQuote) : Boolean(hourlyQuote));
   const priceText = quoteRequest ? "Quote on request" : hasPrice ? money(chosenVehicle.price) : "—";
+  useEffect(() => {
+    if (!returnToTripEdit || peopleOpen || dateOpen) return;
+    // A picker opened from the edit popup has closed: show the popup again.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReturnToTripEdit(false);
+    setTripEditOpen(true);
+  }, [returnToTripEdit, peopleOpen, dateOpen]);
+
   // The transfer results screen has its own full-screen layout and Book bar.
   const mapView = stage === "vehicle" && serviceType === "transfer" && (!quoteRequest || demoRoute);
   const priceBar =
@@ -1234,12 +1246,72 @@ export function BookingFlow({
         )}
       </section>
 
+      {stage === "vehicle" && (
+        <>
+          <Sheet open={tripEditOpen} onOpenChange={setTripEditOpen}>
+            <SheetContent
+              side="bottom"
+              showCloseButton={false}
+              className="font-home rounded-t-[28px] border-0 bg-white px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-3 text-ink sm:px-8 lg:left-1/2 lg:max-w-xl lg:-translate-x-1/2"
+            >
+              <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-300" aria-hidden="true" />
+              <SheetHeader className="flex-row items-center justify-between px-0 pb-1 pt-4 text-left">
+                <SheetTitle className="text-2xl font-semibold tracking-[-.02em]">Edit your trip</SheetTitle>
+                <button type="button" onClick={() => setTripEditOpen(false)} className="grid size-10 place-items-center rounded-full bg-slate-100 text-slate-700" aria-label="Close"><X size={20} /></button>
+              </SheetHeader>
+              {/* Same rows as the homepage search box. */}
+              <div className="mt-2 grid gap-2 rounded-[22px] bg-white">
+                <button type="button" onClick={() => { setTripEditOpen(false); setReturnToTripEdit(true); setPeopleOpen(true); }} className="flex min-h-14 w-full items-center justify-between rounded-[14px] border border-slate-200 bg-white px-4 py-2 text-left">
+                  <span className="flex items-center gap-3.5 text-base text-slate-950">
+                    <span className="flex items-center gap-3"><Users size={20} className="shrink-0" aria-hidden="true" /> {booking.passengers}</span>
+                    <span className="flex items-center gap-2"><Luggage size={20} className="shrink-0" aria-hidden="true" /> {booking.luggage}</span>
+                  </span>
+                  <ChevronDown aria-hidden="true" />
+                </button>
+                <button type="button" onClick={() => { setTripEditOpen(false); setReturnToTripEdit(true); setDateOpen(true); }} className="flex min-h-14 w-full items-center gap-3 rounded-[14px] border border-slate-200 bg-white px-4 py-2 text-left">
+                  <DepartureIcon />
+                  <span className="min-w-0 text-slate-950">
+                    <span className="block text-[16px] leading-[21px]">{shortDate(booking.date, locale)}</span>
+                    <span className="block text-[14px] leading-[18px]">{formatTimeLabel(booking.time, locale)}</span>
+                  </span>
+                  <ChevronDown className="ml-auto" aria-hidden="true" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  setTripEditOpen(false);
+                  // Live pricing depends on the pickup time, so re-quote; the
+                  // prototype route keeps its sample prices.
+                  if (!demoRoute && routeInfo?.pickupPlaceId && routeInfo.dropoffPlaceId) await calculateTransferQuotes(routeInfo);
+                }}
+                className="mt-4 flex min-h-[52px] w-full items-center justify-center rounded-[14px] bg-brand text-base font-semibold text-white shadow-lg shadow-orange-900/20 transition hover:bg-brand-hover"
+              >
+                Update prices
+              </button>
+            </SheetContent>
+          </Sheet>
+          <DateTimePicker
+            open={dateOpen}
+            kind="departure"
+            date={booking.date}
+            time={booking.time}
+            onDateChange={(value) => change("date", value)}
+            onTimeChange={(value) => change("time", value)}
+            min={minPickupDate}
+            minTime={minPickupTime}
+            onOpenChange={setDateOpen}
+            onDone={() => { setDepartureSelected(true); setDateOpen(false); }}
+          />
+        </>
+      )}
+
       <Sheet open={peopleOpen} onOpenChange={setPeopleOpen}>
         <SheetContent
           id="passenger-luggage-sheet"
           side="bottom"
           showCloseButton={false}
-          className="max-h-[92dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-ink data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 lg:left-1/2 lg:max-w-3xl lg:-translate-x-1/2"
+          className="font-home max-h-[92dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-ink data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 lg:left-1/2 lg:max-w-3xl lg:-translate-x-1/2"
         >
           <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" aria-hidden="true" />
           <SheetHeader className="flex-row items-center justify-between px-0 pb-2 pt-5 text-left">
@@ -1334,6 +1406,7 @@ export function BookingFlow({
           onEdit={() => goToStage("search")}
           onRetry={retryRoute}
           passengers={booking.passengers}
+          onEditTrip={() => setTripEditOpen(true)}
           onContinue={() => goToStage("payment")}
         /> : <section className="bg-white">
           <div className="mx-auto max-w-[760px] px-5 py-8 lg:py-12">
