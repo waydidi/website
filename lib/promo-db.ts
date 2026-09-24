@@ -63,3 +63,57 @@ export async function checkPromo(input: {
   const result = evaluatePromo(promo, { total: input.total, serviceType: input.serviceType, returnTrip: input.returnTrip, vehicle: input.vehicle, now: new Date(), usesSoFar, customerUses, hasPriorBooking });
   return { ...result, promo };
 }
+
+type Who = { email: string; phone: string; customerId: string | null };
+
+async function activePromos() {
+  const now = Date.now();
+  const rows = await getDb().select().from(promoCodes).where(eq(promoCodes.status, "active"));
+  return rows.filter((p) => (!p.startsAt || new Date(p.startsAt).getTime() <= now) && (!p.endsAt || new Date(p.endsAt).getTime() >= now));
+}
+
+export type MemberCoupon = {
+  code: string;
+  title: string;
+  endsAt: string | null;
+  service: string;
+  minFare: number;
+  discountType: string;
+  discountValue: number;
+  maxDiscount: number | null;
+  offerTerms: string[];
+  status: "available" | "used" | "not_eligible";
+  note: string;
+};
+
+// A member's coupon wallet: every live code with whether this member can still use it.
+export async function listMemberCoupons(who: Who): Promise<MemberCoupon[]> {
+  const email = who.email.trim().toLowerCase();
+  const phone = normalizePhone(who.phone);
+  const promos = await activePromos();
+  const hasPrior = promos.some((p) => p.firstBookingOnly) ? await priorBooking(email || "-", phone || "-") : false;
+  const coupons = await Promise.all(promos.map(async (p): Promise<MemberCoupon> => {
+    const [usesSoFar, mine] = await Promise.all([liveUses(p.id), liveUses(p.id, { email: email || "-", phone: phone || "-", customerId: who.customerId })]);
+    let status: MemberCoupon["status"] = "available";
+    let note = "Ready to use";
+    if (mine >= Math.max(1, p.perCustomerLimit)) { status = "used"; note = "Already used"; }
+    else if (p.maxUses != null && usesSoFar >= p.maxUses) { status = "not_eligible"; note = "Fully redeemed"; }
+    else if (p.firstBookingOnly && hasPrior) { status = "not_eligible"; note = "For first bookings only"; }
+    let offerTerms: string[] = [];
+    try { offerTerms = JSON.parse(p.offerTermsJson ?? "[]") as string[]; } catch { /* none */ }
+    return { code: p.code, title: p.title, endsAt: p.endsAt, service: p.service, minFare: p.minFare, discountType: p.discountType, discountValue: p.discountValue, maxDiscount: p.maxDiscount, offerTerms, status, note };
+  }));
+  const order = { available: 0, used: 1, not_eligible: 2 } as const;
+  return coupons.sort((a, b) => order[a.status] - order[b.status]);
+}
+
+// The code giving the biggest discount on this exact booking, if any applies.
+export async function bestCoupon(input: { total: number; serviceType: "transfer" | "hourly"; returnTrip?: boolean; vehicle: string } & Who) {
+  const promos = await activePromos();
+  let best: { code: string; title: string; discount: number; finalTotal: number } | null = null;
+  for (const p of promos) {
+    const result = await checkPromo({ code: p.code, total: input.total, serviceType: input.serviceType, returnTrip: input.returnTrip, vehicle: input.vehicle, email: input.email, phone: input.phone, customerId: input.customerId });
+    if (result.ok && (!best || result.discount > best.discount)) best = { code: p.code, title: p.title, discount: result.discount, finalTotal: result.finalTotal };
+  }
+  return best;
+}

@@ -69,6 +69,7 @@ export const checkoutInputSchema = z.object({
   pickupInstructions: z.string().max(500).optional().default(""),
   childSeats: z.number().int().min(0).max(4),
   exchangeStop: z.boolean().optional().default(false),
+  saveBilling: z.boolean().optional(),
   taxInvoice: z.object({
     name: z.string().trim().min(2).max(200),
     taxId: z.string().trim().regex(/^\d{13}$/),

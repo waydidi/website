@@ -95,6 +95,19 @@ export function validateSavedPassenger(input: Record<string, unknown>): Result<{
   return { ok: true, value: { name, surname, email, phone, notes } };
 }
 
+export const MAX_BILLING_PROFILES = 5;
+
+export function validateBillingProfile(input: Record<string, unknown>): Result<{ name: string; taxId: string; branch: string; address: string }> {
+  const name = sanitizeProfileText(input.name, 200) ?? "";
+  const taxId = (typeof input.taxId === "string" ? input.taxId : "").replace(/[\s-]/g, "");
+  const branch = sanitizeProfileText(input.branch, 60) || "Head office";
+  const address = sanitizeProfileText(input.address, 500) ?? "";
+  if (!name || name.length < 2) return { ok: false, error: "Enter the company or full name." };
+  if (!/^\d{13}$/.test(taxId)) return { ok: false, error: "Enter the 13-digit tax ID." };
+  if (address.length < 10) return { ok: false, error: "Enter the full billing address." };
+  return { ok: true, value: { name, taxId, branch, address } };
+}
+
 /**
  * Search-form values for "book again" (same route) or "book the return
  * trip" (reversed). Place IDs come from the booking's fare quote so the

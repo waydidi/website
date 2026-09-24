@@ -246,6 +246,10 @@ export function BookingFlow({
   const [pickupPlaceId, setPickupPlaceId] = useState("");
   const [routePrefill, setRoutePrefill] = useState<{ pickupPlaceId?: string; dropoffPlaceId?: string; nonce: number } | null>(null);
   const [savedPlaces, setSavedPlaces] = useState<{ id: string; label: string; placeId: string; address: string }[]>([]);
+  const [signedIn, setSignedIn] = useState(false);
+  const [savedBilling, setSavedBilling] = useState<{ id: string; name: string; taxId: string; branch: string; address: string }[]>([]);
+  const [saveBilling, setSaveBilling] = useState(false);
+  const [autoPromoTried, setAutoPromoTried] = useState(false);
   const [savedTravellers, setSavedTravellers] = useState<{ id: string; name: string; surname: string; email: string | null; phone: string | null; notes: string | null }[]>([]);
   const [placeMenu, setPlaceMenu] = useState<string | null>(null);
   const [pricingMessage, setPricingMessage] = useState("");
@@ -311,6 +315,7 @@ export function BookingFlow({
       .then((response) => (response.ok ? response.json() : null))
       .then((account: { signedIn?: boolean; name?: string | null; surname?: string | null; email?: string; phone?: string | null } | null) => {
         if (!active || !account?.signedIn) return;
+        setSignedIn(true);
         setBooking((current) => ({
           ...current,
           name: current.name || account.name || "",
@@ -429,8 +434,10 @@ export function BookingFlow({
     Promise.all([
       fetch("/api/account/places", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { places: [] })),
       fetch("/api/account/passengers", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { passengers: [] })),
-    ]).then(([places, travellers]) => {
+      fetch("/api/account/billing", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { profiles: [] })),
+    ]).then(([places, travellers, billing]) => {
       if (!active) return;
+      setSavedBilling(billing.profiles ?? []);
       setSavedPlaces(places.places ?? []);
       setSavedTravellers(travellers.passengers ?? []);
     }).catch(() => undefined);
@@ -563,7 +570,30 @@ export function BookingFlow({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- clears a discount computed for the old price
     setPromo(null);
+    setAutoPromoTried(false);
   }, [vehicle, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId, quoteSummary]);
+
+  // Signed-in members: apply the best coupon from their wallet automatically on the
+  // payment step (once per price; a code they typed or removed is left alone).
+  const [autoApplied, setAutoApplied] = useState(false);
+  useEffect(() => {
+    if (stage !== "payment" || !signedIn || promo || promoInput.trim() || autoPromoTried || quoteRequest) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAutoPromoTried(true);
+    fetch("/api/promo/best", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ total: chosenVehicle.price, serviceType, returnTrip: serviceType === "transfer" && returnTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
+    })
+      .then((r) => (r.ok ? r.json() : { best: null }))
+      .then((data: { best: { code: string; title: string; discount: number } | null }) => {
+        if (!data.best) return;
+        setPromo({ code: data.best.code, title: data.best.title, discount: data.best.discount });
+        setAutoApplied(true);
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, signedIn, promo, autoPromoTried, quoteRequest]);
 
   // A code copied from the homepage ("Copy & Use") is waiting in the box.
   useEffect(() => {
@@ -588,6 +618,7 @@ export function BookingFlow({
       const result = (await response.json()) as { ok: boolean; code?: string; title?: string; discount?: number; reason?: string };
       if (!result.ok || !result.code || !result.discount) { setPromo(null); setPromoError(result.reason ?? "This promo code isn't valid."); return; }
       setPromo({ code: result.code, title: result.title ?? result.code, discount: result.discount });
+      setAutoApplied(false);
       try { sessionStorage.removeItem("waydidi-promo"); } catch { /* ignore */ }
     } catch {
       setPromoError("Couldn't check the code. Please try again.");
@@ -941,6 +972,7 @@ export function BookingFlow({
           pickupInstructions: booking.pickupInstructions,
           childSeats: booking.childSeats,
           exchangeStop,
+          saveBilling: Boolean(booking.taxInvoice && saveBilling && signedIn),
           taxInvoice: booking.taxInvoice ? { name: (booking.taxName ?? "").trim(), taxId: (booking.taxId ?? "").replace(/[\s-]/g, ""), branch: (booking.taxBranch ?? "").trim() || "Head office", address: (booking.taxAddress ?? "").trim() } : undefined,
           oversizedLuggage: booking.oversizedLuggage,
           specialRequests: [exchangeStop ? "Currency exchange stop requested." : "", booking.specialRequests].filter(Boolean).join(" ").slice(0, 500),
@@ -1626,6 +1658,10 @@ export function BookingFlow({
           change={change}
           fieldErrors={fieldErrors}
           savedTravellers={savedTravellers}
+          signedIn={signedIn}
+          savedBilling={savedBilling}
+          saveBilling={saveBilling}
+          onSaveBillingChange={setSaveBilling}
           applyTraveller={(traveller) => setBooking((current) => ({
             ...current,
             name: traveller.name,
@@ -1654,8 +1690,9 @@ export function BookingFlow({
                       <span className="min-w-0">
                         <strong className="block tracking-wide text-emerald-900">{promo.code}</strong>
                         <span className="block truncate text-sm text-emerald-800">{promo.title} · −{money(promo.discount)}</span>
+                        {autoApplied && <span className="block text-xs text-emerald-700">Best coupon from your account, applied automatically</span>}
                       </span>
-                      <button type="button" onClick={() => { setPromo(null); setPromoError(""); }} className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-900">Remove</button>
+                      <button type="button" onClick={() => { setPromo(null); setAutoApplied(false); setPromoError(""); }} className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-900">Remove</button>
                     </div>
                   ) : (
                     <>

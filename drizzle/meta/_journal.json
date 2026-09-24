@@ -239,6 +239,13 @@
       "when": 1790264055659,
       "tag": "0033_premium_tattoo",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1790271247614,
+      "tag": "0034_steep_natasha_romanoff",
+      "breakpoints": true
     }
   ]
 }

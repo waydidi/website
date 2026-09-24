@@ -39,7 +39,7 @@ function OptionPill({ icon: Icon, label, open, onClick }: { icon: typeof Plus; l
 }
 
 // Step 1 after choosing a car: trip extras and the lead passenger (Transfeero style).
-export function BookingDetailsStep({ booking, change, fieldErrors, savedTravellers, applyTraveller, total, onBack, onContinue }: {
+export function BookingDetailsStep({ booking, change, fieldErrors, savedTravellers, applyTraveller, total, onBack, onContinue, signedIn = false, savedBilling = [], saveBilling = false, onSaveBillingChange }: {
   booking: Booking;
   change: <K extends keyof Booking>(key: K, value: Booking[K]) => void;
   fieldErrors: ReviewFieldErrors;
@@ -48,6 +48,10 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
   total: string;
   onBack: () => void;
   onContinue: () => void;
+  signedIn?: boolean;
+  savedBilling?: { id: string; name: string; taxId: string; branch: string; address: string }[];
+  saveBilling?: boolean;
+  onSaveBillingChange?: (value: boolean) => void;
 }) {
   const airport = /airport|\bBKK\b|\bDMK\b|\bHKT\b|\bCNX\b/i.test(booking.pickup);
   const [open, setOpen] = useState({
@@ -136,6 +140,13 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
             </label>
             {booking.taxInvoice && <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-3">
               <p className="text-sm text-[#6B6B6B]">Your tax invoice will be issued with these details.</p>
+              {savedBilling.length > 0 && <label className="block text-sm text-[#4A4A4A]">
+                <span className="sr-only">Use saved billing details</span>
+                <select defaultValue="" onChange={(e) => { const p = savedBilling.find((x) => x.id === e.target.value); if (!p) return; change("taxName", p.name); change("taxId", p.taxId); change("taxBranch", p.branch); change("taxAddress", p.address); }} className="w-full rounded-xl border border-[#D9D9D9] bg-white px-3 py-3 text-base outline-none focus:border-brand">
+                  <option value="" disabled>Use saved billing details…</option>
+                  {savedBilling.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.taxId}</option>)}
+                </select>
+              </label>}
               {([["taxName", "Company or full name", "organization"], ["taxId", "Tax ID (13 digits)", "off"]] as const).map(([key, label, auto]) => <div key={key}>
                 <label className="sr-only" htmlFor={`tax-${key}`}>{label}</label>
                 <input id={`tax-${key}`} data-booking-field={key} autoComplete={auto} inputMode={key === "taxId" ? "numeric" : undefined} maxLength={key === "taxId" ? 17 : 200} value={booking[key] ?? ""} onChange={(e) => change(key, e.target.value)} placeholder={label} aria-invalid={Boolean(fieldErrors[key])} className={field(Boolean(fieldErrors[key]))} />
@@ -150,6 +161,10 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
                 <textarea id="tax-taxAddress" data-booking-field="taxAddress" autoComplete="street-address" value={booking.taxAddress ?? ""} onChange={(e) => change("taxAddress", e.target.value)} maxLength={500} rows={3} placeholder="Billing address" aria-invalid={Boolean(fieldErrors.taxAddress)} className={`${field(Boolean(fieldErrors.taxAddress))} resize-none`} />
                 {fieldErrors.taxAddress && <p className="mt-1.5 text-sm font-medium text-red-700">{fieldErrors.taxAddress}</p>}
               </div>
+              {signedIn && onSaveBillingChange && <label className="flex cursor-pointer items-center gap-3 text-sm text-[#4A4A4A]">
+                <input type="checkbox" checked={saveBilling} onChange={(e) => onSaveBillingChange(e.target.checked)} className="size-4 shrink-0 accent-[#FF8A05]" />
+                Save these details to my account
+              </label>}
             </div>}
           </div>
         </div>

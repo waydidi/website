@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CarFront, House, MapPin, ReceiptText, Settings, UserRound, Users } from "lucide-react";
+import { Building2, CarFront, House, MapPin, ReceiptText, Settings, TicketPercent, UserRound, Users } from "lucide-react";
 
 const items = [
   { href: "/account", label: "Overview", icon: House, tab: true },
   { href: "/account/trips", label: "My trips", icon: CarFront, tab: true },
   { href: "/account/receipts", label: "Receipts", icon: ReceiptText, tab: true },
+  { href: "/account/coupons", label: "My coupons", icon: TicketPercent, tab: false },
   { href: "/account/places", label: "Saved places", icon: MapPin, tab: false },
   { href: "/account/passengers", label: "Travellers", icon: Users, tab: false },
+  { href: "/account/billing", label: "Billing details", icon: Building2, tab: false },
   { href: "/account/profile", label: "Profile", icon: UserRound, tab: true },
   { href: "/account/settings", label: "Settings", icon: Settings, tab: false },
 ];

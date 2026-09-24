@@ -53,3 +53,12 @@ test("tax invoice fields are required only when requested", async () => {
   assert.ok(missing.taxName && missing.taxId && missing.taxAddress);
   assert.deepEqual(validateBookingReview({ ...base, taxInvoice: true, taxName: "Acme Co., Ltd.", taxId: "0105 5560-12345", taxAddress: "99 Sukhumvit Rd, Bangkok 10110" }), {});
 });
+
+test("billing profile validation", async () => {
+  const { validateBillingProfile } = await import("../lib/customer-account.ts");
+  assert.equal(validateBillingProfile({ name: "Acme", taxId: "123", address: "99 Sukhumvit Rd, Bangkok" }).ok, false);
+  const ok = validateBillingProfile({ name: "Acme Co., Ltd.", taxId: "0105 5560-12345", branch: "", address: "99 Sukhumvit Rd, Bangkok 10110" });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.value.taxId, "0105556012345");
+  assert.equal(ok.value.branch, "Head office");
+});

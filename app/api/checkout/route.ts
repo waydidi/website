@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { customerFromRequest } from "@/lib/customer-auth";
-import { bookingTaxInvoices, customerBookingLinks, promoRedemptions } from "@/db/schema";
+import { bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
+import { and as andWhere, eq as eqWhere } from "drizzle-orm";
 import { normalizeCode } from "@/lib/promo";
 import { checkPromo, normalizePhone } from "@/lib/promo-db";
 import { addonsTotal } from "@/lib/addons";
@@ -469,6 +470,13 @@ export async function POST(request: Request) {
       address: input.taxInvoice.address,
       createdAt: now,
     }).onConflictDoNothing();
+    // "Save to my account": keep these billing details for next time (once per tax ID + name).
+    if (input.taxInvoice && input.saveBilling && account) {
+      const tax = input.taxInvoice;
+      const [existing] = await getDb().select({ id: customerBillingProfiles.id }).from(customerBillingProfiles)
+        .where(andWhere(eqWhere(customerBillingProfiles.customerId, account.customer.id), eqWhere(customerBillingProfiles.taxId, tax.taxId), eqWhere(customerBillingProfiles.name, tax.name))).limit(1).catch(() => []);
+      if (!existing) await getDb().insert(customerBillingProfiles).values({ id: crypto.randomUUID(), customerId: account.customer.id, name: tax.name, taxId: tax.taxId, branch: tax.branch || "Head office", address: tax.address, createdAt: now, updatedAt: now }).catch(() => undefined);
+    }
     if (account) await getDb().insert(customerBookingLinks).values({ bookingReference: reference, customerId: account.customer.id, createdAt: now }).onConflictDoNothing();
     await getDb().insert(bookingPayments).values({
       id: `primary:${reference}`,

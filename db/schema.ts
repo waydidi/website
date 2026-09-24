@@ -876,6 +876,22 @@ export const customerBookingLinks = sqliteTable(
 
 // Saved addresses (Home, Hotel, Office…) that pre-fill the search form.
 // Stored as Google Place IDs so they drop straight into the route picker.
+// Tax invoice details a member saved for reuse at checkout.
+export const customerBillingProfiles = sqliteTable(
+  "customer_billing_profiles",
+  {
+    id: text("id").primaryKey(),
+    customerId: text("customer_id").notNull(),
+    name: text("name").notNull(),
+    taxId: text("tax_id").notNull(),
+    branch: text("branch").notNull(),
+    address: text("address").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_customer_billing_customer").on(table.customerId)],
+);
+
 export const customerSavedPlaces = sqliteTable(
   "customer_saved_places",
   {
