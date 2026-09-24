@@ -1145,6 +1145,7 @@ export function BookingFlow({
                     )}
                   </div>
                   {serviceType === "transfer" ? (
+                    <div className="relative flex min-w-0 items-center">
                     <button
                       type="button"
                       disabled={!departureSelected}
@@ -1155,7 +1156,7 @@ export function BookingFlow({
                         }
                         setReturnDateOpen(true);
                       }}
-                      className="flex min-w-0 items-center gap-1.5 px-2.5 py-2 text-left text-slate-500 transition enabled:hover:bg-orange-50 disabled:cursor-not-allowed disabled:text-slate-300 sm:px-3.5"
+                      className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch px-2.5 py-2 text-left text-slate-500 transition enabled:hover:bg-orange-50 disabled:cursor-not-allowed disabled:text-slate-300 sm:px-3.5"
                       aria-label={returnTrip ? t("hero.editReturnLabel") : t("hero.addReturnLabel")}
                     >
                       {returnTrip ? (
@@ -1174,6 +1175,21 @@ export function BookingFlow({
                         )}
                       </span>
                     </button>
+                    {returnTrip && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReturnTrip(false);
+                          setReturnFareQuote(null);
+                          setQuoteSummary(null);
+                        }}
+                        className="ml-auto mr-2 grid size-6 shrink-0 place-items-center rounded-full text-white"
+                        aria-label={t("hero.removeReturn")}
+                      >
+                        <span className="grid size-5 place-items-center rounded-full bg-[#8E8E93] transition hover:bg-slate-600"><X size={12} strokeWidth={3} /></span>
+                      </button>
+                    )}
+                    </div>
                   ) : null}
                 </div>
                 {serviceType === "hourly" && <label className="order-5 flex min-h-14 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-2 lg:order-none lg:mt-0 lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]"><Clock3 size={18}/><span className="w-full"><span className="block text-[13px]/[20px] font-normal text-slate-500">{t("hero.duration")}</span><select value={booking.bookedHours} onChange={(e)=>{change("bookedHours",Number(e.target.value));setHourlyQuote(null);}} className="w-full bg-transparent text-base font-normal outline-none">{Array.from({length:10},(_,i)=>i+3).map(hours=><option key={hours} value={hours}>{t("hero.hours", { count: hours })}</option>)}</select></span></label>}

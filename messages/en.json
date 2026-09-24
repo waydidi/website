@@ -29,6 +29,7 @@
   "hero.travellersLabel": "{passengers} passengers and {bags} bags",
   "hero.departure": "Departure",
   "hero.removeDeparture": "Remove departure date",
+  "hero.removeReturn": "Remove return date",
   "hero.addReturn": "Add return",
   "hero.addReturnLabel": "Add return journey",
   "hero.editReturnLabel": "Edit return journey",

@@ -119,6 +119,10 @@
     "text": "移除出发日期",
     "status": "machine"
   },
+  "hero.removeReturn": {
+    "text": "删除返程日期",
+    "status": "machine"
+  },
   "hero.addReturn": {
     "text": "添加返程",
     "status": "machine"

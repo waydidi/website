@@ -119,6 +119,10 @@
     "text": "ลบวันเดินทาง",
     "status": "machine"
   },
+  "hero.removeReturn": {
+    "text": "ลบวันเดินทางกลับ",
+    "status": "machine"
+  },
   "hero.addReturn": {
     "text": "เพิ่มขากลับ",
     "status": "machine"
