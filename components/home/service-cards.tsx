@@ -43,21 +43,25 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
         {cards.map((card) => (
           <article
             key={card.title}
-            className="group flex min-h-[170px] min-w-0 flex-col rounded-2xl bg-surface px-5 py-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            className="group relative flex min-h-[170px] min-w-0 flex-col rounded-2xl bg-surface px-5 py-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
-            <div className="grid flex-1 grid-cols-[minmax(0,1fr)_96px] items-start gap-4">
+            <div className="grid flex-1 grid-cols-[minmax(0,1fr)_106px] items-start gap-2">
               <div>
                 <h3 className="text-lg font-bold">{card.title}</h3>
                 <p className="mt-2 text-sm leading-5 text-ink/80">{card.text}</p>
               </div>
-              {/* Real dimensions reserve the space, so the card does not jump as it loads. */}
+              {/* Keeps the text clear of the picture, which is centred in the card. */}
+              <span aria-hidden="true" />
+            </div>
+            {/* Real dimensions reserve the space, so the card does not jump as it loads. */}
+            <div className="pointer-events-none absolute right-5 top-1/2 w-[106px] -translate-y-1/2">
               <Image
                 src={card.image.src}
                 width={card.image.width}
                 height={card.image.height}
                 alt={card.alt}
                 unoptimized
-                className="h-[92px] w-full object-contain transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                className="h-[101px] w-full object-contain transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
               />
             </div>
             <Link
