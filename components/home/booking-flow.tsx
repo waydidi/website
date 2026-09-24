@@ -1029,17 +1029,17 @@ export function BookingFlow({
                 <button
                   type="button"
                   onClick={() => setPeopleOpen(true)}
-                  className="order-1 flex min-h-14 w-full items-center justify-between rounded-[14px] border border-slate-200 bg-white px-3.5 py-2 text-left lg:order-none lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]"
+                  className="order-1 flex min-h-14 w-full items-center justify-between rounded-[14px] border border-slate-200 bg-white px-4 py-2 text-left lg:order-none lg:px-5 lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]"
                   aria-expanded={peopleOpen}
                   aria-controls="passenger-luggage-sheet"
                   aria-label={t("hero.travellersLabel", { passengers: booking.passengers, bags: booking.luggage })}
                 >
                   <span className="flex items-center gap-3.5 text-base font-normal text-slate-950 lg:text-base">
-                    <span className="flex items-center gap-2">
-                      <Users size={18} aria-hidden="true" /> {booking.passengers}
+                    <span className="flex items-center gap-3">
+                      <Users size={20} className="shrink-0" aria-hidden="true" /> {booking.passengers}
                     </span>
                     <span className="flex items-center gap-2">
-                      <Luggage size={18} aria-hidden="true" /> {booking.luggage}
+                      <Luggage size={20} className="shrink-0" aria-hidden="true" /> {booking.luggage}
                     </span>
                   </span>
                   <ChevronDown
@@ -1074,13 +1074,13 @@ export function BookingFlow({
                     <button
                       type="button"
                       onClick={() => setDateOpen(true)}
-                      className="flex h-full min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-left sm:px-3.5"
+                      className="flex h-full min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-1.5 text-left lg:px-5"
                       aria-expanded={dateOpen}
                     >
-                      {departureSelected ? <DepartureIcon /> : <CalendarDays className="shrink-0 text-brand" size={18} />}
+                      {departureSelected ? <DepartureIcon /> : <CalendarDays className="shrink-0 text-brand" size={20} />}
                       {departureSelected ? (
                         <span className="min-w-0 font-normal text-slate-950">
-                          <span className="block truncate text-[16px] leading-[21px] tracking-[-.01em] max-[359px]:text-[14px]">{shortDate(booking.date, locale)}</span>
+                          <span className="block truncate text-[15px] leading-[21px] tracking-[-.01em] max-[359px]:text-[14px]">{shortDate(booking.date, locale)}</span>
                           <span className="block text-[14px] leading-[18px]">{formatTimeLabel(booking.time, locale)}</span>
                         </span>
                       ) : (
@@ -1098,10 +1098,10 @@ export function BookingFlow({
                           setReturnFareQuote(null);
                           setQuoteSummary(null);
                         }}
-                        className="mr-1 grid size-8 shrink-0 place-items-center rounded-full text-white"
+                        className="mr-2 grid size-6 shrink-0 place-items-center rounded-full text-white"
                         aria-label={t("hero.removeDeparture")}
                       >
-                        <span className="grid size-[22px] place-items-center rounded-full bg-[#8E8E93] transition hover:bg-slate-600"><X size={14} strokeWidth={3} /></span>
+                        <span className="grid size-5 place-items-center rounded-full bg-[#8E8E93] transition hover:bg-slate-600"><X size={12} strokeWidth={3} /></span>
                       </button>
                     )}
                   </div>
@@ -1127,7 +1127,7 @@ export function BookingFlow({
                       <span className="min-w-0">
                         {returnTrip ? (
                           <>
-                            <span className="block truncate text-[16px] font-normal leading-[21px] tracking-[-.01em] text-slate-950 max-[359px]:text-[14px]">{shortDate(returnDate, locale)}</span>
+                            <span className="block truncate text-[15px] font-normal leading-[21px] tracking-[-.01em] text-slate-950 max-[359px]:text-[14px]">{shortDate(returnDate, locale)}</span>
                             <span className="block text-[14px] font-normal leading-[18px] text-slate-950">{formatTimeLabel(returnTime, locale)}</span>
                           </>
                         ) : (
@@ -1928,7 +1928,7 @@ function shortDate(value: string, locale: Locale) {
 
 // Calendar with a departing arrow, shown once a departure is chosen.
 function DepartureIcon() {
-  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C1C1C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 max-[359px]:hidden">
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1C1C1C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 max-[359px]:hidden">
     <path d="M8 2v4M16 2v4M3 10h18" />
     <path d="M12 21H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7" />
     <path d="M15 18h7m-3-3 3 3-3 3" />

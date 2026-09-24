@@ -206,10 +206,8 @@ export function GoogleRoutePicker({
   return (
     <>
       <label className={`block min-w-0 ${connectedMobile ? "order-2 lg:order-none" : ""}`}>
-        <span className={`flex min-h-14 items-center gap-2 px-3 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
-        <span className="grid size-8 shrink-0 place-items-center text-brand">
-          <MapPin size={18} />
-        </span>
+        <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
+        <MapPin size={20} className="shrink-0 text-brand" aria-hidden="true" />
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-normal text-slate-500">{t("route.from")}</span>
           <input
@@ -225,10 +223,8 @@ export function GoogleRoutePicker({
         </span></span>
       </label>
       {!pickupOnly && <label className={`block min-w-0 ${connectedMobile ? "order-3 lg:order-none" : "mt-3 lg:mt-0"}`}>
-        <span className={`flex min-h-14 items-center gap-2 px-3 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
-        <span className="grid size-8 shrink-0 place-items-center text-brand">
-          <MapPin size={18} />
-        </span>
+        <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
+        <MapPin size={20} className="shrink-0 text-brand" aria-hidden="true" />
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-normal text-slate-500">{t("route.to")}</span>
           <input
