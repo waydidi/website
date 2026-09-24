@@ -388,9 +388,20 @@ export function BookingResultsMap(props: Props) {
     };
   }, [setSheet]);
 
+  // Phones: the results screen fills the screen, so the page behind it must
+  // not scroll (a stray swipe would drag the whole screen up).
+  useEffect(() => {
+    if (window.innerWidth >= 1024) return;
+    const html = document.documentElement, body = document.body;
+    const previous = [html.style.overflow, body.style.overflow, html.style.overscrollBehavior];
+    html.style.overflow = "hidden"; body.style.overflow = "hidden"; html.style.overscrollBehavior = "none";
+    window.scrollTo(0, 0);
+    return () => { [html.style.overflow, body.style.overflow, html.style.overscrollBehavior] = previous; };
+  }, []);
+
   const disabled = !props.quote || props.loading || !selected || selected.fits === false || props.checkoutReady === false;
 
-  return <section className="relative h-[100svh] overflow-hidden bg-white" aria-live="polite">
+  return <section className="fixed inset-0 z-30 overflow-hidden overscroll-none bg-white lg:relative lg:inset-auto lg:z-auto lg:h-[100svh]" aria-live="polite">
     {/* Map */}
     <div className="absolute inset-x-0 top-0 h-[70svh] lg:inset-y-0 lg:left-[460px] lg:right-0 lg:h-auto">
       <div ref={mapRef} className="absolute inset-0 isolate z-0 bg-[#EDEDED]" aria-label={`Route map from ${props.pickup} to ${props.dropoff}`} />
