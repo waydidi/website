@@ -297,6 +297,28 @@ export const fareQuotes = sqliteTable(
   (table) => [index("idx_fare_quotes_expires_at").on(table.expiresAt)],
 );
 
+// Route rules for what a fare includes, e.g. tolls between Bangkok and Pattaya.
+// Zones are polygons ([[lat, lng], ...] rings) held on the rule itself, so a
+// rule works whether or not pricing areas are drawn for those places.
+export const routeInclusions = sqliteTable(
+  "route_inclusions",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    originZoneJson: text("origin_zone_json").notNull(),
+    destinationZoneJson: text("destination_zone_json").notNull(),
+    // Also applies from the destination back to the origin.
+    bidirectional: integer("bidirectional", { mode: "boolean" }).notNull().default(true),
+    includesTolls: integer("includes_tolls", { mode: "boolean" }).notNull().default(true),
+    includesFerry: integer("includes_ferry", { mode: "boolean" }).notNull().default(false),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    priority: integer("priority").notNull().default(50),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_route_inclusions_active").on(table.active, table.priority)],
+);
+
 export const pricingAudit = sqliteTable(
   "pricing_audit",
   {

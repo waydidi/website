@@ -7,6 +7,7 @@ import { BOOKING_TIMEZONE, bangkokDepartureIso } from "@/lib/booking-time";
 import { fareQuoteInputSchema, validationError } from "@/lib/booking-validation";
 import { matchPublishedArea, pricesForArea } from "@/lib/pricing";
 import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
+import { loadInclusions } from "@/lib/route-inclusions-db";
 import { logOperationalError, monitoredHeaders, requestIdFor } from "@/lib/observability";
 
 type Place = {
@@ -127,6 +128,10 @@ export async function POST(request: Request) {
       Number.parseFloat(route.duration.replace("s", "")),
     );
     const prices = await pricesForArea(area.id, route.distanceMeters);
+    const inclusions = await loadInclusions(
+      { lat: pickup.location.latitude, lng: pickup.location.longitude },
+      { lat: dropoff.location.latitude, lng: dropoff.location.longitude },
+    );
     if (Object.keys(prices).length !== 4)
       return NextResponse.json(
         { error: "This area is missing vehicle prices", manualReview: true },
@@ -180,6 +185,7 @@ export async function POST(request: Request) {
         timezone: BOOKING_TIMEZONE,
       },
       prices,
+      inclusions,
       expiresAt,
     });
   } catch (error) {

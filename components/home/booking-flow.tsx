@@ -43,6 +43,7 @@ import { DateTimePicker } from "./date-time-picker";
 import { BookingDetailsStep } from "./booking-details-step";
 import { SiteHeader } from "@/components/site-header";
 import { useCurrency } from "@/components/use-currency";
+import { inclusionLines, type Inclusions } from "@/lib/route-inclusions";
 import { DEMO_DROPOFF, DEMO_PICKUP, DEMO_PRICES, fetchDemoRoute, isDemoRoute } from "@/lib/demo-route";
 import { formatTimeLabel } from "./dates";
 import { formatDate, translate, type Locale, type MessageKey, type Messages } from "@/lib/i18n";
@@ -81,6 +82,7 @@ type FareQuote = {
   pickup?: { latitude: number; longitude: number };
   dropoff?: { latitude: number; longitude: number };
   path?: [number, number][];
+  inclusions?: Inclusions;
   prices: Record<
     string,
     { total: number; basePrice: number; distanceSurcharge: number }
@@ -1700,9 +1702,13 @@ export function BookingFlow({
               <ReviewSection title="Ride" onEdit={() => goToStage("vehicle")} editLabel="Edit vehicle">
                 <ReviewDetail label="Vehicle" value={chosenVehicle.name} />
                 <ReviewDetail label="Service" value={serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : returnTrip ? "Round trip private transfer" : "One-way private transfer"} />
+                {serviceType === "transfer" && fareQuote?.inclusions && (() => {
+                  const lines = inclusionLines(fareQuote.inclusions, locale);
+                  return <ReviewDetail label="Tolls" value={lines.included.length ? lines.included.join(" · ") : `Not included: ${lines.excluded.join(", ")}`} />;
+                })()}
               </ReviewSection>
 
-              <ReviewSection title="Passenger" onEdit={() => goToStage("payment")} editLabel="Edit passenger details">
+              <ReviewSection title="Passenger" onEdit={() => goToStage("details")} editLabel="Edit passenger details">
                 <ReviewDetail label="Lead passenger" value={booking.name} />
                 <ReviewDetail label="Surname" value={booking.surname} />
                 <ReviewDetail label="Email" value={booking.email} />

@@ -218,6 +218,13 @@
       "when": 1790240962782,
       "tag": "0030_customer_identities",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1790250192549,
+      "tag": "0031_strong_makkari",
+      "breakpoints": true
     }
   ]
 }

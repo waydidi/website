@@ -4,6 +4,8 @@
 import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Pencil, Route, Users, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
+import { useI18n } from "@/components/i18n-provider";
+import { inclusionLines, parseInclusions, type Inclusions } from "@/lib/route-inclusions";
 import { decodePolyline } from "@/lib/demo-route";
 import { TRAFFIC_CASING, TRAFFIC_COLORS, TRAFFIC_REFRESH_MS, sampleIntervals, trafficSegments, type SpeedInterval, type TrafficRoute } from "@/lib/traffic";
 import Image from "next/image";
@@ -22,6 +24,8 @@ export type MapQuote = {
   dropoff?: { latitude: number; longitude: number };
   // Route points when there is no Google polyline (prototype route).
   path?: [number, number][];
+  // What the fare includes on this route (tolls, ferry), from the quote.
+  inclusions?: Inclusions;
 };
 
 export type Vehicle = {
@@ -232,6 +236,21 @@ export function BookingResultsMap(props: Props) {
   // Vehicle whose "?" details sheet is open.
   const [infoId, setInfoId] = useState<string | null>(null);
   const info = props.vehicles.find((v) => v.id === infoId) ?? null;
+  const { locale } = useI18n();
+  // Quotes carry their inclusions; for the prototype route (or an older saved
+  // quote) look them up from the route rules.
+  const [lookedUp, setLookedUp] = useState<Inclusions | null>(null);
+  useEffect(() => {
+    const q = props.quote;
+    if (!q?.pickup || !q.dropoff || q.inclusions) return;
+    let alive = true;
+    fetch(`/api/route-inclusions?plat=${q.pickup.latitude}&plng=${q.pickup.longitude}&dlat=${q.dropoff.latitude}&dlng=${q.dropoff.longitude}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: { inclusions?: unknown } | null) => { if (alive && body) setLookedUp(parseInclusions(JSON.stringify(body.inclusions))); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, [props.quote]);
+  const lines = inclusionLines(props.quote?.inclusions ?? lookedUp ?? { tolls: false, ferry: false, route: null }, locale);
   const [leafletReady, setLeafletReady] = useState(false);
   // Re-fits the route to the visible part of the map (set by whichever map is drawn).
   const fitRef = useRef<((bottomPadding: number) => void) | null>(null);
@@ -580,8 +599,14 @@ export function BookingResultsMap(props: Props) {
               </ul>
               <h3 className="mt-6 text-[17px] font-medium">Included</h3>
               <ul className="mt-3 grid gap-2.5 text-[16px] text-[#4A4A4A]">
-                {["Private car and driver for your group", "Door-to-door", "Fixed price agreed before you book"].map((line) => <li key={line} className="flex items-center gap-3"><Check size={18} aria-hidden="true" />{line}</li>)}
+                {["Private car and driver for your group", "Door-to-door", "Fixed price agreed before you book", ...lines.included].map((line) => <li key={line} className="flex items-center gap-3"><Check size={18} className="shrink-0" aria-hidden="true" />{line}</li>)}
               </ul>
+              {lines.excluded.length > 0 && <>
+                <h3 className="mt-6 text-[17px] font-medium">Excluded</h3>
+                <ul className="mt-3 grid gap-2.5 text-[16px] text-[#4A4A4A]">
+                  {lines.excluded.map((line) => <li key={line} className="flex items-center gap-3"><X size={18} className="shrink-0" aria-hidden="true" />{line}</li>)}
+                </ul>
+              </>}
               <h3 className="mt-6 text-[17px] font-medium">Price breakdown</h3>
               {props.returnTrip && props.priceBreakdown?.[info.id] ? <>
                 <p className="mt-3 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(props.priceBreakdown[info.id].outbound)}</span></p>
@@ -635,6 +660,7 @@ export function BookingResultsMap(props: Props) {
                 <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>{money(props.priceBreakdown[selected.id].return)}</span></p>
               </>}
               <p className="mt-4 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} aria-hidden="true" />All prices are fixed totals for your private ride</p>
+              {lines.included.map((line) => <p key={line} className="mt-2 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} aria-hidden="true" />{line}</p>)}
               <p className="mt-4 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">{money(total)}</strong></p>
               <p className="mt-1 text-right text-[14px] text-[#8A8A8A]">{currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
             </div>
