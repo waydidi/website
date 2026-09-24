@@ -1,3 +1,4 @@
+import { HowItWorks } from "@/components/home/how-it-works";
 import { HomeFaq } from "@/components/home/home-faq";
 import type { Metadata } from "next";
 import { getMessages, localeInfo, type Locale } from "@/lib/i18n";
@@ -42,6 +43,7 @@ export function HomePage({ locale }: { locale: Locale }) {
     <BookingFlow locale={locale} messages={getMessages(locale)}>
       <Promotions />
       <ServiceCards locale={locale} />
+      <HowItWorks />
       <ThailandDestinationMap />
       <HomeFaq />
       <WaydidiFooter locale={locale} />
