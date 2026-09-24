@@ -7,7 +7,7 @@ import { useCurrency } from "@/components/use-currency";
 import { decodePolyline } from "@/lib/demo-route";
 import { TRAFFIC_COLORS, TRAFFIC_REFRESH_MS, sampleIntervals, trafficSegments, type SpeedInterval, type TrafficRoute } from "@/lib/traffic";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 declare global {
   interface Window { google?: any }
@@ -105,6 +105,14 @@ function squarePin(color: string) {
 function timeLabel(kind: string, place: string, time: string, timeBg: string, timeColor: string) {
   const [clock, meridiem] = time.split(" ");
   return `<div style="display:flex;align-items:stretch;max-width:260px;margin-bottom:14px;border-radius:999px 8px 8px 999px;overflow:hidden;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15);font-family:Poppins,Helvetica,Arial,sans-serif;color:#1C1C1C;white-space:nowrap"><div style="min-width:0;padding:6px 12px 6px 16px"><div style="font-size:11px;color:#777">${kind}</div><div style="font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis">${escapeHtml(place)}</div></div><div style="display:grid;place-items:center;padding:4px 8px;background:${timeBg};color:${timeColor};font-size:14px;font-weight:600;line-height:1.1;text-align:center">${escapeHtml(clock)}<br><span style="font-size:11px;font-weight:500">${escapeHtml(meridiem ?? "")}</span></div></div>`;
+}
+
+// How far the sheet sits below its expanded position when collapsed: the
+// map fills 70% of the screen, less the sheet's rounded overlap.
+function collapsedOffset() {
+  if (typeof window === "undefined") return 0;
+  const h = window.innerHeight;
+  return Math.max(0, h * 0.7 - 20 - h * 0.14);
 }
 
 function pillLabel(date: string, time: string) {
@@ -276,41 +284,95 @@ export function BookingResultsMap(props: Props) {
     return () => map.remove();
   }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
 
-  // Bottom sheet: collapsed (map 70%) or expanded (list fills most of the screen).
+  // Bottom sheet, phone only: collapsed (map 70%) or expanded. The sheet is
+  // moved with transform alone, written straight to the DOM while the finger
+  // moves (no React re-render per frame), then springs to the nearest stop.
+  // Swiping anywhere on the sheet drags it; when expanded, the list scrolls
+  // first and the sheet only follows a downward swipe from the list's top.
   const sheetRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
-  const [dragY, setDragY] = useState<number | null>(null);
-  const drag = useRef<{ startY: number; moved: boolean } | null>(null);
-  function startDrag(event: React.PointerEvent<HTMLDivElement>) {
-    event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { startY: event.clientY, moved: false };
-    setDragY(0);
-  }
-  function moveDrag(event: React.PointerEvent<HTMLDivElement>) {
-    if (!drag.current) return;
-    const dy = event.clientY - drag.current.startY;
-    if (Math.abs(dy) > 4) drag.current.moved = true;
-    // Resist dragging past either end.
-    const travel = window.innerHeight * 0.56;
-    const limited = expanded ? Math.min(travel, Math.max(-20, dy)) : Math.max(-travel, Math.min(40, dy));
-    setDragY(limited);
-  }
-  function endDrag(event: React.PointerEvent<HTMLDivElement>) {
-    const state = drag.current;
-    drag.current = null;
-    const dy = dragY ?? 0;
-    setDragY(null);
-    if (!state) return;
-    if (event.type === "pointercancel") return;
-    if (!state.moved) { setExpanded(!expanded); return; }
-    if (!expanded && dy < -60) setExpanded(true);
-    else if (expanded && dy > 60) setExpanded(false);
-  }
-  const sheetStyle = {
-    "--sheet-top": expanded ? "calc(14svh)" : "calc(70svh - 20px)",
-    transform: dragY ? `translateY(${dragY}px)` : undefined,
-    transition: dragY === null ? "top .28s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1)" : "none",
-  } as React.CSSProperties;
+  const expandedRef = useRef(false);
+  const setSheet = useCallback((open: boolean, animate = true) => {
+    const sheet = sheetRef.current;
+    expandedRef.current = open;
+    setExpanded(open);
+    if (!sheet) return;
+    sheet.style.transition = animate ? "transform .42s cubic-bezier(.22,1,.36,1)" : "none";
+    sheet.style.setProperty("--sheet-y", open ? "0px" : `${collapsedOffset()}px`);
+    if (!open && listRef.current) listRef.current.scrollTop = 0;
+  }, []);
+
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    setSheet(false, false);
+    const onResize = () => setSheet(expandedRef.current, false);
+    window.addEventListener("resize", onResize);
+
+    let startY = 0, startT = 0, startOffset = 0, lastY = 0, lastT = 0, velocity = 0, dragging = false, decided = false, frame = 0;
+    const offsetNow = () => (expandedRef.current ? 0 : collapsedOffset());
+    const apply = (y: number) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => sheet.style.setProperty("--sheet-y", `${y}px`));
+    };
+    const onStart = (event: TouchEvent) => {
+      if (window.innerWidth >= 1024 || event.touches.length !== 1) return;
+      startY = lastY = event.touches[0].clientY;
+      startT = lastT = event.timeStamp;
+      startOffset = offsetNow();
+      velocity = 0; dragging = false; decided = false;
+    };
+    const onMove = (event: TouchEvent) => {
+      if (window.innerWidth >= 1024 || event.touches.length !== 1) return;
+      const y = event.touches[0].clientY;
+      const dy = y - startY;
+      if (!decided) {
+        if (Math.abs(dy) < 6) return;
+        decided = true;
+        const listAtTop = (listRef.current?.scrollTop ?? 0) <= 0;
+        // Collapsed: any vertical swipe moves the sheet. Expanded: only a
+        // downward swipe that starts with the list scrolled to the top.
+        dragging = !expandedRef.current || (dy > 0 && listAtTop);
+        if (dragging) sheet.style.transition = "none";
+      }
+      if (!dragging) return;
+      event.preventDefault();
+      const max = collapsedOffset();
+      let next = startOffset + dy;
+      // Rubber-band past either end.
+      if (next < 0) next = next / 4;
+      if (next > max) next = max + (next - max) / 4;
+      const dt = Math.max(1, event.timeStamp - lastT);
+      velocity = (y - lastY) / dt;
+      lastY = y; lastT = event.timeStamp;
+      apply(next);
+    };
+    const onEnd = (event: TouchEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      const max = collapsedOffset();
+      const current = startOffset + (lastY - startY);
+      // A flick (fast, or a quick short swipe) decides by direction; a slow
+      // drag by the halfway point.
+      const moved = lastY - startY;
+      const quick = Math.abs(moved) > 30 && event.timeStamp - startT < 300;
+      const open = Math.abs(velocity) > 0.3 || quick ? moved < 0 : current < max / 2;
+      setSheet(open);
+    };
+    sheet.addEventListener("touchstart", onStart, { passive: true });
+    sheet.addEventListener("touchmove", onMove, { passive: false });
+    sheet.addEventListener("touchend", onEnd);
+    sheet.addEventListener("touchcancel", onEnd);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+      sheet.removeEventListener("touchstart", onStart);
+      sheet.removeEventListener("touchmove", onMove);
+      sheet.removeEventListener("touchend", onEnd);
+      sheet.removeEventListener("touchcancel", onEnd);
+    };
+  }, [setSheet]);
 
   const disabled = !props.quote || props.loading || !selected || selected.fits === false || props.checkoutReady === false;
 
@@ -337,23 +399,18 @@ export function BookingResultsMap(props: Props) {
     </div>
 
     {/* Sheet */}
-    <div ref={sheetRef} style={sheetStyle} className="absolute inset-x-0 bottom-0 top-[var(--sheet-top)] z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_16px_rgba(0,0,0,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:top-0 lg:w-[460px] lg:rounded-none">
+    <div ref={sheetRef} className="absolute inset-x-0 bottom-0 top-[14svh] z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_16px_rgba(0,0,0,.08)] will-change-transform [transform:translate3d(0,var(--sheet-y,0px),0)] lg:inset-y-0 lg:left-0 lg:right-auto lg:top-0 lg:w-[460px] lg:rounded-none lg:[transform:none]">
       {/* Drag (or tap) the handle to pull the list up over the map and back down. */}
-      <div
-        role="button"
-        tabIndex={0}
+      <button
+        type="button"
         aria-label={expanded ? "Show more map" : "Show all cars"}
         aria-expanded={expanded}
-        onPointerDown={startDrag}
-        onPointerMove={moveDrag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded(!expanded); } }}
-        className="flex h-7 shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing lg:hidden"
+        onClick={() => setSheet(!expanded)}
+        className="flex h-6 w-full shrink-0 items-center justify-center lg:hidden"
       >
         <span className="h-1 w-10 rounded-full bg-[#D9D9D9]" aria-hidden="true" />
-      </div>
-      <div className="flex-1 overflow-y-auto px-4 pb-3 pt-2">
+      </button>
+      <div ref={listRef} className={`flex-1 overscroll-contain px-4 pb-[150px] pt-0 lg:overflow-y-auto lg:pt-3 ${expanded ? "overflow-y-auto" : "overflow-hidden"}`}>
 
         {props.error ? <div className="mb-3 rounded-2xl bg-orange-50 p-4 text-sm text-[#6D3700]">
           <strong className="block">We couldn&apos;t calculate this route.</strong>
@@ -361,13 +418,13 @@ export function BookingResultsMap(props: Props) {
           <div className="mt-3 flex gap-2"><button onClick={props.onEdit} className="min-h-11 rounded-full bg-white px-4 font-medium">Edit trip</button><button onClick={props.onRetry} className="min-h-11 rounded-full bg-brand px-4 font-medium text-white">Try again</button></div>
         </div> : null}
 
-        <ul className="grid gap-3 pt-2">
+        <ul className="grid gap-3 pt-2.5">
           {props.vehicles.map((item) => {
             const active = item.id === selected?.id;
             const off = !props.quote || item.fits === false;
             const badge = item.fits === false ? null : item.id === cheapest?.id ? "best" : item.popular ? "popular" : null;
             return <li key={item.id}>
-              <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`relative grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-[#F5B85A] bg-[#FDF8F1]" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
+              <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`relative grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-[#F5B85A] bg-[#FDF8F1]" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
                 <span className="grid h-14 place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className="max-h-14 w-full object-contain" /> : <CarFront size={44} className="text-[#9A9A9A]" aria-hidden="true" />}</span>
                 <span className="min-w-0">
                   <strong className="block text-[17px] font-semibold leading-tight text-[#1C1C1C]">{item.name}</strong>
@@ -393,14 +450,15 @@ export function BookingResultsMap(props: Props) {
         </ul>
       </div>
 
-      {/* Bottom bar */}
-      <div className="shrink-0 border-t border-[#EEEEEE] bg-white px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
-        <div className="flex items-center justify-between gap-3">
-          <p className="flex min-w-0 items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{money(total)}</strong></p>
-          <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
-        </div>
-        <button disabled={disabled} onClick={props.onContinue} className="mt-2 flex h-[52px] w-full items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-[#1C1C1C] transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
+    </div>
+
+    {/* Bottom bar */}
+    <div className="absolute inset-x-0 bottom-0 z-20 border-t border-[#EEEEEE] bg-white px-4 lg:right-auto lg:w-[460px] pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
+      <div className="flex items-center justify-between gap-3">
+        <p className="flex min-w-0 items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{money(total)}</strong></p>
+        <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
       </div>
+      <button disabled={disabled} onClick={props.onContinue} className="mt-1.5 flex h-12 w-full items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-[#1C1C1C] transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
     </div>
 
     <DialogPrimitive.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
