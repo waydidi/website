@@ -606,7 +606,7 @@ export function BookingResultsMap(props: Props) {
     {/* Bottom bar */}
     <div className="absolute inset-x-0 bottom-0 z-20 border-t border-[#EEEEEE] bg-white px-4 lg:right-auto lg:w-[460px] pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="flex min-w-0 items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{money(total)}</strong>{currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}</p>
+        <p className="flex min-w-0 items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{money(total)}</strong>{currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}{extrasCount > 0 && <span className="truncate text-[12px] text-[#8A8A8A]">incl. add-ons</span>}</p>
         <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
       </div>
       <div className="mt-5 flex items-center gap-3">
@@ -741,6 +741,8 @@ export function BookingResultsMap(props: Props) {
               </>}
               <p className="mt-4 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} aria-hidden="true" />All prices are fixed totals for your private ride</p>
               {lines.included.map((line) => <p key={line} className="mt-2 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} aria-hidden="true" />{line}</p>)}
+              {seats > 0 && <p className="mt-4 flex justify-between text-[16px] text-[#4A4A4A]"><span>Child seat × {seats}</span><span>+{money(seats * CHILD_SEAT_THB)}</span></p>}
+              {exchange && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Currency exchange stop</span><span>+{money(EXCHANGE_STOP_THB)}</span></p>}
               <p className="mt-4 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">{money(total)}</strong></p>
               <p className="mt-1 text-right text-[14px] text-[#8A8A8A]">{currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
             </div>
