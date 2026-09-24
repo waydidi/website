@@ -1,3 +1,4 @@
+import { ReviewBadges } from "@/components/home/review-badges";
 import type { Metadata } from "next";
 import { getMessages, localeInfo, type Locale } from "@/lib/i18n";
 import { SITE_URL } from "@/lib/public-content";
@@ -39,6 +40,7 @@ export function homeMetadata(locale: Locale): Metadata {
 export function HomePage({ locale }: { locale: Locale }) {
   return (
     <BookingFlow locale={locale} messages={getMessages(locale)}>
+      <ReviewBadges />
       <ServiceCards locale={locale} />
       <Promotions />
       <ThailandDestinationMap />
