@@ -2,18 +2,31 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Dialog as DialogPrimitive } from "radix-ui";
 
 // Promotions for first-time customers (tiket.com style). EXAMPLES ONLY:
 // checkout does not apply promo codes yet. Replace with real offers, and
 // set PROMOTIONS_READY once checkout honours the codes.
 export const PROMOTIONS_READY = false;
-const PROMOTIONS = [
-  { title: "[New Users] 10% off your first private transfer", code: "WAYDIDINEW", terms: "/terms" },
-  { title: "THB 200 off Bangkok ⇄ Pattaya transfers", code: "PATTAYA200", terms: "/terms" },
-  { title: "15% off an hourly private driver, 5 hours or more", code: "HOURLY15", terms: "/terms" },
+type Promotion = {
+  title: string;
+  code: string;
+  period: string;
+  travel: string;
+  service: string;
+  offer: string[];
+};
+const PROMOTIONS: Promotion[] = [
+  { title: "[New Users] 10% off your first private transfer", code: "WAYDIDINEW", period: "1 October – 31 December 2026", travel: "Anytime", service: "Private transfers",
+    offer: ["Discount 10% up to THB 300 with a minimum fare of THB 1,000.", "Valid for your first Waydidi booking only (per email, phone and account)."] },
+  { title: "THB 200 off Bangkok ⇄ Pattaya transfers", code: "PATTAYA200", period: "1 October – 31 December 2026", travel: "Anytime", service: "Private transfers between Bangkok and Pattaya, both directions",
+    offer: ["Discount THB 200 with a minimum fare of THB 1,200.", "Valid for Bangkok (including both airports) to Pattaya and back."] },
+  { title: "15% off an hourly private driver, 5 hours or more", code: "HOURLY15", period: "1 October – 31 December 2026", travel: "Anytime", service: "Hourly private driver",
+    offer: ["Discount 15% up to THB 1,000 on bookings of 5 hours or more.", "Extra hours and extra distance are charged at the normal rate."] },
 ];
 
-function PromoCard({ title, code, terms }: (typeof PROMOTIONS)[number]) {
+function PromoCard({ promo, onTerms }: { promo: Promotion; onTerms: () => void }) {
+  const { title, code } = promo;
   const [copied, setCopied] = useState(false);
   async function copy() {
     try { await navigator.clipboard.writeText(code); } catch { /* still show the code */ }
@@ -25,7 +38,7 @@ function PromoCard({ title, code, terms }: (typeof PROMOTIONS)[number]) {
     <span aria-hidden="true" className="absolute -left-3 top-1/2 size-6 -translate-y-1/2 rounded-full bg-[#FFF3E6]" />
     <span aria-hidden="true" className="absolute -right-3 top-1/2 size-6 -translate-y-1/2 rounded-full bg-[#FFF3E6]" />
     <p className="min-h-12 text-[16px] font-medium leading-6 text-[#1C1C1C]">
-      {title} <Link href={terms} className="font-semibold text-[#E07400]">T&amp;C</Link>
+      {title} <button type="button" onClick={onTerms} className="font-semibold text-[#E07400] underline-offset-2 hover:underline">T&amp;C</button>
     </p>
     <div className="mt-4 flex items-center gap-3">
       <span className="flex h-11 min-w-0 flex-1 items-center truncate rounded-lg bg-[#F4F4F2] px-3 text-[15px] text-[#1C1C1C]">{code}</span>
@@ -39,6 +52,7 @@ function PromoCard({ title, code, terms }: (typeof PROMOTIONS)[number]) {
 export function Promotions() {
   // Until real codes work at checkout, show only when previewing: /?promos=preview
   const [preview, setPreview] = useState(false);
+  const [terms, setTerms] = useState<Promotion | null>(null);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the URL after hydration
   useEffect(() => setPreview(new URLSearchParams(window.location.search).get("promos") === "preview"), []);
   if (!PROMOTIONS_READY && !preview) return null;
@@ -46,7 +60,66 @@ export function Promotions() {
     <h2 id="promotions-heading" className="mx-auto max-w-[1180px] px-5 text-[19px] font-semibold tracking-[-.01em] sm:text-[22px] text-[#1C1C1C] lg:px-0">Special promotion for your first transaction</h2>
     {/* Native horizontal scroll with snap: smooth with a finger or trackpad. */}
     <ul className="mx-auto mt-4 flex max-w-[1180px] snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto overscroll-x-contain px-5 pb-3 [scrollbar-width:none] lg:scroll-px-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
-      {PROMOTIONS.map((promo) => <PromoCard key={promo.code} {...promo} />)}
+      {PROMOTIONS.map((promo) => <PromoCard key={promo.code} promo={promo} onTerms={() => setTerms(promo)} />)}
     </ul>
+    <TermsSheet promo={terms} onClose={() => setTerms(null)} />
   </section>;
+}
+
+// Promo terms, bottom sheet (tiket.com style), with Waydidi's own policies.
+function TermsSheet({ promo, onClose }: { promo: Promotion | null; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    if (!promo) return;
+    try { await navigator.clipboard.writeText(promo.code); } catch { /* code is visible anyway */ }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+  function bookNow() {
+    onClose();
+    window.setTimeout(() => document.getElementById("booking-search")?.scrollIntoView({ behavior: "smooth", block: "center" }), 250);
+  }
+  const general = promo ? [
+    `Promo period: ${promo.period}`,
+    `Travel period: ${promo.travel}`,
+    "Promo is valid for bookings made on the Waydidi website",
+    "Promo is valid for card (Stripe) and cash payments",
+    "Promo code is valid once per customer (email, phone number or Waydidi account)",
+    "Quota: Limited",
+    "Cannot be combined with other promo codes",
+  ] : [];
+  return <DialogPrimitive.Root open={Boolean(promo)} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/45 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+      <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[90dvh] flex-col rounded-t-[22px] bg-white text-[#1C1C1C] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[560px] sm:-translate-x-1/2">
+        {promo && <>
+          <div className="mx-auto mt-2.5 h-1.5 w-12 shrink-0 rounded-full bg-[#D9D9D9]" aria-hidden="true" />
+          <div className="flex-1 overflow-y-auto px-5 pb-4 pt-5">
+            <DialogPrimitive.Title className="text-[21px] font-semibold leading-snug">Your promo code is ready to use at payment.</DialogPrimitive.Title>
+            <DialogPrimitive.Description className="mt-5 text-[15px] text-[#6B6B6B]">Terms and Conditions:</DialogPrimitive.Description>
+            <h3 className="mt-3 text-[16px] font-semibold underline underline-offset-4">General Terms &amp; Conditions</h3>
+            <ol className="mt-3 grid list-decimal gap-1.5 pl-6 text-[15px] leading-6 text-[#2B2B2B]">{general.map((line) => <li key={line}>{line}</li>)}</ol>
+            <h3 className="mt-6 text-[16px] font-semibold underline underline-offset-4">Product Terms &amp; Conditions</h3>
+            <p className="mt-3 flex items-center gap-2 text-[15px] font-semibold"><span className="size-1.5 rounded-full bg-[#1C1C1C]" aria-hidden="true" />{promo.service}</p>
+            <ol className="mt-2 grid list-decimal gap-1.5 pl-6 text-[15px] leading-6 text-[#2B2B2B]">{promo.offer.map((line) => <li key={line}>{line}</li>)}</ol>
+            <h3 className="mt-6 text-[16px] font-semibold underline underline-offset-4">Booking policies</h3>
+            <ol className="mt-3 grid list-decimal gap-1.5 pl-6 text-[15px] leading-6 text-[#2B2B2B]">
+              <li>Free cancellation up to 24 hours before pickup, by email to support@waydidi.com with your booking reference.</li>
+              <li>Refunds go back to the original payment method and cover the amount actually paid after the discount.</li>
+              <li>The discount applies to the fare shown at booking; extra stops, waiting or route changes are charged separately.</li>
+              <li>Waydidi may cancel a discount that is used against these terms.</li>
+            </ol>
+            <p className="mt-4 text-[14px] text-[#6B6B6B]">Full terms: <Link href="/terms" className="font-medium text-[#E07400] underline underline-offset-2">Booking terms</Link> · <Link href="/cancellation-refund-policy" className="font-medium text-[#E07400] underline underline-offset-2">Cancellation &amp; refunds</Link></p>
+          </div>
+          <div className="grid gap-3 border-t border-[#F0F0F0] px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-3">
+            <div className="flex items-center gap-3 rounded-xl border border-dashed border-[#D9D9D9] py-2 pl-5 pr-2">
+              <span className="min-w-0 flex-1 truncate text-[16px] tracking-wide">{promo.code}</span>
+              <button type="button" onClick={copy} className="h-11 rounded-lg bg-[#FFF1E0] px-6 text-[15px] font-semibold text-[#E07400]" aria-live="polite">{copied ? "Copied!" : "Copy"}</button>
+            </div>
+            <button type="button" onClick={bookNow} className="h-[52px] rounded-xl bg-brand text-[17px] font-semibold text-white hover:bg-brand-hover">Book now</button>
+          </div>
+        </>}
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  </DialogPrimitive.Root>;
 }
