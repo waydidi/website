@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { ArrowLeft, ArrowRightLeft, Baby, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Minus, Pencil, Plus, Route, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Minus, Pencil, Plus, Route, Users, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
 import { useI18n } from "@/components/i18n-provider";
@@ -628,7 +628,7 @@ export function BookingResultsMap(props: Props) {
           <DialogPrimitive.Description className="px-5 pt-1 text-[14px] text-[#6B6B6B]">Add extras to your ride. Your driver will have them ready.</DialogPrimitive.Description>
           <ul className="flex-1 overflow-y-auto px-5 pb-2 pt-2">
             <li className="flex items-center gap-4 border-b border-[#EEEEEE] py-4">
-              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF3E6] text-brand"><Baby size={22} aria-hidden="true" /></span>
+              <Image src="/addon-child-seat.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
               <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">Child seat</span><span className="block text-[13px] text-[#6B6B6B]">For babies and young children, up to {maxSeats}</span></span>
               <span className="flex items-center gap-3">
                 <button type="button" aria-label="Remove child seat" disabled={seats === 0} onClick={() => setExtras({ childSeats: seats - 1, exchangeStop: exchange })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Minus size={16} aria-hidden="true" /></button>
@@ -638,7 +638,7 @@ export function BookingResultsMap(props: Props) {
             </li>
             <li>
               <label className="flex cursor-pointer items-center gap-4 py-4">
-                <Image src="/addon-currency-exchange.webp" alt="" width={44} height={44} className="size-11 shrink-0 object-contain" />
+                <Image src="/addon-currency-exchange.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
                 <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">Currency exchange stop</span><span className="block text-[13px] text-[#6B6B6B]">A short stop at an exchange counter on the way</span></span>
                 <input type="checkbox" checked={exchange} onChange={(e) => setExtras({ childSeats: seats, exchangeStop: e.target.checked })} className="size-5 accent-[#FF8A05]" />
               </label>
