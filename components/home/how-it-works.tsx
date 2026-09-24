@@ -1,40 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { Luggage, Users } from "lucide-react";
-import { useCurrency } from "@/components/use-currency";
 
 // "How it works": three illustrated steps in a free horizontal scroll (no snapping).
-const CARS = [
-  { name: "Economy sedan", image: "/vehicle-economy-sedan.webp", people: 3, bags: 2, price: 1500 },
-  { name: "Comfort BMW", image: "/vehicle-comfort-bmw.webp", people: 3, bags: 2, price: 2300 },
-  { name: "Comfort SUV", image: "/vehicle-comfort-suv.webp", people: 4, bags: 4, price: 2600 },
-];
-
 function BookVisual() {
-  const { money } = useCurrency();
-  return <div className="w-[112%] shrink-0 origin-center scale-[.8] rounded-2xl border border-[#EEEEEE] bg-white p-4 shadow-[0_12px_30px_rgba(0,0,0,.08)]">
-    <div className="relative pl-5 text-[13px] font-semibold text-[#1C1C1C]">
-      <span className="absolute left-0 top-[5px] size-2.5 rounded-full border-2 border-[#1C1C1C]" aria-hidden="true" />
-      <span className="absolute left-[4px] top-[16px] h-[18px] w-px bg-[#BDBDBD]" aria-hidden="true" />
-      <span className="absolute left-0 top-[36px] size-2.5 rounded-full bg-brand" aria-hidden="true" />
-      <p>Suvarnabhumi Airport (BKK)</p>
-      <p className="mt-3">Hilton Pattaya</p>
-    </div>
-    <p className="mt-2 flex items-center gap-1 text-[12px] text-[#6B6B6B]">Fri 25 Sep · 09:00 · <Users size={12} aria-hidden="true" /> 2</p>
-    <hr className="my-3 border-[#EEEEEE]" />
-    <ul className="grid gap-2">
-      {CARS.map((car, i) => <li key={car.name} className={`flex items-center gap-2.5 rounded-xl border-2 px-2 py-1.5 ${i === 0 ? "border-brand" : "border-[#EEEEEE]"}`}>
-        <span className="grid h-9 w-14 shrink-0 place-items-center rounded-lg bg-[#F6F6F6]"><Image src={car.image} alt="" width={112} height={72} unoptimized className="max-h-8 w-auto object-contain" /></span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-semibold text-[#1C1C1C]">{car.name}</span>
-          <span className="flex items-center gap-2 text-[11px] text-[#6B6B6B]"><span className="flex items-center gap-0.5"><Users size={11} aria-hidden="true" />{car.people}</span><span className="flex items-center gap-0.5"><Luggage size={11} aria-hidden="true" />{car.bags}</span></span>
-        </span>
-        <span className="whitespace-nowrap text-[13px] font-semibold text-[#1C1C1C]">{money(car.price)}</span>
-      </li>)}
-    </ul>
-    <p className="mt-3 text-center text-[11px] text-[#6B6B6B]">Fixed price · Free cancellation up to 24h before</p>
-  </div>;
+  // Screenshot of Waydidi's choose-car screen, shown as a phone screen.
+  return <Image src="/how-it-works-book.webp" alt="Waydidi car choice screen: Suvarnabhumi Airport to Hilton Pattaya with Economy sedan THB 1,500 selected" width={600} height={1101} unoptimized className="absolute left-1/2 top-[4%] h-[92%] w-auto max-w-none -translate-x-1/2 rounded-[22px] border-4 border-white shadow-[0_14px_30px_rgba(0,0,0,.14)]" />;
 }
 
 const BOARD = [
