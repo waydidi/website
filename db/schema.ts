@@ -819,3 +819,23 @@ export const customerSavedPassengers = sqliteTable(
   },
   (table) => [index("idx_customer_saved_passengers_customer").on(table.customerId)],
 );
+
+// Social sign-in identities (Google, Apple, LINE, Facebook) linked to a
+// customer. Keyed by the provider's stable user ID, so a later sign-in works
+// even if the email on that provider account changes.
+export const customerIdentities = sqliteTable(
+  "customer_identities",
+  {
+    id: text("id").primaryKey(),
+    customerId: text("customer_id").notNull(),
+    provider: text("provider").notNull(),
+    providerUserId: text("provider_user_id").notNull(),
+    email: text("email"),
+    createdAt: text("created_at").notNull(),
+    lastUsedAt: text("last_used_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("uidx_customer_identities_provider_user").on(table.provider, table.providerUserId),
+    index("idx_customer_identities_customer").on(table.customerId),
+  ],
+);

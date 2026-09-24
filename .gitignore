@@ -42,3 +42,6 @@ next-env.d.ts
 /.sites-runtime/
 /outputs/
 /work/
+
+# Local Worker secrets (wrangler / Cloudflare Vite plugin)
+.dev.vars*

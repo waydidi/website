@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { customerSavedPassengers, customerSavedPlaces, customerSessions } from "@/db/schema";
+import { customerIdentities, customerSavedPassengers, customerSavedPlaces, customerSessions } from "@/db/schema";
 import { customerBookings, customerFromRequest } from "@/lib/customer-auth";
 
 // PDPA data-portability request: everything held against this account.
@@ -9,11 +9,12 @@ export async function GET(request: Request) {
   const session = await customerFromRequest(request);
   if (!session) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   const { customer } = session;
-  const [trips, sessions, savedPlaces, savedPassengers] = await Promise.all([
+  const [trips, sessions, savedPlaces, savedPassengers, linkedSignIns] = await Promise.all([
     customerBookings(customer),
     getDb().select({ createdAt: customerSessions.createdAt, lastUsedAt: customerSessions.lastUsedAt, userAgent: customerSessions.userAgent }).from(customerSessions).where(eq(customerSessions.customerId, customer.id)),
     getDb().select({ label: customerSavedPlaces.label, address: customerSavedPlaces.address, createdAt: customerSavedPlaces.createdAt }).from(customerSavedPlaces).where(eq(customerSavedPlaces.customerId, customer.id)),
     getDb().select({ name: customerSavedPassengers.name, surname: customerSavedPassengers.surname, email: customerSavedPassengers.email, phone: customerSavedPassengers.phone, notes: customerSavedPassengers.notes }).from(customerSavedPassengers).where(eq(customerSavedPassengers.customerId, customer.id)),
+    getDb().select({ provider: customerIdentities.provider, email: customerIdentities.email, createdAt: customerIdentities.createdAt, lastUsedAt: customerIdentities.lastUsedAt }).from(customerIdentities).where(eq(customerIdentities.customerId, customer.id)),
   ]);
   const body = {
     exportedAt: new Date().toISOString(),
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
     })),
     savedPlaces,
     savedPassengers,
+    linkedSignIns,
     signedInDevices: sessions,
   };
   return new Response(JSON.stringify(body, null, 2), { headers: {

@@ -211,6 +211,13 @@
       "when": 1790239531086,
       "tag": "0029_saved_places_passengers",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1790240962782,
+      "tag": "0030_customer_identities",
+      "breakpoints": true
     }
   ]
 }
