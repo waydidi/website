@@ -1,6 +1,5 @@
 "use client";
 
-import { TypedHeadline } from "@/components/home/typed-headline";
 import { earliestBangkokPickup } from "@/lib/booking-time";
 import {
   ArrowLeft,
@@ -1086,7 +1085,9 @@ export function BookingFlow({
         {stage === "search" && (
           <div className="relative z-10 w-full px-5 pb-12 pt-[98px] animate-in fade-in duration-300 motion-reduce:animate-none lg:px-6 lg:pb-18 lg:pt-[160px]">
             <div className="mb-6 max-w-2xl">
-              <TypedHeadline text={t("hero.title")} className={`${locale === "en" ? "" : "text-balance "}text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px] lg:text-[51.7px]`} />
+              <h1 className={`${locale === "en" ? "" : "text-balance "}text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px] lg:text-[51.7px]`}>
+                {t("hero.title")}
+              </h1>
               <p className="mt-3 text-[17px]/[28px] font-medium text-white sm:text-[19px]/[28px] lg:text-[23px]/[32px]">
                 {t("hero.subtitle")}
               </p>
