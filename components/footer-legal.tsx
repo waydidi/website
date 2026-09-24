@@ -6,7 +6,7 @@ const LEGAL_IDS: string[] = [];
 
 function PaymentLogos() {
   const logo = "h-6 shrink-0 text-white";
-  return <ul className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3" aria-label="Accepted payment methods">
+  return <ul className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-3" aria-label="Accepted payment methods">
     <li aria-label="Visa" className={`${logo} flex items-center text-[20px] font-black italic leading-none tracking-[-.04em]`}>VISA</li>
     <li aria-label="Mastercard" className={logo}>
       <svg viewBox="0 0 52 32" className="h-6" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="currentColor" opacity=".95" /><circle cx="36" cy="16" r="15" fill="currentColor" opacity=".6" /><text x="26" y="19.5" textAnchor="middle" fontSize="9" fontWeight="800" fontStyle="italic" fill="#FF8A05">MasterCard</text></svg>
@@ -22,7 +22,7 @@ function PaymentLogos() {
 export function FooterLegal() {
   return <div className="mt-12 border-t border-white/30 pt-8 text-white">
     <PrivacyChoices />
-    <p className="mt-4 text-base leading-7">{["2026 © WAYDIDI™", "All rights reserved", ...LEGAL_IDS].join(" | ")}</p>
+    <p className="mt-2 text-base leading-7">{["2026 © WAYDIDI™", "All rights reserved", ...LEGAL_IDS].join(" | ")}</p>
     <PaymentLogos />
   </div>;
 }
