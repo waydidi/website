@@ -132,7 +132,7 @@ function grabBubble(minutes: number, km: number, placement: "right" | "above") {
   const where = placement === "right"
     ? "left:18px;top:0;transform:translateY(-50%)"
     : "left:0;bottom:18px;transform:translateX(-50%)";
-  return `<div style="position:relative;width:0;height:0"><div style="position:absolute;${where};width:max-content;padding:8px 14px 9px;border-radius:14px;background:#347A4E;color:#fff;font:500 15px/1.25 ${GRAB_FONT};white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)"><div>Best</div><div style="font-size:13px;font-weight:400;opacity:.95">${time}·${km.toFixed(1)} km</div></div></div>`;
+  return `<div style="position:relative;width:0;height:0"><div style="position:absolute;${where};width:max-content;padding:8px 14px 9px;border-radius:14px;background:#00B14F;color:#fff;font:500 15px/1.25 ${GRAB_FONT};white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)"><div>Best</div><div style="font-size:13px;font-weight:400;opacity:.95">${time}·${km.toFixed(1)} km</div></div></div>`;
 }
 
 // Point halfway along the route by distance, and which side the bubble goes.
