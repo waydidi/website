@@ -30,7 +30,9 @@ export async function POST(request: Request) {
   const input = await request.json() as { token?: string; latitude?: number; longitude?: number; accuracyMetres?: number; clientTimestamp?: string; sequenceNumber?: number };
   const assignment = await activeAssignmentForToken(input.token ?? "");
   if (!assignment) return NextResponse.json({ error: "Driver session unavailable." }, { status: 404 });
-  if (!["trip_started", "passenger_picked_up"].includes(assignment.currentStatus)) return NextResponse.json({ error: "Live tracking is not active for this journey." }, { status: 409 });
+  // Shared with the customer from "On the way"; route and stop checks only apply once the passenger is aboard.
+  if (!["going_to_standby", "trip_started", "passenger_picked_up"].includes(assignment.currentStatus)) return NextResponse.json({ error: "Live tracking is not active for this journey." }, { status: 409 });
+  const onTrip = assignment.currentStatus !== "going_to_standby";
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, assignment.bookingReference)).limit(1);
   if (!booking || booking.status !== "confirmed") return NextResponse.json({ error: "This journey is no longer active." }, { status: 409 });
   const latitude = Number(input.latitude), longitude = Number(input.longitude), accuracy = Math.round(Number(input.accuracyMetres));
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
   const quality = accuracy <= 200 ? "good" : "weak";
   const result = await env.DB.prepare(`INSERT OR IGNORE INTO journey_locations (id, booking_reference, assignment_id, driver_id, latitude, longitude, accuracy_metres, client_timestamp, server_timestamp, sequence_number, quality, purge_after) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(crypto.randomUUID(), assignment.bookingReference, assignment.id, assignment.driverId, latitude, longitude, accuracy, clientTime.toISOString(), serverTimestamp, sequence, quality, purgeAfter).run();
   let deviation: { status: string; distanceMetres: number; corridorMetres: number } | null = null;
-  if ((result.meta.changes ?? 0) > 0 && quality === "good") {
+  if (onTrip && (result.meta.changes ?? 0) > 0 && quality === "good") {
     const encoded = await expectedPolyline(booking).catch(() => null);
     if (encoded) {
       const route = decodePolyline(encoded);
@@ -84,7 +86,7 @@ export async function POST(request: Request) {
     }
   }
   let abnormalStop: { status: string; durationSeconds: number; reason?: string } | null = null;
-  if ((result.meta.changes ?? 0) > 0 && quality === "good") {
+  if (onTrip && (result.meta.changes ?? 0) > 0 && quality === "good") {
     const stopRadiusMetres = configuredNumber(env.WAYDIDI_STOP_RADIUS_METRES, 100, 30, 500);
     const minimumPoints = configuredNumber(env.WAYDIDI_STOP_MIN_POINTS, 8, 4, 40);
     const baseMinutes = booking.serviceType === "hourly"

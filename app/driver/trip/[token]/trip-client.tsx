@@ -241,7 +241,7 @@ export default function DriverTripClient({ token }: { token: string }) {
   }, [assignmentId, sendStep]);
 
   useEffect(() => {
-    if (!trip || !["trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus)) {
+    if (!trip || !["going_to_standby", "trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus)) {
       setTrackingState("off");
       return;
     }
@@ -633,9 +633,9 @@ export default function DriverTripClient({ token }: { token: string }) {
           >
             <Navigation size={18} /> เปิด Google Maps <ExternalLink size={15} />
           </a>
-          {["trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) && (
+          {["going_to_standby", "trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) && (
             <div className={`mt-3 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-bold ${trackingState === "error" ? "bg-red-50 text-red-700" : trackingState === "queued" ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>
-              <span className="flex items-center gap-2"><LocateFixed size={18}/>{trackingState === "error" ? "ต้องอนุญาตตำแหน่งสดตลอดการเดินทาง" : trackingState === "queued" ? "บันทึก GPS ไว้แล้ว รอส่งเมื่อออนไลน์" : trackingState === "sending" ? "กำลังส่งตำแหน่ง…" : "กำลังแชร์ตำแหน่งสดระหว่างเดินทาง"}</span>
+              <span className="flex items-center gap-2"><LocateFixed size={18}/>{trackingState === "error" ? "ต้องอนุญาตตำแหน่งสดตลอดการเดินทาง" : trackingState === "queued" ? "บันทึก GPS ไว้แล้ว รอส่งเมื่อออนไลน์" : trackingState === "sending" ? "กำลังส่งตำแหน่ง…" : trip.assignment.currentStatus === "going_to_standby" ? "กำลังแชร์ตำแหน่งสดให้ลูกค้าเห็นขณะไปจุดรับ" : "กำลังแชร์ตำแหน่งสดระหว่างเดินทาง"}</span>
               {trackingState === "error" && <button type="button" onClick={() => setTrackingRetry((value) => value + 1)} className="shrink-0 rounded-full bg-red-700 px-3 py-2 text-xs font-black text-white">อนุญาตตำแหน่ง</button>}
               {lastTrackedAt && <span className="text-xs opacity-70">{new Date(lastTrackedAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</span>}
             </div>

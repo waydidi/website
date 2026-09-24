@@ -9,6 +9,7 @@ import {
   pickupInstant,
 } from "@/lib/booking-management";
 import { tripPinForReference } from "@/lib/trip-pin";
+import { tripOwnerKey } from "@/lib/trip-access";
 
 export async function GET(request: Request) {
   const booking = await managedBooking(request);
@@ -71,6 +72,7 @@ export async function GET(request: Request) {
         cancellationReason: booking.cancellationReason,
         bookingVersion: booking.bookingVersion,
         tripPin,
+        tripKey: await tripOwnerKey(booking.reference),
       },
       eligibility: {
         canReschedule:

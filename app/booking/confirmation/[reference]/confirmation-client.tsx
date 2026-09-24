@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Clock3, Download, Mail, RotateCw, XCircle } from "lucide-react";
+import { Check, Clock3, Download, Mail, RotateCw, XCircle, Navigation } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { WaydidiLogo } from "@/components/waydidi-logo";
@@ -292,6 +292,14 @@ export default function ConfirmationClient({
             </p>
           )}
           <div className="no-print mt-8 flex flex-wrap gap-3">
+            {!cancelled && (
+              <a
+                href={`/trip/${encodeURIComponent(reference)}?token=${encodeURIComponent(token)}`}
+                className="flex h-13 items-center gap-2 rounded-full bg-[#211726] px-7 font-bold text-white"
+              >
+                <Navigation size={19} /> Track your trip
+              </a>
+            )}
             {!cancelled && (
               <a
                 href={`/api/bookings/${encodeURIComponent(reference)}/pdf?token=${encodeURIComponent(token)}`}

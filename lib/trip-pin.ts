@@ -23,3 +23,9 @@ export async function tripPinHash(reference: string, pin: string) {
   const bytes = await hmac(`hash:${reference}:${pin}`);
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
+
+/** Hex HMAC under the trip secret, for signed customer trip links. */
+export async function tripSecretHmacHex(value: string) {
+  const bytes = await hmac(value);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}

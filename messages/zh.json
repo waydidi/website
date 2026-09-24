@@ -534,5 +534,261 @@
   "search.enterPickup": {
     "text": "请输入上车地址。",
     "status": "machine"
+  },
+  "trip.title": {
+    "text": "您的行程",
+    "status": "machine"
+  },
+  "trip.sharedTitle": {
+    "text": "共享的行程",
+    "status": "machine"
+  },
+  "trip.sharedNote": {
+    "text": "您正在查看他人与您共享的行程，页面会自动更新。",
+    "status": "machine"
+  },
+  "trip.reference": {
+    "text": "预订 {reference}",
+    "status": "machine"
+  },
+  "trip.loading": {
+    "text": "正在加载行程…",
+    "status": "machine"
+  },
+  "trip.notFound": {
+    "text": "无法打开此行程",
+    "status": "machine"
+  },
+  "trip.notFoundHelp": {
+    "text": "请使用预订邮件中的链接，或通过预订编号查找。",
+    "status": "machine"
+  },
+  "trip.findBooking": {
+    "text": "查找我的预订",
+    "status": "machine"
+  },
+  "trip.retry": {
+    "text": "重试",
+    "status": "machine"
+  },
+  "trip.offline": {
+    "text": "您已离线，重新联网后将自动更新。",
+    "status": "machine"
+  },
+  "trip.updated": {
+    "text": "更新于 {time}",
+    "status": "machine"
+  },
+  "trip.stage.confirmed": {
+    "text": "预订已确认",
+    "status": "machine"
+  },
+  "trip.stage.assigned": {
+    "text": "已分配司机",
+    "status": "machine"
+  },
+  "trip.stage.on_the_way": {
+    "text": "司机正在路上",
+    "status": "machine"
+  },
+  "trip.stage.waiting": {
+    "text": "在上车点等候",
+    "status": "machine"
+  },
+  "trip.stage.on_trip": {
+    "text": "行程中",
+    "status": "machine"
+  },
+  "trip.stage.arrived": {
+    "text": "已到达",
+    "status": "machine"
+  },
+  "trip.stage.no_show": {
+    "text": "司机未能找到您",
+    "status": "machine"
+  },
+  "trip.stage.cancelled": {
+    "text": "预订已取消",
+    "status": "machine"
+  },
+  "trip.headline.confirmed": {
+    "text": "我们正在为您安排司机",
+    "status": "machine"
+  },
+  "trip.headline.assigned": {
+    "text": "您的司机已准备就绪",
+    "status": "machine"
+  },
+  "trip.headline.on_the_way": {
+    "text": "司机正在前往接您",
+    "status": "machine"
+  },
+  "trip.headline.waiting": {
+    "text": "司机正在等您",
+    "status": "machine"
+  },
+  "trip.headline.on_trip": {
+    "text": "祝您旅途愉快",
+    "status": "machine"
+  },
+  "trip.headline.arrived": {
+    "text": "您已到达",
+    "status": "machine"
+  },
+  "trip.headline.no_show": {
+    "text": "司机未能在上车点找到您",
+    "status": "machine"
+  },
+  "trip.headline.cancelled": {
+    "text": "此预订已取消",
+    "status": "machine"
+  },
+  "trip.noShowHelp": {
+    "text": "请尽快联系 Waydidi，以便我们为您提供帮助。",
+    "status": "machine"
+  },
+  "trip.contact": {
+    "text": "联系 Waydidi",
+    "status": "machine"
+  },
+  "trip.eta.pickup": {
+    "text": "司机约 {minutes} 分钟后到达",
+    "status": "machine"
+  },
+  "trip.eta.dropoff": {
+    "text": "约 {minutes} 分钟后抵达目的地",
+    "status": "machine"
+  },
+  "trip.eta.unknown": {
+    "text": "获取司机位置后将显示到达时间。",
+    "status": "machine"
+  },
+  "trip.map.label": {
+    "text": "显示司机位置的地图",
+    "status": "machine"
+  },
+  "trip.map.driver": {
+    "text": "您的司机",
+    "status": "machine"
+  },
+  "trip.map.pickup": {
+    "text": "上车点",
+    "status": "machine"
+  },
+  "trip.map.dropoff": {
+    "text": "下车点",
+    "status": "machine"
+  },
+  "trip.map.lastSeen": {
+    "text": "司机位置（{time}）",
+    "status": "machine"
+  },
+  "trip.map.open": {
+    "text": "在 Google 地图中打开",
+    "status": "machine"
+  },
+  "trip.map.waiting": {
+    "text": "司机位置稍后将显示在此处。",
+    "status": "machine"
+  },
+  "trip.meet.title": {
+    "text": "与司机会合",
+    "status": "machine"
+  },
+  "trip.meet.sign": {
+    "text": "司机手持写有 {name} 的接机牌",
+    "status": "machine"
+  },
+  "trip.meet.point": {
+    "text": "会合点",
+    "status": "machine"
+  },
+  "trip.meet.photoAlt": {
+    "text": "司机在上车点拍摄的照片",
+    "status": "machine"
+  },
+  "trip.meet.photoCaption": {
+    "text": "司机在上车点拍摄的照片",
+    "status": "machine"
+  },
+  "trip.pin.title": {
+    "text": "您的行程 PIN",
+    "status": "machine"
+  },
+  "trip.pin.help": {
+    "text": "见到司机时告诉他此 PIN，切勿提前发送。",
+    "status": "machine"
+  },
+  "trip.route.pickup": {
+    "text": "上车",
+    "status": "machine"
+  },
+  "trip.route.dropoff": {
+    "text": "下车",
+    "status": "machine"
+  },
+  "trip.route.when": {
+    "text": "{date} {time}",
+    "status": "machine"
+  },
+  "trip.route.flight": {
+    "text": "航班 {flight}",
+    "status": "machine"
+  },
+  "trip.timeline": {
+    "text": "行程进度",
+    "status": "machine"
+  },
+  "trip.share.title": {
+    "text": "分享我的行程",
+    "status": "machine"
+  },
+  "trip.share.help": {
+    "text": "发送只读链接，让家人或朋友关注您的行程。链接不显示 PIN 和联系方式，行程结束 2 小时后失效。",
+    "status": "machine"
+  },
+  "trip.share.create": {
+    "text": "创建分享链接",
+    "status": "machine"
+  },
+  "trip.share.copy": {
+    "text": "复制链接",
+    "status": "machine"
+  },
+  "trip.share.copied": {
+    "text": "链接已复制",
+    "status": "machine"
+  },
+  "trip.share.send": {
+    "text": "分享",
+    "status": "machine"
+  },
+  "trip.share.stop": {
+    "text": "停止分享",
+    "status": "machine"
+  },
+  "trip.share.stopped": {
+    "text": "已停止分享，之前发送的链接已失效。",
+    "status": "machine"
+  },
+  "trip.share.error": {
+    "text": "无法更新分享设置，请重试。",
+    "status": "machine"
+  },
+  "trip.share.message": {
+    "text": "关注我的 Waydidi 行程",
+    "status": "machine"
+  },
+  "trip.track": {
+    "text": "跟踪行程",
+    "status": "machine"
+  },
+  "trip.shareExpired": {
+    "text": "共享的行程已结束",
+    "status": "machine"
+  },
+  "trip.shareExpiredHelp": {
+    "text": "分享链接会在行程结束 2 小时后或旅客停止分享时失效。",
+    "status": "machine"
   }
 }

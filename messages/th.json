@@ -534,5 +534,261 @@
   "search.enterPickup": {
     "text": "กรุณาระบุที่อยู่จุดรับ",
     "status": "machine"
+  },
+  "trip.title": {
+    "text": "การเดินทางของคุณ",
+    "status": "machine"
+  },
+  "trip.sharedTitle": {
+    "text": "การเดินทางที่แชร์ให้คุณ",
+    "status": "machine"
+  },
+  "trip.sharedNote": {
+    "text": "คุณกำลังดูการเดินทางที่มีคนแชร์ให้ หน้านี้อัปเดตเอง",
+    "status": "machine"
+  },
+  "trip.reference": {
+    "text": "การจอง {reference}",
+    "status": "machine"
+  },
+  "trip.loading": {
+    "text": "กำลังโหลดการเดินทาง…",
+    "status": "machine"
+  },
+  "trip.notFound": {
+    "text": "ไม่สามารถเปิดการเดินทางนี้ได้",
+    "status": "machine"
+  },
+  "trip.notFoundHelp": {
+    "text": "ใช้ลิงก์ในอีเมลการจอง หรือค้นหาการจองด้วยหมายเลขอ้างอิง",
+    "status": "machine"
+  },
+  "trip.findBooking": {
+    "text": "ค้นหาการจอง",
+    "status": "machine"
+  },
+  "trip.retry": {
+    "text": "ลองอีกครั้ง",
+    "status": "machine"
+  },
+  "trip.offline": {
+    "text": "คุณออฟไลน์อยู่ ระบบจะอัปเดตเมื่อเชื่อมต่อใหม่",
+    "status": "machine"
+  },
+  "trip.updated": {
+    "text": "อัปเดต {time}",
+    "status": "machine"
+  },
+  "trip.stage.confirmed": {
+    "text": "ยืนยันการจองแล้ว",
+    "status": "machine"
+  },
+  "trip.stage.assigned": {
+    "text": "ได้คนขับแล้ว",
+    "status": "machine"
+  },
+  "trip.stage.on_the_way": {
+    "text": "กำลังไปรับ",
+    "status": "machine"
+  },
+  "trip.stage.waiting": {
+    "text": "รอที่จุดรับ",
+    "status": "machine"
+  },
+  "trip.stage.on_trip": {
+    "text": "กำลังเดินทาง",
+    "status": "machine"
+  },
+  "trip.stage.arrived": {
+    "text": "ถึงแล้ว",
+    "status": "machine"
+  },
+  "trip.stage.no_show": {
+    "text": "คนขับไม่พบคุณ",
+    "status": "machine"
+  },
+  "trip.stage.cancelled": {
+    "text": "ยกเลิกการจองแล้ว",
+    "status": "machine"
+  },
+  "trip.headline.confirmed": {
+    "text": "เรากำลังจัดคนขับให้คุณ",
+    "status": "machine"
+  },
+  "trip.headline.assigned": {
+    "text": "คนขับพร้อมสำหรับการเดินทางของคุณ",
+    "status": "machine"
+  },
+  "trip.headline.on_the_way": {
+    "text": "คนขับกำลังไปรับคุณ",
+    "status": "machine"
+  },
+  "trip.headline.waiting": {
+    "text": "คนขับรอคุณอยู่ที่จุดรับ",
+    "status": "machine"
+  },
+  "trip.headline.on_trip": {
+    "text": "ขอให้เดินทางอย่างสบาย",
+    "status": "machine"
+  },
+  "trip.headline.arrived": {
+    "text": "ถึงที่หมายแล้ว",
+    "status": "machine"
+  },
+  "trip.headline.no_show": {
+    "text": "คนขับไม่พบคุณที่จุดรับ",
+    "status": "machine"
+  },
+  "trip.headline.cancelled": {
+    "text": "การจองนี้ถูกยกเลิก",
+    "status": "machine"
+  },
+  "trip.noShowHelp": {
+    "text": "กรุณาติดต่อ Waydidi โดยเร็วที่สุดเพื่อให้เราช่วยเหลือ",
+    "status": "machine"
+  },
+  "trip.contact": {
+    "text": "ติดต่อ Waydidi",
+    "status": "machine"
+  },
+  "trip.eta.pickup": {
+    "text": "คนขับจะถึงในประมาณ {minutes} นาที",
+    "status": "machine"
+  },
+  "trip.eta.dropoff": {
+    "text": "อีกประมาณ {minutes} นาทีถึงที่หมาย",
+    "status": "machine"
+  },
+  "trip.eta.unknown": {
+    "text": "เวลาถึงจะแสดงเมื่อได้รับตำแหน่งคนขับ",
+    "status": "machine"
+  },
+  "trip.map.label": {
+    "text": "แผนที่แสดงตำแหน่งคนขับ",
+    "status": "machine"
+  },
+  "trip.map.driver": {
+    "text": "คนขับของคุณ",
+    "status": "machine"
+  },
+  "trip.map.pickup": {
+    "text": "จุดรับ",
+    "status": "machine"
+  },
+  "trip.map.dropoff": {
+    "text": "จุดส่ง",
+    "status": "machine"
+  },
+  "trip.map.lastSeen": {
+    "text": "ตำแหน่งคนขับเมื่อ {time}",
+    "status": "machine"
+  },
+  "trip.map.open": {
+    "text": "เปิดใน Google Maps",
+    "status": "machine"
+  },
+  "trip.map.waiting": {
+    "text": "ตำแหน่งคนขับจะแสดงที่นี่ในไม่ช้า",
+    "status": "machine"
+  },
+  "trip.meet.title": {
+    "text": "การพบคนขับ",
+    "status": "machine"
+  },
+  "trip.meet.sign": {
+    "text": "คนขับถือป้ายชื่อ {name}",
+    "status": "machine"
+  },
+  "trip.meet.point": {
+    "text": "จุดนัดพบ",
+    "status": "machine"
+  },
+  "trip.meet.photoAlt": {
+    "text": "รูปจากคนขับที่จุดรับ",
+    "status": "machine"
+  },
+  "trip.meet.photoCaption": {
+    "text": "รูปจากคนขับที่จุดรับ",
+    "status": "machine"
+  },
+  "trip.pin.title": {
+    "text": "Trip PIN ของคุณ",
+    "status": "machine"
+  },
+  "trip.pin.help": {
+    "text": "บอก PIN นี้กับคนขับเมื่อพบกัน อย่าส่งล่วงหน้า",
+    "status": "machine"
+  },
+  "trip.route.pickup": {
+    "text": "จุดรับ",
+    "status": "machine"
+  },
+  "trip.route.dropoff": {
+    "text": "จุดส่ง",
+    "status": "machine"
+  },
+  "trip.route.when": {
+    "text": "{date} เวลา {time} น.",
+    "status": "machine"
+  },
+  "trip.route.flight": {
+    "text": "เที่ยวบิน {flight}",
+    "status": "machine"
+  },
+  "trip.timeline": {
+    "text": "ความคืบหน้าการเดินทาง",
+    "status": "machine"
+  },
+  "trip.share.title": {
+    "text": "แชร์การเดินทาง",
+    "status": "machine"
+  },
+  "trip.share.help": {
+    "text": "ส่งลิงก์แบบดูอย่างเดียวให้ครอบครัวหรือเพื่อนติดตามการเดินทาง ลิงก์จะไม่แสดง PIN และข้อมูลติดต่อ และหมดอายุ 2 ชั่วโมงหลังการเดินทาง",
+    "status": "machine"
+  },
+  "trip.share.create": {
+    "text": "สร้างลิงก์แชร์",
+    "status": "machine"
+  },
+  "trip.share.copy": {
+    "text": "คัดลอกลิงก์",
+    "status": "machine"
+  },
+  "trip.share.copied": {
+    "text": "คัดลอกลิงก์แล้ว",
+    "status": "machine"
+  },
+  "trip.share.send": {
+    "text": "แชร์",
+    "status": "machine"
+  },
+  "trip.share.stop": {
+    "text": "หยุดแชร์",
+    "status": "machine"
+  },
+  "trip.share.stopped": {
+    "text": "หยุดแชร์แล้ว ลิงก์ที่ส่งไปจะใช้ไม่ได้อีก",
+    "status": "machine"
+  },
+  "trip.share.error": {
+    "text": "ไม่สามารถอัปเดตการแชร์ได้ กรุณาลองอีกครั้ง",
+    "status": "machine"
+  },
+  "trip.share.message": {
+    "text": "ติดตามการเดินทาง Waydidi ของฉัน",
+    "status": "machine"
+  },
+  "trip.track": {
+    "text": "ติดตามการเดินทาง",
+    "status": "machine"
+  },
+  "trip.shareExpired": {
+    "text": "การเดินทางที่แชร์สิ้นสุดแล้ว",
+    "status": "machine"
+  },
+  "trip.shareExpiredHelp": {
+    "text": "ลิงก์ที่แชร์จะใช้ไม่ได้ 2 ชั่วโมงหลังการเดินทาง หรือเมื่อผู้เดินทางหยุดแชร์",
+    "status": "machine"
   }
 }
