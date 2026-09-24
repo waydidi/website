@@ -7,7 +7,6 @@ import {
   LogOut,
   RefreshCw,
   Search,
-  ShieldCheck,
   TicketX,
 } from "lucide-react";
 import { GoogleRoutePicker, type RouteInfo } from "@/components/google-route-picker";
@@ -187,13 +186,10 @@ export default function BookingLookup() {
     return (
       <main className="min-h-[calc(100vh-102px)] bg-slate-50 px-5 py-12 text-[#211726]">
         <section className="mx-auto max-w-md rounded-[28px] border border-slate-200 bg-white p-7 shadow-sm">
-          <span className="grid size-12 place-items-center rounded-full bg-orange-50 text-[#D96F00]">
-            <ShieldCheck />
-          </span>
-          <h1 className="mt-5 text-3xl font-black tracking-[-.04em]">
+          <h1 className="text-center text-3xl font-black tracking-[-.04em]">
             Manage your booking
           </h1>
-          <p className="mt-3 leading-7 text-slate-600">
+          <p className="mt-3 text-center leading-7 text-slate-600">
             Enter your booking reference and the lead passenger’s surname.
           </p>
           <form onSubmit={signIn} className="mt-7 space-y-5">
