@@ -609,7 +609,8 @@ export function BookingResultsMap(props: Props) {
       <div className="mt-1.5 flex items-center gap-3">
         {props.onExtrasChange && <button type="button" onClick={() => setExtrasOpen(true)} aria-label="Additional services" className="relative grid size-12 shrink-0 place-items-center rounded-full bg-brand text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
           <Plus size={24} strokeWidth={2.5} aria-hidden="true" />
-          {extrasCount > 0 && <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full border-2 border-white bg-[#1C1C1C] text-[11px] font-semibold">{extrasCount}</span>}
+          <span aria-hidden="true" className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-white bg-[#D32F2F] px-1.5 py-px text-[10px] font-bold leading-[14px] text-white">Add-ons</span>
+          {extrasCount > 0 && <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border-2 border-white bg-[#1C1C1C] text-[11px] font-semibold">{extrasCount}</span>}
         </button>}
       <button disabled={disabled} onClick={props.onContinue} className="flex h-12 min-w-0 flex-1 items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
       </div>
