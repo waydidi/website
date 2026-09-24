@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { PublicPathHeader } from "@/components/public-header";
 
@@ -14,6 +14,10 @@ export const metadata: Metadata = {
     locale: "en_TH",
   },
 };
+
+// "cover" lets the page reach under Safari's floating toolbar, so the light
+// strip below can sit behind it.
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export default function RootLayout({
   children,
@@ -49,6 +53,10 @@ export default function RootLayout({
             __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
           }}
         />
+        {/* Mobile Safari tints its floating bottom toolbar from what touches the
+            screen's bottom edge; this soft off-white strip gives it a light,
+            cloud-like look on every page. Booking bars sit above it (z-50). */}
+        <div aria-hidden="true" className="no-print pointer-events-none fixed inset-x-0 bottom-0 z-40 h-[calc(env(safe-area-inset-bottom)+14px)] bg-gradient-to-b from-[#F7F7F5]/0 via-[#F7F7F5]/90 to-[#F7F7F5] lg:hidden" />
       </body>
     </html>
   );
