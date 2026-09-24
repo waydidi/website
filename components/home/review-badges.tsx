@@ -1,8 +1,7 @@
 "use client";
 
-// Waydidi's real review profiles. The section stays hidden until both a URL and
-// a genuine rating are filled in here — never show a rating Waydidi doesn't hold.
-// Until then it shows labelled sample ratings (prototype).
+// Waydidi's real review profiles. Fill in the page URLs to link the rows; add
+// genuine ratings to show them — never a rating Waydidi doesn't hold.
 const TRIPADVISOR = { url: "", rating: 0 }; // bubbles, 0–5 in halves
 const TRUSTPILOT = { url: "", rating: 0, label: "" }; // e.g. 4.5 and "Excellent"
 
@@ -50,22 +49,22 @@ function TrustpilotLogo() {
 }
 
 export function ReviewBadges() {
-  const configured = Boolean(TRIPADVISOR.url && TRIPADVISOR.rating && TRUSTPILOT.url && TRUSTPILOT.rating && TRUSTPILOT.label);
-  // Prototype: until real ratings are set, the band shows sample ratings,
-  // clearly marked as samples so customers aren't misled.
-  const ta = configured ? TRIPADVISOR : { url: "#", rating: 5 };
-  const tp = configured ? TRUSTPILOT : { url: "#", rating: 5, label: "Excellent" };
+  // With real ratings filled in above, show them; otherwise invite reviews
+  // with the logos only — never a rating Waydidi doesn't hold.
+  const rated = Boolean(TRIPADVISOR.url && TRIPADVISOR.rating && TRUSTPILOT.url && TRUSTPILOT.rating && TRUSTPILOT.label);
+  const Row = ({ url, className, label, children }: { url: string; className: string; label: string; children: React.ReactNode }) =>
+    url ? <a href={url} target="_blank" rel="noopener noreferrer" aria-label={label} className={className}>{children}</a>
+      : <div aria-label={label} className={className}>{children}</div>;
 
   return <section aria-label="Customer reviews" className="font-home bg-[#F1F2F6] px-3">
     <div className="mx-auto max-w-[640px]">
-      <a href={configured ? ta.url : undefined} target="_blank" rel="noopener noreferrer" aria-label={`Tripadvisor rating ${ta.rating} of 5`} className="flex h-[88px] items-center justify-center gap-2">
-        <TripadvisorLogo /><Bubbles rating={ta.rating} />
-      </a>
+      <Row url={TRIPADVISOR.url} label={rated ? `Tripadvisor rating ${TRIPADVISOR.rating} of 5` : "Review us on Tripadvisor"} className="flex h-[88px] items-center justify-center gap-2">
+        {rated ? <><TripadvisorLogo /><Bubbles rating={TRIPADVISOR.rating} /></> : <><span className="text-[13px] font-medium text-[#191919]">Review us on</span><TripadvisorLogo /></>}
+      </Row>
       <hr className="border-t border-[#D5D7DE]" />
-      <a href={configured ? tp.url : undefined} target="_blank" rel="noopener noreferrer" aria-label={`Trustpilot rating ${tp.label}, ${tp.rating} of 5`} className="flex h-[66px] items-center justify-center gap-2.5">
-        <span className="text-[13px] font-medium text-[#191919]">{tp.label}</span><TrustStars rating={tp.rating} /><TrustpilotLogo />
-      </a>
-      {!configured && <p className="pb-3 text-center text-[11px] text-[#8A8A8A]">Sample ratings · design prototype</p>}
+      <Row url={TRUSTPILOT.url} label={rated ? `Trustpilot rating ${TRUSTPILOT.label}, ${TRUSTPILOT.rating} of 5` : "Review us on Trustpilot"} className="flex h-[66px] items-center justify-center gap-2.5">
+        {rated ? <><span className="text-[13px] font-medium text-[#191919]">{TRUSTPILOT.label}</span><TrustStars rating={TRUSTPILOT.rating} /><TrustpilotLogo /></> : <><span className="text-[13px] font-medium text-[#191919]">Review us on</span><TrustpilotLogo /></>}
+      </Row>
     </div>
   </section>;
 }
