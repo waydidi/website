@@ -234,7 +234,7 @@ export default function PricingWorkspace({ email }: { email: string }) {
       <div className="grid min-h-screen lg:grid-cols-[238px_1fr]">
         <aside className="hidden border-r border-slate-200 bg-white p-5 lg:flex lg:flex-col">
           <a href="/" className="inline-flex text-[#FF8A05]">
-            <WaydidiLogo className="h-14 w-auto" />
+            <WaydidiLogo className="h-[62px] w-auto" />
           </a>
           <nav className="mt-8 space-y-1 text-sm font-semibold">
             <a

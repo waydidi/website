@@ -1054,7 +1054,7 @@ export function BookingFlow({
         ) : mapView ? null : (
           <header className="relative z-40 flex h-[72px] w-full items-center justify-between bg-brand px-5 text-ink lg:px-8">
             <Link href="/" className="inline-flex text-white" aria-label={t("nav.home")}>
-              <WaydidiLogo className="h-[43px] w-auto sm:h-[53px]" />
+              <WaydidiLogo className="h-[47px] w-auto sm:h-[58px]" />
             </Link>
             <Progress stage={stage} inHeader />
           </header>
@@ -1863,7 +1863,7 @@ export function BookingFlow({
         <section className="mx-auto max-w-[900px] px-5 py-12 lg:px-10 lg:py-16">
           <div className="booking-confirmation overflow-hidden rounded-[32px] bg-white shadow-xl shadow-orange-950/10">
             <div className="bg-brand p-7 text-white sm:p-10">
-              <Link href="/" className="mb-8 inline-flex text-white" aria-label="Waydidi home"><WaydidiLogo className="h-20 w-auto" /></Link>
+              <Link href="/" className="mb-8 inline-flex text-white" aria-label="Waydidi home"><WaydidiLogo className="h-[88px] w-auto" /></Link>
               <span className="grid size-14 place-items-center rounded-full bg-white/20 text-white">
                 <Check size={30} strokeWidth={3} />
               </span>

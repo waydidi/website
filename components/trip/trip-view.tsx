@@ -136,7 +136,7 @@ export function TripView({ reference }: { reference: string }) {
     <main className="min-h-screen bg-surface pb-16 text-ink">
       <header className="bg-brand px-4 pb-10 pt-4 text-white">
         <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
-          <Link href="/" aria-label={t("nav.home")} className="inline-flex text-white"><WaydidiLogo className="h-11 w-auto" /></Link>
+          <Link href="/" aria-label={t("nav.home")} className="inline-flex text-white"><WaydidiLogo className="h-[48px] w-auto" /></Link>
           <LanguageLinks locale={locale} />
         </div>
         <div className="mx-auto mt-7 max-w-xl">

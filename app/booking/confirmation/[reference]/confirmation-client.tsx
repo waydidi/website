@@ -248,7 +248,7 @@ export default function ConfirmationClient({
             className="mb-8 inline-flex text-white"
             aria-label="Waydidi home"
           >
-            <WaydidiLogo className="h-20 w-auto" />
+            <WaydidiLogo className="h-[88px] w-auto" />
           </Link>
           <span className="grid size-14 place-items-center rounded-full bg-white/20 text-white">
             {cancelled ? (

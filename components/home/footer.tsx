@@ -18,7 +18,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
                 className="inline-flex text-white"
                 aria-label={t("nav.home")}
               >
-                <WaydidiWordmark className="h-9 w-[142px]" />
+                <WaydidiWordmark className="h-[40px] w-[156px]" />
               </Link>
             </div>
             <FooterLinks

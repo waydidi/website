@@ -219,7 +219,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
         <div className="mx-auto flex max-w-[1550px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-5">
             <a href="/" className="inline-flex text-white">
-              <WaydidiLogo className="h-14 w-auto" />
+              <WaydidiLogo className="h-[62px] w-auto" />
             </a>
             <span className="hidden h-8 w-px bg-white/30 sm:block" />
             <div>

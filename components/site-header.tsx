@@ -88,7 +88,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
       <Link href="/" className="inline-flex shrink-0 text-white" aria-label={t("nav.home")}>
         {/* Explicit widths (logo is 810:308): Safari collapses a width-less
             mask span to 0px when its container is allowed to shrink. */}
-        <WaydidiLogo className="h-9 w-[95px] min-[360px]:h-12 min-[360px]:w-[126px] sm:h-[62px] sm:w-[163px] lg:h-[83px] lg:w-[218px]" />
+        <WaydidiLogo className="h-[40px] w-[105px] min-[360px]:h-[53px] min-[360px]:w-[139px] sm:h-[68px] sm:w-[179px] lg:h-[91px] lg:w-[240px]" />
       </Link>
       <nav className="hidden items-center gap-10 text-[16px] font-semibold xl:flex">
         {navMenus.map((menu) => (

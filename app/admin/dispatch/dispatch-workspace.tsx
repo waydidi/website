@@ -247,7 +247,7 @@ export default function DispatchWorkspace({ email }: { email: string }) {
         <div className="mx-auto flex max-w-[1550px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-5">
             <Link href="/" className="inline-flex">
-              <WaydidiLogo className="h-12 w-auto" />
+              <WaydidiLogo className="h-[53px] w-auto" />
             </Link>
             <span className="hidden h-8 w-px bg-white/30 sm:block" />
             <div>

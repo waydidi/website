@@ -307,7 +307,7 @@ export default function CalendarWorkspace({ email }: { email: string }) {
       <header className="border-b border-orange-400 bg-[#FF8A05] px-4 py-4 text-white sm:px-8">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <a href="/" aria-label="Waydidi home"><WaydidiLogo className="h-12 w-auto" /></a>
+            <a href="/" aria-label="Waydidi home"><WaydidiLogo className="h-[53px] w-auto" /></a>
             <span className="hidden h-8 w-px bg-white/30 sm:block" />
             <div><p className="text-xs font-bold uppercase tracking-[.14em] text-white/70">Waydidi operations</p><h1 className="text-xl font-black sm:text-2xl">Operations calendar</h1></div>
           </div>

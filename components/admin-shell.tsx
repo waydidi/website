@@ -109,7 +109,7 @@ export default function AdminShell({
               style={{ width: collapsed ? 40 : 126 }}
             >
               <WaydidiLogo
-                className={`absolute left-0 top-0 h-12 w-auto transition-all duration-200 ${collapsed ? "scale-90 opacity-0" : "scale-100 opacity-100"}`}
+                className={`absolute left-0 top-0 h-[53px] w-auto transition-all duration-200 ${collapsed ? "scale-90 opacity-0" : "scale-100 opacity-100"}`}
               />
               <WaydidiMark
                 className={`absolute left-1/2 top-1/2 size-10 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${collapsed ? "scale-100 opacity-100" : "scale-75 opacity-0"}`}

@@ -71,7 +71,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               className="mb-6 inline-flex text-[#FF8A05]"
               aria-label="Waydidi home"
             >
-              <WaydidiLogo className="h-20 w-auto" />
+              <WaydidiLogo className="h-[88px] w-auto" />
             </a>
             <p className="text-sm font-black uppercase tracking-[.16em] text-[#D96F00]">
               Waydidi operations
