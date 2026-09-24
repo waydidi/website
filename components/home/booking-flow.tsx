@@ -44,6 +44,7 @@ import { VEHICLES, smallestFittingVehicle, vehicleFits, type VehicleId } from "@
 import { DateTimePicker } from "./date-time-picker";
 import { SiteHeader } from "@/components/site-header";
 import { useCurrency } from "@/components/use-currency";
+import { DEMO_DROPOFF, DEMO_PICKUP, DEMO_PRICES, fetchDemoRoute, isDemoRoute } from "@/lib/demo-route";
 import { formatTimeLabel } from "./dates";
 import { formatDate, translate, type Locale, type MessageKey, type Messages } from "@/lib/i18n";
 import enMessages from "@/messages/en.json";
@@ -80,6 +81,7 @@ type FareQuote = {
   encodedPolyline?: string;
   pickup?: { latitude: number; longitude: number };
   dropoff?: { latitude: number; longitude: number };
+  path?: [number, number][];
   prices: Record<
     string,
     { total: number; basePrice: number; distanceSurcharge: number }
@@ -133,6 +135,7 @@ type BookingRecoveryDraft = {
   extraBagSets: number;
   checkoutAttemptId: string;
   quoteRequest?: boolean;
+  demoRoute?: boolean;
 };
 
 const RECOVERY_DRAFT_KEY = "waydidi-booking-recovery-v1";
@@ -250,6 +253,8 @@ export function BookingFlow({
   // the flow runs as a quote request: no price, no payment.
   const [mapsAvailable, setMapsAvailable] = useState(true);
   const [quoteRequest, setQuoteRequest] = useState(false);
+  // Prototype route shown on the map screen while live pricing is off.
+  const [demoRoute, setDemoRoute] = useState(false);
   const [minPickupDate, setMinPickupDate] = useState("");
   const [minPickupTime, setMinPickupTime] = useState("");
   const checkoutAttemptRef = useRef("");
@@ -328,6 +333,7 @@ export function BookingFlow({
         setChildPassengers(draft.childPassengers);
         setExtraBagSets(draft.extraBagSets);
         setQuoteRequest(Boolean(draft.quoteRequest));
+        setDemoRoute(Boolean(draft.demoRoute));
         checkoutAttemptRef.current = draft.checkoutAttemptId;
       } else if (raw) {
         sessionStorage.removeItem(RECOVERY_DRAFT_KEY);
@@ -471,6 +477,7 @@ export function BookingFlow({
       extraBagSets,
       checkoutAttemptId: checkoutAttemptRef.current,
       quoteRequest,
+      demoRoute,
     };
     try {
       sessionStorage.setItem(RECOVERY_DRAFT_KEY, JSON.stringify(draft));
@@ -491,6 +498,7 @@ export function BookingFlow({
     hourlyQuote,
     pickupPlaceId,
     quoteRequest,
+    demoRoute,
     departureSelected,
     returnTrip,
     returnDate,
@@ -609,6 +617,25 @@ export function BookingFlow({
       }
       setPricingMessage("");
       setQuoteRequest(true);
+      const demo = serviceType === "transfer" && isDemoRoute(booking.pickup, booking.dropoff);
+      setDemoRoute(demo);
+      if (demo) {
+        setFareQuote(null);
+        goToStage("vehicle");
+        const route = await fetchDemoRoute();
+        setFareQuote({
+          quoteId: "demo",
+          area: { id: "demo", name: "Prototype", color: "#FF8A05", pricingType: "demo" },
+          distanceMeters: route.distanceMeters,
+          durationSeconds: route.durationSeconds,
+          path: route.path,
+          pickup: DEMO_PICKUP,
+          dropoff: DEMO_DROPOFF,
+          prices: Object.fromEntries(Object.entries(DEMO_PRICES).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
+          expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        });
+        return;
+      }
       goToStage("vehicle");
       return;
     }
@@ -867,7 +894,7 @@ export function BookingFlow({
   const hasPrice = !quoteRequest && (serviceType === "transfer" ? Boolean(fareQuote) : Boolean(hourlyQuote));
   const priceText = quoteRequest ? "Quote on request" : hasPrice ? money(chosenVehicle.price) : "—";
   // The transfer results screen has its own full-screen layout and Book bar.
-  const mapView = stage === "vehicle" && serviceType === "transfer" && !quoteRequest;
+  const mapView = stage === "vehicle" && serviceType === "transfer" && (!quoteRequest || demoRoute);
   const priceBar =
     mapView ? null : stage === "vehicle"
       ? {
@@ -1277,7 +1304,7 @@ export function BookingFlow({
       {/* Keyed by stage so each step fades in rather than swapping abruptly. */}
       <div key={stage} className="animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
       {stage === "vehicle" && (
-        serviceType === "transfer" && !quoteRequest ? <BookingResultsMap
+        serviceType === "transfer" && (!quoteRequest || demoRoute) ? <BookingResultsMap
           pickup={booking.pickup}
           dropoff={booking.dropoff}
           date={booking.date}

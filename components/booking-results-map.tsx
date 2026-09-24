@@ -18,6 +18,8 @@ export type MapQuote = {
   encodedPolyline?: string;
   pickup?: { latitude: number; longitude: number };
   dropoff?: { latitude: number; longitude: number };
+  // Route points when there is no Google polyline (prototype route).
+  path?: [number, number][];
 };
 
 export type Vehicle = {
@@ -126,10 +128,29 @@ const GREY_MAP = [
   { featureType: "water", stylers: [{ color: "#d6d6d6" }] },
 ];
 
+let leafletPromise: Promise<void> | null = null;
+function loadLeaflet() {
+  leafletPromise ??= new Promise<void>((resolve, reject) => {
+    if ((window as any).L) return resolve();
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
+    document.head.appendChild(css);
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => { leafletPromise = null; reject(new Error("Leaflet failed to load")); };
+    document.head.appendChild(script);
+  });
+  return leafletPromise;
+}
+
 export function BookingResultsMap(props: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapReady, setMapReady] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [leafletReady, setLeafletReady] = useState(false);
   const selected = props.vehicles.find((item) => item.id === props.selectedVehicle) ?? props.vehicles[0];
   const minutes = props.quote ? props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60 : 0;
   const cheapest = props.vehicles.filter((v) => v.fits !== false).reduce<Vehicle | undefined>((best, v) => !best || v.price < best.price ? v : best, undefined);
@@ -144,7 +165,8 @@ export function BookingResultsMap(props: Props) {
       if (window.google?.maps) { setMapReady(true); return; }
       const response = await fetch("/api/maps/config", { cache: "no-store" });
       const { apiKey } = await response.json() as { apiKey?: string };
-      if (!apiKey || cancelled) return;
+      if (cancelled) return;
+      if (!apiKey) { await loadLeaflet(); if (!cancelled) setLeafletReady(true); return; }
       const existing = document.querySelector<HTMLScriptElement>("script[data-waydidi-google-maps]");
       if (existing) { existing.addEventListener("load", () => !cancelled && setMapReady(true), { once: true }); return; }
       const script = document.createElement("script");
@@ -182,6 +204,27 @@ export function BookingResultsMap(props: Props) {
     map.fitBounds(bounds, { top: 90, right: 60, bottom: 50, left: 60 });
     return () => overlays.forEach((overlay) => overlay.setMap(null));
   }, [mapReady, props.quote, props.pickup, props.dropoff, props.date, props.time]);
+
+
+  // Without a Google key: free Leaflet map with CARTO light tiles.
+  useEffect(() => {
+    const L = (window as any).L;
+    if (!leafletReady || !L || !mapRef.current || !props.quote?.pickup || !props.quote.dropoff) return;
+    const pickup: [number, number] = [props.quote.pickup.latitude, props.quote.pickup.longitude];
+    const dropoff: [number, number] = [props.quote.dropoff.latitude, props.quote.dropoff.longitude];
+    const path = props.quote.path?.length ? props.quote.path : [pickup, dropoff];
+    const map = L.map(mapRef.current, { zoomControl: false, attributionControl: true });
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { subdomains: "abcd", maxZoom: 19, attribution: "© OpenStreetMap © CARTO" }).addTo(map);
+    L.polyline(path, { color: "#1C1C1C", weight: 5, opacity: 1 }).addTo(map);
+    const travel = props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
+    const icon = (html: string) => L.divIcon({ className: "", html: `<div style="position:absolute;left:0;top:0;transform:translate(-50%,-100%)">${html}</div>`, iconSize: [0, 0] });
+    L.marker(pickup, { icon: icon(squarePin("#1C1C1C")), interactive: false }).addTo(map);
+    L.marker(dropoff, { icon: icon(squarePin("#FF8A05")), interactive: false }).addTo(map);
+    L.marker(pickup, { icon: icon(timeLabel("Pick up", shortPlace(props.pickup), clockLabel(props.date, props.time), "#1C1C1C", "#fff")), interactive: false }).addTo(map);
+    L.marker(dropoff, { icon: icon(timeLabel("Drop-off", shortPlace(props.dropoff), clockLabel(props.date, props.time, travel), "#FF8A05", "#1C1C1C")), interactive: false }).addTo(map);
+    map.fitBounds(L.latLngBounds(path), { paddingTopLeft: [60, 90], paddingBottomRight: [60, 40] });
+    return () => map.remove();
+  }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time]);
 
   const disabled = !props.quote || props.loading || !selected || selected.fits === false || props.checkoutReady === false;
 
