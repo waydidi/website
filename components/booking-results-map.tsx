@@ -256,7 +256,10 @@ export function BookingResultsMap(props: Props) {
     const dropoff: [number, number] = [props.quote.dropoff.latitude, props.quote.dropoff.longitude];
     const path = props.quote.path?.length ? props.quote.path : [pickup, dropoff];
     const map = L.map(mapRef.current, { zoomControl: false, attributionControl: true });
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { subdomains: "abcd", maxZoom: 19, attribution: "© OpenStreetMap © CARTO" }).addTo(map);
+    // OpenStreetMap tiles (no key needed), greyed to match the design.
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+    const tiles = map.getPane("tilePane");
+    if (tiles) tiles.style.filter = "grayscale(1) brightness(1.06) contrast(.92)";
     if (traffic) {
       L.polyline(traffic.path, { color: "#FFFFFF", weight: 9, opacity: 1 }).addTo(map);
       for (const segment of trafficSegments(traffic.path, traffic.intervals)) L.polyline(segment.points, { color: TRAFFIC_COLORS[segment.speed], weight: 6, opacity: 1 }).addTo(map);
@@ -272,6 +275,42 @@ export function BookingResultsMap(props: Props) {
     map.fitBounds(L.latLngBounds(path), { paddingTopLeft: [60, 150], paddingBottomRight: [60, 40] });
     return () => map.remove();
   }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
+
+  // Bottom sheet: collapsed (map 70%) or expanded (list fills most of the screen).
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [dragY, setDragY] = useState<number | null>(null);
+  const drag = useRef<{ startY: number; moved: boolean } | null>(null);
+  function startDrag(event: React.PointerEvent<HTMLDivElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { startY: event.clientY, moved: false };
+    setDragY(0);
+  }
+  function moveDrag(event: React.PointerEvent<HTMLDivElement>) {
+    if (!drag.current) return;
+    const dy = event.clientY - drag.current.startY;
+    if (Math.abs(dy) > 4) drag.current.moved = true;
+    // Resist dragging past either end.
+    const travel = window.innerHeight * 0.56;
+    const limited = expanded ? Math.min(travel, Math.max(-20, dy)) : Math.max(-travel, Math.min(40, dy));
+    setDragY(limited);
+  }
+  function endDrag(event: React.PointerEvent<HTMLDivElement>) {
+    const state = drag.current;
+    drag.current = null;
+    const dy = dragY ?? 0;
+    setDragY(null);
+    if (!state) return;
+    if (event.type === "pointercancel") return;
+    if (!state.moved) { setExpanded(!expanded); return; }
+    if (!expanded && dy < -60) setExpanded(true);
+    else if (expanded && dy > 60) setExpanded(false);
+  }
+  const sheetStyle = {
+    "--sheet-top": expanded ? "calc(14svh)" : "calc(70svh - 20px)",
+    transform: dragY ? `translateY(${dragY}px)` : undefined,
+    transition: dragY === null ? "top .28s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1)" : "none",
+  } as React.CSSProperties;
 
   const disabled = !props.quote || props.loading || !selected || selected.fits === false || props.checkoutReady === false;
 
@@ -298,8 +337,22 @@ export function BookingResultsMap(props: Props) {
     </div>
 
     {/* Sheet */}
-    <div className="absolute inset-x-0 bottom-0 top-[calc(70svh-20px)] z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_16px_rgba(0,0,0,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:top-0 lg:w-[460px] lg:rounded-none">
-      <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-[#D9D9D9]" aria-hidden="true" />
+    <div ref={sheetRef} style={sheetStyle} className="absolute inset-x-0 bottom-0 top-[var(--sheet-top)] z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_16px_rgba(0,0,0,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:top-0 lg:w-[460px] lg:rounded-none">
+      {/* Drag (or tap) the handle to pull the list up over the map and back down. */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={expanded ? "Show more map" : "Show all cars"}
+        aria-expanded={expanded}
+        onPointerDown={startDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded(!expanded); } }}
+        className="flex h-7 shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing lg:hidden"
+      >
+        <span className="h-1 w-10 rounded-full bg-[#D9D9D9]" aria-hidden="true" />
+      </div>
       <div className="flex-1 overflow-y-auto px-4 pb-3 pt-2">
 
         {props.error ? <div className="mb-3 rounded-2xl bg-orange-50 p-4 text-sm text-[#6D3700]">
