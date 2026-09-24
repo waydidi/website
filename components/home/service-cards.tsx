@@ -43,9 +43,9 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
         {cards.map((card) => (
           <article
             key={card.title}
-            className="group flex min-h-[190px] flex-col rounded-2xl bg-surface p-5 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            className="group flex min-h-[190px] min-w-0 flex-col rounded-2xl bg-surface p-5 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
-            <div className="grid flex-1 grid-cols-[1fr_96px] items-start gap-4">
+            <div className="grid flex-1 grid-cols-[minmax(0,1fr)_96px] items-start gap-4">
               <div>
                 <h3 className="text-lg font-bold">{card.title}</h3>
                 <p className="mt-2 text-sm leading-5 text-ink/80">{card.text}</p>

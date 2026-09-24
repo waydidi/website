@@ -157,7 +157,6 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
-  overflow-x: clip;
 }
 
 /* The booking search form uses Inter, a close free match for Trip.com's search UI. */
@@ -168,10 +167,9 @@ body {
 
 html {
   scroll-behavior: smooth;
-  /* iOS Safari lets the page pan sideways unless the root is clipped too.
-     "clip" (unlike "hidden") keeps position: sticky working. */
-  overflow-x: hidden;
-  overflow-x: clip;
+  /* No overflow here: giving html an overflow value stops body's overflow-x
+     from applying to the viewport and turns body into its own scroll box,
+     which makes the fixed header drift down the screen in iOS Safari. */
 }
 
 /* iOS Safari zooms the whole page into any field with text under 16px when
