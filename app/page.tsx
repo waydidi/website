@@ -258,6 +258,26 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    // Pre-fill contact details for signed-in customers without overwriting
+    // anything the customer (or a restored draft) has already entered.
+    let active = true;
+    fetch("/api/account/session", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((account: { signedIn?: boolean; name?: string | null; surname?: string | null; email?: string; phone?: string | null } | null) => {
+        if (!active || !account?.signedIn) return;
+        setBooking((current) => ({
+          ...current,
+          name: current.name || account.name || "",
+          surname: current.surname || account.surname || "",
+          email: current.email || account.email || "",
+          phone: current.phone || account.phone || "",
+        }));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     try {
       const raw = sessionStorage.getItem(RECOVERY_DRAFT_KEY);
       const draft = raw ? (JSON.parse(raw) as BookingRecoveryDraft) : null;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CarFront, ChevronDown, Menu, X } from "lucide-react";
+import { CarFront, ChevronDown, Menu, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -87,8 +87,27 @@ function NavDropdown({ label, links }: { label: string; links: readonly { label:
  * paints the background once the page scrolls; otherwise it is sticky and
  * always orange.
  */
+type AccountState = { signedIn: false } | { signedIn: true; name: string | null; email: string };
+
+// Signed-in state is fetched after load so every page can stay static.
+function useAccount() {
+  const [account, setAccount] = useState<AccountState | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/account/session", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : { signedIn: false }))
+      .then((data: AccountState) => { if (active) setAccount(data); })
+      .catch(() => { if (active) setAccount({ signedIn: false }); });
+    return () => { active = false; };
+  }, []);
+  return account;
+}
+
 export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
+  const account = useAccount();
+  const accountLabel = account?.signedIn ? account.name || "My account" : "Sign in";
+  const accountHref = account?.signedIn ? "/account" : "/account/sign-in";
 
   useEffect(() => {
     let frame = 0;
@@ -129,6 +148,13 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             {link.label}
           </Link>
         ))}
+        <Link
+          href={accountHref}
+          className={`flex items-center gap-2 rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${account ? "" : "invisible"}`}
+        >
+          <span className="grid size-8 place-items-center rounded-full bg-white/20"><UserRound size={18} /></span>
+          <span className="max-w-[140px] truncate">{accountLabel}</span>
+        </Link>
         <Link
           href="/booking/manage"
           className="flex h-12 items-center gap-2 rounded-full bg-white px-6 font-bold text-[#D96F00] transition-colors duration-500 hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#FF8A05]"
@@ -175,6 +201,11 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
               </div>
             ))}
             <div className="grid border-b border-slate-200 py-5">
+              <SheetClose asChild>
+                <Link href={accountHref} className="flex items-center gap-2 rounded-xl py-3 text-lg font-bold text-[#C96100] hover:text-[#D96F00]">
+                  <UserRound size={20} /> {account?.signedIn ? "My account" : "Sign in / create account"}
+                </Link>
+              </SheetClose>
               {navLinks.map((link) => (
                 <SheetClose asChild key={link.href}>
                   <Link href={link.href} className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]">

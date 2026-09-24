@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { customerFromRequest } from "@/lib/customer-auth";
+import { customerBookingLinks } from "@/db/schema";
 import { and, count, eq, gt, lt } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db";
@@ -404,6 +406,10 @@ export async function POST(request: Request) {
         extraHourRate: hourlyData?.extraHourRate,
         extraDistanceRate: hourlyData?.extraDistanceRate,
       });
+    // Bookings made while signed in are linked to the customer's account,
+    // even when booked for someone else's email.
+    const account = await customerFromRequest(request);
+    if (account) await getDb().insert(customerBookingLinks).values({ bookingReference: reference, customerId: account.customer.id, createdAt: now }).onConflictDoNothing();
     await getDb().insert(bookingPayments).values({
       id: `primary:${reference}`,
       bookingReference: reference,

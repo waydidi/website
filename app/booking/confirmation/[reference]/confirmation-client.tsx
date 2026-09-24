@@ -319,8 +319,39 @@ export default function ConfirmationClient({
               </Link>
             )}
           </div>
+          {!cancelled && <AccountPrompt email={booking.customerEmail} reference={booking.reference} />}
         </div>
       </div>
     </main>
+  );
+}
+
+// Invites guests to keep this trip in an account; signed-in customers
+// get a link straight to it.
+function AccountPrompt({ email, reference }: { email: string; reference: string }) {
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/account/session", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : { signedIn: false }))
+      .then((data: { signedIn?: boolean }) => { if (active) setSignedIn(Boolean(data.signedIn)); })
+      .catch(() => { if (active) setSignedIn(false); });
+    return () => { active = false; };
+  }, []);
+  if (signedIn === null) return null;
+  const tripPath = `/account/trips/${encodeURIComponent(reference)}`;
+  return (
+    <div className="no-print mt-8 flex flex-col gap-4 rounded-3xl border border-slate-200 p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="font-black">{signedIn ? "This trip is in your account." : "Keep all your trips in one place."}</p>
+        <p className="mt-1 text-sm text-slate-600">{signedIn ? "Track your driver, change the date or download receipts any time." : "Sign in with this email to see this booking, change it and download receipts. No password needed."}</p>
+      </div>
+      <Link
+        href={signedIn ? tripPath : `/account/sign-in?email=${encodeURIComponent(email)}&next=${encodeURIComponent(tripPath)}`}
+        className="shrink-0 rounded-full bg-[#211726] px-6 py-3 text-center font-bold text-white"
+      >
+        {signedIn ? "View in my account" : "Create account"}
+      </Link>
+    </div>
   );
 }

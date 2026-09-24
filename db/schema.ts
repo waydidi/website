@@ -720,3 +720,70 @@ export const operationsAlerts = sqliteTable(
     index("idx_operations_alerts_reference").on(table.bookingReference, table.createdAt),
   ],
 );
+
+// Customer accounts. Sign-in is passwordless: a one-time code is emailed and
+// only its hash is stored. Bookings are linked by verified email, and by
+// customer_booking_links for bookings made while signed in (a separate table
+// because bookings is already at D1's 100-column limit).
+export const customers = sqliteTable(
+  "customers",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    name: text("name"),
+    surname: text("surname"),
+    phone: text("phone"),
+    contactPreference: text("contact_preference").notNull().default("email"),
+    language: text("language").notNull().default("en"),
+    marketingOptIn: integer("marketing_opt_in", { mode: "boolean" }).notNull().default(false),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    lastSeenAt: text("last_seen_at"),
+  },
+  (table) => [uniqueIndex("uidx_customers_email").on(table.email)],
+);
+
+export const customerLoginCodes = sqliteTable(
+  "customer_login_codes",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    codeHash: text("code_hash").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    expiresAt: text("expires_at").notNull(),
+    consumedAt: text("consumed_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("idx_customer_login_codes_email_created").on(table.email, table.createdAt),
+    index("idx_customer_login_codes_expires").on(table.expiresAt),
+  ],
+);
+
+export const customerSessions = sqliteTable(
+  "customer_sessions",
+  {
+    id: text("id").primaryKey(),
+    customerId: text("customer_id").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    userAgent: text("user_agent"),
+    expiresAt: text("expires_at").notNull(),
+    createdAt: text("created_at").notNull(),
+    lastUsedAt: text("last_used_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("uidx_customer_sessions_token").on(table.tokenHash),
+    index("idx_customer_sessions_customer").on(table.customerId),
+    index("idx_customer_sessions_expires").on(table.expiresAt),
+  ],
+);
+
+export const customerBookingLinks = sqliteTable(
+  "customer_booking_links",
+  {
+    bookingReference: text("booking_reference").primaryKey(),
+    customerId: text("customer_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("idx_customer_booking_links_customer").on(table.customerId)],
+);

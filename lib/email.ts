@@ -262,3 +262,18 @@ export async function sendRefundDecisionEmail(input:{to:string;name:string;refer
   const html=reminderShell(approved?"Refund approved":"Refund decision",title,intro,`${detailRow("Booking",input.reference)}${detailRow("Amount",`THB ${input.amount.toLocaleString("en-US")}`)}${detailRow("Status",approved?"Approved — processing by payment provider":"Declined")}`);
   return resend({to:[input.to],subject:`${title} · ${input.reference}`,html,text:`${title}\n${intro}\nBooking: ${input.reference}\nAmount: THB ${input.amount.toLocaleString("en-US")}`},`refund-${input.decision}-${input.reference}`);
 }
+
+export async function sendAccountSignInCode(input: { to: string; code: string; codeId: string }) {
+  const html = reminderShell(
+    "Waydidi account",
+    `Your sign-in code is ${input.code}`,
+    "Enter this code on the Waydidi sign-in page. It expires in 10 minutes. If you did not ask for it, you can ignore this email.",
+    detailRow("Code", input.code),
+  );
+  return resend({
+    to: [input.to],
+    subject: `${input.code} is your Waydidi sign-in code`,
+    html,
+    text: `Your Waydidi sign-in code is ${input.code}. It expires in 10 minutes. If you did not ask for it, you can ignore this email.`,
+  }, `account-code-${input.codeId}`);
+}
