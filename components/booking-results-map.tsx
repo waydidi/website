@@ -199,6 +199,14 @@ const GREY_MAP = [
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#A9D3F5" }] },
 ]
 
+// Typical models per class (matching the photos); the exact car may differ.
+const VEHICLE_MODELS: Record<string, string> = {
+  economy_sedan: "Toyota Corolla Altis or similar",
+  comfort_bmw: "BMW 3 Series or similar",
+  comfort_suv: "Toyota Fortuner or similar",
+  premium_minivan: "Toyota Commuter or similar",
+};
+
 let leafletPromise: Promise<void> | null = null;
 function loadLeaflet() {
   leafletPromise ??= new Promise<void>((resolve, reject) => {
@@ -221,6 +229,9 @@ export function BookingResultsMap(props: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapReady, setMapReady] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // Vehicle whose "?" details sheet is open.
+  const [infoId, setInfoId] = useState<string | null>(null);
+  const info = props.vehicles.find((v) => v.id === infoId) ?? null;
   const [leafletReady, setLeafletReady] = useState(false);
   // Re-fits the route to the visible part of the map (set by whichever map is drawn).
   const fitRef = useRef<((bottomPadding: number) => void) | null>(null);
@@ -507,7 +518,14 @@ export function BookingResultsMap(props: Props) {
                   <span className="mt-1 flex items-center gap-1.5 text-[15px] text-[#6B6B6B]">
                     {item.passengers !== undefined && <><span>{item.passengers}</span><Users size={18} className="text-[#1C1C1C]" aria-label="passengers" /></>}
                     {item.bags !== undefined && <><span className="ml-2">{item.bags}</span><Luggage size={18} className="text-[#1C1C1C]" aria-label="bags" /></>}
-                    <span className="ml-2 text-[#9A9A9A]" title={item.tagline}><CircleHelp size={18} aria-label={item.tagline} /></span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${item.name} details`}
+                      onClick={(e) => { e.stopPropagation(); setInfoId(item.id); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setInfoId(item.id); } }}
+                      className="-m-2 ml-0 grid size-9 place-items-center rounded-full text-[#9A9A9A] hover:text-[#1C1C1C]"
+                    ><CircleHelp size={18} aria-hidden="true" /></span>
                   </span>
                   {item.fits === false ? <span className="mt-2 block text-sm font-medium text-brand-deep">Too small for your group</span>
                     : null}
@@ -536,6 +554,56 @@ export function BookingResultsMap(props: Props) {
       </div>
       <button disabled={disabled} onClick={props.onContinue} className="mt-1.5 flex h-12 w-full items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
     </div>
+
+    {/* Vehicle details ("?" on a car card), Transfeero style. */}
+    <DialogPrimitive.Root open={Boolean(info)} onOpenChange={(open) => { if (!open) setInfoId(null); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[20px] bg-white text-[#1C1C1C] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
+          {info && <>
+            <div className="flex items-center justify-between px-5 pt-5">
+              <DialogPrimitive.Title className="text-[28px] font-semibold leading-tight">Details</DialogPrimitive.Title>
+              <DialogPrimitive.Close className="grid size-10 place-items-center rounded-full hover:bg-slate-100" aria-label="Close"><X size={24} /></DialogPrimitive.Close>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 pb-4">
+              <div className="flex flex-wrap items-center gap-3 border-b border-[#E6E6E6] py-4">
+                <p className="text-[17px] font-medium">Class: {info.name}</p>
+                {info.id === cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-[#EEF7EE] px-2.5 py-0.5 text-[14px] font-medium text-[#2E7D32]"><Lightbulb size={14} aria-hidden="true" />Best value</span>}
+                {info.popular && info.id !== cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-[#FDECEC] px-2.5 py-0.5 text-[14px] font-medium text-[#B3261E]"><Flame size={14} aria-hidden="true" />Most popular</span>}
+              </div>
+              <DialogPrimitive.Description className="sr-only">Vehicle details and price for {info.name}</DialogPrimitive.Description>
+              <h3 className="mt-5 text-[17px] font-medium">Vehicle details</h3>
+              <ul className="mt-3 grid gap-3 text-[16px] text-[#4A4A4A]">
+                <li className="flex items-center gap-3"><CarFront size={18} aria-hidden="true" />{VEHICLE_MODELS[info.id] ?? info.tagline}</li>
+                {info.passengers !== undefined && <li className="flex items-center gap-3"><Users size={18} aria-hidden="true" />Up to {info.passengers} passengers</li>}
+                {info.bags !== undefined && <li className="flex items-center gap-3"><Luggage size={18} aria-hidden="true" />Up to {info.bags} checked bags + {info.bags} carry-ons</li>}
+              </ul>
+              <h3 className="mt-6 text-[17px] font-medium">Included</h3>
+              <ul className="mt-3 grid gap-2.5 text-[16px] text-[#4A4A4A]">
+                {["Private car and driver for your group", "Door-to-door", "Fixed price agreed before you book"].map((line) => <li key={line} className="flex items-center gap-3"><Check size={18} aria-hidden="true" />{line}</li>)}
+              </ul>
+              <h3 className="mt-6 text-[17px] font-medium">Price breakdown</h3>
+              {props.returnTrip && props.priceBreakdown?.[info.id] ? <>
+                <p className="mt-3 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(props.priceBreakdown[info.id].outbound)}</span></p>
+                <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>{money(props.priceBreakdown[info.id].return)}</span></p>
+              </> : <p className="mt-3 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(info.price)}</span></p>}
+              <p className="mt-3 flex justify-between border-t border-[#E6E6E6] pt-3 text-[16px]"><span>Total</span><span className="font-medium">{money(props.priceBreakdown?.[info.id]?.total ?? info.price)}</span></p>
+            </div>
+            <div className="grid gap-3 px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
+              <DialogPrimitive.Close className="h-12 rounded-full border border-[#D9D9D9] text-[16px] font-medium">Close</DialogPrimitive.Close>
+              <button
+                type="button"
+                disabled={!props.quote || info.fits === false || props.checkoutReady === false}
+                onClick={() => { const id = info.id; setInfoId(null); props.onSelectVehicle(id); props.onContinue(); }}
+                className="h-12 rounded-full bg-brand text-[16px] font-semibold text-white disabled:opacity-50"
+              >
+                {info.fits === false ? "Too small for your group" : "Continue"}
+              </button>
+            </div>
+          </>}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
 
     <DialogPrimitive.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
       <DialogPrimitive.Portal>
