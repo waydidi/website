@@ -1074,14 +1074,14 @@ export function BookingFlow({
                     <button
                       type="button"
                       onClick={() => setDateOpen(true)}
-                      className="flex h-full min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left sm:px-3.5"
+                      className="flex h-full min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-left sm:px-3.5"
                       aria-expanded={dateOpen}
                     >
-                      <CalendarDays className="shrink-0 text-brand" size={18} />
+                      {departureSelected ? <DepartureIcon /> : <CalendarDays className="shrink-0 text-brand" size={18} />}
                       {departureSelected ? (
-                        <span className="min-w-0 text-base font-normal leading-[18px] text-slate-950 lg:text-base lg:leading-5">
-                          <span className="block truncate">{formatDate(booking.date)}</span>
-                          <span className="block">{formatTimeLabel(booking.time, locale)}</span>
+                        <span className="min-w-0 font-normal text-slate-950">
+                          <span className="block truncate text-[16px] leading-[21px] tracking-[-.01em] max-[359px]:text-[14px]">{shortDate(booking.date, locale)}</span>
+                          <span className="block text-[14px] leading-[18px]">{formatTimeLabel(booking.time, locale)}</span>
                         </span>
                       ) : (
                         <span className="text-base font-normal text-slate-600 lg:text-base">{t("hero.departure")}</span>
@@ -1098,10 +1098,10 @@ export function BookingFlow({
                           setReturnFareQuote(null);
                           setQuoteSummary(null);
                         }}
-                        className="mr-2 grid size-9 shrink-0 place-items-center rounded-full bg-slate-400 text-white transition hover:bg-slate-500"
+                        className="mr-1 grid size-8 shrink-0 place-items-center rounded-full text-white"
                         aria-label={t("hero.removeDeparture")}
                       >
-                        <X size={18} />
+                        <span className="grid size-[22px] place-items-center rounded-full bg-[#8E8E93] transition hover:bg-slate-600"><X size={14} strokeWidth={3} /></span>
                       </button>
                     )}
                   </div>
@@ -1127,8 +1127,8 @@ export function BookingFlow({
                       <span className="min-w-0">
                         {returnTrip ? (
                           <>
-                            <span className="block truncate text-base font-normal leading-5 text-slate-950">{formatDate(returnDate)}</span>
-                            <span className="block text-base font-normal leading-5 text-slate-950">{formatTimeLabel(returnTime, locale)}</span>
+                            <span className="block truncate text-[16px] font-normal leading-[21px] tracking-[-.01em] text-slate-950 max-[359px]:text-[14px]">{shortDate(returnDate, locale)}</span>
+                            <span className="block text-[14px] font-normal leading-[18px] text-slate-950">{formatTimeLabel(returnTime, locale)}</span>
                           </>
                         ) : (
                           <span className="text-base font-normal">{t("hero.addReturn")}</span>
@@ -1917,6 +1917,22 @@ export function BookingFlow({
     </main>
     </I18nProvider>
   );
+}
+
+// "Thu, Sep 24" style date in the visitor's language.
+function shortDate(value: string, locale: Locale) {
+  const date = new Date(`${value}T12:00:00+07:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(locale === "th" ? "th-TH" : locale === "zh" ? "zh-CN" : "en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "Asia/Bangkok" });
+}
+
+// Calendar with a departing arrow, shown once a departure is chosen.
+function DepartureIcon() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C1C1C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 max-[359px]:hidden">
+    <path d="M8 2v4M16 2v4M3 10h18" />
+    <path d="M12 21H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7" />
+    <path d="M15 18h7m-3-3 3 3-3 3" />
+  </svg>;
 }
 
 function SheetCounter({
