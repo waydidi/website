@@ -259,6 +259,8 @@ export function BookingFlow({
   // Results screen: "edit trip" popup (passengers, date and time).
   const [tripEditOpen, setTripEditOpen] = useState(false);
   const [routeEditOpen, setRouteEditOpen] = useState(false);
+  // Set when a return is added straight from the results screen, so prices refresh once it is chosen.
+  const [requoteReturn, setRequoteReturn] = useState(false);
   // Promo code applied at the Payment step (amount set by the server).
   const [promo, setPromo] = useState<{ code: string; title: string; discount: number } | null>(null);
   const [promoInput, setPromoInput] = useState("");
@@ -671,6 +673,16 @@ export function BookingFlow({
       luggage: adultPassengers + children + extraBagSets,
     }));
   };
+
+  // Return added from the results screen: re-run the search for the round trip
+  // (same pickup and drop-off, reversed for the return).
+  useEffect(() => {
+    if (!requoteReturn || !returnTrip) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRequoteReturn(false);
+    void search({ preventDefault() {} } as FormEvent<HTMLFormElement>);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requoteReturn, returnTrip]);
 
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1411,7 +1423,7 @@ export function BookingFlow({
             min={booking.date}
             minTime={booking.time}
             onOpenChange={setReturnDateOpen}
-            onDone={() => { setReturnTrip(true); setReturnDateOpen(false); }}
+            onDone={() => { setReturnTrip(true); setReturnDateOpen(false); if (!routeEditOpen) setRequoteReturn(true); }}
           />
         </>
       )}
@@ -1503,6 +1515,10 @@ export function BookingFlow({
           onSelectVehicle={setVehicle}
           onEdit={() => goToStage("search")}
           onEditRoute={() => setRouteEditOpen(true)}
+          onAddReturn={() => {
+            if (!returnTrip) { setReturnDate(booking.date); setReturnTime(booking.time); }
+            setReturnDateOpen(true);
+          }}
           onRetry={retryRoute}
           passengers={booking.passengers}
           onEditTrip={() => setTripEditOpen(true)}
