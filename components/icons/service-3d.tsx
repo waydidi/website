@@ -107,7 +107,10 @@ export function AirportRide3D({ size = 96, className = "", backdrop = "#FFE3C4" 
     <Backdrop id={ar} color={backdrop} />
     <defs>
       <linearGradient id={`${ar}-body`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FFB255" /><stop offset=".55" stopColor="#FF8A05" /><stop offset="1" stopColor="#D96A00" /></linearGradient>
-      <linearGradient id={`${ar}-roof`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FFC27A" /><stop offset="1" stopColor="#FF9A24" /></linearGradient>
+      <linearGradient id={`${ar}-roofg`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FFC27A" /><stop offset="1" stopColor="#FF9422" /></linearGradient>
+      <linearGradient id={`${ar}-hood`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#FFB45C" /><stop offset="1" stopColor="#FFCB8A" /></linearGradient>
+      <linearGradient id={`${ar}-face`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#F28A12" /><stop offset="1" stopColor="#C85E00" /></linearGradient>
+      <linearGradient id={`${ar}-glass2`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#B7D3F2" /><stop offset="1" stopColor="#4A6C95" /></linearGradient>
       <linearGradient id={`${ar}-glass`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#8FB6E0" /><stop offset="1" stopColor="#2E4766" /></linearGradient>
       <radialGradient id={`${ar}-tyre`} cx="40%" cy="35%" r="70%"><stop offset="0" stopColor="#4A4A52" /><stop offset="1" stopColor="#15151A" /></radialGradient>
       <radialGradient id={`${ar}-hub`} cx="40%" cy="35%" r="70%"><stop offset="0" stopColor="#F5F7FA" /><stop offset="1" stopColor="#A9B2BF" /></radialGradient>
@@ -117,33 +120,55 @@ export function AirportRide3D({ size = 96, className = "", backdrop = "#FFE3C4" 
     </defs>
     {/* airport sign behind the car */}
     <g filter={`url(#${ar}-sh)`}>
-      <rect x="69.5" y="24" width="3" height="34" rx="1.5" fill={`url(#${ar}-pole)`} />
-      <circle cx="71" cy="22" r="10.5" fill={`url(#${ar}-sign)`} />
-      <ellipse cx="67.5" cy="17.5" rx="4" ry="2.2" fill="#FFFFFF" opacity=".3" />
-      <path d="M65.5 23.2 76 18.6c.9-.4 1.9.3 1.6 1.2-.1.4-.4.7-.8.9l-3.4 1.6 1 5.2-1.6.7-2.4-4.4-3.3 1.5-.1 1.9-1.2.5-.9-2.4-1.8-1.7 1.1-.5 1.5 1Z" fill="#FFFFFF" />
+      <rect x="77.5" y="22" width="3" height="26" rx="1.5" fill={`url(#${ar}-pole)`} />
+      <circle cx="79" cy="20" r="10" fill={`url(#${ar}-sign)`} />
+      <ellipse cx="75.5" cy="15.8" rx="3.8" ry="2.1" fill="#FFFFFF" opacity=".3" />
+      <path d="M72.8 21.4 83.6 16.6c.9-.4 1.9.3 1.6 1.2-.1.4-.4.7-.8.9l-3.4 1.6 1 5.2-1.6.7-2.4-4.4-3.3 1.5-.1 1.9-1.2.5-.9-2.4-1.8-1.7 1.1-.5 1.5 1Z" fill="#FFFFFF" />
     </g>
-    <ellipse cx="50" cy="70" rx="33" ry="4.5" fill="#6B3A00" opacity=".18" />
-    {/* private car: no roof sign, tinted glass, chrome trim */}
+    <ellipse cx="54" cy="79" rx="35" ry="5.5" fill="#6B3A00" opacity=".18" />
+    {/* private car, three-quarter front view (facing right) */}
     <g filter={`url(#${ar}-sh)`}>
-      <path d="M19 60c0-6 3-9 8-10l7-9c2-3 5-4 8-4h15c4 0 7 1 9 4l6 8c7 1 11 4 11 11v3c0 2-1 3-3 3H22c-2 0-3-1-3-3v-3Z" fill={`url(#${ar}-body)`} />
-      <path d="M36 42c1-2 3-3 6-3h14c3 0 5 1 6 3l5 7H31l5-7Z" fill={`url(#${ar}-glass)`} />
-      <path d="M36 40c2-2 4-3 7-3h13c3 0 5 1 7 3" fill="none" stroke={`url(#${ar}-roof)`} strokeWidth="2" strokeLinecap="round" />
-      <rect x="48.5" y="39" width="2.2" height="10" fill="#FF9B2E" />
-      <path d="M28 51h47" stroke="#FFFFFF" strokeOpacity=".4" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M31 57h42" stroke="#E7ECF2" strokeOpacity=".7" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M74 55h6" stroke="#FFF4C2" strokeWidth="3" strokeLinecap="round" />
-      <path d="M21 56h4" stroke="#FFD2D0" strokeWidth="2.6" strokeLinecap="round" />
-      <path d="M33 43c2-2 4-2 6-2" stroke="#FFFFFF" strokeOpacity=".7" strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="33" cy="65" r="7.5" fill={`url(#${ar}-tyre)`} /><circle cx="33" cy="65" r="3.4" fill={`url(#${ar}-hub)`} />
-      <circle cx="68" cy="65" r="7.5" fill={`url(#${ar}-tyre)`} /><circle cx="68" cy="65" r="3.4" fill={`url(#${ar}-hub)`} />
+      {/* far-side wheel peeking under the nose */}
+      <ellipse cx="83" cy="70" rx="4.2" ry="5.6" fill={`url(#${ar}-tyre)`} />
+      {/* side body */}
+      <path d="M17 64c0-7 3-11 10-12.5L46 48l20-1.5c3 0 5 1 6.5 3L74 58v12c0 2.5-1.8 4.3-4.3 4.3H23c-3.4 0-6-2.6-6-6V64Z" fill={`url(#${ar}-body)`} />
+      {/* front face */}
+      <path d="M72.5 49.5 84 48.2c3 0 5.2 2.3 5.2 5.4v10.6c0 3.4-2.4 6-5.6 6.4L74 71.6c-1 0-1.6-.7-1.6-1.7L72 58Z" fill={`url(#${ar}-face)`} />
+      {/* hood top */}
+      <path d="M46 48 65 45.2c4-.5 8-.3 11 .3l8.3 2.2c-1 .3-2 .4-3 .5L72.5 49.5 66 46.5Z" fill={`url(#${ar}-hood)`} />
+      {/* cabin */}
+      <path d="M27 51.6 34 37.5c1.2-2.4 3.6-4 6.4-4.1l17.2-.7c2.6-.1 5 1.1 6.5 3.2l7.4 9.9L46 48Z" fill={`url(#${ar}-roofg)`} />
+      {/* side windows */}
+      <path d="M32.2 49.4 37.4 39c.8-1.6 2.4-2.6 4.2-2.7l7.4-.3-.3 11.5Z" fill={`url(#${ar}-glass)`} />
+      <path d="M51.3 35.9 57 35.7c1.8 0 3.4.8 4.4 2.2l3.8 5.3-14.4 3Z" fill={`url(#${ar}-glass)`} />
+      {/* windscreen */}
+      <path d="M64.8 37.6 71.8 46.6 66.4 46.4 62.6 40.4Z" fill={`url(#${ar}-glass2)`} />
+      <path d="M38.5 38.6c1-1.3 2.3-1.8 4-1.9" stroke="#FFFFFF" strokeOpacity=".75" strokeWidth="1.4" strokeLinecap="round" />
+      {/* door line, handle, trim */}
+      <path d="M49.8 48.2 50 70" stroke="#C45F00" strokeOpacity=".5" strokeWidth="1" />
+      <path d="M41 55h4M56 55h4" stroke="#FFE2C2" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M22 60.5 71 58.5" stroke="#FFFFFF" strokeOpacity=".35" strokeWidth="1.4" strokeLinecap="round" />
+      {/* mirror */}
+      <path d="M62.5 47.2c0-1.4 1.1-2.4 2.5-2.4h1.8v3.2h-3.5c-.5 0-.8-.3-.8-.8Z" fill="#E77800" />
+      {/* headlights and grille */}
+      <path d="M74.2 54.6c2.4-.4 4.6-.6 6.6-.6" stroke="#FFF6D1" strokeWidth="3" strokeLinecap="round" />
+      <path d="M85 53.6h3" stroke="#FFF6D1" strokeWidth="3" strokeLinecap="round" />
+      <rect x="76" y="59.5" width="10.5" height="4.4" rx="2" fill="#3B2A1E" opacity=".75" />
+      <path d="M77.5 61.7h7.5" stroke="#9C8472" strokeWidth=".8" />
+      <path d="M17.6 58h3.4" stroke="#FFD2D0" strokeWidth="2.4" strokeLinecap="round" />
+      {/* near-side wheels */}
+      <ellipse cx="30" cy="72" rx="6.4" ry="7.6" fill={`url(#${ar}-tyre)`} />
+      <ellipse cx="30.8" cy="72" rx="3" ry="3.6" fill={`url(#${ar}-hub)`} />
+      <ellipse cx="65" cy="72.5" rx="6.4" ry="7.6" fill={`url(#${ar}-tyre)`} />
+      <ellipse cx="65.8" cy="72.5" rx="3" ry="3.6" fill={`url(#${ar}-hub)`} />
     </g>
     {/* suitcase in front */}
     <g filter={`url(#${ar}-sh)`}>
-      <path d="M17 45v-5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v5" fill="none" stroke="#7A5A10" strokeWidth="2" strokeLinecap="round" />
-      <rect x="12" y="45" width="19" height="25" rx="4" fill={`url(#${ar}-case)`} />
-      <path d="M17.5 49v17M25.5 49v17" stroke="#C98B00" strokeWidth="1.6" strokeLinecap="round" opacity=".7" />
-      <ellipse cx="16" cy="48.5" rx="2.6" ry="1.3" fill="#FFFFFF" opacity=".45" />
-      <circle cx="16" cy="71.5" r="2" fill="#3A3A40" /><circle cx="27" cy="71.5" r="2" fill="#3A3A40" />
+      <path d="M15.5 51v-5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v5" fill="none" stroke="#7A5A10" strokeWidth="2" strokeLinecap="round" />
+      <rect x="10.5" y="51" width="19" height="25" rx="4" fill={`url(#${ar}-case)`} />
+      <path d="M16 55v17M24 55v17" stroke="#C98B00" strokeWidth="1.6" strokeLinecap="round" opacity=".7" />
+      <ellipse cx="14.5" cy="54.5" rx="2.6" ry="1.3" fill="#FFFFFF" opacity=".45" />
+      <circle cx="14.5" cy="77.5" r="2" fill="#3A3A40" /><circle cx="25.5" cy="77.5" r="2" fill="#3A3A40" />
     </g>
   </svg>;
 }
