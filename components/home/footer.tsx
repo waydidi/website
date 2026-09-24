@@ -1,19 +1,12 @@
 import Link from "next/link";
 import { WaydidiWordmark } from "@/components/waydidi-logo";
 import { destinations } from "@/lib/public-content";
+import { FooterLegal } from "@/components/footer-legal";
 import { getMessages, translate, type Locale, type MessageKey } from "@/lib/i18n";
 
 export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
   const messages = getMessages(locale);
   const t = (key: MessageKey) => translate(messages, key);
-  const paymentBadges = [
-    "stripe",
-    "VISA",
-    "●●",
-    "PromptPay",
-    "Apple Pay",
-    "G Pay",
-  ];
   return (
     <footer id="support" className="no-print mt-14 bg-[#FF8A05] text-white">
       <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
@@ -30,17 +23,6 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
               <p className="mt-5 max-w-sm text-sm leading-6 text-white/90">
                 {t("footer.tagline")}
               </p>
-              <h3 className="mt-8 font-black">{t("footer.payments")}</h3>
-              <div className="mt-4 flex max-w-sm flex-wrap gap-2">
-                {paymentBadges.map((badge) => (
-                  <span
-                    key={badge}
-                    className={`grid h-10 min-w-14 place-items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-black ${badge === "stripe" ? "text-[#635BFF]" : badge === "VISA" ? "italic text-[#1434CB]" : badge === "●●" ? "tracking-[-.35em] text-[#EB001B]" : "text-slate-800"}`}
-                  >
-                    {badge}
-                  </span>
-                ))}
-              </div>
             </div>
             <FooterLinks
               title={t("footer.ride")}
@@ -78,7 +60,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
           </div>
         </div>
 
-        <div className="mt-16 flex flex-col gap-5 border-t border-white/30 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-16 flex flex-col gap-5 border-t border-white/30 pt-8 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-x-6 gap-y-3 font-semibold">
             <Link href="/help">{t("footer.helpCenter")}</Link>
             <Link href="/booking/manage">{t("footer.manageBooking")}</Link>
@@ -88,8 +70,8 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
             <Link href="/terms">{t("footer.terms")}</Link>
             <Link href="/privacy">{t("footer.privacy")}</Link>
           </div>
-          <p className="text-white/80">{t("footer.rights")}</p>
         </div>
+        <div className="pb-12"><FooterLegal /></div>
       </div>
     </footer>
   );
