@@ -31,6 +31,8 @@ function bindingConfig(command: "build" | "serve") {
     // Keep variables set in the Cloudflare dashboard across Git deploys;
     // without this, wrangler deploy deletes any not declared here.
     keep_vars: true,
+    // Runs worker/index.ts "scheduled": trip reminders and operations alerts.
+    triggers: { crons: ["*/5 * * * *"] },
     d1_databases: d1
       ? [
           {

@@ -3,6 +3,8 @@ import { getDb } from "@/db";
 import { bookingAssignments, bookingNotifications, bookings, drivers, operationsAlerts } from "@/db/schema";
 import { sendCustomerTripReminder, sendDriverTripReminder, sendLateJourneyAlert } from "@/lib/email";
 import { tripOwnerKey } from "@/lib/trip-access";
+import { notifyLineOperationsAlert } from "@/lib/line";
+import { isAirportPickup, standbyDeadline } from "@/lib/trip-rules";
 import { DEFAULT_ROUTE_SECONDS, pickupTimestamp } from "@/lib/operations-calendar";
 
 const HOUR = 60 * 60 * 1000;
@@ -95,6 +97,8 @@ async function deliverNotification(input: {
   return sent ? "sent" as const : "failed" as const;
 }
 
+// Alerts pushed to LINE when first opened. Others stay on the operations page.
+const LINE_ALERT_TYPES = new Set(["standby_late"]);
 const AUTOMATED_ALERT_TYPES = ["unassigned_24h", "driver_not_started", "standby_late", "dropoff_late"];
 
 function activeAlert(booking: Booking, assignment: Assignment | undefined, now: number): AlertDefinition | null {
@@ -104,11 +108,13 @@ function activeAlert(booking: Booking, assignment: Assignment | undefined, now: 
     return { type: "unassigned_24h", severity: "warning", title: "Driver assignment needed", details: "Pickup is within 24 hours and no active driver is assigned.", expectedAt: pickup };
   }
   if (!assignment) return null;
+  const deadline = standbyDeadline(booking);
+  if (deadline !== null && now >= deadline && ["assigned", "going_to_standby"].includes(assignment.currentStatus)) {
+    const airport = isAirportPickup(booking);
+    return { type: "standby_late", severity: "critical", title: "Driver not at pickup", details: airport ? "The driver is not waiting at the airport 10 minutes after the flight landed." : "The driver is not waiting at the pickup point 30 minutes before pickup time.", expectedAt: deadline };
+  }
   if (remaining > 0 && remaining <= HOUR && assignment.currentStatus === "assigned") {
     return { type: "driver_not_started", severity: "warning", title: "Driver has not started", details: "Pickup is within 60 minutes and the driver has not started the standby journey.", expectedAt: pickup - HOUR };
-  }
-  if (now >= pickup + 15 * MINUTE && ["assigned", "going_to_standby"].includes(assignment.currentStatus)) {
-    return { type: "standby_late", severity: "critical", title: "Driver is late to standby", details: "The driver is not marked as standing by 15 minutes after pickup time.", expectedAt: pickup + 15 * MINUTE };
   }
   const expectedDropoff = pickup + Math.max(15 * MINUTE, (booking.routeDurationSeconds ?? DEFAULT_ROUTE_SECONDS) * 1000);
   if (now >= expectedDropoff + 30 * MINUTE && ["trip_started", "passenger_picked_up"].includes(assignment.currentStatus)) {
@@ -127,6 +133,9 @@ async function openAlert(booking: Booking, assignment: Assignment | undefined, a
   }).onConflictDoNothing();
   const [row] = await db.select().from(operationsAlerts).where(eq(operationsAlerts.dedupeKey, dedupeKey)).limit(1);
   if (!row || row.detectedAt !== now) return false;
+  if (LINE_ALERT_TYPES.has(alert.type)) {
+    await notifyLineOperationsAlert({ reference: booking.reference, title: alert.title, details: alert.details, severity: alert.severity }).catch((error) => console.error("LINE alert failed", error));
+  }
   await sendLateJourneyAlert({ ...reminderInput(booking), alertType: alert.type, title: alert.title, details: alert.details });
   return true;
 }

@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { bookings, drivers, passengerVerifications } from "@/db/schema";
 import { activeAssignmentForToken } from "@/lib/driver-operations";
-import { notifyLineTripStatus } from "@/lib/line";
+import { notifyLineOperationsAlert, notifyLineTripStatus } from "@/lib/line";
 import { constantTimeEqual, isJsonRequest, sameOrigin } from "@/lib/security";
 import { tripPinForReference, tripPinHash } from "@/lib/trip-pin";
 
@@ -41,6 +41,9 @@ export async function POST(request: Request) {
     const statements = [env.DB.prepare(`INSERT INTO passenger_verifications (id, booking_reference, assignment_id, driver_id, result, attempt_number, latitude, longitude, accuracy_metres, actor, created_at) VALUES (?, ?, ?, ?, 'failed', ?, ?, ?, ?, 'driver', ?)`).bind(verificationId, booking.reference, assignment.id, assignment.driverId, attemptNumber, latitude, longitude, accuracy, now)];
     if (attemptNumber >= 3) statements.push(env.DB.prepare(`INSERT OR IGNORE INTO operations_alerts (id, booking_reference, assignment_id, alert_type, severity, title, details, dedupe_key, status, detected_at, created_at, updated_at) VALUES (?, ?, ?, 'passenger_pin_failed', ?, 'Passenger PIN needs attention', ?, ?, 'open', ?, ?, ?)`).bind(crypto.randomUUID(), booking.reference, assignment.id, attemptNumber >= MAX_ATTEMPTS ? "critical" : "warning", `${attemptNumber} failed PIN attempts. Call the passenger or driver.`, `passenger-pin:${assignment.id}`, now, now, now));
     await env.DB.batch(statements);
+    if (attemptNumber === 3) {
+      await notifyLineOperationsAlert({ reference: booking.reference, severity: "warning", title: "3 wrong Trip PIN attempts", details: `The driver has entered a wrong Trip PIN 3 times at pickup. Call the passenger or driver. ${MAX_ATTEMPTS - attemptNumber} attempts left.` }).catch((error) => console.error("LINE alert failed", error));
+    }
     return NextResponse.json({ error: attemptNumber >= MAX_ATTEMPTS ? "Too many failed attempts. Contact Waydidi operations." : "That PIN does not match. Ask the passenger to check their confirmation.", attemptsRemaining: Math.max(0, MAX_ATTEMPTS - attemptNumber) }, { status: attemptNumber >= MAX_ATTEMPTS ? 429 : 401 });
   }
   const verificationId = crypto.randomUUID();

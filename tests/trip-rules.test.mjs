@@ -94,3 +94,18 @@ test("offline replay accepts the real tap time within six hours and in order", (
   assert.equal(rules.acceptedOccurredAt("2026-10-01T05:01:00Z", now, null), "2026-10-01T05:00:00.000Z", "small clock drift is clamped");
   assert.equal(rules.acceptedOccurredAt("not a date", now, null), null);
 });
+
+test("hotel pickups need the driver waiting 30 minutes before pickup time", () => {
+  const booking = { pickup: "Hilton Pattaya", pickupDate: "2026-10-01", pickupTime: "10:00" };
+  assert.equal(rules.standbyDeadline(booking), at("2026-10-01T09:30:00+07:00"));
+});
+
+test("airport pickups need the driver waiting 10 minutes after landing", () => {
+  const booking = {
+    pickup: "Suvarnabhumi Airport (BKK)", pickupDate: "2026-10-01", pickupTime: "10:00", flightNumber: "TG 661",
+    flightScheduledArrival: "2026-10-01T02:30:00Z", flightEstimatedArrival: "2026-10-01T03:05:00Z",
+  };
+  assert.equal(rules.standbyDeadline(booking), at("2026-10-01T03:05:00Z") + 10 * MINUTE);
+  assert.equal(rules.standbyDeadline({ ...booking, flightEstimatedArrival: null }), at("2026-10-01T02:30:00Z") + 10 * MINUTE);
+  assert.equal(rules.standbyDeadline({ ...booking, flightScheduledArrival: null, flightEstimatedArrival: null }), at("2026-10-01T10:00:00+07:00"), "no flight data: the booked pickup time");
+});

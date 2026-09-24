@@ -65,6 +65,13 @@ export async function notifyLineTripStatus(input: TripLineInput & { detail?: str
   }]);
 }
 
+/** A problem on a live trip, pushed to operations once when first detected. */
+export async function notifyLineOperationsAlert(input: { reference: string; title: string; details: string; severity: "warning" | "critical" }) {
+  const journeyUrl = `${siteUrl()}/admin/journeys/${encodeURIComponent(input.reference)}`;
+  const icon = input.severity === "critical" ? "🚨" : "⚠️";
+  return pushLine([{ type: "text", text: `${icon} ${input.title}\n${input.reference}\n${input.details}\n${journeyUrl}` }]);
+}
+
 function row(label: string, value: string) {
   return { type: "box", layout: "vertical", spacing: "xs", contents: [
     { type: "text", text: label, size: "xs", color: "#8A94A6", weight: "bold" },
