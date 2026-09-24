@@ -83,7 +83,7 @@ export function LocalePicker({ className = "" }: { className?: string }) {
 
   return <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
     <DialogPrimitive.Trigger asChild>
-      <button type="button" aria-label={t("locale.button", { language: language.label, currency })} className={`flex items-center gap-2 rounded-full py-1 pl-0.5 pr-1 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${className}`}>
+      <button type="button" aria-label={t("locale.button", { language: language.label, currency })} className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1 pl-0.5 pr-1 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${className}`}>
         <LanguageIcon language={language} size={26} />
         <span className="h-5 w-px bg-current opacity-40" aria-hidden />
         <span>{currency}</span>

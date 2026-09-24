@@ -155,10 +155,26 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 html {
   scroll-behavior: smooth;
+  /* iOS Safari lets the page pan sideways unless the root is clipped too.
+     "clip" (unlike "hidden") keeps position: sticky working. */
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+/* iOS Safari zooms the whole page into any field with text under 16px when
+   it is tapped, and the page stays zoomed. Deliberately outside any layer so
+   it beats smaller text-* utilities on touch screens. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
 }
 
 /* A visible keyboard focus ring on every interactive element. In the base

@@ -61,8 +61,8 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     <header
       className={`z-40 flex h-[59px] w-full items-center justify-between px-5 text-white transition-[background-color,box-shadow] duration-300 lg:h-[97px] lg:px-8 ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${solid ? "bg-[#FF8A05]" : "bg-transparent"} ${scrolled ? "shadow-lg shadow-orange-950/10" : ""}`}
     >
-      <Link href="/" className="inline-flex text-white" aria-label={t("nav.home")}>
-        <WaydidiLogo className="h-12 w-auto sm:h-[62px] lg:h-[83px]" />
+      <Link href="/" className="inline-flex min-w-0 shrink text-white" aria-label={t("nav.home")}>
+        <WaydidiLogo className="h-9 w-auto max-w-full min-[360px]:h-12 sm:h-[62px] lg:h-[83px]" />
       </Link>
       <nav className="hidden items-center gap-10 text-[16px] font-semibold xl:flex">
         {navMenus.map((menu) => (
@@ -92,7 +92,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           <CarFront size={20} /> {t("nav.checkBooking")}
         </Link>
       </nav>
-      <div className="flex items-center gap-4 xl:hidden">
+      <div className="flex shrink-0 items-center gap-2 min-[360px]:gap-4 xl:hidden">
       <LocalePicker />
       <Sheet>
         <SheetTrigger asChild>
