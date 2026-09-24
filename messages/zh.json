@@ -838,5 +838,17 @@
   "footer.allDestinations": {
     "text": "所有目的地",
     "status": "machine"
+  },
+  "saved.places": {
+    "text": "已保存的地点",
+    "status": "machine"
+  },
+  "saved.setPickup": {
+    "text": "设为上车地点",
+    "status": "machine"
+  },
+  "saved.setDropoff": {
+    "text": "设为下车地点",
+    "status": "machine"
   }
 }

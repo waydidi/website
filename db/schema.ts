@@ -787,3 +787,35 @@ export const customerBookingLinks = sqliteTable(
   },
   (table) => [index("idx_customer_booking_links_customer").on(table.customerId)],
 );
+
+// Saved addresses (Home, Hotel, Office…) that pre-fill the search form.
+// Stored as Google Place IDs so they drop straight into the route picker.
+export const customerSavedPlaces = sqliteTable(
+  "customer_saved_places",
+  {
+    id: text("id").primaryKey(),
+    customerId: text("customer_id").notNull(),
+    label: text("label").notNull(),
+    placeId: text("place_id").notNull(),
+    address: text("address").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("idx_customer_saved_places_customer").on(table.customerId)],
+);
+
+// Travellers a customer books for, used to pre-fill passenger details.
+export const customerSavedPassengers = sqliteTable(
+  "customer_saved_passengers",
+  {
+    id: text("id").primaryKey(),
+    customerId: text("customer_id").notNull(),
+    name: text("name").notNull(),
+    surname: text("surname").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_customer_saved_passengers_customer").on(table.customerId)],
+);

@@ -208,5 +208,8 @@
   "locale.allCurrencies": "All currencies",
   "locale.close": "Close",
   "locale.remembered": "Your choice is remembered on this device.",
-  "footer.allDestinations": "All destinations"
+  "footer.allDestinations": "All destinations",
+  "saved.places": "Saved places",
+  "saved.setPickup": "Set as pickup",
+  "saved.setDropoff": "Set as drop-off"
 }

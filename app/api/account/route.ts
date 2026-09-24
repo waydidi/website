@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { customerBookingLinks, customerLoginCodes, customers, customerSessions } from "@/db/schema";
+import { customerBookingLinks, customerLoginCodes, customerSavedPassengers, customerSavedPlaces, customers, customerSessions } from "@/db/schema";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { accountCookie } from "@/lib/customer-account";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
@@ -17,6 +17,8 @@ export async function DELETE(request: Request) {
   if (input.confirm !== "DELETE") return NextResponse.json({ error: "Type DELETE to confirm." }, { status: 400 });
   const { customer } = session;
   await getDb().delete(customerBookingLinks).where(eq(customerBookingLinks.customerId, customer.id));
+  await getDb().delete(customerSavedPlaces).where(eq(customerSavedPlaces.customerId, customer.id));
+  await getDb().delete(customerSavedPassengers).where(eq(customerSavedPassengers.customerId, customer.id));
   await getDb().delete(customerSessions).where(eq(customerSessions.customerId, customer.id));
   await getDb().delete(customerLoginCodes).where(eq(customerLoginCodes.email, customer.email));
   await getDb().delete(customers).where(eq(customers.id, customer.id));

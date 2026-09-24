@@ -14,7 +14,7 @@ import {
   CreditCard,
   Luggage,
   MapPin,
-  Menu,
+  UsersRound,
   Minus,
   Plus,
   Printer,
@@ -30,11 +30,9 @@ import Link from "next/link";
 import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   Sheet,
-  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { BookingResultsMap, VehicleOption } from "@/components/booking-results-map";
@@ -233,6 +231,10 @@ export function BookingFlow({
   const [quoteSummary, setQuoteSummary] = useState<QuoteSummary | null>(null);
   const [hourlyQuote, setHourlyQuote] = useState<HourlyQuote | null>(null);
   const [pickupPlaceId, setPickupPlaceId] = useState("");
+  const [routePrefill, setRoutePrefill] = useState<{ pickupPlaceId?: string; dropoffPlaceId?: string; nonce: number } | null>(null);
+  const [savedPlaces, setSavedPlaces] = useState<{ id: string; label: string; placeId: string; address: string }[]>([]);
+  const [savedTravellers, setSavedTravellers] = useState<{ id: string; name: string; surname: string; email: string | null; phone: string | null; notes: string | null }[]>([]);
+  const [placeMenu, setPlaceMenu] = useState<string | null>(null);
   const [pricingMessage, setPricingMessage] = useState("");
   const [reference, setReference] = useState("");
   const [loading, setLoading] = useState(false);
@@ -354,6 +356,68 @@ export function BookingFlow({
     // mount, so the translations this reads cannot change underneath it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // "Book again" / "Book the return trip" from the customer account arrive as
+  // query parameters. Runs after the draft restore so the chosen trip wins.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("rebook");
+    if (mode !== "again" && mode !== "return") return;
+    const count = (key: string, fallback: number) => {
+      const value = Number(params.get(key));
+      return Number.isInteger(value) && value > 0 && value <= 20 ? value : fallback;
+    };
+    const passengers = count("passengers", 2);
+    const luggage = count("luggage", passengers);
+    const hourly = params.get("service") === "hourly";
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStage("search");
+    setServiceType(hourly ? "hourly" : "transfer");
+    setAdultPassengers(passengers);
+    setChildPassengers(0);
+    setExtraBagSets(Math.max(0, luggage - passengers));
+    setBooking((current) => ({
+      ...current,
+      pickup: params.get("pickup")?.slice(0, 300) ?? current.pickup,
+      dropoff: hourly ? current.dropoff : params.get("dropoff")?.slice(0, 300) ?? current.dropoff,
+      passengers,
+      luggage,
+      bookedHours: hourly ? count("hours", current.bookedHours) : current.bookedHours,
+    }));
+    const vehicle = params.get("vehicle");
+    if (vehicle && vehicle in VEHICLES) setVehicle(vehicle);
+    setFareQuote(null);
+    setReturnFareQuote(null);
+    setQuoteSummary(null);
+    setHourlyQuote(null);
+    setRoutePrefill({ pickupPlaceId: params.get("pickupPlaceId") ?? "", dropoffPlaceId: hourly ? undefined : params.get("dropoffPlaceId") ?? "", nonce: Date.now() });
+    window.history.replaceState({ waydidiStage: "search" }, "", window.location.pathname + window.location.hash);
+  }, []);
+
+  // Signed-in customers get their saved places (search form) and saved
+  // travellers (passenger step). Both endpoints return empty lists otherwise.
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      fetch("/api/account/places", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { places: [] })),
+      fetch("/api/account/passengers", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { passengers: [] })),
+    ]).then(([places, travellers]) => {
+      if (!active) return;
+      setSavedPlaces(places.places ?? []);
+      setSavedTravellers(travellers.passengers ?? []);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  function applySavedPlace(place: { placeId: string; address: string }, as: "pickup" | "dropoff") {
+    setPlaceMenu(null);
+    setFareQuote(null);
+    setReturnFareQuote(null);
+    setQuoteSummary(null);
+    setHourlyQuote(null);
+    change(as, place.address);
+    setRoutePrefill(as === "pickup" ? { pickupPlaceId: place.placeId, nonce: Date.now() } : { dropoffPlaceId: place.placeId, nonce: Date.now() });
+  }
 
   useEffect(() => {
     fetch("/api/maps/config", { cache: "no-store" })
@@ -962,6 +1026,7 @@ export function BookingFlow({
                   onRouteChange={handleRouteChange}
                   pickupOnly={serviceType === "hourly"}
                   onPickupPlaceChange={(id)=>{setPickupPlaceId(id);setHourlyQuote(null);}}
+                  prefill={routePrefill}
                   connectedMobile
                 />
                 <div className="order-4 grid min-h-14 grid-cols-2 overflow-hidden rounded-[14px] border border-slate-200 bg-white lg:order-none lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]">
@@ -1076,6 +1141,32 @@ export function BookingFlow({
                   setReturnDateOpen(false);
                 }}
               />
+              {savedPlaces.length > 0 && (
+                // Signed-in customers: tap a saved place, then choose pickup or drop-off.
+                <div className="mt-3 flex flex-wrap items-center gap-2" aria-label={t("saved.places")}>
+                  <span className="text-sm font-medium text-white/90">{t("saved.places")}:</span>
+                  {savedPlaces.map((place) => (
+                    <span key={place.id} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setPlaceMenu(placeMenu === place.id ? null : place.id)}
+                        aria-expanded={placeMenu === place.id}
+                        title={place.address}
+                        className="inline-flex max-w-[200px] items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-white"
+                      >
+                        <MapPin size={15} className="shrink-0 text-brand" aria-hidden="true" />
+                        <span className="truncate">{place.label}</span>
+                      </button>
+                      {placeMenu === place.id && (
+                        <span className="absolute left-0 top-full z-30 mt-2 grid w-48 rounded-2xl bg-white p-1.5 text-sm text-slate-800 shadow-xl">
+                          <button type="button" onClick={() => applySavedPlace(place, "pickup")} className="rounded-xl px-3 py-2.5 text-left hover:bg-orange-50">{t("saved.setPickup")}</button>
+                          {serviceType !== "hourly" && <button type="button" onClick={() => applySavedPlace(place, "dropoff")} className="rounded-xl px-3 py-2.5 text-left hover:bg-orange-50">{t("saved.setDropoff")}</button>}
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
               {(fareQuote || pricingMessage) && (
                 <div
                   className={`mt-3 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${fareQuote ? "bg-white text-slate-800" : "bg-amber-50 text-amber-900"}`}
@@ -1296,7 +1387,34 @@ export function BookingFlow({
               Passenger & payment
             </h2>
             <div className="mt-8 rounded-3xl bg-[#f3f3f3] p-6 sm:p-8">
-              <h3 className="text-lg font-black">Lead passenger</h3>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-lg font-black">Lead passenger</h3>
+                {savedTravellers.length > 0 && (
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
+                    <UsersRound size={17} aria-hidden="true" />
+                    <span className="sr-only sm:not-sr-only">Saved traveller</span>
+                    <select
+                      defaultValue=""
+                      onChange={(event) => {
+                        const traveller = savedTravellers.find((item) => item.id === event.target.value);
+                        if (!traveller) return;
+                        setBooking((current) => ({
+                          ...current,
+                          name: traveller.name,
+                          surname: traveller.surname,
+                          email: traveller.email || current.email,
+                          phone: traveller.phone || current.phone,
+                          specialRequests: traveller.notes && !current.specialRequests ? traveller.notes : current.specialRequests,
+                        }));
+                      }}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base text-slate-900 outline-none focus:border-brand"
+                    >
+                      <option value="" disabled>Choose…</option>
+                      {savedTravellers.map((item) => <option key={item.id} value={item.id}>{item.name} {item.surname}</option>)}
+                    </select>
+                  </label>
+                )}
+              </div>
               {/airport|\bBKK\b|\bDMK\b/i.test(booking.pickup) && (
                 <p className="mt-2 rounded-xl bg-orange-50 px-4 py-3 text-sm font-medium text-slate-700">
                   Airport pickup: add the flight number so operations can identify arrival changes and the correct terminal.

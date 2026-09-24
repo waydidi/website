@@ -67,3 +67,58 @@ export function sanitizeProfileText(value: unknown, max: number) {
 }
 
 export const CONTACT_PREFERENCES = ["email", "phone", "whatsapp", "line"] as const;
+
+export const MAX_SAVED_PLACES = 20;
+export const MAX_SAVED_PASSENGERS = 20;
+const PHONE_PATTERN = /^[+\d][\d\s()-]{5,39}$/;
+
+type Result<T> = { ok: true; value: T } | { ok: false; error: string };
+
+export function validateSavedPlace(input: Record<string, unknown>): Result<{ label: string; placeId: string; address: string }> {
+  const label = sanitizeProfileText(input.label, 40);
+  const address = sanitizeProfileText(input.address, 300);
+  const placeId = typeof input.placeId === "string" ? input.placeId.trim() : "";
+  if (!label) return { ok: false, error: "Give this place a name, such as Home or Hotel." };
+  if (!address || !/^[\w-]{10,300}$/.test(placeId)) return { ok: false, error: "Choose an address from the suggestions." };
+  return { ok: true, value: { label, placeId, address } };
+}
+
+export function validateSavedPassenger(input: Record<string, unknown>): Result<{ name: string; surname: string; email: string | null; phone: string | null; notes: string | null }> {
+  const name = sanitizeProfileText(input.name, 80);
+  const surname = sanitizeProfileText(input.surname, 80);
+  const email = normalizeEmail(input.email) || null;
+  const phone = sanitizeProfileText(input.phone, 40);
+  const notes = sanitizeProfileText(input.notes, 300);
+  if (!name || !surname) return { ok: false, error: "Enter the traveller's first name and surname." };
+  if (email && !isValidEmail(email)) return { ok: false, error: "Enter a valid email address." };
+  if (phone && !PHONE_PATTERN.test(phone)) return { ok: false, error: "Enter a valid phone number." };
+  return { ok: true, value: { name, surname, email, phone, notes } };
+}
+
+/**
+ * Search-form values for "book again" (same route) or "book the return
+ * trip" (reversed). Place IDs come from the booking's fare quote so the
+ * route picker can price the trip without re-selecting addresses.
+ */
+export function rebookQuery(
+  trip: { pickup: string; dropoff: string; passengers: number; luggage: number; vehicle: string; serviceType: string; bookedHours: number | null },
+  places: { pickupPlaceId: string; dropoffPlaceId: string } | null,
+  mode: "again" | "return",
+) {
+  const reverse = mode === "return" && trip.serviceType !== "hourly";
+  const params = new URLSearchParams({
+    rebook: mode,
+    service: trip.serviceType === "hourly" ? "hourly" : "transfer",
+    pickup: reverse ? trip.dropoff : trip.pickup,
+    passengers: String(trip.passengers),
+    luggage: String(trip.luggage),
+    vehicle: trip.vehicle,
+  });
+  if (trip.serviceType !== "hourly") params.set("dropoff", reverse ? trip.pickup : trip.dropoff);
+  if (trip.serviceType === "hourly" && trip.bookedHours) params.set("hours", String(trip.bookedHours));
+  if (places) {
+    params.set("pickupPlaceId", reverse ? places.dropoffPlaceId : places.pickupPlaceId);
+    if (trip.serviceType !== "hourly") params.set("dropoffPlaceId", reverse ? places.pickupPlaceId : places.dropoffPlaceId);
+  }
+  return `/?${params.toString()}#booking-search`;
+}

@@ -79,7 +79,7 @@ export default async function TripDetailPage({ params }: { params: Promise<{ ref
       </div>
 
       <aside className="grid content-start gap-5">
-        <div className="rounded-[22px] bg-white p-5"><TripActions reference={trip.reference} canManage={bucket === "upcoming" && canManageStatus(trip.status)} hasReceipt={trip.status === "confirmed" || trip.status === "completed"} /></div>
+        <div className="rounded-[22px] bg-white p-5"><TripActions reference={trip.reference} canManage={bucket === "upcoming" && canManageStatus(trip.status)} hasReceipt={trip.status === "confirmed" || trip.status === "completed"} canReturn={trip.serviceType !== "hourly" && !trip.returnDate} /></div>
         <p className="px-1 text-sm leading-6 text-slate-500">Date changes are made online; cancellations are handled by email under the <Link href="/cancellation-refund-policy" className="font-bold text-[#C96100] hover:underline">cancellation policy</Link>. Meeting instructions and your trip PIN are in your confirmation email.</p>
       </aside>
     </div>

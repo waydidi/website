@@ -838,5 +838,17 @@
   "footer.allDestinations": {
     "text": "จุดหมายทั้งหมด",
     "status": "machine"
+  },
+  "saved.places": {
+    "text": "สถานที่ที่บันทึกไว้",
+    "status": "machine"
+  },
+  "saved.setPickup": {
+    "text": "ตั้งเป็นจุดรับ",
+    "status": "machine"
+  },
+  "saved.setDropoff": {
+    "text": "ตั้งเป็นจุดส่ง",
+    "status": "machine"
   }
 }

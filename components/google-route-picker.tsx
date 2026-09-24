@@ -28,6 +28,7 @@ export function GoogleRoutePicker({
   onRouteChange,
   pickupOnly = false,
   onPickupPlaceChange,
+  prefill,
   connectedMobile = false,
   showPreviewMap = false,
 }: {
@@ -38,6 +39,9 @@ export function GoogleRoutePicker({
   onRouteChange: (value: RouteInfo | null) => void;
   pickupOnly?: boolean;
   onPickupPlaceChange?: (placeId: string) => void;
+  /** Known Google place IDs for the current pickup/drop-off text (saved
+   *  places, "book again"). Change `nonce` to apply a new prefill. */
+  prefill?: { pickupPlaceId?: string; dropoffPlaceId?: string; nonce: number } | null;
   connectedMobile?: boolean;
   showPreviewMap?: boolean;
 }) {
@@ -47,6 +51,7 @@ export function GoogleRoutePicker({
   const mapRef = useRef<HTMLDivElement>(null);
   const pickupPlaceIdRef = useRef("");
   const dropoffPlaceIdRef = useRef("");
+  const calculateRef = useRef<(() => void) | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
 
@@ -151,6 +156,7 @@ export function GoogleRoutePicker({
         },
       );
     };
+    calculateRef.current = calculate;
     const selectPickup = () => {
       const place = pickupAutocomplete.getPlace();
       pickupPlaceIdRef.current = place.place_id ?? "";
@@ -179,6 +185,21 @@ export function GoogleRoutePicker({
       if (dropoffAutocomplete) maps.event.clearInstanceListeners(dropoffAutocomplete);
     };
   }, [mapReady, pickupOnly, showPreviewMap]);
+
+  // Apply prefilled place IDs once Maps is ready and the new text has rendered.
+  useEffect(() => {
+    if (!prefill) return;
+    if (prefill.pickupPlaceId !== undefined) {
+      pickupPlaceIdRef.current = prefill.pickupPlaceId;
+      onPickupPlaceChange?.(prefill.pickupPlaceId);
+    }
+    if (prefill.dropoffPlaceId !== undefined) dropoffPlaceIdRef.current = prefill.dropoffPlaceId;
+    if (!mapReady || pickupOnly) return;
+    const timer = window.setTimeout(() => calculateRef.current?.(), 0);
+    return () => window.clearTimeout(timer);
+    // Runs per prefill (nonce) and once Maps finishes loading.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill?.nonce, mapReady]);
 
   const fieldClass =
     "w-full bg-transparent text-base font-normal text-slate-950 outline-none placeholder:font-normal placeholder:text-slate-400";

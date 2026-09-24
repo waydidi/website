@@ -100,3 +100,46 @@ test("post-sign-in redirects stay on this site", () => {
   assert.match(signInForm, /!value\.startsWith\("\/\/"\)/);
   assert.match(signInForm, /!value\.startsWith\("\/\\\\"\)/);
 });
+
+test("saved places need a name and a Google place from the suggestions", () => {
+  assert.equal(account.validateSavedPlace({ label: "", address: "Sukhumvit", placeId: "ChIJabcdefghij" }).ok, false);
+  assert.equal(account.validateSavedPlace({ label: "Home", address: "Sukhumvit", placeId: "not a place" }).ok, false);
+  const ok = account.validateSavedPlace({ label: "  Home ", address: "Sukhumvit 55", placeId: "ChIJabcdefghij" });
+  assert.deepEqual(ok, { ok: true, value: { label: "Home", placeId: "ChIJabcdefghij", address: "Sukhumvit 55" } });
+});
+
+test("saved travellers need a full name and valid optional contacts", () => {
+  assert.equal(account.validateSavedPassenger({ name: "Mia" }).ok, false);
+  assert.equal(account.validateSavedPassenger({ name: "Mia", surname: "T", email: "nope" }).ok, false);
+  assert.equal(account.validateSavedPassenger({ name: "Mia", surname: "T", phone: "call me" }).ok, false);
+  const ok = account.validateSavedPassenger({ name: "Mia", surname: "Tester", email: "MIA@Example.com", phone: "+66 81 222 3333" });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.value.email, "mia@example.com");
+});
+
+test("book again keeps the route and book the return trip reverses it", () => {
+  const trip = { pickup: "BKK", dropoff: "Pattaya", passengers: 3, luggage: 4, vehicle: "comfort_suv", serviceType: "transfer", bookedHours: null };
+  const places = { pickupPlaceId: "ChIJpickup", dropoffPlaceId: "ChIJdropoff" };
+  const again = new URLSearchParams(account.rebookQuery(trip, places, "again").split("?")[1].split("#")[0]);
+  assert.equal(again.get("pickup"), "BKK");
+  assert.equal(again.get("dropoffPlaceId"), "ChIJdropoff");
+  const back = new URLSearchParams(account.rebookQuery(trip, places, "return").split("?")[1].split("#")[0]);
+  assert.equal(back.get("pickup"), "Pattaya");
+  assert.equal(back.get("dropoff"), "BKK");
+  assert.equal(back.get("pickupPlaceId"), "ChIJdropoff");
+  assert.equal(back.get("passengers"), "3");
+  const hourly = new URLSearchParams(account.rebookQuery({ ...trip, serviceType: "hourly", bookedHours: 5 }, places, "return").split("?")[1].split("#")[0]);
+  assert.equal(hourly.get("dropoff"), null);
+  assert.equal(hourly.get("hours"), "5");
+});
+
+test("saved places and travellers are always scoped to the signed-in customer", async () => {
+  const files = await Promise.all(["app/api/account/places/[id]/route.ts", "app/api/account/passengers/[id]/route.ts"].map(read));
+  for (const source of files) {
+    for (const match of source.matchAll(/\.(delete|update)\(customerSaved\w+\)[^;]+;/g)) {
+      assert.match(match[0], /eq\(customerSaved\w+\.customerId, session\.customer\.id\)/, match[0]);
+    }
+  }
+  const rebook = await read("app/api/account/trips/[reference]/rebook/route.ts");
+  assert.match(rebook, /customerBooking\(session\.customer, reference\.toUpperCase\(\)\)/);
+});
