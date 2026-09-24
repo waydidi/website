@@ -43,7 +43,7 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
         {cards.map((card) => (
           <article
             key={card.title}
-            className="group flex min-h-[190px] min-w-0 flex-col rounded-2xl bg-surface p-5 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            className="group flex min-h-[170px] min-w-0 flex-col rounded-2xl bg-surface px-5 py-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
             <div className="grid flex-1 grid-cols-[minmax(0,1fr)_96px] items-start gap-4">
               <div>
@@ -62,7 +62,7 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
             </div>
             <Link
               href={card.href}
-              className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-bold shadow-sm transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-bold shadow-sm transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               {t("services.details")}
               <span className="sr-only"> {t("services.detailsAbout", { title: card.title })}</span>
