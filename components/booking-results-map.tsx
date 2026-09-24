@@ -572,7 +572,7 @@ export function BookingResultsMap(props: Props) {
         </ul>
 
         {/* Free cancellation up to 24 hours before pickup (Transfeero style). */}
-        {props.quote && <div className="mt-6 flex gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
+        {props.quote && <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
           <CancelCalendar3D size={56} className="shrink-0" />
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-[#17563A]">FREE Cancellation 24H <span className="rounded-full bg-[#D3F2E0] px-2.5 py-0.5 text-[13px] font-semibold text-[#17563A]">24h</span></p>
