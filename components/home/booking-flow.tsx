@@ -899,7 +899,7 @@ export function BookingFlow({
 
   return (
     <I18nProvider locale={locale} messages={messages}>
-    <main className="min-h-screen bg-white text-ink">
+    <main className="font-home min-h-screen bg-white text-ink">
       {!isOnline && (
         <div
           role="status"
