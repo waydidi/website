@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ChevronDown, CircleHelp, Info, NotebookPen, Plane, Plus, UsersRound, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, CircleHelp, Info, NotebookPen, Plane, Plus, Search, UsersRound, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import type { ReviewFieldErrors } from "@/lib/booking-review";
 import type { Booking } from "./booking-flow";
@@ -58,6 +58,9 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
   const phone = splitPhone(booking.phone);
   const [signHelp, setSignHelp] = useState(false);
   const [dialOpen, setDialOpen] = useState(false);
+  const [dialQuery, setDialQuery] = useState("");
+  const dialNeedle = dialQuery.trim().toLowerCase().replace(/^\+/, "");
+  const dialMatches = dialNeedle ? DIAL_CODES.filter(([, code, name]) => name.toLowerCase().includes(dialNeedle) || code.replace("+", "").startsWith(dialNeedle)) : DIAL_CODES;
   // The bar is portalled to <body>: the step fades in with a transform, which
   // would otherwise pin a "fixed" bar to the step instead of the screen.
   const [mounted, setMounted] = useState(false);
@@ -147,7 +150,7 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
     </div>
 
     {/* Country code sheet, styled like the homepage language picker. */}
-    <DialogPrimitive.Root open={dialOpen} onOpenChange={setDialOpen}>
+    <DialogPrimitive.Root open={dialOpen} onOpenChange={(open) => { setDialOpen(open); if (!open) setDialQuery(""); }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[80dvh] flex-col rounded-t-[20px] bg-white text-[#0F294D] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
@@ -156,10 +159,19 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
             <DialogPrimitive.Close className="grid size-9 place-items-center rounded-full hover:bg-slate-100" aria-label="Close"><X size={24} /></DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="sr-only">Choose the country code for your mobile number</DialogPrimitive.Description>
+          <div className="px-4 pt-3">
+            <label className="flex h-12 items-center gap-2 rounded-xl bg-[#F4F4F2] px-4 focus-within:ring-2 focus-within:ring-brand">
+              <Search size={18} className="shrink-0 text-[#6B6B6B]" aria-hidden="true" />
+              <span className="sr-only">Search country or code</span>
+              {/* 16px text so iPhone Safari does not zoom in on focus. */}
+              <input type="search" value={dialQuery} onChange={(e) => setDialQuery(e.target.value)} placeholder="Search country or code" className="w-full bg-transparent text-base outline-none placeholder:text-[#8A8A8A]" />
+            </label>
+          </div>
           <ul className="flex-1 overflow-y-auto px-4 py-3">
-            {DIAL_CODES.map(([country, code, name]) => {
+            {dialMatches.length === 0 && <li className="px-3 py-6 text-center text-[#6B6B6B]">No countries match &ldquo;{dialQuery}&rdquo;.</li>}
+            {dialMatches.map(([country, code, name]) => {
               const selected = code === phone.code;
-              return <li key={code}><button type="button" onClick={() => { change("phone", `${code} ${phone.local}`.trim()); setDialOpen(false); }} aria-current={selected || undefined} className={`flex min-h-14 w-full items-center gap-4 rounded-xl px-3 text-left text-base transition ${selected ? "bg-[#F5F7FA] font-medium text-[#3264FF]" : "hover:bg-[#F5F7FA]"}`}>
+              return <li key={code}><button type="button" onClick={() => { change("phone", `${code} ${phone.local}`.trim()); setDialOpen(false); setDialQuery(""); }} aria-current={selected || undefined} className={`flex min-h-14 w-full items-center gap-4 rounded-xl px-3 text-left text-base transition ${selected ? "bg-[#F5F7FA] font-medium text-[#3264FF]" : "hover:bg-[#F5F7FA]"}`}>
                 <Flag country={country} size={32} /><span className="flex-1">{name}</span><span className="text-[#6B6B6B]">{code}</span>
               </button></li>;
             })}
