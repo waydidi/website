@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Inter (SIL OFL) for the homepage search form only; see .font-search. */
+@import "@fontsource-variable/inter/index.css";
 
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
@@ -156,6 +158,12 @@ body {
   font-family: var(--font-sans);
   overflow-x: hidden;
   overflow-x: clip;
+}
+
+/* The booking search form uses Inter, a close free match for Trip.com's search UI. */
+.font-search {
+  font-family: "Inter Variable", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-feature-settings: "cv11";
 }
 
 html {

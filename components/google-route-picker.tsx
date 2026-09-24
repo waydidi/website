@@ -181,7 +181,7 @@ export function GoogleRoutePicker({
   }, [mapReady, pickupOnly, showPreviewMap]);
 
   const fieldClass =
-    "w-full bg-transparent text-[15px] font-semibold text-slate-950 outline-none placeholder:font-normal placeholder:text-slate-400 lg:text-base";
+    "w-full bg-transparent text-[15px] font-normal text-slate-950 outline-none placeholder:font-normal placeholder:text-slate-400 lg:text-base";
   return (
     <>
       <label className={`block min-w-0 ${connectedMobile ? "order-2 lg:order-none" : ""}`}>

@@ -911,7 +911,7 @@ export function BookingFlow({
                 {t("hero.subtitle")}
               </p>
             </div>
-            <form id="booking-search" onSubmit={search} className="w-full scroll-mt-28">
+            <form id="booking-search" onSubmit={search} className="font-search w-full scroll-mt-28">
               <div className="inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-sm font-bold text-slate-500 shadow-md shadow-orange-950/10 lg:inline-flex lg:h-auto lg:w-auto lg:rounded-b-none lg:rounded-t-[26px] lg:p-1.5 lg:pb-0 lg:text-base lg:shadow-none">
                 <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
                   <CarFront className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.transfer")}
@@ -930,7 +930,7 @@ export function BookingFlow({
                   aria-controls="passenger-luggage-sheet"
                   aria-label={t("hero.travellersLabel", { passengers: booking.passengers, bags: booking.luggage })}
                 >
-                  <span className="flex items-center gap-3.5 text-[15px] font-semibold text-slate-950 lg:text-base">
+                  <span className="flex items-center gap-3.5 text-[15px] font-normal text-slate-950 lg:text-base">
                     <span className="flex items-center gap-2">
                       <Users size={18} aria-hidden="true" /> {booking.passengers}
                     </span>
@@ -974,12 +974,12 @@ export function BookingFlow({
                     >
                       <CalendarDays className="shrink-0 text-brand" size={18} />
                       {departureSelected ? (
-                        <span className="min-w-0 text-[15px] font-semibold leading-[18px] text-slate-950 lg:text-base lg:leading-5">
+                        <span className="min-w-0 text-[15px] font-normal leading-[18px] text-slate-950 lg:text-base lg:leading-5">
                           <span className="block truncate">{formatDate(booking.date)}</span>
                           <span className="block">{formatTimeLabel(booking.time, locale)}</span>
                         </span>
                       ) : (
-                        <span className="text-[15px] font-semibold text-slate-600 lg:text-base">{t("hero.departure")}</span>
+                        <span className="text-[15px] font-normal text-slate-600 lg:text-base">{t("hero.departure")}</span>
                       )}
                     </button>
                     {departureSelected && (
