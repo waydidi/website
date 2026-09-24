@@ -43,6 +43,7 @@ import { validateBookingReview, type ReviewFieldErrors } from "@/lib/booking-rev
 import { VEHICLES, smallestFittingVehicle, vehicleFits, type VehicleId } from "@/lib/vehicles";
 import { DateTimePicker } from "./date-time-picker";
 import { SiteHeader } from "@/components/site-header";
+import { useCurrency } from "@/components/use-currency";
 import { formatTimeLabel } from "./dates";
 import { formatDate, translate, type Locale, type MessageKey, type Messages } from "@/lib/i18n";
 import enMessages from "@/messages/en.json";
@@ -223,6 +224,7 @@ export function BookingFlow({
     bookedHours: 3,
   });
   const [vehicle, setVehicle] = useState("economy_sedan");
+  const { currency, money, thb } = useCurrency();
   const [payment, setPayment] = useState<"card" | "cash">("card");
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
   const [fareQuote, setFareQuote] = useState<FareQuote | null>(null);
@@ -863,7 +865,7 @@ export function BookingFlow({
   // otherwise sits below the whole form. Each step's own rules decide when its
   // button is enabled, so the bar can never skip one.
   const hasPrice = !quoteRequest && (serviceType === "transfer" ? Boolean(fareQuote) : Boolean(hourlyQuote));
-  const priceText = quoteRequest ? "Quote on request" : hasPrice ? `฿${chosenVehicle.price.toLocaleString()}` : "—";
+  const priceText = quoteRequest ? "Quote on request" : hasPrice ? money(chosenVehicle.price) : "—";
   // The transfer results screen has its own full-screen layout and Book bar.
   const mapView = stage === "vehicle" && serviceType === "transfer" && !quoteRequest;
   const priceBar =
@@ -1676,14 +1678,14 @@ export function BookingFlow({
             <div className="my-6 border-t border-white/15" />
             {returnTrip && quoteSummary?.prices[vehicle] && (
               <div className="mb-5 space-y-2 text-sm text-white/70">
-                <SummaryLine label="Outbound fare" value={`฿${quoteSummary.prices[vehicle].outbound.toLocaleString()}`} />
-                <SummaryLine label="Return fare" value={`฿${quoteSummary.prices[vehicle].return.toLocaleString()}`} />
+                <SummaryLine label="Outbound fare" value={money(quoteSummary.prices[vehicle].outbound)} />
+                <SummaryLine label="Return fare" value={money(quoteSummary.prices[vehicle].return)} />
               </div>
             )}
             <div className="flex items-end justify-between">
               <span className="text-sm text-white/65">Total</span>
               <span className={`${quoteRequest ? "text-xl" : "text-3xl"} font-black`}>
-                {quoteRequest ? "Quote on request" : `฿${chosenVehicle.price.toLocaleString()}`}
+                {quoteRequest ? "Quote on request" : money(chosenVehicle.price)}{!quoteRequest && currency !== "THB" && <span className="mt-1 block text-xs font-medium text-slate-500">Charged in THB: {thb(chosenVehicle.price)}</span>}
               </span>
             </div>
             <button
@@ -1747,14 +1749,14 @@ export function BookingFlow({
             <div className="my-6 border-t border-white/15" />
             {returnTrip && quoteSummary?.prices[vehicle] && (
               <div className="mb-5 space-y-3 text-sm">
-                <SummaryLine label="Outbound" value={`฿${quoteSummary.prices[vehicle].outbound.toLocaleString()}`} />
-                <SummaryLine label="Return" value={`฿${quoteSummary.prices[vehicle].return.toLocaleString()}`} />
+                <SummaryLine label="Outbound" value={money(quoteSummary.prices[vehicle].outbound)} />
+                <SummaryLine label="Return" value={money(quoteSummary.prices[vehicle].return)} />
               </div>
             )}
             <div className="flex items-end justify-between">
               <span className="text-sm text-white/65">Total</span>
               <strong className={quoteRequest ? "text-xl" : "text-3xl"}>
-                {quoteRequest ? "Quote on request" : `฿${chosenVehicle.price.toLocaleString()}`}
+                {quoteRequest ? "Quote on request" : money(chosenVehicle.price)}{!quoteRequest && currency !== "THB" && <span className="mt-1 block text-xs font-medium text-slate-500">Charged in THB: {thb(chosenVehicle.price)}</span>}
               </strong>
             </div>
             <p className="mt-3 text-sm leading-6 text-white/65">
@@ -1820,7 +1822,7 @@ export function BookingFlow({
                 <Detail label="Vehicle" value={chosenVehicle.name} />
                 <Detail
                   label="Total"
-                  value={`฿${chosenVehicle.price.toLocaleString()}`}
+                  value={thb(chosenVehicle.price)}
                 />
               </div>
               <div className="no-print mt-8 flex flex-col gap-3 sm:flex-row">

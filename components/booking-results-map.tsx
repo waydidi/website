@@ -3,6 +3,7 @@
 
 import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Pencil, Route, Users, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
+import { useCurrency } from "@/components/use-currency";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
@@ -134,6 +135,8 @@ export function BookingResultsMap(props: Props) {
   const cheapest = props.vehicles.filter((v) => v.fits !== false).reduce<Vehicle | undefined>((best, v) => !best || v.price < best.price ? v : best, undefined);
   const total = selected ? props.priceBreakdown?.[selected.id]?.total ?? selected.price : 0;
   const passengers = props.passengers ?? 0;
+  const { currency, money, thb } = useCurrency();
+  const [code, amount] = [money(0).split(" ")[0], (v: number) => money(v).split(" ")[1]];
 
   useEffect(() => {
     let cancelled = false;
@@ -233,8 +236,9 @@ export function BookingResultsMap(props: Props) {
                     : badge === "popular" ? <span className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#FDECEC] px-2.5 py-1 text-[14px] font-medium text-[#B3261E]"><Flame size={15} aria-hidden="true" />Most popular</span> : null}
                 </span>
                 <span className="self-start text-right">
-                  <span className="block whitespace-nowrap text-[#1C1C1C]"><span className="text-[15px] text-[#4A4A4A]">THB </span><strong className="text-[22px] font-semibold">{item.price.toLocaleString()}</strong></span>
-                  <span className="mt-1 block text-[13px] text-[#8A8A8A]">{props.returnTrip ? "Round trip" : "Total price"}</span>
+                  <span className="block whitespace-nowrap text-[#1C1C1C]"><span className="text-[15px] text-[#4A4A4A]">{code} </span><strong className="text-[22px] font-semibold">{amount(item.price)}</strong></span>
+                  {currency !== "THB" && <span className="mt-0.5 block text-[13px] text-[#8A8A8A]">~{thb(item.price)}</span>}
+                  <span className="mt-0.5 block text-[13px] text-[#8A8A8A]">{props.returnTrip ? "Round trip" : "Total price"}</span>
                 </span>
               </button>
             </li>;
@@ -245,7 +249,7 @@ export function BookingResultsMap(props: Props) {
       {/* Bottom bar */}
       <div className="shrink-0 border-t border-[#EEEEEE] bg-white px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="flex min-w-0 items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="truncate text-2xl font-semibold text-[#1C1C1C]">THB {total.toLocaleString()}</strong></p>
+          <p className="flex min-w-0 items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[22px] font-semibold text-[#1C1C1C]">{money(total)}</strong></p>
           <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] font-medium text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
         </div>
         <button disabled={disabled} onClick={props.onContinue} className="mt-3 flex h-14 w-full items-center justify-center rounded-xl bg-brand text-lg font-semibold text-[#1C1C1C] transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
@@ -278,11 +282,11 @@ export function BookingResultsMap(props: Props) {
             <div className="mt-8 border-t border-[#E6E6E6] pt-6">
               <h3 className="flex items-center gap-3 text-[19px] font-medium"><Route size={22} aria-hidden="true" />Price and route</h3>
               {props.returnTrip && selected && props.priceBreakdown?.[selected.id] && <>
-                <p className="mt-5 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>THB {props.priceBreakdown[selected.id].outbound.toLocaleString()}</span></p>
-                <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>THB {props.priceBreakdown[selected.id].return.toLocaleString()}</span></p>
+                <p className="mt-5 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(props.priceBreakdown[selected.id].outbound)}</span></p>
+                <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>{money(props.priceBreakdown[selected.id].return)}</span></p>
               </>}
-              <p className="mt-5 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">THB {total.toLocaleString()}</strong></p>
-              <p className="mt-1 text-right text-[14px] text-[#8A8A8A]">{selected?.name}</p>
+              <p className="mt-5 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">{money(total)}</strong></p>
+              <p className="mt-1 text-right text-[14px] text-[#8A8A8A]">{currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
             </div>
           </div>
         </DialogPrimitive.Content>
@@ -317,6 +321,7 @@ function Leg({ title, date, time, from, to, quote, onEdit }: { title: string; da
 // Shared by the transfer results and the hourly vehicle step so both look alike.
 export function VehicleOption({ item, active, disabled = false, note, priceText, onSelect }: { item: Vehicle; active: boolean; disabled?: boolean; note?: string; priceText?: string; onSelect: () => void }) {
   const tooSmall = item.fits === false;
+  const { money } = useCurrency();
   return <button type="button" disabled={disabled || tooSmall} onClick={onSelect} aria-pressed={active} className={`relative grid min-h-[118px] w-full grid-cols-[92px_1fr_auto] items-center gap-3 rounded-[22px] border-2 p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-45 ${active ? "border-brand bg-cream shadow-md shadow-orange-950/5" : "border-slate-200 bg-white enabled:hover:border-orange-200"}`}>
     {item.popular && <span className="absolute -top-2.5 left-4 rounded-full bg-ink px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[.06em] text-white">Most popular</span>}
     <span className="grid h-[82px] place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className="max-h-[78px] w-full object-contain"/> : <span className="grid size-16 place-items-center rounded-full bg-brand-soft text-brand-deep"><CarFront size={30} aria-hidden="true"/></span>}</span>
@@ -325,7 +330,7 @@ export function VehicleOption({ item, active, disabled = false, note, priceText,
       {tooSmall && <span className="mt-1 block text-xs font-bold text-brand-deep">Too small for your group</span>}
     </span>
     <span className="flex flex-col items-end gap-2 self-stretch py-1 text-right">
-      <span><strong className={`block whitespace-nowrap font-black tracking-[-.02em] text-ink ${priceText ? "text-sm" : "text-xl"}`}>{priceText ?? `฿${item.price.toLocaleString()}`}</strong>{note && <span className="block text-[11px] font-semibold text-slate-500">{note}</span>}</span>
+      <span><strong className={`block whitespace-nowrap font-black tracking-[-.02em] text-ink ${priceText ? "text-sm" : "text-xl"}`}>{priceText ?? money(item.price)}</strong>{note && <span className="block text-[11px] font-semibold text-slate-500">{note}</span>}</span>
       {/* Every card shows the selection state, not just the chosen one. */}
       {active ? <CheckCircle2 className="mt-auto text-brand-deep" size={22} aria-hidden="true"/> : <span className="mt-auto size-[22px] rounded-full border-2 border-slate-300" aria-hidden="true"/>}
     </span>

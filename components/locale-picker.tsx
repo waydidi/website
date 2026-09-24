@@ -71,6 +71,7 @@ export function LocalePicker({ className = "" }: { className?: string }) {
   function chooseCurrency(code: string) {
     remember(CURRENCY_COOKIE, code);
     setCurrency(code);
+    window.dispatchEvent(new Event("waydidi:currency"));
     setOpen(false);
   }
 
