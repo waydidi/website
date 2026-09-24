@@ -3,6 +3,7 @@
 import {
   Camera,
   Check,
+  Clock3,
   CheckCircle2,
   ChevronRight,
   CircleAlert,
@@ -15,11 +16,14 @@ import {
   RefreshCw,
   Route,
   Upload,
+  UserX,
   WifiOff,
 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { THAI_BANKS } from "@/lib/thai-banks";
+import { clearQueuedStep, queuedStepForm, readQueuedStep, saveQueuedStep, type QueuedDriverStep } from "@/lib/driver-step-queue";
+import { distanceMetres, NO_SHOW_MIN_NOTE_LENGTH } from "@/lib/trip-rules";
 
 type DriverStatus =
   | "assigned"
@@ -28,7 +32,8 @@ type DriverStatus =
   | "passenger_verified"
   | "trip_started"
   | "passenger_picked_up"
-  | "completed";
+  | "completed"
+  | "no_show";
 type Trip = {
   assignment: {
     id: string;
@@ -51,6 +56,8 @@ type Trip = {
     luggage: number;
     vehicle: string;
     flightNumber: string | null;
+    pickupLatitude: number | null;
+    pickupLongitude: number | null;
     status: string;
   };
   events: Array<{
@@ -64,6 +71,7 @@ type Trip = {
   }>;
   activeStop: { reason: string; note: string | null; declaredAt: string } | null;
   payoutDetails: { submittedAt: string } | null;
+  noShow: { eligibleAt: string | null; airport: boolean; freeWaitMinutes: number; maxDistanceMetres: number };
 };
 
 type LocationPing = {
@@ -83,36 +91,36 @@ const steps: Array<{
 }> = [
   {
     status: "going_to_standby",
-    thai: "กำลังไปสแตนบาย",
-    english: "Going to standby",
+    thai: "กำลังไปจุดรับ",
+    english: "On the way",
     action: "เริ่มเดินทางไปจุดรับ",
-    help: "กดเมื่อคุณเริ่มเดินทางไปยังจุดรับลูกค้า",
+    help: "แชร์ตำแหน่งปัจจุบัน แล้วกดเมื่อคุณเริ่มเดินทางไปยังจุดรับลูกค้า",
   },
   {
     status: "standby",
-    thai: "สแตนบาย",
-    english: "Standing by",
+    thai: "รอที่จุดรับ",
+    english: "Waiting at pickup",
     action: "ยืนยันว่าถึงจุดรับแล้ว",
     help: "แชร์ตำแหน่งปัจจุบันและถ่ายรูปบริเวณจุดรับ",
   },
   {
     status: "passenger_verified",
-    thai: "ยืนยันผู้โดยสาร",
-    english: "Passenger verified",
+    thai: "ยืนยัน PIN ผู้โดยสาร",
+    english: "PIN verified",
     action: "ยืนยันผู้โดยสาร",
     help: "ขอรหัส Trip PIN จากผู้โดยสารเมื่อพบกันที่จุดรับ",
   },
   {
     status: "trip_started",
     thai: "เริ่มการเดินทาง",
-    english: "Trip started",
+    english: "On trip",
     action: "เริ่มการเดินทาง",
     help: "อนุญาตตำแหน่งแบบสดก่อนเริ่มเดินทาง ระบบจะแชร์ GPS จนกว่าจะส่งลูกค้าเสร็จ",
   },
   {
     status: "completed",
     thai: "ส่งลูกค้าเรียบร้อย",
-    english: "Drop-off completed",
+    english: "Arrived",
     action: "ยืนยันว่าส่งลูกค้าแล้ว",
     help: "แนบรูปหลักฐานก่อนจบงาน ระบบจะบันทึกเวลาส่งลูกค้า",
   },
@@ -144,6 +152,12 @@ export default function DriverTripClient({ token }: { token: string }) {
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
   const [bankBusy, setBankBusy] = useState(false);
+  const [pending, setPending] = useState<QueuedDriverStep | null>(null);
+  const [noShowOpen, setNoShowOpen] = useState(false);
+  const [noShowNote, setNoShowNote] = useState("");
+  const [noShowPhoto, setNoShowPhoto] = useState<File | null>(null);
+  const [clock, setClock] = useState(() => Date.now());
+  const sending = useRef(false);
 
   const load = useCallback(async () => {
     setError("");
@@ -182,6 +196,49 @@ export default function DriverTripClient({ token }: { token: string }) {
       window.removeEventListener("offline", update);
     };
   }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // Sends a step to the server. Network failures and server errors keep the
+  // step queued on the phone; a rejected step is dropped and explained.
+  const sendStep = useCallback(async (step: QueuedDriverStep): Promise<"sent" | "queued" | "rejected"> => {
+    if (sending.current || !navigator.onLine) return "queued";
+    sending.current = true;
+    try {
+      const response = await fetch(`/api/driver/trips/${encodeURIComponent(token)}`, { method: "POST", body: queuedStepForm(step) });
+      const result = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok && (response.status >= 500 || response.status === 429)) return "queued";
+      await clearQueuedStep(step.assignmentId);
+      setPending(null);
+      if (response.ok) setMessage(step.status === "no_show" ? "แจ้งไม่พบผู้โดยสารแล้ว ฝ่ายปฏิบัติการจะติดต่อกลับ" : "บันทึกสถานะ เวลา ตำแหน่ง และหลักฐานแล้ว");
+      else setError(result.error ?? "บันทึกสถานะไม่สำเร็จ");
+      await load();
+      return response.ok ? "sent" : "rejected";
+    } catch {
+      return "queued";
+    } finally {
+      sending.current = false;
+    }
+  }, [token, load]);
+
+  const assignmentId = trip?.assignment.id;
+  useEffect(() => {
+    if (!assignmentId) return;
+    let cancelled = false;
+    const flush = async () => {
+      const step = await readQueuedStep(assignmentId);
+      if (cancelled) return;
+      setPending(step);
+      if (step) await sendStep(step);
+    };
+    void flush();
+    const timer = window.setInterval(flush, 20_000);
+    window.addEventListener("online", flush);
+    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener("online", flush); };
+  }, [assignmentId, sendStep]);
 
   useEffect(() => {
     if (!trip || !["trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus)) {
@@ -233,15 +290,20 @@ export default function DriverTripClient({ token }: { token: string }) {
 
   const progressStatuses = ["assigned", ...steps.map((step) => step.status)];
   const currentIndex = trip
-    ? progressStatuses.indexOf(trip.assignment.currentStatus)
+    ? trip.assignment.currentStatus === "no_show"
+      ? progressStatuses.indexOf("passenger_verified")
+      : progressStatuses.indexOf(trip.assignment.currentStatus)
     : 0;
-  const next = trip
+  const next = trip && trip.assignment.currentStatus !== "no_show"
     ? trip.assignment.currentStatus === "passenger_picked_up"
       ? steps.find((step) => step.status === "completed") ?? null
       : steps[currentIndex] ?? null
     : null;
   const needsEvidence = Boolean(next && ["standby", "completed"].includes(next.status));
-  const needsLocation = Boolean(next && ["standby", "trip_started", "completed"].includes(next.status));
+  const needsLocation = Boolean(next && ["going_to_standby", "standby", "trip_started", "completed"].includes(next.status));
+  const noShowEligibleAt = trip?.noShow.eligibleAt ? new Date(trip.noShow.eligibleAt).getTime() : null;
+  const noShowMinutesLeft = noShowEligibleAt === null ? null : Math.max(0, Math.ceil((noShowEligibleAt - clock) / 60_000));
+  const canReportNoShow = Boolean(trip && trip.assignment.currentStatus === "standby" && !trip.assignment.passengerVerifiedAt && !pending);
   const preview = useMemo(
     () => (photo ? URL.createObjectURL(photo) : ""),
     [photo],
@@ -334,35 +396,73 @@ export default function DriverTripClient({ token }: { token: string }) {
         return;
       }
     }
-    const data = new FormData();
-    data.set("status", next.status);
-    data.set("note", note);
-    if (submissionPosition) {
-      data.set("latitude", String(submissionPosition.latitude));
-      data.set("longitude", String(submissionPosition.longitude));
-      data.set("accuracy", String(submissionPosition.accuracy));
-    }
-    if (photo) data.set("evidence", photo);
-    try {
-      const response = await fetch(
-        `/api/driver/trips/${encodeURIComponent(token)}`,
-        { method: "POST", body: data },
-      );
-      const result = (await response.json()) as {
-        error?: string;
-        expectedDistanceMetres?: number | null;
-      };
-      if (!response.ok) throw new Error(result.error ?? "บันทึกสถานะไม่สำเร็จ");
-      setMessage("บันทึกสถานะ เวลา ตำแหน่ง และหลักฐานแล้ว");
+    const step: QueuedDriverStep = {
+      id: crypto.randomUUID(),
+      assignmentId: trip.assignment.id,
+      status: next.status,
+      note,
+      occurredAt: new Date().toISOString(),
+      latitude: submissionPosition?.latitude ?? null,
+      longitude: submissionPosition?.longitude ?? null,
+      accuracy: submissionPosition ? Math.round(submissionPosition.accuracy) : null,
+      photo,
+      photoName: photo?.name ?? null,
+    };
+    if (await queueAndSend(step)) {
       setNote("");
       setPhoto(null);
       setPosition(null);
-      await load();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "บันทึกสถานะไม่สำเร็จ");
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
+  }
+
+  /** Returns true when the step was saved on the server or safely queued on the phone. */
+  async function queueAndSend(step: QueuedDriverStep) {
+    let stored = true;
+    try { await saveQueuedStep(step); } catch { stored = false; }
+    if (!stored && !navigator.onLine) {
+      setError("อุปกรณ์นี้บันทึกแบบออฟไลน์ไม่ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองอีกครั้ง");
+      return false;
+    }
+    setPending(step);
+    const outcome = await sendStep(step);
+    if (outcome === "queued" && !stored) {
+      setPending(null);
+      setError("บันทึกสถานะไม่สำเร็จ กรุณาลองอีกครั้ง");
+      return false;
+    }
+    return outcome !== "rejected";
+  }
+
+  async function reportNoShow(event: FormEvent) {
+    event.preventDefault();
+    if (!trip || busy) return;
+    if (noShowNote.trim().length < NO_SHOW_MIN_NOTE_LENGTH) { setError("อธิบายสั้น ๆ ว่าคุณติดต่อหรือตามหาผู้โดยสารอย่างไร"); return; }
+    if (!noShowPhoto) { setError("ต้องแนบรูปจุดรับก่อนแจ้ง"); return; }
+    if (!window.confirm("ยืนยันแจ้งว่าไม่พบผู้โดยสาร? ฝ่ายปฏิบัติการจะตรวจสอบก่อนปิดงาน")) return;
+    setBusy(true); setError(""); setMessage("");
+    let here: { latitude: number; longitude: number; accuracy: number };
+    try { here = await readCurrentLocation(); } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "ไม่สามารถอ่านตำแหน่งได้");
+      setBusy(false);
+      return;
+    }
+    const { pickupLatitude, pickupLongitude } = trip.booking;
+    if (pickupLatitude != null && pickupLongitude != null) {
+      const away = distanceMetres(here, { latitude: pickupLatitude, longitude: pickupLongitude });
+      if (away > trip.noShow.maxDistanceMetres) {
+        setError(`ต้องอยู่ห่างจากจุดรับไม่เกิน ${trip.noShow.maxDistanceMetres / 1000} กม. ขณะนี้ห่างประมาณ ${(away / 1000).toFixed(1)} กม.`);
+        setBusy(false);
+        return;
+      }
+    }
+    const accepted = await queueAndSend({
+      id: crypto.randomUUID(), assignmentId: trip.assignment.id, status: "no_show", note: noShowNote.trim(),
+      occurredAt: new Date().toISOString(), latitude: here.latitude, longitude: here.longitude, accuracy: Math.round(here.accuracy),
+      photo: noShowPhoto, photoName: noShowPhoto.name,
+    });
+    if (accepted) { setNoShowNote(""); setNoShowPhoto(null); setNoShowOpen(false); }
+    setBusy(false);
   }
 
   async function verifyPassenger(event: FormEvent) {
@@ -594,6 +694,11 @@ export default function DriverTripClient({ token }: { token: string }) {
                       {step.thai}
                     </p>
                     <p className="text-sm text-slate-500">{step.english}</p>
+                    {pending?.status === step.status && (
+                      <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
+                        <WifiOff size={13} /> รอส่ง · Waiting to send
+                      </span>
+                    )}
                     {event && (
                       <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
                         <span className="rounded-full bg-slate-100 px-2.5 py-1">
@@ -624,7 +729,23 @@ export default function DriverTripClient({ token }: { token: string }) {
             })}
           </div>
         </section>
-        {next?.status === "passenger_verified" && !trip.assignment.passengerVerifiedAt ? (
+        {pending ? (
+          <section className="rounded-[26px] border border-amber-200 bg-amber-50 p-6 text-amber-900" aria-live="polite">
+            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[.14em]"><WifiOff size={15} /> Waiting to send</p>
+            <h2 className="mt-2 text-2xl font-black">
+              {pending.status === "no_show" ? "แจ้งไม่พบผู้โดยสาร" : steps.find((step) => step.status === pending.status)?.thai ?? pending.status}
+            </h2>
+            <p className="mt-2 leading-6">
+              บันทึกไว้ในโทรศัพท์แล้ว เวลา {new Date(pending.occurredAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })} · ระบบจะส่งให้อัตโนมัติเมื่อมีสัญญาณอินเทอร์เน็ต ไม่ต้องกดซ้ำ
+            </p>
+            {online && (
+              <button type="button" onClick={() => void sendStep(pending)} className="mt-4 inline-flex h-11 items-center gap-2 rounded-full bg-amber-800 px-5 text-sm font-black text-white">
+                <RefreshCw size={16} /> ส่งตอนนี้
+              </button>
+            )}
+            {error && <p role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
+          </section>
+        ) : next?.status === "passenger_verified" && !trip.assignment.passengerVerifiedAt ? (
           <form onSubmit={verifyPassenger} className="rounded-[26px] bg-white p-5 shadow-sm">
             <span className="inline-flex rounded-full bg-[#FFF0DE] px-3 py-1 text-xs font-black text-[#D96F00]">Passenger verification</span>
             <h2 className="mt-3 text-2xl font-black">ยืนยัน Trip PIN</h2>
@@ -742,7 +863,6 @@ export default function DriverTripClient({ token }: { token: string }) {
               <button
                 disabled={
                   busy ||
-                  !online ||
                   Boolean(needsEvidence && !photo) ||
                   Boolean(needsLocation && !position)
                 }
@@ -757,6 +877,12 @@ export default function DriverTripClient({ token }: { token: string }) {
               </button>
             </div>
           </form>
+        ) : trip.assignment.currentStatus === "no_show" ? (
+          <section className="rounded-[26px] border border-red-200 bg-red-50 p-7 text-center text-red-900">
+            <UserX className="mx-auto" size={44} />
+            <h2 className="mt-4 text-2xl font-black">แจ้งไม่พบผู้โดยสารแล้ว</h2>
+            <p className="mt-2">ฝ่ายปฏิบัติการกำลังตรวจสอบรูปและตำแหน่ง และจะติดต่อคุณหากต้องการข้อมูลเพิ่ม</p>
+          </section>
         ) : completionVerified ? (
           <section className="rounded-[26px] bg-emerald-50 p-7 text-center text-emerald-900">
             <CheckCircle2 className="mx-auto" size={46} />
@@ -772,8 +898,56 @@ export default function DriverTripClient({ token }: { token: string }) {
             </p>
           </section>
         )}
+        {canReportNoShow && (
+          <section className="rounded-[26px] bg-white p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-red-50 text-red-700"><UserX size={21} /></span>
+              <div>
+                <h2 className="text-lg font-black">ไม่พบผู้โดยสาร?</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  รอฟรี {trip.noShow.freeWaitMinutes} นาที{trip.noShow.airport ? " หลังเครื่องลงจอด" : " หลังเวลานัด"} · โทรหาผู้โดยสารก่อนแจ้งทุกครั้ง
+                </p>
+              </div>
+            </div>
+            {noShowMinutesLeft === null ? (
+              <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">ไม่สามารถคำนวณเวลารอได้ กรุณาติดต่อฝ่ายปฏิบัติการ</p>
+            ) : noShowMinutesLeft > 0 ? (
+              <p className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700">
+                <Clock3 size={18} className="shrink-0 text-[#D96F00]" />
+                แจ้งได้ในอีก {noShowMinutesLeft} นาที · {new Date(noShowEligibleAt!).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })} น.
+              </p>
+            ) : !noShowOpen ? (
+              <button type="button" onClick={() => { setNoShowOpen(true); setError(""); }} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-red-200 font-black text-red-700">
+                <UserX size={18} /> แจ้งไม่พบผู้โดยสาร
+              </button>
+            ) : (
+              <form onSubmit={reportNoShow} className="mt-4 space-y-3">
+                <p className="text-sm text-slate-600">ต้องอยู่ห่างจากจุดรับไม่เกิน {trip.noShow.maxDistanceMetres / 1000} กม. ระบบจะอ่านตำแหน่งตอนกดส่ง</p>
+                <label className={`flex min-h-20 cursor-pointer items-center gap-4 rounded-2xl border border-dashed p-3 ${noShowPhoto ? "border-emerald-300 bg-emerald-50" : "border-slate-300 bg-slate-50"}`}>
+                  <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white text-[#D96F00]"><Camera size={22} /></span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-bold">{noShowPhoto ? noShowPhoto.name : "ถ่ายรูปจุดรับ / ป้ายชื่อ"}</span>
+                    <span className="mt-1 block text-sm text-slate-500">JPG, PNG หรือ WebP · ไม่เกิน 8 MB</span>
+                  </span>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" onChange={(event) => setNoShowPhoto(event.target.files?.[0] ?? null)} />
+                </label>
+                <label className="block text-sm font-bold">
+                  หมายเหตุ <span className="font-normal text-slate-400">(บังคับ)</span>
+                  <textarea value={noShowNote} onChange={(event) => setNoShowNote(event.target.value)} maxLength={500} rows={3} required placeholder="เช่น โทร 3 ครั้งไม่รับสาย รอที่ประตู 3 พร้อมป้ายชื่อ" className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-base outline-none focus:border-[#FF8A05]" />
+                </label>
+                {error && <p role="alert" className="rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button type="button" onClick={() => setNoShowOpen(false)} className="h-12 rounded-full border border-slate-200 font-bold">ยกเลิก</button>
+                  <button disabled={busy || !noShowPhoto || noShowNote.trim().length < NO_SHOW_MIN_NOTE_LENGTH} className="flex h-12 items-center justify-center gap-2 rounded-full bg-red-700 font-black text-white disabled:opacity-45">
+                    {busy ? <LoaderCircle className="animate-spin" size={18} /> : <UserX size={18} />} ส่งแจ้งไม่พบผู้โดยสาร
+                  </button>
+                </div>
+              </form>
+            )}
+          </section>
+        )}
       </div>
-      {trip.assignment.currentStatus === "completed" && !trip.payoutDetails && (
+      {(trip.assignment.currentStatus === "completed" || trip.assignment.currentStatus === "no_show") && !trip.payoutDetails && (
         <div className="fixed inset-0 z-50 flex items-end bg-[#211726]/50" role="dialog" aria-modal="true" aria-labelledby="bank-details-title">
           <div className="bank-details-sheet max-h-[96vh] w-full overflow-y-auto rounded-t-[30px] bg-white px-5 pb-8 pt-6 shadow-2xl sm:mx-auto sm:max-w-xl sm:px-8">
             <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-slate-200" />

@@ -2,8 +2,9 @@ import { env } from "cloudflare:workers";
 import { and, count, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { bookings, passengerVerifications } from "@/db/schema";
+import { bookings, drivers, passengerVerifications } from "@/db/schema";
 import { activeAssignmentForToken } from "@/lib/driver-operations";
+import { notifyLineTripStatus } from "@/lib/line";
 import { constantTimeEqual, isJsonRequest, sameOrigin } from "@/lib/security";
 import { tripPinForReference, tripPinHash } from "@/lib/trip-pin";
 
@@ -49,5 +50,10 @@ export async function POST(request: Request) {
     env.DB.prepare(`INSERT INTO driver_status_events (id, assignment_id, booking_reference, status, previous_status, latitude, longitude, accuracy_metres, verification_status, created_at) VALUES (?, ?, ?, 'passenger_verified', 'standby', ?, ?, ?, 'verified', ?)`).bind(crypto.randomUUID(), assignment.id, booking.reference, latitude, longitude, accuracy, now),
     env.DB.prepare(`INSERT INTO booking_events (booking_reference, event_type, provider_event_id, created_at) VALUES (?, 'passenger_verified', ?, ?)`).bind(booking.reference, `passenger-verification:${verificationId}`, now),
   ]);
+  const [driver] = await getDb().select().from(drivers).where(eq(drivers.id, assignment.driverId)).limit(1);
+  await notifyLineTripStatus({
+    eventId: verificationId, reference: booking.reference, driverName: driver?.fullName ?? "-", customerName: booking.customerName,
+    pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate, pickupTime: booking.pickupTime, vehicle: booking.vehicle,
+  }, "passenger_verified").catch((error) => console.error("LINE trip notification failed", error));
   return NextResponse.json({ ok: true, verifiedAt: now, attemptsRemaining: MAX_ATTEMPTS - attempts });
 }

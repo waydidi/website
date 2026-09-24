@@ -41,6 +41,7 @@ export async function GET(request: Request) {
         "trip_started",
         "passenger_picked_up",
         "completed",
+        "no_show",
       ].includes(a.currentStatus),
   );
   const tripPin = await tripPinForReference(booking.reference);

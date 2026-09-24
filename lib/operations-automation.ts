@@ -94,6 +94,8 @@ async function deliverNotification(input: {
   return sent ? "sent" as const : "failed" as const;
 }
 
+const AUTOMATED_ALERT_TYPES = ["unassigned_24h", "driver_not_started", "standby_late", "dropoff_late"];
+
 function activeAlert(booking: Booking, assignment: Assignment | undefined, now: number): AlertDefinition | null {
   const pickup = pickupTimestamp(booking.pickupDate, booking.pickupTime);
   const remaining = pickup - now;
@@ -164,7 +166,8 @@ export async function runOperationsAutomation(at = new Date()): Promise<Automati
     if (alert && await openAlert(booking, assignment, alert, now)) summary.alertsOpened += 1;
   }
 
-  const unresolved = await db.select().from(operationsAlerts).where(inArray(operationsAlerts.status, ["open", "acknowledged"]));
+  // Only close alerts this automation opens; driver-reported alerts (PIN failures, no-shows) stay open for a person.
+  const unresolved = await db.select().from(operationsAlerts).where(and(inArray(operationsAlerts.status, ["open", "acknowledged"]), inArray(operationsAlerts.alertType, AUTOMATED_ALERT_TYPES)));
   const bookingMap = new Map(bookingRows.map((booking) => [booking.reference, booking]));
   for (const alert of unresolved) {
     const booking = bookingMap.get(alert.bookingReference);
