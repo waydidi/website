@@ -1,4 +1,3 @@
-import { CancelCalendar3D } from "@/components/icons/cancel-calendar-3d";
 import { AirportRide3D, DayTrip3D, ReserveCalendar3D } from "@/components/icons/service-3d";
 
 export const metadata = { robots: { index: false } };
@@ -18,8 +17,6 @@ export default function IconPreview() {
         <Icon size={96} />
       </div>)}
     </div>
-    <div className="mt-6 flex items-center justify-center gap-6"><AirportRide3D size={160} /><AirportRide3D size={160} backdrop="#D9EBFF" /></div>
-    <p className="mt-6 text-sm text-slate-500">Blue backdrop variant, to match the cancellation icon:</p>
-    <div className="mt-3 flex gap-3"><AirportRide3D size={80} backdrop="#D9EBFF" /><ReserveCalendar3D size={80} backdrop="#D9EBFF" /><DayTrip3D size={80} backdrop="#D9EBFF" /><CancelCalendar3D size={80} /></div>
+    <div className="mt-6 flex items-center justify-center gap-4 rounded-[24px] bg-[#F3F3F3] p-4"><AirportRide3D size={120} /><ReserveCalendar3D size={120} /><DayTrip3D size={120} /></div>
   </main>;
 }

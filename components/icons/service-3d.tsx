@@ -15,11 +15,11 @@ function Backdrop({ id, color }: { id: string; color: string }) {
         <feDropShadow dx="0" dy="3" stdDeviation="2.6" floodColor="#5A2A00" floodOpacity=".22" />
       </filter>
     </defs>
-    <circle cx="48" cy="48" r="46" fill={`url(#${id}-bg)`} />
+    {color !== "none" && <circle cx="48" cy="48" r="46" fill={`url(#${id}-bg)`} />}
   </>;
 }
 
-export function RideCar3D({ size = 96, className = "", backdrop = "#FFE3C4" }: Props) {
+export function RideCar3D({ size = 96, className = "", backdrop = "none" }: Props) {
   const rc = useId().replace(/:/g, "");
   return <svg width={size} height={size} viewBox="0 0 96 96" className={className} aria-hidden="true">
     <Backdrop id={rc} color={backdrop} />
@@ -44,7 +44,7 @@ export function RideCar3D({ size = 96, className = "", backdrop = "#FFE3C4" }: P
   </svg>;
 }
 
-export function ReserveCalendar3D({ size = 96, className = "", backdrop = "#FFE3C4" }: Props) {
+export function ReserveCalendar3D({ size = 96, className = "", backdrop = "none" }: Props) {
   const rv = useId().replace(/:/g, "");
   return <svg width={size} height={size} viewBox="0 0 96 96" className={className} aria-hidden="true">
     <Backdrop id={rv} color={backdrop} />
@@ -83,7 +83,7 @@ function Pin({ x, y, s = 1, id }: { x: number; y: number; s?: number; id: string
   </g>;
 }
 
-export function DayTrip3D({ size = 96, className = "", backdrop = "#FFE3C4" }: Props) {
+export function DayTrip3D({ size = 96, className = "", backdrop = "none" }: Props) {
   const dt = useId().replace(/:/g, "");
   return <svg width={size} height={size} viewBox="0 0 96 96" className={className} aria-hidden="true">
     <Backdrop id={dt} color={backdrop} />
@@ -101,7 +101,7 @@ export function DayTrip3D({ size = 96, className = "", backdrop = "#FFE3C4" }: P
 
 // Airport ride: a private Waydidi car (no taxi sign), a suitcase and an
 // airport sign, in the same clay style.
-export function AirportRide3D({ size = 96, className = "", backdrop = "#FFE3C4" }: Props) {
+export function AirportRide3D({ size = 96, className = "", backdrop = "none" }: Props) {
   const ar = useId().replace(/:/g, "");
   return <svg width={size} height={size} viewBox="0 0 96 96" className={className} aria-hidden="true">
     <Backdrop id={ar} color={backdrop} />
