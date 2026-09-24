@@ -602,15 +602,6 @@ export function BookingFlow({
       luggage: adultPassengers + children + extraBagSets,
     }));
   };
-  const changeExtraBagSets = (value: number) => {
-    const extraSets = Math.max(0, value);
-    setExtraBagSets(extraSets);
-    fitVehicleToGroup(adultPassengers + childPassengers, adultPassengers + childPassengers + extraSets);
-    setBooking((current) => ({
-      ...current,
-      luggage: adultPassengers + childPassengers + extraSets,
-    }));
-  };
 
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1345,19 +1336,7 @@ export function BookingFlow({
               max={Math.min(MAX_GROUP_PASSENGERS - adultPassengers, MAX_GROUP_BAGS - adultPassengers - extraBagSets)}
               onChange={changeChildren}
             />
-            <SheetCounter
-              label={t("pax.extraBags")}
-              description={t("pax.extraBagsHint")}
-              value={extraBagSets}
-              min={0}
-              max={MAX_GROUP_BAGS - adultPassengers - childPassengers}
-              onChange={changeExtraBagSets}
-            />
           </div>
-
-          <p className="text-base leading-6 text-slate-500">
-            {t("pax.note")}
-          </p>
 
           <div className="mt-5 rounded-[24px] bg-slate-100 p-5 text-slate-600">
             <p className="mb-4 font-semibold">{t("pax.groupCanBring")}</p>

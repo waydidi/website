@@ -224,7 +224,7 @@ function CalendarMonth({
                   disabled={disabled}
                   aria-disabled={disabled}
                   onClick={() => onSelect(value)}
-                  className={`mx-auto grid size-10 place-items-center rounded-full text-[16px] transition ${active ? "bg-brand font-bold text-ink" : disabled ? "cursor-not-allowed text-slate-300" : "hover:bg-orange-100"}`}
+                  className={`mx-auto grid size-10 place-items-center rounded-full text-[16px] transition ${active ? "bg-brand font-bold text-white" : disabled ? "cursor-not-allowed text-slate-300" : "hover:bg-orange-100"}`}
                 >
                   {day}
                 </button>
