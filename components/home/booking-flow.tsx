@@ -1282,25 +1282,9 @@ export function BookingFlow({
                   ))}
                 </div>
               )}
-              {(fareQuote || pricingMessage) && (
-                <div
-                  className={`mt-3 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${fareQuote ? "bg-white text-slate-800" : "bg-amber-50 text-amber-900"}`}
-                >
-                  {fareQuote ? (
-                    <>
-                      <span
-                        className="size-3 rounded-full"
-                        style={{ backgroundColor: fareQuote.area.color }}
-                      />
-                      <strong>{fareQuote.area.name}</strong>
-                      <span>
-                        {(fareQuote.distanceMeters / 1000).toFixed(1)} km
-                      </span>
-                      {returnTrip && returnFareQuote && <span className="text-slate-500">{t("hero.outboundReturnReady")}</span>}
-                    </>
-                  ) : (
-                    pricingMessage
-                  )}
+              {!fareQuote && pricingMessage && (
+                <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                  {pricingMessage}
                 </div>
               )}
               {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-brand"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">{t("hero.includesKm", { km: Math.round((hourlyQuote.prices.economy_sedan?.includedDistanceMeters??0)/1000) })} · {t("legal.priceLocked")}</span></div>}
