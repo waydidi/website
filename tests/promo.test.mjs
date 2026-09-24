@@ -44,3 +44,12 @@ test("return-journey codes need a round trip transfer", () => {
   assert.equal(promo.evaluatePromo(rule, { ...ctx, returnTrip: true }).ok, true);
   assert.equal(promo.evaluatePromo(rule, { ...ctx, serviceType: "hourly", returnTrip: true }).ok, false);
 });
+
+test("tax invoice fields are required only when requested", async () => {
+  const { validateBookingReview } = await import("../lib/booking-review.ts");
+  const base = { name: "Anna", surname: "Lee", email: "a@b.co", phone: "+66 81 234 5678", termsAccepted: true };
+  assert.deepEqual(validateBookingReview(base), {});
+  const missing = validateBookingReview({ ...base, taxInvoice: true, taxName: "", taxId: "123", taxAddress: "" });
+  assert.ok(missing.taxName && missing.taxId && missing.taxAddress);
+  assert.deepEqual(validateBookingReview({ ...base, taxInvoice: true, taxName: "Acme Co., Ltd.", taxId: "0105 5560-12345", taxAddress: "99 Sukhumvit Rd, Bangkok 10110" }), {});
+});

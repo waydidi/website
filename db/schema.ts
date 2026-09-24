@@ -346,6 +346,20 @@ export const promoCodes = sqliteTable(
   (table) => [index("idx_promo_codes_status").on(table.status)],
 );
 
+// Tax invoice details a customer asked for at checkout (one per booking).
+export const bookingTaxInvoices = sqliteTable(
+  "booking_tax_invoices",
+  {
+    id: text("id").primaryKey(),
+    bookingReference: text("booking_reference").notNull().unique(),
+    name: text("name").notNull(),
+    taxId: text("tax_id").notNull(),
+    branch: text("branch").notNull(),
+    address: text("address").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+);
+
 // One row per booking that used a code. A use counts while its booking is live
 // (not expired, cancelled or refunded), so abandoned checkouts free it again.
 export const promoRedemptions = sqliteTable(

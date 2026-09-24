@@ -120,6 +120,30 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
             </div>
             {signHelp && <p className="mt-2 flex gap-2 text-sm text-[#6B6B6B]"><Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />The name your driver shows on the sign at the meeting point. Leave empty to use the lead passenger&apos;s name.</p>}
           </div>
+          {/* Tax invoice: ticking the box reveals the billing fields. */}
+          <div className="rounded-xl border border-[#E6E6E6] p-4">
+            <label className="flex cursor-pointer items-center gap-3 text-[16px] text-[#1C1C1C]">
+              <input type="checkbox" checked={Boolean(booking.taxInvoice)} onChange={(e) => change("taxInvoice", e.target.checked)} className="size-5 shrink-0 accent-[#FF8A05]" />
+              Request a tax invoice
+            </label>
+            {booking.taxInvoice && <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-3">
+              <p className="text-sm text-[#6B6B6B]">Your tax invoice will be issued with these details.</p>
+              {([["taxName", "Company or full name", "organization"], ["taxId", "Tax ID (13 digits)", "off"]] as const).map(([key, label, auto]) => <div key={key}>
+                <label className="sr-only" htmlFor={`tax-${key}`}>{label}</label>
+                <input id={`tax-${key}`} data-booking-field={key} autoComplete={auto} inputMode={key === "taxId" ? "numeric" : undefined} maxLength={key === "taxId" ? 17 : 200} value={booking[key] ?? ""} onChange={(e) => change(key, e.target.value)} placeholder={label} aria-invalid={Boolean(fieldErrors[key])} className={field(Boolean(fieldErrors[key]))} />
+                {fieldErrors[key] && <p className="mt-1.5 text-sm font-medium text-red-700">{fieldErrors[key]}</p>}
+              </div>)}
+              <div>
+                <label className="sr-only" htmlFor="tax-branch">Branch</label>
+                <input id="tax-branch" value={booking.taxBranch ?? ""} onChange={(e) => change("taxBranch", e.target.value)} maxLength={60} placeholder="Branch (e.g. Head office or 00001)" className={field(false)} />
+              </div>
+              <div>
+                <label className="sr-only" htmlFor="tax-taxAddress">Billing address</label>
+                <textarea id="tax-taxAddress" data-booking-field="taxAddress" autoComplete="street-address" value={booking.taxAddress ?? ""} onChange={(e) => change("taxAddress", e.target.value)} maxLength={500} rows={3} placeholder="Billing address" aria-invalid={Boolean(fieldErrors.taxAddress)} className={`${field(Boolean(fieldErrors.taxAddress))} resize-none`} />
+                {fieldErrors.taxAddress && <p className="mt-1.5 text-sm font-medium text-red-700">{fieldErrors.taxAddress}</p>}
+              </div>
+            </div>}
+          </div>
         </div>
       </div>
     </div>

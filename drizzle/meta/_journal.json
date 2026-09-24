@@ -232,6 +232,13 @@
       "when": 1790253604450,
       "tag": "0032_flippant_epoch",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1790264055659,
+      "tag": "0033_premium_tattoo",
+      "breakpoints": true
     }
   ]
 }

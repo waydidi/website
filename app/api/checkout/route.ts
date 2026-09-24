@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { customerFromRequest } from "@/lib/customer-auth";
-import { customerBookingLinks, promoRedemptions } from "@/db/schema";
+import { bookingTaxInvoices, customerBookingLinks, promoRedemptions } from "@/db/schema";
 import { normalizeCode } from "@/lib/promo";
 import { checkPromo, normalizePhone } from "@/lib/promo-db";
 import { addonsTotal } from "@/lib/addons";
@@ -458,6 +458,15 @@ export async function POST(request: Request) {
       originalTotal: promoApplied.originalTotal,
       discount: promoApplied.discount,
       finalTotal: total,
+      createdAt: now,
+    }).onConflictDoNothing();
+    if (input.taxInvoice) await getDb().insert(bookingTaxInvoices).values({
+      id: crypto.randomUUID(),
+      bookingReference: reference,
+      name: input.taxInvoice.name,
+      taxId: input.taxInvoice.taxId,
+      branch: input.taxInvoice.branch || "Head office",
+      address: input.taxInvoice.address,
       createdAt: now,
     }).onConflictDoNothing();
     if (account) await getDb().insert(customerBookingLinks).values({ bookingReference: reference, customerId: account.customer.id, createdAt: now }).onConflictDoNothing();

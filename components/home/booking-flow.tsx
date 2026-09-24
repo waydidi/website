@@ -72,6 +72,12 @@ export type Booking = {
   specialRequests: string;
   termsAccepted: boolean;
   bookedHours: number;
+  // Tax invoice request (optional; older saved drafts may not have these).
+  taxInvoice?: boolean;
+  taxName?: string;
+  taxId?: string;
+  taxBranch?: string;
+  taxAddress?: string;
 };
 type FareQuote = {
   quoteId: string;
@@ -935,6 +941,7 @@ export function BookingFlow({
           pickupInstructions: booking.pickupInstructions,
           childSeats: booking.childSeats,
           exchangeStop,
+          taxInvoice: booking.taxInvoice ? { name: (booking.taxName ?? "").trim(), taxId: (booking.taxId ?? "").replace(/[\s-]/g, ""), branch: (booking.taxBranch ?? "").trim() || "Head office", address: (booking.taxAddress ?? "").trim() } : undefined,
           oversizedLuggage: booking.oversizedLuggage,
           specialRequests: [exchangeStop ? "Currency exchange stop requested." : "", booking.specialRequests].filter(Boolean).join(" ").slice(0, 500),
           termsAccepted: booking.termsAccepted,

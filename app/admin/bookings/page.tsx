@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getDb } from "@/db";
-import { bookingPayments, bookings } from "@/db/schema";
+import { bookingPayments, bookings, bookingTaxInvoices } from "@/db/schema";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import { WaydidiLogo } from "@/components/waydidi-logo";
@@ -51,6 +51,9 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
     .limit(100);
   const paymentRows = await getDb().select().from(bookingPayments).orderBy(desc(bookingPayments.createdAt)).limit(200);
   const paymentsByBooking = new Map(paymentRows.map((payment) => [payment.bookingReference, payment]));
+  // Tax invoice requests (the table may not exist yet before its migration runs).
+  const taxRows = await getDb().select().from(bookingTaxInvoices).limit(500).catch(() => []);
+  const taxByBooking = new Map(taxRows.map((tax) => [tax.bookingReference, tax]));
   const binRows = allRows.filter((row) => row.status === "binned");
   const activeRows = allRows.filter((row) => row.status !== "binned");
   const rows = view === "bin" ? binRows : activeRows;
@@ -181,6 +184,13 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                       <p className="font-normal text-slate-500">
                         {row.customerPhone}
                       </p>
+                      {taxByBooking.get(row.reference) && (() => { const tax = taxByBooking.get(row.reference)!; return (
+                        <div className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-normal text-amber-900">
+                          <p className="font-bold">Tax invoice requested</p>
+                          <p>{tax.name} · Tax ID {tax.taxId} · {tax.branch}</p>
+                          <p className="whitespace-pre-line">{tax.address}</p>
+                        </div>
+                      ); })()}
                     </td>
                     <td className="max-w-[300px] px-5 py-4">
                       <p className="font-bold">{row.pickup}</p>
