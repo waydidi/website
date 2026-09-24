@@ -97,25 +97,48 @@ function teardrop(fill: string) {
   return `<svg width="40" height="50" viewBox="0 0 40 50" style="display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.28))"><path d="M20 49c-.9 0-1.6-.7-2.2-1.6C12.6 39.6 2.5 31.8 2.5 20 2.5 10.3 10.3 2.5 20 2.5S37.5 10.3 37.5 20c0 11.8-10.1 19.6-15.3 27.4-.6.9-1.3 1.6-2.2 1.6Z" fill="${fill}" stroke="#fff" stroke-width="2.5"/><circle cx="20" cy="20" r="7.5" fill="#fff"/></svg>`;
 }
 
+// Pin is 40×50; its round head is 35px across, centred 29px above the tip.
+const PIN_HEAD = 35;
+const HEAD_CENTRE = 29;
+
 function placeTag(name: string, side: "right" | "left") {
-  const pad = side === "right" ? "padding:0 16px 0 30px" : "padding:0 30px 0 18px";
-  return `<div style="display:flex;align-items:center;gap:10px;height:46px;width:max-content;max-width:230px;${pad};border-radius:999px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.16);font:600 15px/1 ${GRAB_FONT};color:#1C1C1C;white-space:nowrap"><span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(name)}</span><svg width="8" height="13" viewBox="0 0 8 13" style="flex:none"><path d="M1.5 1.5 6.5 6.5l-5 5" fill="none" stroke="#1C1C1C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+  // Same height as the pin head; the end under the pin is hidden behind it.
+  const pad = side === "right" ? `padding:0 14px 0 ${PIN_HEAD / 2 + 10}px` : `padding:0 ${PIN_HEAD / 2 + 10}px 0 14px`;
+  return `<div style="display:flex;align-items:center;gap:8px;height:${PIN_HEAD}px;width:max-content;max-width:230px;${pad};border-radius:999px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.16);font:600 14px/1 ${GRAB_FONT};color:#1C1C1C;white-space:nowrap;box-sizing:border-box"><span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(name)}</span><svg width="7" height="12" viewBox="0 0 8 13" style="flex:none"><path d="M1.5 1.5 6.5 6.5l-5 5" fill="none" stroke="#1C1C1C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
 }
 
-// Pickup: red pin, tag to its right (the pin overlaps the tag's left end).
-function grabPickup(name: string) {
-  return `<div style="position:relative;width:0;height:0"><div style="position:absolute;left:-8px;top:-54px">${placeTag(name, "right")}</div><div style="position:absolute;left:-20px;top:-50px">${teardrop("#E8543C")}</div></div>`;
+// Pin tip on the exact point; the tag starts at the pin's centre line.
+function grabMarker(name: string, color: string, side: "right" | "left") {
+  const tagTop = -HEAD_CENTRE - PIN_HEAD / 2;
+  const tag = side === "right"
+    ? `<div style="position:absolute;left:0;top:${tagTop}px">${placeTag(name, "right")}</div>`
+    : `<div style="position:absolute;right:0;top:${tagTop}px">${placeTag(name, "left")}</div>`;
+  return `<div style="position:relative;width:0;height:0">${tag}<div style="position:absolute;left:-20px;top:-49px">${teardrop(color)}</div></div>`;
 }
+const grabPickup = (name: string) => grabMarker(name, "#E8543C", "right");
+const grabDropoff = (name: string) => grabMarker(name, "#3478F6", "left");
 
-// Drop-off: blue pin above a blue location dot, tag to its left.
-function grabDropoff(name: string) {
-  return `<div style="position:relative;width:0;height:0"><div style="position:absolute;right:-8px;top:-68px">${placeTag(name, "left")}</div><div style="position:absolute;left:-9px;top:-9px;width:18px;height:18px;border-radius:50%;background:#3478F6;border:3px solid #fff;box-sizing:border-box;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div><div style="position:absolute;left:-20px;top:-64px">${teardrop("#3478F6")}</div></div>`;
-}
-
-// "Best" route bubble with its tail on the bottom-left corner at the point.
-function grabBubble(minutes: number, km: number) {
+// Time/distance bubble beside the line: to the right of a mostly vertical
+// stretch, above a mostly horizontal one, never on top of the route.
+function grabBubble(minutes: number, km: number, placement: "right" | "above") {
   const time = minutes >= 60 ? `${Math.floor(minutes / 60)} hr ${Math.round(minutes % 60)} min` : `${Math.max(1, Math.round(minutes))} min`;
-  return `<div style="position:relative;width:0;height:0"><div style="position:absolute;left:4px;bottom:4px;width:max-content;padding:8px 14px 9px;border-radius:16px 16px 16px 3px;background:#347A4E;color:#fff;font:500 16px/1.2 ${GRAB_FONT};white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)"><div>Best</div><div style="font-size:14px;font-weight:400;opacity:.95">${time}·${km.toFixed(1)} km</div></div></div>`;
+  const where = placement === "right"
+    ? "left:18px;top:0;transform:translateY(-50%)"
+    : "left:0;bottom:18px;transform:translateX(-50%)";
+  return `<div style="position:relative;width:0;height:0"><div style="position:absolute;${where};width:max-content;padding:8px 14px 9px;border-radius:14px;background:#347A4E;color:#fff;font:500 15px/1.25 ${GRAB_FONT};white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)"><div>Best</div><div style="font-size:13px;font-weight:400;opacity:.95">${time}·${km.toFixed(1)} km</div></div></div>`;
+}
+
+// Point halfway along the route by distance, and which side the bubble goes.
+function routeMiddle(path: [number, number][]) {
+  if (path.length < 2) return { point: path[0], placement: "right" as const };
+  const dist = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], (a[1] - b[1]) * Math.cos((a[0] * Math.PI) / 180));
+  const total = path.slice(1).reduce((sum, p, i) => sum + dist(path[i], p), 0);
+  let run = 0, i = 1;
+  for (; i < path.length; i++) { const step = dist(path[i - 1], path[i]); if (run + step >= total / 2) break; run += step; }
+  const at = Math.min(i, path.length - 1);
+  const before = path[Math.max(0, at - 3)], after = path[Math.min(path.length - 1, at + 3)];
+  const dLat = Math.abs(after[0] - before[0]), dLng = Math.abs((after[1] - before[1]) * Math.cos((after[0] * Math.PI) / 180));
+  return { point: path[at], placement: dLat >= dLng ? ("right" as const) : ("above" as const) };
 }
 
 
@@ -276,8 +299,9 @@ export function BookingResultsMap(props: Props) {
       lines.push(new maps.Polyline({ map, path: route, strokeColor: TRAFFIC_COLORS.NORMAL, strokeOpacity: 1, strokeWeight: 6 }));
     }
     const travel = traffic?.durationSeconds ? traffic.durationSeconds / 60 : props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
+    const middle = routeMiddle(route.map((p: any) => [p.lat(), p.lng()] as [number, number]));
     const overlays = [
-      htmlOverlay(maps, map, route[Math.floor(route.length * 0.6)] ?? new maps.LatLng(pickup), grabBubble(travel, props.quote.distanceMeters / 1000), "point"),
+      htmlOverlay(maps, map, new maps.LatLng(middle.point[0], middle.point[1]), grabBubble(travel, props.quote.distanceMeters / 1000, middle.placement), "point"),
       htmlOverlay(maps, map, new maps.LatLng(dropoff), grabDropoff(shortPlace(props.dropoff)), "point"),
       htmlOverlay(maps, map, new maps.LatLng(pickup), grabPickup(shortPlace(props.pickup)), "point"),
     ];
@@ -309,7 +333,8 @@ export function BookingResultsMap(props: Props) {
     for (const segment of segments) L.polyline(segment.points, { color: TRAFFIC_COLORS[segment.speed], weight: 6, opacity: 1, lineCap: "round", lineJoin: "round" }).addTo(map);
     const travel = traffic?.durationSeconds ? traffic.durationSeconds / 60 : props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
     const icon = (html: string) => L.divIcon({ className: "", html, iconSize: [0, 0] });
-    L.marker(line[Math.floor(line.length * 0.6)] ?? pickup, { icon: icon(grabBubble(travel, props.quote.distanceMeters / 1000)), interactive: false }).addTo(map);
+    const middle = routeMiddle(line);
+    L.marker(middle.point, { icon: icon(grabBubble(travel, props.quote.distanceMeters / 1000, middle.placement)), interactive: false }).addTo(map);
     L.marker(dropoff, { icon: icon(grabDropoff(shortPlace(props.dropoff))), interactive: false, zIndexOffset: 500 }).addTo(map);
     L.marker(pickup, { icon: icon(grabPickup(shortPlace(props.pickup))), interactive: false, zIndexOffset: 1000 }).addTo(map);
     const routeBounds = L.latLngBounds(line);
@@ -445,10 +470,6 @@ export function BookingResultsMap(props: Props) {
       <button type="button" onClick={props.onEdit} className="absolute left-1/2 top-[max(16px,env(safe-area-inset-top))] z-10 flex h-11 max-w-[calc(100%-140px)] -translate-x-1/2 items-center gap-2 rounded-full bg-white px-5 text-[16px] font-medium text-[#1C1C1C] shadow-md" aria-label="Edit passengers, date and time">
         <Users size={20} className="shrink-0 text-brand" aria-hidden="true" /><span className="truncate">{passengers} · {pillLabel(props.date, props.time)}</span>
       </button>
-      {traffic && <div className="absolute bottom-7 left-4 z-10 flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[12px] font-medium text-[#1C1C1C] shadow-md">
-        <span className="flex gap-0.5" aria-hidden="true">{(["NORMAL", "SLOW", "TRAFFIC_JAM"] as const).map((k) => <span key={k} className="h-1.5 w-3 rounded-full" style={{ background: TRAFFIC_COLORS[k] }} />)}</span>
-        {traffic.sample ? "Sample traffic" : `Traffic · ${new Date(traffic.fetchedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })}`}
-      </div>}
     </div>
 
     {/* Sheet */}
