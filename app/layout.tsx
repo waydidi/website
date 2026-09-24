@@ -54,9 +54,9 @@ export default function RootLayout({
           }}
         />
         {/* Mobile Safari tints its floating bottom toolbar from what touches the
-            screen's bottom edge; this soft off-white strip gives it a light,
-            cloud-like look on every page. Booking bars sit above it (z-50). */}
-        <div aria-hidden="true" className="no-print pointer-events-none fixed inset-x-0 bottom-0 z-40 h-[calc(env(safe-area-inset-bottom)+14px)] bg-gradient-to-b from-[#F7F7F5]/0 via-[#F7F7F5]/90 to-[#F7F7F5] lg:hidden" />
+            screen's bottom edge; this faint, fading white haze gives it a light,
+            floating look on every page. Booking bars sit above it (z-50). */}
+        <div aria-hidden="true" className="no-print pointer-events-none fixed inset-x-0 bottom-0 z-40 h-[calc(env(safe-area-inset-bottom)+28px)] bg-gradient-to-b from-white/0 via-white/25 to-white/55 lg:hidden" />
       </body>
     </html>
   );
