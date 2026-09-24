@@ -207,6 +207,7 @@ export function BookingFlow({
   const [adultPassengers, setAdultPassengers] = useState(2);
   const [childPassengers, setChildPassengers] = useState(0);
   const [extraBagSets, setExtraBagSets] = useState(0);
+  const [exchangeStop, setExchangeStop] = useState(false);
   const [booking, setBooking] = useState<Booking>({
     pickup: "Suvarnabhumi Airport (BKK)",
     dropoff: "Grande Centre Point Sukhumvit 55, Bangkok",
@@ -895,7 +896,7 @@ export function BookingFlow({
           pickupInstructions: booking.pickupInstructions,
           childSeats: booking.childSeats,
           oversizedLuggage: booking.oversizedLuggage,
-          specialRequests: booking.specialRequests,
+          specialRequests: [exchangeStop ? "Currency exchange stop requested." : "", booking.specialRequests].filter(Boolean).join(" ").slice(0, 500),
           termsAccepted: booking.termsAccepted,
           pickup: booking.pickup,
           dropoff: booking.dropoff,
@@ -1459,6 +1460,9 @@ export function BookingFlow({
           onRetry={retryRoute}
           passengers={booking.passengers}
           onEditTrip={() => setTripEditOpen(true)}
+          childSeats={booking.childSeats}
+          exchangeStop={exchangeStop}
+          onExtrasChange={(extras) => { setExchangeStop(extras.exchangeStop); setBooking((current) => ({ ...current, childSeats: extras.childSeats })); }}
           onContinue={() => goToStage("details")}
         /> : <section className="bg-white">
           <div className="mx-auto max-w-[760px] px-5 py-8 lg:py-12">
@@ -1807,6 +1811,7 @@ export function BookingFlow({
                 {booking.flightNumber && <ReviewDetail label="Flight" value={booking.flightNumber.toUpperCase()} />}
                 {booking.pickupSign && <ReviewDetail label="Pickup sign" value={booking.pickupSign} />}
                 {booking.oversizedLuggage && <ReviewDetail label="Oversized luggage" value="Declared" />}
+                {exchangeStop && <ReviewDetail label="Currency exchange stop" value="Requested" />}
                 {booking.specialRequests && <ReviewDetail label="Special requests" value={booking.specialRequests} />}
               </ReviewSection>
 

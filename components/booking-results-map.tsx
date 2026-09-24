@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Pencil, Route, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Baby, Banknote, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Minus, Pencil, Plus, Route, Users, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
 import { useI18n } from "@/components/i18n-provider";
@@ -65,6 +65,10 @@ type Props = {
   passengers?: number;
   // Opens the edit-trip popup (passengers, date and time).
   onEditTrip?: () => void;
+  // Additional services chosen from the "+" sheet.
+  childSeats?: number;
+  exchangeStop?: boolean;
+  onExtrasChange?: (extras: { childSeats: number; exchangeStop: boolean }) => void;
 };
 
 function shortPlace(value: string) {
@@ -249,6 +253,12 @@ export function BookingResultsMap(props: Props) {
   // Vehicle whose "?" details sheet is open.
   const [infoId, setInfoId] = useState<string | null>(null);
   const info = props.vehicles.find((v) => v.id === infoId) ?? null;
+  const [extrasOpen, setExtrasOpen] = useState(false);
+  const seats = props.childSeats ?? 0;
+  const exchange = props.exchangeStop ?? false;
+  const maxSeats = Math.min(4, Math.max(1, props.passengers ?? 4));
+  const extrasCount = seats + (exchange ? 1 : 0);
+  const setExtras = (next: { childSeats: number; exchangeStop: boolean }) => props.onExtrasChange?.(next);
   const { locale } = useI18n();
   // Quotes carry their inclusions; for the prototype route (or an older saved
   // quote) look them up from the route rules.
@@ -596,8 +606,49 @@ export function BookingResultsMap(props: Props) {
         <p className="flex min-w-0 items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{money(total)}</strong>{currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}</p>
         <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
       </div>
-      <button disabled={disabled} onClick={props.onContinue} className="mt-1.5 flex h-12 w-full items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
+      <div className="mt-1.5 flex items-center gap-3">
+        {props.onExtrasChange && <button type="button" onClick={() => setExtrasOpen(true)} aria-label="Additional services" className="relative grid size-12 shrink-0 place-items-center rounded-full bg-brand text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
+          <Plus size={24} strokeWidth={2.5} aria-hidden="true" />
+          {extrasCount > 0 && <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full border-2 border-white bg-[#1C1C1C] text-[11px] font-semibold">{extrasCount}</span>}
+        </button>}
+      <button disabled={disabled} onClick={props.onContinue} className="flex h-12 min-w-0 flex-1 items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
+      </div>
     </div>
+
+    {/* Additional services ("+" beside Continue), Grab style. */}
+    <DialogPrimitive.Root open={extrasOpen} onOpenChange={setExtrasOpen}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[20px] bg-white text-[#1C1C1C] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
+          <div className="flex items-center justify-between px-5 pt-5">
+            <DialogPrimitive.Title className="text-[24px] font-semibold leading-tight">Additional services</DialogPrimitive.Title>
+            <DialogPrimitive.Close className="grid size-10 place-items-center rounded-full hover:bg-slate-100" aria-label="Close"><X size={24} /></DialogPrimitive.Close>
+          </div>
+          <DialogPrimitive.Description className="px-5 pt-1 text-[14px] text-[#6B6B6B]">Add extras to your ride. Your driver will have them ready.</DialogPrimitive.Description>
+          <ul className="flex-1 overflow-y-auto px-5 pb-2 pt-2">
+            <li className="flex items-center gap-4 border-b border-[#EEEEEE] py-4">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF3E6] text-brand"><Baby size={22} aria-hidden="true" /></span>
+              <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">Child seat</span><span className="block text-[13px] text-[#6B6B6B]">For babies and young children, up to {maxSeats}</span></span>
+              <span className="flex items-center gap-3">
+                <button type="button" aria-label="Remove child seat" disabled={seats === 0} onClick={() => setExtras({ childSeats: seats - 1, exchangeStop: exchange })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Minus size={16} aria-hidden="true" /></button>
+                <span className="w-4 text-center text-[16px] font-medium" aria-live="polite">{seats}</span>
+                <button type="button" aria-label="Add child seat" disabled={seats >= maxSeats} onClick={() => setExtras({ childSeats: seats + 1, exchangeStop: exchange })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Plus size={16} aria-hidden="true" /></button>
+              </span>
+            </li>
+            <li>
+              <label className="flex cursor-pointer items-center gap-4 py-4">
+                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF3E6] text-brand"><Banknote size={22} aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">Currency exchange stop</span><span className="block text-[13px] text-[#6B6B6B]">A short stop at an exchange counter on the way</span></span>
+                <input type="checkbox" checked={exchange} onChange={(e) => setExtras({ childSeats: seats, exchangeStop: e.target.checked })} className="size-5 accent-[#FF8A05]" />
+              </label>
+            </li>
+          </ul>
+          <div className="px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
+            <DialogPrimitive.Close className="flex h-12 w-full items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white hover:bg-brand-hover">Done</DialogPrimitive.Close>
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
 
     {/* Vehicle details ("?" on a car card), Transfeero style. */}
     <DialogPrimitive.Root open={Boolean(info)} onOpenChange={(open) => { if (!open) setInfoId(null); }}>
