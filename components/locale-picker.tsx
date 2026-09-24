@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useI18n } from "@/components/i18n-provider";
 import { localeInfo, type Locale } from "@/lib/i18n";
@@ -47,6 +47,9 @@ function LanguageIcon({ language, size = 40 }: { language: Language; size?: numb
 
 export function LocalePicker({ className = "" }: { className?: string }) {
   const [open, setOpen] = useState(false);
+  // Opened by tap/click (not keyboard): don't hand focus back to the button
+  // on close, which would draw its focus ring on touch screens.
+  const openedByPointer = useRef(false);
   const [tab, setTab] = useState<"languages" | "currency">("languages");
   const [currency, setCurrency] = useState("THB");
   const { locale, t } = useI18n();
@@ -76,7 +79,7 @@ export function LocalePicker({ className = "" }: { className?: string }) {
 
   return <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
     <DialogPrimitive.Trigger asChild>
-      <button type="button" aria-label={t("locale.button", { language: language.label, currency })} className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1 pl-0.5 pr-1 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${className}`}>
+      <button type="button" onPointerDown={() => { openedByPointer.current = true; }} onKeyDown={() => { openedByPointer.current = false; }} aria-label={t("locale.button", { language: language.label, currency })} className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1 pl-0.5 pr-1 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${className}`}>
         <LanguageIcon language={language} size={26} />
         <span className="hidden h-5 w-px bg-current opacity-40 min-[300px]:block" aria-hidden />
         <span className="hidden min-[300px]:inline">{currency}</span>
@@ -88,6 +91,7 @@ export function LocalePicker({ className = "" }: { className?: string }) {
         // Focus the sheet itself on open rather than the first tab, so no
         // focus ring appears around "Languages" on touch devices.
         onOpenAutoFocus={(event) => { event.preventDefault(); (event.currentTarget as HTMLElement).focus(); }}
+        onCloseAutoFocus={(event) => { if (openedByPointer.current) event.preventDefault(); }}
         className="fixed inset-x-0 bottom-0 z-[81] flex max-h-[92dvh] flex-col rounded-t-[20px] bg-white text-[#0F294D] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
         <div className="flex items-end justify-between border-b border-[#EEF1F6] px-6 pt-6 sm:px-8">
           <div className="flex gap-8" role="tablist">

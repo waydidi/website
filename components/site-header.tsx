@@ -119,7 +119,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         </Link>
       </nav>
       <div className="flex shrink-0 items-center gap-2 min-[360px]:gap-4 xl:hidden">
-        <LocalePicker />
+        <LocalePicker className="-mr-[3px]" />
         <button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
