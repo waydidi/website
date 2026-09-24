@@ -11,7 +11,7 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
       title: t("services.ride.title"),
       href: "/a-to-b-transfer",
       text: t("services.ride.text"),
-      image: { src: "/service-ride-orange.png", width: 520, height: 340 },
+      image: { src: "/service-ride-airport.webp", width: 480, height: 406 },
       alt: t("services.ride.alt"),
     },
     {
