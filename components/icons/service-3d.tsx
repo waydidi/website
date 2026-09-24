@@ -98,3 +98,52 @@ export function DayTrip3D({ size = 96, className = "", backdrop = "#FFE3C4" }: P
     <Pin id={dt} x={48} y={58} s={1.05} />
   </svg>;
 }
+
+// Airport ride: a private Waydidi car (no taxi sign), a suitcase and an
+// airport sign, in the same clay style.
+export function AirportRide3D({ size = 96, className = "", backdrop = "#FFE3C4" }: Props) {
+  const ar = useId().replace(/:/g, "");
+  return <svg width={size} height={size} viewBox="0 0 96 96" className={className} aria-hidden="true">
+    <Backdrop id={ar} color={backdrop} />
+    <defs>
+      <linearGradient id={`${ar}-body`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FFB255" /><stop offset=".55" stopColor="#FF8A05" /><stop offset="1" stopColor="#D96A00" /></linearGradient>
+      <linearGradient id={`${ar}-roof`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FFC27A" /><stop offset="1" stopColor="#FF9A24" /></linearGradient>
+      <linearGradient id={`${ar}-glass`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#8FB6E0" /><stop offset="1" stopColor="#2E4766" /></linearGradient>
+      <radialGradient id={`${ar}-tyre`} cx="40%" cy="35%" r="70%"><stop offset="0" stopColor="#4A4A52" /><stop offset="1" stopColor="#15151A" /></radialGradient>
+      <radialGradient id={`${ar}-hub`} cx="40%" cy="35%" r="70%"><stop offset="0" stopColor="#F5F7FA" /><stop offset="1" stopColor="#A9B2BF" /></radialGradient>
+      <linearGradient id={`${ar}-case`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#FFD86B" /><stop offset=".6" stopColor="#FFC02E" /><stop offset="1" stopColor="#E5A100" /></linearGradient>
+      <radialGradient id={`${ar}-sign`} cx="38%" cy="32%" r="70%"><stop offset="0" stopColor="#6FA4FF" /><stop offset=".6" stopColor="#2F6FE8" /><stop offset="1" stopColor="#1C4DB8" /></radialGradient>
+      <linearGradient id={`${ar}-pole`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#9AA6B6" /><stop offset=".5" stopColor="#EEF1F5" /><stop offset="1" stopColor="#8995A6" /></linearGradient>
+    </defs>
+    {/* airport sign behind the car */}
+    <g filter={`url(#${ar}-sh)`}>
+      <rect x="69.5" y="24" width="3" height="34" rx="1.5" fill={`url(#${ar}-pole)`} />
+      <circle cx="71" cy="22" r="10.5" fill={`url(#${ar}-sign)`} />
+      <ellipse cx="67.5" cy="17.5" rx="4" ry="2.2" fill="#FFFFFF" opacity=".3" />
+      <path d="M65.5 23.2 76 18.6c.9-.4 1.9.3 1.6 1.2-.1.4-.4.7-.8.9l-3.4 1.6 1 5.2-1.6.7-2.4-4.4-3.3 1.5-.1 1.9-1.2.5-.9-2.4-1.8-1.7 1.1-.5 1.5 1Z" fill="#FFFFFF" />
+    </g>
+    <ellipse cx="50" cy="70" rx="33" ry="4.5" fill="#6B3A00" opacity=".18" />
+    {/* private car: no roof sign, tinted glass, chrome trim */}
+    <g filter={`url(#${ar}-sh)`}>
+      <path d="M19 60c0-6 3-9 8-10l7-9c2-3 5-4 8-4h15c4 0 7 1 9 4l6 8c7 1 11 4 11 11v3c0 2-1 3-3 3H22c-2 0-3-1-3-3v-3Z" fill={`url(#${ar}-body)`} />
+      <path d="M36 42c1-2 3-3 6-3h14c3 0 5 1 6 3l5 7H31l5-7Z" fill={`url(#${ar}-glass)`} />
+      <path d="M36 40c2-2 4-3 7-3h13c3 0 5 1 7 3" fill="none" stroke={`url(#${ar}-roof)`} strokeWidth="2" strokeLinecap="round" />
+      <rect x="48.5" y="39" width="2.2" height="10" fill="#FF9B2E" />
+      <path d="M28 51h47" stroke="#FFFFFF" strokeOpacity=".4" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M31 57h42" stroke="#E7ECF2" strokeOpacity=".7" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M74 55h6" stroke="#FFF4C2" strokeWidth="3" strokeLinecap="round" />
+      <path d="M21 56h4" stroke="#FFD2D0" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M33 43c2-2 4-2 6-2" stroke="#FFFFFF" strokeOpacity=".7" strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="33" cy="65" r="7.5" fill={`url(#${ar}-tyre)`} /><circle cx="33" cy="65" r="3.4" fill={`url(#${ar}-hub)`} />
+      <circle cx="68" cy="65" r="7.5" fill={`url(#${ar}-tyre)`} /><circle cx="68" cy="65" r="3.4" fill={`url(#${ar}-hub)`} />
+    </g>
+    {/* suitcase in front */}
+    <g filter={`url(#${ar}-sh)`}>
+      <path d="M17 45v-5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v5" fill="none" stroke="#7A5A10" strokeWidth="2" strokeLinecap="round" />
+      <rect x="12" y="45" width="19" height="25" rx="4" fill={`url(#${ar}-case)`} />
+      <path d="M17.5 49v17M25.5 49v17" stroke="#C98B00" strokeWidth="1.6" strokeLinecap="round" opacity=".7" />
+      <ellipse cx="16" cy="48.5" rx="2.6" ry="1.3" fill="#FFFFFF" opacity=".45" />
+      <circle cx="16" cy="71.5" r="2" fill="#3A3A40" /><circle cx="27" cy="71.5" r="2" fill="#3A3A40" />
+    </g>
+  </svg>;
+}

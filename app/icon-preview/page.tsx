@@ -1,12 +1,12 @@
 import { CancelCalendar3D } from "@/components/icons/cancel-calendar-3d";
-import { DayTrip3D, ReserveCalendar3D, RideCar3D } from "@/components/icons/service-3d";
+import { AirportRide3D, DayTrip3D, ReserveCalendar3D } from "@/components/icons/service-3d";
 
 export const metadata = { robots: { index: false } };
 
 // Temporary preview of the new 3D icons (not linked anywhere).
 export default function IconPreview() {
   const cards = [
-    ["Ride", "Go anywhere in Thailand with Waydidi. Reserve your private ride, hop in, and enjoy.", RideCar3D],
+    ["Ride", "Go anywhere in Thailand with Waydidi. Reserve your private ride, hop in, and enjoy.", AirportRide3D],
     ["Reserve", "Reserve your ride in advance so you can relax on the day of your trip.", ReserveCalendar3D],
     ["Day trips", "Book a private driver and explore several destinations in one comfortable day.", DayTrip3D],
   ] as const;
@@ -18,7 +18,8 @@ export default function IconPreview() {
         <Icon size={96} />
       </div>)}
     </div>
+    <div className="mt-6 flex items-center justify-center gap-6"><AirportRide3D size={160} /><AirportRide3D size={160} backdrop="#D9EBFF" /></div>
     <p className="mt-6 text-sm text-slate-500">Blue backdrop variant, to match the cancellation icon:</p>
-    <div className="mt-3 flex gap-3"><RideCar3D size={80} backdrop="#D9EBFF" /><ReserveCalendar3D size={80} backdrop="#D9EBFF" /><DayTrip3D size={80} backdrop="#D9EBFF" /><CancelCalendar3D size={80} /></div>
+    <div className="mt-3 flex gap-3"><AirportRide3D size={80} backdrop="#D9EBFF" /><ReserveCalendar3D size={80} backdrop="#D9EBFF" /><DayTrip3D size={80} backdrop="#D9EBFF" /><CancelCalendar3D size={80} /></div>
   </main>;
 }
