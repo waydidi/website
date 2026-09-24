@@ -45,7 +45,7 @@ export function SettingsPanel({ marketingOptIn, deviceCount }: { marketingOptIn:
       {/* A plain link: this is a file download, not a page navigation. */}
       {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a href="/api/account/export" className="mt-5 inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2.5 font-black hover:border-[#FF8A05]"><Download size={18} />Download my data</a>
-      <p className="mt-6 text-sm text-slate-600">Want your account deleted? <Link href="/contact" className="font-bold text-[#C96100] hover:underline">Contact support</Link> and our team will remove it for you.</p>
+      <p className="mt-6 text-sm text-slate-600">Want your account deleted? <Link href="/help" className="font-bold text-[#C96100] hover:underline">Contact support</Link> and our team will remove it for you.</p>
       {error ? <p role="alert" className="mt-4 text-sm font-bold text-red-600">{error}</p> : null}
     </section>
   </div>;

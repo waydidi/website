@@ -69,7 +69,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
             <FooterLinks
               title={t("footer.help")}
               links={[
-                { label: t("footer.waydidiHelp"), href: "/faq" },
+                { label: t("footer.waydidiHelp"), href: "/help" },
                 { label: t("footer.cancellationPolicy"), href: "/cancellation-refund-policy" },
                 { label: t("footer.contactUs"), href: "/contact" },
                 { label: t("footer.safety"), href: "/safety-driver-standards" },
@@ -80,7 +80,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
 
         <div className="mt-16 flex flex-col gap-5 border-t border-white/30 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-x-6 gap-y-3 font-semibold">
-            <Link href="/faq">{t("footer.helpCenter")}</Link>
+            <Link href="/help">{t("footer.helpCenter")}</Link>
             <Link href="/booking/manage">{t("footer.manageBooking")}</Link>
             <Link href="/contact">{t("footer.contactWaydidi")}</Link>
           </div>
