@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { CarFront, Menu, UserRound, X } from "lucide-react";
+import { CarFront, ChevronDown, Menu, UserRound, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NavDropdown, navLinks, navMenus } from "@/components/home/nav";
 import { useI18n } from "@/components/i18n-provider";
 import { LocalePicker } from "@/components/locale-picker";
 import { WaydidiLogo } from "@/components/waydidi-logo";
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 type AccountState = { signedIn: false } | { signedIn: true; name: string | null; email: string };
 
@@ -55,7 +55,31 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     };
   }, []);
 
-  const solid = !overlay || scrolled;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const pathname = usePathname();
+  const closeMenu = () => { setMenuOpen(false); setOpenGroup(null); };
+
+  // Close the menu after navigating.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMenuOpen(false);
+  }, [pathname]);
+
+  // While the full-screen menu is open: lock page scroll, close on Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuOpen(false); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
+
+  const solid = !overlay || scrolled || menuOpen;
 
   return (
     <header
@@ -95,73 +119,79 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         </Link>
       </nav>
       <div className="flex shrink-0 items-center gap-2 min-[360px]:gap-4 xl:hidden">
-      <LocalePicker />
-      <Sheet>
-        <SheetTrigger asChild>
-          <button className="grid size-10 place-items-center rounded-full" aria-label={t("nav.openMenu")}>
-            <Menu size={28} />
-          </button>
-        </SheetTrigger>
-        <SheetContent
-          side="right"
-          className="w-[min(430px,92vw)] max-w-none gap-0 border-l border-slate-200 bg-white p-0 text-black sm:max-w-[430px]"
-          showCloseButton={false}
+        <LocalePicker />
+        <button
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-expanded={menuOpen}
+          aria-controls="mobile-menu"
+          aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
+          className="grid size-10 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         >
-          <SheetHeader className="flex-row items-center justify-between border-b border-slate-200 px-6 py-5">
-            <SheetTitle className="flex text-[#FF8A05]">
-              <WaydidiLogo className="h-20 w-auto" />
-              <span className="sr-only">Waydidi</span>
-            </SheetTitle>
-            <SheetClose
-              className="grid size-11 place-items-center rounded-full bg-slate-100 text-black transition hover:bg-slate-200"
-              aria-label={t("nav.closeMenu")}
-            >
-              <X size={23} />
-            </SheetClose>
-          </SheetHeader>
-          <nav className="flex-1 overflow-y-auto px-6 py-3 text-black" aria-label={t("nav.mobileNav")}>
-            {navMenus.map((menu) => (
-              <div key={menu.labelKey} className="border-b border-slate-200 py-5">
-                <p className="mb-3 text-xs font-black uppercase tracking-[.16em] text-slate-400">{t(menu.labelKey)}</p>
-                <div className="grid">
-                  {menu.links.map((link) => (
-                    <SheetClose asChild key={link.href}>
-                      <Link href={link.href} className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]">
-                        {t(link.labelKey)}
-                      </Link>
-                    </SheetClose>
-                  ))}
-                </div>
-              </div>
-            ))}
-            <div className="grid border-b border-slate-200 py-5">
-              <SheetClose asChild>
-                <Link href={accountHref} className="flex items-center gap-2 rounded-xl py-3 text-lg font-bold text-[#C96100] hover:text-[#D96F00]">
-                  <UserRound size={20} /> {account?.signedIn ? t("nav.myAccount") : t("nav.signInCreate")}
-                </Link>
-              </SheetClose>
-              {navLinks.map((link) => (
-                <SheetClose asChild key={link.href}>
-                  <Link href={link.href} className="rounded-xl py-3 text-lg font-bold hover:text-[#D96F00]">
-                    {t(link.labelKey)}
-                  </Link>
-                </SheetClose>
-              ))}
-            </div>
-          </nav>
-          <div className="mt-auto border-t border-slate-200 bg-white px-6 py-6">
-            <SheetClose asChild>
-              <Link
-                href="/booking/manage"
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-4 font-bold text-white"
-              >
-                <CarFront size={20} /> {t("nav.checkBooking")}
-              </Link>
-            </SheetClose>
-          </div>
-        </SheetContent>
-      </Sheet>
+          {menuOpen ? <X size={28} /> : <Menu size={28} />}
+        </button>
       </div>
+      {menuOpen && (
+        // Full-screen panel that drops down under the header (no logo inside).
+        <nav
+          id="mobile-menu"
+          aria-label={t("nav.mobileNav")}
+          className="fixed inset-x-0 bottom-0 top-[59px] z-30 flex flex-col overflow-y-auto bg-white text-[#211726] animate-in fade-in slide-in-from-top-4 duration-200 motion-reduce:animate-none lg:top-[97px] xl:hidden"
+        >
+          <ul className="px-6 pt-4">
+            {navMenus.map((menu) => {
+              const open = openGroup === menu.labelKey;
+              return (
+                <li key={menu.labelKey}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenGroup(open ? null : menu.labelKey)}
+                    aria-expanded={open}
+                    className="flex w-full items-center justify-between py-4 text-left text-[28px] font-bold tracking-[-.02em]"
+                  >
+                    {t(menu.labelKey)}
+                    <ChevronDown size={24} strokeWidth={2.5} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+                  </button>
+                  {open && (
+                    <ul className="pb-3">
+                      {menu.links.map((link) => (
+                        <li key={link.href}>
+                          <Link href={link.href} onClick={closeMenu} className="block py-2.5 text-lg text-slate-600 hover:text-[#D96F00]">
+                            {t(link.labelKey)}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+            {navLinks.map((link) => (
+              <li key={link.href}>
+                <Link href={link.href} onClick={closeMenu} className="block py-4 text-[28px] font-bold tracking-[-.02em] hover:text-[#D96F00]">
+                  {t(link.labelKey)}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-auto grid gap-3 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6">
+            <Link
+              href={accountHref}
+              onClick={closeMenu}
+              className="flex items-center justify-center gap-2 rounded-full border border-slate-300 px-5 py-4 text-base font-semibold"
+            >
+              <UserRound size={20} /> {account?.signedIn ? t("nav.myAccount") : t("nav.signInCreate")}
+            </Link>
+            <Link
+              href="/booking/manage"
+              onClick={closeMenu}
+              className="flex items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-4 text-base font-semibold text-white"
+            >
+              <CarFront size={20} /> {t("nav.checkBooking")}
+            </Link>
+          </div>
+        </nav>
+      )}
     </header>
   );
 }
