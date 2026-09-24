@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useI18n } from "@/components/i18n-provider";
 import type { MessageKey } from "@/lib/i18n";
 
-const thailandDotColumnsByRow = [
+export const thailandDotColumnsByRow = [
   [8,9],
   [6,7,8,9,10],
   [2,4,5,6,7,8,9],
@@ -53,19 +53,27 @@ const thailandDotColumnsByRow = [
   [11,12,14],
 ] as const;
 
-const destinationMarkers = [
-  { name: "Chiang Mai", row: 7, column: 4, kind: "long", slug: "chiang-mai", href: "/destinations", bookingValue: "Chiang Mai", route: "Bangkok → Chiang Mai", duration: "Around 9 hours", color: "#5b3d24", intro: "A long private journey north to Chiang Mai hotels, homes and meeting points." },
-  { name: "Kanchanaburi", row: 16, column: 5, kind: "popular", slug: "kanchanaburi", href: "/destinations/kanchanaburi", bookingValue: "Kanchanaburi", route: "Bangkok → Kanchanaburi", duration: "Around 2.5 hours", color: "#574322", intro: "Private travel to the River Kwai area, riverside resorts and park gateways." },
-  { name: "Ayutthaya", row: 15, column: 10, kind: "popular", slug: "ayutthaya", href: "/destinations/ayutthaya", bookingValue: "Ayutthaya", route: "Bangkok → Ayutthaya", duration: "Around 1.5 hours", color: "#6e3e24", intro: "A comfortable ride to Thailand's ancient capital, hotels and historic area." },
-  { name: "Don Mueang Airport", row: 16, column: 11, kind: "airport", slug: "don-mueang-airport", href: "/airport-transfer", bookingValue: "Don Mueang International Airport (DMK)", route: "Don Mueang → Bangkok", duration: "Around 45–75 minutes", color: "#3b4656", intro: "Pre-booked airport pickup with clear passenger and meeting information." },
-  { name: "Bangkok", row: 18, column: 12, kind: "popular", slug: "bangkok", href: "/destinations/bangkok", bookingValue: "Bangkok", route: "Bangkok private transfer", duration: "Door-to-door", color: "#40230f", intro: "Private connections between airports, hotels, homes and business districts." },
-  { name: "Suvarnabhumi Airport", row: 18, column: 14, kind: "airport", slug: "suvarnabhumi-airport", href: "/airport-transfer", bookingValue: "Suvarnabhumi Airport (BKK)", route: "Suvarnabhumi → Bangkok", duration: "Around 45–90 minutes", color: "#26394f", intro: "A calm airport arrival with your pickup and destination confirmed in advance." },
-  { name: "Pattaya", row: 20, column: 16, kind: "popular", slug: "pattaya", href: "/destinations/pattaya", bookingValue: "Pattaya", route: "Bangkok → Pattaya", duration: "Around 2 hours", color: "#153c72", intro: "Direct private transfers to Pattaya, Jomtien and Eastern Seaboard hotels." },
-  { name: "Hua Hin", row: 23, column: 11, kind: "popular", slug: "hua-hin", href: "/destinations/hua-hin", bookingValue: "Hua Hin", route: "Bangkok → Hua Hin", duration: "Around 3 hours", color: "#7a4c1e", intro: "Travel directly to Hua Hin, Cha-am and nearby Gulf-side resorts." },
-  { name: "Koh Chang", row: 19, column: 24, kind: "long", slug: "koh-chang", href: "/destinations/koh-chang", bookingValue: "Koh Chang", route: "Bangkok → Koh Chang", duration: "Around 6–7 hours", color: "#0d5c58", intro: "A ferry-aware road journey with resort delivery on Koh Chang." },
-  { name: "Koh Kood", row: 18, column: 25, kind: "long", slug: "koh-kood", href: "/destinations/koh-kood", bookingValue: "Laem Sok Pier, Trat", route: "Bangkok → Koh Kood pier", duration: "Around 6 hours", color: "#14666f", intro: "Reach the correct Trat mainland pier in time for your Koh Kood boat." },
-  { name: "Krabi", row: 39, column: 8, kind: "long", slug: "krabi", href: "/destinations/krabi", bookingValue: "Krabi", route: "Phuket → Krabi", duration: "Around 3 hours", color: "#345d36", intro: "Connect Krabi Airport, Ao Nang, Krabi Town and mainland piers." },
-  { name: "Phuket", row: 38, column: 5, kind: "popular", slug: "phuket", href: "/destinations/phuket", bookingValue: "Phuket", route: "Phuket Airport → hotel", duration: "Around 45–90 minutes", color: "#0f4c4c", intro: "Private transfers from Phuket Airport to beaches, marinas and resorts." },
+// The dot grid is a plain latitude/longitude grid of Thailand, 0.33° per dot:
+// row 0 is Mae Sai (20.45°N), column 0 is 97.35°E, so
+//   row = (20.45 - lat) / 0.33 and column = (lng - 97.35) / 0.33.
+// Each marker sits on the grey dot nearest its real location (within one dot),
+// nudged only where two markers would otherwise overlap on adjacent dots.
+// tests/destination-map.test.mjs checks both rules.
+export const MAP_ORIGIN = { lat: 20.45, lng: 97.35, degreesPerDot: 0.33 };
+
+export const destinationMarkers = [
+  { name: "Chiang Mai", row: 5, column: 5, lat: 18.79, lng: 98.98, kind: "long", slug: "chiang-mai", href: "/destinations", bookingValue: "Chiang Mai", route: "Bangkok → Chiang Mai", duration: "Around 9 hours", color: "#5b3d24", intro: "A long private journey north to Chiang Mai hotels, homes and meeting points." },
+  { name: "Kanchanaburi", row: 19, column: 7, lat: 14.02, lng: 99.53, kind: "popular", slug: "kanchanaburi", href: "/destinations/kanchanaburi", bookingValue: "Kanchanaburi", route: "Bangkok → Kanchanaburi", duration: "Around 2.5 hours", color: "#574322", intro: "Private travel to the River Kwai area, riverside resorts and park gateways." },
+  { name: "Ayutthaya", row: 18, column: 10, lat: 14.35, lng: 100.57, kind: "popular", slug: "ayutthaya", href: "/destinations/ayutthaya", bookingValue: "Ayutthaya", route: "Bangkok → Ayutthaya", duration: "Around 1.5 hours", color: "#6e3e24", intro: "A comfortable ride to Thailand's ancient capital, hotels and historic area." },
+  { name: "Don Mueang Airport", row: 20, column: 10, lat: 13.91, lng: 100.61, kind: "airport", slug: "don-mueang-airport", href: "/airport-transfer", bookingValue: "Don Mueang International Airport (DMK)", route: "Don Mueang → Bangkok", duration: "Around 45–75 minutes", color: "#3b4656", intro: "Pre-booked airport pickup with clear passenger and meeting information." },
+  { name: "Bangkok", row: 21, column: 9, lat: 13.75, lng: 100.5, kind: "popular", slug: "bangkok", href: "/destinations/bangkok", bookingValue: "Bangkok", route: "Bangkok private transfer", duration: "Door-to-door", color: "#40230f", intro: "Private connections between airports, hotels, homes and business districts." },
+  { name: "Suvarnabhumi Airport", row: 21, column: 11, lat: 13.69, lng: 100.75, kind: "airport", slug: "suvarnabhumi-airport", href: "/airport-transfer", bookingValue: "Suvarnabhumi Airport (BKK)", route: "Suvarnabhumi → Bangkok", duration: "Around 45–90 minutes", color: "#26394f", intro: "A calm airport arrival with your pickup and destination confirmed in advance." },
+  { name: "Pattaya", row: 23, column: 11, lat: 12.93, lng: 100.88, kind: "popular", slug: "pattaya", href: "/destinations/pattaya", bookingValue: "Pattaya", route: "Bangkok → Pattaya", duration: "Around 2 hours", color: "#153c72", intro: "Direct private transfers to Pattaya, Jomtien and Eastern Seaboard hotels." },
+  { name: "Hua Hin", row: 24, column: 8, lat: 12.57, lng: 99.96, kind: "popular", slug: "hua-hin", href: "/destinations/hua-hin", bookingValue: "Hua Hin", route: "Bangkok → Hua Hin", duration: "Around 3 hours", color: "#7a4c1e", intro: "Travel directly to Hua Hin, Cha-am and nearby Gulf-side resorts." },
+  { name: "Koh Chang", row: 25, column: 15, lat: 12.05, lng: 102.33, kind: "long", slug: "koh-chang", href: "/destinations/koh-chang", bookingValue: "Koh Chang", route: "Bangkok → Koh Chang", duration: "Around 6–7 hours", color: "#0d5c58", intro: "A ferry-aware road journey with resort delivery on Koh Chang." },
+  { name: "Koh Kood", row: 27, column: 16, lat: 11.65, lng: 102.55, kind: "long", slug: "koh-kood", href: "/destinations/koh-kood", bookingValue: "Laem Sok Pier, Trat", route: "Bangkok → Koh Kood pier", duration: "Around 6 hours", color: "#14666f", intro: "Reach the correct Trat mainland pier in time for your Koh Kood boat." },
+  { name: "Krabi", row: 37, column: 5, lat: 8.09, lng: 98.91, kind: "long", slug: "krabi", href: "/destinations/krabi", bookingValue: "Krabi", route: "Phuket → Krabi", duration: "Around 3 hours", color: "#345d36", intro: "Connect Krabi Airport, Ao Nang, Krabi Town and mainland piers." },
+  { name: "Phuket", row: 39, column: 3, lat: 7.89, lng: 98.4, kind: "popular", slug: "phuket", href: "/destinations/phuket", bookingValue: "Phuket", route: "Phuket Airport → hotel", duration: "Around 45–90 minutes", color: "#0f4c4c", intro: "Private transfers from Phuket Airport to beaches, marinas and resorts." },
 ] as const;
 
 type DestinationMarker = (typeof destinationMarkers)[number];
