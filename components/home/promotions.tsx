@@ -87,7 +87,7 @@ export function Promotions() {
   }, []);
   if (!promotions.length) return null;
   return <section className="bg-gradient-to-b from-[#FFF3E6] to-[#FFF9F3] py-8" aria-labelledby="promotions-heading">
-    <h2 id="promotions-heading" className="mx-auto max-w-[1180px] px-5 text-[19px] font-semibold tracking-[-.01em] sm:text-[22px] text-[#1C1C1C] lg:px-0">Special promotion for your first transaction</h2>
+    <h2 id="promotions-heading" className="mx-auto max-w-[1180px] px-5 text-[30px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C] lg:px-0">Special promotion for your first transaction</h2>
     {/* Native horizontal scroll with snap: smooth with a finger or trackpad. */}
     <ul className="mx-auto mt-4 flex max-w-[1180px] snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto overscroll-x-contain px-5 pb-3 [scrollbar-width:none] lg:scroll-px-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
       {promotions.map((promo) => <PromoCard key={promo.code} promo={promo} onTerms={() => setTerms(promo)} />)}
