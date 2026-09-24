@@ -1287,7 +1287,7 @@ export function BookingFlow({
                 }}
                 className="mt-4 flex min-h-[52px] w-full items-center justify-center rounded-[14px] bg-brand text-base font-semibold text-white shadow-lg shadow-orange-900/20 transition hover:bg-brand-hover"
               >
-                Update prices
+                Update trip
               </button>
             </SheetContent>
           </Sheet>
@@ -1376,7 +1376,7 @@ export function BookingFlow({
           <button
             type="button"
             onClick={() => setPeopleOpen(false)}
-            className="mt-5 min-h-14 w-full rounded-full bg-brand px-6 text-lg font-bold text-ink transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="mt-5 min-h-14 w-full rounded-full bg-brand px-6 text-lg font-bold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             {t("common.done")}
           </button>

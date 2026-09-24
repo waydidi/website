@@ -119,7 +119,7 @@ export function DateTimePicker({
             if (effectiveTime !== time) onTimeChange(effectiveTime);
             onDone();
           }}
-          className="mt-6 min-h-14 w-full rounded-full bg-brand px-7 text-lg font-bold text-ink transition hover:bg-brand-hover"
+          className="mt-6 min-h-14 w-full rounded-full bg-brand px-7 text-lg font-bold text-white transition hover:bg-brand-hover"
         >
           {t("common.done")}
         </button>
