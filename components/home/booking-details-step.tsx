@@ -2,18 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Baby, CircleHelp, Info, Minus, NotebookPen, Plane, Plus, Package, UsersRound } from "lucide-react";
+import { ArrowLeft, Baby, ChevronDown, CircleHelp, Info, Minus, NotebookPen, Plane, Plus, Package, UsersRound, X } from "lucide-react";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import { FlightLookup } from "@/components/flight-lookup";
 import type { ReviewFieldErrors } from "@/lib/booking-review";
 import type { Booking } from "./booking-flow";
 
 type Traveller = { id: string; name: string; surname: string; email: string | null; phone: string | null; notes: string | null };
 
-// Dial codes offered next to the mobile number; Thailand first.
+// Dial codes offered next to the mobile number; Thailand first. Flags are
+// round SVGs in /public/flags, as in the homepage language switcher.
 const DIAL_CODES = [
-  ["🇹🇭", "+66"], ["🇬🇧", "+44"], ["🇺🇸", "+1"], ["🇦🇺", "+61"], ["🇸🇬", "+65"], ["🇨🇳", "+86"], ["🇭🇰", "+852"],
-  ["🇲🇾", "+60"], ["🇮🇳", "+91"], ["🇯🇵", "+81"], ["🇰🇷", "+82"], ["🇩🇪", "+49"], ["🇫🇷", "+33"], ["🇷🇺", "+7"],
+  ["th", "+66", "Thailand"], ["gb", "+44", "United Kingdom"], ["us", "+1", "United States"], ["au", "+61", "Australia"],
+  ["sg", "+65", "Singapore"], ["cn", "+86", "China"], ["hk", "+852", "Hong Kong"], ["my", "+60", "Malaysia"],
+  ["in", "+91", "India"], ["jp", "+81", "Japan"], ["kr", "+82", "South Korea"], ["de", "+49", "Germany"],
+  ["fr", "+33", "France"], ["ru", "+7", "Russia"],
 ] as const;
+
+function Flag({ country, size }: { country: string; size: number }) {
+  // eslint-disable-next-line @next/next/no-img-element -- tiny local SVG, as in the locale picker
+  return <img src={`/flags/${country}.svg`} alt="" width={size} height={size} style={{ width: size, height: size }} className="shrink-0 rounded-full object-cover ring-1 ring-black/10" />;
+}
 
 function splitPhone(phone: string) {
   const match = phone.trim().match(/^(\+\d{1,4})\s*(.*)$/);
@@ -51,6 +60,7 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
   const toggle = (key: keyof typeof open) => setOpen((current) => ({ ...current, [key]: !current[key] }));
   const phone = splitPhone(booking.phone);
   const [signHelp, setSignHelp] = useState(false);
+  const [dialOpen, setDialOpen] = useState(false);
   // The bar is portalled to <body>: the step fades in with a transform, which
   // would otherwise pin a "fixed" bar to the step instead of the screen.
   const [mounted, setMounted] = useState(false);
@@ -105,10 +115,11 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
             <div className={`rounded-xl px-4 pb-2 pt-2.5 ${fieldErrors.phone ? "bg-red-50 ring-1 ring-red-300" : "bg-[#F4F4F2]"} focus-within:ring-2 focus-within:ring-brand`}>
               <label htmlFor="lead-phone" className="block text-[13px] text-[#6B6B6B]">Mobile number (WhatsApp if possible)</label>
               <div className="mt-0.5 flex items-center gap-2">
-                <label className="sr-only" htmlFor="lead-dial">Country code</label>
-                <select id="lead-dial" value={phone.code} onChange={(e) => change("phone", `${e.target.value} ${phone.local}`.trim())} className="bg-transparent py-1 text-[17px] outline-none">
-                  {DIAL_CODES.map(([flag, code]) => <option key={code} value={code}>{flag} {code}</option>)}
-                </select>
+                <button type="button" onClick={() => setDialOpen(true)} aria-label={`Country code ${phone.code}. Change`} className="flex shrink-0 items-center gap-1.5 py-1">
+                  <Flag country={DIAL_CODES.find(([, c]) => c === phone.code)?.[0] ?? "th"} size={26} />
+                  <ChevronDown size={16} className="text-[#6B6B6B]" aria-hidden="true" />
+                </button>
+                <span className="shrink-0 text-[17px] text-[#1C1C1C]">{phone.code}</span>
                 <input id="lead-phone" data-booking-field="phone" type="tel" autoComplete="tel-national" inputMode="tel" value={phone.local} onChange={(e) => change("phone", `${phone.code} ${e.target.value}`.trim())} placeholder="81 234 5678" size={1} aria-invalid={Boolean(fieldErrors.phone)} className="w-0 min-w-0 flex-1 bg-transparent py-1 text-[17px] outline-none placeholder:text-[#8A8A8A]" />
               </div>
             </div>
@@ -125,6 +136,28 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
         </div>
       </div>
     </div>
+
+    {/* Country code sheet, styled like the homepage language picker. */}
+    <DialogPrimitive.Root open={dialOpen} onOpenChange={setDialOpen}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[80dvh] flex-col rounded-t-[20px] bg-white text-[#0F294D] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
+          <div className="flex items-center justify-between border-b border-[#EEF1F6] px-6 py-5">
+            <DialogPrimitive.Title className="text-lg font-bold">Country code</DialogPrimitive.Title>
+            <DialogPrimitive.Close className="grid size-9 place-items-center rounded-full hover:bg-slate-100" aria-label="Close"><X size={24} /></DialogPrimitive.Close>
+          </div>
+          <DialogPrimitive.Description className="sr-only">Choose the country code for your mobile number</DialogPrimitive.Description>
+          <ul className="flex-1 overflow-y-auto px-4 py-3">
+            {DIAL_CODES.map(([country, code, name]) => {
+              const selected = code === phone.code;
+              return <li key={code}><button type="button" onClick={() => { change("phone", `${code} ${phone.local}`.trim()); setDialOpen(false); }} aria-current={selected || undefined} className={`flex min-h-14 w-full items-center gap-4 rounded-xl px-3 text-left text-base transition ${selected ? "bg-[#F5F7FA] font-medium text-[#3264FF]" : "hover:bg-[#F5F7FA]"}`}>
+                <Flag country={country} size={32} /><span className="flex-1">{name}</span><span className="text-[#6B6B6B]">{code}</span>
+              </button></li>;
+            })}
+          </ul>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
 
     {/* Bottom bar, Transfeero style: total, back and Continue. */}
     {mounted && createPortal(
