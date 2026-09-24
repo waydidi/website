@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       const candidate = bookingWindow(booking);
       const bookingMap = new Map(allBookings.map((row) => [row.reference, row]));
       const conflicts: string[] = [];
-      for (const assignment of driverAssignments.filter((row) => row.bookingReference !== bookingReference && row.currentStatus !== "completed")) {
+      for (const assignment of driverAssignments.filter((row) => row.bookingReference !== bookingReference && row.currentStatus !== "completed" && row.currentStatus !== "no_show")) {
         const assignedBooking = bookingMap.get(assignment.bookingReference);
         if (!assignedBooking || assignedBooking.status !== "confirmed") continue;
         const occupied = bookingWindow(assignedBooking);
@@ -158,6 +158,13 @@ export async function POST(request: Request) {
       if (assignment?.currentStatus === event.status) {
         await getDb().update(bookingAssignments).set({ currentStatus: event.previousStatus, completedAt: null, updatedAt: now }).where(eq(bookingAssignments.id, event.assignmentId));
       }
+    }
+    if (input.action === "verify_event" && event.status === "no_show") {
+      await getDb().update(bookings).set({ status: "no_show", attentionStatus: "normal", attentionReason: null, updatedAt: now }).where(eq(bookings.reference, event.bookingReference));
+      await getDb().insert(bookingEvents).values({ bookingReference: event.bookingReference, eventType: "no_show_verified", providerEventId: `no-show:${event.id}`, createdAt: now });
+    }
+    if (input.action === "reject_event" && event.status === "no_show") {
+      await getDb().update(bookings).set({ attentionStatus: "normal", attentionReason: null, updatedAt: now }).where(eq(bookings.reference, event.bookingReference));
     }
     if (input.action === "verify_event" && event.status === "completed") {
       await getDb().update(bookings).set({ status: "completed", updatedAt: now }).where(eq(bookings.reference, event.bookingReference));

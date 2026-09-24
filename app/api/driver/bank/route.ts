@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   const input = await request.json() as { token?: string; bankCode?: string; accountNumber?: string; accountName?: string };
   const assignment = await activeAssignmentForToken(input.token ?? "");
   if (!assignment) return NextResponse.json({ error: "Driver session unavailable." }, { status: 404 });
-  if (assignment.currentStatus !== "completed") return NextResponse.json({ error: "Bank details can be submitted after drop-off is completed." }, { status: 409 });
+  if (assignment.currentStatus !== "completed" && assignment.currentStatus !== "no_show") return NextResponse.json({ error: "Bank details can be submitted after drop-off is completed." }, { status: 409 });
   const bankCode = input.bankCode?.trim().toUpperCase() ?? "";
   const accountNumber = input.accountNumber?.replace(/[^0-9]/gu, "") ?? "";
   const accountName = input.accountName?.trim() ?? "";

@@ -96,6 +96,7 @@ const statusLabel: Record<string, string> = {
   trip_started: "Trip active",
   passenger_picked_up: "Passenger picked up",
   completed: "Drop-off completed",
+  no_show: "Passenger no-show",
 };
 const statusStyle: Record<string, string> = {
   assigned: "bg-slate-100 text-slate-700",
@@ -105,6 +106,7 @@ const statusStyle: Record<string, string> = {
   trip_started: "bg-blue-100 text-blue-800",
   passenger_picked_up: "bg-purple-100 text-purple-800",
   completed: "bg-emerald-100 text-emerald-800",
+  no_show: "bg-red-100 text-red-800",
 };
 
 export default function OperationsWorkspace({ email }: { email: string }) {
@@ -184,7 +186,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
   const rows = (data?.bookings ?? [])
     .filter(
       (booking) =>
-        booking.status === "confirmed" || booking.status === "completed",
+        booking.status === "confirmed" || booking.status === "completed" || booking.status === "no_show",
     )
     .filter((booking) => {
       const assignment = activeAssignments.get(booking.reference);
@@ -196,8 +198,8 @@ export default function OperationsWorkspace({ email }: { email: string }) {
             event.verificationStatus === "pending_review",
         ) || (data?.exceptions ?? []).some((exception) => exception.bookingReference === booking.reference && exception.status === "open");
       if (filter === "completed")
-        return assignment?.currentStatus === "completed";
-      return assignment?.currentStatus !== "completed";
+        return assignment?.currentStatus === "completed" || assignment?.currentStatus === "no_show";
+      return assignment?.currentStatus !== "completed" && assignment?.currentStatus !== "no_show";
     });
   const selectedBooking = data?.bookings.find(
     (item) => item.reference === selected,

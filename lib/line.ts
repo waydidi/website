@@ -26,10 +26,23 @@ async function pushLine(messages: unknown[]) {
   return { status: "sent" as const };
 }
 
-export async function notifyLineTripStatus(input: TripLineInput, status: "standby" | "completed") {
+type LineTripStatus = "going_to_standby" | "standby" | "passenger_verified" | "trip_started" | "completed" | "no_show";
+
+const TRIP_STATUS_HEADLINE: Record<Exclude<LineTripStatus, "completed">, string> = {
+  going_to_standby: "🚗 คนขับกำลังไปจุดรับ",
+  standby: "🚘 คนขับรอที่จุดรับแล้ว",
+  passenger_verified: "🔑 ยืนยัน Trip PIN แล้ว",
+  trip_started: "🛣️ เริ่มการเดินทางแล้ว",
+  no_show: "🚨 คนขับแจ้งไม่พบผู้โดยสาร (No-show) — ต้องตรวจสอบ",
+};
+
+export async function notifyLineTripStatus(input: TripLineInput & { detail?: string }, status: LineTripStatus) {
   const journeyUrl = `${siteUrl()}/admin/journeys/${encodeURIComponent(input.reference)}`;
-  if (status === "standby") {
-    return pushLine([{ type: "text", text: `🚘 คนขับสแตนบายแล้ว\n${input.reference}\nคนขับ: ${input.driverName}\nจุดรับ: ${input.pickup}\nเวลา: ${input.pickupDate} ${input.pickupTime}\n${journeyUrl}` }]);
+  if (status !== "completed") {
+    const lines = [TRIP_STATUS_HEADLINE[status], input.reference, `คนขับ: ${input.driverName}`, `ลูกค้า: ${input.customerName}`, `จุดรับ: ${input.pickup}`, `เวลา: ${input.pickupDate} ${input.pickupTime}`];
+    if (input.detail) lines.push(input.detail);
+    lines.push(journeyUrl);
+    return pushLine([{ type: "text", text: lines.join("\n") }]);
   }
   return pushLine([{
     type: "flex",
