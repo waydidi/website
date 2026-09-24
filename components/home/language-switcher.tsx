@@ -95,7 +95,7 @@ export function LanguageSwitcher({ tone = "light" }: { tone?: "light" | "dark" }
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={t("lang.changeLabel", { name: current.name })}
-        className={`flex items-center gap-2.5 rounded-full py-1 text-[15px] font-medium focus-visible:outline-none focus-visible:ring-2 ${tone === "light" ? "text-ink focus-visible:ring-ink/60" : "text-ink focus-visible:ring-brand"}`}
+        className={`flex items-center gap-2.5 rounded-full py-1 text-[15px] font-medium focus-visible:outline-none focus-visible:ring-2 ${tone === "light" ? "text-white focus-visible:ring-white/80" : "text-ink focus-visible:ring-brand"}`}
       >
         <Flag code={current.code} />
         <span>
