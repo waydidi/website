@@ -40,7 +40,7 @@ export function HomeFaq() {
   const items = TABS.find((t) => t.id === tab)!.items;
 
   return <section aria-labelledby="home-faq-heading" className="font-home bg-white py-10 sm:py-14">
-    <h2 id="home-faq-heading" className="px-5 text-center text-[19px] font-semibold tracking-[-.01em] text-[#1C1C1C] sm:text-[22px]">Frequently Asked Questions</h2>
+    <h2 id="home-faq-heading" className="mx-auto max-w-[760px] px-5 text-left text-[30px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C]">Frequently Asked Questions</h2>
     <div role="tablist" aria-label="FAQ topics" className="mx-auto mt-6 flex max-w-[760px] gap-2 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {TABS.map((t) => <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => { setTab(t.id); setOpen(null); }}
         className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[15px] font-semibold transition ${tab === t.id ? "bg-brand text-white" : "text-[#8A8A8A] hover:text-[#1C1C1C]"}`}>{t.label}</button>)}
