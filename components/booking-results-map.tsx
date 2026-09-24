@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, F
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
 import { useI18n } from "@/components/i18n-provider";
+import { CancelCalendar3D } from "@/components/icons/cancel-calendar-3d";
 import { inclusionLines, parseInclusions, type Inclusions } from "@/lib/route-inclusions";
 import { decodePolyline } from "@/lib/demo-route";
 import { TRAFFIC_CASING, TRAFFIC_COLORS, TRAFFIC_REFRESH_MS, sampleIntervals, trafficSegments, type SpeedInterval, type TrafficRoute } from "@/lib/traffic";
@@ -168,6 +169,14 @@ function mapBottomPadding(expanded: boolean) {
 // Room for the top buttons plus the pin's height above its point.
 function mapTopPadding(expanded: boolean) {
   return expanded ? 125 : 170;
+}
+
+// Pickup time minus 24 hours, e.g. "24 September 2026, 09:00 am".
+function cancelDeadline(date: string, time: string) {
+  const value = new Date(new Date(`${date}T${time}:00+07:00`).getTime() - 24 * 3600_000);
+  const day = value.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Bangkok" });
+  const clock = value.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).toLowerCase();
+  return `${day}, ${clock}`;
 }
 
 function pillLabel(date: string, time: string) {
@@ -561,6 +570,15 @@ export function BookingResultsMap(props: Props) {
             </li>;
           })}
         </ul>
+
+        {/* Free cancellation up to 24 hours before pickup (Transfeero style). */}
+        {props.quote && <div className="mt-6 flex gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
+          <CancelCalendar3D size={56} className="shrink-0" />
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-[#17563A]">FREE Cancellation 24H <span className="rounded-full bg-[#D3F2E0] px-2.5 py-0.5 text-[13px] font-semibold text-[#17563A]">24h</span></p>
+            <p className="mt-1.5 text-[14px] leading-6 text-[#2B6A4D]">Book today, lock the price. You can cancel for free until <strong className="font-semibold text-[#17563A]">{cancelDeadline(props.date, props.time)}</strong> and get a full refund.</p>
+          </div>
+        </div>}
       </div>
 
     </div>
