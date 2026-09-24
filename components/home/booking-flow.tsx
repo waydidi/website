@@ -1146,8 +1146,8 @@ export function BookingFlow({
                   prefill={routePrefill}
                   connectedMobile
                 />
-                <div className="order-4 grid min-h-14 grid-cols-2 overflow-hidden rounded-[14px] border border-slate-200 bg-white lg:order-none lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]">
-                  <div className="relative flex min-w-0 items-center border-r border-slate-200">
+                <div className={`order-4 grid min-h-14 ${serviceType === "transfer" ? "grid-cols-2" : "grid-cols-1"} overflow-hidden rounded-[14px] border border-slate-200 bg-white lg:order-none lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]`}>
+                  <div className={`relative flex min-w-0 items-center ${serviceType === "transfer" ? "border-r border-slate-200" : ""}`}>
                     <button
                       type="button"
                       onClick={() => setDateOpen(true)}
@@ -1212,9 +1212,7 @@ export function BookingFlow({
                         )}
                       </span>
                     </button>
-                  ) : (
-                    <span className="flex items-center px-4 text-sm text-slate-400">{t("hero.hourlyOneWay")}</span>
-                  )}
+                  ) : null}
                 </div>
                 {serviceType === "hourly" && <label className="order-5 flex min-h-14 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-2 lg:order-none lg:mt-0 lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]"><Clock3 size={18}/><span className="w-full"><span className="block text-sm font-normal text-slate-500">{t("hero.duration")}</span><select value={booking.bookedHours} onChange={(e)=>{change("bookedHours",Number(e.target.value));setHourlyQuote(null);}} className="w-full bg-transparent text-base font-normal outline-none">{Array.from({length:10},(_,i)=>i+3).map(hours=><option key={hours} value={hours}>{t("hero.hours", { count: hours })}</option>)}</select></span></label>}
                 </div>
