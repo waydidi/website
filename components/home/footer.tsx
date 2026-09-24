@@ -20,9 +20,6 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
               >
                 <WaydidiWordmark className="h-9 w-[142px]" />
               </Link>
-              <p className="mt-5 max-w-sm text-sm leading-6 text-white/90">
-                {t("footer.tagline")}
-              </p>
             </div>
             <FooterLinks
               title={t("footer.ride")}
