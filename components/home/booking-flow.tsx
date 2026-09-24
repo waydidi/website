@@ -880,10 +880,10 @@ export function BookingFlow({
         </div>
       )}
       <section
-        className={`relative ${stage === "search" ? "overflow-hidden bg-brand text-ink" : "bg-white text-ink"}`}
+        className={`relative ${stage === "search" ? "overflow-hidden bg-brand text-white" : "bg-white text-ink"}`}
       >
         <header
-          className={`z-40 flex w-full items-center justify-between px-5 lg:px-8 ${stage === "search" ? `fixed inset-x-0 top-0 h-[49px] lg:h-[87px] ${headerScrolled ? "bg-brand text-ink shadow-lg shadow-orange-950/10" : "bg-transparent text-ink"}` : "relative h-[72px] bg-brand text-ink"}`}
+          className={`z-40 flex w-full items-center justify-between px-5 lg:px-8 ${stage === "search" ? `fixed inset-x-0 top-0 h-[49px] lg:h-[87px] ${headerScrolled ? "bg-brand text-white shadow-lg shadow-orange-950/10" : "bg-transparent text-white"}` : "relative h-[72px] bg-brand text-ink"}`}
         >
           <Link
             href="/"
@@ -901,7 +901,7 @@ export function BookingFlow({
               ))}
               <Link
                 href={aboutHref}
-                className="rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/60"
+                className="rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
               >
                 {t("nav.about")}
               </Link>
@@ -997,11 +997,6 @@ export function BookingFlow({
 
         {stage === "search" && (
           <>
-            {/* Warm light from the top left gives the flat orange some depth. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgb(255_196_120/0.55),transparent_42%)]"
-            />
             {/* Large screens only: the photo is decorative and too costly for mobile data. */}
             {/* Starts below the 87px header so the nav always sits on solid
                 orange. The masks fade the photo itself into the orange, left and
@@ -1029,7 +1024,7 @@ export function BookingFlow({
               <h1 className={`${locale === "en" ? "" : "text-balance "}text-[33.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[46.3px] lg:text-[52.7px]`}>
                 {t("hero.title")}
               </h1>
-              <p className="mt-3 text-lg font-medium text-ink/80 sm:text-xl lg:text-2xl">
+              <p className="mt-3 text-lg font-medium text-white sm:text-xl lg:text-2xl">
                 {t("hero.subtitle")}
               </p>
             </div>
