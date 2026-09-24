@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ChevronDown, CircleHelp, Info, NotebookPen, Plane, Plus, UsersRound, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { FlightLookup } from "@/components/flight-lookup";
 import type { ReviewFieldErrors } from "@/lib/booking-review";
 import type { Booking } from "./booking-flow";
 
@@ -74,7 +73,6 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
           {open.flight && <div className="w-full">
             <input value={booking.flightNumber} onChange={(e) => change("flightNumber", e.target.value)} maxLength={30} placeholder="Flight number, e.g. TG 123" className={`${field(false)} uppercase placeholder:normal-case`} autoFocus />
             <p className="mt-2 text-sm text-[#6B6B6B]">We use it to follow arrival changes and the right terminal.</p>
-            <FlightLookup flightNumber={booking.flightNumber} flightDate={booking.date} />
           </div>}
           <OptionPill icon={NotebookPen} label="Add notes for the driver" open={open.notes} onClick={() => toggle("notes")} />
           {open.notes && <textarea value={booking.specialRequests} onChange={(e) => change("specialRequests", e.target.value)} maxLength={500} rows={3} placeholder="Accessibility needs, meeting point or other requests" className="w-full resize-none rounded-xl bg-[#F4F4F2] px-4 py-3 text-base outline-none placeholder:text-[#8A8A8A] focus:ring-2 focus:ring-brand" />}
