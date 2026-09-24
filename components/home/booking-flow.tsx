@@ -162,6 +162,7 @@ const vehicles = [
     tagline: "Premium sedan comfort",
     price: 1800,
     popular: true,
+    image: "/vehicle-comfort-bmw.webp",
   },
   {
     id: "comfort_suv",
