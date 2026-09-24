@@ -7,10 +7,6 @@ export const metadata: Metadata = {
   title: "Waydidi — Private Transfers in Thailand",
   description:
     "Book a comfortable private transfer across Thailand with professional drivers and clear, upfront pricing.",
-  icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-  },
   openGraph: {
     title: "Waydidi — Private Transfers in Thailand",
     description: "Book a comfortable private transfer across Thailand with trusted local drivers.",
@@ -35,6 +31,9 @@ export default function RootLayout({
   };
   return (
     <html lang="en">
+      {/* A relative link: metadata icons are made absolute with metadataBase,
+          which breaks the favicon on any other domain (e.g. workers.dev). */}
+      <head><link rel="icon" href="/favicon.svg" type="image/svg+xml" /></head>
       <body className="antialiased">
         <a
           href="#booking-search"
