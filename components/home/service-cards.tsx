@@ -40,7 +40,7 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
         {t("services.heading")}
       </h2>
       <div className="mt-6 grid gap-4 md:grid-cols-3">
-        {cards.map((card) => (
+        {cards.map((card) => { const ride = card.image.src === "/service-ride-airport.webp"; return (
           <article
             key={card.title}
             className="group relative flex min-h-[170px] min-w-0 flex-col rounded-2xl bg-surface px-5 py-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
@@ -54,14 +54,14 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
               <span aria-hidden="true" />
             </div>
             {/* Real dimensions reserve the space, so the card does not jump as it loads. */}
-            <div className="pointer-events-none absolute right-5 top-1/2 w-[106px] -translate-y-1/2">
+            <div className={`pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 ${ride ? "w-[111px]" : "w-[106px]"}`}>
               <Image
                 src={card.image.src}
                 width={card.image.width}
                 height={card.image.height}
                 alt={card.alt}
                 unoptimized
-                className="h-[101px] w-full object-contain transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                className={`${ride ? "h-[106px]" : "h-[101px]"} w-full object-contain transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100`}
               />
             </div>
             <Link
@@ -73,7 +73,7 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
               <ArrowRight size={15} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5" />
             </Link>
           </article>
-        ))}
+        ); })}
       </div>
     </section>
   );
