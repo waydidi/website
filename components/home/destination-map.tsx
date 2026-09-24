@@ -275,7 +275,7 @@ function DestinationColumn({ title, items, color, ring = false, activeSlug, onSe
               onExpand(item.slug);
             }}
             onBlur={onCollapse}
-            className={`px-2 py-1.5 text-left transition-colors focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${activeSlug === item.slug ? "font-black text-black" : "hover:text-black"}`}
+            className={`px-2 py-1.5 text-left transition-colors focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand font-normal hover:font-bold hover:text-black focus-visible:font-bold ${activeSlug === item.slug ? "text-black" : ""}`}
           >
             {t(`dest.${item.slug}` as MessageKey)}
           </button>
@@ -307,7 +307,7 @@ function DestinationColumn({ title, items, color, ring = false, activeSlug, onSe
         </h3>
         <div id={panelId} className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(.22,1,.36,1)] ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
           <div className="overflow-hidden">
-            {destinationItems("grid grid-cols-2 gap-x-5 gap-y-2.5 py-7 text-[15px] font-semibold text-slate-600 sm:grid-cols-3 sm:py-8")}
+            {destinationItems("grid grid-cols-2 gap-x-5 gap-y-2.5 py-7 text-[15px] text-slate-600 sm:grid-cols-3 sm:py-8")}
           </div>
         </div>
       </div>
@@ -317,7 +317,7 @@ function DestinationColumn({ title, items, color, ring = false, activeSlug, onSe
           <span className={`size-[9px] rounded-full ${ring ? "border-2 border-brand" : ""}`} style={{ backgroundColor: color }} />
           {title}
         </h3>
-        {destinationItems("mt-6 grid grid-cols-4 gap-x-5 gap-y-2.5 text-[15px] font-semibold text-slate-600")}
+        {destinationItems("mt-6 grid grid-cols-4 gap-x-5 gap-y-2.5 text-[15px] text-slate-600")}
       </div>
     </div>
   );
