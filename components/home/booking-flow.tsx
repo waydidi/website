@@ -1,5 +1,6 @@
 "use client";
 
+import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "@/lib/addons";
 import { earliestBangkokPickup } from "@/lib/booking-time";
 import {
   ArrowLeft,
@@ -277,7 +278,7 @@ export function BookingFlow({
       return;
     }
     checkoutAttemptRef.current = "";
-  }, [booking, vehicle, payment, serviceType, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId, promo?.code]);
+  }, [booking, vehicle, payment, serviceType, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId, promo?.code, exchangeStop]);
 
   useEffect(() => {
     // Browser connectivity is only available after hydration.
@@ -546,7 +547,8 @@ export function BookingFlow({
     [vehicle, pricedVehicles],
   );
   const discount = promo?.discount ?? 0;
-  const payable = Math.max(0, chosenVehicle.price - discount);
+  const addons = addonsTotal(booking.childSeats, exchangeStop);
+  const payable = Math.max(0, chosenVehicle.price - discount) + addons;
 
   // A different car or price needs the code checked again.
   useEffect(() => {
@@ -895,6 +897,7 @@ export function BookingFlow({
           pickupSign: booking.pickupSign,
           pickupInstructions: booking.pickupInstructions,
           childSeats: booking.childSeats,
+          exchangeStop,
           oversizedLuggage: booking.oversizedLuggage,
           specialRequests: [exchangeStop ? "Currency exchange stop requested." : "", booking.specialRequests].filter(Boolean).join(" ").slice(0, 500),
           termsAccepted: booking.termsAccepted,
@@ -1743,6 +1746,12 @@ export function BookingFlow({
                 <span className="font-semibold text-emerald-300">−{money(promo.discount)}</span>
               </div>
             )}
+            {addons > 0 && !quoteRequest && (
+              <div className="mb-3 space-y-1 text-sm">
+                {booking.childSeats > 0 && <div className="flex items-center justify-between"><span className="text-white/65">Child seat × {booking.childSeats}</span><span className="font-semibold">+{money(booking.childSeats * CHILD_SEAT_THB)}</span></div>}
+                {exchangeStop && <div className="flex items-center justify-between"><span className="text-white/65">Currency exchange stop</span><span className="font-semibold">+{money(EXCHANGE_STOP_THB)}</span></div>}
+              </div>
+            )}
             <div className="flex items-end justify-between">
               <span className="text-sm text-white/65">Total</span>
               <span className={`${quoteRequest ? "text-xl" : "text-3xl"} font-black`}>
@@ -1825,6 +1834,12 @@ export function BookingFlow({
                 <span className="font-semibold text-emerald-300">−{money(promo.discount)}</span>
               </div>
             )}
+            {addons > 0 && !quoteRequest && (
+              <div className="mb-3 space-y-1 text-sm">
+                {booking.childSeats > 0 && <div className="flex items-center justify-between"><span className="text-white/65">Child seat × {booking.childSeats}</span><span className="font-semibold">+{money(booking.childSeats * CHILD_SEAT_THB)}</span></div>}
+                {exchangeStop && <div className="flex items-center justify-between"><span className="text-white/65">Currency exchange stop</span><span className="font-semibold">+{money(EXCHANGE_STOP_THB)}</span></div>}
+              </div>
+            )}
             <div className="flex items-end justify-between">
               <span className="text-sm text-white/65">Total</span>
               <strong className={quoteRequest ? "text-xl" : "text-3xl"}>
@@ -1893,6 +1908,7 @@ export function BookingFlow({
                 />
                 <Detail label="Vehicle" value={chosenVehicle.name} />
                 {promo && <Detail label={`Discount (${promo.code})`} value={`−${thb(promo.discount)}`} />}
+                {addons > 0 && <Detail label="Add-ons" value={`+${thb(addons)}`} />}
                 <Detail
                   label="Total"
                   value={thb(payable)}

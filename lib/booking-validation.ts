@@ -68,6 +68,7 @@ export const checkoutInputSchema = z.object({
   pickupSign: z.string().max(80).optional().default(""),
   pickupInstructions: z.string().max(500).optional().default(""),
   childSeats: z.number().int().min(0).max(4),
+  exchangeStop: z.boolean().optional().default(false),
   oversizedLuggage: z.boolean(),
   specialRequests: z.string().max(500).optional().default(""),
   termsAccepted: z.literal(true),

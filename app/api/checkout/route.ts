@@ -3,6 +3,7 @@ import { customerFromRequest } from "@/lib/customer-auth";
 import { customerBookingLinks, promoRedemptions } from "@/db/schema";
 import { normalizeCode } from "@/lib/promo";
 import { checkPromo, normalizePhone } from "@/lib/promo-db";
+import { addonsTotal } from "@/lib/addons";
 import { and, count, eq, gt, lt } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db";
@@ -359,6 +360,8 @@ export async function POST(request: Request) {
       promoApplied = { promoId: result.promo.id, code: result.promo.code, originalTotal: total, discount: result.discount };
       total = result.finalTotal;
     }
+    // Add-ons are charged on top of the fare and are not discounted by promo codes.
+    total += addonsTotal(input.childSeats, input.exchangeStop);
     const reference = await uniqueBookingReference();
     const accessToken = recoveryToken;
     const now = new Date().toISOString();

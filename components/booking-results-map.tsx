@@ -8,6 +8,7 @@ import { useI18n } from "@/components/i18n-provider";
 import { CancelCalendar3D } from "@/components/icons/cancel-calendar-3d";
 import { inclusionLines, parseInclusions, type Inclusions } from "@/lib/route-inclusions";
 import { decodePolyline } from "@/lib/demo-route";
+import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "@/lib/addons";
 import { TRAFFIC_CASING, TRAFFIC_COLORS, TRAFFIC_REFRESH_MS, sampleIntervals, trafficSegments, type SpeedInterval, type TrafficRoute } from "@/lib/traffic";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -308,7 +309,7 @@ export function BookingResultsMap(props: Props) {
   }, [props.quote]);
   const selected = props.vehicles.find((item) => item.id === props.selectedVehicle) ?? props.vehicles[0];
   const cheapest = props.vehicles.filter((v) => v.fits !== false).reduce<Vehicle | undefined>((best, v) => !best || v.price < best.price ? v : best, undefined);
-  const total = selected ? props.priceBreakdown?.[selected.id]?.total ?? selected.price : 0;
+  const total = selected ? (props.priceBreakdown?.[selected.id]?.total ?? selected.price) + addonsTotal(props.childSeats ?? 0, props.exchangeStop ?? false) : 0;
   const passengers = props.passengers ?? 0;
   const { currency, money, thb } = useCurrency();
   const [code, amount] = [money(0).split(" ")[0], (v: number) => money(v).split(" ")[1]];
@@ -629,7 +630,7 @@ export function BookingResultsMap(props: Props) {
           <ul className="flex-1 overflow-y-auto px-5 pb-2 pt-2">
             <li className="flex items-center gap-4 border-b border-[#EEEEEE] py-4">
               <Image src="/addon-child-seat.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
-              <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">Child seat</span><span className="block text-[13px] text-[#6B6B6B]">For babies and young children, up to {maxSeats}</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">Child seat</span><span className="block text-[13px] text-[#6B6B6B]">For babies and young children, up to {maxSeats}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">+{money(CHILD_SEAT_THB)} each</span></span>
               <span className="flex items-center gap-3">
                 <button type="button" aria-label="Remove child seat" disabled={seats === 0} onClick={() => setExtras({ childSeats: seats - 1, exchangeStop: exchange })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Minus size={16} aria-hidden="true" /></button>
                 <span className="w-4 text-center text-[16px] font-medium" aria-live="polite">{seats}</span>
@@ -639,7 +640,7 @@ export function BookingResultsMap(props: Props) {
             <li>
               <label className="flex cursor-pointer items-center gap-4 py-4">
                 <Image src="/addon-currency-exchange.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
-                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">Currency exchange stop</span><span className="block text-[13px] text-[#6B6B6B]">A short stop at an exchange counter on the way</span></span>
+                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">Currency exchange stop</span><span className="block text-[13px] text-[#6B6B6B]">A short stop at an exchange counter on the way</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">+{money(EXCHANGE_STOP_THB)}</span></span>
                 <input type="checkbox" checked={exchange} onChange={(e) => setExtras({ childSeats: seats, exchangeStop: e.target.checked })} className="size-5 accent-[#FF8A05]" />
               </label>
             </li>
