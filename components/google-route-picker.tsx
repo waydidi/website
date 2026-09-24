@@ -209,7 +209,7 @@ export function GoogleRoutePicker({
         <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
         <MapPin size={20} className="shrink-0 text-slate-950" aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-normal text-slate-500">{t("route.from")}</span>
+          <span className="block text-[13px]/[20px] font-normal text-slate-500">{t("route.from")}</span>
           <input
             ref={pickupRef}
             required
@@ -226,7 +226,7 @@ export function GoogleRoutePicker({
         <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
         <MapPin size={20} className="shrink-0 text-slate-950" aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-normal text-slate-500">{t("route.to")}</span>
+          <span className="block text-[13px]/[20px] font-normal text-slate-500">{t("route.to")}</span>
           <input
             ref={dropoffRef}
             required
@@ -246,7 +246,7 @@ export function GoogleRoutePicker({
             className="h-[260px] w-full overflow-hidden rounded-xl bg-slate-100"
             aria-label="Google map showing the pickup and drop-off route"
           />
-          <div className="mt-3 flex flex-wrap items-center gap-4 px-1 text-sm font-semibold text-slate-700">
+          <div className="mt-3 flex flex-wrap items-center gap-4 px-1 text-[13px]/[20px] font-semibold text-slate-700">
             <span className="flex items-center gap-2">
               <Route size={17} className="text-brand-deep" />
               Location details

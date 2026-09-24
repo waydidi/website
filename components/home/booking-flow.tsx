@@ -1086,13 +1086,13 @@ export function BookingFlow({
         {stage === "search" && (
           <div className="relative z-10 w-full px-5 pb-12 pt-[98px] animate-in fade-in duration-300 motion-reduce:animate-none lg:px-6 lg:pb-18 lg:pt-[160px]">
             <div className="mb-6 max-w-2xl">
-              <TypedHeadline text={t("hero.title")} className={`${locale === "en" ? "" : "text-balance "}text-[33.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[46.3px] lg:text-[52.7px]`} />
-              <p className="mt-3 text-lg font-medium text-white sm:text-xl lg:text-2xl">
+              <TypedHeadline text={t("hero.title")} className={`${locale === "en" ? "" : "text-balance "}text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px] lg:text-[51.7px]`} />
+              <p className="mt-3 text-[17px]/[28px] font-medium text-white sm:text-[19px]/[28px] lg:text-[23px]/[32px]">
                 {t("hero.subtitle")}
               </p>
             </div>
             <form id="booking-search" onSubmit={search} className="font-search w-full scroll-mt-28">
-              <div className="inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-[15px] font-medium text-slate-500 shadow-md shadow-orange-950/10 lg:inline-flex lg:h-auto lg:w-auto lg:rounded-b-none lg:rounded-t-[26px] lg:p-1.5 lg:pb-0 lg:text-base lg:shadow-none">
+              <div className="inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 lg:inline-flex lg:h-auto lg:w-auto lg:rounded-b-none lg:rounded-t-[26px] lg:p-1.5 lg:pb-0 lg:text-[15px]/[24px] lg:shadow-none">
                 <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
                   <CarFront className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.transfer")}
                 </button>
@@ -1110,7 +1110,7 @@ export function BookingFlow({
                   aria-controls="passenger-luggage-sheet"
                   aria-label={t("hero.travellersLabel", { passengers: booking.passengers, bags: booking.luggage })}
                 >
-                  <span className="flex items-center gap-3.5 text-base font-normal text-slate-950 lg:text-base">
+                  <span className="flex items-center gap-3.5 text-[15px]/[24px] font-normal text-slate-950 lg:text-[15px]/[24px]">
                     <span className="flex items-center gap-3">
                       <Users size={20} className="shrink-0" aria-hidden="true" /> {booking.passengers}
                     </span>
@@ -1156,11 +1156,11 @@ export function BookingFlow({
                       {departureSelected ? <DepartureIcon /> : <CalendarDays className="shrink-0 text-slate-950" size={20} />}
                       {departureSelected ? (
                         <span className="min-w-0 font-normal text-slate-950">
-                          <span className="block truncate text-[15px] leading-[21px] tracking-[-.01em] max-[359px]:text-[14px]">{shortDate(booking.date, locale)}</span>
-                          <span className="block text-[14px] leading-[18px]">{formatTimeLabel(booking.time, locale)}</span>
+                          <span className="block truncate text-[14px] leading-[21px] tracking-[-.01em] max-[359px]:text-[13px]">{shortDate(booking.date, locale)}</span>
+                          <span className="block text-[13px] leading-[18px]">{formatTimeLabel(booking.time, locale)}</span>
                         </span>
                       ) : (
-                        <span className="text-base font-normal text-slate-600 lg:text-base">{t("hero.departure")}</span>
+                        <span className="text-[15px]/[24px] font-normal text-slate-600 lg:text-[15px]/[24px]">{t("hero.departure")}</span>
                       )}
                     </button>
                     {departureSelected && (
@@ -1203,21 +1203,21 @@ export function BookingFlow({
                       <span className="min-w-0">
                         {returnTrip ? (
                           <>
-                            <span className="block truncate text-[15px] font-normal leading-[21px] tracking-[-.01em] text-slate-950 max-[359px]:text-[14px]">{shortDate(returnDate, locale)}</span>
-                            <span className="block text-[14px] font-normal leading-[18px] text-slate-950">{formatTimeLabel(returnTime, locale)}</span>
+                            <span className="block truncate text-[14px] font-normal leading-[21px] tracking-[-.01em] text-slate-950 max-[359px]:text-[13px]">{shortDate(returnDate, locale)}</span>
+                            <span className="block text-[13px] font-normal leading-[18px] text-slate-950">{formatTimeLabel(returnTime, locale)}</span>
                           </>
                         ) : (
-                          <span className="text-base font-normal">{t("hero.addReturn")}</span>
+                          <span className="text-[15px]/[24px] font-normal">{t("hero.addReturn")}</span>
                         )}
                       </span>
                     </button>
                   ) : null}
                 </div>
-                {serviceType === "hourly" && <label className="order-5 flex min-h-14 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-2 lg:order-none lg:mt-0 lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]"><Clock3 size={18}/><span className="w-full"><span className="block text-sm font-normal text-slate-500">{t("hero.duration")}</span><select value={booking.bookedHours} onChange={(e)=>{change("bookedHours",Number(e.target.value));setHourlyQuote(null);}} className="w-full bg-transparent text-base font-normal outline-none">{Array.from({length:10},(_,i)=>i+3).map(hours=><option key={hours} value={hours}>{t("hero.hours", { count: hours })}</option>)}</select></span></label>}
+                {serviceType === "hourly" && <label className="order-5 flex min-h-14 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-2 lg:order-none lg:mt-0 lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]"><Clock3 size={18}/><span className="w-full"><span className="block text-[13px]/[20px] font-normal text-slate-500">{t("hero.duration")}</span><select value={booking.bookedHours} onChange={(e)=>{change("bookedHours",Number(e.target.value));setHourlyQuote(null);}} className="w-full bg-transparent text-base font-normal outline-none">{Array.from({length:10},(_,i)=>i+3).map(hours=><option key={hours} value={hours}>{t("hero.hours", { count: hours })}</option>)}</select></span></label>}
                 </div>
                 <div className="mt-2.5 flex items-center lg:mt-0">
                   <button
-                    className="flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-brand px-8 text-base font-semibold text-white shadow-lg shadow-orange-900/20 transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 lg:min-h-[88px] lg:w-auto lg:rounded-xl"
+                    className="flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-brand px-8 text-[15px]/[24px] font-semibold text-white shadow-lg shadow-orange-900/20 transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 lg:min-h-[88px] lg:w-auto lg:rounded-xl"
                     type="submit"
                   >
                     {loading ? t("hero.calculating") : t("hero.seePrices")} <ArrowRight size={18} />
