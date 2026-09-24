@@ -581,7 +581,7 @@ export function BookingResultsMap(props: Props) {
                 <span className="self-start text-right">
                   <span className="block whitespace-nowrap text-[#1C1C1C]"><span className="text-[13px] text-[#4A4A4A]">{code} </span><strong className="text-[17px] font-semibold">{amount(item.price)}</strong></span>
                   {currency !== "THB" && <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">~{thb(item.price)}</span>}
-                  {props.returnTrip && <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">Round trip</span>}
+                  <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">{props.returnTrip ? "Round trip" : "Total price"}</span>
                 </span>
               </button>
             </li>;
@@ -612,7 +612,7 @@ export function BookingResultsMap(props: Props) {
       <div className="mt-5 flex items-center gap-3">
         {props.onExtrasChange && <button type="button" onClick={() => setExtrasOpen(true)} aria-label="Additional services" className="relative grid size-12 shrink-0 place-items-center rounded-full bg-brand text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
           <Plus size={24} strokeWidth={2.5} aria-hidden="true" />
-          <span aria-hidden="true" className="addons-bubble pointer-events-none absolute -top-5 left-[3px] z-10 whitespace-nowrap rounded-full bg-[#D32F2F] px-2 py-0.5 text-[11px] font-bold leading-[15px] text-white shadow-[0_2px_6px_rgba(0,0,0,.2)]">Add-ons<span className="absolute -bottom-[4px] left-[17px] size-2 rotate-45 bg-[#D32F2F]" /></span>
+          <span aria-hidden="true" className="addons-bubble pointer-events-none absolute -top-5 left-[5px] z-10 whitespace-nowrap rounded-full bg-[#D32F2F] px-2 py-0.5 text-[11px] font-bold leading-[15px] text-white shadow-[0_2px_6px_rgba(0,0,0,.2)]">Add-ons<span className="absolute -bottom-[4px] left-[15px] size-2 rotate-45 bg-[#D32F2F]" /></span>
           {extrasCount > 0 && <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border-2 border-white bg-[#1C1C1C] text-[11px] font-semibold">{extrasCount}</span>}
         </button>}
       <button disabled={disabled} onClick={props.onContinue} className="flex h-12 min-w-0 flex-1 items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
