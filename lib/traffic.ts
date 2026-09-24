@@ -4,6 +4,8 @@ export type SpeedInterval = { start: number; end: number; speed: Speed };
 export type TrafficRoute = { path: [number, number][]; intervals: SpeedInterval[]; durationSeconds?: number; fetchedAt: string; sample?: boolean };
 
 export const TRAFFIC_COLORS: Record<Speed, string> = { NORMAL: "#2DB34A", SLOW: "#F5A524", TRAFFIC_JAM: "#E5332A" };
+// Darker edge drawn under each colour, as in Grab.
+export const TRAFFIC_CASING: Record<Speed, string> = { NORMAL: "#1F7A35", SLOW: "#B87A14", TRAFFIC_JAM: "#A11F18" };
 export const TRAFFIC_REFRESH_MS = 30 * 60 * 1000;
 
 // Splits the path into coloured runs; gaps between intervals count as normal.

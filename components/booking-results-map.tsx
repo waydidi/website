@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, F
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
 import { decodePolyline } from "@/lib/demo-route";
-import { TRAFFIC_COLORS, TRAFFIC_REFRESH_MS, sampleIntervals, trafficSegments, type SpeedInterval, type TrafficRoute } from "@/lib/traffic";
+import { TRAFFIC_CASING, TRAFFIC_COLORS, TRAFFIC_REFRESH_MS, sampleIntervals, trafficSegments, type SpeedInterval, type TrafficRoute } from "@/lib/traffic";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -64,26 +64,17 @@ function shortPlace(value: string) {
   return value.split(",")[0]?.trim() || value;
 }
 
-function durationLabel(minutes: number) {
-  const rounded = Math.max(5, Math.round(minutes / 5) * 5);
-  const hours = Math.floor(rounded / 60);
-  const mins = rounded % 60;
-  return hours ? `${hours} hr${mins ? ` ${mins} min` : ""}` : `${mins} min`;
-}
 
-function dateLabel(date: string, time: string) {
-  const value = new Date(`${date}T${time}:00+07:00`);
-  return `${value.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Bangkok" })} · ${value.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Bangkok" })}`;
-}
 
 // Map pins and the labels beside them are plain HTML placed over the map.
-function htmlOverlay(maps: any, map: any, position: any, html: string, anchor: "pin" | "bubble" | "chip") {
+function htmlOverlay(maps: any, map: any, position: any, html: string, anchor: "pin" | "bubble" | "chip" | "point") {
   const Overlay = class extends maps.OverlayView {
     div?: HTMLDivElement;
     onAdd() { this.div = document.createElement("div"); this.div.style.position = "absolute"; this.div.innerHTML = html; this.getPanes().floatPane.appendChild(this.div); }
     draw() {
       const point = this.getProjection()?.fromLatLngToDivPixel(position);
       if (!point || !this.div) return;
+      if (anchor === "point") { this.div.style.left = `${point.x}px`; this.div.style.top = `${point.y}px`; return; }
       const { offsetWidth: w, offsetHeight: h } = this.div;
       this.div.style.left = `${point.x - (anchor === "chip" ? 18 : anchor === "bubble" ? 0 : w / 2)}px`;
       this.div.style.top = `${point.y - (anchor === "chip" ? h / 2 : h)}px`;
@@ -97,15 +88,37 @@ function htmlOverlay(maps: any, map: any, position: any, html: string, anchor: "
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-function squarePin(color: string) {
-  return `<div style="width:22px;height:22px;border-radius:4px;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translateY(11px)"></div>`;
+
+// Grab-style markers. Each is a zero-size box at the map point; its parts are
+// placed around that point.
+const GRAB_FONT = `-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif`;
+
+function teardrop(fill: string) {
+  return `<svg width="40" height="50" viewBox="0 0 40 50" style="display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.28))"><path d="M20 49c-.9 0-1.6-.7-2.2-1.6C12.6 39.6 2.5 31.8 2.5 20 2.5 10.3 10.3 2.5 20 2.5S37.5 10.3 37.5 20c0 11.8-10.1 19.6-15.3 27.4-.6.9-1.3 1.6-2.2 1.6Z" fill="${fill}" stroke="#fff" stroke-width="2.5"/><circle cx="20" cy="20" r="7.5" fill="#fff"/></svg>`;
 }
 
-// Transfeero-style label: place on the left, time block on the right.
-function timeLabel(kind: string, place: string, time: string, timeBg: string, timeColor: string) {
-  const [clock, meridiem] = time.split(" ");
-  return `<div style="display:flex;align-items:stretch;max-width:260px;margin-bottom:14px;border-radius:999px 8px 8px 999px;overflow:hidden;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15);font-family:Poppins,Helvetica,Arial,sans-serif;color:#1C1C1C;white-space:nowrap"><div style="min-width:0;padding:6px 12px 6px 16px"><div style="font-size:11px;color:#777">${kind}</div><div style="font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis">${escapeHtml(place)}</div></div><div style="display:grid;place-items:center;padding:4px 8px;background:${timeBg};color:${timeColor};font-size:14px;font-weight:600;line-height:1.1;text-align:center">${escapeHtml(clock)}<br><span style="font-size:11px;font-weight:500">${escapeHtml(meridiem ?? "")}</span></div></div>`;
+function placeTag(name: string, side: "right" | "left") {
+  const pad = side === "right" ? "padding:0 16px 0 30px" : "padding:0 30px 0 18px";
+  return `<div style="display:flex;align-items:center;gap:10px;height:46px;width:max-content;max-width:230px;${pad};border-radius:999px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.16);font:600 15px/1 ${GRAB_FONT};color:#1C1C1C;white-space:nowrap"><span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(name)}</span><svg width="8" height="13" viewBox="0 0 8 13" style="flex:none"><path d="M1.5 1.5 6.5 6.5l-5 5" fill="none" stroke="#1C1C1C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
 }
+
+// Pickup: red pin, tag to its right (the pin overlaps the tag's left end).
+function grabPickup(name: string) {
+  return `<div style="position:relative;width:0;height:0"><div style="position:absolute;left:-8px;top:-54px">${placeTag(name, "right")}</div><div style="position:absolute;left:-20px;top:-50px">${teardrop("#E8543C")}</div></div>`;
+}
+
+// Drop-off: blue pin above a blue location dot, tag to its left.
+function grabDropoff(name: string) {
+  return `<div style="position:relative;width:0;height:0"><div style="position:absolute;right:-8px;top:-68px">${placeTag(name, "left")}</div><div style="position:absolute;left:-9px;top:-9px;width:18px;height:18px;border-radius:50%;background:#3478F6;border:3px solid #fff;box-sizing:border-box;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div><div style="position:absolute;left:-20px;top:-64px">${teardrop("#3478F6")}</div></div>`;
+}
+
+// "Best" route bubble with its tail on the bottom-left corner at the point.
+function grabBubble(minutes: number, km: number) {
+  const time = minutes >= 60 ? `${Math.floor(minutes / 60)} hr ${Math.round(minutes % 60)} min` : `${Math.max(1, Math.round(minutes))} min`;
+  return `<div style="position:relative;width:0;height:0"><div style="position:absolute;left:4px;bottom:4px;width:max-content;padding:8px 14px 9px;border-radius:16px 16px 16px 3px;background:#347A4E;color:#fff;font:500 16px/1.2 ${GRAB_FONT};white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)"><div>Best</div><div style="font-size:14px;font-weight:400;opacity:.95">${time}·${km.toFixed(1)} km</div></div></div>`;
+}
+
+
 
 // How far the sheet sits below its expanded position when collapsed: the
 // map fills 70% of the screen, less the sheet's rounded overlap.
@@ -134,14 +147,19 @@ function placeParts(value: string) {
   return { name: head?.trim() || value, detail: rest.join(",").trim() };
 }
 
+// Light map close to Grab's: pale land, white roads with grey edges, blue water.
 const GREY_MAP = [
-  { elementType: "geometry", stylers: [{ saturation: -100 }, { lightness: 20 }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#6b6b6b" }] },
+  { elementType: "geometry", stylers: [{ color: "#F3F4F6" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#6B7280" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#FFFFFF" }] },
   { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-  { featureType: "water", stylers: [{ color: "#d6d6d6" }] },
-];
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ visibility: "on" }, { color: "#DCEFD9" }] },
+  { featureType: "transit", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#FFFFFF" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#D5D8DD" }] },
+  { featureType: "road.highway", elementType: "geometry.fill", stylers: [{ color: "#E4E6EA" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#A9D3F5" }] },
+]
 
 let leafletPromise: Promise<void> | null = null;
 function loadLeaflet() {
@@ -172,6 +190,7 @@ export function BookingResultsMap(props: Props) {
   // Without a Google key the prototype route gets a labelled sample instead.
   useEffect(() => {
     const quote = props.quote;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clears stale traffic when the route changes
     if (!quote?.pickup || !quote.dropoff) { setTraffic(null); return; }
     let alive = true;
     async function refresh() {
@@ -193,7 +212,6 @@ export function BookingResultsMap(props: Props) {
     return () => { alive = false; window.clearInterval(timer); };
   }, [props.quote]);
   const selected = props.vehicles.find((item) => item.id === props.selectedVehicle) ?? props.vehicles[0];
-  const minutes = props.quote ? props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60 : 0;
   const cheapest = props.vehicles.filter((v) => v.fits !== false).reduce<Vehicle | undefined>((best, v) => !best || v.price < best.price ? v : best, undefined);
   const total = selected ? props.priceBreakdown?.[selected.id]?.total ?? selected.price : 0;
   const passengers = props.passengers ?? 0;
@@ -228,30 +246,28 @@ export function BookingResultsMap(props: Props) {
     const map = new maps.Map(mapRef.current, { disableDefaultUI: true, clickableIcons: false, gestureHandling: "greedy", styles: GREY_MAP });
     const pickup = { lat: props.quote.pickup.latitude, lng: props.quote.pickup.longitude };
     const dropoff = { lat: props.quote.dropoff.latitude, lng: props.quote.dropoff.longitude };
-    const route = props.quote.encodedPolyline && maps.geometry?.encoding
+    const route = traffic ? traffic.path.map(([lat, lng]) => new maps.LatLng(lat, lng)) : props.quote.encodedPolyline && maps.geometry?.encoding
       ? maps.geometry.encoding.decodePath(props.quote.encodedPolyline)
-      : [pickup, dropoff];
+      : [new maps.LatLng(pickup), new maps.LatLng(dropoff)];
     const lines: any[] = [];
     if (traffic) {
-      const all = traffic.path.map(([lat, lng]) => ({ lat, lng }));
-      lines.push(new maps.Polyline({ map, path: all, strokeColor: "#FFFFFF", strokeOpacity: 1, strokeWeight: 9 }));
-      for (const segment of trafficSegments(traffic.path, traffic.intervals)) {
-        lines.push(new maps.Polyline({ map, path: segment.points.map(([lat, lng]) => ({ lat, lng })), strokeColor: TRAFFIC_COLORS[segment.speed], strokeOpacity: 1, strokeWeight: 6 }));
-      }
+      const segments = trafficSegments(traffic.path, traffic.intervals);
+      for (const segment of segments) lines.push(new maps.Polyline({ map, path: segment.points.map(([lat, lng]) => ({ lat, lng })), strokeColor: TRAFFIC_CASING[segment.speed], strokeOpacity: 1, strokeWeight: 9 }));
+      for (const segment of segments) lines.push(new maps.Polyline({ map, path: segment.points.map(([lat, lng]) => ({ lat, lng })), strokeColor: TRAFFIC_COLORS[segment.speed], strokeOpacity: 1, strokeWeight: 6 }));
     } else {
-      lines.push(new maps.Polyline({ map, path: route, strokeColor: "#1C1C1C", strokeOpacity: 1, strokeWeight: 5 }));
+      lines.push(new maps.Polyline({ map, path: route, strokeColor: TRAFFIC_CASING.NORMAL, strokeOpacity: 1, strokeWeight: 9 }));
+      lines.push(new maps.Polyline({ map, path: route, strokeColor: TRAFFIC_COLORS.NORMAL, strokeOpacity: 1, strokeWeight: 6 }));
     }
     const travel = traffic?.durationSeconds ? traffic.durationSeconds / 60 : props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
     const overlays = [
-      htmlOverlay(maps, map, new maps.LatLng(pickup), squarePin("#1C1C1C"), "pin"),
-      htmlOverlay(maps, map, new maps.LatLng(dropoff), squarePin("#FF8A05"), "pin"),
-      htmlOverlay(maps, map, new maps.LatLng(pickup), timeLabel("Pick up", shortPlace(props.pickup), clockLabel(props.date, props.time), "#1C1C1C", "#fff"), "pin"),
-      htmlOverlay(maps, map, new maps.LatLng(dropoff), timeLabel("Drop-off", shortPlace(props.dropoff), clockLabel(props.date, props.time, travel), "#FF8A05", "#1C1C1C"), "pin"),
+      htmlOverlay(maps, map, route[Math.floor(route.length * 0.6)] ?? new maps.LatLng(pickup), grabBubble(travel, props.quote.distanceMeters / 1000), "point"),
+      htmlOverlay(maps, map, new maps.LatLng(dropoff), grabDropoff(shortPlace(props.dropoff)), "point"),
+      htmlOverlay(maps, map, new maps.LatLng(pickup), grabPickup(shortPlace(props.pickup)), "point"),
     ];
     const bounds = new maps.LatLngBounds();
     route.forEach((point: any) => bounds.extend(point));
     bounds.extend(pickup); bounds.extend(dropoff);
-    map.fitBounds(bounds, { top: 150, right: 60, bottom: 50, left: 60 });
+    map.fitBounds(bounds, { top: 190, right: 110, bottom: 60, left: 70 });
     return () => { overlays.forEach((overlay) => overlay.setMap(null)); lines.forEach((line) => line.setMap(null)); };
   }, [mapReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
 
@@ -267,20 +283,18 @@ export function BookingResultsMap(props: Props) {
     // OpenStreetMap tiles (no key needed), greyed to match the design.
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
     const tiles = map.getPane("tilePane");
-    if (tiles) tiles.style.filter = "grayscale(1) brightness(1.06) contrast(.92)";
-    if (traffic) {
-      L.polyline(traffic.path, { color: "#FFFFFF", weight: 9, opacity: 1 }).addTo(map);
-      for (const segment of trafficSegments(traffic.path, traffic.intervals)) L.polyline(segment.points, { color: TRAFFIC_COLORS[segment.speed], weight: 6, opacity: 1 }).addTo(map);
-    } else {
-      L.polyline(path, { color: "#1C1C1C", weight: 5, opacity: 1 }).addTo(map);
-    }
+    // Softened like Grab's light map: muted colours, blue water kept.
+    if (tiles) tiles.style.filter = "saturate(.35) brightness(1.08) contrast(.9)";
+    const line = traffic?.path ?? path;
+    const segments = traffic ? trafficSegments(traffic.path, traffic.intervals) : [{ points: path, speed: "NORMAL" as const }];
+    for (const segment of segments) L.polyline(segment.points, { color: TRAFFIC_CASING[segment.speed], weight: 9, opacity: 1, lineCap: "round", lineJoin: "round" }).addTo(map);
+    for (const segment of segments) L.polyline(segment.points, { color: TRAFFIC_COLORS[segment.speed], weight: 6, opacity: 1, lineCap: "round", lineJoin: "round" }).addTo(map);
     const travel = traffic?.durationSeconds ? traffic.durationSeconds / 60 : props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
-    const icon = (html: string) => L.divIcon({ className: "", html: `<div style="position:absolute;left:0;top:0;transform:translate(-50%,-100%)">${html}</div>`, iconSize: [0, 0] });
-    L.marker(pickup, { icon: icon(squarePin("#1C1C1C")), interactive: false }).addTo(map);
-    L.marker(dropoff, { icon: icon(squarePin("#FF8A05")), interactive: false }).addTo(map);
-    L.marker(pickup, { icon: icon(timeLabel("Pick up", shortPlace(props.pickup), clockLabel(props.date, props.time), "#1C1C1C", "#fff")), interactive: false }).addTo(map);
-    L.marker(dropoff, { icon: icon(timeLabel("Drop-off", shortPlace(props.dropoff), clockLabel(props.date, props.time, travel), "#FF8A05", "#1C1C1C")), interactive: false }).addTo(map);
-    map.fitBounds(L.latLngBounds(path), { paddingTopLeft: [60, 150], paddingBottomRight: [60, 40] });
+    const icon = (html: string) => L.divIcon({ className: "", html, iconSize: [0, 0] });
+    L.marker(line[Math.floor(line.length * 0.6)] ?? pickup, { icon: icon(grabBubble(travel, props.quote.distanceMeters / 1000)), interactive: false }).addTo(map);
+    L.marker(dropoff, { icon: icon(grabDropoff(shortPlace(props.dropoff))), interactive: false, zIndexOffset: 500 }).addTo(map);
+    L.marker(pickup, { icon: icon(grabPickup(shortPlace(props.pickup))), interactive: false, zIndexOffset: 1000 }).addTo(map);
+    map.fitBounds(L.latLngBounds(line), { paddingTopLeft: [70, 190], paddingBottomRight: [110, 60] });
     return () => map.remove();
   }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
 
