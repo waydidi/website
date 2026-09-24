@@ -111,7 +111,7 @@ export function ThailandDestinationMap() {
           <div className="pt-1 lg:sticky lg:top-28">
             <h2
               id="destination-map-heading"
-              className="max-w-[460px] text-[37px] font-medium leading-[1.05] tracking-[-.02em] text-ink sm:text-[48px]"
+              className="max-w-[460px] text-[35px] font-medium leading-[1.05] tracking-[-.02em] text-ink sm:text-[48px]"
             >
               {t("map.heading")}
             </h2>
