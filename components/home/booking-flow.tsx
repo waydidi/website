@@ -429,7 +429,17 @@ export function BookingFlow({
   useEffect(() => {
     fetch("/api/maps/config", { cache: "no-store" })
       .then((response) => response.json() as Promise<{ apiKey?: string }>)
-      .then(({ apiKey }) => setMapsAvailable(Boolean(apiKey)))
+      .then(({ apiKey }) => {
+        setMapsAvailable(Boolean(apiKey));
+        // Prototype: with live pricing off, pre-fill the demo route so one tap
+        // on See prices opens the map screen. Leaves typed or restored trips alone.
+        if (!apiKey && !restoringDraftRef.current) {
+          setBooking((current) => current.dropoff === "Grande Centre Point Sukhumvit 55, Bangkok"
+            ? { ...current, pickup: "Suvarnabhumi Airport (BKK)", dropoff: "Hilton Pattaya" }
+            : current);
+          setDepartureSelected(true);
+        }
+      })
       .catch(() => undefined);
   }, []);
 
