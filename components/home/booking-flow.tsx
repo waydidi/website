@@ -863,8 +863,10 @@ export function BookingFlow({
   // button is enabled, so the bar can never skip one.
   const hasPrice = !quoteRequest && (serviceType === "transfer" ? Boolean(fareQuote) : Boolean(hourlyQuote));
   const priceText = quoteRequest ? "Quote on request" : hasPrice ? `฿${chosenVehicle.price.toLocaleString()}` : "—";
+  // The transfer results screen has its own full-screen layout and Book bar.
+  const mapView = stage === "vehicle" && serviceType === "transfer" && !quoteRequest;
   const priceBar =
-    stage === "vehicle"
+    mapView ? null : stage === "vehicle"
       ? {
           label: chosenVehicle.name,
           action: "Continue",
@@ -931,7 +933,7 @@ export function BookingFlow({
       >
         {stage === "search" ? (
           <SiteHeader overlay />
-        ) : (
+        ) : mapView ? null : (
           <header className="relative z-40 flex h-[72px] w-full items-center justify-between bg-brand px-5 text-ink lg:px-8">
             <Link href="/" className="inline-flex text-white" aria-label={t("nav.home")}>
               <WaydidiLogo className="h-[43px] w-auto sm:h-[53px]" />
@@ -1291,6 +1293,8 @@ export function BookingFlow({
           onSelectVehicle={setVehicle}
           onEdit={() => goToStage("search")}
           onRetry={retryRoute}
+          payment={payment}
+          onPaymentChange={setPayment}
           onContinue={() => goToStage("payment")}
         /> : <section className="bg-white">
           <div className="mx-auto max-w-[760px] px-5 py-8 lg:py-12">
