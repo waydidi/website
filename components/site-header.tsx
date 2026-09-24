@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CarFront, ChevronDown, Menu, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { LocalePicker } from "@/components/locale-picker";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
@@ -148,6 +149,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             {link.label}
           </Link>
         ))}
+        <LocalePicker />
         <Link
           href={accountHref}
           className={`flex items-center gap-2 rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${account ? "" : "invisible"}`}
@@ -162,10 +164,12 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           <CarFront size={20} /> Check your booking
         </Link>
       </nav>
+      <div className="flex items-center gap-4 xl:hidden">
+      <LocalePicker />
       <Sheet>
         <SheetTrigger asChild>
-          <button className="flex items-center gap-3 text-lg font-bold xl:hidden" aria-label="Open navigation menu">
-            Menu <Menu />
+          <button className="grid size-10 place-items-center rounded-full" aria-label="Open navigation menu">
+            <Menu size={28} />
           </button>
         </SheetTrigger>
         <SheetContent
@@ -227,6 +231,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           </div>
         </SheetContent>
       </Sheet>
+      </div>
     </header>
   );
 }
