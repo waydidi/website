@@ -5,6 +5,7 @@ import { BookingFlow } from "./booking-flow";
 import { ThailandDestinationMap } from "./destination-map";
 import { WaydidiFooter } from "./footer";
 import { ServiceCards } from "./service-cards";
+import { Promotions } from "./promotions";
 
 export function homeMetadata(locale: Locale): Metadata {
   const messages = getMessages(locale);
@@ -39,6 +40,7 @@ export function HomePage({ locale }: { locale: Locale }) {
   return (
     <BookingFlow locale={locale} messages={getMessages(locale)}>
       <ServiceCards locale={locale} />
+      <Promotions />
       <ThailandDestinationMap />
       <WaydidiFooter locale={locale} />
     </BookingFlow>
