@@ -36,10 +36,10 @@ test("driver steps map to the customer timeline", () => {
   for (const [booking, driver, expected] of cases) assert.equal(rules.customerStage(booking, driver), expected, `${booking}/${driver}`);
 });
 
-test("the car is only visible on the way and during the ride", () => {
+test("the car is only visible after pickup, during the ride", () => {
   const visible = ["confirmed", "assigned", "on_the_way", "waiting", "on_trip", "arrived", "no_show", "cancelled"].filter(rules.locationVisible);
-  assert.deepEqual(visible, ["on_the_way", "on_trip"]);
-  assert.equal(rules.etaTarget("on_the_way"), "pickup");
+  assert.deepEqual(visible, ["on_trip"]);
+  assert.equal(rules.etaTarget("on_the_way"), null);
   assert.equal(rules.etaTarget("on_trip"), "dropoff");
   assert.equal(rules.etaTarget("waiting"), null);
 });

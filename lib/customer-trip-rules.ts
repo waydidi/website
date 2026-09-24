@@ -29,9 +29,9 @@ export const STAGE_DRIVER_STATUSES: Partial<Record<CustomerStage, string[]>> = {
   arrived: ["completed"],
 };
 
-/** The car is only shown while it is heading to the customer or carrying them. */
+/** The car is only shown after pickup, while the customer is on board. */
 export function locationVisible(stage: CustomerStage) {
-  return stage === "on_the_way" || stage === "on_trip";
+  return stage === "on_trip";
 }
 
 /** A driver position older than this is not shown as live. */
@@ -43,11 +43,9 @@ export function freshLocation<T extends { serverTimestamp: string }>(point: T | 
   return Number.isFinite(at) && now - at <= LOCATION_STALE_MS ? point : null;
 }
 
-/** Where the arrival estimate points: the pickup before the ride, the drop-off during it. */
+/** The arrival estimate only covers the ride itself, to the drop-off. */
 export function etaTarget(stage: CustomerStage): "pickup" | "dropoff" | null {
-  if (stage === "on_the_way") return "pickup";
-  if (stage === "on_trip") return "dropoff";
-  return null;
+  return stage === "on_trip" ? "dropoff" : null;
 }
 
 export const ETA_CACHE_SECONDS = 120;

@@ -130,7 +130,8 @@ export function TripView({ reference }: { reference: string }) {
   }
 
   const shared = trip.access === "shared";
-  const live = trip.stage === "on_the_way" || trip.stage === "on_trip";
+  // Live location and arrival time are only shared after pickup.
+  const live = trip.stage === "on_trip";
   return (
     <main className="min-h-screen bg-surface pb-16 text-ink">
       <header className="bg-brand px-4 pb-10 pt-4 text-white">
@@ -298,8 +299,8 @@ function LiveMap({ trip, time }: { trip: Trip; time: (value: string) => string }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Google Maps JS objects
   const mapState = useRef<{ map: any; car: any; target: any } | null>(null);
   const [mapsReady, setMapsReady] = useState(false);
-  const target = trip.stage === "on_the_way" ? trip.pickupPoint : trip.dropoffPoint;
-  const targetLabel = trip.stage === "on_the_way" ? t("trip.map.pickup") : t("trip.map.dropoff");
+  const target = trip.dropoffPoint;
+  const targetLabel = t("trip.map.dropoff");
 
   useEffect(() => {
     let cancelled = false;
