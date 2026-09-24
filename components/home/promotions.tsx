@@ -15,12 +15,8 @@ type Promotion = {
   offer: string[];
 };
 const EXAMPLES: Promotion[] = [
-  { title: "[New Users] 10% off your first private transfer", code: "WAYDIDINEW", period: "1 October – 31 December 2026", travel: "Anytime", service: "Private transfers",
-    offer: ["Discount 10% up to THB 300 with a minimum fare of THB 1,000.", "Valid for your first Waydidi booking only (per email, phone and account)."] },
-  { title: "THB 200 off Bangkok ⇄ Pattaya transfers", code: "PATTAYA200", period: "1 October – 31 December 2026", travel: "Anytime", service: "Private transfers between Bangkok and Pattaya, both directions",
-    offer: ["Discount THB 200 with a minimum fare of THB 1,200.", "Valid for Bangkok (including both airports) to Pattaya and back."] },
-  { title: "15% off an hourly private driver, 5 hours or more", code: "HOURLY15", period: "1 October – 31 December 2026", travel: "Anytime", service: "Hourly private driver",
-    offer: ["Discount 15% up to THB 1,000 on bookings of 5 hours or more.", "Extra hours and extra distance are charged at the normal rate."] },
+  { title: "[New Users] 20% off your first Waydidi ride", code: "NEWUSER20", period: "Anytime", travel: "Anytime", service: "Private transfers and hourly private driver",
+    offer: ["Discount 20% on your first Waydidi booking.", "Valid for your first Waydidi booking only (per email, phone and account)."] },
 ];
 
 type PublicPromotion = {

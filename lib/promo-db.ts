@@ -4,7 +4,8 @@ import { bookings, promoCodes, promoRedemptions } from "@/db/schema";
 import { evaluatePromo, normalizeCode, type PromoResult } from "./promo";
 
 // Bookings in these states no longer hold a use of their code.
-const RELEASED_STATUSES = ["expired", "cancelled", "refunded", "payment_failed"];
+// Only bookings that were never paid give the use back; cancelled or refunded bookings keep it.
+const RELEASED_STATUSES = ["expired", "payment_failed"];
 
 export async function findPromo(code: string) {
   const [row] = await getDb().select().from(promoCodes).where(eq(promoCodes.code, normalizeCode(code))).limit(1);

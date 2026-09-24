@@ -91,7 +91,7 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
       <form onSubmit={(e) => { e.preventDefault(); void save(); }} className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <h2 className="text-xl font-black">{form.id ? "Edit promotion" : "New promotion"}</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-semibold">Code<input required value={form.code} onChange={(e) => set("code", e.target.value.toUpperCase())} className={`${input} uppercase tracking-wide`} placeholder="WAYDIDINEW" /></label>
+          <label className="text-sm font-semibold">Code<input required value={form.code} onChange={(e) => set("code", e.target.value.toUpperCase())} className={`${input} uppercase tracking-wide`} placeholder="NEWUSER20" /></label>
           <label className="text-sm font-semibold">Status<select value={form.status} onChange={(e) => set("status", e.target.value as Form["status"])} className={input}><option value="draft">Draft</option><option value="active">Active</option><option value="paused">Paused</option></select></label>
           <label className="text-sm font-semibold sm:col-span-2">Title shown to customers<input required value={form.title} onChange={(e) => set("title", e.target.value)} className={input} placeholder="[New Users] 10% off your first private transfer" /></label>
           <label className="text-sm font-semibold">Discount type<select value={form.discountType} onChange={(e) => set("discountType", e.target.value as Form["discountType"])} className={input}><option value="percent">Percentage (%)</option><option value="fixed">Fixed amount (THB)</option></select></label>
