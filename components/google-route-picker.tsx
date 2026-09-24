@@ -181,7 +181,7 @@ export function GoogleRoutePicker({
   }, [mapReady, pickupOnly, showPreviewMap]);
 
   const fieldClass =
-    "w-full bg-transparent text-[15px] font-normal text-slate-950 outline-none placeholder:font-normal placeholder:text-slate-400 lg:text-base";
+    "w-full bg-transparent text-base font-normal text-slate-950 outline-none placeholder:font-normal placeholder:text-slate-400";
   return (
     <>
       <label className={`block min-w-0 ${connectedMobile ? "order-2 lg:order-none" : ""}`}>
@@ -190,7 +190,7 @@ export function GoogleRoutePicker({
           <MapPin size={18} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-slate-500">{t("route.from")}</span>
+          <span className="block text-sm font-normal text-slate-500">{t("route.from")}</span>
           <input
             ref={pickupRef}
             required
@@ -209,7 +209,7 @@ export function GoogleRoutePicker({
           <MapPin size={18} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-slate-500">{t("route.to")}</span>
+          <span className="block text-sm font-normal text-slate-500">{t("route.to")}</span>
           <input
             ref={dropoffRef}
             required
