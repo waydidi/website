@@ -24,7 +24,7 @@ export const fareQuoteInputSchema = z.object({
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["pickupDate"],
-      message: "Choose a valid future departure date and time.",
+      message: "Choose a pickup at least 3 hours from now.",
     });
   }
 });
@@ -40,7 +40,7 @@ export const hourlyQuoteInputSchema = z.object({
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["pickupDate"],
-      message: "Choose a valid future departure date and time.",
+      message: "Choose a pickup at least 3 hours from now.",
     });
   }
 });
@@ -81,7 +81,7 @@ export const checkoutInputSchema = z.object({
   hourlyQuoteId: z.string().uuid().optional(),
 }).strict().superRefine((input, context) => {
   if (!validBangkokPickup(input.pickupDate, input.pickupTime)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["pickupDate"], message: "Choose a valid future departure date and time." });
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["pickupDate"], message: "Choose a pickup at least 3 hours from now." });
   }
   if (input.serviceType === "transfer") {
     if (input.dropoff.length < 2) context.addIssue({ code: z.ZodIssueCode.custom, path: ["dropoff"], message: "Choose a destination." });

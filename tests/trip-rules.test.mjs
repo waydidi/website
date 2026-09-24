@@ -109,3 +109,14 @@ test("airport pickups need the driver waiting 10 minutes after landing", () => {
   assert.equal(rules.standbyDeadline({ ...booking, flightEstimatedArrival: null }), at("2026-10-01T02:30:00Z") + 10 * MINUTE);
   assert.equal(rules.standbyDeadline({ ...booking, flightScheduledArrival: null, flightEstimatedArrival: null }), at("2026-10-01T10:00:00+07:00"), "no flight data: the booked pickup time");
 });
+
+const time = await vite.ssrLoadModule("/lib/booking-time.ts");
+
+test("pickups must be booked at least 3 hours ahead", () => {
+  const now = at("2026-10-01T10:05:00+07:00");
+  assert.equal(time.MIN_BOOKING_LEAD_HOURS, 3);
+  assert.equal(time.validBangkokPickup("2026-10-01", "13:00", now), false, "2 h 55 min ahead");
+  assert.equal(time.validBangkokPickup("2026-10-01", "13:15", now), true, "3 h 10 min ahead");
+  assert.deepEqual(time.earliestBangkokPickup(now), { date: "2026-10-01", time: "13:15" });
+  assert.deepEqual(time.earliestBangkokPickup(at("2026-10-01T22:50:00+07:00")), { date: "2026-10-02", time: "02:00" });
+});

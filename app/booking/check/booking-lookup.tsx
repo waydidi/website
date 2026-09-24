@@ -70,9 +70,7 @@ export default function BookingLookup() {
     [fareQuote, setFareQuote] = useState<FareQuote | null>(null),
     [returnFareQuote, setReturnFareQuote] = useState<FareQuote | null>(null),
     [vehicleId, setVehicleId] = useState("economy_sedan"),
-    [changeReason, setChangeReason] = useState(""),
-    [reason, setReason] = useState(""),
-    [confirmed, setConfirmed] = useState(false);
+    [changeReason, setChangeReason] = useState("");
   async function load() {
     const r = await fetch("/api/bookings/manage", { cache: "no-store" });
     if (!r.ok) {
@@ -117,7 +115,7 @@ export default function BookingLookup() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const value = (await r.json()) as { error?: string; refundStatus?: string };
+    const value = (await r.json()) as { error?: string };
     setLoading(false);
     if (!r.ok) {
       setError(value.error ?? "The change could not be completed.");
@@ -125,11 +123,7 @@ export default function BookingLookup() {
     }
     await load();
     setMessage(
-      path.endsWith("cancel")
-        ? value.refundStatus === "not_required"
-          ? "Your booking has been cancelled."
-          : "Your booking is cancelled. Your refund request is awaiting Waydidi approval."
-        : path.endsWith("change-request")
+      path.endsWith("change-request")
           ? "Your journey-change request was sent to Waydidi for review. Your confirmed booking has not changed."
           : "Your pickup date and time have been updated.",
     );
@@ -250,14 +244,14 @@ export default function BookingLookup() {
   const tabs: [Tab, string, typeof CarFront][] = [
     ["details", "Booking details", CarFront],
     ["reschedule", "Change date & time", CalendarClock],
-    ["cancel", "Cancel & refund", TicketX],
+    ["cancel", "Cancel booking", TicketX],
   ];
   const cancellationText =
     b.status === "cancelled"
       ? b.refundStatus
         ? `This booking is cancelled. Refund status: ${b.refundStatus.replaceAll("_", " ")}.`
         : "This booking is cancelled."
-      : "Online cancellation is closed. Contact Waydidi support.";
+      : "";
   return (
     <main className="min-h-[calc(100vh-102px)] bg-[#f4f6f8] px-4 py-8 text-[#211726] sm:px-6 lg:py-12">
       <div className="mx-auto max-w-6xl">
@@ -457,63 +451,21 @@ export default function BookingLookup() {
             )}
             {tab === "cancel" && (
               <>
-                <Heading icon={TicketX} title="Cancel & refund" />
-                <p className="mt-3 text-slate-600">
-                  Online cancellation is available until 24 hours before pickup.
-                  Card refund requests require Waydidi administrator approval;
-                  cash bookings are simply cancelled.
-                </p>
-                <div className="mt-6 rounded-2xl bg-slate-50 p-5">
-                  <div className="flex justify-between gap-4">
-                    <span>Refund request</span>
-                    <strong>
-                      {b.paymentMethod === "cash"
-                        ? "No payment collected"
-                        : `฿${b.total.toLocaleString()}`}
-                    </strong>
-                  </div>
-                </div>
-                {data.eligibility.canCancel && b.status === "confirmed" ? (
-                  <>
-                    <label className="mt-6 block font-bold">
-                      Reason for cancellation
-                      <textarea
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                        maxLength={300}
-                        rows={4}
-                        placeholder="Tell us why you need to cancel"
-                        className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 p-4"
-                      />
-                    </label>
-                    <label className="mt-5 flex items-start gap-3 rounded-2xl border border-slate-200 p-4 font-semibold">
-                      <input
-                        type="checkbox"
-                        checked={confirmed}
-                        onChange={(e) => setConfirmed(e.target.checked)}
-                        className="mt-1 size-5 accent-[#FF8A05]"
-                      />
-                      I understand that cancelling will release my vehicle and
-                      driver. Card refunds require administrator approval.
-                    </label>
-                    <button
-                      disabled={
-                        loading || !confirmed || reason.trim().length < 3
-                      }
-                      onClick={() =>
-                        action("/api/bookings/manage/cancel", {
-                          reason,
-                          confirmed,
-                          bookingVersion: b.bookingVersion,
-                        })
-                      }
-                      className="mt-6 h-13 rounded-full bg-red-600 px-7 font-bold text-white disabled:opacity-40"
-                    >
-                      {loading ? "Cancelling…" : "Cancel and request refund"}
-                    </button>
-                  </>
-                ) : (
+                <Heading icon={TicketX} title="Cancel booking" />
+                {b.status === "cancelled" ? (
                   <Policy text={cancellationText} />
+                ) : (
+                  <>
+                    <p className="mt-3 leading-7 text-slate-600">
+                      To cancel, or to ask about a refund, email Waydidi with your booking reference. We reply by email.
+                    </p>
+                    <a
+                      href={`mailto:support@waydidi.com?subject=${encodeURIComponent(`Cancel booking ${b.reference}`)}&body=${encodeURIComponent(`Booking reference: ${b.reference}\nPickup: ${b.pickupDate} ${b.pickupTime}\nReason:\n`)}`}
+                      className="mt-6 inline-flex h-13 items-center rounded-full bg-[#211726] px-7 font-bold text-white"
+                    >
+                      Email support@waydidi.com
+                    </a>
+                  </>
                 )}
               </>
             )}

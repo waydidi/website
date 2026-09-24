@@ -16,7 +16,6 @@ import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AdminKeyLogin } from "@/components/admin-key-login";
-import { RefundActions } from "@/components/refund-actions";
 import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { PaymentReconciliationButton } from "@/components/payment-reconciliation-button";
 import { backfillUnifiedPaymentFields } from "@/lib/payment-backfill";
@@ -227,15 +226,6 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                     <td className="px-5 py-4">
                       {view === "bin" ? (
                         <span className="text-slate-500">Preserved</span>
-                      ) : row.refundStatus === "awaiting_approval" ? (
-                        <div className="space-y-3">
-                          <div>
-                            <span className="inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-black text-[#B85D00]">Awaiting approval</span>
-                            <p className="mt-2 max-w-64 text-xs leading-5 text-slate-500">{row.cancellationReason}</p>
-                            <p className="mt-1 text-xs font-bold">฿{(row.refundAmount ?? row.total).toLocaleString()}</p>
-                          </div>
-                          <RefundActions reference={row.reference} />
-                        </div>
                       ) : row.refundStatus ? (
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${row.refundStatus === "succeeded" ? "bg-emerald-100 text-emerald-800" : row.refundStatus === "declined" ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-700"}`}>{row.refundStatus.replaceAll("_", " ")}</span>
                       ) : (
