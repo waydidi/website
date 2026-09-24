@@ -172,8 +172,12 @@ function mapTopPadding(expanded: boolean) {
 }
 
 // Pickup time minus 24 hours, e.g. "24 September 2026, 09:00 am".
+function cancelDeadlineAt(date: string, time: string) {
+  return new Date(`${date}T${time}:00+07:00`).getTime() - 24 * 3600_000;
+}
+
 function cancelDeadline(date: string, time: string) {
-  const value = new Date(new Date(`${date}T${time}:00+07:00`).getTime() - 24 * 3600_000);
+  const value = new Date(cancelDeadlineAt(date, time));
   const day = value.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Bangkok" });
   const clock = value.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).toLowerCase();
   return `${day}, ${clock}`;
@@ -572,13 +576,16 @@ export function BookingResultsMap(props: Props) {
         </ul>
 
         {/* Free cancellation up to 24 hours before pickup (Transfeero style). */}
-        {props.quote && <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
+        {props.quote && (cancelDeadlineAt(props.date, props.time) > Date.now() ? <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
           <CancelCalendar3D size={56} className="shrink-0" />
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-[#17563A]">FREE Cancellation 24H <span className="rounded-full bg-[#D3F2E0] px-2.5 py-0.5 text-[13px] font-semibold text-[#17563A]">24h</span></p>
             <p className="mt-1.5 text-[14px] leading-6 text-[#2B6A4D]">Book today, lock the price. You can cancel for free until <strong className="font-semibold text-[#17563A]">{cancelDeadline(props.date, props.time)}</strong> and get a full refund.</p>
           </div>
-        </div>}
+        </div> : <div className="mt-6 rounded-2xl border border-[#E6E6E6] bg-[#F7F7F7] p-4">
+          <p className="text-[17px] font-semibold text-[#1C1C1C]">Non-refundable</p>
+          <p className="mt-1.5 text-[14px] leading-6 text-[#4A4A4A]">Pickup is less than 24 hours away, so this booking can&apos;t be cancelled for free.</p>
+        </div>)}
       </div>
 
     </div>
