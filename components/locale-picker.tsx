@@ -80,9 +80,9 @@ export function LocalePicker({ className = "" }: { className?: string }) {
 
   return <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
     <DialogPrimitive.Trigger asChild>
-      <button type="button" onPointerDown={() => { openedByPointer.current = true; }} onKeyDown={() => { openedByPointer.current = false; }} aria-label={t("locale.button", { language: language.label, currency })} className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1 pl-0.5 pr-1 text-[15px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${className}`}>
-        <LanguageIcon language={language} size={25} />
-        <span className="hidden h-5 w-px bg-current opacity-40 min-[300px]:block" aria-hidden />
+      <button type="button" onPointerDown={() => { openedByPointer.current = true; }} onKeyDown={() => { openedByPointer.current = false; }} aria-label={t("locale.button", { language: language.label, currency })} className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1 pl-0.5 pr-1 text-[13.5px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${className}`}>
+        <LanguageIcon language={language} size={22.5} />
+        <span className="hidden h-[18px] w-px bg-current opacity-40 min-[300px]:block" aria-hidden />
         <span className="hidden min-[300px]:inline">{currency}</span>
       </button>
     </DialogPrimitive.Trigger>
