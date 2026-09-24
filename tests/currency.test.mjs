@@ -8,6 +8,7 @@ const vite = await createServer({ appType: "custom", configFile: false, root, re
 after(async () => vite.close());
 const currency = await vite.ssrLoadModule("/lib/currency.ts");
 const demo = await vite.ssrLoadModule("/lib/demo-route.ts");
+const traffic = await vite.ssrLoadModule("/lib/traffic.ts");
 
 test("THB amounts are shown whole and other currencies with two decimals", () => {
   assert.equal(currency.formatMoney(1450, "THB"), "THB 1,450");
@@ -32,4 +33,12 @@ test("the prototype route matches BKK to Hilton Pattaya only", () => {
 
 test("polylines decode to latitude/longitude pairs", () => {
   assert.deepEqual(demo.decodePolyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@"), [[38.5, -120.2], [40.7, -120.95], [43.252, -126.453]]);
+});
+
+test("traffic intervals split the route into coloured runs", () => {
+  const path = Array.from({ length: 11 }, (_, i) => [13 + i / 100, 100]);
+  const segments = traffic.trafficSegments(path, [{ start: 2, end: 4, speed: "SLOW" }, { start: 6, end: 8, speed: "TRAFFIC_JAM" }]);
+  assert.deepEqual(segments.map((s) => [s.speed, s.points.length]), [["NORMAL", 3], ["SLOW", 3], ["NORMAL", 3], ["TRAFFIC_JAM", 3], ["NORMAL", 3]]);
+  assert.equal(traffic.isThailandPoint({ latitude: 13.69, longitude: 100.75 }), true);
+  assert.equal(traffic.isThailandPoint({ latitude: 51.5, longitude: -0.1 }), false);
 });

@@ -4,6 +4,8 @@
 import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Pencil, Route, Users, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
+import { decodePolyline } from "@/lib/demo-route";
+import { TRAFFIC_COLORS, TRAFFIC_REFRESH_MS, sampleIntervals, trafficSegments, type SpeedInterval, type TrafficRoute } from "@/lib/traffic";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
@@ -151,6 +153,32 @@ export function BookingResultsMap(props: Props) {
   const [mapReady, setMapReady] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [leafletReady, setLeafletReady] = useState(false);
+  const [traffic, setTraffic] = useState<TrafficRoute | null>(null);
+
+  // Live traffic along the route, refreshed every 30 minutes while open.
+  // Without a Google key the prototype route gets a labelled sample instead.
+  useEffect(() => {
+    const quote = props.quote;
+    if (!quote?.pickup || !quote.dropoff) { setTraffic(null); return; }
+    let alive = true;
+    async function refresh() {
+      try {
+        const response = await fetch("/api/route-traffic", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pickup: quote!.pickup, dropoff: quote!.dropoff }) });
+        if (response.ok) {
+          const body = (await response.json()) as { encodedPolyline: string; intervals: SpeedInterval[]; durationSeconds?: number; fetchedAt: string };
+          if (alive) setTraffic({ path: decodePolyline(body.encodedPolyline), intervals: body.intervals, durationSeconds: body.durationSeconds, fetchedAt: body.fetchedAt });
+          return;
+        }
+      } catch { /* fall through to the sample */ }
+      if (alive && quote!.path?.length) {
+        const hour = Number(new Date().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "Asia/Bangkok" }));
+        setTraffic({ path: quote!.path, intervals: sampleIntervals(quote!.path.length, hour), fetchedAt: new Date().toISOString(), sample: true });
+      }
+    }
+    refresh();
+    const timer = window.setInterval(refresh, TRAFFIC_REFRESH_MS);
+    return () => { alive = false; window.clearInterval(timer); };
+  }, [props.quote]);
   const selected = props.vehicles.find((item) => item.id === props.selectedVehicle) ?? props.vehicles[0];
   const minutes = props.quote ? props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60 : 0;
   const cheapest = props.vehicles.filter((v) => v.fits !== false).reduce<Vehicle | undefined>((best, v) => !best || v.price < best.price ? v : best, undefined);
@@ -190,8 +218,17 @@ export function BookingResultsMap(props: Props) {
     const route = props.quote.encodedPolyline && maps.geometry?.encoding
       ? maps.geometry.encoding.decodePath(props.quote.encodedPolyline)
       : [pickup, dropoff];
-    new maps.Polyline({ map, path: route, strokeColor: "#1C1C1C", strokeOpacity: 1, strokeWeight: 5 });
-    const travel = props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
+    const lines: any[] = [];
+    if (traffic) {
+      const all = traffic.path.map(([lat, lng]) => ({ lat, lng }));
+      lines.push(new maps.Polyline({ map, path: all, strokeColor: "#FFFFFF", strokeOpacity: 1, strokeWeight: 9 }));
+      for (const segment of trafficSegments(traffic.path, traffic.intervals)) {
+        lines.push(new maps.Polyline({ map, path: segment.points.map(([lat, lng]) => ({ lat, lng })), strokeColor: TRAFFIC_COLORS[segment.speed], strokeOpacity: 1, strokeWeight: 6 }));
+      }
+    } else {
+      lines.push(new maps.Polyline({ map, path: route, strokeColor: "#1C1C1C", strokeOpacity: 1, strokeWeight: 5 }));
+    }
+    const travel = traffic?.durationSeconds ? traffic.durationSeconds / 60 : props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
     const overlays = [
       htmlOverlay(maps, map, new maps.LatLng(pickup), squarePin("#1C1C1C"), "pin"),
       htmlOverlay(maps, map, new maps.LatLng(dropoff), squarePin("#FF8A05"), "pin"),
@@ -201,9 +238,9 @@ export function BookingResultsMap(props: Props) {
     const bounds = new maps.LatLngBounds();
     route.forEach((point: any) => bounds.extend(point));
     bounds.extend(pickup); bounds.extend(dropoff);
-    map.fitBounds(bounds, { top: 90, right: 60, bottom: 50, left: 60 });
-    return () => overlays.forEach((overlay) => overlay.setMap(null));
-  }, [mapReady, props.quote, props.pickup, props.dropoff, props.date, props.time]);
+    map.fitBounds(bounds, { top: 150, right: 60, bottom: 50, left: 60 });
+    return () => { overlays.forEach((overlay) => overlay.setMap(null)); lines.forEach((line) => line.setMap(null)); };
+  }, [mapReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
 
 
   // Without a Google key: free Leaflet map with CARTO light tiles.
@@ -215,23 +252,28 @@ export function BookingResultsMap(props: Props) {
     const path = props.quote.path?.length ? props.quote.path : [pickup, dropoff];
     const map = L.map(mapRef.current, { zoomControl: false, attributionControl: true });
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { subdomains: "abcd", maxZoom: 19, attribution: "© OpenStreetMap © CARTO" }).addTo(map);
-    L.polyline(path, { color: "#1C1C1C", weight: 5, opacity: 1 }).addTo(map);
-    const travel = props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
+    if (traffic) {
+      L.polyline(traffic.path, { color: "#FFFFFF", weight: 9, opacity: 1 }).addTo(map);
+      for (const segment of trafficSegments(traffic.path, traffic.intervals)) L.polyline(segment.points, { color: TRAFFIC_COLORS[segment.speed], weight: 6, opacity: 1 }).addTo(map);
+    } else {
+      L.polyline(path, { color: "#1C1C1C", weight: 5, opacity: 1 }).addTo(map);
+    }
+    const travel = traffic?.durationSeconds ? traffic.durationSeconds / 60 : props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
     const icon = (html: string) => L.divIcon({ className: "", html: `<div style="position:absolute;left:0;top:0;transform:translate(-50%,-100%)">${html}</div>`, iconSize: [0, 0] });
     L.marker(pickup, { icon: icon(squarePin("#1C1C1C")), interactive: false }).addTo(map);
     L.marker(dropoff, { icon: icon(squarePin("#FF8A05")), interactive: false }).addTo(map);
     L.marker(pickup, { icon: icon(timeLabel("Pick up", shortPlace(props.pickup), clockLabel(props.date, props.time), "#1C1C1C", "#fff")), interactive: false }).addTo(map);
     L.marker(dropoff, { icon: icon(timeLabel("Drop-off", shortPlace(props.dropoff), clockLabel(props.date, props.time, travel), "#FF8A05", "#1C1C1C")), interactive: false }).addTo(map);
-    map.fitBounds(L.latLngBounds(path), { paddingTopLeft: [60, 90], paddingBottomRight: [60, 40] });
+    map.fitBounds(L.latLngBounds(path), { paddingTopLeft: [60, 150], paddingBottomRight: [60, 40] });
     return () => map.remove();
-  }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time]);
+  }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
 
   const disabled = !props.quote || props.loading || !selected || selected.fits === false || props.checkoutReady === false;
 
   return <section className="relative h-[100svh] overflow-hidden bg-white" aria-live="polite">
     {/* Map */}
     <div className="absolute inset-x-0 top-0 h-[42svh] lg:inset-y-0 lg:left-[460px] lg:right-0 lg:h-auto">
-      <div ref={mapRef} className="absolute inset-0 bg-[#EDEDED]" aria-label={`Route map from ${props.pickup} to ${props.dropoff}`} />
+      <div ref={mapRef} className="absolute inset-0 isolate z-0 bg-[#EDEDED]" aria-label={`Route map from ${props.pickup} to ${props.dropoff}`} />
       {!props.quote && !props.error && <div className="absolute inset-0 grid place-items-center bg-[#EDEDED]">
         <div className="rounded-2xl bg-white/95 px-6 py-5 text-center shadow-xl">
           <span className="mx-auto block size-8 animate-spin rounded-full border-4 border-brand border-r-transparent motion-reduce:animate-none" />
@@ -241,6 +283,10 @@ export function BookingResultsMap(props: Props) {
       <button onClick={props.onEdit} className="absolute left-4 top-[max(16px,env(safe-area-inset-top))] z-10 grid size-11 place-items-center rounded-full bg-white text-[#1C1C1C] shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label="Edit trip">
         <ArrowLeft size={22} />
       </button>
+      {traffic && <div className="absolute right-4 top-[max(20px,env(safe-area-inset-top))] z-10 flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[12px] font-medium text-[#1C1C1C] shadow-md">
+        <span className="flex gap-0.5" aria-hidden="true">{(["NORMAL", "SLOW", "TRAFFIC_JAM"] as const).map((k) => <span key={k} className="h-1.5 w-3 rounded-full" style={{ background: TRAFFIC_COLORS[k] }} />)}</span>
+        {traffic.sample ? "Sample traffic" : `Traffic · ${new Date(traffic.fetchedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })}`}
+      </div>}
     </div>
 
     {/* Sheet */}
