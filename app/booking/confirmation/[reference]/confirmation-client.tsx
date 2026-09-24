@@ -323,7 +323,7 @@ export default function ConfirmationClient({
                 href="/booking/manage"
                 className="flex h-13 items-center rounded-full border border-red-200 px-6 font-bold text-red-700"
               >
-                Manage or cancel booking
+                Manage booking
               </Link>
             )}
           </div>

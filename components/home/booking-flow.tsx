@@ -1,5 +1,6 @@
 "use client";
 
+import { earliestBangkokPickup } from "@/lib/booking-time";
 import {
   ArrowLeft,
   ArrowRight,
@@ -149,21 +150,6 @@ const defaultPickupDate = new Date(Date.now() + 86_400_000).toLocaleDateString(
   "en-CA",
   { timeZone: "Asia/Bangkok" },
 );
-
-// Today in the operating timezone, not the visitor's. A traveler browsing from
-// Europe must not be offered a pickup slot Bangkok has already driven past.
-function bangkokToday() {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
-}
-
-function bangkokNowTime() {
-  return new Date().toLocaleTimeString("en-GB", {
-    timeZone: "Asia/Bangkok",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
 
 // Every navigation label resolves to a page that actually exists. Header,
 // mobile drawer and footer all read from here so they cannot drift apart.
@@ -372,9 +358,10 @@ export function BookingFlow({
   useEffect(() => {
     // Recomputed whenever a picker opens so a tab left open past Bangkok
     // midnight cannot offer a slot that has already gone.
+    const earliest = earliestBangkokPickup();
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMinPickupDate(bangkokToday());
-    setMinPickupTime(bangkokNowTime());
+    setMinPickupDate(earliest.date);
+    setMinPickupTime(earliest.time);
   }, [dateOpen, returnDateOpen]);
 
   useEffect(() => {

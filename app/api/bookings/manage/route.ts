@@ -79,10 +79,8 @@ export async function GET(request: Request) {
           canManageStatus(booking.status) &&
           !journeyStarted &&
           remaining >= 72 * HOUR,
-        canCancel:
-          canManageStatus(booking.status) &&
-          !journeyStarted &&
-          remaining >= 24 * HOUR,
+        // Cancellations and refunds are handled by email.
+        canCancel: false,
         rescheduleCutoff: new Date(
           pickupInstant(booking.pickupDate, booking.pickupTime) - 72 * HOUR,
         ).toISOString(),
