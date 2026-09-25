@@ -15,7 +15,7 @@ import { bookings, bookingTaxInvoices } from "@/db/schema";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClient } from "@/app/admin/calendar/calendar-client";
+import { NotionCalendar } from "@/components/bookings-admin/notion-calendar";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AdminKeyLogin } from "@/components/admin-key-login";
 import { PaymentReconciliationButton } from "@/components/payment-reconciliation-button";
@@ -146,7 +146,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
             {([["list", "List", List], ["calendar", "Calendar", CalendarDays]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}><Icon size={16} />{label}</Link>)}
           </div>
         </div>
-        {mode === "calendar" ? <div className="-mx-4 sm:-mx-8"><CalendarClient email={access.user.email} serviceType={type} /></div> :
+        {mode === "calendar" ? <NotionCalendar serviceType={type} /> :
         <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1150px] text-left text-sm">
