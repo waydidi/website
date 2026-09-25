@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import type { listPromotions } from "@/lib/promo-admin";
 
 type Row = Awaited<ReturnType<typeof listPromotions>>[number];
@@ -29,6 +30,8 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
   const router = useRouter();
   const [form, setForm] = useState<Form | null>(null);
   const [error, setError] = useState("");
+  const [shown, setShown] = useState<Set<string>>(new Set());
+  const toggleShown = (id: string) => setShown((cur) => { const next = new Set(cur); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const [saving, setSaving] = useState(false);
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => (f ? { ...f, [key]: value } : f));
 
@@ -62,15 +65,13 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
     </div>
     <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table className="w-full min-w-[860px] text-left text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr>{["Code", "Offer", "Rules", "Period", "Uses", "Discount given", "Status", ""].map((h) => <th key={h} className="px-4 py-3 font-semibold">{h}</th>)}</tr></thead>
+        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr>{["Code", "Offer", "Rules", "Discount given", "Status", ""].map((h) => <th key={h} className="px-4 py-3 font-semibold">{h}</th>)}</tr></thead>
         <tbody>
-          {promotions.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-500">No promotions yet.</td></tr>}
-          {promotions.map((p) => <tr key={p.id} className="border-t border-slate-100 align-top">
+          {promotions.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">No promotions yet.</td></tr>}
+          {promotions.map((p) => <Fragment key={p.id}><tr className="border-t border-slate-100 align-top">
             <td className="px-4 py-3 font-bold tracking-wide">{p.code}{p.showOnHomepage && <span className="mt-1 block text-[11px] font-semibold text-[#C96100]">Homepage</span>}</td>
             <td className="px-4 py-3">{p.title}<span className="mt-1 block text-slate-500">{p.discountType === "percent" ? `${p.discountValue}%${p.maxDiscount ? ` up to ${thb(p.maxDiscount)}` : ""}` : thb(p.discountValue)}</span></td>
             <td className="px-4 py-3 text-slate-600">{[p.minFare ? `Min ${thb(p.minFare)}` : null, p.service !== "any" ? (p.service === "hourly" ? "Hourly only" : p.service === "return" ? "Round trips only" : "Transfers only") : null, p.firstBookingOnly ? "First booking" : null, `${p.perCustomerLimit}× per customer`].filter(Boolean).join(" · ")}</td>
-            <td className="px-4 py-3 text-slate-600">{p.startsAt ? new Date(p.startsAt).toLocaleDateString("en-GB") : "Now"} – {p.endsAt ? new Date(p.endsAt).toLocaleDateString("en-GB") : "open"}</td>
-            <td className="px-4 py-3">{p.uses}{p.maxUses != null && ` / ${p.maxUses}`}</td>
             <td className="px-4 py-3">{thb(p.discountGiven)}</td>
             <td className="px-4 py-3">
               <label className="inline-flex cursor-pointer items-center gap-2">
@@ -82,10 +83,17 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
             </td>
             <td className="px-4 py-3 text-right">
               <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => toggleShown(p.id)} aria-expanded={shown.has(p.id)} aria-label={`${shown.has(p.id) ? "Hide" : "Show"} period and uses for ${p.code}`} title="Period and uses" className="grid size-8 place-items-center rounded-full border border-slate-300 text-slate-600 hover:border-[#FF8A05] hover:text-[#C96100]">{shown.has(p.id) ? <EyeOff size={15} /> : <Eye size={15} />}</button>
                 <button type="button" onClick={() => { setError(""); setForm(toForm(p)); }} className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-bold">Edit</button>
               </div>
             </td>
-          </tr>)}
+          </tr>
+          {shown.has(p.id) && <tr className="bg-slate-50 text-slate-600"><td colSpan={6} className="px-4 py-3">
+            <span className="font-semibold text-slate-800">Period:</span> {p.startsAt ? new Date(p.startsAt).toLocaleDateString("en-GB") : "Now"} – {p.endsAt ? new Date(p.endsAt).toLocaleDateString("en-GB") : "open"}
+            <span className="mx-3 text-slate-300">|</span>
+            <span className="font-semibold text-slate-800">Uses:</span> {p.uses}{p.maxUses != null && ` / ${p.maxUses}`}
+          </td></tr>}
+          </Fragment>)}
         </tbody>
       </table>
     </div>
