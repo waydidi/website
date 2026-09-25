@@ -162,7 +162,7 @@ export default function AgenciesPage() {
         <p className="mt-5 text-[20px] text-[#555]">Licensed vehicles, professional drivers</p>
       </div>
       <ul className="mx-auto mt-10 flex max-w-[1180px] gap-5 overflow-x-auto px-5 pb-3 [scrollbar-width:none] lg:px-0 [&::-webkit-scrollbar]:hidden">
-        {FLEET.map((v) => { const spec = VEHICLES[v.id]; return <li key={v.id} className="w-[82%] max-w-[360px] shrink-0 overflow-hidden rounded-[28px] border border-[#E4E1DA] bg-white">
+        {FLEET.map((v) => { const spec = VEHICLES[v.id]; return <li key={v.id} className="relative w-[82%] max-w-[360px] shrink-0 overflow-hidden rounded-[28px] border border-[#E4E1DA] bg-white">
           <div className="grid h-[190px] place-items-center bg-gradient-to-b from-white to-[#F3F2EE] px-6"><Image src={v.image} alt={v.title} width={320} height={180} unoptimized className="max-h-[150px] w-auto object-contain" /></div>
           <div className="p-7 pt-5">
             <p className="text-[24px] font-bold tracking-[-.01em]">{v.title}</p>

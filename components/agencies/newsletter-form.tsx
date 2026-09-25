@@ -15,9 +15,9 @@ export function NewsletterForm({ source }: { source: string }) {
     setState("done");
   }
   if (state === "done") return <p className="mt-8 rounded-2xl border border-white/15 p-5 text-[17px] font-semibold">Thanks! You&apos;re subscribed. Watch your inbox for news and offers.</p>;
-  return <form onSubmit={submit} className="mt-8 grid gap-4" noValidate>
+  return <form onSubmit={submit} className="mt-8 grid min-w-0 grid-cols-1 gap-4" noValidate>
     <label className="sr-only" htmlFor="newsletter-email">Email address</label>
-    <input id="newsletter-email" name="email" type="email" required autoComplete="email" placeholder="Enter your email address" className="h-16 rounded-2xl border border-white/20 bg-[#161616] px-6 text-[18px] text-white outline-none placeholder:text-white/50 focus:border-white/60" />
+    <input id="newsletter-email" name="email" type="email" required autoComplete="email" placeholder="Enter your email address" className="h-16 w-full min-w-0 rounded-2xl border border-white/20 bg-[#161616] px-6 text-[18px] text-white outline-none placeholder:text-white/50 focus:border-white/60" />
     {error && <p className="text-[14px] font-semibold text-red-300" role="alert">{error}</p>}
     <button type="submit" disabled={state === "busy"} className="h-16 rounded-2xl bg-[#FF8A05] text-[19px] font-bold text-[#111] hover:bg-[#F07A00] disabled:opacity-60">{state === "busy" ? "Subscribing…" : "Subscribe"}</button>
   </form>;
