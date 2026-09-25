@@ -6,6 +6,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
 import { useI18n } from "@/components/i18n-provider";
 import { CancelCalendar3D } from "@/components/icons/cancel-calendar-3d";
+import { FerryIllustration } from "@/components/ferry-illustration";
 import { inclusionLines, parseInclusions, type Inclusions } from "@/lib/route-inclusions";
 import { waitingLine } from "@/lib/waiting-policy";
 import { decodePolyline } from "@/lib/demo-route";
@@ -285,7 +286,8 @@ export function BookingResultsMap(props: Props) {
       .catch(() => undefined);
     return () => { alive = false; };
   }, [props.quote]);
-  const lines = inclusionLines(props.quote?.inclusions ?? lookedUp ?? { tolls: false, ferry: false, route: null }, locale);
+  const inclusions = props.quote?.inclusions ?? lookedUp ?? { tolls: false, ferry: false, route: null };
+  const lines = inclusionLines(inclusions, locale);
   const [leafletReady, setLeafletReady] = useState(false);
   // Re-fits the route to the visible part of the map (set by whichever map is drawn).
   const fitRef = useRef<((bottomPadding: number) => void) | null>(null);
@@ -706,6 +708,13 @@ export function BookingResultsMap(props: Props) {
               <ul className="mt-3 grid gap-2.5 text-[16px] text-[#4A4A4A]">
                 {["Private car and driver for your group", "Door-to-door", "Fixed price agreed before you book", waitingLine(props.pickup, locale), ...lines.included].map((line) => <li key={line} className="flex items-center gap-3"><Check size={18} className="shrink-0" aria-hidden="true" />{line}</li>)}
               </ul>
+              {inclusions.hotelTransfer && <div className="mt-5 overflow-hidden rounded-2xl border border-[#E6E6E6]">
+                <FerryIllustration className="block h-auto w-full" />
+                <div className="p-4">
+                  <p className="text-[16px] font-semibold text-[#1C1C1C]">Ferry &amp; hotel transfer</p>
+                  <p className="mt-1 text-[14px] leading-6 text-[#6B6B6B]">Your driver takes you to the pier. The ferry crossing and the transfer from the island pier to your hotel are included in this price.</p>
+                </div>
+              </div>}
               {lines.excluded.length > 0 && <>
                 <h3 className="mt-6 text-[17px] font-medium">Excluded</h3>
                 <ul className="mt-3 grid gap-2.5 text-[16px] text-[#4A4A4A]">
