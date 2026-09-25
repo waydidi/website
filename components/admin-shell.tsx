@@ -11,13 +11,23 @@ import {
   Users,
   Newspaper,
   Route,
-  TicketPercent, Gift, Building2, IdCard } from "lucide-react";
+  TicketPercent, Gift, Building2, IdCard, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
 
+// "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
+const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href));
+
 const tabs = [
+  {
+    href: "/admin",
+    label: "Overview",
+    mobileLabel: "Overview",
+    title: "Overview",
+    icon: LayoutDashboard,
+  },
   {
     href: "/admin/bookings",
     label: "Bookings",
@@ -127,7 +137,7 @@ export default function AdminShell({
       return next;
     });
   }
-  const active = tabs.find((tab) => pathname.startsWith(tab.href)) ?? tabs[0];
+  const active = tabs.find((tab) => isActive(pathname, tab.href)) ?? tabs[0];
   return (
     <div className="flex min-h-screen bg-[#f3f5f8] text-[#211726]">
       <aside
@@ -170,7 +180,7 @@ export default function AdminShell({
           className="mt-8 space-y-2 text-sm font-bold"
         >
           {tabs.map(({ href, label, icon: Icon }) => {
-            const selected = pathname.startsWith(href);
+            const selected = isActive(pathname, href);
             return (
               <Link
                 key={href}
@@ -233,7 +243,7 @@ export default function AdminShell({
         className="fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-50 grid grid-cols-5 gap-1 rounded-[28px] border border-white/80 bg-white/95 p-2 shadow-[0_14px_45px_rgba(33,23,38,.24)] backdrop-blur-xl md:hidden"
       >
         {tabs.map(({ href, mobileLabel, icon: Icon }) => {
-          const selected = pathname.startsWith(href);
+          const selected = isActive(pathname, href);
           return (
             <Link
               key={href}
