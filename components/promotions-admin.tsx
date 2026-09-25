@@ -69,7 +69,7 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
         <tbody>
           {promotions.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">No promotions yet.</td></tr>}
           {promotions.map((p) => <tr key={p.id} className="border-t border-slate-100 align-top">
-            <td className="px-4 py-3 font-bold tracking-wide">{p.code}{p.showOnHomepage && <span className="mt-1 block text-[11px] font-semibold text-[#C96100]">Homepage</span>}</td>
+            <td className="px-4 py-3 font-bold tracking-wide">{p.code}</td>
             <td className="px-4 py-3">{p.title}<span className="mt-1 block text-slate-500">{p.discountType === "percent" ? `${p.discountValue}%${p.maxDiscount ? ` up to ${thb(p.maxDiscount)}` : ""}` : thb(p.discountValue)}</span></td>
             <td className="px-4 py-3 text-slate-600">{[p.minFare ? `Min ${thb(p.minFare)}` : null, p.service !== "any" ? (p.service === "hourly" ? "Hourly only" : p.service === "return" ? "Round trips only" : "Transfers only") : null, p.firstBookingOnly ? "First booking" : null, `${p.perCustomerLimit}× per customer`].filter(Boolean).join(" · ")}</td>
             <td className="px-4 py-3">{thb(p.discountGiven)}</td>
