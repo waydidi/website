@@ -426,6 +426,19 @@ export function BookingResultsMap(props: Props) {
   // first and the sheet only follows a downward swipe from the list's top.
   const sheetRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  // The bottom price bar grows (safe-area inset, "(including …)" line, discounts), so
+  // the list keeps exactly that much room below its last card, plus a margin.
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barSpace, setBarSpace] = useState(150);
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    const update = () => setBarSpace(Math.ceil(bar.getBoundingClientRect().height) + 24);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
   const [expanded, setExpanded] = useState(false);
   const setSheet = useCallback((open: boolean, animate = true) => {
     const sheet = sheetRef.current;
@@ -554,7 +567,7 @@ export function BookingResultsMap(props: Props) {
       >
         <span className="h-1 w-10 rounded-full bg-[#D9D9D9]" aria-hidden="true" />
       </button>
-      <div ref={listRef} className={`flex-1 overscroll-contain px-4 pb-[150px] pt-0 lg:overflow-y-auto lg:pt-3 ${expanded ? "overflow-y-auto" : "overflow-hidden"}`}>
+      <div ref={listRef} style={{ paddingBottom: barSpace }} className={`flex-1 overscroll-contain px-4 pt-0 lg:overflow-y-auto lg:pt-3 ${expanded ? "overflow-y-auto" : "overflow-hidden"}`}>
 
         {props.error ? <div className="mb-3 rounded-2xl bg-orange-50 p-4 text-sm text-[#6D3700]">
           <strong className="block">We couldn&apos;t calculate this route.</strong>
@@ -616,7 +629,7 @@ export function BookingResultsMap(props: Props) {
     </div>
 
     {/* Bottom bar */}
-    <div className="absolute inset-x-0 bottom-0 z-20 border-t border-[#EEEEEE] bg-white px-4 lg:right-auto lg:w-[460px] pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
+    <div ref={barRef} className="absolute inset-x-0 bottom-0 z-20 border-t border-[#EEEEEE] bg-white px-4 lg:right-auto lg:w-[460px] pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
       <div className="flex items-center justify-between gap-3">
         <p className="flex min-w-0 items-center gap-2 leading-none"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{money(total)}</strong>{currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}{extrasCount > 0 && <span className="min-w-0 touch-pan-x overflow-x-auto whitespace-nowrap text-[12px] font-medium text-[#D32F2F] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{t("addons.including", { items: [seats > 0 ? (seats > 1 ? t("addons.childSeats", { count: seats }) : t("addons.childSeat")) : null, exchange ? t("addons.exchange") : null].filter(Boolean).join(", ") })}</span>}</p>
         <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
