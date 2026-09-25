@@ -63,25 +63,21 @@ export default async function AdminOverviewPage() {
   return <main className="min-h-screen bg-[#F6F7F9] px-4 py-6 text-[#1f1726] sm:px-8">
     <div className="mx-auto grid max-w-[1200px] gap-6">
 
-      {/* Needs attention */}
-      <section aria-labelledby="alerts-heading">
-        <div className="flex flex-wrap items-baseline justify-between gap-2 pt-2"><h2 id="alerts-heading" className="text-[17px] font-black">Needs attention</h2><p className="text-[13px] font-semibold text-slate-500">{dayName(o.today)} · Bangkok time</p></div>
-        {ALERTS.length === 0
-          ? <p className="mt-2 rounded-2xl bg-emerald-50 p-4 text-[14px] font-semibold text-emerald-800">✓ All clear. Nothing is waiting for you right now.</p>
-          : <ul className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{ALERTS.map(({ n, label, href, icon: Icon, urgent }) => <li key={label}>
-            <Link href={href} className={`flex items-center gap-3 rounded-2xl border p-4 ${urgent ? "border-red-200 bg-red-50 text-red-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
-              <Icon size={20} className="shrink-0" aria-hidden="true" />
-              <span className="min-w-0 flex-1 text-[14px]"><strong className="text-[18px]">{n}</strong> {label}</span>
-              <ArrowRight size={16} aria-hidden="true" />
-            </Link>
-          </li>)}</ul>}
-      </section>
+      {/* Alerts: only shown when something is waiting. */}
+      {ALERTS.length > 0 && <section aria-label="Needs attention" className="pt-2">
+        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{ALERTS.map(({ n, label, href, icon: Icon, urgent }) => <li key={label}>
+          <Link href={href} className={`flex items-center gap-3 rounded-2xl border p-4 ${urgent ? "border-red-200 bg-red-50 text-red-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+            <Icon size={20} className="shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1 text-[14px]"><strong className="text-[18px]">{n}</strong> {label}</span>
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </li>)}</ul>
+      </section>}
 
       {/* Key numbers */}
       <section aria-labelledby="numbers-heading">
-        <h2 id="numbers-heading" className="text-[17px] font-black">Key numbers</h2>
-        <p className="text-[12px] text-slate-500">By the day bookings were made. Revenue counts confirmed and completed bookings.</p>
-        <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <h2 id="numbers-heading" className="sr-only">Key numbers</h2>
+        <div className="grid grid-cols-2 gap-3 pt-2 lg:grid-cols-4">
           <Stat label="Bookings today" value={String(o.stats.today.bookings)} sub={thb(o.stats.today.revenue)} />
           <Stat label="Last 7 days" value={String(o.stats.week.bookings)} sub={`${thb(o.stats.week.revenue)} · ${o.stats.week.cancelled} cancelled`} />
           <Stat label="Last 30 days" value={String(o.stats.month.bookings)} sub={`${thb(o.stats.month.revenue)} · avg ${thb(o.stats.month.average)}`} />

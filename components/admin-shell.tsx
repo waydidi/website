@@ -6,11 +6,12 @@ import {
   Truck,
   Users,
   Newspaper,
-  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronRight, Grid2x2, Search, Settings } from "lucide-react";
+  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronRight, Grid2x2, Moon, Search, Settings, Sun } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
+import { AvatarMenu } from "@/components/admin-settings/avatar-menu";
 
 // "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
 const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/routes"))));
@@ -182,6 +183,22 @@ export default function AdminShell({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCollapsed(window.localStorage.getItem("waydidi-admin-sidebar") === "collapsed");
   }, []);
+  // Dark mode for the admin only: a class on <html> (so dialogs and sheets follow),
+  // remembered on this device, starting from the system setting.
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    let saved: string | null = null;
+    try { saved = window.localStorage.getItem("waydidi-admin-theme"); } catch { /* storage blocked */ }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDark(saved ? saved === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches);
+  }, []);
+  useEffect(() => {
+    document.documentElement.classList.toggle("admin-dark", dark);
+    return () => document.documentElement.classList.remove("admin-dark");
+  }, [dark]);
+  function toggleDark() {
+    setDark((d) => { try { window.localStorage.setItem("waydidi-admin-theme", d ? "light" : "dark"); } catch { /* storage blocked */ } return !d; });
+  }
   function toggleSidebar() {
     setCollapsed((current) => {
       const next = !current;
@@ -228,15 +245,16 @@ export default function AdminShell({
             </ul>
           </div>)}
         </nav>
-        <div className="border-t border-slate-200/70 p-3">
-          <Link href="/admin/settings" prefetch aria-current={pathname.startsWith("/admin/settings") ? "page" : undefined} title="Settings" className={`flex h-10 items-center gap-3 rounded-[10px] px-3 text-[15px] ${collapsed ? "justify-center" : ""} ${pathname.startsWith("/admin/settings") ? "bg-[#FFF0DF] font-semibold text-[#C96100]" : "text-slate-700 hover:bg-slate-100/80"}`}><Settings size={18} className="shrink-0" />{!collapsed && "Settings"}</Link>
+        <div className={`flex items-center gap-1 border-t border-slate-200/70 p-3 ${collapsed ? "flex-col" : ""}`}>
+          <Link href="/admin/settings" prefetch aria-current={pathname.startsWith("/admin/settings") ? "page" : undefined} title="Settings" className={`flex h-10 min-w-0 flex-1 items-center gap-3 rounded-[10px] px-3 text-[15px] ${collapsed ? "w-full justify-center" : ""} ${pathname.startsWith("/admin/settings") ? "bg-[#FFF0DF] font-semibold text-[#C96100]" : "text-slate-700 hover:bg-slate-100/80"}`}><Settings size={18} className="shrink-0" />{!collapsed && "Settings"}</Link>
+          <button type="button" onClick={toggleDark} aria-pressed={dark} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"} className="grid size-10 shrink-0 place-items-center rounded-[10px] text-slate-700 hover:bg-slate-100/80">{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
         </div>
       </aside>
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-30 flex h-[72px] items-center gap-4 border-b border-slate-200/70 bg-white/95 px-4 backdrop-blur sm:px-8">
           <h1 className="min-w-0 shrink-0 truncate text-[20px] font-semibold tracking-[-.01em] md:hidden">{title}</h1>
           <div className="hidden flex-1 md:block"><PageSearch /></div>
-          <div className="ml-auto grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-[13px] font-bold text-[#C96100]" aria-label="Waydidi administrator">WD</div>
+          <AvatarMenu />
         </header>
         <div className="mx-auto max-w-[1600px] px-4 pt-6 sm:px-8">
           <h1 className="hidden text-[28px] font-semibold tracking-[-.02em] md:block">{title}</h1>
