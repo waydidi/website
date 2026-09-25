@@ -7,6 +7,7 @@ import { LoyaltyCard } from "@/components/account/loyalty-card";
 import { loyaltyStatus } from "@/lib/loyalty";
 import { memberTierStatus } from "@/lib/member-tier";
 import { listMemberGifts } from "@/lib/gifts";
+import { spinStatus } from "@/lib/spin";
 import { GiftWallet } from "@/components/account/gift-wallet";
 import { MysteryBoxes } from "@/components/account/mystery-boxes";
 import { listMemberBoxes } from "@/lib/boxes";
@@ -20,11 +21,12 @@ export default async function AccountOverview() {
   const customer = await requireCustomer("/account");
   // Independent lookups run together, so the page waits for the slowest one, not their sum.
   // (Gifts also issues any new badge boxes, so boxes are listed right after it.)
-  const [bookingRows, loyalty, tier, giftRows] = await Promise.all([
+  const [bookingRows, loyalty, tier, giftRows, spin] = await Promise.all([
     customerBookings(customer),
     loyaltyStatus(customer.id).catch(() => null),
     memberTierStatus(customer.id).catch(() => null),
     listMemberGifts(customer.id).catch(() => []),
+    spinStatus(customer.id).catch(() => null),
   ]);
   const trips = bookingRows.map((trip) => ({ trip, bucket: tripBucket(trip.status, trip.pickupDate, trip.pickupTime) }));
   const upcoming = trips.filter((t) => t.bucket === "upcoming").reverse(); // soonest first
@@ -49,6 +51,10 @@ export default async function AccountOverview() {
     {tier && <div className="mt-6"><TierCard status={tier} /></div>}
     {boxes.length > 0 && <div className="mt-4"><MysteryBoxes boxes={boxes} /></div>}
     {gifts.length > 0 && <div className="mt-4"><GiftWallet gifts={gifts} /></div>}
+    {spin?.spun && spin.prize && !spin.used && !spin.expired && <Link href="/account/coupons" className="mt-4 flex items-center gap-4 rounded-[20px] bg-white p-5 transition hover:shadow-md">
+      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-xl" aria-hidden="true">🎡</span>
+      <span className="min-w-0 flex-1"><span className="block font-bold">Your wheel prize: {spin.prize.label}</span><span className="mt-0.5 block text-sm text-slate-600">Code SPIN · saved to My coupons · valid until {new Date(spin.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span></span>
+    </Link>}
     {loyalty && <div className="mt-4"><LoyaltyCard status={loyalty} /></div>}
 
     <section className="mt-7" aria-labelledby="next-trip">

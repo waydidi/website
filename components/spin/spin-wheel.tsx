@@ -68,8 +68,9 @@ export function SpinWheelDialog({ onClose }: { onClose: () => void }) {
 
       {error && <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>}
       {shown && prize ? <>
-        <p className="mt-4 text-[13px] leading-5 text-slate-500">Taken off automatically at checkout when you&apos;re signed in. Valid for {SPIN_VALID_DAYS} days, once, on fares from THB {SPIN_MIN_FARE.toLocaleString("en-US")}.</p>
+        <p className="mt-4 text-[13px] leading-5 text-slate-500">Saved to My coupons (code SPIN) and taken off automatically at checkout when you&apos;re signed in. Valid for {SPIN_VALID_DAYS} days, once, on fares from THB {SPIN_MIN_FARE.toLocaleString("en-US")}.</p>
         <Link href="/#booking-search" onClick={onClose} className="mt-4 flex h-12 items-center justify-center rounded-full bg-[#FF8A05] text-[16px] font-bold text-white hover:bg-[#F07A00]">Book a ride</Link>
+        <Link href="/account/coupons" onClick={onClose} className="mt-2 flex h-11 items-center justify-center rounded-full text-[15px] font-semibold text-[#C96100] hover:bg-orange-50">See My coupons</Link>
       </> : <button type="button" onClick={spin} disabled={spinning} className="mt-5 h-12 w-full rounded-full bg-[#FF8A05] text-[16px] font-bold text-white hover:bg-[#F07A00] disabled:opacity-70">{spinning ? "Spinning…" : "Spin now"}</button>}
     </div>
   </div>;

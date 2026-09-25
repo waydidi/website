@@ -1,7 +1,8 @@
 import { and, count, eq, notInArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookings, memberSpins, promoRedemptions } from "@/db/schema";
-import { pickPrize, SPIN_CODE, SPIN_VALID_DAYS, spinPrize } from "./spin-rules";
+import type { MemberCoupon } from "./promo-db";
+import { pickPrize, SPIN_CODE, SPIN_MIN_FARE, SPIN_VALID_DAYS, spinPrize } from "./spin-rules";
 export * from "./spin-rules";
 
 export async function spinStatus(customerId: string) {
@@ -25,4 +26,16 @@ export async function spinOnce(customerId: string) {
   await getDb().insert(memberSpins).values({ customerId, prizeId: prize.id, createdAt: now.toISOString(), expiresAt }).onConflictDoNothing();
   const saved = await spinStatus(customerId); // another tab may have won the race
   return { ...saved, fresh: saved.spun && saved.prize?.id === prize.id };
+}
+
+/** The wheel prize as a card in the member's coupon wallet (code SPIN). */
+export function spinCoupon(status: Awaited<ReturnType<typeof spinStatus>> | null): MemberCoupon | null {
+  if (!status?.spun || !status.prize) return null;
+  const p = status.prize;
+  const state = status.used ? "used" : status.expired ? "not_eligible" : "available";
+  return {
+    code: SPIN_CODE, title: `Wheel prize: ${p.label}`, endsAt: status.expiresAt, service: "any", minFare: SPIN_MIN_FARE,
+    discountType: p.kind === "percent" ? "percent" : "fixed", discountValue: p.value, maxDiscount: p.kind === "percent" ? p.cap ?? null : null,
+    offerTerms: ["Won on the Waydidi wheel", "One use"], status: state, note: state === "available" ? "Ready to use" : state === "used" ? "Already used" : "Expired",
+  };
 }
