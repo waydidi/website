@@ -5,7 +5,7 @@ import { destinations } from "@/lib/public-content";
 const columns = [
   {title:"Ride",links:[["Airport transfer","/airport-transfer"],["A-to-B transfer","/a-to-b-transfer"],["Long journeys","/long-journeys"],["Hourly driver","/hourly-driver"]]},
   {title:"Destinations",links:[...destinations.map(d=>[d.name,`/destinations/${d.slug}`]),["All destinations","/destinations"]]},
-  {title:"Help",links:[["Help centre","/help"],["Contact support","/contact"],["Frequently asked questions","/faq"],["Manage booking","/booking/manage"],["Airport pickup guide","/airport-pickup-instructions"]]},
+  {title:"Help",links:[["Help centre","/help"],["Contact support","/contact"],["Frequently asked questions","/faq"],["Manage booking","/booking/manage"],["Airport pickup guide","/airport-pickup-instructions"],["Travel agencies","/agencies"]]},
 ];
 
 export function PublicFooter(){return <footer className="bg-[#FF8A05] text-white">

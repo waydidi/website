@@ -1108,3 +1108,18 @@ export const memberRewardEmails = sqliteTable("member_reward_emails", {
   status: text("status").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+// Travel agency partner applications from /agencies.
+export const agencyApplications = sqliteTable("agency_applications", {
+  id: text("id").primaryKey(),
+  agencyName: text("agency_name").notNull(),
+  contactName: text("contact_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  country: text("country").notNull(),
+  website: text("website"),
+  monthlyTransfers: text("monthly_transfers").notNull(),
+  message: text("message"),
+  status: text("status").notNull().default("new"), // new | contacted | approved | declined
+  createdAt: text("created_at").notNull(),
+});

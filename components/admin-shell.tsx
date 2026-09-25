@@ -11,7 +11,7 @@ import {
   Users,
   Newspaper,
   Route,
-  TicketPercent, Gift } from "lucide-react";
+  TicketPercent, Gift, Building2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -59,6 +59,13 @@ const tabs = [
     mobileLabel: "Promos",
     title: "Promotions",
     icon: TicketPercent,
+  },
+  {
+    href: "/admin/agencies",
+    label: "Agency applications",
+    mobileLabel: "Agencies",
+    title: "Agency applications",
+    icon: Building2,
   },
   {
     href: "/admin/gifts",
