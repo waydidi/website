@@ -661,6 +661,20 @@ export function BookingResultsMap(props: Props) {
           </div>
           <DialogPrimitive.Description className="px-5 pt-1 text-[14px] text-[#6B6B6B]">{t("addons.subtitle")}</DialogPrimitive.Description>
           <ul className="flex-1 overflow-y-auto px-5 pb-2 pt-2">
+            {ferryAvailable && <li className="border-b border-[#EEEEEE]">
+              <div className="flex items-center gap-4 py-4">
+                <Image src="/ferry-3d.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
+                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.ferryHotel")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.ferryHotelDesc")}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">+{t("addons.perPerson", { price: money(FERRY_HOTEL_THB) })}{ferry > 1 ? ` · ${money(FERRY_HOTEL_THB * ferry)} for ${ferry}` : ""}</span></span>
+                <span className="flex flex-col items-center">
+                <span className="flex items-center gap-3">
+                  <button type="button" aria-label="Fewer ferry tickets" disabled={ferry === 0} onClick={() => setExtras({ ferryHotelPeople: ferry - 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Minus size={16} aria-hidden="true" /></button>
+                  <span className="w-4 text-center text-[16px] font-medium" aria-live="polite">{ferry}</span>
+                  <button type="button" aria-label="More ferry tickets" disabled={ferry >= maxFerry} onClick={() => setExtras({ ferryHotelPeople: ferry + 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Plus size={16} aria-hidden="true" /></button>
+                </span>
+                {ferry > 0 && <span className="mt-1 text-[12px] font-semibold text-[#D32F2F]">+{money(FERRY_HOTEL_THB * ferry)}</span>}
+                </span>
+              </div>
+            </li>}
             <li className="flex items-center gap-4 border-b border-[#EEEEEE] py-4">
               <Image src="/addon-child-seat.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
               <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.childSeat")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.childSeatDesc", { max: maxSeats })}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">{freeSeatsMax ? <><span className="text-[#00B14F]">{freeSeatsMax} free ({[props.memberTier?.freeChildSeats ? props.memberTier.name : null, props.giftVouchers?.childSeat ? "gift" : null].filter(Boolean).join(" + ")})</span> · then {t("addons.each", { price: money(CHILD_SEAT_THB) })}</> : t("addons.each", { price: money(CHILD_SEAT_THB) })}</span></span>
@@ -677,17 +691,6 @@ export function BookingResultsMap(props: Props) {
                 <input type="checkbox" checked={exchange} onChange={(e) => setExtras({ exchangeStop: e.target.checked })} className="size-5 accent-[#FF8A05]" />
               </label>
             </li>
-            {ferryAvailable && <li className="border-t border-[#EEEEEE]">
-              <div className="flex items-center gap-4 py-4">
-                <Image src="/ferry-3d.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
-                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.ferryHotel")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.ferryHotelDesc")}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">+{t("addons.perPerson", { price: money(FERRY_HOTEL_THB) })}{ferry > 1 ? ` · ${money(FERRY_HOTEL_THB * ferry)} for ${ferry}` : ""}</span></span>
-                <span className="flex items-center gap-3">
-                  <button type="button" aria-label="Fewer ferry tickets" disabled={ferry === 0} onClick={() => setExtras({ ferryHotelPeople: ferry - 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Minus size={16} aria-hidden="true" /></button>
-                  <span className="w-4 text-center text-[16px] font-medium" aria-live="polite">{ferry}</span>
-                  <button type="button" aria-label="More ferry tickets" disabled={ferry >= maxFerry} onClick={() => setExtras({ ferryHotelPeople: ferry + 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Plus size={16} aria-hidden="true" /></button>
-                </span>
-              </div>
-            </li>}
           </ul>
           <div className="px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
             <DialogPrimitive.Close className="flex h-12 w-full items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white hover:bg-brand-hover">{t("addons.done")}</DialogPrimitive.Close>
