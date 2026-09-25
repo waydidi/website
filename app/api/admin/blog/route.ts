@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { deletePostForever, importStarterPosts, postInputSchema, savePost } from "@/lib/blog-store";
+import { purgeBlogCache } from "@/lib/blog-cache";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 const other = z.discriminatedUnion("action", [
@@ -23,11 +24,13 @@ export async function POST(request: Request) {
     }
     const result = await savePost(parsed.data);
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 409 });
+    await purgeBlogCache(new URL(request.url).origin, [result.slug]);
     console.info("Admin saved blog post", { id: result.id, status: parsed.data.status, admin: admin.email });
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   }
   const parsed = other.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Unknown action." }, { status: 400 });
+  await purgeBlogCache(new URL(request.url).origin);
   if (parsed.data.action === "delete") { await deletePostForever(parsed.data.id); return NextResponse.json({ ok: true }); }
   return NextResponse.json({ ok: true, imported: await importStarterPosts() });
 }

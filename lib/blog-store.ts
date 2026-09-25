@@ -1,7 +1,7 @@
 import { and, desc, eq, lte, ne } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
-import { blogPosts } from "@/db/schema";
+import { blogPosts, blogSlugHistory } from "@/db/schema";
 import { BLOG_POSTS, categoryLabel, COVER_TONES, postBlocks, type BlogBlock, type BlogPost } from "./blog-posts";
 
 type Row = typeof blogPosts.$inferSelect;
@@ -19,6 +19,7 @@ export function rowToPost(row: Row): BlogPost & { id: string; status: string } {
     title: row.title,
     excerpt: row.excerpt,
     date: (row.publishedAt ?? row.updatedAt).slice(0, 10),
+    updated: row.updatedAt.slice(0, 10),
     categories: parse<string[]>(row.categoriesJson, []),
     featured: row.featured,
     popular: row.popularRank ?? undefined,
@@ -55,6 +56,17 @@ export async function publishedPost(slug: string, preview = false): Promise<Blog
     return rowToPost(row);
   } catch {
     return BLOG_POSTS.find((p) => p.slug === slug) ?? null;
+  }
+}
+
+/** New slug for a post whose permalink was changed, so old links can 301. */
+export async function renamedSlug(oldSlug: string): Promise<string | null> {
+  try {
+    const [hit] = await getDb().select({ slug: blogPosts.slug, status: blogPosts.status }).from(blogSlugHistory)
+      .innerJoin(blogPosts, eq(blogPosts.id, blogSlugHistory.postId)).where(eq(blogSlugHistory.oldSlug, oldSlug)).limit(1);
+    return hit && hit.status === "published" && hit.slug !== oldSlug ? hit.slug : null;
+  } catch {
+    return null;
   }
 }
 
@@ -116,6 +128,13 @@ export async function savePost(input: PostInput): Promise<{ ok: true; id: string
     author: input.author || "Waydidi team", updatedAt: now,
   };
   if (input.id) {
+    const [before] = await getDb().select({ slug: blogPosts.slug, status: blogPosts.status }).from(blogPosts).where(eq(blogPosts.id, input.id)).limit(1);
+    // Remember the old permalink of a published post so shared links keep working.
+    if (before && before.slug !== slug && before.status === "published") {
+      await getDb().insert(blogSlugHistory).values({ oldSlug: before.slug, postId: input.id, createdAt: now })
+        .onConflictDoUpdate({ target: blogSlugHistory.oldSlug, set: { postId: input.id, createdAt: now } }).catch(() => undefined);
+    }
+    await getDb().delete(blogSlugHistory).where(eq(blogSlugHistory.oldSlug, slug)).catch(() => undefined);
     const updated = await getDb().update(blogPosts).set(values).where(eq(blogPosts.id, input.id)).returning({ id: blogPosts.id });
     if (!updated.length) return { ok: false, error: "Post not found." };
     return { ok: true, id: input.id, slug };
@@ -127,6 +146,7 @@ export async function savePost(input: PostInput): Promise<{ ok: true; id: string
 
 export async function deletePostForever(id: string) {
   await getDb().delete(blogPosts).where(eq(blogPosts.id, id));
+  await getDb().delete(blogSlugHistory).where(eq(blogSlugHistory.postId, id)).catch(() => undefined);
 }
 
 // Copies the 8 starter guides into the table (published) so they can be edited in admin.

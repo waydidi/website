@@ -983,3 +983,10 @@ export const blogPosts = sqliteTable(
   (table) => [uniqueIndex("uidx_blog_posts_slug").on(table.slug), index("idx_blog_posts_status_published").on(table.status, table.publishedAt)],
 );
 
+
+// Old permalinks of blog posts, so links to a renamed post redirect (301) to its new slug.
+export const blogSlugHistory = sqliteTable("blog_slug_history", {
+  oldSlug: text("old_slug").primaryKey(),
+  postId: text("post_id").notNull(),
+  createdAt: text("created_at").notNull(),
+});

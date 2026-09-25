@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Lightbulb } from "lucide-react";
 import { PublicFooter } from "@/components/public-footer";
 import { BlogCover, formatBlogDate } from "@/components/blog/blog-cover";
 import { categoryLabel, postBlocks, readingMinutes, routeHref, type BlogPost } from "@/lib/blog-posts";
-import { publishedPost, publishedPosts } from "@/lib/blog-store";
+import { publishedPost, publishedPosts, renamedSlug } from "@/lib/blog-store";
+import { RichText } from "@/components/blog/rich-text";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { SITE_URL } from "@/lib/public-content";
 
@@ -38,10 +39,15 @@ function BookingCard({ post }: { post: BlogPost }) {
 export default async function BlogArticle({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ preview?: string }> }) {
   // Drafts and scheduled posts are visible to signed-in admins with ?preview=1.
   const preview = (await searchParams).preview === "1" && Boolean(await getWaydidiAdmin().catch(() => null));
-  const post = await publishedPost((await params).slug, preview);
-  if (!post) notFound();
+  const slug = (await params).slug;
+  const post = await publishedPost(slug, preview);
+  if (!post) {
+    const moved = await renamedSlug(slug);
+    if (moved) permanentRedirect(`/blog/${moved}`);
+    notFound();
+  }
   const related = (await publishedPosts()).filter((p) => p.slug !== post.slug && p.categories.some((c) => post.categories.includes(c))).slice(0, 3);
-  const jsonLd = { "@context": "https://schema.org", "@type": "Article", headline: post.title, description: post.excerpt, datePublished: post.date, dateModified: post.date, author: { "@type": "Organization", name: "Waydidi" }, publisher: { "@type": "Organization", name: "Waydidi" }, mainEntityOfPage: `${SITE_URL}/blog/${post.slug}` };
+  const jsonLd = { "@context": "https://schema.org", "@type": "Article", headline: post.title, description: post.excerpt, datePublished: post.date, dateModified: post.updated && post.updated > post.date ? post.updated : post.date, author: { "@type": "Organization", name: "Waydidi" }, publisher: { "@type": "Organization", name: "Waydidi" }, mainEntityOfPage: `${SITE_URL}/blog/${post.slug}` };
   const blocks = postBlocks(post);
 
   return <main className="font-home bg-white text-[#1C1C1C]">
@@ -52,15 +58,15 @@ export default async function BlogArticle({ params, searchParams }: { params: Pr
       <div className="mt-4"><BlogCover post={post} chips={false} /></div>
       <div className="mt-5 flex flex-wrap gap-x-3 text-[14px] italic text-[#E07400]">{post.categories.map((c) => <span key={c}>{categoryLabel(c)}</span>)}</div>
       <h1 className="mt-2 text-[28px] font-bold leading-[1.2] tracking-[-.02em]">{post.title}</h1>
-      <p className="mt-2 text-[14px] text-[#8A8A8A]">{post.date ? formatBlogDate(post.date) : "Draft"} · {readingMinutes(post)} min read{post.author ? ` · ${post.author}` : ""}</p>
+      <p className="mt-2 text-[14px] text-[#8A8A8A]">{post.date ? formatBlogDate(post.date) : "Draft"}{post.updated && post.date && post.updated > post.date ? ` · Updated ${formatBlogDate(post.updated)}` : ""} · {readingMinutes(post)} min read{post.author ? ` · ${post.author}` : ""}</p>
       <p className="mt-5 text-[17px] leading-8 text-[#4A4A4A]">{post.excerpt}</p>
 
       {blocks.map((block, i) => {
         switch (block.type) {
           case "heading": return <h2 key={i} className="mt-9 text-[22px] font-bold tracking-[-.01em]">{block.text}</h2>;
-          case "paragraph": return <p key={i} className="mt-3 whitespace-pre-line text-[16px] leading-8 text-[#333]">{block.text}</p>;
-          case "list": return <ul key={i} className="mt-3 grid gap-2">{block.items.map((item) => <li key={item} className="flex gap-2 text-[16px] leading-7"><Check size={18} className="mt-1 shrink-0 text-[#FF8A05]" aria-hidden="true" />{item}</li>)}</ul>;
-          case "tip": return <p key={i} className="mt-4 flex gap-3 rounded-2xl bg-[#EEF9F2] p-4 text-[15px] leading-6 text-[#17563A]"><Lightbulb size={19} className="mt-0.5 shrink-0" aria-hidden="true" />{block.text}</p>;
+          case "paragraph": return <p key={i} className="mt-3 whitespace-pre-line text-[16px] leading-8 text-[#333]"><RichText text={block.text} /></p>;
+          case "list": return <ul key={i} className="mt-3 grid gap-2">{block.items.map((item) => <li key={item} className="flex gap-2 text-[16px] leading-7"><Check size={18} className="mt-1 shrink-0 text-[#FF8A05]" aria-hidden="true" /><span><RichText text={item} /></span></li>)}</ul>;
+          case "tip": return <p key={i} className="mt-4 flex gap-3 rounded-2xl bg-[#EEF9F2] p-4 text-[15px] leading-6 text-[#17563A]"><Lightbulb size={19} className="mt-0.5 shrink-0" aria-hidden="true" /><span><RichText text={block.text} /></span></p>;
           case "image": return block.src ? <figure key={i} className="mt-6"><img src={block.src} alt={block.alt} loading="lazy" className="w-full rounded-2xl object-cover" />{block.caption && <figcaption className="mt-2 text-center text-[13px] text-[#8A8A8A]">{block.caption}</figcaption>}</figure> : null;
           case "booking": return <BookingCard key={i} post={post} />;
         }

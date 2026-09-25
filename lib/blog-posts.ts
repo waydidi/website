@@ -39,6 +39,8 @@ export type BlogPost = {
   cover: { headline: string; photo?: string; tone: CoverTone };
   // Pre-fills the booking form from the article's booking card.
   route?: { pickup: string; dropoff: string; label: string; service?: "transfer" | "hourly" };
+  /** Last edit (YYYY-MM-DD); shown when later than the publish date. */
+  updated?: string;
   sections?: BlogSection[];
   blocks?: BlogBlock[];
   seoTitle?: string | null;

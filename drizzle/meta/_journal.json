@@ -260,6 +260,13 @@
       "when": 1790307362266,
       "tag": "0036_complete_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1790308257333,
+      "tag": "0037_blog_slug_history",
+      "breakpoints": true
     }
   ]
 }

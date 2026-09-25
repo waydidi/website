@@ -3,11 +3,38 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, Heading2, ImagePlus, Lightbulb, List, Pilcrow, Plus, Ticket, Trash2, Upload, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Bold, ChevronDown, Link2, Heading2, ImagePlus, Lightbulb, List, Pilcrow, Plus, Ticket, Trash2, Upload, X } from "lucide-react";
 import { BlogCover } from "@/components/blog/blog-cover";
 import { categoryLabel, COVER_TONES, type BlogBlock, type BlogPost, type CoverTone } from "@/lib/blog-posts";
 import type { EditorPost } from "./editor-types";
 export type { EditorPost } from "./editor-types";
+
+// Textarea with Bold / Link buttons that wrap the selected text in **…** or [text](url).
+function MarkupTextarea({ value, onChange, className, ...rest }: { value: string; onChange: (v: string) => void; className: string; rows: number; placeholder: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const wrap = (kind: "bold" | "link") => {
+    const el = ref.current;
+    if (!el) return;
+    const [a, b] = [el.selectionStart, el.selectionEnd];
+    const picked = value.slice(a, b) || (kind === "bold" ? "bold text" : "link text");
+    let insert = `**${picked}**`;
+    if (kind === "link") {
+      const url = window.prompt("Link to (a page like /blog/… or a full https:// address)", "/");
+      if (!url) return;
+      insert = `[${picked}](${url.trim()})`;
+    }
+    onChange(value.slice(0, a) + insert + value.slice(b));
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(a, a + insert.length); });
+  };
+  const tool = "grid size-7 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900";
+  return <div>
+    <div className="mb-1 flex gap-0.5">
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => wrap("bold")} aria-label="Bold" title="Bold" className={tool}><Bold size={15} /></button>
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => wrap("link")} aria-label="Insert link" title="Link" className={tool}><Link2 size={15} /></button>
+    </div>
+    <textarea ref={ref} value={value} onChange={(e) => onChange(e.target.value)} className={className} {...rest} />
+  </div>;
+}
 
 const BLOCK_TYPES: { type: BlogBlock["type"]; label: string; icon: typeof Pilcrow; hint: string }[] = [
   { type: "paragraph", label: "Paragraph", icon: Pilcrow, hint: "Plain text" },
@@ -122,9 +149,9 @@ export function PostEditor({ initial, knownCategories }: { initial: EditorPost; 
                   <button type="button" onClick={() => removeBlock(i)} aria-label="Remove block" className="grid size-7 place-items-center rounded-lg text-red-500 hover:bg-red-50"><Trash2 size={15} /></button>
                 </span>
               </div>
-              {block.type === "paragraph" && <textarea rows={3} value={block.text} onChange={(e) => setBlock(i, { ...block, text: e.target.value })} placeholder="Start writing…" className="w-full resize-y bg-transparent text-[16px] leading-7 outline-none placeholder:text-slate-300" />}
+              {block.type === "paragraph" && <MarkupTextarea rows={3} value={block.text} onChange={(text) => setBlock(i, { ...block, text })} placeholder="Start writing…" className="w-full resize-y bg-transparent text-[16px] leading-7 outline-none placeholder:text-slate-300" />}
               {block.type === "heading" && <input value={block.text} onChange={(e) => setBlock(i, { ...block, text: e.target.value })} placeholder="Heading" className="w-full bg-transparent text-[22px] font-bold outline-none placeholder:text-slate-300" />}
-              {block.type === "tip" && <textarea rows={2} value={block.text} onChange={(e) => setBlock(i, { ...block, text: e.target.value })} placeholder="A helpful tip for travellers" className="w-full resize-y rounded-xl bg-[#EEF9F2] p-3 text-[15px] leading-6 text-[#17563A] outline-none placeholder:text-emerald-700/40" />}
+              {block.type === "tip" && <MarkupTextarea rows={2} value={block.text} onChange={(text) => setBlock(i, { ...block, text })} placeholder="A helpful tip for travellers" className="w-full resize-y rounded-xl bg-[#EEF9F2] p-3 text-[15px] leading-6 text-[#17563A] outline-none placeholder:text-emerald-700/40" />}
               {block.type === "list" && <div className="grid gap-2">
                 {block.items.map((item, j) => <div key={j} className="flex items-center gap-2"><span className="text-[#FF8A05]">✓</span><input value={item} onChange={(e) => setBlock(i, { ...block, items: block.items.map((x, k) => (k === j ? e.target.value : x)) })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setBlock(i, { ...block, items: [...block.items.slice(0, j + 1), "", ...block.items.slice(j + 1)] }); } }} placeholder="List item" className="w-full border-b border-slate-100 bg-transparent py-1 text-[16px] outline-none" /><button type="button" onClick={() => setBlock(i, { ...block, items: block.items.filter((_, k) => k !== j) })} aria-label="Remove item" className="text-slate-300 hover:text-red-500"><X size={15} /></button></div>)}
                 <button type="button" onClick={() => setBlock(i, { ...block, items: [...block.items, ""] })} className="w-fit text-sm font-semibold text-[#C96100]">+ Add item</button>
