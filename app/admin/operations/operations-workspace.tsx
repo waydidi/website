@@ -263,9 +263,9 @@ export default function OperationsWorkspace({ email }: { email: string }) {
             Fare management
           </a>
         </nav>
-        <section className="mt-6 grid gap-5">
-          <div className="space-y-5">
-            <div className="grid gap-4 lg:grid-cols-[1fr_420px]">
+        <section className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-5">
+          <div className="min-w-0 space-y-5">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
               <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -300,7 +300,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                 </div>
               </section>
               <Link href="/admin/drivers" className="flex items-center justify-between gap-3 rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm hover:border-[#FF8A05]">
-                <span><strong className="block text-lg font-black">{data?.drivers.length ?? 0} drivers</strong><span className="text-sm text-slate-500">Add drivers and review applications in Drivers</span></span>
+                <span><strong className="block text-lg font-black">{data?.drivers.length ?? 0} {(data?.drivers.length ?? 0) === 1 ? "driver" : "drivers"}</strong><span className="text-sm text-slate-500">Add drivers and review applications in Drivers</span></span>
                 <span className="font-bold text-[#D96F00]">Open →</span>
               </Link>
             </div>
