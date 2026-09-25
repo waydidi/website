@@ -70,3 +70,19 @@ test("the built-in rules match the migration seed", () => {
   const strip = (r) => ({ name: r.name, o: JSON.parse(r.originZoneJson), d: JSON.parse(r.destinationZoneJson), f: r.includesFerry });
   assert.deepEqual(lib.DEFAULT_RULES.map(strip), rules.map(strip));
 });
+
+test("admin box editing round-trips and still matches routes", async () => {
+  const { createServer } = await import("vite");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const server = await createServer({ appType: "custom", configFile: false, root, resolve: { alias: { "@": root } }, server: { middlewareMode: true, hmr: false } });
+  try {
+    const admin = await server.ssrLoadModule("/lib/route-inclusions.ts");
+    const inc = await server.ssrLoadModule("/lib/route-inclusions.ts");
+    const box = { south: 12.4, north: 12.7, west: 99.8, east: 100.1 };
+    assert.deepEqual(admin.boxFromZone(admin.zoneFromBox(box)), box);
+    const bangkok = inc.DEFAULT_RULES[0].originZoneJson;
+    const rule = { name: "Bangkok ⇄ Hua Hin", originZoneJson: bangkok, destinationZoneJson: admin.zoneFromBox(box), bidirectional: true, includesTolls: true, includesFerry: false, active: true, priority: 50 };
+    assert.equal(inc.resolveInclusions({ lat: 12.57, lng: 99.95 }, { lat: 13.69, lng: 100.75 }, [rule]).route, "Bangkok ⇄ Hua Hin");
+  } finally { await server.close(); }
+});

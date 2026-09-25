@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { useI18n } from "@/components/i18n-provider";
+import type { MessageKey } from "@/lib/i18n";
 
 // "How it works": three illustrated steps in a free horizontal scroll (no snapping).
 function BookVisual() {
@@ -69,27 +71,24 @@ function RideVisual() {
   </div>;
 }
 
-const STEPS = [
-  { title: "Book your ride", text: "Choose your route and car, add your details and get your booking confirmation straight away.", visual: <BookVisual /> },
-  { title: "Meet your driver", text: "Find your driver at the meeting point with your name sign, and let them take care of your luggage.", visual: <MeetVisual /> },
-  { title: "Enjoy your journey", text: "Settle in and enjoy a comfortable private ride, all the way to your destination.", visual: <RideVisual /> },
-];
+const VISUALS = [<BookVisual key="book" />, <MeetVisual key="meet" />, <RideVisual key="ride" />];
 
 export function HowItWorks() {
+  const { t } = useI18n();
   return <section aria-labelledby="how-heading" className="font-home bg-white py-10">
     <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
-      <p className="text-[14px] font-semibold text-[#6B6B6B]">From booking to arrival</p>
-      <h2 id="how-heading" className="mt-1 text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C]">How it works</h2>
-      <p className="mt-2 text-[15px] text-[#4A4A4A]">A few simple steps. A smoother journey.</p>
+      <p className="text-[14px] font-semibold text-[#6B6B6B]">{t("how.eyebrow")}</p>
+      <h2 id="how-heading" className="mt-1 text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C]">{t("how.title")}</h2>
+      <p className="mt-2 text-[15px] text-[#4A4A4A]">{t("how.subtitle")}</p>
     </div>
     {/* Free horizontal scroll: no snap, so cards stop wherever the swipe ends. */}
     <ol className="mx-auto mt-6 flex max-w-[1180px] gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] lg:px-0 [&::-webkit-scrollbar]:hidden">
-      {STEPS.map((step, i) => <li key={step.title} className="w-[82%] max-w-[340px] shrink-0">
+      {VISUALS.map((visual, i) => <li key={i} className="w-[82%] max-w-[340px] shrink-0">
         <div className="relative grid aspect-[10/11] place-items-center overflow-hidden rounded-3xl border border-[#E6E4DE] bg-gradient-to-b from-[#F6F5F2] to-[#EDECE8]">
-          {step.visual}
+          {visual}
         </div>
-        <h3 className="mt-5 text-[20px] font-bold text-[#1C1C1C]"><span className="text-[#8A8A8A]">{i + 1}.</span> {step.title}</h3>
-        <p className="mt-1.5 text-[14px] leading-6 text-[#4A4A4A]">{step.text}</p>
+        <h3 className="mt-5 text-[20px] font-bold text-[#1C1C1C]"><span className="text-[#8A8A8A]">{i + 1}.</span> {t(`how.step${i + 1}.title` as MessageKey)}</h3>
+        <p className="mt-1.5 text-[14px] leading-6 text-[#4A4A4A]">{t(`how.step${i + 1}.text` as MessageKey)}</p>
       </li>)}
     </ol>
   </section>;

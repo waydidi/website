@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronDown, CircleHelp, Info, NotebookPen, Plane, Plus, Sea
 import { Dialog as DialogPrimitive } from "radix-ui";
 import type { ReviewFieldErrors } from "@/lib/booking-review";
 import type { Booking } from "./booking-flow";
+import { useI18n } from "@/components/i18n-provider";
 
 type Traveller = { id: string; name: string; surname: string; email: string | null; phone: string | null; notes: string | null };
 
@@ -53,6 +54,7 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
   saveBilling?: boolean;
   onSaveBillingChange?: (value: boolean) => void;
 }) {
+  const { t } = useI18n();
   const airport = /airport|\bBKK\b|\bDMK\b|\bHKT\b|\bCNX\b/i.test(booking.pickup);
   const [open, setOpen] = useState({
     flight: Boolean(booking.flightNumber),
@@ -136,34 +138,34 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
           <div className="rounded-xl border border-[#E6E6E6] p-4">
             <label className="flex cursor-pointer items-center gap-3 text-[16px] text-[#1C1C1C]">
               <input type="checkbox" checked={Boolean(booking.taxInvoice)} onChange={(e) => change("taxInvoice", e.target.checked)} className="size-5 shrink-0 accent-[#FF8A05]" />
-              Request a tax invoice
+              {t("tax.request")}
             </label>
             {booking.taxInvoice && <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-3">
-              <p className="text-sm text-[#6B6B6B]">Your tax invoice will be issued with these details.</p>
+              <p className="text-sm text-[#6B6B6B]">{t("tax.note")}</p>
               {savedBilling.length > 0 && <label className="block text-sm text-[#4A4A4A]">
                 <span className="sr-only">Use saved billing details</span>
                 <select defaultValue="" onChange={(e) => { const p = savedBilling.find((x) => x.id === e.target.value); if (!p) return; change("taxName", p.name); change("taxId", p.taxId); change("taxBranch", p.branch); change("taxAddress", p.address); }} className="w-full rounded-xl border border-[#D9D9D9] bg-white px-3 py-3 text-base outline-none focus:border-brand">
-                  <option value="" disabled>Use saved billing details…</option>
+                  <option value="" disabled>{t("tax.useSaved")}</option>
                   {savedBilling.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.taxId}</option>)}
                 </select>
               </label>}
-              {([["taxName", "Company or full name", "organization"], ["taxId", "Tax ID (13 digits)", "off"]] as const).map(([key, label, auto]) => <div key={key}>
+              {([["taxName", t("tax.name"), "organization"], ["taxId", t("tax.taxId"), "off"]] as const).map(([key, label, auto]) => <div key={key}>
                 <label className="sr-only" htmlFor={`tax-${key}`}>{label}</label>
                 <input id={`tax-${key}`} data-booking-field={key} autoComplete={auto} inputMode={key === "taxId" ? "numeric" : undefined} maxLength={key === "taxId" ? 17 : 200} value={booking[key] ?? ""} onChange={(e) => change(key, e.target.value)} placeholder={label} aria-invalid={Boolean(fieldErrors[key])} className={field(Boolean(fieldErrors[key]))} />
                 {fieldErrors[key] && <p className="mt-1.5 text-sm font-medium text-red-700">{fieldErrors[key]}</p>}
               </div>)}
               <div>
                 <label className="sr-only" htmlFor="tax-branch">Branch</label>
-                <input id="tax-branch" value={booking.taxBranch ?? ""} onChange={(e) => change("taxBranch", e.target.value)} maxLength={60} placeholder="Branch (e.g. Head office or 00001)" className={field(false)} />
+                <input id="tax-branch" value={booking.taxBranch ?? ""} onChange={(e) => change("taxBranch", e.target.value)} maxLength={60} placeholder={t("tax.branch")} className={field(false)} />
               </div>
               <div>
                 <label className="sr-only" htmlFor="tax-taxAddress">Billing address</label>
-                <textarea id="tax-taxAddress" data-booking-field="taxAddress" autoComplete="street-address" value={booking.taxAddress ?? ""} onChange={(e) => change("taxAddress", e.target.value)} maxLength={500} rows={3} placeholder="Billing address" aria-invalid={Boolean(fieldErrors.taxAddress)} className={`${field(Boolean(fieldErrors.taxAddress))} resize-none`} />
+                <textarea id="tax-taxAddress" data-booking-field="taxAddress" autoComplete="street-address" value={booking.taxAddress ?? ""} onChange={(e) => change("taxAddress", e.target.value)} maxLength={500} rows={3} placeholder={t("tax.address")} aria-invalid={Boolean(fieldErrors.taxAddress)} className={`${field(Boolean(fieldErrors.taxAddress))} resize-none`} />
                 {fieldErrors.taxAddress && <p className="mt-1.5 text-sm font-medium text-red-700">{fieldErrors.taxAddress}</p>}
               </div>
               {signedIn && onSaveBillingChange && <label className="flex cursor-pointer items-center gap-3 text-sm text-[#4A4A4A]">
                 <input type="checkbox" checked={saveBilling} onChange={(e) => onSaveBillingChange(e.target.checked)} className="size-4 shrink-0 accent-[#FF8A05]" />
-                Save these details to my account
+                {t("tax.save")}
               </label>}
             </div>}
           </div>

@@ -264,7 +264,7 @@ export function BookingResultsMap(props: Props) {
   const maxSeats = Math.min(4, Math.max(1, props.passengers ?? 4));
   const extrasCount = seats + (exchange ? 1 : 0);
   const setExtras = (next: { childSeats: number; exchangeStop: boolean }) => props.onExtrasChange?.(next);
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   // Quotes carry their inclusions; for the prototype route (or an older saved
   // quote) look them up from the route rules.
   const [lookedUp, setLookedUp] = useState<Inclusions | null>(null);
@@ -583,7 +583,7 @@ export function BookingResultsMap(props: Props) {
                 <span className="self-start text-right">
                   <span className="block whitespace-nowrap text-[#1C1C1C]"><span className="text-[13px] text-[#4A4A4A]">{code} </span><strong className="text-[17px] font-semibold">{amount(item.price)}</strong></span>
                   {currency !== "THB" && <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">~{thb(item.price)}</span>}
-                  <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">{props.returnTrip ? "Round trip" : "Total price"}</span>
+                  <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">{props.returnTrip ? t("results.roundTrip") : t("results.totalPrice")}</span>
                 </span>
               </button>
             </li>;
@@ -608,13 +608,13 @@ export function BookingResultsMap(props: Props) {
     {/* Bottom bar */}
     <div className="absolute inset-x-0 bottom-0 z-20 border-t border-[#EEEEEE] bg-white px-4 lg:right-auto lg:w-[460px] pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="flex min-w-0 items-center gap-2 leading-none"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{money(total)}</strong>{currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}{extrasCount > 0 && <span className="min-w-0 touch-pan-x overflow-x-auto whitespace-nowrap text-[12px] font-medium text-[#D32F2F] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">(including {[seats > 0 ? (seats > 1 ? `${seats} child seats` : "child seat") : null, exchange ? "currency exchange stop" : null].filter(Boolean).join(", ")})</span>}</p>
+        <p className="flex min-w-0 items-center gap-2 leading-none"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{money(total)}</strong>{currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}{extrasCount > 0 && <span className="min-w-0 touch-pan-x overflow-x-auto whitespace-nowrap text-[12px] font-medium text-[#D32F2F] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{t("addons.including", { items: [seats > 0 ? (seats > 1 ? t("addons.childSeats", { count: seats }) : t("addons.childSeat")) : null, exchange ? t("addons.exchange") : null].filter(Boolean).join(", ") })}</span>}</p>
         <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
       </div>
       <div className="mt-5 flex items-center gap-3">
         {props.onExtrasChange && <button type="button" onClick={() => setExtrasOpen(true)} aria-label="Additional services" className="relative grid size-12 shrink-0 place-items-center rounded-full bg-brand text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
           <Plus size={24} strokeWidth={2.5} aria-hidden="true" />
-          <span aria-hidden="true" className="addons-bubble pointer-events-none absolute -top-5 left-[5px] z-10 whitespace-nowrap rounded-full bg-[#FF1F2D] px-2 py-0.5 text-[11px] font-bold leading-[15px] text-white shadow-[0_2px_6px_rgba(0,0,0,.2)]">Add-ons<span className="absolute -bottom-[4px] left-[15px] size-2 rotate-45 bg-[#FF1F2D]" /></span>
+          <span aria-hidden="true" className="addons-bubble pointer-events-none absolute -top-5 left-[5px] z-10 whitespace-nowrap rounded-full bg-[#FF1F2D] px-2 py-0.5 text-[11px] font-bold leading-[15px] text-white shadow-[0_2px_6px_rgba(0,0,0,.2)]">{t("addons.tag")}<span className="absolute -bottom-[4px] left-[15px] size-2 rotate-45 bg-[#FF1F2D]" /></span>
           {extrasCount > 0 && <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border-2 border-white bg-[#D32F2F] text-[11px] font-semibold text-white">{extrasCount}</span>}
         </button>}
       <button disabled={disabled} onClick={props.onContinue} className="flex h-12 min-w-0 flex-1 items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
@@ -627,14 +627,14 @@ export function BookingResultsMap(props: Props) {
         <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[20px] bg-white text-[#1C1C1C] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
           <div className="flex items-center justify-between px-5 pt-5">
-            <DialogPrimitive.Title className="text-[24px] font-semibold leading-tight">Additional services</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="text-[24px] font-semibold leading-tight">{t("addons.title")}</DialogPrimitive.Title>
             <DialogPrimitive.Close className="grid size-10 place-items-center rounded-full hover:bg-slate-100" aria-label="Close"><X size={24} /></DialogPrimitive.Close>
           </div>
-          <DialogPrimitive.Description className="px-5 pt-1 text-[14px] text-[#6B6B6B]">Add extras to your ride. Your driver will have them ready.</DialogPrimitive.Description>
+          <DialogPrimitive.Description className="px-5 pt-1 text-[14px] text-[#6B6B6B]">{t("addons.subtitle")}</DialogPrimitive.Description>
           <ul className="flex-1 overflow-y-auto px-5 pb-2 pt-2">
             <li className="flex items-center gap-4 border-b border-[#EEEEEE] py-4">
               <Image src="/addon-child-seat.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
-              <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">Child seat</span><span className="block text-[13px] text-[#6B6B6B]">For babies and young children, up to {maxSeats}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">+{money(CHILD_SEAT_THB)} each</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.childSeat")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.childSeatDesc", { max: maxSeats })}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">{t("addons.each", { price: money(CHILD_SEAT_THB) })}</span></span>
               <span className="flex items-center gap-3">
                 <button type="button" aria-label="Remove child seat" disabled={seats === 0} onClick={() => setExtras({ childSeats: seats - 1, exchangeStop: exchange })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Minus size={16} aria-hidden="true" /></button>
                 <span className="w-4 text-center text-[16px] font-medium" aria-live="polite">{seats}</span>
@@ -644,13 +644,13 @@ export function BookingResultsMap(props: Props) {
             <li>
               <label className="flex cursor-pointer items-center gap-4 py-4">
                 <Image src="/addon-currency-exchange.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
-                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">Currency exchange stop</span><span className="block text-[13px] text-[#6B6B6B]">A short stop at an exchange counter on the way</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">+{money(EXCHANGE_STOP_THB)}</span></span>
+                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.exchange")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.exchangeDesc")}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">+{money(EXCHANGE_STOP_THB)}</span></span>
                 <input type="checkbox" checked={exchange} onChange={(e) => setExtras({ childSeats: seats, exchangeStop: e.target.checked })} className="size-5 accent-[#FF8A05]" />
               </label>
             </li>
           </ul>
           <div className="px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
-            <DialogPrimitive.Close className="flex h-12 w-full items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white hover:bg-brand-hover">Done</DialogPrimitive.Close>
+            <DialogPrimitive.Close className="flex h-12 w-full items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white hover:bg-brand-hover">{t("addons.done")}</DialogPrimitive.Close>
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

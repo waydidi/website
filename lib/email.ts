@@ -1,3 +1,4 @@
+import type { BookingExtras } from "@/lib/booking-extras";
 import { env } from "cloudflare:workers";
 
 const DEFAULT_SITE_URL = "https://waydidi-private-transfer.dankbangkok.chatgpt.site";
@@ -27,6 +28,7 @@ type ConfirmationEmailInput = {
   returnTime?: string | null;
   outboundTotal?: number | null;
   returnTotal?: number | null;
+  extras?: BookingExtras;
 };
 
 function toBase64(bytes: Uint8Array) {
@@ -89,6 +91,13 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
   const fareDetails = input.returnTotal
     ? `${detailRow("Outbound fare", `THB ${(input.outboundTotal ?? input.total - input.returnTotal).toLocaleString("en-US")}`)}${detailRow("Return fare", `THB ${input.returnTotal.toLocaleString("en-US")}`)}`
     : "";
+  const thb = (value: number) => `THB ${value.toLocaleString("en-US")}`;
+  const extras = input.extras;
+  const extraRows = extras ? [
+    ...extras.addons.map((line) => detailRow(line.label, `+${thb(line.amount)}`)),
+    extras.discount ? detailRow(`Discount (${extras.discount.code})`, `−${thb(extras.discount.amount)}`) : "",
+    extras.taxInvoice ? detailRow("Tax invoice", `Requested for ${extras.taxInvoice.name} (Tax ID ${extras.taxInvoice.taxId}, ${extras.taxInvoice.branch})`) : "",
+  ].join("") : "";
   const html = `<!doctype html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"></head>
 <body style="margin:0;background:#f3f5f8;color:#211726;font-family:Arial,Helvetica,sans-serif">
@@ -117,6 +126,7 @@ ${detailRow("Vehicle", input.vehicle)}
 ${detailRow("Phone / WhatsApp", input.customerPhone)}
 ${detailRow("Payment", payment)}
 ${fareDetails}
+${extraRows}
 ${detailRow("Total", total)}
 </table>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding-top:30px">

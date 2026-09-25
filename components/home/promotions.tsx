@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/components/i18n-provider";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
@@ -44,6 +46,7 @@ function toPromotion(p: PublicPromotion): Promotion {
 }
 
 function PromoCard({ promo, onTerms }: { promo: Promotion; onTerms: () => void }) {
+  const { t } = useI18n();
   const { title, code } = promo;
   const [copied, setCopied] = useState(false);
   async function copy() {
@@ -57,18 +60,19 @@ function PromoCard({ promo, onTerms }: { promo: Promotion; onTerms: () => void }
     {/* ticket notches, cut in the section's background colour */}
     <span aria-hidden="true" className="absolute -left-3 top-1/2 size-6 -translate-y-1/2 rounded-full bg-[#FFF3E6]" />
     <span aria-hidden="true" className="absolute -right-3 top-1/2 size-6 -translate-y-1/2 rounded-full bg-[#FFF3E6]" />
-    <button type="button" onClick={onTerms} className="absolute right-4 top-3 text-[13px] font-semibold text-[#E07400] underline-offset-2 hover:underline">T&amp;C</button>
+    <button type="button" onClick={onTerms} className="absolute right-4 top-3 text-[13px] font-semibold text-[#E07400] underline-offset-2 hover:underline">{t("promo.tc")}</button>
     <p className="min-h-12 pr-8 text-[16px] font-medium leading-6 text-[#1C1C1C]">{title}</p>
     <div className="mt-4 flex items-center gap-3">
       <span className="flex h-11 min-w-0 flex-1 items-center truncate rounded-lg bg-[#F4F4F2] px-3 text-[15px] text-[#1C1C1C]">{code}</span>
       <button type="button" onClick={copy} className="h-11 shrink-0 rounded-lg bg-brand px-4 text-[15px] font-semibold text-white transition hover:bg-brand-hover" aria-live="polite">
-        {copied ? "Copied!" : "Copy & Use"}
+        {copied ? t("promo.copied") : t("promo.copyUse")}
       </button>
     </div>
   </li>;
 }
 
 export function Promotions() {
+  const { t } = useI18n();
   // Until real codes work at checkout, show only when previewing: /?promos=preview
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [terms, setTerms] = useState<Promotion | null>(null);
@@ -87,7 +91,7 @@ export function Promotions() {
   }, []);
   if (!promotions.length) return null;
   return <section className="bg-gradient-to-b from-[#FFF3E6] to-[#FFF9F3] py-8" aria-labelledby="promotions-heading">
-    <h2 id="promotions-heading" className="mx-auto max-w-[1180px] px-5 text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C] lg:px-0">Special promotion for your first transaction</h2>
+    <h2 id="promotions-heading" className="mx-auto max-w-[1180px] px-5 text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C] lg:px-0">{t("promo.heading")}</h2>
     {/* Native horizontal scroll with snap: smooth with a finger or trackpad. */}
     <ul className="mx-auto mt-4 flex max-w-[1180px] snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto overscroll-x-contain px-5 pb-3 [scrollbar-width:none] lg:scroll-px-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
       {promotions.map((promo) => <PromoCard key={promo.code} promo={promo} onTerms={() => setTerms(promo)} />)}

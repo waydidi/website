@@ -1,3 +1,4 @@
+import { bookingExtras } from "@/lib/booking-extras";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -12,7 +13,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
   if (!booking || booking.status === "binned" || !token || !constantTimeEqual(await sha256(token), booking.accessTokenHash)) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
   if (booking.status !== "confirmed") return NextResponse.json({ error: "PDF is not ready." }, { status: 409 });
-  const pdf = await createConfirmationPdf(booking);
+  const pdf = await createConfirmationPdf(booking, await bookingExtras(booking));
   if (booking.pdfKey && env.BUCKET) {
     await env.BUCKET.put(booking.pdfKey, pdf, { httpMetadata: { contentType: "application/pdf" } });
   }

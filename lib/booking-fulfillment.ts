@@ -1,3 +1,4 @@
+import { bookingExtras } from "@/lib/booking-extras";
 import { env } from "cloudflare:workers";
 import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -27,7 +28,8 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
   if (!claimed) return { emailStatus: booking.emailStatus, pdfKey: booking.pdfKey };
   try {
   const tripPin = await tripPinForReference(booking.reference);
-  const pdf = await createConfirmationPdf(booking);
+  const extras = await bookingExtras(booking);
+  const pdf = await createConfirmationPdf(booking, extras);
   const pdfKey = `confirmations/${booking.reference}.pdf`;
   if (env.BUCKET) await env.BUCKET.put(pdfKey, pdf, { httpMetadata: { contentType: "application/pdf" } });
 
@@ -41,6 +43,7 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
     returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
     returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
+    extras,
     tripPin,
   });
   await sendOperationsAlert(booking);

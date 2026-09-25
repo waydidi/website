@@ -62,3 +62,11 @@ test("billing profile validation", async () => {
   assert.equal(ok.value.taxId, "0105556012345");
   assert.equal(ok.value.branch, "Head office");
 });
+
+test("confirmation PDF renders the price breakdown, even with a Thai company name", async () => {
+  const { createConfirmationPdf } = await vite.ssrLoadModule("/lib/confirmation-pdf.ts");
+  const booking = { reference: "ABC123", customerName: "Mia Test", customerEmail: "m@x.co", pickup: "Suvarnabhumi Airport", dropoff: "Hilton Pattaya", pickupDate: "2026-10-30", pickupTime: "08:30", passengers: 2, luggage: 2, vehicle: "Economy sedan", total: 1400, customerPhone: "+66 81 111 2222", flightNumber: null, pickupSign: null, pickupInstructions: null, childSeats: 1, oversizedLuggage: false, specialRequests: null, paymentMethod: "card" };
+  const extras = { discount: { code: "NEWUSER20", amount: 300 }, addons: [{ label: "Child seat × 1", amount: 300 }, { label: "Currency exchange stop", amount: 200 }], taxInvoice: { name: "บริษัท เอ บี ซี จำกัด", taxId: "0105556012345", branch: "Head office" } };
+  const bytes = await createConfirmationPdf(booking, extras);
+  assert.ok(bytes.length > 1000);
+});

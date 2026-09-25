@@ -1,3 +1,4 @@
+import { bookingExtras } from "@/lib/booking-extras";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -18,7 +19,8 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   if (booking.status !== "confirmed") return NextResponse.json({ error: "Booking is not confirmed." }, { status: 409 });
   if (Date.now() - new Date(booking.updatedAt).getTime() < 60_000) return NextResponse.json({ error: "Please wait one minute before retrying." }, { status: 429 });
 
-  const pdf = await createConfirmationPdf(booking);
+  const extras = await bookingExtras(booking);
+  const pdf = await createConfirmationPdf(booking, extras);
   if (booking.pdfKey && env.BUCKET) await env.BUCKET.put(booking.pdfKey, pdf, { httpMetadata: { contentType: "application/pdf" } });
   const email = await sendConfirmationEmail({
     to: booking.customerEmail, name: booking.customerName, reference, pdf,
@@ -30,6 +32,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
     returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
+    extras,
     tripPin: await tripPinForReference(reference),
   });
   const now = new Date().toISOString();

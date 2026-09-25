@@ -854,5 +854,297 @@
   "saved.setDropoff": {
     "text": "设为下车地点",
     "status": "machine"
+  },
+  "how.eyebrow": {
+    "text": "从预订到抵达",
+    "status": "machine"
+  },
+  "how.title": {
+    "text": "使用流程",
+    "status": "machine"
+  },
+  "how.subtitle": {
+    "text": "简单几步，出行更顺畅。",
+    "status": "machine"
+  },
+  "how.step1.title": {
+    "text": "预订行程",
+    "status": "machine"
+  },
+  "how.step1.text": {
+    "text": "选择路线和车型，填写信息，即可立即收到预订确认。",
+    "status": "machine"
+  },
+  "how.step2.title": {
+    "text": "与司机会合",
+    "status": "machine"
+  },
+  "how.step2.text": {
+    "text": "在会合点找到举着您名牌的司机，行李交给司机即可。",
+    "status": "machine"
+  },
+  "how.step3.title": {
+    "text": "享受旅程",
+    "status": "machine"
+  },
+  "how.step3.text": {
+    "text": "安心乘坐舒适的专车，一路直达目的地。",
+    "status": "machine"
+  },
+  "faq.title": {
+    "text": "常见问题",
+    "status": "machine"
+  },
+  "faq.tab.booking": {
+    "text": "预订",
+    "status": "machine"
+  },
+  "faq.tab.conditions": {
+    "text": "条件",
+    "status": "machine"
+  },
+  "faq.tab.changes": {
+    "text": "更改",
+    "status": "machine"
+  },
+  "faq.tab.payment": {
+    "text": "付款",
+    "status": "machine"
+  },
+  "faq.tab.meeting": {
+    "text": "会合",
+    "status": "machine"
+  },
+  "faq.booking.1.q": {
+    "text": "如何预订接送？",
+    "status": "machine"
+  },
+  "faq.booking.1.a": {
+    "text": "在搜索表单中填写上车地点、目的地、日期和时间，选择车型，填写主要乘客信息后付款，即可立即获得预订编号。",
+    "status": "machine"
+  },
+  "faq.booking.2.q": {
+    "text": "应该选择什么接送时间？",
+    "status": "machine"
+  },
+  "faq.booking.2.a": {
+    "text": "机场接机请选择航班落地时间并填写航班号；酒店或地址上车请选择出发时间，前往机场时请预留交通时间。",
+    "status": "machine"
+  },
+  "faq.booking.3.q": {
+    "text": "需要提前多久预订？",
+    "status": "machine"
+  },
+  "faq.booking.3.a": {
+    "text": "最晚可提前 3 小时预订。越早预订，可选车型越多。",
+    "status": "machine"
+  },
+  "faq.booking.4.q": {
+    "text": "如何知道预订已确认？",
+    "status": "machine"
+  },
+  "faq.booking.4.a": {
+    "text": "当 Waydidi 生成预订编号且确认页面显示行程详情时，即表示预订已确认，随后会发送确认邮件。",
+    "status": "machine"
+  },
+  "faq.booking.5.q": {
+    "text": "可以为他人预订吗？",
+    "status": "machine"
+  },
+  "faq.booking.5.a": {
+    "text": "可以。请填写主要乘客姓名和当天可联系的电话，并保存好预订编号。",
+    "status": "machine"
+  },
+  "faq.conditions.1.q": {
+    "text": "行李放不下怎么办？",
+    "status": "machine"
+  },
+  "faq.conditions.1.a": {
+    "text": "请选择能同时容纳乘客和行李的车型，每款车都标明了载客量和行李数。如有超大物品、运动器材或额外行李，请在出行前联系客服。",
+    "status": "machine"
+  },
+  "faq.conditions.2.q": {
+    "text": "可以加儿童座椅吗？",
+    "status": "machine"
+  },
+  "faq.conditions.2.a": {
+    "text": "可以，每个 300 泰铢。选择车型后点击“继续”旁的 + 按钮，添加所需的儿童座椅数量。",
+    "status": "machine"
+  },
+  "faq.conditions.3.q": {
+    "text": "包含过路费吗？",
+    "status": "machine"
+  },
+  "faq.conditions.3.a": {
+    "text": "点击任一车型上的 ? 可查看您路线包含的项目。部分路线包含过路费，其他路线会列在“不包含”中。",
+    "status": "machine"
+  },
+  "faq.changes.1.q": {
+    "text": "可以更改日期或时间吗？",
+    "status": "machine"
+  },
+  "faq.changes.1.a": {
+    "text": "符合条件的预订可在上车前三天内通过“管理预订”申请更改日期或时间，视车辆情况而定。",
+    "status": "machine"
+  },
+  "faq.changes.2.q": {
+    "text": "如何取消？",
+    "status": "machine"
+  },
+  "faq.changes.2.a": {
+    "text": "请发送邮件至 support@waydidi.com 并附上预订编号。在上车前至少 24 小时提出的取消可免费取消并全额退款。",
+    "status": "machine"
+  },
+  "faq.payment.1.q": {
+    "text": "如何付款？",
+    "status": "machine"
+  },
+  "faq.payment.1.a": {
+    "text": "可通过银行卡、PromptPay、Apple Pay 或 Google Pay 在线支付，也可选择当天向司机支付现金。",
+    "status": "machine"
+  },
+  "faq.payment.2.q": {
+    "text": "以什么货币扣款？",
+    "status": "machine"
+  },
+  "faq.payment.2.a": {
+    "text": "价格可显示为您选择的货币，但所有预订均以泰铢（THB）扣款。",
+    "status": "machine"
+  },
+  "faq.payment.3.q": {
+    "text": "如何使用优惠码？",
+    "status": "machine"
+  },
+  "faq.payment.3.a": {
+    "text": "在付款步骤的优惠码框中输入优惠码并点击“使用”，付款前即会显示折扣。",
+    "status": "machine"
+  },
+  "faq.meeting.1.q": {
+    "text": "在机场哪里与司机会合？",
+    "status": "machine"
+  },
+  "faq.meeting.1.a": {
+    "text": "确认信息中包含接机说明。落地后请保持手机开机，具体会合点可能因航站楼而异。",
+    "status": "machine"
+  },
+  "faq.meeting.2.q": {
+    "text": "会跟踪我的航班吗？",
+    "status": "machine"
+  },
+  "faq.meeting.2.a": {
+    "text": "填写有效航班号后，我们会据此关注到达时间变化。如行程有重大变更，仍请告知我们。",
+    "status": "machine"
+  },
+  "faq.meeting.3.q": {
+    "text": "如何查看我的行程？",
+    "status": "machine"
+  },
+  "faq.meeting.3.a": {
+    "text": "打开“管理预订”，输入预订编号及所需的验证信息。",
+    "status": "machine"
+  },
+  "promo.heading": {
+    "text": "首单专享优惠",
+    "status": "machine"
+  },
+  "promo.copyUse": {
+    "text": "复制并使用",
+    "status": "machine"
+  },
+  "promo.copied": {
+    "text": "已复制！",
+    "status": "machine"
+  },
+  "promo.tc": {
+    "text": "条款",
+    "status": "machine"
+  },
+  "addons.tag": {
+    "text": "附加服务",
+    "status": "machine"
+  },
+  "addons.title": {
+    "text": "附加服务",
+    "status": "machine"
+  },
+  "addons.subtitle": {
+    "text": "为行程添加附加服务，司机会提前准备好。",
+    "status": "machine"
+  },
+  "addons.childSeat": {
+    "text": "儿童座椅",
+    "status": "machine"
+  },
+  "addons.childSeatDesc": {
+    "text": "适合婴幼儿，最多 {max} 个",
+    "status": "machine"
+  },
+  "addons.each": {
+    "text": "每个 +{price}",
+    "status": "machine"
+  },
+  "addons.exchange": {
+    "text": "中途兑换货币",
+    "status": "machine"
+  },
+  "addons.exchangeDesc": {
+    "text": "途中短暂停靠兑换点",
+    "status": "machine"
+  },
+  "addons.done": {
+    "text": "完成",
+    "status": "machine"
+  },
+  "addons.including": {
+    "text": "（含 {items}）",
+    "status": "machine"
+  },
+  "addons.childSeats": {
+    "text": "{count} 个儿童座椅",
+    "status": "machine"
+  },
+  "results.totalPrice": {
+    "text": "总价",
+    "status": "machine"
+  },
+  "results.roundTrip": {
+    "text": "往返",
+    "status": "machine"
+  },
+  "tax.request": {
+    "text": "申请税务发票",
+    "status": "machine"
+  },
+  "tax.note": {
+    "text": "税务发票将按以下信息开具。",
+    "status": "machine"
+  },
+  "tax.name": {
+    "text": "公司名称或全名",
+    "status": "machine"
+  },
+  "tax.taxId": {
+    "text": "税号（13 位）",
+    "status": "machine"
+  },
+  "tax.branch": {
+    "text": "分支机构（如总部或 00001）",
+    "status": "machine"
+  },
+  "tax.address": {
+    "text": "账单地址",
+    "status": "machine"
+  },
+  "tax.useSaved": {
+    "text": "使用已保存的开票信息…",
+    "status": "machine"
+  },
+  "tax.save": {
+    "text": "将这些信息保存到我的账户",
+    "status": "machine"
+  },
+  "edit.title": {
+    "text": "编辑行程",
+    "status": "machine"
   }
 }

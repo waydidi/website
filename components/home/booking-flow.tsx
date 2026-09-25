@@ -1404,7 +1404,7 @@ export function BookingFlow({
             >
               <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-300" aria-hidden="true" />
               <SheetHeader className="flex-row items-center justify-between px-0 pb-2 pt-4 text-left">
-                <SheetTitle className="font-home text-2xl font-semibold tracking-[-.02em]">Edit your trip</SheetTitle>
+                <SheetTitle className="font-home text-2xl font-semibold tracking-[-.02em]">{t("edit.title")}</SheetTitle>
                 <button type="button" onClick={() => setRouteEditOpen(false)} className="grid size-10 place-items-center rounded-full bg-slate-100 text-slate-700" aria-label="Close"><X size={20} /></button>
               </SheetHeader>
               <form onSubmit={(event) => { setRouteEditOpen(false); void search(event); }}>
@@ -1420,7 +1420,7 @@ export function BookingFlow({
             >
               <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-300" aria-hidden="true" />
               <SheetHeader className="flex-row items-center justify-between px-0 pb-1 pt-4 text-left">
-                <SheetTitle className="text-2xl font-semibold tracking-[-.02em]">Edit your trip</SheetTitle>
+                <SheetTitle className="text-2xl font-semibold tracking-[-.02em]">{t("edit.title")}</SheetTitle>
                 <button type="button" onClick={() => setTripEditOpen(false)} className="grid size-10 place-items-center rounded-full bg-slate-100 text-slate-700" aria-label="Close"><X size={20} /></button>
               </SheetHeader>
               {/* Same rows as the homepage search box. */}

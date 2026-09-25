@@ -854,5 +854,297 @@
   "saved.setDropoff": {
     "text": "ตั้งเป็นจุดส่ง",
     "status": "machine"
+  },
+  "how.eyebrow": {
+    "text": "ตั้งแต่จองจนถึงที่หมาย",
+    "status": "machine"
+  },
+  "how.title": {
+    "text": "ใช้งานอย่างไร",
+    "status": "machine"
+  },
+  "how.subtitle": {
+    "text": "เพียงไม่กี่ขั้นตอน เดินทางได้ราบรื่นขึ้น",
+    "status": "machine"
+  },
+  "how.step1.title": {
+    "text": "จองรถของคุณ",
+    "status": "machine"
+  },
+  "how.step1.text": {
+    "text": "เลือกเส้นทางและรถ กรอกรายละเอียด แล้วรับการยืนยันการจองได้ทันที",
+    "status": "machine"
+  },
+  "how.step2.title": {
+    "text": "พบคนขับของคุณ",
+    "status": "machine"
+  },
+  "how.step2.text": {
+    "text": "พบคนขับที่จุดนัดพบพร้อมป้ายชื่อของคุณ และให้คนขับช่วยดูแลสัมภาระ",
+    "status": "machine"
+  },
+  "how.step3.title": {
+    "text": "เพลิดเพลินกับการเดินทาง",
+    "status": "machine"
+  },
+  "how.step3.text": {
+    "text": "นั่งสบาย ๆ กับรถส่วนตัว ตลอดทางจนถึงจุดหมาย",
+    "status": "machine"
+  },
+  "faq.title": {
+    "text": "คำถามที่พบบ่อย",
+    "status": "machine"
+  },
+  "faq.tab.booking": {
+    "text": "การจอง",
+    "status": "machine"
+  },
+  "faq.tab.conditions": {
+    "text": "เงื่อนไข",
+    "status": "machine"
+  },
+  "faq.tab.changes": {
+    "text": "การเปลี่ยนแปลง",
+    "status": "machine"
+  },
+  "faq.tab.payment": {
+    "text": "การชำระเงิน",
+    "status": "machine"
+  },
+  "faq.tab.meeting": {
+    "text": "การนัดพบ",
+    "status": "machine"
+  },
+  "faq.booking.1.q": {
+    "text": "จองรถรับส่งได้อย่างไร?",
+    "status": "machine"
+  },
+  "faq.booking.1.a": {
+    "text": "กรอกจุดรับ จุดหมาย วันและเวลาในแบบฟอร์มค้นหา เลือกรถ ใส่ข้อมูลผู้โดยสารหลัก แล้วชำระเงิน คุณจะได้รับหมายเลขการจองทันที",
+    "status": "machine"
+  },
+  "faq.booking.2.q": {
+    "text": "ควรเลือกเวลารับเท่าไร?",
+    "status": "machine"
+  },
+  "faq.booking.2.a": {
+    "text": "หากรับที่สนามบิน ให้เลือกเวลาที่เครื่องลงจอดและใส่หมายเลขเที่ยวบิน หากรับที่โรงแรมหรือที่อยู่ ให้เลือกเวลาที่ต้องการออกเดินทาง และเผื่อเวลาสำหรับการจราจรเมื่อไปสนามบิน",
+    "status": "machine"
+  },
+  "faq.booking.3.q": {
+    "text": "ควรจองล่วงหน้านานเท่าไร?",
+    "status": "machine"
+  },
+  "faq.booking.3.a": {
+    "text": "จองได้ล่วงหน้าอย่างน้อย 3 ชั่วโมง ยิ่งจองเร็วยิ่งมีรถให้เลือกมากขึ้น",
+    "status": "machine"
+  },
+  "faq.booking.4.q": {
+    "text": "จะรู้ได้อย่างไรว่าการจองได้รับการยืนยันแล้ว?",
+    "status": "machine"
+  },
+  "faq.booking.4.a": {
+    "text": "การจองได้รับการยืนยันเมื่อ Waydidi ออกหมายเลขการจองและหน้ายืนยันแสดงรายละเอียดการเดินทาง จากนั้นจะมีอีเมลยืนยันส่งถึงคุณ",
+    "status": "machine"
+  },
+  "faq.booking.5.q": {
+    "text": "จองให้คนอื่นได้ไหม?",
+    "status": "machine"
+  },
+  "faq.booking.5.a": {
+    "text": "ได้ ใส่ชื่อผู้โดยสารหลักและเบอร์โทรที่ติดต่อได้ในวันเดินทาง และเก็บหมายเลขการจองไว้",
+    "status": "machine"
+  },
+  "faq.conditions.1.q": {
+    "text": "ถ้าสัมภาระใส่ไม่พอจะทำอย่างไร?",
+    "status": "machine"
+  },
+  "faq.conditions.1.a": {
+    "text": "เลือกรถที่รองรับทั้งจำนวนผู้โดยสารและสัมภาระ รถแต่ละคันแสดงความจุไว้แล้ว หากมีของขนาดใหญ่ อุปกรณ์กีฬา หรือกระเป๋าเพิ่ม โปรดติดต่อฝ่ายบริการก่อนเดินทาง",
+    "status": "machine"
+  },
+  "faq.conditions.2.q": {
+    "text": "เพิ่มที่นั่งเด็กได้ไหม?",
+    "status": "machine"
+  },
+  "faq.conditions.2.a": {
+    "text": "ได้ ราคาที่นั่งละ 300 บาท แตะปุ่ม + ข้างปุ่มดำเนินการต่อหลังเลือกรถ แล้วเพิ่มจำนวนที่นั่งเด็กที่ต้องการ",
+    "status": "machine"
+  },
+  "faq.conditions.3.q": {
+    "text": "รวมค่าทางด่วนไหม?",
+    "status": "machine"
+  },
+  "faq.conditions.3.a": {
+    "text": "แตะ ? ที่รถแต่ละคันเพื่อดูว่ารวมอะไรบ้างสำหรับเส้นทางของคุณ บางเส้นทางรวมค่าทางด่วน ส่วนเส้นทางอื่นจะแสดงไว้ในส่วนที่ไม่รวม",
+    "status": "machine"
+  },
+  "faq.changes.1.q": {
+    "text": "เปลี่ยนวันหรือเวลาได้ไหม?",
+    "status": "machine"
+  },
+  "faq.changes.1.a": {
+    "text": "การจองที่เข้าเงื่อนไขสามารถขอเปลี่ยนวันหรือเวลาได้ที่หน้าจัดการการจอง จนถึง 3 วันก่อนเวลารับ ขึ้นอยู่กับความพร้อมของรถ",
+    "status": "machine"
+  },
+  "faq.changes.2.q": {
+    "text": "ยกเลิกได้อย่างไร?",
+    "status": "machine"
+  },
+  "faq.changes.2.a": {
+    "text": "ส่งอีเมลถึง support@waydidi.com พร้อมหมายเลขการจอง คำขอที่ได้รับอย่างน้อย 24 ชั่วโมงก่อนเวลารับ ยกเลิกได้ฟรีและคืนเงินเต็มจำนวน",
+    "status": "machine"
+  },
+  "faq.payment.1.q": {
+    "text": "ชำระเงินได้อย่างไร?",
+    "status": "machine"
+  },
+  "faq.payment.1.a": {
+    "text": "ชำระออนไลน์ด้วยบัตร พร้อมเพย์ Apple Pay หรือ Google Pay หรือเลือกเงินสดแล้วจ่ายคนขับในวันเดินทาง",
+    "status": "machine"
+  },
+  "faq.payment.2.q": {
+    "text": "จะถูกเรียกเก็บเงินเป็นสกุลเงินอะไร?",
+    "status": "machine"
+  },
+  "faq.payment.2.a": {
+    "text": "ราคาแสดงเป็นสกุลเงินที่คุณเลือกได้ แต่ทุกการจองเรียกเก็บเป็นเงินบาท (THB)",
+    "status": "machine"
+  },
+  "faq.payment.3.q": {
+    "text": "ใช้โค้ดส่วนลดอย่างไร?",
+    "status": "machine"
+  },
+  "faq.payment.3.a": {
+    "text": "กรอกโค้ดในช่องโค้ดส่วนลดในขั้นตอนชำระเงิน แล้วแตะใช้โค้ด ส่วนลดจะแสดงก่อนชำระเงิน",
+    "status": "machine"
+  },
+  "faq.meeting.1.q": {
+    "text": "จะพบคนขับที่สนามบินตรงไหน?",
+    "status": "machine"
+  },
+  "faq.meeting.1.a": {
+    "text": "อีเมลยืนยันจะแสดงวิธีการรับ โปรดเปิดโทรศัพท์หลังเครื่องลงจอด เพราะจุดนัดพบอาจต่างกันตามอาคารผู้โดยสาร",
+    "status": "machine"
+  },
+  "faq.meeting.2.q": {
+    "text": "มีการติดตามเที่ยวบินไหม?",
+    "status": "machine"
+  },
+  "faq.meeting.2.a": {
+    "text": "เมื่อคุณใส่หมายเลขเที่ยวบินที่ถูกต้อง เราจะใช้ติดตามการเปลี่ยนแปลงเวลาถึง แต่หากแผนการเดินทางเปลี่ยนมาก โปรดแจ้งเราด้วย",
+    "status": "machine"
+  },
+  "faq.meeting.3.q": {
+    "text": "ตรวจสอบการเดินทางได้อย่างไร?",
+    "status": "machine"
+  },
+  "faq.meeting.3.a": {
+    "text": "เปิดหน้าจัดการการจอง แล้วกรอกหมายเลขการจองพร้อมข้อมูลยืนยันตัวตนที่ขอ",
+    "status": "machine"
+  },
+  "promo.heading": {
+    "text": "โปรโมชันพิเศษสำหรับการจองครั้งแรก",
+    "status": "machine"
+  },
+  "promo.copyUse": {
+    "text": "คัดลอกและใช้",
+    "status": "machine"
+  },
+  "promo.copied": {
+    "text": "คัดลอกแล้ว!",
+    "status": "machine"
+  },
+  "promo.tc": {
+    "text": "ข้อกำหนด",
+    "status": "machine"
+  },
+  "addons.tag": {
+    "text": "บริการเสริม",
+    "status": "machine"
+  },
+  "addons.title": {
+    "text": "บริการเพิ่มเติม",
+    "status": "machine"
+  },
+  "addons.subtitle": {
+    "text": "เพิ่มบริการเสริมให้การเดินทาง คนขับจะเตรียมไว้ให้",
+    "status": "machine"
+  },
+  "addons.childSeat": {
+    "text": "ที่นั่งเด็ก",
+    "status": "machine"
+  },
+  "addons.childSeatDesc": {
+    "text": "สำหรับทารกและเด็กเล็ก สูงสุด {max} ที่",
+    "status": "machine"
+  },
+  "addons.each": {
+    "text": "+{price} ต่อที่",
+    "status": "machine"
+  },
+  "addons.exchange": {
+    "text": "แวะแลกเงิน",
+    "status": "machine"
+  },
+  "addons.exchangeDesc": {
+    "text": "แวะจุดแลกเงินระหว่างทางสักครู่",
+    "status": "machine"
+  },
+  "addons.done": {
+    "text": "เสร็จสิ้น",
+    "status": "machine"
+  },
+  "addons.including": {
+    "text": "(รวม {items})",
+    "status": "machine"
+  },
+  "addons.childSeats": {
+    "text": "ที่นั่งเด็ก {count} ที่",
+    "status": "machine"
+  },
+  "results.totalPrice": {
+    "text": "ราคารวม",
+    "status": "machine"
+  },
+  "results.roundTrip": {
+    "text": "ไป-กลับ",
+    "status": "machine"
+  },
+  "tax.request": {
+    "text": "ขอใบกำกับภาษี",
+    "status": "machine"
+  },
+  "tax.note": {
+    "text": "ใบกำกับภาษีจะออกตามข้อมูลนี้",
+    "status": "machine"
+  },
+  "tax.name": {
+    "text": "ชื่อบริษัทหรือชื่อ-นามสกุล",
+    "status": "machine"
+  },
+  "tax.taxId": {
+    "text": "เลขประจำตัวผู้เสียภาษี (13 หลัก)",
+    "status": "machine"
+  },
+  "tax.branch": {
+    "text": "สาขา (เช่น สำนักงานใหญ่ หรือ 00001)",
+    "status": "machine"
+  },
+  "tax.address": {
+    "text": "ที่อยู่สำหรับออกใบกำกับภาษี",
+    "status": "machine"
+  },
+  "tax.useSaved": {
+    "text": "ใช้ข้อมูลที่บันทึกไว้…",
+    "status": "machine"
+  },
+  "tax.save": {
+    "text": "บันทึกข้อมูลนี้ไว้ในบัญชีของฉัน",
+    "status": "machine"
+  },
+  "edit.title": {
+    "text": "แก้ไขการเดินทาง",
+    "status": "machine"
   }
 }

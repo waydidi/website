@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import type { BookingExtras } from "@/lib/booking-extras";
 
 type Confirmation = {
   reference: string; customerName: string; customerEmail: string;
@@ -23,12 +24,17 @@ function fitText(value: string, font: PDFFont, size: number, maxWidth: number) {
   return `${result.trim()}...`;
 }
 
+// The standard PDF font only covers Latin-1; drop other characters (e.g. Thai) rather than fail.
+function latin(value: string) {
+  return value.replace(/[^\x20-\x7E\xA0-\xFF]/g, "").replace(/\s+/g, " ").trim();
+}
+
 function drawField(page: PDFPage, bold: PDFFont, label: string, value: string, x: number, y: number) {
   page.drawText(label.toUpperCase(), { x, y, size: 8.5, font: bold, color: muted });
   page.drawText(fitText(value, bold, 11.5, 220), { x, y: y - 23, size: 11.5, font: bold, color: ink });
 }
 
-export async function createConfirmationPdf(booking: Confirmation) {
+export async function createConfirmationPdf(booking: Confirmation, extras?: BookingExtras) {
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([595, 842]);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
@@ -66,6 +72,18 @@ export async function createConfirmationPdf(booking: Confirmation) {
     const column = index % 2;
     const row = Math.floor(index / 2);
     drawField(page, bold, label, value, column === 0 ? 46 : 315, 510 - row * 72);
+  });
+
+  // Price breakdown and requests, just above the total (up to four lines).
+  const breakdown: [string, string][] = extras ? [
+    ...extras.addons.map((line): [string, string] => [line.label, `+THB ${line.amount.toLocaleString()}`]),
+    ...(extras.discount ? [[`Discount (${extras.discount.code})`, `-THB ${extras.discount.amount.toLocaleString()}`] as [string, string]] : []),
+    ...(extras.taxInvoice ? [["Tax invoice requested", fitText(latin(`${extras.taxInvoice.name} · Tax ID ${extras.taxInvoice.taxId}`) || `Tax ID ${extras.taxInvoice.taxId}`, regular, 9.5, 300)] as [string, string]] : []),
+  ].slice(0, 4) : [];
+  breakdown.forEach(([label, value], index) => {
+    const y = 180 - index * 13;
+    page.drawText(label, { x: 46, y, size: 9.5, font: regular, color: rgb(0.38, 0.43, 0.52) });
+    page.drawText(value, { x: 549 - regular.widthOfTextAtSize(value, 9.5), y, size: 9.5, font: regular, color: ink });
   });
 
   page.drawRectangle({ x: 42, y: 72, width: 511, height: 58, color: paleOrange, borderColor: rgb(1, 0.82, 0.64), borderWidth: 0.7 });

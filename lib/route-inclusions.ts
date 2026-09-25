@@ -75,3 +75,17 @@ export function inclusionLines(inclusions: Inclusions, locale: string) {
   const excluded = inclusions.tolls ? [] : [text.tollsExcluded];
   return { included, excluded };
 }
+
+// Zones are edited as simple latitude/longitude boxes (south, north, west, east).
+export type Box = { south: number; north: number; west: number; east: number };
+
+export function boxFromZone(zoneJson: string): Box | null {
+  try {
+    const points = (JSON.parse(zoneJson) as { lat: number; lng: number }[][]).flat();
+    if (!points.length) return null;
+    const lats = points.map((p) => p.lat), lngs = points.map((p) => p.lng);
+    return { south: Math.min(...lats), north: Math.max(...lats), west: Math.min(...lngs), east: Math.max(...lngs) };
+  } catch { return null; }
+}
+
+export const zoneFromBox = (b: Box) => JSON.stringify([[{ lat: b.south, lng: b.west }, { lat: b.south, lng: b.east }, { lat: b.north, lng: b.east }, { lat: b.north, lng: b.west }]]);

@@ -1,3 +1,4 @@
+import { bookingExtras } from "@/lib/booking-extras";
 import { NextResponse } from "next/server";
 import { createConfirmationPdf } from "@/lib/confirmation-pdf";
 import { customerBooking, customerFromRequest } from "@/lib/customer-auth";
@@ -9,7 +10,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   const booking = await customerBooking(session.customer, reference.toUpperCase());
   if (!booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
   if (booking.status !== "confirmed" && booking.status !== "completed") return NextResponse.json({ error: "No receipt is available for this booking." }, { status: 409 });
-  const pdf = await createConfirmationPdf(booking);
+  const pdf = await createConfirmationPdf(booking, await bookingExtras(booking));
   return new Response(new Blob([new Uint8Array(pdf)], { type: "application/pdf" }), { headers: {
     "Content-Type": "application/pdf",
     "Content-Disposition": `attachment; filename="Waydidi-${booking.reference}.pdf"`,

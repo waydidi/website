@@ -30,7 +30,7 @@ const TOPICS: HelpTopic[] = [
   ] },
   { id: "changes", label: "Changes & cancellations", icon: "refresh", questions: [
     { q: "How do I change my pickup date or time?", a: "Eligible bookings can request a date or time change from Check your booking until three days before pickup. Changes depend on availability, and your original ride stays in place until we confirm." },
-    { q: "How can I cancel my booking?", a: `Email ${SUPPORT_EMAIL} with your booking reference at least 24 hours before pickup. Cancellations are handled personally by email, and your booking stays active until we confirm.` },
+    { q: "How can I cancel my booking?", a: `Email ${SUPPORT_EMAIL} with your booking reference at least 24 hours before pickup to cancel free of charge with a full refund. Cancellations are handled personally by email, and your booking stays active until we confirm.` },
     { q: "What if I cancel late or miss the pickup?", a: "Requests inside 24 hours and missed pickups are normally non-refundable because the driver and vehicle are already committed, except where the law requires otherwise or Waydidi cannot provide the service." },
   ] },
   { id: "payment", label: "Payment & receipts", icon: "card", questions: [
