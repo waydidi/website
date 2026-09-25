@@ -14,10 +14,8 @@ export default async function SettingsPage() {
   const access = await requireWaydidiAdmin("/admin/settings");
   if (!access.authorized) return <AdminKeyLogin configured={access.configured} />;
   const groups: { title: string; rows: [string, boolean, string][] }[] = [
-    { title: "Payments and email", rows: [
+    { title: "Payments and alerts", rows: [
       ["Card payments (Stripe)", set("STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"), "STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET"],
-      ["Booking emails (Resend)", set("RESEND_API_KEY", "BOOKING_FROM_EMAIL"), "RESEND_API_KEY, BOOKING_FROM_EMAIL"],
-      ["New-booking alert email", set("BOOKING_ALERT_EMAIL"), "BOOKING_ALERT_EMAIL"],
       ["LINE alerts", set("LINE_CHANNEL_ACCESS_TOKEN", "LINE_ADMIN_TARGET_ID"), "LINE_CHANNEL_ACCESS_TOKEN, LINE_ADMIN_TARGET_ID"],
     ] },
     { title: "Maps and flights", rows: [
