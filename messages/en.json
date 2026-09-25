@@ -299,5 +299,8 @@
   "hero.bagsShort": "{count} bags",
   "hero.trustArea": "All of Thailand",
   "hero.trustPrice": "Fixed price",
-  "hero.trustCancel": "Free cancellation"
+  "hero.trustCancel": "Free cancellation",
+  "addons.ferryHotel": "Ferry & hotel transfer",
+  "addons.ferryHotelDesc": "Ferry to the island and a transfer from the pier to your hotel",
+  "addons.perPerson": "{price} per person"
 }

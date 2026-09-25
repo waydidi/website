@@ -59,7 +59,7 @@ const BANGKOK = box(13.45, 14.05, 100.25, 100.97);
 // both ways, rules add up, and routes not listed show tolls as excluded.
 //   Any pickup to or from Pattaya: motorway toll included
 //   Any pickup to or from Koh Chang: ferry ticket included
-//   Any pickup to or from Koh Kood or Koh Mak: ferry and hotel transfer included
+//   Any pickup to or from Koh Kood or Koh Mak: "Ferry & hotel transfer" offered as a paid add-on (hotelTransfer)
 //   Bangkok to Rayong, Chanthaburi, Chachoengsao, Trat: motorway toll included
 const PATTAYA = box(12.62, 13.02, 100.82, 101.0);
 const KOH_CHANG = box(11.95, 12.22, 102.25, 102.45);
@@ -70,8 +70,8 @@ type Route = { name: string; from: string; to: string; tolls?: boolean; ferry?: 
 const ROUTES: Route[] = [
   { name: "Any pickup to Pattaya", from: ANYWHERE, to: PATTAYA, tolls: true, priority: 60 },
   { name: "Any pickup to Koh Chang", from: ANYWHERE, to: KOH_CHANG, ferry: true, priority: 60 },
-  { name: "Any pickup to Koh Kood", from: ANYWHERE, to: KOH_KOOD, ferry: true, hotelTransfer: true, priority: 60 },
-  { name: "Any pickup to Koh Mak", from: ANYWHERE, to: KOH_MAK, ferry: true, hotelTransfer: true, priority: 60 },
+  { name: "Any pickup to Koh Kood", from: ANYWHERE, to: KOH_KOOD, hotelTransfer: true, priority: 60 },
+  { name: "Any pickup to Koh Mak", from: ANYWHERE, to: KOH_MAK, hotelTransfer: true, priority: 60 },
   { name: "Bangkok to Rayong", from: BANGKOK, to: box(12.5, 13.1, 101.0, 101.8), tolls: true },
   { name: "Bangkok to Chanthaburi", from: BANGKOK, to: box(12.25, 13.3, 101.8, 102.45), tolls: true },
   { name: "Bangkok to Chachoengsao", from: BANGKOK, to: box(13.25, 14.05, 100.97, 101.95), tolls: true },
@@ -103,7 +103,7 @@ const TEXT: Record<Lang, { tolls: string; ferry: string; hotel: string; tollsExc
 // Lines for the "Included" and "Excluded" lists shown to the customer.
 export function inclusionLines(inclusions: Inclusions, locale: string) {
   const text = TEXT[(locale in TEXT ? locale : "en") as Lang];
-  const included = [inclusions.tolls && text.tolls, inclusions.hotelTransfer ? text.hotel : inclusions.ferry && text.ferry].filter(Boolean) as string[];
+  const included = [inclusions.tolls && text.tolls, inclusions.ferry && text.ferry].filter(Boolean) as string[];
   const excluded = inclusions.tolls ? [] : [text.tollsExcluded];
   return { included, excluded };
 }

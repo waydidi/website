@@ -1202,5 +1202,17 @@
   "hero.trustCancel": {
     "text": "免费取消",
     "status": "machine"
+  },
+  "addons.ferryHotel": {
+    "text": "渡轮及酒店接送",
+    "status": "machine"
+  },
+  "addons.ferryHotelDesc": {
+    "text": "乘渡轮上岛，并从码头接送至酒店",
+    "status": "machine"
+  },
+  "addons.perPerson": {
+    "text": "每人 {price}",
+    "status": "machine"
   }
 }

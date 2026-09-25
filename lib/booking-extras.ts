@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingFreeAddons, bookingMemberDiscounts, bookingTaxInvoices, promoRedemptions } from "@/db/schema";
 import { TIERS } from "@/lib/member-tier-rules";
-import { CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "@/lib/addons";
+import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
 
 // Add-ons became paid on this date; older bookings with child seats were not charged for them.
 const ADDONS_PRICED_FROM = "2026-09-24T14:30:00.000Z";
@@ -29,6 +29,8 @@ export async function bookingExtras(booking: { reference: string; childSeats: nu
   if (booking.createdAt >= ADDONS_PRICED_FROM) {
     const freeSeats = Math.min(free?.childSeats ?? 0, booking.childSeats);
     if (booking.childSeats > 0) addons.push({ label: `Child seat × ${booking.childSeats}${freeSeats ? ` (${freeSeats} free, ${tierName})` : ""}`, amount: (booking.childSeats - freeSeats) * CHILD_SEAT_THB });
+    const ferry = /Ferry & hotel transfer requested for (\d+)\./.exec(booking.specialRequests ?? "");
+    if (ferry) addons.push({ label: `Ferry & hotel transfer × ${ferry[1]}`, amount: Number(ferry[1]) * FERRY_HOTEL_THB });
     if ((booking.specialRequests ?? "").startsWith("Currency exchange stop requested")) addons.push({ label: `Currency exchange stop${free?.exchangeStop ? ` (free, ${tierName})` : ""}`, amount: free?.exchangeStop ? 0 : EXCHANGE_STOP_THB });
   }
   return { discount: redemption ? { code: redemption.code, amount: redemption.discount } : null, memberDiscount: member ? { label: `${TIERS.find((t) => t.id === member.tier)?.name ?? "Member"} member discount (${member.percent}%)`, amount: member.discount } : null, addons, taxInvoice: tax ?? null };

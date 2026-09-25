@@ -1202,5 +1202,17 @@
   "hero.trustCancel": {
     "text": "ยกเลิกฟรี",
     "status": "machine"
+  },
+  "addons.ferryHotel": {
+    "text": "เรือเฟอร์รี่และรถรับส่งโรงแรม",
+    "status": "machine"
+  },
+  "addons.ferryHotelDesc": {
+    "text": "เรือข้ามไปเกาะและรถรับส่งจากท่าเรือถึงโรงแรม",
+    "status": "machine"
+  },
+  "addons.perPerson": {
+    "text": "{price} ต่อคน",
+    "status": "machine"
   }
 }

@@ -8,6 +8,7 @@ import { claimGift, freeAddonsWithGifts, listMemberGifts, releaseGifts } from "@
 import { isAirportPickup } from "@/lib/waiting-policy";
 import { memberTierStatus, tierDiscount, tierFreeAddons, TIERS, type Tier } from "@/lib/member-tier";
 import { addonsTotal } from "@/lib/addons";
+import { loadInclusions } from "@/lib/route-inclusions-db";
 import { and, count, eq, gt, lt } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db";
@@ -381,7 +382,16 @@ export async function POST(request: Request) {
     const gifts = account ? await listMemberGifts(account.customer.id).catch(() => []) : [];
     const voucher = (id: string) => gifts.find((g) => g.giftId === id && g.status === "available") ?? null;
     const freeAddons = freeAddonsWithGifts(tierFreeAddons(memberTier, input.childSeats, input.exchangeStop), input.childSeats, input.exchangeStop, { childSeat: Boolean(voucher("child_seat")), exchangeStop: Boolean(voucher("exchange_stop")) });
-    total += addonsTotal(input.childSeats, input.exchangeStop, freeAddons);
+    // Ferry & hotel transfer: only on Koh Kood / Koh Mak transfers, checked against the quoted route.
+    let ferryHotel = false;
+    if (input.ferryHotel) {
+      const offered = input.serviceType !== "hourly" && quoteData && quoteData.pickupLatitude != null && quoteData.pickupLongitude != null && quoteData.dropoffLatitude != null && quoteData.dropoffLongitude != null
+        ? (await loadInclusions({ lat: quoteData.pickupLatitude, lng: quoteData.pickupLongitude }, { lat: quoteData.dropoffLatitude, lng: quoteData.dropoffLongitude })).hotelTransfer
+        : false;
+      if (!offered) return NextResponse.json({ code: "ADDON_UNAVAILABLE", error: "Ferry & hotel transfer is only available to Koh Kood and Koh Mak.", field: "ferryHotel", retryable: false }, { status: 409 });
+      ferryHotel = true;
+    }
+    total += addonsTotal(input.childSeats, input.exchangeStop, freeAddons, ferryHotel ? input.passengers : 0);
     // Nothing to pay (e.g. a free transfer gift with no add-ons): no card payment needed.
     if (total <= 0) { total = 0; input.paymentMethod = "cash"; }
     const reference = await uniqueBookingReference();

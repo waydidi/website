@@ -78,6 +78,7 @@ test("the routes in code: Pattaya tolls from anywhere, island ferries, Koh Kood 
   const fromBkk = lib.resolveInclusions(place.suvarnabhumi, kohChang, R);
   assert.equal(fromBkk.ferry, true); assert.equal(fromBkk.tolls, true);
   const kood = lib.resolveInclusions(rayong, kohKood, R);
-  assert.equal(kood.ferry, true); assert.equal(kood.hotelTransfer, true);
-  assert.equal(lib.inclusionLines(kood, "en").included.some((l) => /hotel transfer/i.test(l)), true);
+  // Koh Kood: Ferry & hotel transfer is a paid add-on, not included in the fare.
+  assert.equal(kood.hotelTransfer, true); assert.equal(kood.ferry, false);
+  assert.equal(lib.inclusionLines(kood, "en").included.some((l) => /hotel transfer/i.test(l)), false);
 });

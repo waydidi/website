@@ -1,6 +1,6 @@
 "use client";
 
-import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "@/lib/addons";
+import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
 import { TIERS, tierDiscount, tierFreeAddons, type Tier } from "@/lib/member-tier-rules";
 import { freeAddonsWithGifts } from "@/lib/gift-rules";
 import { isAirportPickup } from "@/lib/waiting-policy";
@@ -226,6 +226,7 @@ export function BookingFlow({
   const [childPassengers, setChildPassengers] = useState(0);
   const [extraBagSets, setExtraBagSets] = useState(0);
   const [exchangeStop, setExchangeStop] = useState(false);
+  const [ferryHotelPick, setFerryHotel] = useState(false);
   const [booking, setBooking] = useState<Booking>({
     pickup: "Suvarnabhumi Airport (BKK)",
     dropoff: "Grande Centre Point Sukhumvit 55, Bangkok",
@@ -304,7 +305,7 @@ export function BookingFlow({
       return;
     }
     checkoutAttemptRef.current = "";
-  }, [booking, vehicle, payment, serviceType, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId, promo?.code, exchangeStop]);
+  }, [booking, vehicle, payment, serviceType, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId, promo?.code, exchangeStop, ferryHotelPick]);
 
   useEffect(() => {
     // Browser connectivity is only available after hydration.
@@ -587,7 +588,9 @@ export function BookingFlow({
   const tierFree = tierFreeAddons(quoteRequest ? null : memberTier, booking.childSeats, exchangeStop);
   const freeAddons = freeAddonsWithGifts(tierFree, booking.childSeats, exchangeStop, quoteRequest ? { childSeat: false, exchangeStop: false } : vouchers);
   const airportTrip = isAirportPickup(booking.pickup) || isAirportPickup(booking.dropoff);
-  const addons = addonsTotal(booking.childSeats, exchangeStop, freeAddons);
+  // Ferry & hotel transfer: only on Koh Kood / Koh Mak transfers (per passenger).
+  const ferryHotel = ferryHotelPick && serviceType === "transfer" && Boolean(fareQuote?.inclusions?.hotelTransfer) && !quoteRequest;
+  const addons = addonsTotal(booking.childSeats, exchangeStop, freeAddons, ferryHotel ? booking.passengers : 0);
   // Member tier discount comes off the fare left after any promo code (the server does the same).
   const memberDiscount = memberTier && !quoteRequest ? tierDiscount(memberTier, Math.max(0, chosenVehicle.price - discount)) : 0;
   const payable = Math.max(0, chosenVehicle.price - discount - memberDiscount) + addons;
@@ -999,12 +1002,13 @@ export function BookingFlow({
           pickupInstructions: booking.pickupInstructions,
           childSeats: booking.childSeats,
           exchangeStop,
+          ferryHotel,
           copyEmail: booking.copyEmail?.trim() || undefined,
           source: (() => { try { return sessionStorage.getItem("waydidi_source") || undefined; } catch { return undefined; } })(),
           saveBilling: Boolean(booking.taxInvoice && saveBilling && signedIn),
           taxInvoice: booking.taxInvoice ? { name: (booking.taxName ?? "").trim(), taxId: (booking.taxId ?? "").replace(/[\s-]/g, ""), branch: (booking.taxBranch ?? "").trim() || "Head office", address: (booking.taxAddress ?? "").trim() } : undefined,
           oversizedLuggage: booking.oversizedLuggage,
-          specialRequests: [exchangeStop ? "Currency exchange stop requested." : "", booking.specialRequests].filter(Boolean).join(" ").slice(0, 500),
+          specialRequests: [exchangeStop ? "Currency exchange stop requested." : "", ferryHotel ? `Ferry & hotel transfer requested for ${booking.passengers}.` : "", booking.specialRequests].filter(Boolean).join(" ").slice(0, 500),
           termsAccepted: booking.termsAccepted,
           pickup: booking.pickup,
           dropoff: booking.dropoff,
@@ -1622,9 +1626,10 @@ export function BookingFlow({
           onEditTrip={() => setTripEditOpen(true)}
           childSeats={booking.childSeats}
           exchangeStop={exchangeStop}
+          ferryHotel={ferryHotelPick}
           memberTier={memberTier}
           giftVouchers={vouchers}
-          onExtrasChange={(extras) => { setExchangeStop(extras.exchangeStop); setBooking((current) => ({ ...current, childSeats: extras.childSeats })); }}
+          onExtrasChange={(extras) => { setExchangeStop(extras.exchangeStop); setFerryHotel(extras.ferryHotel); setBooking((current) => ({ ...current, childSeats: extras.childSeats })); }}
           onContinue={() => goToStage("details")}
         /> : <section className="bg-white">
           <div className="mx-auto max-w-[760px] px-5 py-8 lg:py-12">
@@ -1828,6 +1833,7 @@ export function BookingFlow({
                   {promo && !quoteRequest && <div className="flex justify-between"><span>Discount ({promo.code})</span><span className="tabular-nums text-emerald-700">−{money(promo.discount)}</span></div>}
                   {memberDiscount > 0 && memberTier && <div className="flex justify-between"><span>{memberTier.name} member ({memberTier.percent}%)</span><span className="tabular-nums text-emerald-700">−{money(memberDiscount)}</span></div>}
                   {booking.childSeats > 0 && !quoteRequest && <div className="flex justify-between"><span>Child seat × {booking.childSeats}</span><span className="tabular-nums text-ink">{freeLabel((booking.childSeats - freeAddons.childSeats) * CHILD_SEAT_THB, tierFree.childSeats >= booking.childSeats)}</span></div>}
+                  {ferryHotel && <div className="flex justify-between"><span>Ferry &amp; hotel transfer × {booking.passengers}</span><span className="tabular-nums text-ink">+{money(FERRY_HOTEL_THB * booking.passengers)}</span></div>}
                   {exchangeStop && !quoteRequest && <div className="flex justify-between"><span>Currency exchange stop</span><span className="tabular-nums text-ink">{freeLabel(freeAddons.exchangeStop ? 0 : EXCHANGE_STOP_THB, tierFree.exchangeStop)}</span></div>}
                   <div className="flex justify-between"><span>Payment</span><span className="text-ink">{payment === "card" ? "Online" : "Cash to driver"}</span></div>
                 </div>
@@ -1875,6 +1881,7 @@ export function BookingFlow({
                 {booking.pickupSign && <ReviewDetail label="Pickup sign" value={booking.pickupSign} />}
                 {booking.oversizedLuggage && <ReviewDetail label="Oversized luggage" value="Declared" />}
                 {exchangeStop && <ReviewDetail label="Currency exchange stop" value="Requested" />}
+                {ferryHotel && <ReviewDetail label="Ferry & hotel transfer" value={`${booking.passengers} × ${money(FERRY_HOTEL_THB)}`} />}
                 {booking.specialRequests && <ReviewDetail label="Special requests" value={booking.specialRequests} />}
               </ReviewSection>
 
