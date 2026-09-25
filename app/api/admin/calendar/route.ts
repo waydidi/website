@@ -52,7 +52,7 @@ export async function GET(request: Request) {
   if (!validCalendarDate(from) || !validCalendarDate(to)) return NextResponse.json({ error: "Choose a valid date range." }, { status: 400 });
   const rangeStart = new Date(`${from}T00:00:00+07:00`).getTime();
   const rangeEnd = new Date(`${to}T23:59:59+07:00`).getTime();
-  if (rangeEnd < rangeStart || rangeEnd - rangeStart > 42 * 24 * 60 * 60 * 1000) return NextResponse.json({ error: "Calendar range must be 42 days or less." }, { status: 400 });
+  if (rangeEnd < rangeStart || rangeEnd - rangeStart > 93 * 24 * 60 * 60 * 1000) return NextResponse.json({ error: "Choose a date range of 93 days or less." }, { status: 400 });
   const instants = rangeInstants(from, to);
 
   const [bookingRows, scheduleBookingRows, driverRows, assignmentRows, eventRows, availabilityRows, calendarRows, alertRows, notificationRows] = await Promise.all([

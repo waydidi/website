@@ -26,13 +26,16 @@ import {
   Truck,
   UserRound,
   UsersRound,
+  Columns3,
+  ChevronDown,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 
-type ViewMode = "today" | "three" | "week" | "month";
+type ViewMode = "today" | "three" | "week" | "month" | "range";
+type Layout = "calendar" | "kanban";
 type Attention = { level: "normal" | "warning" | "critical" | "cancelled"; reason: string | null };
 type Driver = { id: string; fullName: string; phone: string; email: string | null; remindersEnabled: boolean; status: string };
 type Assignment = { id: string; driverId: string; currentStatus: string; assignedAt: string; tokenExpiresAt: string };
@@ -125,7 +128,8 @@ function weekStart(value: string) {
   return addDays(value, -offset);
 }
 
-function rangeFor(anchor: string, view: ViewMode) {
+function rangeFor(anchor: string, view: ViewMode, custom?: { from: string; to: string }) {
+  if (view === "range" && custom) return custom;
   if (view === "today") return { from: anchor, to: anchor };
   if (view === "three") return { from: anchor, to: addDays(anchor, 2) };
   if (view === "week") {
@@ -164,6 +168,7 @@ function rangeLabel(anchor: string, view: ViewMode, from: string, to: string) {
 }
 
 function navigateDate(anchor: string, view: ViewMode, direction: number) {
+  if (view === "range") return anchor;
   if (view === "month") {
     const date = new Date(`${firstOfMonth(anchor)}T12:00:00Z`);
     date.setUTCMonth(date.getUTCMonth() + direction);
@@ -195,7 +200,16 @@ export default function CalendarWorkspace({ email }: { email: string }) {
   const [blockStart, setBlockStart] = useState(`${anchor}T09:00`);
   const [blockEnd, setBlockEnd] = useState(`${anchor}T17:00`);
   const [latestLink, setLatestLink] = useState("");
-  const range = useMemo(() => rangeFor(anchor, view), [anchor, view]);
+  const [custom, setCustom] = useState({ from: anchor, to: addDays(anchor, 6) });
+  const [layout, setLayout] = useState<Layout>("calendar");
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const range = useMemo(() => rangeFor(anchor, view, custom), [anchor, view, custom]);
+  // Previous / next move a custom range by its own length.
+  function shift(direction: number) {
+    if (view !== "range") { setAnchor(navigateDate(anchor, view, direction)); return; }
+    const len = dateList(custom.from, custom.to).length;
+    setCustom({ from: addDays(custom.from, direction * len), to: addDays(custom.to, direction * len) });
+  }
 
   const load = useCallback(async () => {
     setError("");
@@ -325,14 +339,15 @@ export default function CalendarWorkspace({ email }: { email: string }) {
         <section className="mt-5 rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <button onClick={() => setAnchor(navigateDate(anchor, view, -1))} className="grid size-11 place-items-center rounded-full border border-slate-200" aria-label="Previous period"><ChevronLeft size={20} /></button>
-              <button onClick={() => setAnchor(todayInBangkok())} className="h-11 rounded-full border border-slate-200 px-4 text-sm font-bold">Today</button>
-              <button onClick={() => setAnchor(navigateDate(anchor, view, 1))} className="grid size-11 place-items-center rounded-full border border-slate-200" aria-label="Next period"><ChevronRight size={20} /></button>
-              <input type="date" value={anchor} onChange={(event) => setAnchor(event.target.value)} className="hidden h-11 rounded-xl border border-slate-200 px-3 sm:block" aria-label="Calendar date" />
+              <button onClick={() => shift(-1)} className="grid size-11 place-items-center rounded-full border border-slate-200" aria-label="Previous period"><ChevronLeft size={20} /></button>
+              <button onClick={() => { setAnchor(todayInBangkok()); if (view === "range") setView("today"); }} className="h-11 rounded-full border border-slate-200 px-4 text-sm font-bold">Today</button>
+              <button onClick={() => shift(1)} className="grid size-11 place-items-center rounded-full border border-slate-200" aria-label="Next period"><ChevronRight size={20} /></button>
+              <DateRangePicker open={rangeOpen} setOpen={setRangeOpen} from={range.from} to={range.to} onApply={(from, to) => { setCustom({ from, to }); setView("range"); setRangeOpen(false); }} />
             </div>
             <h2 className="order-first w-full text-xl font-black tracking-[-.02em] sm:order-none sm:w-auto sm:text-2xl">{rangeLabel(anchor, view, range.from, range.to)}</h2>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex rounded-xl bg-slate-100 p-1 text-sm font-bold">{(["today", "three", "week", "month"] as ViewMode[]).map((mode) => <button key={mode} onClick={() => setView(mode)} className={`rounded-lg px-3 py-2 capitalize ${view === mode ? "bg-white text-[#D96F00] shadow-sm" : "text-slate-500"}`}>{mode === "three" ? "3 days" : mode}</button>)}</div>
+              <div role="tablist" aria-label="Layout" className="flex rounded-xl bg-slate-100 p-1 text-sm font-bold">{([["calendar", "Calendar", CalendarDays], ["kanban", "Kanban", Columns3]] as const).map(([id, label, Icon]) => <button key={id} role="tab" aria-selected={layout === id} onClick={() => setLayout(id)} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 ${layout === id ? "bg-white text-[#D96F00] shadow-sm" : "text-slate-500"}`}><Icon size={15} />{label}</button>)}</div>
+              <div className="flex rounded-xl bg-slate-100 p-1 text-sm font-bold">{(["today", "three", "week", "month"] as ViewMode[]).map((mode) => <button key={mode} onClick={() => setView(mode)} className={`rounded-lg px-3 py-2 capitalize ${view === mode ? "bg-white text-[#D96F00] shadow-sm" : "text-slate-500"}`}>{mode === "three" ? "3 days" : mode}</button>)}{view === "range" && <span className="rounded-lg bg-white px-3 py-2 text-[#D96F00] shadow-sm">Custom</span>}</div>
               <button onClick={() => setDialogOpen(true)} className="flex h-11 items-center gap-2 rounded-full bg-[#211726] px-4 text-sm font-bold text-white"><Plus size={17} />Add block</button>
               <button disabled={Boolean(busy)} onClick={() => automationAction({ action: "run_now" }, "Operations scan complete.")} className="flex h-11 items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 text-sm font-bold text-[#D96F00] disabled:opacity-50"><RefreshCw className={busy === "run_now" ? "animate-spin" : ""} size={17} />Run alerts</button>
               <button onClick={load} className="grid size-11 place-items-center rounded-full border border-slate-200" aria-label="Refresh calendar"><RefreshCw size={18} /></button>
@@ -361,7 +376,9 @@ export default function CalendarWorkspace({ email }: { email: string }) {
         {data && data.alerts.some((alert) => alert.status !== "resolved") && <section className="mt-4 rounded-[24px] border border-red-200 bg-white p-4 shadow-sm"><div className="mb-3 flex items-center gap-2"><AlertTriangle className="text-red-600" size={20} /><h2 className="font-black">Journey alerts</h2><span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-black text-red-700">{data.alerts.filter((alert) => alert.status !== "resolved").length}</span></div><div className="grid gap-3 lg:grid-cols-2">{data.alerts.filter((alert) => alert.status !== "resolved").map((alert) => <article key={alert.id} className={`rounded-2xl border p-4 ${alert.severity === "critical" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}`}><button onClick={() => setSelected(alert.bookingReference)} className="w-full text-left"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wider text-slate-500">{alert.bookingReference} · {formatInstant(alert.detectedAt)}</p><h3 className="mt-1 font-black">{alert.title}</h3></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold capitalize">{alert.status}</span></div>{alert.details && <p className="mt-2 text-sm text-slate-600">{alert.details}</p>}</button><div className="mt-3 flex gap-2">{alert.status === "open" && <button disabled={Boolean(busy)} onClick={() => automationAction({ action: "acknowledge_alert", alertId: alert.id }, "Alert acknowledged.")} className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-bold">Acknowledge</button>}<button disabled={Boolean(busy)} onClick={() => automationAction({ action: "resolve_alert", alertId: alert.id }, "Alert resolved.")} className="rounded-full bg-[#211726] px-3 py-2 text-xs font-bold text-white">Resolve</button></div></article>)}</div></section>}
 
         <section className="mt-5">
-          {!data ? <div className="grid min-h-80 place-items-center rounded-[28px] bg-white"><LoaderCircle className="animate-spin text-[#FF8A05]" size={30} /></div> : view === "month" ? (
+          {!data ? <div className="grid min-h-80 place-items-center rounded-[28px] bg-white"><LoaderCircle className="animate-spin text-[#FF8A05]" size={30} /></div> : layout === "kanban" ? (
+            <KanbanBoard bookings={filteredBookings} drivers={data.drivers} onSelect={setSelected} />
+          ) : view === "month" ? (
             <MonthGrid dates={dateList(range.from, range.to)} anchor={anchor} bookings={filteredBookings} events={data.calendarEvents} onSelect={setSelected} />
           ) : (
             <AgendaGrid dates={dateList(range.from, range.to)} bookings={filteredBookings} events={data.calendarEvents} availability={data.availability} drivers={data.drivers} onSelect={setSelected} />
@@ -444,4 +461,74 @@ function BookingPanel({ booking, driver, alerts, notifications, busy, onSave }: 
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="block text-sm font-bold text-slate-700"><span className="mb-2 block">{label}</span>{children}</label>;
+}
+
+const PRESETS: [string, (today: string) => [string, string]][] = [
+  ["Today", (t) => [t, t]],
+  ["Next 7 days", (t) => [t, addDays(t, 6)]],
+  ["Next 30 days", (t) => [t, addDays(t, 29)]],
+  ["Last 7 days", (t) => [addDays(t, -6), t]],
+  ["This month", (t) => [firstOfMonth(t), lastOfMonth(t)]],
+  ["Last 30 days", (t) => [addDays(t, -29), t]],
+];
+
+// "📅 1 Oct – 7 Oct 2026 ▾" button with presets and a custom from/to.
+function DateRangePicker({ open, setOpen, from, to, onApply }: { open: boolean; setOpen: (v: boolean) => void; from: string; to: string; onApply: (from: string, to: string) => void }) {
+  const [f, setF] = useState(from);
+  const [t, setT] = useState(to);
+  const days = f && t ? dateList(f, t).length : 0;
+  const invalid = !f || !t || t < f || days > 93;
+  return <div className="relative">
+    <button type="button" onClick={() => { setF(from); setT(to); setOpen(!open); }} aria-expanded={open} className="flex h-11 items-center gap-2 rounded-xl bg-slate-100 px-3.5 text-sm font-semibold text-slate-800 hover:bg-slate-200">
+      <CalendarDays size={17} />{from === to ? formatDate(from, { day: "numeric", month: "short", year: "numeric" }) : `${formatDate(from, { day: "numeric", month: "short" })} – ${formatDate(to, { day: "numeric", month: "short", year: "numeric" })}`}<ChevronDown size={16} />
+    </button>
+    {open && <div className="absolute left-0 top-12 z-40 w-[min(340px,calc(100vw-32px))] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+      <div className="flex flex-wrap gap-1.5">{PRESETS.map(([label, fn]) => <button key={label} type="button" onClick={() => { const [a, b] = fn(todayInBangkok()); onApply(a, b); }} className="rounded-full border border-slate-200 px-3 py-1.5 text-[13px] font-semibold hover:border-[#FF8A05]">{label}</button>)}</div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <label className="text-[12px] font-semibold text-slate-500">From<input type="date" value={f} onChange={(e) => setF(e.target.value)} className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-900" /></label>
+        <label className="text-[12px] font-semibold text-slate-500">To<input type="date" value={t} min={f} onChange={(e) => setT(e.target.value)} className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-900" /></label>
+      </div>
+      {days > 93 && <p className="mt-2 text-[12px] font-semibold text-red-700">Choose 93 days or less.</p>}
+      <div className="mt-4 flex justify-end gap-2">
+        <button type="button" onClick={() => setOpen(false)} className="h-10 rounded-full px-4 text-sm font-semibold text-slate-600">Cancel</button>
+        <button type="button" disabled={invalid} onClick={() => onApply(f, t)} className="h-10 rounded-full bg-[#FF8A05] px-5 text-sm font-bold text-white disabled:opacity-40">Apply{days && !invalid ? ` · ${days} day${days === 1 ? "" : "s"}` : ""}</button>
+      </div>
+    </div>}
+  </div>;
+}
+
+const IN_PROGRESS = ["going_to_standby", "standby", "passenger_verified", "trip_started", "passenger_picked_up"];
+const COLUMNS: { id: string; title: string; dot: string; test: (b: Booking) => boolean }[] = [
+  { id: "unassigned", title: "No driver", dot: "bg-red-500", test: (b) => !b.assignment && !["completed", "cancelled", "refunded"].includes(b.status) },
+  { id: "assigned", title: "Driver assigned", dot: "bg-sky-500", test: (b) => Boolean(b.assignment) && b.assignment!.currentStatus === "assigned" && b.status !== "completed" },
+  { id: "progress", title: "In progress", dot: "bg-orange-500", test: (b) => Boolean(b.assignment && IN_PROGRESS.includes(b.assignment.currentStatus)) },
+  { id: "done", title: "Completed", dot: "bg-emerald-500", test: (b) => b.status === "completed" || b.assignment?.currentStatus === "completed" },
+  { id: "closed", title: "Cancelled / no-show", dot: "bg-slate-400", test: (b) => ["cancelled", "refunded"].includes(b.status) || b.assignment?.currentStatus === "no_show" },
+];
+
+// Journeys grouped by where they are in the ride, one column each. Tap a card for details.
+function KanbanBoard({ bookings, drivers, onSelect }: { bookings: Booking[]; drivers: Driver[]; onSelect: (reference: string) => void }) {
+  const sorted = [...bookings].sort((a, b) => `${a.pickupDate} ${a.pickupTime}`.localeCompare(`${b.pickupDate} ${b.pickupTime}`));
+  const placed = new Set<string>();
+  const columns = COLUMNS.map((c) => ({ ...c, items: sorted.filter((b) => { if (placed.has(b.reference) || !c.test(b)) return false; placed.add(b.reference); return true; }) }));
+  return <div className="overflow-x-auto pb-2">
+    <div className="grid min-w-[1100px] grid-cols-5 gap-3">
+      {columns.map((c) => <section key={c.id} aria-label={c.title} className="flex min-h-80 flex-col rounded-[22px] bg-slate-100/80 p-2.5">
+        <header className="flex items-center justify-between px-2 py-2"><h3 className="flex items-center gap-2 text-sm font-black"><span className={`size-2 rounded-full ${c.dot}`} aria-hidden="true" />{c.title}</h3><span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-slate-600">{c.items.length}</span></header>
+        <div className="grid gap-2">
+          {c.items.length === 0 && <p className="px-2 py-6 text-center text-xs text-slate-400">Nothing here</p>}
+          {c.items.map((b) => { const d = drivers.find((x) => x.id === b.assignment?.driverId); return <button key={b.reference} type="button" onClick={() => onSelect(b.reference)} className={`grid gap-1.5 rounded-2xl border p-3 text-left text-sm shadow-sm transition ${cardStyles[b.attention.level]}`}>
+            <span className="flex items-center justify-between gap-2"><strong className="font-black">{b.reference}</strong><span className="text-xs font-bold text-slate-500">{formatDate(b.pickupDate, { day: "numeric", month: "short" })} · {b.pickupTime}</span></span>
+            <span className="line-clamp-2 text-slate-700">{b.pickup} → {b.dropoff}</span>
+            <span className="truncate text-xs text-slate-500">{b.customerName} · {b.vehicle.replaceAll("_", " ")}</span>
+            <span className="flex flex-wrap gap-1">
+              {d ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800">{d.fullName}{b.assignment && b.assignment.currentStatus !== "assigned" ? ` · ${statusNames[b.assignment.currentStatus] ?? b.assignment.currentStatus}` : ""}</span> : null}
+              {b.attention.level !== "normal" && b.attention.level !== "cancelled" && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">Needs attention</span>}
+              {b.paymentMethod === "cash" && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">Cash</span>}
+            </span>
+          </button>; })}
+        </div>
+      </section>)}
+    </div>
+  </div>;
 }
