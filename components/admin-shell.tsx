@@ -11,7 +11,7 @@ import {
   Users,
   Newspaper,
   Route,
-  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3 } from "lucide-react";
+  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3, ChevronDown, Grid2x2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -245,26 +245,40 @@ export default function AdminShell({
           {children}
         </section>
       </div>
-      <nav
-        aria-label="Mobile admin sections"
-        className="fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-50 grid grid-cols-5 gap-1 rounded-[28px] border border-white/80 bg-white/95 p-2 shadow-[0_14px_45px_rgba(33,23,38,.24)] backdrop-blur-xl md:hidden"
-      >
-        {tabs.map(({ href, mobileLabel, icon: Icon }) => {
-          const selected = isActive(pathname, href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              prefetch
-              aria-current={selected ? "page" : undefined}
-              className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-[21px] px-1 py-2.5 text-[10px] font-black transition-all duration-200 ${selected ? "bg-[#FFF0DF] text-[#D96F00]" : "text-slate-600 active:bg-slate-100"}`}
-            >
-              <Icon size={21} strokeWidth={selected ? 2.6 : 2.1} />
-              <span className="w-full truncate text-center">{mobileLabel}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      <MobileTabBar pathname={pathname} />
     </div>
   );
+}
+
+// Mobile bottom bar: the first four tabs plus "More" in one row. "More" expands the
+// sheet upward to show the rest; it closes again on tap or after picking a page.
+function MobileTabBar({ pathname }: { pathname: string }) {
+  const [open, setOpen] = useState(false);
+  const main = tabs.slice(0, 4);
+  const more = tabs.slice(4);
+  const moreActive = more.find((tab) => isActive(pathname, tab.href));
+  const item = (selected: boolean) => `flex min-w-0 flex-col items-center justify-center gap-1 rounded-[21px] px-1 py-2.5 text-[10px] font-black transition-all duration-200 ${selected ? "bg-[#FFF0DF] text-[#D96F00]" : "text-slate-600 active:bg-slate-100"}`;
+  const link = ({ href, mobileLabel, icon: Icon }: (typeof tabs)[number]) => {
+    const selected = isActive(pathname, href);
+    return <Link key={href} href={href} prefetch onClick={() => setOpen(false)} aria-current={selected ? "page" : undefined} className={item(selected)}>
+      <Icon size={21} strokeWidth={selected ? 2.6 : 2.1} />
+      <span className="w-full truncate text-center">{mobileLabel}</span>
+    </Link>;
+  };
+  const MoreIcon = open ? ChevronDown : moreActive?.icon ?? Grid2x2;
+  return <>
+    {open && <button type="button" aria-label="Close menu" onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/20 md:hidden" />}
+    <nav aria-label="Mobile admin sections" className="fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-50 rounded-[28px] border border-white/80 bg-white/95 p-2 shadow-[0_14px_45px_rgba(33,23,38,.24)] backdrop-blur-xl md:hidden">
+      <div id="admin-more-tabs" hidden={!open} className="mb-1 border-b border-slate-100 pb-1">
+        <div className="grid grid-cols-5 gap-1">{more.map(link)}</div>
+      </div>
+      <div className="grid grid-cols-5 gap-1">
+        {main.map(link)}
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls="admin-more-tabs" className={item(Boolean(moreActive) || open)}>
+          <MoreIcon size={21} strokeWidth={moreActive || open ? 2.6 : 2.1} />
+          <span className="w-full truncate text-center">{open ? "Less" : moreActive?.mobileLabel ?? "More"}</span>
+        </button>
+      </div>
+    </nav>
+  </>;
 }
