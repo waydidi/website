@@ -262,13 +262,14 @@ export default function AdminShell({
       </aside>
       <div className="min-w-0 flex-1 overflow-x-clip">
         <header className="sticky top-0 z-30 flex h-[72px] items-center gap-4 border-b border-slate-200/70 bg-white/95 px-4 backdrop-blur sm:px-8">
-          <h1 className="min-w-0 shrink-0 truncate text-[20px] font-semibold tracking-[-.01em] md:hidden">{title}</h1>
+          {/* Phones: the logo sits where desktop has the sidebar; the title is shown large below, like desktop. */}
+          <Link href="/admin" aria-label="Waydidi admin home" className="shrink-0 md:hidden"><WaydidiLogo className="admin-logo h-[46px] w-auto text-[#FF8A05]" /></Link>
           <div className="hidden flex-1 md:block"><PageSearch /></div>
           <button type="button" onClick={toggleDark} aria-pressed={dark} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"} className="ml-auto grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-white hover:bg-slate-50"><ThemeIcon size={20} /></button>
           <AvatarMenu />
         </header>
-        <div className="mx-auto max-w-[1600px] px-4 pt-6 sm:px-8">
-          <h1 className="hidden text-[28px] font-semibold tracking-[-.02em] md:block">{title}</h1>
+        <div className="mx-auto max-w-[1600px] px-4 pt-5 sm:px-8 md:pt-6">
+          <h1 className="text-[26px] font-semibold tracking-[-.02em] md:text-[28px]">{title}</h1>
         </div>
         <section className="admin-page-slot mx-auto min-h-[calc(100vh-72px)] max-w-[1600px] px-0 pb-32 md:pb-8">
           {children}
