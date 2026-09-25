@@ -77,7 +77,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
 
   // Price breakdown and requests, just above the total (up to four lines).
   const breakdown: [string, string][] = extras ? [
-    ...extras.addons.map((line): [string, string] => [line.label, `+THB ${line.amount.toLocaleString()}`]),
+    ...extras.addons.map((line): [string, string] => [line.label, line.amount > 0 ? `+THB ${line.amount.toLocaleString()}` : "Free"]),
     ...(extras.discount ? [[`Discount (${extras.discount.code})`, `-THB ${extras.discount.amount.toLocaleString()}`] as [string, string]] : []),
     ...(extras.memberDiscount ? [[extras.memberDiscount.label, `-THB ${extras.memberDiscount.amount.toLocaleString()}`] as [string, string]] : []),
     ...(extras.taxInvoice ? [["Tax invoice requested", fitText(latin(`${extras.taxInvoice.name} · Tax ID ${extras.taxInvoice.taxId}`) || `Tax ID ${extras.taxInvoice.taxId}`, regular, 9.5, 300)] as [string, string]] : []),

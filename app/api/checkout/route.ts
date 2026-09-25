@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { customerFromRequest } from "@/lib/customer-auth";
-import { bookingContacts, bookingMemberDiscounts, bookingSources, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
+import { bookingContacts, bookingFreeAddons, bookingMemberDiscounts, bookingSources, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
 import { and as andWhere, eq as eqWhere } from "drizzle-orm";
 import { normalizeCode } from "@/lib/promo";
 import { checkPromo, normalizePhone } from "@/lib/promo-db";
-import { memberTierStatus, tierDiscount, TIERS } from "@/lib/member-tier";
+import { memberTierStatus, tierDiscount, tierFreeAddons, TIERS, type Tier } from "@/lib/member-tier";
 import { addonsTotal } from "@/lib/addons";
 import { and, count, eq, gt, lt } from "drizzle-orm";
 import { env } from "cloudflare:workers";
@@ -365,13 +365,17 @@ export async function POST(request: Request) {
     // Member tier discount: automatic for signed-in members, taken from the fare
     // left after any promo code (so both apply).
     let memberApplied: { tier: string; percent: number; discount: number } | null = null;
+    let memberTier: Tier | null = null;
     if (account) {
       const { tier } = await memberTierStatus(account.customer.id).catch(() => ({ tier: TIERS[0] }));
+      memberTier = tier;
       const amount = tierDiscount(tier, total);
       if (amount > 0) { memberApplied = { tier: tier.id, percent: tier.percent, discount: amount }; total -= amount; }
     }
     // Add-ons are charged on top of the fare and are not discounted by promo codes.
-    total += addonsTotal(input.childSeats, input.exchangeStop);
+    // Diamond and Platinum members get some add-ons free.
+    const freeAddons = tierFreeAddons(memberTier, input.childSeats, input.exchangeStop);
+    total += addonsTotal(input.childSeats, input.exchangeStop, freeAddons);
     const reference = await uniqueBookingReference();
     const accessToken = recoveryToken;
     const now = new Date().toISOString();
@@ -493,6 +497,7 @@ export async function POST(request: Request) {
         .where(andWhere(eqWhere(customerBillingProfiles.customerId, account.customer.id), eqWhere(customerBillingProfiles.taxId, tax.taxId), eqWhere(customerBillingProfiles.name, tax.name))).limit(1).catch(() => []);
       if (!existing) await getDb().insert(customerBillingProfiles).values({ id: crypto.randomUUID(), customerId: account.customer.id, name: tax.name, taxId: tax.taxId, branch: tax.branch || "Head office", address: tax.address, createdAt: now, updatedAt: now }).catch(() => undefined);
     }
+    if (memberTier && (freeAddons.childSeats > 0 || freeAddons.exchangeStop)) await getDb().insert(bookingFreeAddons).values({ bookingReference: reference, tier: memberTier.id, ...freeAddons, createdAt: now }).onConflictDoNothing();
     if (memberApplied && account) await getDb().insert(bookingMemberDiscounts).values({ bookingReference: reference, customerId: account.customer.id, ...memberApplied, createdAt: now }).onConflictDoNothing();
     if (input.source) await getDb().insert(bookingSources).values({ bookingReference: reference, source: input.source, createdAt: now }).onConflictDoNothing().catch(() => undefined);
     if (account) await getDb().insert(customerBookingLinks).values({ bookingReference: reference, customerId: account.customer.id, createdAt: now }).onConflictDoNothing();

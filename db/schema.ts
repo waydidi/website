@@ -1022,3 +1022,13 @@ export const memberSpins = sqliteTable("member_spins", {
   createdAt: text("created_at").notNull(),
   expiresAt: text("expires_at").notNull(),
 });
+
+// Add-ons given free by the member's tier on a booking (Diamond: 1 child seat;
+// Platinum: 1 child seat + currency exchange stop). Receipts read this.
+export const bookingFreeAddons = sqliteTable("booking_free_addons", {
+  bookingReference: text("booking_reference").primaryKey(),
+  tier: text("tier").notNull(),
+  childSeats: integer("child_seats").notNull().default(0),
+  exchangeStop: integer("exchange_stop", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
+});

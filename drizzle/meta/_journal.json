@@ -288,6 +288,13 @@
       "when": 1790314623232,
       "tag": "0040_member_spins",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1790314910462,
+      "tag": "0041_booking_free_addons",
+      "breakpoints": true
     }
   ]
 }

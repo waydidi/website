@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { bookingMemberDiscounts, bookingTaxInvoices, promoRedemptions } from "@/db/schema";
+import { bookingFreeAddons, bookingMemberDiscounts, bookingTaxInvoices, promoRedemptions } from "@/db/schema";
 import { TIERS } from "@/lib/member-tier-rules";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "@/lib/addons";
 
@@ -10,6 +10,7 @@ const ADDONS_PRICED_FROM = "2026-09-24T14:30:00.000Z";
 export type BookingExtras = {
   discount: { code: string; amount: number } | null;
   memberDiscount: { label: string; amount: number } | null;
+  /** amount 0 = given free by the member tier (label says so). */
   addons: { label: string; amount: number }[];
   taxInvoice: { name: string; taxId: string; branch: string } | null;
 };
@@ -21,10 +22,13 @@ export async function bookingExtras(booking: { reference: string; childSeats: nu
   const [tax] = await getDb().select({ name: bookingTaxInvoices.name, taxId: bookingTaxInvoices.taxId, branch: bookingTaxInvoices.branch })
     .from(bookingTaxInvoices).where(eq(bookingTaxInvoices.bookingReference, booking.reference)).limit(1).catch(() => []);
   const [member] = await getDb().select().from(bookingMemberDiscounts).where(eq(bookingMemberDiscounts.bookingReference, booking.reference)).limit(1).catch(() => []);
+  const [free] = await getDb().select().from(bookingFreeAddons).where(eq(bookingFreeAddons.bookingReference, booking.reference)).limit(1).catch(() => []);
+  const tierName = free ? TIERS.find((t) => t.id === free.tier)?.name ?? "Member" : "";
   const addons: BookingExtras["addons"] = [];
   if (booking.createdAt >= ADDONS_PRICED_FROM) {
-    if (booking.childSeats > 0) addons.push({ label: `Child seat × ${booking.childSeats}`, amount: booking.childSeats * CHILD_SEAT_THB });
-    if ((booking.specialRequests ?? "").startsWith("Currency exchange stop requested")) addons.push({ label: "Currency exchange stop", amount: EXCHANGE_STOP_THB });
+    const freeSeats = Math.min(free?.childSeats ?? 0, booking.childSeats);
+    if (booking.childSeats > 0) addons.push({ label: `Child seat × ${booking.childSeats}${freeSeats ? ` (${freeSeats} free, ${tierName})` : ""}`, amount: (booking.childSeats - freeSeats) * CHILD_SEAT_THB });
+    if ((booking.specialRequests ?? "").startsWith("Currency exchange stop requested")) addons.push({ label: `Currency exchange stop${free?.exchangeStop ? ` (free, ${tierName})` : ""}`, amount: free?.exchangeStop ? 0 : EXCHANGE_STOP_THB });
   }
   return { discount: redemption ? { code: redemption.code, amount: redemption.discount } : null, memberDiscount: member ? { label: `${TIERS.find((t) => t.id === member.tier)?.name ?? "Member"} member discount (${member.percent}%)`, amount: member.discount } : null, addons, taxInvoice: tax ?? null };
 }
