@@ -323,6 +323,13 @@
       "when": 1790320683700,
       "tag": "0045_newsletter",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "6",
+      "when": 1790325687402,
+      "tag": "0046_driver_applications",
+      "breakpoints": true
     }
   ]
 }

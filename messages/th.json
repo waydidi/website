@@ -1174,5 +1174,9 @@
   "footer.travelAgencies": {
     "text": "สำหรับบริษัทท่องเที่ยว",
     "status": "machine"
+  },
+  "footer.drivers": {
+    "text": "ร่วมขับกับ Waydidi",
+    "status": "machine"
   }
 }

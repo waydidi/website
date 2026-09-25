@@ -11,6 +11,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/destinations`, lastModified: now, changeFrequency: "monthly", priority: .9 },
     ...publicPages.map(page => ({url:`${SITE_URL}/${page.slug}`,lastModified:now,changeFrequency:"monthly" as const,priority:.75})),
     ...destinations.map(place => ({url:`${SITE_URL}/destinations/${place.slug}`,lastModified:now,changeFrequency:"monthly" as const,priority:.8})),
+    { url: `${SITE_URL}/drivers`, lastModified: now, changeFrequency: "monthly", priority: .6 },
     { url: `${SITE_URL}/agencies`, lastModified: now, changeFrequency: "monthly", priority: .6 },
     { url: `${SITE_URL}/blog`, lastModified: now, changeFrequency: "weekly", priority: .8 },
     ...[...new Set(posts.flatMap(p => p.categories.map(categorySlug)))].map(slug => ({url:`${SITE_URL}/blog/category/${slug}`,lastModified:now,changeFrequency:"weekly" as const,priority:.6})),

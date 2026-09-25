@@ -1130,3 +1130,20 @@ export const newsletterSubscribers = sqliteTable("newsletter_subscribers", {
   source: text("source").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+// Driver applications from /drivers.
+export const driverApplications = sqliteTable("driver_applications", {
+  id: text("id").primaryKey(),
+  applicantType: text("applicant_type").notNull(), // individual | fleet
+  fullName: text("full_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  city: text("city").notNull(),
+  vehicle: text("vehicle").notNull(),
+  vehicleYear: text("vehicle_year"),
+  fleetSize: text("fleet_size"),
+  languages: text("languages"),
+  message: text("message"),
+  status: text("status").notNull().default("new"),
+  createdAt: text("created_at").notNull(),
+});

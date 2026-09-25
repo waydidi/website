@@ -292,5 +292,6 @@
   "copy.email": "Their email address",
   "copy.note": "They'll get the confirmation and trip reminders too. If you book while signed in for someone else, you get copies automatically.",
   "nav.blog": "Travel guides",
-  "footer.travelAgencies": "Travel agencies"
+  "footer.travelAgencies": "Travel agencies",
+  "footer.drivers": "Drive with Waydidi"
 }

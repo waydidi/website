@@ -53,6 +53,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
                 { label: t("footer.contactUs"), href: "/contact" },
                 { label: t("footer.safety"), href: "/safety-driver-standards" },
                 { label: t("footer.travelAgencies"), href: "/agencies" },
+                { label: t("footer.drivers"), href: "/drivers" },
               ]}
             />
           </div>

@@ -1174,5 +1174,9 @@
   "footer.travelAgencies": {
     "text": "旅行社合作",
     "status": "machine"
+  },
+  "footer.drivers": {
+    "text": "成为 Waydidi 司机",
+    "status": "machine"
   }
 }
