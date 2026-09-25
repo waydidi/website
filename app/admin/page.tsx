@@ -53,7 +53,7 @@ export default async function AdminOverviewPage() {
     { n: alerts.attention, label: plural(alerts.attention, "booking", "bookings") + " flagged as needing attention", href: "/admin/operations", icon: AlertTriangle, urgent: true },
     { n: alerts.operationsAlerts, label: "open operations " + plural(alerts.operationsAlerts, "alert", "alerts"), href: "/admin/operations", icon: CircleAlert, urgent: true },
     { n: alerts.changeRequests, label: plural(alerts.changeRequests, "change request", "change requests") + " waiting", href: "/admin/bookings", icon: ClipboardList, urgent: false },
-    { n: alerts.ticketsToArrange, label: "partner " + plural(alerts.ticketsToArrange, "ticket", "tickets") + " to arrange", href: "/admin/gifts", icon: Gift, urgent: false },
+    { n: alerts.ticketsToArrange, label: "partner " + plural(alerts.ticketsToArrange, "ticket", "tickets") + " to arrange", href: "/admin/gifts/mystery", icon: Gift, urgent: false },
     { n: alerts.agencyApplications, label: "new agency " + plural(alerts.agencyApplications, "application", "applications"), href: "/admin/agencies", icon: Building2, urgent: false },
     { n: alerts.driverApplications, label: "new driver " + plural(alerts.driverApplications, "application", "applications"), href: "/admin/drivers?tab=applications", icon: IdCard, urgent: false },
   ].filter((a) => a.n > 0);
@@ -106,7 +106,7 @@ export default async function AdminOverviewPage() {
 
       {/* Quick links */}
       <nav aria-label="Quick links" className="flex flex-wrap gap-2 pb-6">
-        {[["Bookings", "/admin/bookings"], ["Booking operations", "/admin/operations"], ["Fare management", "/admin/pricing"], ["Promotions", "/admin/promotions"], ["Tier gifts", "/admin/gifts"], ["Blog", "/admin/blog"]].map(([l, h]) => <Link key={h} href={h} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[13px] font-bold hover:border-[#FF8A05]">{l}</Link>)}
+        {[["Bookings", "/admin/bookings"], ["Booking operations", "/admin/operations"], ["Fare management", "/admin/pricing"], ["Promotions", "/admin/promotions"], ["Giveaways", "/admin/gifts"], ["Blog", "/admin/blog"]].map(([l, h]) => <Link key={h} href={h} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[13px] font-bold hover:border-[#FF8A05]">{l}</Link>)}
       </nav>
     </div>
   </main>;

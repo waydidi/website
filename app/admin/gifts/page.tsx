@@ -5,8 +5,7 @@ import { getDb } from "@/db";
 import { customers } from "@/db/schema";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import { adminGifts, GIFTS, giftInfo } from "@/lib/gifts";
-import { adminBoxes, listPrizes, partnerCodeCounts } from "@/lib/boxes";
-import { RewardsAdmin } from "@/components/rewards-admin";
+import { adminBoxes, listPrizes } from "@/lib/boxes";
 import { TIERS } from "@/lib/member-tier-rules";
 import { GiftsTable, type GiftRow } from "@/components/gifts-admin/gifts-table";
 
@@ -27,7 +26,7 @@ export default async function GiftsAdminPage() {
   const access = await requireWaydidiAdmin("/admin/gifts");
   if (!access.authorized) return <AdminKeyLogin configured={access.configured} />;
   const gifts = await adminGifts().catch(() => null);
-  const [prizes, boxes, counts] = await Promise.all([listPrizes().catch(() => []), adminBoxes().catch(() => []), partnerCodeCounts().catch(() => new Map())]);
+  const [prizes, boxes] = await Promise.all([listPrizes().catch(() => []), adminBoxes().catch(() => [])]);
   const prizeKind = new Map(prizes.map((p) => [p.id, p.kind]));
   const ticketBoxes = boxes.filter((b) => b.openedAt && (prizeKind.get(b.prizeId ?? "") === "partner_ticket" || b.fulfilment));
   const ids = [...new Set([...(gifts ?? []).map((g) => g.customerId), ...ticketBoxes.map((b) => b.customerId)])];
@@ -36,18 +35,14 @@ export default async function GiftsAdminPage() {
   const now = new Date().toISOString();
   const badge = (tier: string) => (tier.startsWith("box-") ? `${TIERS.find((t) => `box-${t.id}` === tier)?.name ?? ""} box` : TIERS.find((t) => t.id === tier)?.name ?? tier);
   const rows: GiftRow[] = (gifts ?? []).map((g) => ({ id: g.id, member: email.get(g.customerId) ?? g.customerId, gift: giftInfo(g.giftId).name, badge: badge(g.tier), issuedAt: g.issuedAt, expiresAt: g.expiresAt, usedRef: g.usedBookingReference, state: g.usedBookingReference ? "used" : g.expiresAt < now ? "expired" : "available" }));
-  const opened = boxes.filter((b) => b.openedAt).length;
-  const toArrange = ticketBoxes.filter((b) => b.fulfilment === "to_arrange").length;
   return <div className="px-4 pb-10 pt-4 sm:px-8">
     <p className="max-w-3xl text-[14px] text-slate-600">Gifts are issued automatically when a member reaches Gold ({GIFTS.child_seat.name}), Diamond ({GIFTS.exchange_stop.name}) or Platinum ({GIFTS.airport_transfer.name}). Each lasts 90 days and is used automatically at checkout.</p>
     <div className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
       <StatCard label="Gifts issued" value={rows.length} sub="All time" />
       <StatCard label="Available now" value={rows.filter((r) => r.state === "available").length} sub="Waiting to be used" />
-      <StatCard label="Used" value={rows.filter((r) => r.state === "used").length} sub={`${rows.filter((r) => r.state === "expired").length} expired`} />
-      <StatCard label="Tickets to arrange" value={toArrange} sub={`Mystery boxes opened: ${opened} of ${boxes.length}`} warn={toArrange > 0} />
+      <StatCard label="Used" value={rows.filter((r) => r.state === "used").length} sub="Applied at checkout" />
+      <StatCard label="Expired" value={rows.filter((r) => r.state === "expired").length} sub="Not used within 90 days" />
     </div>
     {!gifts ? <p className="mt-6 rounded-2xl bg-amber-50 p-5 text-amber-900">The member_gifts table isn&apos;t in the database yet.</p> : <GiftsTable rows={rows} />}
-    <h2 className="mt-10 text-[20px] font-semibold">Mystery prizes and partner tickets</h2>
-    <div className="mt-4"><RewardsAdmin prizes={prizes} codeCounts={Object.fromEntries(counts)} tickets={ticketBoxes.map((b) => ({ id: b.id, member: email.get(b.customerId) ?? b.customerId, tier: b.tier, prizeName: b.prizeName, openedAt: b.openedAt, voucherCode: b.voucherCode, fulfilment: b.fulfilment, expiresAt: b.expiresAt }))} /></div>
   </div>;
 }

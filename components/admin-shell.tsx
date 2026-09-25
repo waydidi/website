@@ -82,9 +82,9 @@ const tabs = [
   },
   {
     href: "/admin/gifts",
-    label: "Tier gifts",
-    mobileLabel: "Gifts",
-    title: "Tier gifts",
+    label: "Giveaways",
+    mobileLabel: "Giveaways",
+    title: "Giveaways",
     icon: Gift,
   },
   {
@@ -125,7 +125,10 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
   ] },
   { title: "Marketing", items: [
     { href: "/admin/promotions", label: "Promotions", icon: TicketPercent },
-    { href: "/admin/gifts", label: "Tier gifts", icon: Gift },
+    { href: "/admin/gifts", label: "Giveaways", icon: Gift, children: [
+      { href: "/admin/gifts", label: "Tier gifts", match: (p) => p === "/admin/gifts" },
+      { href: "/admin/gifts/mystery", label: "Mystery gifts" },
+    ] },
     { href: "/admin/blog", label: "Blog", icon: Newspaper },
   ] },
   { title: "People", items: [
@@ -188,7 +191,7 @@ export default function AdminShell({
   }
   const isOpen = (g: NavGroup) => openGroups[g.href] ?? groupActive(g, pathname, tab);
   const active = tabs.find((t) => isActive(pathname, t.href)) ?? tabs[0];
-  const title = pathname.startsWith("/admin/settings") ? "Settings" : pathname.startsWith("/admin/journeys") ? "Journey details" : pathname.startsWith("/admin/calendar") ? "Calendar" : active.title;
+  const title = pathname.startsWith("/admin/settings") ? "Settings" : pathname === "/admin/gifts" ? "Tier gifts" : pathname.startsWith("/admin/gifts/mystery") ? "Mystery gifts" : pathname.startsWith("/admin/journeys") ? "Journey details" : pathname.startsWith("/admin/calendar") ? "Calendar" : active.title;
   return (
     <div className="flex min-h-screen bg-[#F4F5F7] text-[#15161C]">
       <aside className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-slate-200/80 bg-[#FBFBFC] transition-[width] duration-300 md:flex ${collapsed ? "w-[76px]" : "w-[272px]"}`}>
