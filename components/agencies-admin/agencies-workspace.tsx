@@ -1,9 +1,9 @@
 "use client";
 
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ArrowUpDown, Download, Eye, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export type AgencyRow = { id: string; agencyName: string; contactName: string; email: string; phone: string; country: string; website: string | null; monthlyTransfers: string; message: string | null; status: string; createdAt: string };
 type Tab = "all" | "new" | "contacted" | "approved" | "declined";
@@ -107,13 +107,12 @@ export function AgenciesWorkspace({ rows, subscribers }: { rows: AgencyRow[]; su
       </table>
     </div>
 
-    <Sheet open={viewing != null} onOpenChange={(o) => { if (!o) setViewing(null); }}>
-      <SheetContent side="bottom" showCloseButton={false} className="max-h-[92dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-[#15161C] sm:px-8 lg:left-1/2 lg:max-w-xl lg:-translate-x-1/2">
-        <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" aria-hidden="true" />
-        <SheetHeader className="flex-row items-center justify-between px-0 pb-2 pt-5 text-left">
-          <div className="min-w-0"><SheetTitle className="truncate text-[24px] font-semibold">{viewing?.agencyName}</SheetTitle><SheetDescription>{viewing && `${viewing.country} · applied ${day(viewing.createdAt)}`}</SheetDescription></div>
+    <Dialog open={viewing != null} onOpenChange={(o) => { if (!o) setViewing(null); }}>
+      <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-[#15161C] sm:max-w-xl">
+        <DialogHeader className="flex-row items-center justify-between gap-3 text-left">
+          <div className="min-w-0"><DialogTitle className="truncate text-[24px] font-semibold">{viewing?.agencyName}</DialogTitle><DialogDescription>{viewing && `${viewing.country} · applied ${day(viewing.createdAt)}`}</DialogDescription></div>
           <button type="button" onClick={() => setViewing(null)} aria-label="Close" className="grid size-11 shrink-0 place-items-center rounded-full bg-slate-100 hover:bg-orange-50"><X size={22} /></button>
-        </SheetHeader>
+        </DialogHeader>
         {viewing && <div className="grid gap-4 py-3 text-[15px]">
           <dl className="grid grid-cols-2 gap-3">
             {[["Contact", viewing.contactName], ["Email", viewing.email], ["Phone", viewing.phone], ["Transfers / month", viewing.monthlyTransfers], ["Website", viewing.website || "N/A"], ["Country", viewing.country]].map(([k, v]) =>
@@ -126,7 +125,7 @@ export function AgenciesWorkspace({ rows, subscribers }: { rows: AgencyRow[]; su
               <button key={s} type="button" disabled={busy} onClick={() => setStatus(viewing, s)} className="h-10 rounded-full border border-slate-200 px-4 font-medium hover:border-[#FF8A05] disabled:opacity-50">Mark {PILL[s][0].toLowerCase()}</button>)}
           </div>
         </div>}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   </div>;
 }

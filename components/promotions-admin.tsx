@@ -1,9 +1,9 @@
 "use client";
 
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Eye, X } from "lucide-react";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { listPromotions } from "@/lib/promo-admin";
 
 type Row = Awaited<ReturnType<typeof listPromotions>>[number];
@@ -92,22 +92,21 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
       </table>
     </div>
 
-    <Sheet open={viewing != null} onOpenChange={(open) => { if (!open) setViewing(null); }}>
-      <SheetContent side="bottom" showCloseButton={false} className="max-h-[92dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-[#1f1726] data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 lg:left-1/2 lg:max-w-xl lg:-translate-x-1/2">
-        <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" aria-hidden="true" />
-        <SheetHeader className="flex-row items-center justify-between px-0 pb-2 pt-5 text-left">
+    <Dialog open={viewing != null} onOpenChange={(open) => { if (!open) setViewing(null); }}>
+      <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-[#15161C] sm:max-w-xl">
+        <DialogHeader className="flex-row items-center justify-between gap-3 text-left">
           <div className="min-w-0">
-            <SheetTitle className="truncate text-[26px] font-semibold tracking-[-.03em]">{viewing?.code}</SheetTitle>
-            <SheetDescription className="truncate text-slate-500">{viewing?.title}</SheetDescription>
+            <DialogTitle className="truncate text-[26px] font-semibold tracking-[-.03em]">{viewing?.code}</DialogTitle>
+            <DialogDescription className="truncate text-slate-500">{viewing?.title}</DialogDescription>
           </div>
           <button type="button" onClick={() => setViewing(null)} className="grid size-12 shrink-0 place-items-center rounded-full bg-slate-100 transition hover:bg-orange-50" aria-label="Close"><X size={25} /></button>
-        </SheetHeader>
+        </DialogHeader>
         {viewing && <dl className="grid gap-3 py-4">
           <div className="rounded-2xl bg-slate-50 p-4"><dt className="text-[13px] font-semibold text-slate-500">Period</dt><dd className="mt-1 text-[18px] font-bold">{viewing.startsAt ? new Date(viewing.startsAt).toLocaleDateString("en-GB") : "Now"} – {viewing.endsAt ? new Date(viewing.endsAt).toLocaleDateString("en-GB") : "open"}</dd></div>
           <div className="rounded-2xl bg-slate-50 p-4"><dt className="text-[13px] font-semibold text-slate-500">Uses</dt><dd className="mt-1 text-[18px] font-bold">{viewing.uses}{viewing.maxUses != null ? ` / ${viewing.maxUses}` : " (no limit)"}</dd></div>
         </dl>}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
     {error && !form && <p role="alert" className="mt-3 text-sm font-semibold text-red-700">{error}</p>}
 
     {form && <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={form.id ? "Edit promotion" : "New promotion"}>

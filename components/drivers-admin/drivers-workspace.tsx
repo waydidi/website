@@ -6,7 +6,6 @@ import { useMemo, useState } from "react";
 import { DriverCreateForm } from "@/components/driver-create-form";
 import { DriverDeleteButton } from "@/components/driver-delete-button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { ApplicationRow, DriverManagement, DriverRow } from "@/lib/driver-management";
 
 type Row = DriverRow | ApplicationRow;
@@ -153,13 +152,12 @@ export function DriversWorkspace({ data, initialTab }: { data: DriverManagement;
     </Dialog>
 
     {/* Application details */}
-    <Sheet open={viewing != null} onOpenChange={(o) => { if (!o) setViewing(null); }}>
-      <SheetContent side="bottom" showCloseButton={false} className="max-h-[92dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-[#15161C] sm:px-8 lg:left-1/2 lg:max-w-xl lg:-translate-x-1/2">
-        <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" aria-hidden="true" />
-        <SheetHeader className="flex-row items-center justify-between px-0 pb-2 pt-5 text-left">
-          <div className="min-w-0"><SheetTitle className="truncate text-[24px] font-semibold">{viewing?.name}</SheetTitle><SheetDescription>{viewing && `${viewing.applicantType === "fleet" ? "Fleet owner" : "Individual driver"} · applied ${day(viewing.joined)}`}</SheetDescription></div>
+    <Dialog open={viewing != null} onOpenChange={(o) => { if (!o) setViewing(null); }}>
+      <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-[#15161C] sm:max-w-xl">
+        <DialogHeader className="flex-row items-center justify-between gap-3 text-left">
+          <div className="min-w-0"><DialogTitle className="truncate text-[24px] font-semibold">{viewing?.name}</DialogTitle><DialogDescription>{viewing && `${viewing.applicantType === "fleet" ? "Fleet owner" : "Individual driver"} · applied ${day(viewing.joined)}`}</DialogDescription></div>
           <button type="button" onClick={() => setViewing(null)} aria-label="Close" className="grid size-11 shrink-0 place-items-center rounded-full bg-slate-100 hover:bg-orange-50"><X size={22} /></button>
-        </SheetHeader>
+        </DialogHeader>
         {viewing && <div className="grid gap-4 py-3 text-[15px]">
           <dl className="grid grid-cols-2 gap-3">
             {[["Phone", viewing.phone], ["Email", viewing.email], ["Area", viewing.area], ["Vehicle", `${VEHICLE[viewing.vehicle] ?? viewing.vehicle}${viewing.vehicleYear ? ` (${viewing.vehicleYear})` : ""}`], ["Languages", viewing.languages || "N/A"], ["Fleet size", viewing.fleetSize || "N/A"]].map(([k, v]) =>
@@ -173,7 +171,7 @@ export function DriversWorkspace({ data, initialTab }: { data: DriverManagement;
             {viewing.status === "approved" && <button type="button" onClick={() => { setViewing(null); setAdding(true); }} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 font-semibold text-white"><Plus size={16} />Add as driver</button>}
           </div>
         </div>}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   </div>;
 }
