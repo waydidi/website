@@ -3,14 +3,12 @@
 import {
   BookOpen,
   MapPinned,
-  PanelLeftClose,
-  PanelLeftOpen,
   Truck,
   Users,
   Newspaper,
-  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3, ChevronDown, Grid2x2 } from "lucide-react";
+  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronRight, Grid2x2, Search } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
 
@@ -100,6 +98,73 @@ const tabs = [
 
 ];
 
+type NavLink = { href: string; label: string; icon?: typeof BookOpen; match?: (pathname: string, tab: string | null) => boolean };
+type NavGroup = NavLink & { children?: NavLink[] };
+
+const reportTab = (tab: string) => (p: string, t: string | null) => p.startsWith("/admin/reports") && (t ?? "revenue") === tab;
+
+// Sidebar: groups with sub-pages open as dropdowns (ShopZen-style).
+const SECTIONS: { title?: string; items: NavGroup[] }[] = [
+  { items: [
+    { href: "/admin", label: "Overview", icon: LayoutDashboard },
+    { href: "/admin/bookings", label: "Bookings", icon: BookOpen, children: [
+      { href: "/admin/bookings", label: "All bookings" },
+      { href: "/admin/calendar", label: "Calendar" },
+    ] },
+    { href: "/admin/operations", label: "Operations", icon: Truck },
+    { href: "/admin/reports", label: "Reports", icon: BarChart3, children: [
+      { href: "/admin/reports", label: "Revenue", match: reportTab("revenue") },
+      { href: "/admin/reports?tab=payouts", label: "Driver payouts", match: reportTab("payouts") },
+      { href: "/admin/reports?tab=discounts", label: "Discounts", match: reportTab("discounts") },
+    ] },
+    { href: "/admin/pricing", label: "Fare management", icon: MapPinned, children: [
+      { href: "/admin/pricing", label: "Areas" },
+      { href: "/admin/hourly", label: "Hourly" },
+      { href: "/admin/routes", label: "Routes" },
+    ] },
+  ] },
+  { title: "Marketing", items: [
+    { href: "/admin/promotions", label: "Promotions", icon: TicketPercent },
+    { href: "/admin/gifts", label: "Member gifts", icon: Gift },
+    { href: "/admin/blog", label: "Blog", icon: Newspaper },
+  ] },
+  { title: "People", items: [
+    { href: "/admin/users", label: "Users", icon: Users },
+    { href: "/admin/driver-applications", label: "Driver applications", icon: IdCard },
+    { href: "/admin/agencies", label: "Agency applications", icon: Building2 },
+  ] },
+];
+
+const linkActive = (l: NavLink, p: string, t: string | null) => { const h = l.href.split("?")[0]; return l.match ? l.match(p, t) : h === "/admin" ? p === h : p.startsWith(h); };
+const groupActive = (g: NavGroup, p: string, t: string | null) => (g.children ? g.children.some((c) => linkActive(c, p, t)) : linkActive(g, p, t));
+const ALL_PAGES = SECTIONS.flatMap((s) => s.items.flatMap((g) => (g.children ? g.children.map((c) => ({ href: c.href, label: `${g.label} · ${c.label}` })) : [{ href: g.href, label: g.label }])));
+
+function PageSearch() {
+  const router = useRouter();
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const results = q.trim() ? ALL_PAGES.filter((x) => x.label.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 6) : [];
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "/" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement)) { e.preventDefault(); document.getElementById("admin-search")?.focus(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const go = (href: string) => { setQ(""); setOpen(false); router.push(href); };
+  return <div className="relative w-full max-w-[460px]">
+    <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+    <input id="admin-search" type="search" value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+      onKeyDown={(e) => { if (e.key === "Enter" && results[0]) go(results[0].href); if (e.key === "Escape") (e.target as HTMLInputElement).blur(); }}
+      placeholder="Search pages…" aria-label="Search admin pages" autoComplete="off"
+      className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-14 text-[15px] outline-none placeholder:text-slate-500 focus:border-[#FF8A05] focus:ring-2 focus:ring-[#FF8A05]/15" />
+    <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[12px] text-slate-500">/</kbd>
+    {open && results.length > 0 && <ul className="absolute inset-x-0 top-12 z-50 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+      {results.map((r) => <li key={r.href}><button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => go(r.href)} className="w-full px-4 py-2.5 text-left text-[14px] hover:bg-slate-50">{r.label}</button></li>)}
+    </ul>}
+  </div>;
+}
+
 export default function AdminShell({
   children,
 }: {
@@ -107,120 +172,74 @@ export default function AdminShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const tab = useSearchParams()?.get("tab") ?? null;
   const [collapsed, setCollapsed] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   useEffect(() => {
-    setCollapsed(
-      window.localStorage.getItem("waydidi-admin-sidebar") === "collapsed",
-    );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCollapsed(window.localStorage.getItem("waydidi-admin-sidebar") === "collapsed");
   }, []);
   function toggleSidebar() {
     setCollapsed((current) => {
       const next = !current;
-      window.localStorage.setItem(
-        "waydidi-admin-sidebar",
-        next ? "collapsed" : "expanded",
-      );
+      window.localStorage.setItem("waydidi-admin-sidebar", next ? "collapsed" : "expanded");
       return next;
     });
   }
-  const active = tabs.find((tab) => isActive(pathname, tab.href)) ?? tabs[0];
+  const isOpen = (g: NavGroup) => openGroups[g.href] ?? groupActive(g, pathname, tab);
+  const active = tabs.find((t) => isActive(pathname, t.href)) ?? tabs[0];
+  const title = pathname.startsWith("/admin/journeys") ? "Journey details" : pathname.startsWith("/admin/calendar") ? "Calendar" : active.title;
   return (
-    <div className="flex min-h-screen bg-[#f3f5f8] text-[#211726]">
-      <aside
-        className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-slate-200 bg-white py-5 transition-[width,padding] duration-300 md:flex ${collapsed ? "w-[82px] px-3" : "w-[250px] px-5"}`}
-      >
-        <div
-          className={`flex items-center transition-all duration-300 ${collapsed ? "justify-center" : "justify-between"}`}
-        >
-          <div
-            className="pointer-events-none flex items-center overflow-hidden text-[#FF8A05]"
-            aria-label="Waydidi"
-          >
-            <span
-              className="relative block h-12 transition-[width] duration-300"
-              style={{ width: collapsed ? 40 : 126 }}
-            >
-              <WaydidiLogo
-                className={`absolute left-0 top-0 h-[53px] w-auto transition-all duration-200 ${collapsed ? "scale-90 opacity-0" : "scale-100 opacity-100"}`}
-              />
-              <WaydidiMark
-                className={`absolute left-1/2 top-1/2 size-10 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${collapsed ? "scale-100 opacity-100" : "scale-75 opacity-0"}`}
-              />
-            </span>
-          </div>
-          <button
-            onClick={toggleSidebar}
-            className={`grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 text-slate-500 transition-all duration-300 hover:bg-orange-50 hover:text-[#D96F00] ${collapsed ? "absolute left-[62px] top-6 bg-white shadow-sm" : ""}`}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? (
-              <PanelLeftOpen size={18} />
-            ) : (
-              <PanelLeftClose size={18} />
-            )}
-          </button>
+    <div className="flex min-h-screen bg-[#F4F5F7] text-[#15161C]">
+      <aside className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-slate-200/80 bg-[#FBFBFC] transition-[width] duration-300 md:flex ${collapsed ? "w-[76px]" : "w-[272px]"}`}>
+        <div className={`flex h-[72px] items-center border-b border-slate-200/70 ${collapsed ? "justify-center px-2" : "justify-between px-5"}`}>
+          {collapsed ? <WaydidiMark className="size-9 text-[#FF8A05]" /> : <WaydidiLogo className="h-[46px] w-auto text-[#FF8A05]" />}
+          {!collapsed && <button onClick={toggleSidebar} aria-label="Collapse sidebar" title="Collapse sidebar" className="grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#15161C]"><ChevronLeft size={16} /></button>}
         </div>
-        <nav
-          aria-label="Admin sections"
-          className="mt-8 space-y-2 text-sm font-bold"
-        >
-          {tabs.map(({ href, label, icon: Icon }) => {
-            const selected = isActive(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                prefetch
-                className={`flex min-h-12 items-center gap-3 overflow-hidden rounded-2xl px-3 transition-all duration-300 ${collapsed ? "justify-center" : "justify-start"} ${selected ? "bg-[#FFF0DF] text-[#D96F00]" : "text-slate-600 hover:bg-slate-50 hover:text-[#211726]"}`}
-                aria-current={selected ? "page" : undefined}
-                title={label}
-              >
-                <Icon className="shrink-0" size={19} />
-                <span
-                  className={`whitespace-nowrap transition-all duration-300 ${collapsed ? "max-w-0 -translate-x-2 opacity-0" : "max-w-[180px] translate-x-0 opacity-100"}`}
-                >
-                  {label}
-                </span>
-              </Link>
-            );
-          })}
+        {collapsed && <button onClick={toggleSidebar} aria-label="Expand sidebar" title="Expand sidebar" className="mx-auto mt-3 grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#15161C]"><ChevronRight size={16} /></button>}
+        <nav aria-label="Admin sections" className="flex-1 overflow-y-auto px-3 py-4">
+          {SECTIONS.map((section, si) => <div key={si} className={si ? "mt-5" : ""}>
+            {section.title && !collapsed && <p className="mb-1.5 px-3 text-[14px] font-semibold text-slate-800">{section.title}</p>}
+            {section.title && collapsed && <div className="mx-3 mb-2 border-t border-slate-200" />}
+            <ul className="grid gap-0.5">
+              {section.items.map((g) => {
+                const Icon = g.icon ?? BookOpen;
+                const on = groupActive(g, pathname, tab);
+                const row = `flex h-10 w-full items-center gap-3 rounded-[10px] px-3 text-[15px] transition-colors ${on ? "bg-[#FFF0DF] font-semibold text-[#C96100]" : "text-slate-700 hover:bg-slate-100/80 hover:text-[#15161C]"} ${collapsed ? "justify-center" : ""}`;
+                if (!g.children || collapsed) return <li key={g.href}><Link href={g.children ? g.children[0].href : g.href} prefetch aria-current={on ? "page" : undefined} title={g.label} className={row}><Icon size={18} strokeWidth={on ? 2.4 : 1.9} className="shrink-0" />{!collapsed && <span className="truncate">{g.label}</span>}</Link></li>;
+                const open = isOpen(g);
+                const id = `nav-${g.href.replaceAll("/", "-")}`;
+                return <li key={g.href}>
+                  <button type="button" onClick={() => setOpenGroups((o) => ({ ...o, [g.href]: !open }))} aria-expanded={open} aria-controls={id} className={row}>
+                    <Icon size={18} strokeWidth={on ? 2.4 : 1.9} className="shrink-0" />
+                    <span className="flex-1 truncate text-left">{g.label}</span>
+                    <ChevronDown size={16} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                  </button>
+                  <ul id={id} hidden={!open} className="relative mb-1 ml-[21px] mt-0.5 grid gap-0.5 border-l border-slate-200 pl-3">
+                    {g.children.map((c) => { const cOn = linkActive(c, pathname, tab); return <li key={c.href}>
+                      <Link href={c.href} prefetch aria-current={cOn ? "page" : undefined} className={`flex h-9 items-center rounded-lg px-3 text-[14.5px] ${cOn ? "font-semibold text-[#15161C]" : "text-slate-600 hover:text-[#15161C]"}`}>{cOn && <span className="-ml-[19px] mr-3 h-5 w-[3px] rounded-full bg-[#FF8A05]" aria-hidden="true" />}{c.label}</Link>
+                    </li>; })}
+                  </ul>
+                </li>;
+              })}
+            </ul>
+          </div>)}
         </nav>
-        <div
-          className={`mt-auto flex items-center overflow-hidden border-t border-slate-200 pt-5 transition-all duration-300 ${collapsed ? "justify-center" : "justify-start px-2"}`}
-        >
-          <div
-            className="grid size-11 shrink-0 place-items-center rounded-full bg-[#211726] text-sm font-black text-white"
-            aria-label="Waydidi administrator profile"
-          >
-            WD
-          </div>
-          <div
-            className={`min-w-0 whitespace-nowrap transition-all duration-300 ${collapsed ? "ml-0 max-w-0 -translate-x-2 opacity-0" : "ml-3 max-w-[150px] translate-x-0 opacity-100"}`}
-          >
-            <p className="truncate text-sm font-black">Waydidi Admin</p>
-            <p className="text-xs text-slate-500">Administrator</p>
-          </div>
+        <div className={`flex items-center gap-3 border-t border-slate-200/70 p-4 ${collapsed ? "justify-center" : ""}`}>
+          <div className="grid size-10 shrink-0 place-items-center rounded-full bg-[#15161C] text-[13px] font-bold text-white" aria-hidden="true">WD</div>
+          {!collapsed && <div className="min-w-0"><p className="truncate text-[14px] font-semibold">Waydidi Admin</p><p className="text-[12px] text-slate-500">Administrator</p></div>}
         </div>
       </aside>
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 flex h-[82px] items-center justify-between bg-[#FF8A05] px-5 text-white shadow-sm sm:px-8">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[.15em] text-white/75">
-              Waydidi operations
-            </p>
-            <h1 className="truncate text-xl font-black sm:text-2xl">
-              {active.title}
-            </h1>
-          </div>
-          <div
-            className="grid size-11 shrink-0 place-items-center rounded-full border-2 border-white/70 bg-white text-sm font-black text-[#D96F00]"
-            aria-label="Waydidi administrator profile"
-          >
-            WD
-          </div>
+        <header className="sticky top-0 z-30 flex h-[72px] items-center gap-4 border-b border-slate-200/70 bg-white/95 px-4 backdrop-blur sm:px-8">
+          <h1 className="min-w-0 shrink-0 truncate text-[20px] font-semibold tracking-[-.01em] md:hidden">{title}</h1>
+          <div className="hidden flex-1 md:block"><PageSearch /></div>
+          <div className="ml-auto grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-[13px] font-bold text-[#C96100]" aria-label="Waydidi administrator">WD</div>
         </header>
-        <section className="admin-page-slot mx-auto min-h-[calc(100vh-82px)] max-w-[1600px] px-0 pb-32 md:pb-8">
+        <div className="mx-auto max-w-[1600px] px-4 pt-6 sm:px-8">
+          <h1 className="hidden text-[28px] font-semibold tracking-[-.02em] md:block">{title}</h1>
+        </div>
+        <section className="admin-page-slot mx-auto min-h-[calc(100vh-72px)] max-w-[1600px] px-0 pb-32 md:pb-8">
           {children}
         </section>
       </div>
