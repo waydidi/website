@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
+import { Eye, X } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { listPromotions } from "@/lib/promo-admin";
 
 type Row = Awaited<ReturnType<typeof listPromotions>>[number];
@@ -30,8 +31,7 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
   const router = useRouter();
   const [form, setForm] = useState<Form | null>(null);
   const [error, setError] = useState("");
-  const [shown, setShown] = useState<Set<string>>(new Set());
-  const toggleShown = (id: string) => setShown((cur) => { const next = new Set(cur); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const [viewing, setViewing] = useState<Row | null>(null);
   const [saving, setSaving] = useState(false);
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => (f ? { ...f, [key]: value } : f));
 
@@ -68,7 +68,7 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr>{["Code", "Offer", "Rules", "Discount given", "Status", ""].map((h) => <th key={h} className="px-4 py-3 font-semibold">{h}</th>)}</tr></thead>
         <tbody>
           {promotions.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">No promotions yet.</td></tr>}
-          {promotions.map((p) => <Fragment key={p.id}><tr className="border-t border-slate-100 align-top">
+          {promotions.map((p) => <tr key={p.id} className="border-t border-slate-100 align-top">
             <td className="px-4 py-3 font-bold tracking-wide">{p.code}{p.showOnHomepage && <span className="mt-1 block text-[11px] font-semibold text-[#C96100]">Homepage</span>}</td>
             <td className="px-4 py-3">{p.title}<span className="mt-1 block text-slate-500">{p.discountType === "percent" ? `${p.discountValue}%${p.maxDiscount ? ` up to ${thb(p.maxDiscount)}` : ""}` : thb(p.discountValue)}</span></td>
             <td className="px-4 py-3 text-slate-600">{[p.minFare ? `Min ${thb(p.minFare)}` : null, p.service !== "any" ? (p.service === "hourly" ? "Hourly only" : p.service === "return" ? "Round trips only" : "Transfers only") : null, p.firstBookingOnly ? "First booking" : null, `${p.perCustomerLimit}× per customer`].filter(Boolean).join(" · ")}</td>
@@ -83,20 +83,31 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
             </td>
             <td className="px-4 py-3 text-right">
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => toggleShown(p.id)} aria-expanded={shown.has(p.id)} aria-label={`${shown.has(p.id) ? "Hide" : "Show"} period and uses for ${p.code}`} title="Period and uses" className="grid size-8 place-items-center rounded-full border border-slate-300 text-slate-600 hover:border-[#FF8A05] hover:text-[#C96100]">{shown.has(p.id) ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                <button type="button" onClick={() => setViewing(p)} aria-label={`Period and uses for ${p.code}`} title="Period and uses" className="grid size-8 place-items-center rounded-full border border-slate-300 text-slate-600 hover:border-[#FF8A05] hover:text-[#C96100]"><Eye size={15} /></button>
                 <button type="button" onClick={() => { setError(""); setForm(toForm(p)); }} className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-bold">Edit</button>
               </div>
             </td>
-          </tr>
-          {shown.has(p.id) && <tr className="bg-slate-50 text-slate-600"><td colSpan={6} className="px-4 py-3">
-            <span className="font-semibold text-slate-800">Period:</span> {p.startsAt ? new Date(p.startsAt).toLocaleDateString("en-GB") : "Now"} – {p.endsAt ? new Date(p.endsAt).toLocaleDateString("en-GB") : "open"}
-            <span className="mx-3 text-slate-300">|</span>
-            <span className="font-semibold text-slate-800">Uses:</span> {p.uses}{p.maxUses != null && ` / ${p.maxUses}`}
-          </td></tr>}
-          </Fragment>)}
+          </tr>)}
         </tbody>
       </table>
     </div>
+
+    <Sheet open={viewing != null} onOpenChange={(open) => { if (!open) setViewing(null); }}>
+      <SheetContent side="bottom" showCloseButton={false} className="max-h-[92dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-[#1f1726] data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 lg:left-1/2 lg:max-w-xl lg:-translate-x-1/2">
+        <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" aria-hidden="true" />
+        <SheetHeader className="flex-row items-center justify-between px-0 pb-2 pt-5 text-left">
+          <div className="min-w-0">
+            <SheetTitle className="truncate text-[26px] font-semibold tracking-[-.03em]">{viewing?.code}</SheetTitle>
+            <SheetDescription className="truncate text-slate-500">{viewing?.title}</SheetDescription>
+          </div>
+          <button type="button" onClick={() => setViewing(null)} className="grid size-12 shrink-0 place-items-center rounded-full bg-slate-100 transition hover:bg-orange-50" aria-label="Close"><X size={25} /></button>
+        </SheetHeader>
+        {viewing && <dl className="grid gap-3 py-4">
+          <div className="rounded-2xl bg-slate-50 p-4"><dt className="text-[13px] font-semibold text-slate-500">Period</dt><dd className="mt-1 text-[18px] font-bold">{viewing.startsAt ? new Date(viewing.startsAt).toLocaleDateString("en-GB") : "Now"} – {viewing.endsAt ? new Date(viewing.endsAt).toLocaleDateString("en-GB") : "open"}</dd></div>
+          <div className="rounded-2xl bg-slate-50 p-4"><dt className="text-[13px] font-semibold text-slate-500">Uses</dt><dd className="mt-1 text-[18px] font-bold">{viewing.uses}{viewing.maxUses != null ? ` / ${viewing.maxUses}` : " (no limit)"}</dd></div>
+        </dl>}
+      </SheetContent>
+    </Sheet>
     {error && !form && <p role="alert" className="mt-3 text-sm font-semibold text-red-700">{error}</p>}
 
     {form && <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={form.id ? "Edit promotion" : "New promotion"}>
