@@ -9,6 +9,7 @@ import {
   Truck,
   XCircle,
   List,
+  Columns3,
 } from "lucide-react";
 import { getDb } from "@/db";
 import { bookings, bookingTaxInvoices } from "@/db/schema";
@@ -44,7 +45,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const q = await searchParams;
   const view = q.view === "bin" ? "bin" : "active";
   const type = q.type === "hourly" ? "hourly" : q.type === "tour" ? "tour" : "transfer";
-  const mode = q.mode === "calendar" ? "calendar" : "list";
+  const mode = q.mode === "calendar" ? "calendar" : q.mode === "board" ? "board" : "list";
   await backfillUnifiedPaymentFields();
 
   const allRows = await getDb()
@@ -143,10 +144,10 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
             {([["transfer", "Transfer"], ["hourly", "By the hour"], ["tour", "Tour"]] as const).map(([id, label]) => <Link key={id} role="tab" aria-selected={type === id} href={`/admin/bookings?type=${id}&mode=${mode}`} className={`h-9 rounded-lg px-4 text-[15px] leading-9 ${type === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}>{label}</Link>)}
           </div>
           <div role="tablist" aria-label="View" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
-            {([["list", "List", List], ["calendar", "Calendar", CalendarDays]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}><Icon size={16} />{label}</Link>)}
+            {([["list", "List", List], ["calendar", "Calendar", CalendarDays], ["board", "Board", Columns3]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}><Icon size={16} />{label}</Link>)}
           </div>
         </div>
-        {mode === "calendar" ? <NotionCalendar serviceType={type} /> :
+        {mode !== "list" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> :
         <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1150px] text-left text-sm">
