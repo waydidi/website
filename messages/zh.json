@@ -1166,5 +1166,9 @@
   "copy.note": {
     "text": "对方也会收到确认邮件和行程提醒。如果您登录后为他人预订，您会自动收到副本。",
     "status": "machine"
+  },
+  "nav.blog": {
+    "text": "旅行指南",
+    "status": "machine"
   }
 }

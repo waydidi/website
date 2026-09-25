@@ -290,5 +290,6 @@
   "faq.meeting.4.a": "Airport pickups include 60 minutes of free waiting after your flight lands, even if it's delayed. Other pickups include 15 minutes of free waiting.",
   "copy.toggle": "Send a copy of the booking to someone else",
   "copy.email": "Their email address",
-  "copy.note": "They'll get the confirmation and trip reminders too. If you book while signed in for someone else, you get copies automatically."
+  "copy.note": "They'll get the confirmation and trip reminders too. If you book while signed in for someone else, you get copies automatically.",
+  "nav.blog": "Travel guides"
 }

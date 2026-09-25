@@ -28,6 +28,7 @@ export const aboutHref = "/about";
 // Shown as top-level links after the dropdowns.
 export const navLinks = [
   { labelKey: "nav.destinations", href: "/destinations" },
+  { labelKey: "nav.blog", href: "/blog" },
   { labelKey: "nav.about", href: aboutHref },
 ] as const satisfies readonly { labelKey: MessageKey; href: string }[];
 
