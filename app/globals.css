@@ -383,3 +383,5 @@ html.admin-dark body, html.admin-dark .admin-page-slot { color: #FFFFFF; }
 /* The Waydidi logo turns white in dark mode. */
 html.admin-dark .admin-logo { color: #FFFFFF !important; }
 html.admin-dark :is(input, select, textarea)::placeholder { color: #6B6F7B; }
+/* Selected sidebar and bottom-bar items: white text and icon in dark mode. */
+html.admin-dark :is(aside, nav[aria-label="Mobile admin sections"]) :is(.text-\[\#C96100\], .text-\[\#D96F00\]) { color: #FFFFFF !important; }
