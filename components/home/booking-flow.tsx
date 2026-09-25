@@ -49,7 +49,8 @@ import { BookingDetailsStep } from "./booking-details-step";
 import { SiteHeader } from "@/components/site-header";
 import { useCurrency } from "@/components/use-currency";
 import { inclusionLines, type Inclusions } from "@/lib/route-inclusions";
-import { DEMO_DROPOFF, DEMO_PICKUP, DEMO_PRICES, fetchDemoRoute, isDemoRoute } from "@/lib/demo-route";
+import { DEMO_PICKUP, demoTripFor, fetchDemoRoute } from "@/lib/demo-route";
+import { resolveInclusions, ROUTE_RULES } from "@/lib/route-inclusions";
 import { formatTimeLabel } from "./dates";
 import { formatDate, translate, type Locale, type MessageKey, type Messages } from "@/lib/i18n";
 import enMessages from "@/messages/en.json";
@@ -770,12 +771,15 @@ export function BookingFlow({
       }
       setPricingMessage("");
       setQuoteRequest(true);
-      const demo = serviceType === "transfer" && isDemoRoute(booking.pickup, booking.dropoff);
+      const trip = serviceType === "transfer" ? demoTripFor(booking.pickup, booking.dropoff) : null;
+      const demo = Boolean(trip);
       setDemoRoute(demo);
       if (demo) {
         setFareQuote(null);
         goToStage("vehicle");
-        const route = await fetchDemoRoute();
+        const route = await fetchDemoRoute(trip);
+        const prices = trip!.prices;
+        const demoInclusions = resolveInclusions({ lat: DEMO_PICKUP.latitude, lng: DEMO_PICKUP.longitude }, { lat: trip!.dropoff.latitude, lng: trip!.dropoff.longitude }, ROUTE_RULES);
         setFareQuote({
           quoteId: "demo",
           area: { id: "demo", name: "Prototype", color: "#FF8A05", pricingType: "demo" },
@@ -783,8 +787,9 @@ export function BookingFlow({
           durationSeconds: route.durationSeconds,
           path: route.path,
           pickup: DEMO_PICKUP,
-          dropoff: DEMO_DROPOFF,
-          prices: Object.fromEntries(Object.entries(DEMO_PRICES).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
+          dropoff: trip!.dropoff,
+          inclusions: demoInclusions,
+          prices: Object.fromEntries(Object.entries(prices).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
           expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
         });
         // Prototype round trip: the return leg reuses the sample route and prices.
@@ -796,16 +801,17 @@ export function BookingFlow({
             distanceMeters: route.distanceMeters,
             durationSeconds: route.durationSeconds,
             path: [...route.path].reverse(),
-            pickup: DEMO_DROPOFF,
+            pickup: trip!.dropoff,
             dropoff: DEMO_PICKUP,
-            prices: Object.fromEntries(Object.entries(DEMO_PRICES).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
+            inclusions: demoInclusions,
+            prices: Object.fromEntries(Object.entries(prices).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
             expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
           });
           setQuoteSummary({
             currency: "THB",
             outbound: journey("demo", booking.pickup, booking.dropoff, booking.date, booking.time),
             return: journey("demo-return", booking.dropoff, booking.pickup, returnDate, returnTime),
-            prices: Object.fromEntries(Object.entries(DEMO_PRICES).map(([id, total]) => [id, { outbound: total, return: total, total: total * 2 }])),
+            prices: Object.fromEntries(Object.entries(prices).map(([id, total]) => [id, { outbound: total, return: total, total: total * 2 }])),
           });
         } else {
           setReturnFareQuote(null);
