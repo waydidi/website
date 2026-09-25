@@ -29,7 +29,7 @@ type Booking = {
   total: number;
   status: string;
 };
-type Driver = { id: string; fullName: string; phone: string };
+type Driver = { id: string; fullName: string; phone: string; status?: string };
 type Assignment = {
   id: string;
   bookingReference: string;
@@ -76,6 +76,8 @@ const money = (n: number) => `฿${n.toLocaleString("en-US")}`;
 export default function JourneyDetails({ reference }: { reference: string }) {
   const [booking, setBooking] = useState<Booking | null>(null),
     [driver, setDriver] = useState<Driver | null>(null),
+    [drivers, setDrivers] = useState<Driver[]>([]),
+    [chosenDriver, setChosenDriver] = useState(""),
     [assignment, setAssignment] = useState<Assignment | null>(null),
     [events, setEvents] = useState<Event[]>([]),
     [latestLocation, setLatestLocation] = useState<JourneyLocation | null>(null),
@@ -92,7 +94,7 @@ export default function JourneyDetails({ reference }: { reference: string }) {
   const load = useCallback(async () => {
     const [or, dr] = await Promise.all([
       fetch("/api/admin/operations", { cache: "no-store" }),
-      fetch("/api/admin/dispatch", { cache: "no-store" }),
+      fetch("/api/admin/driver-costs", { cache: "no-store" }),
     ]);
     const o = await or.json(),
       d = await dr.json();
@@ -105,6 +107,7 @@ export default function JourneyDetails({ reference }: { reference: string }) {
         (x: Assignment) => x.bookingReference === reference && !x.revokedAt,
       ) ?? null;
     setBooking(b);
+    setDrivers(o.drivers);
     setAssignment(a);
     setDriver(
       a ? (o.drivers.find((x: Driver) => x.id === a.driverId) ?? null) : null,
@@ -132,7 +135,7 @@ export default function JourneyDetails({ reference }: { reference: string }) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/admin/dispatch", {
+      const response = await fetch("/api/admin/driver-costs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -229,8 +232,23 @@ export default function JourneyDetails({ reference }: { reference: string }) {
               <Info label="Revenue" value={money(booking.total)} />
               <Info label="Status" value={booking.status} />
             </div>
+            <h2 className="mt-7 text-xl font-black">Driver information</h2>
+            {!assignment && (
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-xs font-black uppercase text-amber-800">No driver assigned</p>
+                {booking.status === "confirmed" ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <select aria-label="Choose driver" value={chosenDriver} onChange={(e) => setChosenDriver(e.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3">
+                      <option value="">Choose driver</option>
+                      {drivers.filter((d) => (d.status ?? "active") === "active").map((d) => <option key={d.id} value={d.id}>{d.fullName} · {d.phone}</option>)}
+                    </select>
+                    <button disabled={busy || !chosenDriver} onClick={async () => { await review({ action: "assign", bookingReference: booking.reference, driverId: chosenDriver }); setChosenDriver(""); }} className="rounded-full bg-[#FF8A05] px-5 font-bold text-white disabled:opacity-40">Assign</button>
+                  </div>
+                ) : <p className="mt-1 text-sm text-amber-900">Drivers can be assigned once the booking is confirmed.</p>}
+              </div>
+            )}
             {assignment && (
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
                 <div>
                   <p className="text-xs font-black uppercase text-emerald-700">
                     Assigned driver

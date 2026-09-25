@@ -116,7 +116,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <Stat label="Driver cost" value={thb(total.driverCost)} />
           <Stat label="Margin" value={thb(total.margin)} sub="revenue − driver cost" />
         </div>
-        {total.costMissing > 0 && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[13px] font-semibold text-amber-900">{total.costMissing} trip{total.costMissing === 1 ? " has" : "s have"} no driver cost set yet, so driver cost and margin are incomplete. Set costs in <Link href="/admin/dispatch" className="underline">Driver dispatch</Link>.</p>}
+        {total.costMissing > 0 && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[13px] font-semibold text-amber-900">{total.costMissing} trip{total.costMissing === 1 ? " has" : "s have"} no driver cost set yet, so driver cost and margin are incomplete. Set costs in each journey&apos;s Driver information (<Link href="/admin/operations" className="underline">Operations</Link> → eye icon).</p>}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex gap-1">{(["day", "month"] as const).map((b) => <Link key={b} href={`?${qs({ by: b })}`} className={`rounded-full px-3 py-1.5 text-[13px] font-bold ${by === b ? "bg-[#FFF0DF] text-[#C96100]" : "text-slate-500"}`}>By {b}</Link>)}</div>
@@ -134,7 +134,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <Stat label="Owed to drivers" value={thb(payoutTotals.owed)} />
           <Stat label="Paid" value={thb(payoutTotals.paid)} />
           <Stat label="Still to pay" value={thb(payoutTotals.unpaid)} />
-          <Stat label="Trips without a cost" value={String(payoutTotals.missing)} tone={payoutTotals.missing ? "warn" : undefined} sub={payoutTotals.missing ? "set them in Driver dispatch" : undefined} />
+          <Stat label="Trips without a cost" value={String(payoutTotals.missing)} tone={payoutTotals.missing ? "warn" : undefined} sub={payoutTotals.missing ? "set them on each journey page" : undefined} />
         </div>
         <div className="flex justify-end"><a href={`/api/admin/reports/export?${new URLSearchParams({ type: "payouts", from, to })}`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-2 text-[13px] font-bold"><Download size={15} aria-hidden="true" />Export payouts (CSV)</a></div>
         {payouts.length === 0 ? <p className="rounded-2xl bg-white p-8 text-center text-slate-500">No trips with a driver assigned in this period.</p>
@@ -156,7 +156,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <span className="tabular-nums">{t.cost == null ? <span className="font-semibold text-amber-700">cost not set</span> : <>{thb(t.cost)} {t.status === "paid" ? <span className="text-emerald-700">✓</span> : ""}</>}</span>
             </li>)}</ul>
             {g.unpaid > 0 && <div className="mt-3 border-t border-slate-100 pt-3"><MarkPaid driverId={g.driverId} week={g.week} amount={thb(g.unpaid)} /></div>}
-            {g.costMissing > 0 && <p className="mt-2 text-[12px] font-semibold text-amber-700">{g.costMissing === 1 ? "1 trip without a cost isn't" : `${g.costMissing} trips without a cost aren't`} included. Set the cost in Driver dispatch first.</p>}
+            {g.costMissing > 0 && <p className="mt-2 text-[12px] font-semibold text-amber-700">{g.costMissing === 1 ? "1 trip without a cost isn't" : `${g.costMissing} trips without a cost aren't`} included. Set the cost on the journey page first.</p>}
           </li>)}</ul>}
       </>}
     </div>

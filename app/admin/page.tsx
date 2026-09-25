@@ -49,7 +49,7 @@ export default async function AdminOverviewPage() {
   const o = await adminOverview();
   const { alerts } = o;
   const ALERTS = [
-    { n: alerts.unassignedSoon, label: plural(alerts.unassignedSoon, "ride", "rides") + " in the next 24h with no driver", href: "/admin/dispatch", icon: UserX, urgent: true },
+    { n: alerts.unassignedSoon, label: plural(alerts.unassignedSoon, "ride", "rides") + " in the next 24h with no driver", href: "/admin/operations", icon: UserX, urgent: true },
     { n: alerts.attention, label: plural(alerts.attention, "booking", "bookings") + " flagged as needing attention", href: "/admin/operations", icon: AlertTriangle, urgent: true },
     { n: alerts.operationsAlerts, label: "open operations " + plural(alerts.operationsAlerts, "alert", "alerts"), href: "/admin/operations", icon: CircleAlert, urgent: true },
     { n: alerts.changeRequests, label: plural(alerts.changeRequests, "change request", "change requests") + " waiting", href: "/admin/bookings", icon: ClipboardList, urgent: false },

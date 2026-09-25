@@ -16,7 +16,6 @@ import {
   Plus,
   RefreshCw,
   Route,
-  Send,
   ShieldCheck,
   Truck,
   X,
@@ -118,7 +117,6 @@ export default function OperationsWorkspace({ email }: { email: string }) {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState("");
   const [filter, setFilter] = useState("active");
-  const [assignDriver, setAssignDriver] = useState<Record<string, string>>({});
   const [latestLink, setLatestLink] = useState<{
     reference: string;
     url: string;
@@ -256,13 +254,6 @@ export default function OperationsWorkspace({ email }: { email: string }) {
             Bookings
           </a>
           <a
-            href="/admin/dispatch"
-            className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"
-          >
-            <Send size={17} />
-            Driver dispatch
-          </a>
-          <a
             href="/admin/operations"
             className="flex shrink-0 items-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-[#D96F00]"
           >
@@ -274,7 +265,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
             className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"
           >
             <MapPinned size={17} />
-            Pricing areas
+            Fare management
           </a>
         </nav>
         <section className="mt-6 grid gap-5">
@@ -477,45 +468,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                                 <Eye size={16} />
                               </Link>
                               {!assignment && (
-                                <div className="flex gap-2">
-                                  <select
-                                    value={
-                                      assignDriver[booking.reference] ?? ""
-                                    }
-                                    onChange={(event) =>
-                                      setAssignDriver({
-                                        ...assignDriver,
-                                        [booking.reference]: event.target.value,
-                                      })
-                                    }
-                                    className="h-9 rounded-xl border border-slate-200 px-2"
-                                  >
-                                    <option value="">Choose driver</option>
-                                    {data?.drivers
-                                      .filter(
-                                        (item) => item.status === "active",
-                                      )
-                                      .map((item) => (
-                                        <option key={item.id} value={item.id}>
-                                          {item.fullName}
-                                        </option>
-                                      ))}
-                                  </select>
-                                  <button
-                                    disabled={!assignDriver[booking.reference]}
-                                    onClick={() =>
-                                      action({
-                                        action: "assign",
-                                        bookingReference: booking.reference,
-                                        driverId:
-                                          assignDriver[booking.reference],
-                                      })
-                                    }
-                                    className="rounded-full bg-[#FF8A05] px-4 text-xs font-bold text-white disabled:opacity-40"
-                                  >
-                                    Assign
-                                  </button>
-                                </div>
+                                <Link href={`/admin/journeys/${encodeURIComponent(booking.reference)}`} className="rounded-full bg-[#FF8A05] px-4 py-2 text-xs font-bold text-white">Assign</Link>
                               )}
                             </div>
                           </td>

@@ -26,6 +26,7 @@ export async function POST(request:Request){
   const input=await request.json() as {action?:string;bookingReference?:string;driverId?:string;assignmentId?:string;fullName?:string;phone?:string;email?:string;agreedDriverCost?:number;additionalCosts?:number;paymentStatus?:string;paymentReference?:string;notes?:string};
   const now=new Date().toISOString();
 
+  if(input.action==="assign_driver"||input.action==="create_driver")return NextResponse.json({error:"Assign drivers from the journey's Driver information section."},{status:400});
   if(input.action==="create_driver"){
     const fullName=input.fullName?.trim()??"",phone=input.phone?.trim()??"",email=input.email?.trim().toLowerCase()??"";
     if(fullName.length<2||fullName.length>100||!phoneValid(phone)||(email&&!emailValid(email)))return NextResponse.json({error:"Enter a valid driver name, phone number, and email."},{status:400});
