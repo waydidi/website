@@ -4,9 +4,9 @@ import handler from "vinext/server/app-router-entry";
 import { runOperationsAutomation } from "../lib/operations-automation";
 
 interface Env {
-  ASSETS: Fetcher;
+  ASSETS?: Fetcher;
   DB: D1Database;
-  IMAGES: {
+  IMAGES?: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
         output(options: { format: string; quality: number }): Promise<{ response(): Response }>;
@@ -31,13 +31,20 @@ const worker = {
     const url = new URL(request.url);
 
     if (url.pathname === "/_vinext/image") {
+      // Without the ASSETS binding (not set on this deployment) the optimizer can't read
+      // files, so send the browser to the original image instead of failing with a 500.
+      if (!env.ASSETS) {
+        const src = (url.searchParams.get("url") ?? "").replaceAll("\\", "/");
+        if (!src.startsWith("/") || src.startsWith("//")) return new Response("Bad image URL", { status: 400 });
+        return Response.redirect(new URL(src, url.origin).toString(), 302);
+      }
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {
         fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
-        transformImage: async (body, { width, format, quality }) => {
-          const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
+        transformImage: env.IMAGES ? async (body, { width, format, quality }) => {
+          const result = await env.IMAGES!.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
           return result.response();
-        },
+        } : undefined,
       }, allowedWidths);
     }
 
