@@ -12,7 +12,7 @@ const FALLBACK_PATH: [number, number][] = [
 ];
 
 // Prototype fares in THB; not live pricing.
-export const DEMO_PRICES: Record<string, number> = { economy_sedan: 1500, comfort_bmw: 2300, comfort_suv: 2600, premium_minivan: 3300 };
+export const DEMO_PRICES: Record<string, number> = { economy_sedan: 1400, comfort_bmw: 2000, comfort_suv: 1700, premium_minivan: 2400 };
 
 export function isDemoRoute(pickup: string, dropoff: string) {
   return /suvarnabhumi|\bbkk\b/i.test(pickup) && /hilton/i.test(dropoff) && /pattaya/i.test(dropoff);
