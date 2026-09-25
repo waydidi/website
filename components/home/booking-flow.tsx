@@ -1307,7 +1307,6 @@ export function BookingFlow({
             <Link href="/" className="inline-flex text-white" aria-label={t("nav.home")}>
               <WaydidiLogo className="h-[47px] w-auto sm:h-[58px]" />
             </Link>
-            <Progress stage={stage} inHeader />
           </header>
         )}
 
@@ -2095,52 +2094,6 @@ function SheetCounter({
           <Plus size={19} />
         </button>
       </span>
-    </div>
-  );
-}
-function Progress({
-  stage,
-  inHeader = false,
-}: {
-  stage: Stage;
-  inHeader?: boolean;
-}) {
-  const active = stage === "vehicle" ? 1 : stage === "details" ? 2 : stage === "payment" ? 3 : stage === "review" ? 4 : 5;
-  const steps = ["Select ride", "Details", "Payment", "Review"];
-  return (
-    <div
-      className={`${inHeader ? "ml-auto w-[min(520px,calc(100vw-120px))]" : "mx-auto max-w-3xl"} flex items-start justify-end`}
-    >
-      {steps.map(
-        (label, index) => (
-          <div
-            key={label}
-            className="flex min-w-0 flex-1 items-start last:flex-none"
-          >
-            <span className="flex shrink-0 flex-col items-center">
-              <span
-                className={`grid ${inHeader ? "size-7 text-xs" : "size-8 text-sm"} place-items-center rounded-full font-bold ${inHeader ? (index + 1 <= active ? "bg-ink text-white" : "bg-white/45 text-ink/80") : index + 1 <= active ? "bg-brand text-white" : "bg-slate-100 text-slate-500"}`}
-              >
-                {index + 1 < active ? (
-                  <Check size={inHeader ? 14 : 16} />
-                ) : (
-                  index + 1
-                )}
-              </span>
-              <span
-                className={`${inHeader ? "mt-1 text-[10px]" : "mt-1.5 text-xs"} hidden whitespace-nowrap font-semibold sm:block ${inHeader ? (index + 1 <= active ? "text-ink" : "text-ink/80") : index + 1 <= active ? "text-ink" : "text-slate-400"}`}
-              >
-                {label}
-              </span>
-            </span>
-            {index < steps.length - 1 && (
-              <span
-                className={`${inHeader ? "mx-2 mt-3.5 sm:mx-2.5" : "mx-2 mt-4 sm:mx-3"} h-0.5 min-w-5 flex-1 ${inHeader ? (index + 1 < active ? "bg-ink" : "bg-ink/20") : index + 1 < active ? "bg-brand" : "bg-slate-200"}`}
-              />
-            )}
-          </div>
-        ),
-      )}
     </div>
   );
 }
