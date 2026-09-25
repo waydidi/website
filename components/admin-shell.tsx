@@ -11,7 +11,7 @@ import {
   Users,
   Newspaper,
   Route,
-  TicketPercent, Gift, Building2, IdCard, LayoutDashboard } from "lucide-react";
+  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -27,6 +27,13 @@ const tabs = [
     mobileLabel: "Overview",
     title: "Overview",
     icon: LayoutDashboard,
+  },
+  {
+    href: "/admin/reports",
+    label: "Reports",
+    mobileLabel: "Reports",
+    title: "Reports",
+    icon: BarChart3,
   },
   {
     href: "/admin/bookings",
