@@ -29,6 +29,10 @@ import { DriverCreateForm } from "@/components/driver-create-form";
 import { DriverDeleteButton } from "@/components/driver-delete-button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+// The side panel with journey details is switched off for now (bookings open on their
+// own page). Typed as boolean so the hidden code is still type-checked.
+const SHOW_DETAIL_PANEL: boolean = false;
+
 type Booking = {
   reference: string;
   customerName: string;
@@ -533,7 +537,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
               </div>
             </section>
           </div>
-          {false && (
+          {SHOW_DETAIL_PANEL && (
             <aside className="h-fit rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-5">
               {selectedBooking ? (
                 <>

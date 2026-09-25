@@ -4,8 +4,8 @@ import handler from "vinext/server/app-router-entry";
 import { runOperationsAutomation } from "../lib/operations-automation";
 
 interface Env {
-  ASSETS?: Fetcher;
-  DB: D1Database;
+  ASSETS?: { fetch(request: Request): Promise<Response> };
+  DB: unknown; // D1 binding; queries go through getDb() in db/index.ts
   IMAGES?: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -38,9 +38,10 @@ const worker = {
         if (!src.startsWith("/") || src.startsWith("//")) return new Response("Bad image URL", { status: 400 });
         return Response.redirect(new URL(src, url.origin).toString(), 302);
       }
+      const assets = env.ASSETS;
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {
-        fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
+        fetchAsset: (path) => assets.fetch(new Request(new URL(path, request.url))),
         transformImage: env.IMAGES ? async (body, { width, format, quality }) => {
           const result = await env.IMAGES!.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
           return result.response();

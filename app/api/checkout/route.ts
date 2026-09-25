@@ -4,7 +4,7 @@ import { bookingContacts, bookingFreeAddons, bookingMemberDiscounts, bookingSour
 import { and as andWhere, eq as eqWhere } from "drizzle-orm";
 import { normalizeCode } from "@/lib/promo";
 import { checkPromo, normalizePhone } from "@/lib/promo-db";
-import { freeAddonsWithGifts, listMemberGifts, useGift } from "@/lib/gifts";
+import { claimGift, freeAddonsWithGifts, listMemberGifts, releaseGifts } from "@/lib/gifts";
 import { isAirportPickup } from "@/lib/waiting-policy";
 import { memberTierStatus, tierDiscount, tierFreeAddons, TIERS, type Tier } from "@/lib/member-tier";
 import { addonsTotal } from "@/lib/addons";
@@ -385,6 +385,21 @@ export async function POST(request: Request) {
     // Nothing to pay (e.g. a free transfer gift with no add-ons): no card payment needed.
     if (total <= 0) { total = 0; input.paymentMethod = "cash"; }
     const reference = await uniqueBookingReference();
+    // Claim every gift this booking uses before saving it, so a second tab or device
+    // can't use the same gift at the same time.
+    const giftIds = [
+      ...freeAddons.usedGifts.map((id) => voucher(id)?.id).filter((id): id is string => Boolean(id)),
+      ...(promoApplied?.promoId.startsWith("gift:") ? [promoApplied.promoId.slice(5)] : []),
+    ];
+    for (const giftId of giftIds) {
+      if (!(await claimGift(giftId, reference))) {
+        await releaseGifts(reference);
+        return NextResponse.json(
+          { code: "GIFT_UNAVAILABLE", error: "One of your gifts was just used on another booking. Please check your price and try again.", field: "promoCode", retryable: true },
+          { status: 409 },
+        );
+      }
+    }
     const accessToken = recoveryToken;
     const now = new Date().toISOString();
     const tripPin = await tripPinForReference(reference);
@@ -506,8 +521,6 @@ export async function POST(request: Request) {
       if (!existing) await getDb().insert(customerBillingProfiles).values({ id: crypto.randomUUID(), customerId: account.customer.id, name: tax.name, taxId: tax.taxId, branch: tax.branch || "Head office", address: tax.address, createdAt: now, updatedAt: now }).catch(() => undefined);
     }
     if (freeAddons.childSeats > 0 || freeAddons.exchangeStop) await getDb().insert(bookingFreeAddons).values({ bookingReference: reference, tier: `${memberTier?.id ?? "bronze"}${freeAddons.usedGifts.length ? "+gift" : ""}`, childSeats: freeAddons.childSeats, exchangeStop: freeAddons.exchangeStop, createdAt: now }).onConflictDoNothing();
-    for (const id of freeAddons.usedGifts) { const g = voucher(id); if (g) await useGift(g.id, reference); }
-    if (promoApplied?.promoId.startsWith("gift:")) await useGift(promoApplied.promoId.slice(5), reference);
     if (memberApplied && account) await getDb().insert(bookingMemberDiscounts).values({ bookingReference: reference, customerId: account.customer.id, ...memberApplied, createdAt: now }).onConflictDoNothing();
     if (input.source) await getDb().insert(bookingSources).values({ bookingReference: reference, source: input.source, createdAt: now }).onConflictDoNothing().catch(() => undefined);
     if (account) await getDb().insert(customerBookingLinks).values({ bookingReference: reference, customerId: account.customer.id, createdAt: now }).onConflictDoNothing();

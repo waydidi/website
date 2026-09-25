@@ -59,7 +59,10 @@ function detailRow(label: string, value: string) {
   return `<tr><td style="padding:12px 0;border-bottom:1px solid #edf0f4;color:#8793a6;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;vertical-align:top">${escapeHtml(label)}</td><td style="padding:12px 0 12px 20px;border-bottom:1px solid #edf0f4;color:#211726;font-size:15px;font-weight:700;line-height:1.45;text-align:right;vertical-align:top">${escapeHtml(value)}</td></tr>`;
 }
 
-async function resend(payload: Record<string, unknown>, idempotencyKey: string) {
+/** Outcome of sending one email. */
+export type EmailDelivery = { status: "sent" | "failed" | "pending_configuration" };
+
+async function resend(payload: Record<string, unknown>, idempotencyKey: string): Promise<EmailDelivery> {
   if (!env.RESEND_API_KEY || !env.BOOKING_FROM_EMAIL) return { status: "pending_configuration" };
   try {
     const response = await fetch("https://api.resend.com/emails", {
@@ -166,7 +169,7 @@ export async function sendOperationsAlert(booking: {
   pickupDate: string; pickupTime: string; passengers: number; luggage: number; vehicle: string; total: number; paymentMethod: string;
   returnPickup?: string | null; returnDropoff?: string | null; returnDate?: string | null; returnTime?: string | null;
 }) {
-  if (!env.BOOKING_ALERT_EMAIL) return { status: "pending_configuration" };
+  if (!env.BOOKING_ALERT_EMAIL) return { status: "pending_configuration" } as EmailDelivery;
   const payment = booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : "Paid online";
   const returnRows = booking.returnDate && booking.returnTime
     ? `${detailRow("Return pickup", booking.returnPickup ?? booking.dropoff)}${detailRow("Return drop-off", booking.returnDropoff ?? booking.pickup)}${detailRow("Return date & time", displayDate(booking.returnDate, booking.returnTime))}`
@@ -244,7 +247,7 @@ export async function sendDriverTripReminder(input: TripReminderInput & { to: st
 }
 
 export async function sendLateJourneyAlert(input: TripReminderInput & { alertType: string; title: string; details: string }) {
-  if (!env.BOOKING_ALERT_EMAIL) return { status: "pending_configuration" };
+  if (!env.BOOKING_ALERT_EMAIL) return { status: "pending_configuration" } as EmailDelivery;
   const html = reminderShell(
     "Operations alert",
     input.title,

@@ -71,12 +71,16 @@ export default function BookingLookup() {
     [vehicleId, setVehicleId] = useState("economy_sedan"),
     [changeReason, setChangeReason] = useState("");
   async function load() {
-    const r = await fetch("/api/bookings/manage", { cache: "no-store" });
+    const r = await fetch("/api/bookings/manage?probe=1", { cache: "no-store" });
     if (!r.ok) {
       setData(null);
       return;
     }
-    const value = (await r.json()) as ManageData;
+    const value = (await r.json()) as ManageData | { booking: null };
+    if (!value.booking) {
+      setData(null);
+      return;
+    }
     setData(value);
     setDate(value.booking.pickupDate);
     setTime(value.booking.pickupTime);

@@ -13,6 +13,10 @@ import { tripOwnerKey } from "@/lib/trip-access";
 
 export async function GET(request: Request) {
   const booking = await managedBooking(request);
+  // ?probe=1: the page asking "is there a saved session?" on load. No session is a normal
+  // answer then, not an error, so the browser console stays clean.
+  if (!booking && new URL(request.url).searchParams.get("probe") === "1")
+    return NextResponse.json({ booking: null }, { headers: { "Cache-Control": "no-store" } });
   if (!booking)
     return NextResponse.json(
       { error: "Your management session expired." },
