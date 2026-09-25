@@ -82,9 +82,9 @@ const tabs = [
   },
   {
     href: "/admin/gifts",
-    label: "Member gifts",
+    label: "Tier gifts",
     mobileLabel: "Gifts",
-    title: "Member gifts",
+    title: "Tier gifts",
     icon: Gift,
   },
   {
@@ -125,7 +125,7 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
   ] },
   { title: "Marketing", items: [
     { href: "/admin/promotions", label: "Promotions", icon: TicketPercent },
-    { href: "/admin/gifts", label: "Member gifts", icon: Gift },
+    { href: "/admin/gifts", label: "Tier gifts", icon: Gift },
     { href: "/admin/blog", label: "Blog", icon: Newspaper },
   ] },
   { title: "People", items: [

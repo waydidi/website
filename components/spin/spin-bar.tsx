@@ -16,7 +16,7 @@ const point = (i: number, r = 16) => {
 
 function WheelIcon() {
   return <svg viewBox="0 0 40 40" className="size-10 shrink-0" aria-hidden="true">
-    {[0, 1, 2, 3, 4, 5].map((i) => <path key={i} d={`M20 21 L${point(i)} A16 16 0 0 1 ${point(i + 1)} Z`} fill={i % 2 ? "#8EA0FA" : "#3D5AF1"} />)}
+    {[0, 1, 2, 3, 4, 5].map((i) => <path key={i} d={`M20 21 L${point(i)} A16 16 0 0 1 ${point(i + 1)} Z`} fill={["#E53935", "#FB8C00", "#FDD835", "#43A047", "#1E88E5", "#8E24AA"][i]} />)}
     <circle cx="20" cy="21" r="5" fill="#fff" />
     <path d="M16 1 h8 l-4 7 z" fill="#15161C" />
   </svg>;

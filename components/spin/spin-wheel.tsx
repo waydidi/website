@@ -6,6 +6,10 @@ import { X } from "lucide-react";
 import { SPIN_MIN_FARE, SPIN_PRIZES, SPIN_VALID_DAYS, type SpinPrize } from "@/lib/spin-rules";
 
 const SLICE = 360 / SPIN_PRIZES.length;
+// Rainbow: red → violet around the wheel. Light hues (yellow, green) get dark text.
+const RAINBOW = ["#E53935", "#FB8C00", "#FDD835", "#43A047", "#1E88E5", "#3949AB", "#8E24AA", "#D81B60"];
+const sliceColor = (i: number) => RAINBOW[Math.floor((i * RAINBOW.length) / SPIN_PRIZES.length) % RAINBOW.length];
+const sliceText = (i: number) => (["#FDD835", "#FB8C00"].includes(sliceColor(i)) ? "#1C1C1C" : "#fff");
 
 function slicePath(i: number) {
   const a0 = ((i * SLICE - 90) * Math.PI) / 180, a1 = (((i + 1) * SLICE - 90) * Math.PI) / 180;
@@ -54,8 +58,8 @@ export function SpinWheelDialog({ onClose }: { onClose: () => void }) {
         <svg viewBox="0 0 200 200" className="size-full drop-shadow-[0_10px_24px_rgba(0,0,0,.18)]" style={{ transform: `rotate(${rotation}deg)`, transition: spinning ? "transform 4.5s cubic-bezier(.17,.67,.12,1)" : "none" }} aria-hidden="true">
           <circle cx="100" cy="100" r="99" fill="#fff" />
           {SPIN_PRIZES.map((p, i) => <g key={p.id}>
-            <path d={slicePath(i)} fill={p.color} stroke="#fff" strokeWidth="2" />
-            <text x="100" y="36" transform={`rotate(${i * SLICE + SLICE / 2} 100 100)`} textAnchor="middle" fill="#fff" fontSize="13" fontWeight="800">{p.short}</text>
+            <path d={slicePath(i)} fill={sliceColor(i)} stroke="#fff" strokeWidth="2" />
+            <text x="100" y="36" transform={`rotate(${i * SLICE + SLICE / 2} 100 100)`} textAnchor="middle" fill={sliceText(i)} fontSize="13" fontWeight="800">{p.short}</text>
           </g>)}
           <circle cx="100" cy="100" r="99" fill="none" stroke="#1C1C1C" strokeWidth="2" />
         </svg>

@@ -8,11 +8,19 @@ import { adminGifts, GIFTS, giftInfo } from "@/lib/gifts";
 import { adminBoxes, listPrizes, partnerCodeCounts } from "@/lib/boxes";
 import { RewardsAdmin } from "@/components/rewards-admin";
 import { TIERS } from "@/lib/member-tier-rules";
+import { GiftsTable, type GiftRow } from "@/components/gifts-admin/gifts-table";
+
+function StatCard({ label, value, sub, warn }: { label: string; value: number; sub: string; warn?: boolean }) {
+  return <div className="rounded-2xl border border-slate-200 bg-white p-5">
+    <p className="text-[15px] text-slate-700">{label}</p>
+    <p className="mt-4 text-[36px] font-semibold leading-none tracking-[-.02em] tabular-nums">{value}</p>
+    <p className={`mt-4 text-[14px] ${warn ? "font-medium text-orange-600" : "text-slate-500"}`}>{sub}</p>
+  </div>;
+}
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Member gifts · Waydidi operations", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Tier gifts · Waydidi operations", robots: { index: false, follow: false } };
 
-const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
 
 // Every badge gift issued, with who has it and whether it's been used.
 export default async function GiftsAdminPage() {
@@ -26,26 +34,20 @@ export default async function GiftsAdminPage() {
   const people = ids.length ? await getDb().select({ id: customers.id, email: customers.email }).from(customers).where(inArray(customers.id, ids.slice(0, 90))).catch(() => []) : [];
   const email = new Map(people.map((p) => [p.id, p.email]));
   const now = new Date().toISOString();
-  return <main className="min-h-screen bg-slate-50 px-4 py-8 text-[#1f1726] sm:px-8">
-    <div className="mx-auto max-w-[1200px]">
-      <h1 className="text-2xl font-black">Member gifts</h1>
-      <div className="mt-5"><RewardsAdmin prizes={prizes} codeCounts={Object.fromEntries(counts)} tickets={ticketBoxes.map((b) => ({ id: b.id, member: email.get(b.customerId) ?? b.customerId, tier: b.tier, prizeName: b.prizeName, openedAt: b.openedAt, voucherCode: b.voucherCode, fulfilment: b.fulfilment, expiresAt: b.expiresAt }))} /></div>
-      <h2 className="mt-8 text-lg font-black">Issued gifts</h2>
-      <p className="mt-1 text-sm text-slate-600">Mystery boxes opened so far: {boxes.filter((b) => b.openedAt).length} of {boxes.length}.</p>
-      <p className="mt-1 text-sm text-slate-600">Gifts are issued automatically when a member reaches Gold ({GIFTS.child_seat.name}), Diamond ({GIFTS.exchange_stop.name}) or Platinum ({GIFTS.airport_transfer.name}). Each lasts 90 days and is used automatically at checkout.</p>
-      {!gifts ? <p className="mt-6 rounded-2xl bg-amber-50 p-5 text-amber-900">The member_gifts table isn&apos;t in the database yet.</p>
-        : gifts.length === 0 ? <p className="mt-6 rounded-2xl bg-white p-8 text-center text-slate-500">No gifts issued yet.</p>
-        : <div className="mt-5 overflow-x-auto rounded-2xl bg-white shadow-sm"><table className="w-full text-left text-sm">
-          <thead className="border-b text-xs uppercase text-slate-500"><tr><th className="p-3">Member</th><th className="p-3">Gift</th><th className="p-3">Badge</th><th className="p-3">Issued</th><th className="p-3">Expires</th><th className="p-3">Status</th></tr></thead>
-          <tbody>{gifts.map((g) => <tr key={g.id} className="border-b last:border-0">
-            <td className="p-3">{email.get(g.customerId) ?? g.customerId}</td>
-            <td className="p-3 font-semibold">{giftInfo(g.giftId).name}</td>
-            <td className="p-3">{g.tier.startsWith("box-") ? `${TIERS.find((t) => `box-${t.id}` === g.tier)?.name ?? ""} box` : TIERS.find((t) => t.id === g.tier)?.name ?? g.tier}</td>
-            <td className="p-3">{date(g.issuedAt)}</td>
-            <td className="p-3">{date(g.expiresAt)}</td>
-            <td className="p-3">{g.usedBookingReference ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-800">Used · {g.usedBookingReference}</span> : g.expiresAt < now ? <span className="text-slate-500">Expired</span> : <span className="rounded-full bg-orange-50 px-2 py-0.5 font-bold text-[#C96100]">Available</span>}</td>
-          </tr>)}</tbody>
-        </table></div>}
+  const badge = (tier: string) => (tier.startsWith("box-") ? `${TIERS.find((t) => `box-${t.id}` === tier)?.name ?? ""} box` : TIERS.find((t) => t.id === tier)?.name ?? tier);
+  const rows: GiftRow[] = (gifts ?? []).map((g) => ({ id: g.id, member: email.get(g.customerId) ?? g.customerId, gift: giftInfo(g.giftId).name, badge: badge(g.tier), issuedAt: g.issuedAt, expiresAt: g.expiresAt, usedRef: g.usedBookingReference, state: g.usedBookingReference ? "used" : g.expiresAt < now ? "expired" : "available" }));
+  const opened = boxes.filter((b) => b.openedAt).length;
+  const toArrange = ticketBoxes.filter((b) => b.fulfilment === "to_arrange").length;
+  return <div className="px-4 pb-10 pt-4 sm:px-8">
+    <p className="max-w-3xl text-[14px] text-slate-600">Gifts are issued automatically when a member reaches Gold ({GIFTS.child_seat.name}), Diamond ({GIFTS.exchange_stop.name}) or Platinum ({GIFTS.airport_transfer.name}). Each lasts 90 days and is used automatically at checkout.</p>
+    <div className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <StatCard label="Gifts issued" value={rows.length} sub="All time" />
+      <StatCard label="Available now" value={rows.filter((r) => r.state === "available").length} sub="Waiting to be used" />
+      <StatCard label="Used" value={rows.filter((r) => r.state === "used").length} sub={`${rows.filter((r) => r.state === "expired").length} expired`} />
+      <StatCard label="Tickets to arrange" value={toArrange} sub={`Mystery boxes opened: ${opened} of ${boxes.length}`} warn={toArrange > 0} />
     </div>
-  </main>;
+    {!gifts ? <p className="mt-6 rounded-2xl bg-amber-50 p-5 text-amber-900">The member_gifts table isn&apos;t in the database yet.</p> : <GiftsTable rows={rows} />}
+    <h2 className="mt-10 text-[20px] font-semibold">Mystery prizes and partner tickets</h2>
+    <div className="mt-4"><RewardsAdmin prizes={prizes} codeCounts={Object.fromEntries(counts)} tickets={ticketBoxes.map((b) => ({ id: b.id, member: email.get(b.customerId) ?? b.customerId, tier: b.tier, prizeName: b.prizeName, openedAt: b.openedAt, voucherCode: b.voucherCode, fulfilment: b.fulfilment, expiresAt: b.expiresAt }))} /></div>
+  </div>;
 }
