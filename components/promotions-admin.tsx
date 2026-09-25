@@ -78,7 +78,7 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
                 <button type="button" role="switch" aria-checked={p.status === "active"} aria-label={`${p.code} ${p.status === "active" ? "on" : "off"}`} disabled={saving} onClick={() => save({ status: p.status === "active" ? "paused" : "active" }, toForm(p))} className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${p.status === "active" ? "bg-emerald-500" : "bg-slate-300"}`}>
                   <span className={`absolute left-0.5 top-0.5 size-5 rounded-full bg-white shadow transition-transform ${p.status === "active" ? "translate-x-5" : ""}`} />
                 </button>
-                <span className={`text-xs font-bold ${p.status === "active" ? "text-emerald-700" : "text-slate-500"}`}>{p.status === "active" ? "On" : p.status === "draft" ? "Draft" : "Off"}</span>
+                {p.status === "draft" && <span className="text-xs font-bold text-slate-500">Draft</span>}
               </label>
             </td>
             <td className="px-4 py-3 text-right">
