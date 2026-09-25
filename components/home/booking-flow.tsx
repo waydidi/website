@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
-  CreditCard,
   Luggage,
   MapPin,
   Minus,
@@ -25,6 +24,8 @@ import {
   Users,
   WifiOff,
   X,
+  Wallet,
+  Gift,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -1706,27 +1707,82 @@ export function BookingFlow({
         />
       )}
       {stage === "payment" && (
-        <section className="mx-auto grid max-w-[1100px] gap-6 px-5 py-12 lg:grid-cols-[1fr_360px] lg:px-10 lg:py-16">
-          <div>
-            <h2 className="text-3xl font-black tracking-[-.04em] sm:text-4xl">
-              Payment
-            </h2>
-            <div className="mt-8 rounded-3xl bg-[#f3f3f3] p-6 sm:p-8">
+        <section className="bg-[#F4F5F7] px-4 py-8 sm:px-6 lg:py-12">
+          <div className="mx-auto grid max-w-[1120px] items-start gap-6 lg:grid-cols-[1fr_440px]">
+            {/* Payment option */}
+            <div className="rounded-2xl bg-white p-5 sm:p-6">
+              <h2 className="flex items-center gap-3 text-[20px] font-semibold text-ink"><Wallet size={22} className="text-slate-600" aria-hidden="true" />Select payment option</h2>
+              <div role="radiogroup" aria-label="Payment method" className="mt-5 grid gap-4">
+                {([
+                  ["card", "Card or online payment", "You’ll continue to Stripe’s secure page to pay. Waydidi never receives or stores your card details."],
+                  ["cash", "Cash to driver", "Your booking is confirmed now. Pay the driver in Thai baht at pickup."],
+                ] as const).map(([id, label, note]) => {
+                  const on = payment === id;
+                  return <div key={id} className={`rounded-2xl border transition-colors ${on ? "border-slate-200 bg-slate-50/70" : "border-slate-200 bg-white"}`}>
+                    <button type="button" role="radio" aria-checked={on} onClick={() => setPayment(id)} className="flex min-h-[72px] w-full items-center gap-3 px-4 text-left sm:px-5">
+                      <span className={`grid size-5 shrink-0 place-items-center rounded-full border-2 ${on ? "border-brand" : "border-slate-300"}`}>{on && <span className="size-2.5 rounded-full bg-brand" />}</span>
+                      <span className="flex-1 text-[17px] text-ink">{label}</span>
+                      {id === "card"
+                        ? <span className="flex items-center gap-1.5" aria-hidden="true">
+                            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-black italic tracking-tight text-[#1A1F71]">VISA</span>
+                            <span className="flex rounded-md border border-slate-200 bg-white px-2 py-1.5"><span className="size-3.5 rounded-full bg-[#EB001B]" /><span className="-ml-1.5 size-3.5 rounded-full bg-[#F79E1B]/90" /></span>
+                            <span className="hidden rounded-md bg-[#2E77BC] px-2 py-1 text-[11px] font-black text-white sm:inline">AMEX</span>
+                            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-bold text-brand-deep">+ more</span>
+                          </span>
+                        : <span className="grid size-9 place-items-center rounded-lg border border-slate-200 bg-white" aria-hidden="true"><span className="grid size-6 place-items-center rounded-full bg-emerald-500 text-[13px] font-black text-white">฿</span></span>}
+                    </button>
+                    {on && <p className="flex items-start gap-2 px-4 pb-4 text-[14px] leading-6 text-slate-600 sm:px-5"><ShieldCheck size={18} className="mt-0.5 shrink-0 text-brand-deep" aria-hidden="true" />{note}</p>}
+                  </div>;
+                })}
+              </div>
+              <label className="mt-6 flex cursor-pointer items-start gap-3 text-[14px] leading-6 text-slate-700">
+                <input
+                  data-booking-field="termsAccepted"
+                  aria-invalid={Boolean(fieldErrors.termsAccepted)}
+                  aria-describedby={fieldErrors.termsAccepted ? "terms-error" : undefined}
+                  type="checkbox"
+                  required
+                  checked={booking.termsAccepted}
+                  onChange={(event) => change("termsAccepted", event.target.checked)}
+                  className="mt-1 size-4 shrink-0 accent-brand"
+                />
+                <span>
+                  I agree to the <a href="/terms" target="_blank" className="font-semibold text-brand-deep underline underline-offset-2">booking terms and 24-hour cancellation policy</a>, and acknowledge the <a href="/privacy" target="_blank" className="font-semibold text-brand-deep underline underline-offset-2">privacy notice</a>.
+                </span>
+              </label>
+              {fieldErrors.termsAccepted && <p id="terms-error" role="alert" className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.termsAccepted}</p>}
+              {error && (
+                <div role="alert" className="mt-5 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-800">
+                  <p>{error}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={continueToReview} disabled={!isOnline} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-ink px-4 text-white disabled:opacity-50"><RefreshCw size={16} /> Review again</button>
+                    <button type="button" onClick={() => { setError(""); goToStage("vehicle"); }} className="min-h-11 rounded-full border border-red-200 bg-white px-4 text-red-800">Review trip</button>
+                  </div>
+                </div>
+              )}
+              <button onClick={continueToReview} disabled={!isOnline} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-brand text-[16px] font-bold text-white hover:bg-brand-deep disabled:opacity-60">
+                {quoteRequest ? "Review booking" : `Review booking | ${money(payable)}`}
+              </button>
+              <button onClick={() => goToStage("details")} className="mt-4 flex items-center gap-2 text-sm font-semibold text-slate-600"><ArrowLeft size={17} /> Back to details</button>
+            </div>
+
+            <div className="grid gap-6 lg:sticky lg:top-6">
+              {/* Promo */}
               {!quoteRequest && (
-                <div className="mb-7">
-                  <h3 className="text-lg font-black">Promo code</h3>
+                <div className="rounded-2xl bg-white p-5 sm:p-6">
+                  <h3 className="flex items-center gap-3 text-[20px] font-semibold text-ink"><Gift size={22} className="text-slate-600" aria-hidden="true" />Promo code or gift card</h3>
                   {promo ? (
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4">
+                    <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-300 bg-emerald-50 p-3.5">
                       <span className="min-w-0">
                         <strong className="block tracking-wide text-emerald-900">{promo.code}</strong>
                         <span className="block truncate text-sm text-emerald-800">{promo.title} · −{money(promo.discount)}</span>
                         {autoApplied && <span className="block text-xs text-emerald-700">Best coupon from your account, applied automatically</span>}
                       </span>
-                      <button type="button" onClick={() => { setPromo(null); setAutoApplied(false); setPromoError(""); }} className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-900">Remove</button>
+                      <button type="button" onClick={() => { setPromo(null); setAutoApplied(false); setPromoError(""); }} className="shrink-0 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-emerald-900">Remove</button>
                     </div>
                   ) : (
                     <>
-                      <div className="mt-3 flex gap-2">
+                      <div className={`mt-4 flex items-center rounded-xl border bg-white p-1 pl-4 focus-within:border-brand ${promoError ? "border-red-400" : "border-slate-200"}`}>
                         <label className="sr-only" htmlFor="promo-code">Promo code</label>
                         <input
                           id="promo-code"
@@ -1735,210 +1791,39 @@ export function BookingFlow({
                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void applyPromo(); } }}
                           maxLength={32}
                           autoCapitalize="characters"
-                          placeholder="Have a promo code?"
+                          placeholder="Enter code"
                           aria-invalid={Boolean(promoError)}
-                          className={`h-13 min-w-0 flex-1 rounded-xl border bg-white px-4 text-base uppercase tracking-wide outline-none placeholder:normal-case placeholder:tracking-normal focus:border-brand ${promoError ? "border-red-400" : "border-slate-200"}`}
+                          className="h-10 min-w-0 flex-1 bg-transparent text-base uppercase tracking-wide outline-none placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400"
                         />
-                        <button type="button" onClick={() => void applyPromo()} disabled={promoChecking} className="h-13 shrink-0 rounded-xl bg-brand px-5 font-bold text-white disabled:opacity-60">{promoChecking ? "Checking…" : "Apply"}</button>
+                        <button type="button" onClick={() => void applyPromo()} disabled={promoChecking} className="h-10 shrink-0 rounded-lg bg-brand px-5 font-semibold text-white disabled:opacity-60">{promoChecking ? "Checking…" : "Apply"}</button>
                       </div>
                       {promoError && <p role="alert" className="mt-2 text-sm font-semibold text-red-700">{promoError}</p>}
                     </>
                   )}
                 </div>
               )}
-              <h3 className="text-lg font-black">Payment method</h3>
-              <div className="mt-4 grid gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPayment("card")}
-                  className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${payment === "card" ? "border-brand bg-orange-50" : "border-slate-200 bg-white"}`}
-                >
-                  <CreditCard className="text-brand-deep" size={25} />
-                  <span>
-                    <strong className="block">Stripe secure checkout</strong>
-                    <span className="text-sm text-slate-500">
-                      Pay online by card or available local method
-                    </span>
-                  </span>
-                  {payment === "card" && (
-                    <CheckCircle2
-                      className="ml-auto text-brand-deep"
-                      size={21}
-                    />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPayment("cash")}
-                  className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${payment === "cash" ? "border-brand bg-orange-50" : "border-slate-200 bg-white"}`}
-                >
-                  <span className="grid size-7 place-items-center rounded-md bg-brand text-sm font-black text-white">
-                    ฿
-                  </span>
-                  <span>
-                    <strong className="block">Cash — test booking</strong>
-                    <span className="text-sm text-slate-500">
-                      Complete now and pay the driver at pickup
-                    </span>
-                  </span>
-                  {payment === "cash" && (
-                    <CheckCircle2
-                      className="ml-auto text-brand-deep"
-                      size={21}
-                    />
-                  )}
-                </button>
-              </div>
-              <div className="mt-6 flex items-start gap-3 rounded-2xl bg-orange-50 p-4 text-sm leading-6 text-slate-700">
-                <ShieldCheck
-                  className="mt-0.5 shrink-0 text-brand-deep"
-                  size={21}
-                />
-                <p>
-                  {payment === "card"
-                    ? "You’ll continue to Stripe’s hosted checkout. Waydidi never receives or stores your card details."
-                    : "Your booking will be confirmed now. Pay the driver in Thai baht at pickup."}
-                </p>
-              </div>
-              <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 p-4 text-sm leading-6">
-                <input
-                  data-booking-field="termsAccepted"
-                  aria-invalid={Boolean(fieldErrors.termsAccepted)}
-                  aria-describedby={fieldErrors.termsAccepted ? "terms-error" : undefined}
-                  type="checkbox"
-                  required
-                  checked={booking.termsAccepted}
-                  onChange={(event) =>
-                    change("termsAccepted", event.target.checked)
-                  }
-                  className="mt-1 size-5 shrink-0 accent-brand"
-                />
-                <span>
-                  I agree to the{" "}
-                  <a
-                    href="/terms"
-                    target="_blank"
-                    className="font-bold text-brand-deep underline underline-offset-2"
-                  >
-                    booking terms and 24-hour cancellation policy
-                  </a>
-                  , and acknowledge the{" "}
-                  <a
-                    href="/privacy"
-                    target="_blank"
-                    className="font-bold text-brand-deep underline underline-offset-2"
-                  >
-                    privacy notice
-                  </a>
-                  .
-                </span>
-              </label>
-              {fieldErrors.termsAccepted && <p id="terms-error" role="alert" className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.termsAccepted}</p>}
-              {error && (
-                <div role="alert" className="mt-5 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-800">
-                  <p>{error}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={continueToReview}
-                      disabled={!isOnline}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-full bg-ink px-4 text-white disabled:opacity-50"
-                    >
-                      <RefreshCw size={16} /> Review again
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setError(""); goToStage("vehicle"); }}
-                      className="min-h-11 rounded-full border border-red-200 bg-white px-4 text-red-800"
-                    >
-                      Review trip
-                    </button>
-                  </div>
+
+              {/* Summary */}
+              <div className="rounded-2xl bg-white p-5 sm:p-6">
+                <h3 className="border-b border-slate-200 pb-4 text-[20px] font-semibold text-ink">Summary</h3>
+                <div className="mt-4 grid gap-3 text-[15px] text-slate-600">
+                  {returnTrip && quoteSummary?.prices[vehicle] ? <>
+                    <div className="flex justify-between"><span>Outbound fare</span><span className="tabular-nums text-ink">{money(quoteSummary.prices[vehicle].outbound)}</span></div>
+                    <div className="flex justify-between"><span>Return fare</span><span className="tabular-nums text-ink">{money(quoteSummary.prices[vehicle].return)}</span></div>
+                  </> : !quoteRequest && <div className="flex justify-between"><span>Fare</span><span className="tabular-nums text-ink">{money(chosenVehicle.price)}</span></div>}
+                  {promo && !quoteRequest && <div className="flex justify-between"><span>Discount ({promo.code})</span><span className="tabular-nums text-emerald-700">−{money(promo.discount)}</span></div>}
+                  {memberDiscount > 0 && memberTier && <div className="flex justify-between"><span>{memberTier.name} member ({memberTier.percent}%)</span><span className="tabular-nums text-emerald-700">−{money(memberDiscount)}</span></div>}
+                  {booking.childSeats > 0 && !quoteRequest && <div className="flex justify-between"><span>Child seat × {booking.childSeats}</span><span className="tabular-nums text-ink">{freeLabel((booking.childSeats - freeAddons.childSeats) * CHILD_SEAT_THB, tierFree.childSeats >= booking.childSeats)}</span></div>}
+                  {exchangeStop && !quoteRequest && <div className="flex justify-between"><span>Currency exchange stop</span><span className="tabular-nums text-ink">{freeLabel(freeAddons.exchangeStop ? 0 : EXCHANGE_STOP_THB, tierFree.exchangeStop)}</span></div>}
+                  <div className="flex justify-between"><span>Payment</span><span className="text-ink">{payment === "card" ? "Online" : "Cash to driver"}</span></div>
                 </div>
-              )}
+                <div className="mt-4 flex items-end justify-between border-t border-slate-200 pt-4">
+                  <span className="text-[17px] font-semibold text-ink">Total</span>
+                  <span className="text-right text-[20px] font-semibold tabular-nums text-ink">{quoteRequest ? "Quote on request" : money(payable)}{!quoteRequest && currency !== "THB" && <span className="block text-xs font-medium text-slate-500">Charged in THB: {thb(payable)}</span>}</span>
+                </div>
+              </div>
             </div>
-            <button
-              onClick={() => goToStage("details")}
-              className="mt-5 flex items-center gap-2 text-sm font-bold text-slate-600"
-            >
-              <ArrowLeft size={18} /> Back to details
-            </button>
           </div>
-          <aside className="h-fit rounded-3xl bg-[#071c61] p-6 text-white lg:sticky lg:top-6">
-            <p className="text-xs font-bold uppercase tracking-[.16em] text-[#FFD09A]">
-              Booking summary
-            </p>
-            <h3 className="mt-3 text-xl font-black">{chosenVehicle.name}</h3>
-            <p className="mt-1 text-sm text-white/60">
-              {chosenVehicle.tagline}
-            </p>
-            <div className="my-6 border-t border-white/15" />
-            <div className="space-y-3 text-sm">
-              <SummaryLine
-                label="Journey"
-                value={returnTrip ? "Round trip" : serviceType === "hourly" ? `${booking.bookedHours} hours` : "One way"}
-              />
-              {returnTrip && (
-                <>
-                  <SummaryLine label="Outbound" value={`${formatDate(booking.date)} · ${formatTimeLabel(booking.time)}`} />
-                  <SummaryLine label="Return" value={`${formatDate(returnDate)} · ${formatTimeLabel(returnTime)}`} />
-                </>
-              )}
-              <SummaryLine
-                label="Passengers"
-                value={String(booking.passengers)}
-              />
-              <SummaryLine label="Luggage" value={String(booking.luggage)} />
-              {booking.childSeats > 0 && (
-                <SummaryLine
-                  label="Child seats"
-                  value={String(booking.childSeats)}
-                />
-              )}
-              <SummaryLine
-                label="Payment"
-                value={payment === "card" ? "Online" : "Driver"}
-              />
-            </div>
-            <div className="my-6 border-t border-white/15" />
-            {returnTrip && quoteSummary?.prices[vehicle] && (
-              <div className="mb-5 space-y-2 text-sm text-white/70">
-                <SummaryLine label="Outbound fare" value={money(quoteSummary.prices[vehicle].outbound)} />
-                <SummaryLine label="Return fare" value={money(quoteSummary.prices[vehicle].return)} />
-              </div>
-            )}
-            {promo && !quoteRequest && (
-              <div className="mb-3 flex items-center justify-between text-sm">
-                <span className="text-white/65">Discount ({promo.code})</span>
-                <span className="font-semibold text-emerald-300">−{money(promo.discount)}</span>
-              </div>
-            )}
-            {memberDiscount > 0 && memberTier && (
-              <div className="mb-3 flex items-center justify-between text-sm">
-                <span className="text-white/65">{memberTier.name} member ({memberTier.percent}%)</span>
-                <span className="font-semibold text-emerald-300">−{money(memberDiscount)}</span>
-              </div>
-            )}
-            {(booking.childSeats > 0 || exchangeStop) && !quoteRequest && (
-              <div className="mb-3 space-y-1 text-sm">
-                {booking.childSeats > 0 && <div className="flex items-center justify-between"><span className="text-white/65">Child seat × {booking.childSeats}</span><span className="font-semibold">{freeLabel((booking.childSeats - freeAddons.childSeats) * CHILD_SEAT_THB, tierFree.childSeats >= booking.childSeats)}</span></div>}
-                {exchangeStop && <div className="flex items-center justify-between"><span className="text-white/65">Currency exchange stop</span><span className="font-semibold">{freeLabel(freeAddons.exchangeStop ? 0 : EXCHANGE_STOP_THB, tierFree.exchangeStop)}</span></div>}
-              </div>
-            )}
-            <div className="flex items-end justify-between">
-              <span className="text-sm text-white/65">Total</span>
-              <span className={`${quoteRequest ? "text-xl" : "text-3xl"} font-black`}>
-                {quoteRequest ? "Quote on request" : money(payable)}{!quoteRequest && currency !== "THB" && <span className="mt-1 block text-xs font-medium text-slate-500">Charged in THB: {thb(payable)}</span>}
-              </span>
-            </div>
-            <button
-              onClick={continueToReview}
-              disabled={!isOnline}
-              className="mt-6 flex h-14 w-full items-center justify-center gap-3 rounded-full bg-brand font-bold text-ink disabled:opacity-60"
-            >
-              Review booking <ArrowRight size={19} />
-            </button>
-          </aside>
         </section>
       )}
 
