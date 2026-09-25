@@ -1,10 +1,13 @@
 import { env } from "cloudflare:workers";
 import { cookies } from "next/headers";
-import { getChatGPTUser, requireChatGPTUser, type ChatGPTUser } from "@/app/chatgpt-auth";
 import { constantTimeEqual, sha256 } from "@/lib/security";
 
 export const ADMIN_COOKIE = "waydidi_admin_session";
-export const ADMIN_SESSION_SECONDS = 8 * 60 * 60;
+export const ADMIN_SESSION_SECONDS = 7 * 24 * 60 * 60;
+// Single-admin site: the admin key is the only credential.
+export const ADMIN_EMAIL = "admin";
+export type AdminUser = { displayName: string; email: string; fullName: string | null };
+const ADMIN_USER: AdminUser = { displayName: "Admin", email: ADMIN_EMAIL, fullName: null };
 
 type AdminSession = { email: string; expiresAt: number };
 
@@ -61,7 +64,7 @@ export async function createAdminSession(email: string) {
   return `${encoded}.${signature}`;
 }
 
-async function hasValidAdminSession(user: ChatGPTUser) {
+async function hasValidAdminSession() {
   if (!adminKeyConfigured()) return false;
   const token = (await cookies()).get(ADMIN_COOKIE)?.value ?? "";
   const [encoded, suppliedSignature, extra] = token.split(".");
@@ -70,7 +73,7 @@ async function hasValidAdminSession(user: ChatGPTUser) {
   if (!expectedSignature || !constantTimeEqual(suppliedSignature, expectedSignature)) return false;
   try {
     const payload = JSON.parse(base64UrlToText(encoded)) as Partial<AdminSession>;
-    return payload.email === user.email.toLowerCase() &&
+    return payload.email === ADMIN_EMAIL &&
       typeof payload.expiresAt === "number" &&
       payload.expiresAt > Math.floor(Date.now() / 1000);
   } catch {
@@ -78,13 +81,11 @@ async function hasValidAdminSession(user: ChatGPTUser) {
   }
 }
 
-export async function requireWaydidiAdmin(returnTo: string) {
-  const user = await requireChatGPTUser(returnTo);
-  return { user, authorized: await hasValidAdminSession(user), configured: adminKeyConfigured() };
+export async function requireWaydidiAdmin(_returnTo?: string) {
+  const authorized = await hasValidAdminSession();
+  return { user: ADMIN_USER, authorized, configured: adminKeyConfigured() };
 }
 
 export async function getWaydidiAdmin() {
-  const user = await getChatGPTUser();
-  if (!user || !(await hasValidAdminSession(user))) return null;
-  return user;
+  return (await hasValidAdminSession()) ? ADMIN_USER : null;
 }
