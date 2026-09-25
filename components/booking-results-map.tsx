@@ -664,14 +664,15 @@ export function BookingResultsMap(props: Props) {
             {ferryAvailable && <li className="border-b border-[#EEEEEE]">
               <div className="flex items-center gap-4 py-4">
                 <Image src="/ferry-3d.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
-                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.ferryHotel")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.ferryHotelDesc")}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">+{t("addons.perPerson", { price: money(FERRY_HOTEL_THB) })}{ferry > 1 ? ` · ${money(FERRY_HOTEL_THB * ferry)} for ${ferry}` : ""}</span></span>
-                <span className="flex flex-col items-center">
+                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.ferryHotel")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.ferryHotelDesc")}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">+{t("addons.perPerson", { price: money(FERRY_HOTEL_THB) })}</span></span>
+                <span className="relative flex items-center self-stretch pb-5">
                 <span className="flex items-center gap-3">
                   <button type="button" aria-label="Fewer ferry tickets" disabled={ferry === 0} onClick={() => setExtras({ ferryHotelPeople: ferry - 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Minus size={16} aria-hidden="true" /></button>
                   <span className="w-4 text-center text-[16px] font-medium" aria-live="polite">{ferry}</span>
                   <button type="button" aria-label="More ferry tickets" disabled={ferry >= maxFerry} onClick={() => setExtras({ ferryHotelPeople: ferry + 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Plus size={16} aria-hidden="true" /></button>
                 </span>
-                {ferry > 0 && <span className="mt-1 text-[12px] font-semibold text-[#D32F2F]">+{money(FERRY_HOTEL_THB * ferry)}</span>}
+                {/* Sits on the same line as the "+THB 600 per person" price text. */}
+                {ferry > 0 && <span className="absolute inset-x-0 bottom-0 whitespace-nowrap text-center text-[13px] font-semibold leading-[19.5px] text-[#D32F2F]">+{money(FERRY_HOTEL_THB * ferry)}</span>}
                 </span>
               </div>
             </li>}
