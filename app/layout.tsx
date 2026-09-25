@@ -38,7 +38,7 @@ export default function RootLayout({
     <html lang="en">
       {/* A relative link: metadata icons are made absolute with metadataBase,
           which breaks the favicon on any other domain (e.g. workers.dev). */}
-      <head><link rel="icon" href="/favicon.svg" type="image/svg+xml" /></head>
+      <head><link rel="icon" href="/favicon.png" type="image/png" sizes="256x256" /><link rel="apple-touch-icon" href="/apple-touch-icon.png" /></head>
       <body className="antialiased">
         <a
           href="#booking-search"

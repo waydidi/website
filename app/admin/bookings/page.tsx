@@ -9,7 +9,6 @@ import {
   Truck,
   XCircle,
 } from "lucide-react";
-import Link from "next/link";
 import { getDb } from "@/db";
 import { bookings, bookingTaxInvoices } from "@/db/schema";
 import { requireWaydidiAdmin } from "@/lib/admin";
@@ -132,8 +131,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
             Pricing areas
           </a>
         </nav>
-        <div className="mt-6 flex w-fit gap-1 rounded-full bg-slate-200 p-1 text-sm font-bold"><Link href="/admin/bookings" className={`rounded-full px-4 py-2 ${view === "active" ? "bg-white text-[#211726] shadow-sm" : "text-slate-600"}`}>Active bookings</Link><Link href="/admin/bookings?view=bin" className={`rounded-full px-4 py-2 ${view === "bin" ? "bg-white text-[#211726] shadow-sm" : "text-slate-600"}`}>Bin ({binRows.length})</Link></div>
-        <section className="mt-7 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1150px] text-left text-sm">
               <thead className="bg-slate-100 text-xs uppercase tracking-wider text-slate-500">
