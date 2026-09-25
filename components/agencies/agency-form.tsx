@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 
 const field = "mt-1.5 h-12 w-full rounded-xl border border-[#DAD7CF] bg-white px-4 text-[16px] text-[#111] outline-none focus:border-[#111]";
-const label = "block text-[14px] font-semibold text-[#111]";
+const label = "block text-[13px] font-semibold text-[#111]";
 
 // Partner application form: stored for the Waydidi team to review.
 export function AgencyForm() {
@@ -51,7 +51,7 @@ export function AgencyForm() {
     <input name="company" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
     {error && <p className="rounded-xl bg-red-50 p-3 text-[14px] font-semibold text-red-700 sm:col-span-2" role="alert">{error.text}</p>}
     <div className="sm:col-span-2">
-      <button type="submit" disabled={busy} className="h-14 rounded-full bg-[#FF8A05] px-10 text-[17px] font-bold text-[#111] hover:bg-[#F07A00] disabled:opacity-60">{busy ? "Sending…" : "Send application"}</button>
+      <button type="submit" disabled={busy} className="h-14 rounded-full bg-[#FF8A05] px-10 text-[15px] font-bold text-[#111] hover:bg-[#F07A00] disabled:opacity-60">{busy ? "Sending…" : "Send application"}</button>
       <p className="mt-3 text-[13px] text-[#8A8A8A]">We use these details only to review your application and contact you. See our <a href="/privacy" className="underline">privacy policy</a>.</p>
     </div>
   </form>;
