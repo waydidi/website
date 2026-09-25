@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { bookings, promoCodes, promoRedemptions } from "@/db/schema";
 import { evaluatePromo, normalizeCode, type PromoResult } from "./promo";
 import { LOYALTY_CODE, LOYALTY_TITLE, loyaltyDiscount, loyaltyStatus } from "./loyalty";
+import { SPIN_CODE, SPIN_MIN_FARE, spinDiscount, spinStatus } from "./spin";
 
 // Bookings in these states no longer hold a use of their code.
 // Only bookings that were never paid give the use back; cancelled or refunded bookings keep it.
@@ -59,6 +60,17 @@ export async function checkPromo(input: {
     const discount = loyaltyDiscount(input.total);
     if (discount <= 0) return { ok: false, reason: "This reward doesn't apply to this booking." };
     return { ok: true, discount, finalTotal: input.total - discount, promo: { id: "loyalty", code: LOYALTY_CODE, title: LOYALTY_TITLE } };
+  }
+  // Prize won on the wheel: once per member, within its expiry.
+  if (normalizeCode(input.code) === SPIN_CODE) {
+    if (!input.customerId) return { ok: false, reason: "Sign in to use your wheel prize." };
+    const spin = await spinStatus(input.customerId);
+    if (!spin.spun || !spin.prize) return { ok: false, reason: "Spin the wheel first to win a prize." };
+    if (spin.used) return { ok: false, reason: "You've already used your wheel prize." };
+    if (spin.expired) return { ok: false, reason: "Your wheel prize has expired." };
+    const discount = spinDiscount(spin.prize, input.total);
+    if (discount <= 0) return { ok: false, reason: `Your wheel prize works on fares from THB ${SPIN_MIN_FARE.toLocaleString("en-US")}.` };
+    return { ok: true, discount, finalTotal: input.total - discount, promo: { id: `spin:${spin.prize.id}`, code: SPIN_CODE, title: `Wheel prize: ${spin.prize.label}` } };
   }
   const promo = await findPromo(input.code);
   if (!promo) return { ok: false, reason: "This promo code isn't valid." };
@@ -124,6 +136,8 @@ export async function bestCoupon(input: { total: number; serviceType: "transfer"
   if (input.customerId) {
     const reward = await checkPromo({ ...input, code: LOYALTY_CODE }).catch(() => null);
     if (reward?.ok) best = { code: LOYALTY_CODE, title: LOYALTY_TITLE, discount: reward.discount, finalTotal: reward.finalTotal };
+    const spin = await checkPromo({ ...input, code: SPIN_CODE }).catch(() => null);
+    if (spin?.ok && spin.promo && (!best || spin.discount > best.discount)) best = { code: SPIN_CODE, title: spin.promo.title, discount: spin.discount, finalTotal: spin.finalTotal };
   }
   for (const p of promos) {
     const result = await checkPromo({ code: p.code, total: input.total, serviceType: input.serviceType, returnTrip: input.returnTrip, vehicle: input.vehicle, email: input.email, phone: input.phone, customerId: input.customerId });

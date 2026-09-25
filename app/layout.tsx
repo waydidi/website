@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { PublicPathHeader } from "@/components/public-header";
+import { SpinBar } from "@/components/spin/spin-bar";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://waydidi-private-transfer.dankbangkok.chatgpt.site"),
@@ -47,6 +48,7 @@ export default function RootLayout({
         </a>
         <PublicPathHeader />
         {children}
+        <SpinBar />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

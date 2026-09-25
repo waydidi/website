@@ -206,6 +206,11 @@ export function BookingFlow({
 }) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) => translate(messages, key, vars);
   const [stage, setStage] = useState<Stage>("search");
+  // Lets page-wide bottom bars (e.g. "Spin the wheel") step aside during booking.
+  useEffect(() => {
+    document.documentElement.dataset.bookingStage = stage;
+    return () => { delete document.documentElement.dataset.bookingStage; };
+  }, [stage]);
   const [serviceType, setServiceType] = useState<ServiceType>("transfer");
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);

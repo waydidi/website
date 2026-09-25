@@ -1013,3 +1013,12 @@ export const bookingMemberDiscounts = sqliteTable("booking_member_discounts", {
   discount: integer("discount").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+// One wheel spin per member: the prize won and when it expires. Using it is
+// recorded in promo_redemptions under the code "SPIN".
+export const memberSpins = sqliteTable("member_spins", {
+  customerId: text("customer_id").primaryKey(),
+  prizeId: text("prize_id").notNull(),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+});
