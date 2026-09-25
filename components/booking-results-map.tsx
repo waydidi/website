@@ -672,7 +672,7 @@ export function BookingResultsMap(props: Props) {
                   <button type="button" aria-label="More ferry tickets" disabled={ferry >= maxFerry} onClick={() => setExtras({ ferryHotelPeople: ferry + 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Plus size={16} aria-hidden="true" /></button>
                 </span>
                 {/* Sits on the same line as the "+THB 600 per person" price text. */}
-                {ferry > 0 && <span className="absolute inset-x-0 bottom-0 whitespace-nowrap text-center text-[13px] font-semibold leading-[19.5px] text-[#D32F2F]">+{money(FERRY_HOTEL_THB * ferry)}</span>}
+                {ferry > 0 && <span className="absolute inset-x-0 bottom-0 whitespace-nowrap text-center text-[14px] font-semibold leading-[19.5px] text-[#D32F2F]">+{money(FERRY_HOTEL_THB * ferry)}</span>}
                 </span>
               </div>
             </li>}
