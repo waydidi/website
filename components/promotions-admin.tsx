@@ -60,7 +60,7 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
   const input = "mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 outline-none focus:border-[#FF8A05]";
   return <>
     <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-      <p className="text-slate-500">Promo codes customers enter at the Payment step. Active codes marked &quot;homepage&quot; also show in the homepage promotions section.</p>
+      <span />
       <button type="button" onClick={() => { setError(""); setForm({ ...EMPTY }); }} className="rounded-full bg-[#FF8A05] px-5 py-2.5 text-sm font-bold text-white">New promotion</button>
     </div>
     <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
