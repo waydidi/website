@@ -41,6 +41,7 @@ type Driver = { id: string; fullName: string; phone: string; email: string | nul
 type Assignment = { id: string; driverId: string; currentStatus: string; assignedAt: string; tokenExpiresAt: string };
 type Booking = {
   reference: string;
+  serviceType?: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -181,7 +182,7 @@ function thaiIso(value: string) {
   return new Date(`${value}:00+07:00`).toISOString();
 }
 
-export default function CalendarWorkspace({ email }: { email: string }) {
+export default function CalendarWorkspace({ email, serviceType, embedded = false }: { email: string; serviceType?: "transfer" | "hourly" | "tour"; embedded?: boolean }) {
   const [anchor, setAnchor] = useState(todayInBangkok);
   const [view, setView] = useState<ViewMode>("today");
   const [data, setData] = useState<CalendarData | null>(null);
@@ -237,6 +238,7 @@ export default function CalendarWorkspace({ email }: { email: string }) {
   const filteredBookings = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return (data?.bookings ?? []).filter((booking) => {
+      if (serviceType && (booking.serviceType ?? "transfer") !== serviceType) return false;
       if (driverFilter !== "all" && booking.assignment?.driverId !== driverFilter) return false;
       if (filter === "attention" && booking.attention.level === "normal") return false;
       if (filter === "unassigned" && booking.assignment) return false;
@@ -245,7 +247,7 @@ export default function CalendarWorkspace({ email }: { email: string }) {
       if (needle && ![booking.reference, booking.customerName, booking.customerPhone, booking.pickup, booking.dropoff, booking.vehicle].join(" ").toLowerCase().includes(needle)) return false;
       return true;
     });
-  }, [data, driverFilter, filter, query]);
+  }, [data, driverFilter, filter, query, serviceType]);
 
   const stats = useMemo(() => {
     const rows = data?.bookings ?? [];
@@ -317,7 +319,7 @@ export default function CalendarWorkspace({ email }: { email: string }) {
 
   return (
     <main className="min-h-screen bg-[#f3f5f8] text-[#211726]">
-      <header className="border-b border-orange-400 bg-[#FF8A05] px-4 py-4 text-white sm:px-8">
+      {!embedded && <><header className="border-b border-orange-400 bg-[#FF8A05] px-4 py-4 text-white sm:px-8">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <a href="/" aria-label="Waydidi home"><WaydidiLogo className="h-[53px] w-auto" /></a>
@@ -326,15 +328,15 @@ export default function CalendarWorkspace({ email }: { email: string }) {
           </div>
           <span className="flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-bold"><ShieldCheck size={17} />{email}</span>
         </div>
-      </header>
+      </header></>}
 
       <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-8">
-        <nav className="flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 text-sm font-bold shadow-sm sm:w-fit">
+        {!embedded && <><nav className="flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 text-sm font-bold shadow-sm sm:w-fit">
           <a href="/admin/calendar" className="flex shrink-0 items-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-[#D96F00]"><CalendarDays size={17} />Calendar</a>
           <a href="/admin/operations" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><Truck size={17} />Booking operations</a>
           <a href="/admin/bookings" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><BookOpen size={17} />Bookings</a>
           <a href="/admin/pricing" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><MapPinned size={17} />Pricing areas</a>
-        </nav>
+        </nav></>}
 
         <section className="mt-5 rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">

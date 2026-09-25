@@ -8,11 +8,14 @@ import {
   MapPinned,
   Truck,
   XCircle,
+  List,
 } from "lucide-react";
 import { getDb } from "@/db";
 import { bookings, bookingTaxInvoices } from "@/db/schema";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { CalendarClient } from "@/app/admin/calendar/calendar-client";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AdminKeyLogin } from "@/components/admin-key-login";
 import { PaymentReconciliationButton } from "@/components/payment-reconciliation-button";
@@ -33,12 +36,15 @@ const statusStyle: Record<string, string> = {
   expired: "bg-slate-200 text-slate-700",
 };
 
-export default async function BookingAdminPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
+export default async function BookingAdminPage({ searchParams }: { searchParams: Promise<{ view?: string; type?: string; mode?: string }> }) {
   const access = await requireWaydidiAdmin("/admin/bookings");
   if (!access.authorized) {
     return <AdminKeyLogin configured={access.configured} />;
   }
-  const view = (await searchParams).view === "bin" ? "bin" : "active";
+  const q = await searchParams;
+  const view = q.view === "bin" ? "bin" : "active";
+  const type = q.type === "hourly" ? "hourly" : q.type === "tour" ? "tour" : "transfer";
+  const mode = q.mode === "calendar" ? "calendar" : "list";
   await backfillUnifiedPaymentFields();
 
   const allRows = await getDb()
@@ -51,7 +57,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const taxByBooking = new Map(taxRows.map((tax) => [tax.bookingReference, tax]));
   const binRows = allRows.filter((row) => row.status === "binned");
   const activeRows = allRows.filter((row) => row.status !== "binned");
-  const rows = view === "bin" ? binRows : activeRows;
+  const rows = (view === "bin" ? binRows : activeRows).filter((row) => (row.serviceType ?? "transfer") === type);
   const confirmed = activeRows.filter((row) => row.status === "confirmed").length;
   const pending = activeRows.filter((row) => row.status === "pending_payment").length;
   const emailIssues = activeRows.filter(
@@ -131,6 +137,16 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
             Pricing areas
           </a>
         </nav>
+        {/* Transfer / By the hour, each with a list or calendar view. */}
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div role="tablist" aria-label="Service" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
+            {([["transfer", "Transfer"], ["hourly", "By the hour"], ["tour", "Tour"]] as const).map(([id, label]) => <Link key={id} role="tab" aria-selected={type === id} href={`/admin/bookings?type=${id}&mode=${mode}`} className={`h-9 rounded-lg px-4 text-[15px] leading-9 ${type === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}>{label}</Link>)}
+          </div>
+          <div role="tablist" aria-label="View" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
+            {([["list", "List", List], ["calendar", "Calendar", CalendarDays]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}><Icon size={16} />{label}</Link>)}
+          </div>
+        </div>
+        {mode === "calendar" ? <div className="-mx-4 sm:-mx-8"><CalendarClient email={access.user.email} serviceType={type} /></div> :
         <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1150px] text-left text-sm">
@@ -228,14 +244,14 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                       colSpan={7}
                       className="px-5 py-16 text-center text-slate-500"
                     >
-                      {view === "bin" ? "The bin is empty." : "No bookings yet."}
+                      {type === "tour" ? "No tour bookings yet." : type === "hourly" ? "No hourly bookings yet." : "No bookings yet."}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-        </section>
+        </section>}
       </div>
     </main>
   );

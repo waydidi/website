@@ -7,12 +7,16 @@ import { useEffect, useRef, useState } from "react";
 export function AvatarMenu() {
   const [open, setOpen] = useState(false);
   const [version, setVersion] = useState(() => Date.now());
-  const [hasPhoto, setHasPhoto] = useState(true);
+  const [hasPhoto, setHasPhoto] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
+  // Only show the <img> once we know a photo exists (no broken-image flash).
+  useEffect(() => {
+    fetch("/api/admin/avatar", { method: "HEAD", cache: "no-store" }).then((r) => setHasPhoto(r.ok)).catch(() => undefined);
+  }, []);
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => { if (!boxRef.current?.contains(e.target as Node)) setOpen(false); };

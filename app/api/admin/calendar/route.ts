@@ -100,6 +100,7 @@ export async function GET(request: Request) {
     const bookingConflicts = conflicts.get(row.reference) ?? [];
     const attention = attentionForJourney({ bookingStatus: row.status, attentionStatus: row.attentionStatus, pickup: window.pickup, assignmentStatus: assignment?.currentStatus, hasAssignment: Boolean(assignment), pendingEvidence, hasConflict: bookingConflicts.length > 0 });
     return {
+      serviceType: row.serviceType,
       reference: row.reference,
       customerName: row.customerName,
       customerEmail: row.customerEmail,

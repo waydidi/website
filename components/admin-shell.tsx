@@ -109,8 +109,9 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
   { items: [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/bookings", label: "Bookings", icon: BookOpen, children: [
-      { href: "/admin/bookings", label: "All bookings" },
-      { href: "/admin/calendar", label: "Calendar" },
+      { href: "/admin/bookings?type=transfer", label: "Transfer", match: (p, t) => p.startsWith("/admin/bookings") && t !== "hourly" && t !== "tour" },
+      { href: "/admin/bookings?type=hourly", label: "By the hour", match: (p, t) => p.startsWith("/admin/bookings") && t === "hourly" },
+      { href: "/admin/bookings?type=tour", label: "Tour", match: (p, t) => p.startsWith("/admin/bookings") && t === "tour" },
     ] },
     { href: "/admin/operations", label: "Operations", icon: Truck },
     { href: "/admin/reports", label: "Reports", icon: BarChart3, children: [
@@ -176,7 +177,8 @@ export default function AdminShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const tab = useSearchParams()?.get("tab") ?? null;
+  const params = useSearchParams();
+  const tab = params?.get("tab") ?? params?.get("type") ?? null;
   const [collapsed, setCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   useEffect(() => {
