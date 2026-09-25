@@ -4,7 +4,8 @@ import { CalendarCheck2, CreditCard, FileCheck2, Headphones, IdCard, Repeat2, Sh
 import { PublicFooter } from "@/components/public-footer";
 import { DriverForm } from "@/components/drivers/driver-form";
 import { DriverFaq } from "@/components/drivers/driver-faq";
-import { SITE_URL } from "@/lib/public-content";
+import { destinations, SITE_URL } from "@/lib/public-content";
+import { TripLinkMockups } from "@/components/drivers/trip-link-mockups";
 
 export const metadata: Metadata = {
   title: "Drive with Waydidi | Private transfer driver jobs in Thailand",
@@ -149,13 +150,40 @@ export default function DriversPage() {
       <DriverForm />
     </section>
 
+    {/* Join today */}
+    <section className="mx-auto max-w-[1180px] px-5 pb-16 lg:px-0">
+      <div className="rounded-[28px] bg-gradient-to-br from-[#FF9A1F] via-[#FF8A05] to-[#E06A00] px-6 py-12 text-center text-white">
+        <h2 className="mx-auto max-w-[520px] text-[24px] font-medium leading-[1.2] tracking-[-.01em] sm:text-[34px]">Start earning with Waydidi. Join today.</h2>
+        <p className="mx-auto mt-2 max-w-[560px] text-[15px] leading-[21px] text-white/90 sm:text-[18px] sm:leading-7">Drive airport and intercity routes. Accept pre-booked trips with the fare shown up front.</p>
+        <a href="#apply" className="mt-7 inline-flex h-12 items-center rounded-full bg-white px-8 text-[16px] font-semibold text-[#C96100] hover:bg-white/90">Become a Waydidi driver</a>
+      </div>
+    </section>
+
     {/* FAQ */}
-    <section className="bg-white py-12 sm:py-16" aria-labelledby="driver-faq-heading">
-      <div className="mx-auto max-w-[760px] px-5">
-        <h2 id="driver-faq-heading" className="text-[28px] font-bold leading-[1.1] tracking-[-.03em]">Frequently asked questions</h2>
+    <section className="bg-[#FFF3E6] py-14 sm:py-20" aria-labelledby="driver-faq-heading">
+      <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
+        <h2 id="driver-faq-heading" className="text-[24px] font-medium tracking-[-.02em] sm:text-[36px]">Frequently Asked Questions</h2>
         <DriverFaq items={FAQ} />
       </div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: FAQ.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) }).replace(/</g, "\\u003c") }} />
+    </section>
+
+    {/* Trip link */}
+    <section className="bg-white px-5 py-14 lg:px-0">
+      <div className="relative mx-auto max-w-[1180px] overflow-hidden rounded-[28px] bg-[#1E1F24] px-6 pt-14 text-center text-white">
+        <svg className="pointer-events-none absolute inset-0 size-full" viewBox="0 0 400 700" preserveAspectRatio="none" aria-hidden="true"><path d="M120 -20 C 60 120, 80 200, 220 230 S 330 360, 240 470 S 120 600, 300 720" fill="none" stroke="#2C2E35" strokeWidth="70" strokeLinecap="round" /></svg>
+        <h2 className="relative mx-auto max-w-[480px] text-[26px] font-medium leading-[1.2] tracking-[-.01em] sm:text-[36px]">Plan, drive, earn. Your Waydidi trip link makes it easy.</h2>
+        <p className="relative mx-auto mt-4 max-w-[460px] text-[14px] leading-[21px] text-white/70 sm:text-[16px]">No app to install: every trip comes with a private link that opens on any phone.</p>
+        <div className="relative mt-10"><TripLinkMockups /></div>
+      </div>
+    </section>
+
+    {/* Popular areas */}
+    <section className="bg-[#F2F3F7] py-14 sm:py-20" aria-labelledby="areas-heading">
+      <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
+        <h2 id="areas-heading" className="text-[24px] font-medium tracking-[-.02em] sm:text-[36px]">The most popular areas</h2>
+        <ul className="mt-6 grid gap-4 sm:grid-cols-3">{destinations.map((d) => <li key={d.slug}><a href={`/destinations/${d.slug}`} className="text-[15px] text-[#444] hover:text-[#111] hover:underline sm:text-[17px]">{d.name}</a></li>)}</ul>
+      </div>
     </section>
     <PublicFooter />
   </main>;
