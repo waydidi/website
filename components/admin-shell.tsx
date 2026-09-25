@@ -2,7 +2,6 @@
 
 import {
   BookOpen,
-  Clock3,
   MapPinned,
   PanelLeftClose,
   PanelLeftOpen,
@@ -18,7 +17,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
 
 // "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
-const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href));
+const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href) || (href === "/admin/pricing" && pathname.startsWith("/admin/hourly")));
 
 const tabs = [
   {
@@ -58,9 +57,9 @@ const tabs = [
   },
   {
     href: "/admin/pricing",
-    label: "Pricing areas",
-    mobileLabel: "Areas",
-    title: "Pricing areas",
+    label: "Fare management",
+    mobileLabel: "Fares",
+    title: "Fare management",
     icon: MapPinned,
   },
   {
@@ -112,13 +111,7 @@ const tabs = [
     title: "Route inclusions",
     icon: Route,
   },
-  {
-    href: "/admin/hourly",
-    label: "Hourly pricing",
-    mobileLabel: "Hourly",
-    title: "Hourly pricing",
-    icon: Clock3,
-  },
+
 ];
 
 export default function AdminShell({

@@ -1,0 +1,12 @@
+import Link from "next/link";
+
+const TABS = [["Areas", "/admin/pricing"], ["Hourly", "/admin/hourly"]] as const;
+
+// Sub-tabs of "Fare management": area fares and hourly pricing.
+export function FareTabs({ current }: { current: "/admin/pricing" | "/admin/hourly" }) {
+  return <nav aria-label="Fare management" className="px-4 pt-4 sm:px-8">
+    <div className="inline-flex gap-1 rounded-full bg-white p-1 shadow-sm ring-1 ring-slate-200">
+      {TABS.map(([label, href]) => <Link key={href} href={href} aria-current={current === href ? "page" : undefined} className={`rounded-full px-5 py-2 text-sm font-bold ${current === href ? "bg-[#FF8A05] text-white" : "text-slate-600 hover:text-[#C96100]"}`}>{label}</Link>)}
+    </div>
+  </nav>;
+}

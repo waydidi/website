@@ -1,3 +1,4 @@
+import { FareTabs } from "@/components/admin-fares/fare-tabs";
 import type { Metadata } from "next";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import { AdminKeyLogin } from "@/components/admin-key-login";
@@ -12,5 +13,5 @@ export const metadata: Metadata = {
 export default async function PricingPage() {
   const access = await requireWaydidiAdmin("/admin/pricing");
   if (!access.authorized) return <AdminKeyLogin configured={access.configured} />;
-  return <PricingWorkspace email={access.user.email} />;
+  return <><FareTabs current="/admin/pricing" /><PricingWorkspace email={access.user.email} /></>;
 }
