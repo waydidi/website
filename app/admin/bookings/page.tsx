@@ -11,15 +11,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getDb } from "@/db";
-import { bookingPayments, bookings, bookingTaxInvoices } from "@/db/schema";
+import { bookings, bookingTaxInvoices } from "@/db/schema";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AdminKeyLogin } from "@/components/admin-key-login";
-import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { PaymentReconciliationButton } from "@/components/payment-reconciliation-button";
 import { backfillUnifiedPaymentFields } from "@/lib/payment-backfill";
-import { legacyPaymentProvider } from "@/lib/payment-model";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -49,8 +47,6 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
     .from(bookings)
     .orderBy(desc(bookings.createdAt))
     .limit(100);
-  const paymentRows = await getDb().select().from(bookingPayments).orderBy(desc(bookingPayments.createdAt)).limit(200);
-  const paymentsByBooking = new Map(paymentRows.map((payment) => [payment.bookingReference, payment]));
   // Tax invoice requests (the table may not exist yet before its migration runs).
   const taxRows = await getDb().select().from(bookingTaxInvoices).limit(500).catch(() => []);
   const taxByBooking = new Map(taxRows.map((tax) => [tax.bookingReference, tax]));
@@ -145,14 +141,10 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                   <th className="px-5 py-4">Status</th>
                   <th className="px-5 py-4">Reference</th>
                   <th className="px-5 py-4">Customer</th>
-                  <th className="px-5 py-4">Journey</th>
                   <th className="px-5 py-4">Pickup</th>
                   <th className="px-5 py-4">Vehicle</th>
                   <th className="px-5 py-4">Total</th>
-                  <th className="px-5 py-4">Payment</th>
-                  <th className="px-5 py-4">Refund</th>
                   <th className="px-5 py-4">Email</th>
-                  <th className="px-5 py-4">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -192,22 +184,6 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                         </div>
                       ); })()}
                     </td>
-                    <td className="max-w-[300px] px-5 py-4">
-                      <p className="font-bold">{row.pickup}</p>
-                      <p className="mt-1 text-slate-500">to {row.dropoff}</p>
-                      {row.returnDate && (
-                        <p className="mt-2 border-t border-slate-100 pt-2 text-xs font-bold text-[#B85E00]">
-                          Return: {row.returnPickup ?? row.dropoff} to {row.returnDropoff ?? row.pickup}
-                        </p>
-                      )}
-                      {row.flightNumber && (
-                        <div className="mt-2 rounded-xl bg-sky-50 px-3 py-2 text-xs text-sky-900">
-                          <p className="font-black">Flight {row.flightNumber.toUpperCase()}{row.flightStatus ? ` · ${row.flightStatus.replaceAll("_", " ")}` : ""}</p>
-                          {row.flightAirline && <p className="mt-1">{row.flightAirline}</p>}
-                          {(row.flightEstimatedArrival || row.flightScheduledArrival) && <p className="mt-1">Arrival {new Date(row.flightEstimatedArrival ?? row.flightScheduledArrival!).toLocaleString("en-GB", { timeZone: "Asia/Bangkok" })}{row.flightArrivalAirport ? ` · ${row.flightArrivalAirport}` : ""}</p>}
-                        </div>
-                      )}
-                    </td>
                     <td className="px-5 py-4 font-bold">
                       {row.pickupDate}
                       <p className="mt-1 font-normal text-slate-500">
@@ -229,20 +205,6 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                       ฿{row.total.toLocaleString()}
                     </td>
                     <td className="px-5 py-4">
-                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{paymentsByBooking.get(row.reference)?.provider ?? legacyPaymentProvider(row.paymentMethod)}</p>
-                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${row.paymentStatus === "paid" ? "bg-emerald-100 text-emerald-800" : row.paymentStatus === "failed" || row.paymentStatus === "expired" || row.paymentStatus === "disputed" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-900"}`}>{(row.paymentMethod === "cash" && row.paymentStatus === "pending" ? "cash_due" : row.paymentStatus).replaceAll("_", " ")}</span>
-                      {row.paymentMethod === "stripe" && row.paymentStatus !== "paid" && <div className="mt-2"><PaymentReconciliationButton reference={row.reference} /></div>}
-                    </td>
-                    <td className="px-5 py-4">
-                      {view === "bin" ? (
-                        <span className="text-slate-500">Preserved</span>
-                      ) : row.refundStatus ? (
-                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${row.refundStatus === "succeeded" ? "bg-emerald-100 text-emerald-800" : row.refundStatus === "declined" ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-700"}`}>{row.refundStatus.replaceAll("_", " ")}</span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
                       {row.emailStatus === "sent" ? (
                         <span className="inline-flex items-center gap-1.5 font-bold text-emerald-700">
                           <CheckCircle2 size={16} /> Sent
@@ -260,13 +222,12 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-4"><BookingDeleteButton reference={row.reference} binned={view === "bin"} purgeAfter={row.purgeAfter} /></td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
                   <tr>
                     <td
-                      colSpan={11}
+                      colSpan={7}
                       className="px-5 py-16 text-center text-slate-500"
                     >
                       {view === "bin" ? "The bin is empty." : "No bookings yet."}
