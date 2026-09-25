@@ -69,7 +69,7 @@ export const checkoutInputSchema = z.object({
   pickupInstructions: z.string().max(500).optional().default(""),
   childSeats: z.number().int().min(0).max(4),
   exchangeStop: z.boolean().optional().default(false),
-  ferryHotel: z.boolean().optional().default(false),
+  ferryHotelPeople: z.number().int().min(0).max(20).optional().default(0),
   saveBilling: z.boolean().optional(),
   copyEmail: z.string().trim().email().max(254).optional().or(z.literal("")),
   source: z.string().regex(/^blog:[a-z0-9-]{1,90}$/).optional().catch(undefined),

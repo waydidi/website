@@ -383,15 +383,15 @@ export async function POST(request: Request) {
     const voucher = (id: string) => gifts.find((g) => g.giftId === id && g.status === "available") ?? null;
     const freeAddons = freeAddonsWithGifts(tierFreeAddons(memberTier, input.childSeats, input.exchangeStop), input.childSeats, input.exchangeStop, { childSeat: Boolean(voucher("child_seat")), exchangeStop: Boolean(voucher("exchange_stop")) });
     // Ferry & hotel transfer: only on Koh Kood / Koh Mak transfers, checked against the quoted route.
-    let ferryHotel = false;
-    if (input.ferryHotel) {
+    let ferryPeople = 0;
+    if (input.ferryHotelPeople > 0) {
       const offered = input.serviceType !== "hourly" && quoteData && quoteData.pickupLatitude != null && quoteData.pickupLongitude != null && quoteData.dropoffLatitude != null && quoteData.dropoffLongitude != null
         ? (await loadInclusions({ lat: quoteData.pickupLatitude, lng: quoteData.pickupLongitude }, { lat: quoteData.dropoffLatitude, lng: quoteData.dropoffLongitude })).hotelTransfer
         : false;
       if (!offered) return NextResponse.json({ code: "ADDON_UNAVAILABLE", error: "Ferry & hotel transfer is only available to Koh Kood and Koh Mak.", field: "ferryHotel", retryable: false }, { status: 409 });
-      ferryHotel = true;
+      ferryPeople = Math.min(input.ferryHotelPeople, input.passengers);
     }
-    total += addonsTotal(input.childSeats, input.exchangeStop, freeAddons, ferryHotel ? input.passengers : 0);
+    total += addonsTotal(input.childSeats, input.exchangeStop, freeAddons, ferryPeople);
     // Nothing to pay (e.g. a free transfer gift with no add-ons): no card payment needed.
     if (total <= 0) { total = 0; input.paymentMethod = "cash"; }
     const reference = await uniqueBookingReference();
