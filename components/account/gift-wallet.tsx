@@ -15,7 +15,7 @@ export function GiftWallet({ gifts }: { gifts: MemberGift[] }) {
         <div className="min-w-0 flex-1">
           <p className="font-bold">{g.name}</p>
           <p className="mt-0.5 text-sm text-slate-600">{g.description}</p>
-          <p className="mt-1 text-xs text-slate-500">{TIERS.find((t) => t.id === g.tier)?.name ?? "Badge"} gift · {g.status === "available" ? `Use by ${date(g.expiresAt)}. Applied automatically at checkout.` : g.status === "used" ? `Used on booking ${g.usedBookingReference}` : `Expired ${date(g.expiresAt)}`}</p>
+          <p className="mt-1 text-xs text-slate-500">{g.tier.startsWith("box-") ? "Mystery box prize" : `${TIERS.find((t) => t.id === g.tier)?.name ?? "Badge"} gift`} · {g.status === "available" ? `Use by ${date(g.expiresAt)}. Applied automatically at checkout.` : g.status === "used" ? `Used on booking ${g.usedBookingReference}` : `Expired ${date(g.expiresAt)}`}</p>
         </div>
         {g.status === "available" && <Link href="/#booking-search" className="shrink-0 rounded-full bg-[#FF8A05] px-4 py-2 text-sm font-bold text-white">Use</Link>}
       </li>)}

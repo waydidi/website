@@ -1,4 +1,5 @@
 import { sendUnfinishedBookingReminders } from "@/lib/unfinished-bookings";
+import { sendRewardEmails } from "@/lib/reward-emails";
 import { contactEmailsFor } from "@/lib/booking-contacts";
 import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -195,5 +196,6 @@ export async function runOperationsAutomation(at = new Date()): Promise<Automati
   }
   // Members who stopped at payment get one reminder; never blocks the rest of the run.
   summary.notificationsSent += await sendUnfinishedBookingReminders(at).catch(() => 0);
+  summary.notificationsSent += await sendRewardEmails(at).catch(() => 0);
   return summary;
 }

@@ -354,3 +354,8 @@ html {
   .hiw-pulse { animation: none; }
   .hiw-car { display: none; }
 }
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-8deg) scale(1.05); }
+  50% { transform: rotate(8deg) scale(1.1); }
+}

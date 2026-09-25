@@ -304,3 +304,15 @@ export async function sendUnfinishedBookingEmail(input: { to: string; name: stri
   }, `member-unfinished-${input.reference}`);
 }
 
+
+// Member reward emails: almost at the next badge, new badge + mystery box, gift expiring.
+export async function sendRewardEmail(input: { to: string; kicker: string; title: string; intro: string; cta: string; path: string; tag: string }) {
+  const link = `${siteUrl()}${input.path}`;
+  const html = reminderShell(
+    input.kicker,
+    input.title,
+    input.intro,
+    `<tr><td colspan="2" align="center" style="padding-top:18px"><a href="${escapeHtml(link)}" style="display:inline-block;background:#ff8a05;color:#21140a;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:15px;font-weight:700">${escapeHtml(input.cta)}</a></td></tr><tr><td colspan="2" style="padding-top:22px;color:#8a94a6;font-size:12px;line-height:1.5">You're getting this because you have a Waydidi member account. Manage emails in your account settings.</td></tr>`,
+  );
+  return resend({ to: [input.to], subject: input.title, html, text: `${input.title}\n${input.intro}\n${input.cta}: ${link}` }, input.tag);
+}

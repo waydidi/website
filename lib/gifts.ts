@@ -1,8 +1,9 @@
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookings, memberGifts } from "@/db/schema";
-import { GIFT_VALID_DAYS, GIFTS, TIER_GIFTS, type GiftId } from "./gift-rules";
+import { GIFT_VALID_DAYS, giftInfo, TIER_GIFTS, type GiftId } from "./gift-rules";
 import { memberTierStatus, TIERS } from "./member-tier";
+import { syncMemberBoxes } from "./boxes";
 export * from "./gift-rules";
 
 export type MemberGift = { id: string; giftId: GiftId; name: string; description: string; emoji: string; tier: string; issuedAt: string; expiresAt: string; status: "available" | "used" | "expired"; usedBookingReference: string | null };
@@ -14,6 +15,7 @@ export async function syncMemberGifts(customerId: string) {
   const { tier } = await memberTierStatus(customerId);
   const reached = TIERS.slice(1, TIERS.findIndex((t) => t.id === tier.id) + 1);
   if (!reached.length) return;
+  await syncMemberBoxes(customerId, reached.map((t) => t.id as "gold" | "diamond" | "platinum")).catch(() => undefined);
   const rows = await getDb().select({ tier: memberGifts.tier, issuedAt: memberGifts.issuedAt }).from(memberGifts).where(eq(memberGifts.customerId, customerId));
   const since = new Date(Date.now() - YEAR).toISOString();
   const now = new Date();
@@ -35,9 +37,9 @@ export async function listMemberGifts(customerId: string, sync = true): Promise<
     .filter((b) => b.status === "expired" || b.status === "payment_failed").map((b) => b.ref) : []);
   const now = new Date().toISOString();
   return rows.map((r) => {
-    const gift = GIFTS[r.giftId as GiftId];
+    const gift = giftInfo(r.giftId);
     const used = Boolean(r.usedBookingReference && !dead.has(r.usedBookingReference));
-    return { id: r.id, giftId: r.giftId as GiftId, name: gift?.name ?? r.giftId, description: gift?.description ?? "", emoji: gift?.emoji ?? "🎁", tier: r.tier, issuedAt: r.issuedAt, expiresAt: r.expiresAt, usedBookingReference: used ? r.usedBookingReference : null,
+    return { id: r.id, giftId: r.giftId as GiftId, name: gift.name, description: gift.description, emoji: gift.emoji, tier: r.tier, issuedAt: r.issuedAt, expiresAt: r.expiresAt, usedBookingReference: used ? r.usedBookingReference : null,
       status: used ? "used" as const : r.expiresAt < now ? "expired" as const : "available" as const };
   }).sort((a, b) => ({ available: 0, used: 1, expired: 2 })[a.status] - ({ available: 0, used: 1, expired: 2 })[b.status] || b.issuedAt.localeCompare(a.issuedAt));
 }

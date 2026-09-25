@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { bookings, promoCodes, promoRedemptions } from "@/db/schema";
 import { evaluatePromo, normalizeCode, type PromoResult } from "./promo";
 import { LOYALTY_CODE, LOYALTY_TITLE, loyaltyDiscount, loyaltyStatus } from "./loyalty";
-import { availableGift, FREE_TRANSFER_CODE, freeTransferDiscount } from "./gifts";
+import { availableGift, couponValue, FREE_TRANSFER_CODE, freeTransferDiscount, listMemberGifts, REWARD_CODE, REWARD_MIN_FARE, rewardDiscount } from "./gifts";
 import { SPIN_CODE, SPIN_MIN_FARE, spinDiscount, spinStatus } from "./spin";
 
 // Bookings in these states no longer hold a use of their code.
@@ -73,6 +73,16 @@ export async function checkPromo(input: {
     if (!gift) return { ok: false, reason: "You don't have a free transfer gift to use." };
     const discount = freeTransferDiscount(input.total);
     return { ok: true, discount, finalTotal: input.total - discount, promo: { id: `gift:${gift.id}`, code: FREE_TRANSFER_CODE, title: "Gift: free airport transfer" } };
+  }
+  // Money-off coupon won in a mystery box: the member's biggest one is used.
+  if (normalizeCode(input.code) === REWARD_CODE) {
+    if (!input.customerId) return { ok: false, reason: "Sign in to use your reward." };
+    const coupons = (await listMemberGifts(input.customerId, false)).filter((g) => g.status === "available" && couponValue(g.giftId) > 0).sort((a, b) => couponValue(b.giftId) - couponValue(a.giftId));
+    const gift = coupons[0];
+    if (!gift) return { ok: false, reason: "You don't have a reward coupon to use." };
+    const discount = rewardDiscount(couponValue(gift.giftId), input.total);
+    if (discount <= 0) return { ok: false, reason: `Reward coupons work on fares from THB ${REWARD_MIN_FARE.toLocaleString("en-US")}.` };
+    return { ok: true, discount, finalTotal: input.total - discount, promo: { id: `gift:${gift.id}`, code: REWARD_CODE, title: `Reward: ${gift.name}` } };
   }
   // Prize won on the wheel: once per member, within its expiry.
   if (normalizeCode(input.code) === SPIN_CODE) {
@@ -151,6 +161,8 @@ export async function bestCoupon(input: { total: number; serviceType: "transfer"
     if (reward?.ok) best = { code: LOYALTY_CODE, title: LOYALTY_TITLE, discount: reward.discount, finalTotal: reward.finalTotal };
     const ride = await checkPromo({ ...input, code: FREE_TRANSFER_CODE }).catch(() => null);
     if (ride?.ok && ride.promo && (!best || ride.discount > best.discount)) best = { code: FREE_TRANSFER_CODE, title: ride.promo.title, discount: ride.discount, finalTotal: ride.finalTotal };
+    const boxCoupon = await checkPromo({ ...input, code: REWARD_CODE }).catch(() => null);
+    if (boxCoupon?.ok && boxCoupon.promo && (!best || boxCoupon.discount > best.discount)) best = { code: REWARD_CODE, title: boxCoupon.promo.title, discount: boxCoupon.discount, finalTotal: boxCoupon.finalTotal };
     const spin = await checkPromo({ ...input, code: SPIN_CODE }).catch(() => null);
     if (spin?.ok && spin.promo && (!best || spin.discount > best.discount)) best = { code: SPIN_CODE, title: spin.promo.title, discount: spin.discount, finalTotal: spin.finalTotal };
   }

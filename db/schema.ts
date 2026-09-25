@@ -1049,3 +1049,62 @@ export const memberGifts = sqliteTable(
   },
   (table) => [index("idx_member_gifts_customer").on(table.customerId)],
 );
+
+// Mystery box prize catalog, edited in Admin → Member gifts.
+export const mysteryPrizes = sqliteTable("mystery_prizes", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  emoji: text("emoji").notNull().default("🎁"),
+  kind: text("kind").notNull(), // coupon | child_seat | exchange_stop | airport_transfer | partner_ticket
+  value: integer("value").notNull().default(0),
+  weightsJson: text("weights_json").notNull().default("{}"),
+  stock: integer("stock"),
+  issued: integer("issued").notNull().default(0),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  validDays: integer("valid_days").notNull().default(90),
+  terms: text("terms").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// One mystery box per badge reached (per 12 months). Opening picks a prize.
+export const memberBoxes = sqliteTable(
+  "member_boxes",
+  {
+    id: text("id").primaryKey(),
+    customerId: text("customer_id").notNull(),
+    tier: text("tier").notNull(),
+    issuedAt: text("issued_at").notNull(),
+    openedAt: text("opened_at"),
+    prizeId: text("prize_id"),
+    prizeName: text("prize_name"),
+    giftRowId: text("gift_row_id"), // member_gifts row for ride prizes
+    voucherCode: text("voucher_code"), // partner tickets
+    fulfilment: text("fulfilment"), // partner tickets: to_arrange | sent | used
+    expiresAt: text("expires_at"),
+  },
+  (table) => [index("idx_member_boxes_customer").on(table.customerId)],
+);
+
+// Voucher codes from partners (cruise, restaurant), handed out with ticket prizes.
+export const partnerVoucherCodes = sqliteTable(
+  "partner_voucher_codes",
+  {
+    id: text("id").primaryKey(),
+    prizeId: text("prize_id").notNull(),
+    code: text("code").notNull(),
+    boxId: text("box_id"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("idx_partner_codes_prize").on(table.prizeId, table.boxId)],
+);
+
+// Reward emails already sent (almost-there, new badge, gift expiring), one per key.
+export const memberRewardEmails = sqliteTable("member_reward_emails", {
+  dedupeKey: text("dedupe_key").primaryKey(),
+  customerId: text("customer_id").notNull(),
+  kind: text("kind").notNull(),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+});
