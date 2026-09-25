@@ -1,6 +1,7 @@
 "use client";
 
 import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "@/lib/addons";
+import { TIERS, tierDiscount, type Tier } from "@/lib/member-tier-rules";
 import { earliestBangkokPickup } from "@/lib/booking-time";
 import {
   ArrowLeft,
@@ -249,6 +250,7 @@ export function BookingFlow({
   const [routePrefill, setRoutePrefill] = useState<{ pickupPlaceId?: string; dropoffPlaceId?: string; nonce: number } | null>(null);
   const [savedPlaces, setSavedPlaces] = useState<{ id: string; label: string; placeId: string; address: string }[]>([]);
   const [signedIn, setSignedIn] = useState(false);
+  const [memberTier, setMemberTier] = useState<Tier | null>(null);
   const [savedBilling, setSavedBilling] = useState<{ id: string; name: string; taxId: string; branch: string; address: string }[]>([]);
   const [saveBilling, setSaveBilling] = useState(false);
   const [autoPromoTried, setAutoPromoTried] = useState(false);
@@ -315,9 +317,10 @@ export function BookingFlow({
     let active = true;
     fetch("/api/account/session", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
-      .then((account: { signedIn?: boolean; name?: string | null; surname?: string | null; email?: string; phone?: string | null } | null) => {
+      .then((account: { signedIn?: boolean; name?: string | null; surname?: string | null; email?: string; phone?: string | null; tier?: string } | null) => {
         if (!active || !account?.signedIn) return;
         setSignedIn(true);
+        setMemberTier(TIERS.find((t) => t.id === account.tier) ?? TIERS[0]);
         setBooking((current) => ({
           ...current,
           name: current.name || account.name || "",
@@ -569,7 +572,9 @@ export function BookingFlow({
   );
   const discount = promo?.discount ?? 0;
   const addons = addonsTotal(booking.childSeats, exchangeStop);
-  const payable = Math.max(0, chosenVehicle.price - discount) + addons;
+  // Member tier discount comes off the fare left after any promo code (the server does the same).
+  const memberDiscount = memberTier && !quoteRequest ? tierDiscount(memberTier, Math.max(0, chosenVehicle.price - discount)) : 0;
+  const payable = Math.max(0, chosenVehicle.price - discount - memberDiscount) + addons;
 
   // A different car or price needs the code checked again.
   useEffect(() => {
@@ -1890,6 +1895,12 @@ export function BookingFlow({
                 <span className="font-semibold text-emerald-300">−{money(promo.discount)}</span>
               </div>
             )}
+            {memberDiscount > 0 && memberTier && (
+              <div className="mb-3 flex items-center justify-between text-sm">
+                <span className="text-white/65">{memberTier.name} member ({memberTier.percent}%)</span>
+                <span className="font-semibold text-emerald-300">−{money(memberDiscount)}</span>
+              </div>
+            )}
             {addons > 0 && !quoteRequest && (
               <div className="mb-3 space-y-1 text-sm">
                 {booking.childSeats > 0 && <div className="flex items-center justify-between"><span className="text-white/65">Child seat × {booking.childSeats}</span><span className="font-semibold">+{money(booking.childSeats * CHILD_SEAT_THB)}</span></div>}
@@ -1978,6 +1989,12 @@ export function BookingFlow({
                 <span className="font-semibold text-emerald-300">−{money(promo.discount)}</span>
               </div>
             )}
+            {memberDiscount > 0 && memberTier && (
+              <div className="mb-3 flex items-center justify-between text-sm">
+                <span className="text-white/65">{memberTier.name} member ({memberTier.percent}%)</span>
+                <span className="font-semibold text-emerald-300">−{money(memberDiscount)}</span>
+              </div>
+            )}
             {addons > 0 && !quoteRequest && (
               <div className="mb-3 space-y-1 text-sm">
                 {booking.childSeats > 0 && <div className="flex items-center justify-between"><span className="text-white/65">Child seat × {booking.childSeats}</span><span className="font-semibold">+{money(booking.childSeats * CHILD_SEAT_THB)}</span></div>}
@@ -2052,6 +2069,7 @@ export function BookingFlow({
                 />
                 <Detail label="Vehicle" value={chosenVehicle.name} />
                 {promo && <Detail label={`Discount (${promo.code})`} value={`−${thb(promo.discount)}`} />}
+                {memberDiscount > 0 && memberTier && <Detail label={`${memberTier.name} member (${memberTier.percent}%)`} value={`−${thb(memberDiscount)}`} />}
                 {addons > 0 && <Detail label="Add-ons" value={`+${thb(addons)}`} />}
                 <Detail
                   label="Total"

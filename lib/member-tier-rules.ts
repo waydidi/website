@@ -1,8 +1,7 @@
 // Member tiers (Trip.com-style badges). A member's tier comes from completed rides
 // OR spend on completed rides in the last 12 months, whichever reaches higher.
-// The tier discount is a built-in code ("MEMBER") that checkout re-checks, so it
-// never stacks with another promo code: the member gets whichever saves more.
-export const MEMBER_CODE = "MEMBER";
+// The tier discount is applied automatically to signed-in members' bookings and
+// combines with promo codes: it's taken from the fare left after the promo code.
 
 export type TierId = "bronze" | "gold" | "diamond" | "platinum";
 export type Tier = { id: TierId; name: string; rides: number; spend: number; percent: number; cap: number; color: string; ink: string; perks: string[] };
@@ -14,7 +13,7 @@ export const TIERS: Tier[] = [
   { id: "platinum", name: "Platinum", rides: 15, spend: 50000, percent: 10, cap: 1200, color: "linear-gradient(135deg,#4B4B55,#15151A)", ink: "#15151A", perks: ["10% off every booking (up to THB 1,200)"] },
 ];
 
-export const tierTitle = (tier: Tier) => `${tier.name} member: ${tier.percent}% off`;
+export const tierTitle = (tier: Tier) => `${tier.name} member ${tier.percent}%`;
 
 /** Highest tier reached by rides or spend, plus what's needed for the next one. */
 export function memberTier(rides: number, spend: number) {

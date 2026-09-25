@@ -3,7 +3,6 @@ import { getDb } from "@/db";
 import { bookings, promoCodes, promoRedemptions } from "@/db/schema";
 import { evaluatePromo, normalizeCode, type PromoResult } from "./promo";
 import { LOYALTY_CODE, LOYALTY_TITLE, loyaltyDiscount, loyaltyStatus } from "./loyalty";
-import { MEMBER_CODE, memberTierStatus, tierDiscount, tierTitle } from "./member-tier";
 
 // Bookings in these states no longer hold a use of their code.
 // Only bookings that were never paid give the use back; cancelled or refunded bookings keep it.
@@ -60,14 +59,6 @@ export async function checkPromo(input: {
     const discount = loyaltyDiscount(input.total);
     if (discount <= 0) return { ok: false, reason: "This reward doesn't apply to this booking." };
     return { ok: true, discount, finalTotal: input.total - discount, promo: { id: "loyalty", code: LOYALTY_CODE, title: LOYALTY_TITLE } };
-  }
-  // Member tier discount (Bronze and up): every signed-in member has one.
-  if (normalizeCode(input.code) === MEMBER_CODE) {
-    if (!input.customerId) return { ok: false, reason: "Sign in to get your member discount." };
-    const { tier } = await memberTierStatus(input.customerId);
-    const discount = tierDiscount(tier, input.total);
-    if (discount <= 0) return { ok: false, reason: "Your member discount doesn't apply to this booking." };
-    return { ok: true, discount, finalTotal: input.total - discount, promo: { id: `tier:${tier.id}`, code: MEMBER_CODE, title: tierTitle(tier) } };
   }
   const promo = await findPromo(input.code);
   if (!promo) return { ok: false, reason: "This promo code isn't valid." };
@@ -133,8 +124,6 @@ export async function bestCoupon(input: { total: number; serviceType: "transfer"
   if (input.customerId) {
     const reward = await checkPromo({ ...input, code: LOYALTY_CODE }).catch(() => null);
     if (reward?.ok) best = { code: LOYALTY_CODE, title: LOYALTY_TITLE, discount: reward.discount, finalTotal: reward.finalTotal };
-    const member = await checkPromo({ ...input, code: MEMBER_CODE }).catch(() => null);
-    if (member?.ok && member.promo && (!best || member.discount > best.discount)) best = { code: MEMBER_CODE, title: member.promo.title, discount: member.discount, finalTotal: member.finalTotal };
   }
   for (const p of promos) {
     const result = await checkPromo({ code: p.code, total: input.total, serviceType: input.serviceType, returnTrip: input.returnTrip, vehicle: input.vehicle, email: input.email, phone: input.phone, customerId: input.customerId });

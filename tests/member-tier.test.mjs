@@ -28,3 +28,9 @@ test("tier discount is capped and never makes a ride free", () => {
   assert.equal(tierDiscount(platinum, 50000), 1200);
   assert.equal(tierDiscount(TIERS[0], 1), 0);
 });
+
+test("member discount stacks after a promo code", () => {
+  const gold = TIERS.find((t) => t.id === "gold");
+  const fare = 2000, promo = 400; // e.g. NEWUSER20
+  assert.equal(tierDiscount(gold, fare - promo), 80);
+});

@@ -97,6 +97,7 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
   const extraRows = extras ? [
     ...extras.addons.map((line) => detailRow(line.label, `+${thb(line.amount)}`)),
     extras.discount ? detailRow(`Discount (${extras.discount.code})`, `−${thb(extras.discount.amount)}`) : "",
+    extras.memberDiscount ? detailRow(extras.memberDiscount.label, `−${thb(extras.memberDiscount.amount)}`) : "",
     extras.taxInvoice ? detailRow("Tax invoice", `Requested for ${extras.taxInvoice.name} (Tax ID ${extras.taxInvoice.taxId}, ${extras.taxInvoice.branch})`) : "",
   ].join("") : "";
   const html = `<!doctype html>

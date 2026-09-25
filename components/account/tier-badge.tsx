@@ -24,7 +24,7 @@ export function TierCard({ status, link = true }: { status: ReturnType<typeof me
       <p className="rounded-full bg-white/95 px-3 py-1 text-[15px] font-black" style={{ color: tier.ink }}>{tier.percent}% off</p>
     </div>
     <div className="p-5">
-      <p className="text-sm text-slate-700">{tier.perks[0]}, applied automatically when you're signed in.</p>
+      <p className="text-sm text-slate-700">{tier.perks[0]}, taken off automatically when you book signed in, on top of any promo code.</p>
       {next ? <>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#FF8A05]" style={{ width: `${Math.round(status.progress * 100)}%` }} /></div>
         <p className="mt-2 text-sm text-slate-600"><strong>{status.ridesToNext}</strong> more completed ride{status.ridesToNext === 1 ? "" : "s"} or <strong>{thb(status.spendToNext)}</strong> more spend to reach <strong>{next.name}</strong> ({next.percent}% off).</p>

@@ -1,3 +1,4 @@
+import { memberTierStatus } from "@/lib/member-tier";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
   const session = await customerFromRequest(request);
   const customer = session?.customer;
   return NextResponse.json(
-    customer ? { signedIn: true, name: customer.name, surname: customer.surname, email: customer.email, phone: customer.phone } : { signedIn: false },
+    customer ? { signedIn: true, name: customer.name, surname: customer.surname, email: customer.email, phone: customer.phone, tier: await memberTierStatus(customer.id).then((s) => s.tier.id).catch(() => "bronze") } : { signedIn: false },
     { headers: { "Cache-Control": "private, no-store" } },
   );
 }

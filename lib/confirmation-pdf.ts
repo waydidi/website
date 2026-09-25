@@ -79,6 +79,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   const breakdown: [string, string][] = extras ? [
     ...extras.addons.map((line): [string, string] => [line.label, `+THB ${line.amount.toLocaleString()}`]),
     ...(extras.discount ? [[`Discount (${extras.discount.code})`, `-THB ${extras.discount.amount.toLocaleString()}`] as [string, string]] : []),
+    ...(extras.memberDiscount ? [[extras.memberDiscount.label, `-THB ${extras.memberDiscount.amount.toLocaleString()}`] as [string, string]] : []),
     ...(extras.taxInvoice ? [["Tax invoice requested", fitText(latin(`${extras.taxInvoice.name} · Tax ID ${extras.taxInvoice.taxId}`) || `Tax ID ${extras.taxInvoice.taxId}`, regular, 9.5, 300)] as [string, string]] : []),
   ].slice(0, 4) : [];
   breakdown.forEach(([label, value], index) => {

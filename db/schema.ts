@@ -1002,3 +1002,14 @@ export const bookingSources = sqliteTable(
   },
   (table) => [index("idx_booking_sources_source").on(table.source)],
 );
+
+// Automatic member-tier discount on a booking. Applied after any promo code, so the
+// two combine; kept apart from promo_redemptions (one row per booking there).
+export const bookingMemberDiscounts = sqliteTable("booking_member_discounts", {
+  bookingReference: text("booking_reference").primaryKey(),
+  customerId: text("customer_id").notNull(),
+  tier: text("tier").notNull(),
+  percent: integer("percent").notNull(),
+  discount: integer("discount").notNull(),
+  createdAt: text("created_at").notNull(),
+});
