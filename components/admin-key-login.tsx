@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { KeyRound, LoaderCircle, ShieldCheck } from "lucide-react";
+import { KeyRound, LoaderCircle, ShieldCheck, UserRound } from "lucide-react";
 
 export function AdminKeyLogin({ configured }: { configured: boolean }) {
+  const [username, setUsername] = useState("");
   const [key, setKey] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,11 +18,11 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
       const response = await fetch("/api/admin/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key }),
+        body: JSON.stringify({ username, password: key }),
       });
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as { error?: string } | null;
-        setError(result?.error ?? "The admin key is incorrect.");
+        setError(result?.error ?? "The admin ID or password is incorrect.");
         setKey("");
         return;
       }
@@ -39,10 +40,15 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
         </span>
         <h1 className="mt-6 text-3xl font-black tracking-[-.03em]">Waydidi admin</h1>
         <p className="mt-2 text-slate-600">
-          {configured ? "Enter your admin key to continue." : "Admin-key access has not been configured yet."}
+          {configured ? "Sign in with your admin ID and password." : "Admin sign-in has not been set up yet."}
         </p>
         <form className="mt-7" onSubmit={submit}>
-          <label className="text-sm font-bold" htmlFor="admin-key">Admin key</label>
+          <label className="text-sm font-bold" htmlFor="admin-id">Admin ID</label>
+          <div className="mb-4 mt-2 flex items-center rounded-2xl border border-slate-300 bg-slate-50 px-4 focus-within:border-[#FF8A05] focus-within:ring-2 focus-within:ring-[#FF8A05]/20">
+            <UserRound className="shrink-0 text-slate-400" size={20} />
+            <input id="admin-id" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(event) => setUsername(event.target.value)} disabled={!configured || loading} className="min-w-0 flex-1 bg-transparent px-3 py-4 outline-none disabled:cursor-not-allowed" placeholder="Enter admin ID" required maxLength={100} />
+          </div>
+          <label className="text-sm font-bold" htmlFor="admin-key">Password</label>
           <div className="mt-2 flex items-center rounded-2xl border border-slate-300 bg-slate-50 px-4 focus-within:border-[#FF8A05] focus-within:ring-2 focus-within:ring-[#FF8A05]/20">
             <KeyRound className="shrink-0 text-slate-400" size={20} />
             <input
@@ -53,9 +59,9 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
               onChange={(event) => setKey(event.target.value)}
               disabled={!configured || loading}
               className="min-w-0 flex-1 bg-transparent px-3 py-4 outline-none disabled:cursor-not-allowed"
-              placeholder="Enter admin key"
+              placeholder="Enter password"
               required
-              minLength={16}
+              minLength={8}
               maxLength={200}
             />
           </div>

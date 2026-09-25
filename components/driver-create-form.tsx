@@ -101,12 +101,9 @@ export function DriverCreateForm({
             onClick={() => setBankCode(bank.code)}
             className={`flex items-center gap-2 rounded-xl border p-2 text-left transition ${bankCode === bank.code ? "border-[#FF8A05] bg-orange-50" : "border-slate-200 bg-white hover:border-orange-200"}`}
           >
-            <span
-              className="grid size-8 shrink-0 place-items-center rounded-lg text-[10px] font-black text-white"
-              style={{ backgroundColor: bank.color }}
-            >
-              {bank.code.slice(0, 3)}
-            </span>
+            {/* Official bank logos from the thai-banks-logo package (public/banks). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/banks/${bank.code}.png`} alt="" width={32} height={32} className="size-8 shrink-0 rounded-lg object-contain" />
             <span className="min-w-0">
               <span className="block truncate text-xs font-black">
                 {bank.thai}

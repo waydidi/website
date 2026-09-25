@@ -1,6 +1,6 @@
-import { env } from "cloudflare:workers";
 import { and, asc, eq, ne } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { getFile } from "@/lib/file-store";
 import { getDb } from "@/db";
 import { driverStatusEvents } from "@/db/schema";
 import { customerStage, shareLinkActive } from "@/lib/customer-trip-rules";
@@ -18,8 +18,8 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   const [event] = await getDb().select().from(driverStatusEvents)
     .where(and(eq(driverStatusEvents.assignmentId, assignment.id), eq(driverStatusEvents.status, "standby"), ne(driverStatusEvents.verificationStatus, "rejected")))
     .orderBy(asc(driverStatusEvents.createdAt)).limit(1);
-  if (!event?.evidenceKey || !env.BUCKET) return NextResponse.json({ error: "Not available." }, { status: 404 });
-  const object = await env.BUCKET.get(event.evidenceKey);
+  if (!event?.evidenceKey) return NextResponse.json({ error: "Not available." }, { status: 404 });
+  const object = await getFile(event.evidenceKey);
   if (!object) return NextResponse.json({ error: "Not available." }, { status: 404 });
   return new Response(object.body, { headers: { "Content-Type": event.evidenceMime ?? "image/jpeg", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
 }

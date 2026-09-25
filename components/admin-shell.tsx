@@ -6,7 +6,7 @@ import {
   Truck,
   Users,
   Newspaper,
-  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronRight, Grid2x2, Search } from "lucide-react";
+  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronRight, Grid2x2, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -137,7 +137,7 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
 
 const linkActive = (l: NavLink, p: string, t: string | null) => { const h = l.href.split("?")[0]; return l.match ? l.match(p, t) : h === "/admin" ? p === h : p.startsWith(h); };
 const groupActive = (g: NavGroup, p: string, t: string | null) => (g.children ? g.children.some((c) => linkActive(c, p, t)) : linkActive(g, p, t));
-const ALL_PAGES = SECTIONS.flatMap((s) => s.items.flatMap((g) => (g.children ? g.children.map((c) => ({ href: c.href, label: `${g.label} · ${c.label}` })) : [{ href: g.href, label: g.label }])));
+const ALL_PAGES = SECTIONS.flatMap((s) => s.items.flatMap((g) => (g.children ? g.children.map((c) => ({ href: c.href, label: `${g.label} · ${c.label}` })) : [{ href: g.href, label: g.label }]))).concat({ href: "/admin/settings", label: "Settings" });
 
 function PageSearch() {
   const router = useRouter();
@@ -188,7 +188,7 @@ export default function AdminShell({
   }
   const isOpen = (g: NavGroup) => openGroups[g.href] ?? groupActive(g, pathname, tab);
   const active = tabs.find((t) => isActive(pathname, t.href)) ?? tabs[0];
-  const title = pathname.startsWith("/admin/journeys") ? "Journey details" : pathname.startsWith("/admin/calendar") ? "Calendar" : active.title;
+  const title = pathname.startsWith("/admin/settings") ? "Settings" : pathname.startsWith("/admin/journeys") ? "Journey details" : pathname.startsWith("/admin/calendar") ? "Calendar" : active.title;
   return (
     <div className="flex min-h-screen bg-[#F4F5F7] text-[#15161C]">
       <aside className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-slate-200/80 bg-[#FBFBFC] transition-[width] duration-300 md:flex ${collapsed ? "w-[76px]" : "w-[272px]"}`}>
@@ -225,9 +225,8 @@ export default function AdminShell({
             </ul>
           </div>)}
         </nav>
-        <div className={`flex items-center gap-3 border-t border-slate-200/70 p-4 ${collapsed ? "justify-center" : ""}`}>
-          <div className="grid size-10 shrink-0 place-items-center rounded-full bg-[#15161C] text-[13px] font-bold text-white" aria-hidden="true">WD</div>
-          {!collapsed && <div className="min-w-0"><p className="truncate text-[14px] font-semibold">Waydidi Admin</p><p className="text-[12px] text-slate-500">Administrator</p></div>}
+        <div className="border-t border-slate-200/70 p-3">
+          <Link href="/admin/settings" prefetch aria-current={pathname.startsWith("/admin/settings") ? "page" : undefined} title="Settings" className={`flex h-10 items-center gap-3 rounded-[10px] px-3 text-[15px] ${collapsed ? "justify-center" : ""} ${pathname.startsWith("/admin/settings") ? "bg-[#FFF0DF] font-semibold text-[#C96100]" : "text-slate-700 hover:bg-slate-100/80"}`}><Settings size={18} className="shrink-0" />{!collapsed && "Settings"}</Link>
         </div>
       </aside>
       <div className="min-w-0 flex-1">

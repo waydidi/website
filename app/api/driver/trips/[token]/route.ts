@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { and, count, desc, eq, gt, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { deleteFile, putFile } from "@/lib/file-store";
 import { getDb } from "@/db";
 import { bookingAssignments, bookings, drivers, driverPayoutDetails, driverStatusEvents, journeyStopDeclarations, passengerVerifications } from "@/db/schema";
 import { activeAssignmentForToken } from "@/lib/driver-operations";
@@ -132,13 +133,12 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     if (evidence.size > MAX_PHOTO_BYTES || !ACCEPTED_TYPES.has(evidence.type)) return NextResponse.json({ error: "Use a JPG, PNG, or WebP picture smaller than 8 MB." }, { status: 400 });
     const bytes = new Uint8Array(await evidence.arrayBuffer());
     if (!validImage(bytes, evidence.type)) return NextResponse.json({ error: "The selected file is not a valid picture." }, { status: 400 });
-    if (!env.BUCKET) return NextResponse.json({ error: "Picture storage is temporarily unavailable." }, { status: 503 });
     const extension = evidence.type === "image/jpeg" ? "jpg" : evidence.type === "image/png" ? "png" : "webp";
     evidenceKey = `driver-evidence/${trip.booking.reference}/${requestedStatus}/${crypto.randomUUID()}.${extension}`;
     evidenceMime = evidence.type;
     evidenceBytes = evidence.size;
     evidenceSha256 = await sha256Bytes(bytes);
-    await env.BUCKET.put(evidenceKey, bytes, { httpMetadata: { contentType: evidence.type, cacheControl: "private, no-store" }, customMetadata: { booking: trip.booking.reference, assignment: trip.assignment.id, status: requestedStatus } });
+    await putFile(evidenceKey, bytes, evidence.type);
   }
 
   const id = clientEventId || crypto.randomUUID();
@@ -165,7 +165,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   try {
     await env.DB.batch(statements);
   } catch (error) {
-    if (evidenceKey && env.BUCKET) await env.BUCKET.delete(evidenceKey).catch(() => undefined);
+    if (evidenceKey) await deleteFile(evidenceKey).catch(() => undefined);
     console.error("Driver status update failed", error);
     return NextResponse.json({ error: "The update could not be saved. Please try again." }, { status: 503 });
   }

@@ -1,9 +1,9 @@
-import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { drivers } from "@/db/schema";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { prepareDriverImage } from "@/lib/admin-driver-images";
+import { deleteFile, putFile } from "@/lib/file-store";
 import { sameOrigin } from "@/lib/security";
 import { THAI_BANKS } from "@/lib/thai-banks";
 
@@ -77,39 +77,14 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  if (!env.BUCKET)
-    return NextResponse.json(
-      { error: "Private image storage is unavailable." },
-      { status: 503 },
-    );
 
   const id = crypto.randomUUID();
   const idImageKey = `driver-verification/${id}/identity.${idImage.extension}`;
   const carImageKey = `driver-verification/${id}/vehicle.${carImage.extension}`;
   try {
     await Promise.all([
-      env.BUCKET.put(idImageKey, idImage.bytes, {
-        httpMetadata: {
-          contentType: idImage.mime,
-          cacheControl: "private, no-store",
-        },
-        customMetadata: {
-          driverId: id,
-          kind: "identity",
-          uploadedBy: admin.email,
-        },
-      }),
-      env.BUCKET.put(carImageKey, carImage.bytes, {
-        httpMetadata: {
-          contentType: carImage.mime,
-          cacheControl: "private, no-store",
-        },
-        customMetadata: {
-          driverId: id,
-          kind: "vehicle",
-          uploadedBy: admin.email,
-        },
-      }),
+      putFile(idImageKey, idImage.bytes, idImage.mime),
+      putFile(carImageKey, carImage.bytes, carImage.mime),
     ]);
     const now = new Date().toISOString();
     const driver = {
@@ -140,8 +115,8 @@ export async function POST(request: Request) {
     });
   } catch {
     await Promise.all([
-      env.BUCKET.delete(idImageKey),
-      env.BUCKET.delete(carImageKey),
+      deleteFile(idImageKey),
+      deleteFile(carImageKey),
     ]).catch(() => undefined);
     return NextResponse.json(
       { error: "The driver could not be saved. Please try again." },

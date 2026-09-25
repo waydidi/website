@@ -47,9 +47,20 @@ export function adminKeyConfigured() {
     (env.WAYDIDI_ADMIN_SESSION_SECRET ?? "").length >= 32;
 }
 
+/** The admin sign-in ID: WAYDIDI_ADMIN_USERNAME if set, otherwise "admin". */
+export function adminUsername() {
+  return String(env.WAYDIDI_ADMIN_USERNAME ?? "admin").trim().toLowerCase() || "admin";
+}
+
+export async function verifyAdminLogin(username: string, password: string) {
+  const idOk = constantTimeEqual(username.trim().toLowerCase(), adminUsername());
+  const passOk = await verifyAdminKey(password);
+  return idOk && passOk;
+}
+
 export async function verifyAdminKey(candidate: string) {
   const expected = env.WAYDIDI_ADMIN_KEY_HASH ?? "";
-  if (!adminKeyConfigured() || candidate.length < 16 || candidate.length > 200) return false;
+  if (!adminKeyConfigured() || candidate.length < 8 || candidate.length > 200) return false;
   return constantTimeEqual(await sha256(candidate), expected);
 }
 

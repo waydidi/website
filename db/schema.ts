@@ -1,4 +1,4 @@
-import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const bookings = sqliteTable(
   "bookings",
@@ -1147,3 +1147,12 @@ export const driverApplications = sqliteTable("driver_applications", {
   status: text("status").notNull().default("new"),
   createdAt: text("created_at").notNull(),
 });
+
+// Private files (driver ID and car photos, trip evidence, blog images) when no R2 bucket is bound.
+export const storedFileParts = sqliteTable("stored_file_parts", {
+  key: text("key").notNull(),
+  part: integer("part").notNull(),
+  contentType: text("content_type").notNull(),
+  data: blob("data").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [primaryKey({ columns: [table.key, table.part] })]);

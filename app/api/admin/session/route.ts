@@ -3,7 +3,7 @@ import { and, count, eq, gt, lt } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { checkoutAttempts } from "@/db/schema";
-import { ADMIN_COOKIE, ADMIN_EMAIL, ADMIN_SESSION_SECONDS, createAdminSession, verifyAdminKey } from "@/lib/admin";
+import { ADMIN_COOKIE, ADMIN_EMAIL, ADMIN_SESSION_SECONDS, createAdminSession, verifyAdminKey, verifyAdminLogin } from "@/lib/admin";
 import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
 
 export async function POST(request: Request) {
@@ -16,12 +16,15 @@ export async function POST(request: Request) {
   const [{ attempts }] = await getDb().select({ attempts: count() }).from(checkoutAttempts).where(and(eq(checkoutAttempts.fingerprintHash, fingerprint), gt(checkoutAttempts.createdAt, windowStart)));
   if (attempts >= 8) return NextResponse.json({ error: "Too many attempts. Try again in 15 minutes." }, { status: 429, headers: { "Retry-After": "900" } });
 
-  const input = await request.json().catch(() => null) as { key?: unknown } | null;
-  const candidate = typeof input?.key === "string" ? input.key : "";
-  if (!(await verifyAdminKey(candidate))) {
+  const input = await request.json().catch(() => null) as { username?: unknown; password?: unknown; key?: unknown } | null;
+  const username = typeof input?.username === "string" ? input.username : "";
+  const password = typeof input?.password === "string" ? input.password : typeof input?.key === "string" ? input.key : "";
+  // ID + password; a bare "key" (older form) still works on its own.
+  const ok = typeof input?.username === "string" ? await verifyAdminLogin(username, password) : await verifyAdminKey(password);
+  if (!ok) {
     await getDb().insert(checkoutAttempts).values({ fingerprintHash: fingerprint, createdAt: new Date().toISOString() });
     await getDb().delete(checkoutAttempts).where(lt(checkoutAttempts.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()));
-    return NextResponse.json({ error: "The admin key is incorrect." }, { status: 401 });
+    return NextResponse.json({ error: "The admin ID or password is incorrect." }, { status: 401 });
   }
 
   const response = NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
@@ -32,5 +35,13 @@ export async function POST(request: Request) {
     path: "/",
     maxAge: ADMIN_SESSION_SECONDS,
   });
+  return response;
+}
+
+// Sign out: clear the admin cookie.
+export async function DELETE(request: Request) {
+  if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-site request blocked." }, { status: 403 });
+  const response = NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+  response.cookies.set(ADMIN_COOKIE, "", { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 0 });
   return response;
 }

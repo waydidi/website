@@ -1,6 +1,6 @@
-import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { deleteFile } from "@/lib/file-store";
 import { getDb } from "@/db";
 import { bookingAssignments, driverAvailability, driverOffers, drivers, operationsCalendarEvents } from "@/db/schema";
 import { getWaydidiAdmin } from "@/lib/admin";
@@ -22,6 +22,6 @@ export async function DELETE(request: Request, context: { params: Promise<{ driv
     getDb().delete(operationsCalendarEvents).where(eq(operationsCalendarEvents.driverId, driverId)),
     getDb().delete(drivers).where(eq(drivers.id, driverId)),
   ]);
-  if (env.BUCKET) await Promise.all([driver.idImageKey, driver.carImageKey].filter(Boolean).map((key) => env.BUCKET.delete(key!))).catch(() => undefined);
+  await Promise.all([driver.idImageKey, driver.carImageKey].filter(Boolean).map((key) => deleteFile(key!))).catch(() => undefined);
   return NextResponse.json({ ok: true });
 }
