@@ -13,19 +13,52 @@ export const BLOG_CATEGORIES: Record<BlogCategory, string> = {
 
 export type BlogSection = { heading: string; paragraphs: string[]; tip?: string; list?: string[] };
 
+// Content blocks, WordPress-style. Posts written in Admin → Blog are stored as blocks.
+export type BlogBlock =
+  | { type: "paragraph"; text: string }
+  | { type: "heading"; text: string }
+  | { type: "list"; items: string[] }
+  | { type: "tip"; text: string }
+  | { type: "image"; src: string; alt: string; caption?: string }
+  | { type: "booking" };
+
+export const COVER_TONES = ["orange", "navy", "green", "plum"] as const;
+export type CoverTone = (typeof COVER_TONES)[number];
+
+/** Category keys from the starter set map to labels; admin categories are stored as labels. */
+export const categoryLabel = (c: string) => (BLOG_CATEGORIES as Record<string, string>)[c] ?? c;
+
 export type BlogPost = {
   slug: string;
   title: string;
   excerpt: string;
   date: string; // ISO date
-  categories: BlogCategory[];
+  categories: string[];
   featured?: boolean;
   popular?: number; // rank in "Popular articles"
-  cover: { headline: string; photo?: string; tone: "orange" | "navy" | "green" | "plum" };
+  cover: { headline: string; photo?: string; tone: CoverTone };
   // Pre-fills the booking form from the article's booking card.
   route?: { pickup: string; dropoff: string; label: string; service?: "transfer" | "hourly" };
-  sections: BlogSection[];
+  sections?: BlogSection[];
+  blocks?: BlogBlock[];
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  author?: string;
 };
+
+/** A post's content as blocks (starter posts are written as sections). */
+export function postBlocks(post: BlogPost): BlogBlock[] {
+  if (post.blocks) return post.blocks;
+  const blocks: BlogBlock[] = [];
+  (post.sections ?? []).forEach((s, i) => {
+    blocks.push({ type: "heading", text: s.heading });
+    s.paragraphs.forEach((text) => blocks.push({ type: "paragraph", text }));
+    if (s.list) blocks.push({ type: "list", items: s.list });
+    if (s.tip) blocks.push({ type: "tip", text: s.tip });
+    if (i === Math.min(1, (post.sections ?? []).length - 1) && post.route) blocks.push({ type: "booking" });
+  });
+  return blocks;
+}
 
 export const BLOG_POSTS: BlogPost[] = [
   {
@@ -150,7 +183,7 @@ export const BLOG_POSTS: BlogPost[] = [
 export const blogPost = (slug: string) => BLOG_POSTS.find((post) => post.slug === slug) ?? null;
 
 export const readingMinutes = (post: BlogPost) =>
-  Math.max(2, Math.round(post.sections.flatMap((s) => [...s.paragraphs, ...(s.list ?? []), s.tip ?? ""]).join(" ").split(/\s+/).length / 200));
+  Math.max(2, Math.round(postBlocks(post).map((b) => ("text" in b ? b.text : "items" in b ? b.items.join(" ") : "")).join(" ").split(/\s+/).length / 200));
 
 /** Link to the homepage search, pre-filled with an article's route. */
 export function routeHref(route: NonNullable<BlogPost["route"]>) {

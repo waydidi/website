@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BLOG_CATEGORIES, type BlogPost } from "@/lib/blog-posts";
+import { categoryLabel, type BlogPost } from "@/lib/blog-posts";
 import { BlogCover, formatBlogDate } from "./blog-cover";
 
 // "Latest articles": thumbnail rows with a "See more" button that reveals the rest.
@@ -15,7 +15,7 @@ export function LatestList({ posts, initial = 5 }: { posts: BlogPost[]; initial?
           <BlogCover post={post} size="thumb" />
           <span className="min-w-0">
             <span className="line-clamp-2 text-[16px] font-semibold leading-snug text-[#1C1C1C]">{post.title}</span>
-            <span className="mt-1.5 flex flex-wrap gap-x-3 text-[14px] italic text-[#E07400]">{post.categories.map((c) => <span key={c}>{BLOG_CATEGORIES[c]}</span>)}</span>
+            <span className="mt-1.5 flex flex-wrap gap-x-3 text-[14px] italic text-[#E07400]">{post.categories.map((c) => <span key={c}>{categoryLabel(c)}</span>)}</span>
             <span className="mt-1.5 block text-[14px] text-[#8A8A8A]">{formatBlogDate(post.date)}</span>
           </span>
         </Link>

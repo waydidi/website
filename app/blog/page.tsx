@@ -5,7 +5,8 @@ import { ArrowRight } from "lucide-react";
 import { PublicFooter } from "@/components/public-footer";
 import { BlogCover, formatBlogDate } from "@/components/blog/blog-cover";
 import { LatestList } from "@/components/blog/latest-list";
-import { BLOG_POSTS, POPULAR_PLACES } from "@/lib/blog-posts";
+import { POPULAR_PLACES } from "@/lib/blog-posts";
+import { publishedPosts } from "@/lib/blog-store";
 import { SITE_URL } from "@/lib/public-content";
 
 export const metadata: Metadata = {
@@ -17,10 +18,13 @@ export const metadata: Metadata = {
 
 const heading = "text-[26px] font-bold tracking-[-.02em] text-[#1C1C1C]";
 
-export default function BlogHome() {
-  const byDate = [...BLOG_POSTS].sort((a, b) => b.date.localeCompare(a.date));
+export const dynamic = "force-dynamic";
+
+export default async function BlogHome() {
+  const posts = await publishedPosts();
+  const byDate = [...posts].sort((a, b) => b.date.localeCompare(a.date));
   const featured = byDate.filter((p) => p.featured);
-  const popular = BLOG_POSTS.filter((p) => p.popular).sort((a, b) => a.popular! - b.popular!);
+  const popular = posts.filter((p) => p.popular).sort((a, b) => a.popular! - b.popular!);
   return <main className="font-home bg-white text-[#1C1C1C]">
     {/* Hero */}
     <section className="relative isolate overflow-hidden">

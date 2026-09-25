@@ -955,3 +955,31 @@ export const customerIdentities = sqliteTable(
     index("idx_customer_identities_customer").on(table.customerId),
   ],
 );
+
+// Travel guides written in Admin → Blog. Content is a list of blocks (paragraph,
+// heading, list, tip, image, booking card) stored as JSON.
+export const blogPosts = sqliteTable(
+  "blog_posts",
+  {
+    id: text("id").primaryKey(),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    excerpt: text("excerpt").notNull().default(""),
+    status: text("status").notNull().default("draft"), // draft | published | trash
+    publishedAt: text("published_at"),
+    categoriesJson: text("categories_json").notNull().default("[]"),
+    featured: integer("featured", { mode: "boolean" }).notNull().default(false),
+    popularRank: integer("popular_rank"),
+    featuredImage: text("featured_image"),
+    coverJson: text("cover_json").notNull().default("{}"),
+    routeJson: text("route_json"),
+    blocksJson: text("blocks_json").notNull().default("[]"),
+    seoTitle: text("seo_title"),
+    seoDescription: text("seo_description"),
+    author: text("author").notNull().default("Waydidi team"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("uidx_blog_posts_slug").on(table.slug), index("idx_blog_posts_status_published").on(table.status, table.publishedAt)],
+);
+

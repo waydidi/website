@@ -9,6 +9,7 @@ import {
   Send,
   Truck,
   Users,
+  Newspaper,
   Route,
   TicketPercent,
 } from "lucide-react";
@@ -59,6 +60,13 @@ const tabs = [
     mobileLabel: "Promos",
     title: "Promotions",
     icon: TicketPercent,
+  },
+  {
+    href: "/admin/blog",
+    label: "Blog",
+    mobileLabel: "Blog",
+    title: "Blog",
+    icon: Newspaper,
   },
   {
     href: "/admin/routes",
