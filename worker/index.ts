@@ -41,17 +41,19 @@ const worker = {
       }, allowedWidths);
     }
 
-    // Public blog pages are cached at the edge for 5 minutes (saving a post in admin clears them).
-    const blogPage = request.method === "GET" && /^\/(th\/|zh\/)?blog(\/|$)/.test(url.pathname) && !url.searchParams.has("preview");
+    // Public, same-for-everyone responses are kept at the edge so most visitors never
+    // wait for the database: blog pages 5 min (saving a post clears them), public
+    // data feeds 1–5 min.
+    const ttl = request.method === "GET" ? edgeTtl(url) : 0;
     const edgeCache = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
-    if (blogPage && edgeCache) {
+    if (ttl && edgeCache) {
       const hit = await edgeCache.match(url.toString()).catch(() => undefined);
       if (hit) return withSecurityHeaders(hit, url);
     }
     const response = await handler.fetch(request, env, ctx);
-    if (blogPage && edgeCache && response.status === 200) {
+    if (ttl && edgeCache && response.status === 200 && !response.headers.has("Set-Cookie")) {
       const copy = new Response(response.clone().body, response);
-      copy.headers.set("Cache-Control", "public, max-age=0, s-maxage=300");
+      copy.headers.set("Cache-Control", `public, max-age=0, s-maxage=${ttl}`);
       ctx.waitUntil(edgeCache.put(url.toString(), copy).catch(() => undefined));
     }
     return withSecurityHeaders(response, url);
@@ -75,3 +77,11 @@ function withSecurityHeaders(response: Response, url: URL) {
 }
 
 export default worker;
+
+/** Seconds a public GET response may be served from the edge cache (0 = never). */
+function edgeTtl(url: URL) {
+  if (/^\/(th\/|zh\/)?blog(\/|$)/.test(url.pathname) && !url.searchParams.has("preview")) return 300;
+  if (url.pathname === "/api/promotions") return 60;
+  if (url.pathname === "/api/route-inclusions") return 300;
+  return 0;
+}

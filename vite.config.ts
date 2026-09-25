@@ -31,6 +31,9 @@ function bindingConfig(command: "build" | "serve") {
     // Keep variables set in the Cloudflare dashboard across Git deploys;
     // without this, wrangler deploy deletes any not declared here.
     keep_vars: true,
+    // Run database-heavy requests close to the D1 database instead of next to
+    // each visitor: pages with several queries finish sooner.
+    placement: { mode: "smart" as const },
     // Runs worker/index.ts "scheduled": trip reminders and operations alerts.
     triggers: { crons: ["*/5 * * * *"] },
     d1_databases: d1

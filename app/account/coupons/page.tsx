@@ -17,12 +17,15 @@ export const metadata: Metadata = { title: "My coupons · Waydidi", robots: { in
 
 export default async function CouponsPage() {
   const customer = await requireCustomer("/account/coupons");
-  const loyalty = await loyaltyStatus(customer.id).catch(() => null);
-  const tier = await memberTierStatus(customer.id).catch(() => null);
-  const spin = await spinStatus(customer.id).catch(() => null);
-  const gifts = await listMemberGifts(customer.id).catch(() => []);
+  // Independent lookups run together; boxes are listed after gifts, which issues new ones.
+  const [loyalty, tier, spin, gifts, coupons] = await Promise.all([
+    loyaltyStatus(customer.id).catch(() => null),
+    memberTierStatus(customer.id).catch(() => null),
+    spinStatus(customer.id).catch(() => null),
+    listMemberGifts(customer.id).catch(() => []),
+    listMemberCoupons({ email: customer.email, phone: customer.phone ?? "", customerId: customer.id }).catch(() => []),
+  ]);
   const boxes = await listMemberBoxes(customer.id).catch(() => []);
-  const coupons = await listMemberCoupons({ email: customer.email, phone: customer.phone ?? "", customerId: customer.id }).catch(() => []);
   return <AccountShell name={customer.name} email={customer.email}>
     <PageTitle title="My coupons" subtitle="Offers you can use on your next ride." />
     {tier && <div className="mb-4"><TierCard status={tier} /></div>}

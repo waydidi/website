@@ -155,20 +155,19 @@ export async function listMemberCoupons(who: Who): Promise<MemberCoupon[]> {
 // The code giving the biggest discount on this exact booking, if any applies.
 export async function bestCoupon(input: { total: number; serviceType: "transfer" | "hourly"; returnTrip?: boolean; vehicle: string; airportTrip?: boolean } & Who) {
   const promos = await activePromos();
+  // Member rewards first, then public codes; ties keep the earlier one (same order as before).
+  const codes = [
+    ...(input.customerId ? [LOYALTY_CODE, FREE_TRANSFER_CODE, REWARD_CODE, SPIN_CODE] : []),
+    ...promos.map((p) => p.code),
+  ];
+  // All codes are checked at the same time instead of one after another.
+  const results = await Promise.all(codes.map((code) => checkPromo({ ...input, code }).catch(() => null)));
   let best: { code: string; title: string; discount: number; finalTotal: number } | null = null;
-  if (input.customerId) {
-    const reward = await checkPromo({ ...input, code: LOYALTY_CODE }).catch(() => null);
-    if (reward?.ok) best = { code: LOYALTY_CODE, title: LOYALTY_TITLE, discount: reward.discount, finalTotal: reward.finalTotal };
-    const ride = await checkPromo({ ...input, code: FREE_TRANSFER_CODE }).catch(() => null);
-    if (ride?.ok && ride.promo && (!best || ride.discount > best.discount)) best = { code: FREE_TRANSFER_CODE, title: ride.promo.title, discount: ride.discount, finalTotal: ride.finalTotal };
-    const boxCoupon = await checkPromo({ ...input, code: REWARD_CODE }).catch(() => null);
-    if (boxCoupon?.ok && boxCoupon.promo && (!best || boxCoupon.discount > best.discount)) best = { code: REWARD_CODE, title: boxCoupon.promo.title, discount: boxCoupon.discount, finalTotal: boxCoupon.finalTotal };
-    const spin = await checkPromo({ ...input, code: SPIN_CODE }).catch(() => null);
-    if (spin?.ok && spin.promo && (!best || spin.discount > best.discount)) best = { code: SPIN_CODE, title: spin.promo.title, discount: spin.discount, finalTotal: spin.finalTotal };
-  }
-  for (const p of promos) {
-    const result = await checkPromo({ code: p.code, total: input.total, serviceType: input.serviceType, returnTrip: input.returnTrip, vehicle: input.vehicle, email: input.email, phone: input.phone, customerId: input.customerId });
-    if (result.ok && (!best || result.discount > best.discount)) best = { code: p.code, title: p.title, discount: result.discount, finalTotal: result.finalTotal };
-  }
+  results.forEach((result, i) => {
+    if (!result?.ok || (best && result.discount <= best.discount)) return;
+    const code = codes[i];
+    const title = code === LOYALTY_CODE ? LOYALTY_TITLE : result.promo?.title ?? promos.find((p) => p.code === code)?.title ?? code;
+    best = { code, title, discount: result.discount, finalTotal: result.finalTotal };
+  });
   return best;
 }

@@ -18,15 +18,24 @@ export const metadata: Metadata = { title: "My account · Waydidi", robots: { in
 
 export default async function AccountOverview() {
   const customer = await requireCustomer("/account");
-  const trips = (await customerBookings(customer)).map((trip) => ({ trip, bucket: tripBucket(trip.status, trip.pickupDate, trip.pickupTime) }));
+  // Independent lookups run together, so the page waits for the slowest one, not their sum.
+  // (Gifts also issues any new badge boxes, so boxes are listed right after it.)
+  const [bookingRows, loyalty, tier, giftRows] = await Promise.all([
+    customerBookings(customer),
+    loyaltyStatus(customer.id).catch(() => null),
+    memberTierStatus(customer.id).catch(() => null),
+    listMemberGifts(customer.id).catch(() => []),
+  ]);
+  const trips = bookingRows.map((trip) => ({ trip, bucket: tripBucket(trip.status, trip.pickupDate, trip.pickupTime) }));
   const upcoming = trips.filter((t) => t.bucket === "upcoming").reverse(); // soonest first
   const next = upcoming[0];
   const recent = trips.filter((t) => t !== next).slice(0, 3);
-  const statuses = await driverStatuses(next ? [next.trip.reference] : []);
-  const loyalty = await loyaltyStatus(customer.id).catch(() => null);
-  const tier = await memberTierStatus(customer.id).catch(() => null);
-  const gifts = (await listMemberGifts(customer.id).catch(() => [])).filter((g) => g.status === "available");
-  const boxes = (await listMemberBoxes(customer.id).catch(() => [])).filter((b) => !b.openedAt);
+  const [statuses, boxRows] = await Promise.all([
+    driverStatuses(next ? [next.trip.reference] : []),
+    listMemberBoxes(customer.id).catch(() => []),
+  ]);
+  const gifts = giftRows.filter((g) => g.status === "available");
+  const boxes = boxRows.filter((b) => !b.openedAt);
   const actions = [
     { href: "/#booking-search", label: "Book a ride", icon: CarFront },
     { href: "/account/trips", label: "All my trips", icon: Search },
