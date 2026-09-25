@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, CarFront, House, MapPin, ReceiptText, Settings, TicketPercent, UserRound, Users } from "lucide-react";
+import { Building2, CarFront, House, MapPin, ReceiptText, Settings, TicketPercent, UserRound, Users, Medal } from "lucide-react";
 
 const items = [
   { href: "/account", label: "Overview", icon: House, tab: true },
   { href: "/account/trips", label: "My trips", icon: CarFront, tab: true },
   { href: "/account/receipts", label: "Receipts", icon: ReceiptText, tab: true },
+  { href: "/account/membership", label: "Membership", icon: Medal, tab: false },
   { href: "/account/coupons", label: "My coupons", icon: TicketPercent, tab: false },
   { href: "/account/places", label: "Saved places", icon: MapPin, tab: false },
   { href: "/account/passengers", label: "Travellers", icon: Users, tab: false },

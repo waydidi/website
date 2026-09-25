@@ -5,6 +5,8 @@ import { AccountShell } from "@/components/account/account-shell";
 import { TripCard } from "@/components/account/trip-card";
 import { LoyaltyCard } from "@/components/account/loyalty-card";
 import { loyaltyStatus } from "@/lib/loyalty";
+import { memberTierStatus } from "@/lib/member-tier";
+import { TierCard } from "@/components/account/tier-badge";
 import { customerBookings, driverStatuses, requireCustomer } from "@/lib/customer-auth";
 import { tripBucket } from "@/lib/customer-account";
 
@@ -18,6 +20,7 @@ export default async function AccountOverview() {
   const recent = trips.filter((t) => t !== next).slice(0, 3);
   const statuses = await driverStatuses(next ? [next.trip.reference] : []);
   const loyalty = await loyaltyStatus(customer.id).catch(() => null);
+  const tier = await memberTierStatus(customer.id).catch(() => null);
   const actions = [
     { href: "/#booking-search", label: "Book a ride", icon: CarFront },
     { href: "/account/trips", label: "All my trips", icon: Search },
@@ -28,7 +31,8 @@ export default async function AccountOverview() {
     <h1 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Hi{customer.name ? `, ${customer.name}` : ""}</h1>
     <p className="mt-2 text-slate-600">{upcoming.length ? `You have ${upcoming.length} upcoming ${upcoming.length === 1 ? "trip" : "trips"}.` : "No upcoming trips yet."}</p>
 
-    {loyalty && <div className="mt-6"><LoyaltyCard status={loyalty} /></div>}
+    {tier && <div className="mt-6"><TierCard status={tier} /></div>}
+    {loyalty && <div className="mt-4"><LoyaltyCard status={loyalty} /></div>}
 
     <section className="mt-7" aria-labelledby="next-trip">
       <h2 id="next-trip" className="mb-3 text-lg font-black">Next trip</h2>
