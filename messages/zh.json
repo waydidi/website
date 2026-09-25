@@ -1170,5 +1170,9 @@
   "nav.blog": {
     "text": "旅行指南",
     "status": "machine"
+  },
+  "footer.travelAgencies": {
+    "text": "旅行社合作",
+    "status": "machine"
   }
 }

@@ -1170,5 +1170,9 @@
   "nav.blog": {
     "text": "คู่มือท่องเที่ยว",
     "status": "machine"
+  },
+  "footer.travelAgencies": {
+    "text": "สำหรับบริษัทท่องเที่ยว",
+    "status": "machine"
   }
 }
