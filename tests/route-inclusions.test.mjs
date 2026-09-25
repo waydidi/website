@@ -66,9 +66,18 @@ test("messages exist in English, Thai and Chinese", () => {
   for (const locale of ["en", "th", "zh"]) assert.equal(lib.inclusionLines(both, locale).included.length, 2);
 });
 
-test("the routes in code include tolls, and ferry to the islands", () => {
-  const pattaya = lib.resolveInclusions(place.suvarnabhumi, place.hiltonPattaya, lib.ROUTE_RULES);
-  assert.equal(pattaya.tolls, true); assert.equal(pattaya.ferry, false); assert.equal(pattaya.route, "Bangkok to Pattaya");
-  const kohChang = lib.resolveInclusions({ lat: 12.05, lng: 102.35 }, place.suvarnabhumi, lib.ROUTE_RULES);
-  assert.equal(kohChang.tolls, true); assert.equal(kohChang.ferry, true);
+test("the routes in code: Pattaya tolls from anywhere, island ferries, Koh Kood hotel transfer", () => {
+  const R = lib.ROUTE_RULES;
+  const huaHin = { lat: 12.57, lng: 99.95 }, rayong = { lat: 12.68, lng: 101.28 };
+  const pattaya = { lat: 12.93, lng: 100.88 }, kohChang = { lat: 12.05, lng: 102.33 }, kohKood = { lat: 11.65, lng: 102.56 };
+  assert.equal(lib.resolveInclusions(huaHin, pattaya, R).tolls, true);
+  assert.equal(lib.resolveInclusions(pattaya, rayong, R).tolls, true);
+  assert.equal(lib.resolveInclusions(pattaya, { lat: 12.9, lng: 100.9 }, R).tolls, false);
+  const chang = lib.resolveInclusions(pattaya, kohChang, R);
+  assert.equal(chang.ferry, true); assert.equal(chang.tolls, true); assert.equal(chang.hotelTransfer, false);
+  const fromBkk = lib.resolveInclusions(place.suvarnabhumi, kohChang, R);
+  assert.equal(fromBkk.ferry, true); assert.equal(fromBkk.tolls, true);
+  const kood = lib.resolveInclusions(rayong, kohKood, R);
+  assert.equal(kood.ferry, true); assert.equal(kood.hotelTransfer, true);
+  assert.equal(lib.inclusionLines(kood, "en").included.some((l) => /hotel transfer/i.test(l)), true);
 });
