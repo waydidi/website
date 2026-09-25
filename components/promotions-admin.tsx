@@ -24,7 +24,6 @@ function toForm(p: Row): Form {
   return { id: p.id, code: p.code, title: p.title, discountType: p.discountType === "fixed" ? "fixed" : "percent", discountValue: String(p.discountValue), maxDiscount: p.maxDiscount == null ? "" : String(p.maxDiscount), minFare: String(p.minFare), startsAt: toLocal(p.startsAt), endsAt: toLocal(p.endsAt), maxUses: p.maxUses == null ? "" : String(p.maxUses), perCustomerLimit: String(p.perCustomerLimit), firstBookingOnly: p.firstBookingOnly, service: (p.service as Form["service"]) ?? "any", vehicles, offerTerms: terms.join("\n"), showOnHomepage: p.showOnHomepage, status: (p.status as Form["status"]) ?? "draft" };
 }
 
-const STATUS_STYLE: Record<string, string> = { active: "bg-emerald-100 text-emerald-800", paused: "bg-amber-100 text-amber-800", draft: "bg-slate-200 text-slate-700" };
 
 export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
   const router = useRouter();
@@ -73,11 +72,16 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
             <td className="px-4 py-3 text-slate-600">{p.startsAt ? new Date(p.startsAt).toLocaleDateString("en-GB") : "Now"} – {p.endsAt ? new Date(p.endsAt).toLocaleDateString("en-GB") : "open"}</td>
             <td className="px-4 py-3">{p.uses}{p.maxUses != null && ` / ${p.maxUses}`}</td>
             <td className="px-4 py-3">{thb(p.discountGiven)}</td>
-            <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-bold capitalize ${STATUS_STYLE[p.status] ?? STATUS_STYLE.draft}`}>{p.status}</span></td>
+            <td className="px-4 py-3">
+              <label className="inline-flex cursor-pointer items-center gap-2">
+                <button type="button" role="switch" aria-checked={p.status === "active"} aria-label={`${p.code} ${p.status === "active" ? "on" : "off"}`} disabled={saving} onClick={() => save({ status: p.status === "active" ? "paused" : "active" }, toForm(p))} className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${p.status === "active" ? "bg-emerald-500" : "bg-slate-300"}`}>
+                  <span className={`absolute left-0.5 top-0.5 size-5 rounded-full bg-white shadow transition-transform ${p.status === "active" ? "translate-x-5" : ""}`} />
+                </button>
+                <span className={`text-xs font-bold ${p.status === "active" ? "text-emerald-700" : "text-slate-500"}`}>{p.status === "active" ? "On" : p.status === "draft" ? "Draft" : "Off"}</span>
+              </label>
+            </td>
             <td className="px-4 py-3 text-right">
               <div className="flex justify-end gap-2">
-                {p.status !== "active" && <button type="button" disabled={saving} onClick={() => save({ status: "active" }, toForm(p))} className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white">Activate</button>}
-                {p.status === "active" && <button type="button" disabled={saving} onClick={() => save({ status: "paused" }, toForm(p))} className="rounded-full bg-amber-500 px-3 py-1.5 text-xs font-bold text-white">Pause</button>}
                 <button type="button" onClick={() => { setError(""); setForm(toForm(p)); }} className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-bold">Edit</button>
               </div>
             </td>
