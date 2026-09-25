@@ -1,18 +1,15 @@
-import { desc } from "drizzle-orm";
+import { desc, isNull } from "drizzle-orm";
 import {
   BookOpen,
   CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Mail,
   MapPinned,
   Truck,
-  XCircle,
   List,
   Columns3,
 } from "lucide-react";
 import { getDb } from "@/db";
-import { bookings, bookingTaxInvoices } from "@/db/schema";
+import { bookingAssignments, bookings, bookingTaxInvoices, drivers } from "@/db/schema";
+import { DriverPicker } from "@/components/bookings-admin/driver-picker";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -26,15 +23,6 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Bookings · Waydidi operations",
   robots: { index: false, follow: false },
-};
-
-const statusStyle: Record<string, string> = {
-  confirmed: "bg-emerald-100 text-emerald-800",
-  pending_payment: "bg-amber-100 text-amber-900",
-  cancelled: "bg-red-100 text-red-800",
-  completed: "bg-blue-100 text-blue-800",
-  binned: "bg-slate-200 text-slate-700",
-  expired: "bg-slate-200 text-slate-700",
 };
 
 export default async function BookingAdminPage({ searchParams }: { searchParams: Promise<{ view?: string; type?: string; mode?: string }> }) {
@@ -58,6 +46,12 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const taxByBooking = new Map(taxRows.map((tax) => [tax.bookingReference, tax]));
   const binRows = allRows.filter((row) => row.status === "binned");
   const activeRows = allRows.filter((row) => row.status !== "binned");
+  const [driverRows, assignmentRows] = await Promise.all([
+    getDb().select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, status: drivers.status }).from(drivers),
+    getDb().select({ ref: bookingAssignments.bookingReference, driverId: bookingAssignments.driverId }).from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)),
+  ]);
+  const driverOptions = driverRows.filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.name, phone: d.phone, email: d.email, area: d.area, vehicle: d.vehicle }));
+  const assigned = new Map(assignmentRows.map((a) => [a.ref, a.driverId]));
   const rows = (view === "bin" ? binRows : activeRows).filter((row) => (row.serviceType ?? "transfer") === type);
   const confirmed = activeRows.filter((row) => row.status === "confirmed").length;
   const pending = activeRows.filter((row) => row.status === "pending_payment").length;
@@ -150,101 +144,34 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
         {mode !== "list" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> :
         <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1150px] text-left text-sm">
-              <thead className="bg-slate-100 text-xs uppercase tracking-wider text-slate-500">
-                <tr>
-                  <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4">Reference</th>
-                  <th className="px-5 py-4">Customer</th>
-                  <th className="px-5 py-4">Pickup</th>
-                  <th className="px-5 py-4">Vehicle</th>
-                  <th className="px-5 py-4">Total</th>
-                  <th className="px-5 py-4">Email</th>
-                </tr>
+            <table className="w-full min-w-[1080px] text-left text-sm">
+              <thead className="bg-slate-50 text-slate-600">
+                <tr>{["Reference ID", "Customer name", "Date & time", "From", "To", "Vehicle", "Payment", "Driver"].map((h) => <th key={h} className="h-14 whitespace-nowrap px-4 text-[14px] font-normal">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {rows.map((row) => (
-                  <tr
-                    key={row.reference}
-                    className="align-top hover:bg-orange-50/40"
-                  >
-                    <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${statusStyle[row.status] ?? "bg-slate-100 text-slate-700"}`}
-                      >
-                        {row.status.replaceAll("_", " ")}
-                      </span>
+                {rows.map((row) => {
+                  const paid = row.paymentStatus === "paid";
+                  const cash = !paid && row.paymentMethod === "cash";
+                  const tax = taxByBooking.get(row.reference);
+                  return <tr key={row.reference} className="align-middle hover:bg-orange-50/40">
+                    <td className="px-4 py-4"><Link href={`/admin/journeys/${encodeURIComponent(row.reference)}`} className="font-semibold text-slate-900 hover:text-[#C96100]">{row.reference}</Link>{row.status !== "confirmed" && <p className="mt-0.5 text-[12px] capitalize text-slate-500">{row.status.replaceAll("_", " ")}</p>}</td>
+                    <td className="px-4 py-4"><p className="font-medium text-slate-900">{row.customerName}</p><p className="text-[12px] text-slate-500">{row.customerPhone}</p>{tax && <p className="mt-1 text-[12px] font-medium text-amber-700">Tax invoice requested</p>}</td>
+                    <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${row.pickupDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{row.pickupTime}{row.returnDate && row.returnTime ? ` · return ${row.returnDate} ${row.returnTime}` : ""}</p></td>
+                    <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.pickup}</p></td>
+                    <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.serviceType === "hourly" ? `${row.bookedHours ?? ""} hours` : row.dropoff}</p></td>
+                    <td className="px-4 py-4"><p className="text-slate-900">{row.vehicle.replaceAll("_", " ")}</p><p className="text-[12px] text-slate-500">{row.passengers} people · {row.luggage} bags</p></td>
+                    <td className="whitespace-nowrap px-4 py-4">
+                      {paid ? <span className="inline-flex rounded-full bg-[#06C755] px-2.5 py-0.5 text-[13px] font-medium text-white">Paid</span>
+                        : cash ? <span className="inline-flex rounded-full bg-[#E53935] px-2.5 py-0.5 text-[13px] font-medium text-white">Pay in cash</span>
+                        : <span className="inline-flex rounded-full bg-slate-200 px-2.5 py-0.5 text-[13px] font-medium text-slate-700">{row.paymentStatus.replaceAll("_", " ")}</span>}
+                      <p className="mt-1 text-[12px] text-slate-500">฿{row.total.toLocaleString()}</p>
                     </td>
-                    <td className="px-5 py-4 font-black">
-                      {row.reference}
-                      <p className="mt-1 text-xs font-normal text-slate-400">
-                        {new Date(row.createdAt).toLocaleString("en-GB", {
-                          timeZone: "Asia/Bangkok",
-                        })}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4 font-bold">
-                      {row.customerName}
-                      <p className="mt-1 font-normal text-slate-500">
-                        {row.customerEmail}
-                      </p>
-                      <p className="font-normal text-slate-500">
-                        {row.customerPhone}
-                      </p>
-                      {taxByBooking.get(row.reference) && (() => { const tax = taxByBooking.get(row.reference)!; return (
-                        <div className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-normal text-amber-900">
-                          <p className="font-bold">Tax invoice requested</p>
-                          <p>{tax.name} · Tax ID {tax.taxId} · {tax.branch}</p>
-                          <p className="whitespace-pre-line">{tax.address}</p>
-                        </div>
-                      ); })()}
-                    </td>
-                    <td className="px-5 py-4 font-bold">
-                      {row.pickupDate}
-                      <p className="mt-1 font-normal text-slate-500">
-                        {row.pickupTime}
-                      </p>
-                      {row.returnDate && row.returnTime && (
-                        <p className="mt-2 text-xs font-bold text-[#B85E00]">
-                          Return {row.returnDate} · {row.returnTime}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      {row.vehicle}
-                      <p className="mt-1 text-slate-500">
-                        {row.passengers} people · {row.luggage} bags
-                      </p>
-                    </td>
-                    <td className="px-5 py-4 font-black">
-                      ฿{row.total.toLocaleString()}
-                    </td>
-                    <td className="px-5 py-4">
-                      {row.emailStatus === "sent" ? (
-                        <span className="inline-flex items-center gap-1.5 font-bold text-emerald-700">
-                          <CheckCircle2 size={16} /> Sent
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 font-bold text-amber-800">
-                          {row.status === "cancelled" ? (
-                            <XCircle size={16} />
-                          ) : row.status === "pending_payment" ? (
-                            <Clock3 size={16} />
-                          ) : (
-                            <Mail size={16} />
-                          )}{" "}
-                          {row.emailStatus.replaceAll("_", " ")}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                    <td className="px-4 py-4"><DriverPicker reference={row.reference} drivers={driverOptions} current={assigned.get(row.reference) ?? null} canAssign={row.status === "confirmed"} /></td>
+                  </tr>;
+                })}
                 {rows.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="px-5 py-16 text-center text-slate-500"
-                    >
+                    <td colSpan={8} className="px-5 py-16 text-center text-slate-500">
                       {type === "tour" ? "No tour bookings yet." : type === "hourly" ? "No hourly bookings yet." : "No bookings yet."}
                     </td>
                   </tr>
