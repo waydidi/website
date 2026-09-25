@@ -213,3 +213,20 @@ export const POPULAR_PLACES = [
   { label: "Koh Chang", href: "/destinations/koh-chang" },
   { label: "Kanchanaburi", href: "/destinations/kanchanaburi" },
 ];
+
+const toSlug = (value: string) => value.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
+
+/** URL part of a category page, e.g. "Getting there" → "getting-there". */
+export const categorySlug = (c: string) => toSlug(categoryLabel(c)) || encodeURIComponent(c);
+
+/** Headings of a post with unique anchor ids, for the table of contents. */
+export function postHeadings(blocks: BlogBlock[]) {
+  const used = new Map<string, number>();
+  return blocks.flatMap((b, index) => {
+    if (b.type !== "heading" || !b.text.trim()) return [];
+    const base = toSlug(b.text) || "section";
+    const n = used.get(base) ?? 0;
+    used.set(base, n + 1);
+    return [{ index, text: b.text, id: n ? `${base}-${n + 1}` : base }];
+  });
+}

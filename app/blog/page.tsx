@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { PublicFooter } from "@/components/public-footer";
 import { BlogCover, formatBlogDate } from "@/components/blog/blog-cover";
 import { LatestList } from "@/components/blog/latest-list";
-import { POPULAR_PLACES } from "@/lib/blog-posts";
+import { categoryLabel, categorySlug, POPULAR_PLACES } from "@/lib/blog-posts";
 import { publishedPosts } from "@/lib/blog-store";
 import { SITE_URL } from "@/lib/public-content";
 
@@ -74,7 +74,18 @@ export default async function BlogHome() {
       <section className="pt-14" aria-labelledby="latest-heading">
         <h2 id="latest-heading" className={heading}>Latest articles</h2>
         <hr className="mt-3 border-t-[3px] border-[#1C1C1C]" />
-        <LatestList posts={byDate} />
+        <LatestList posts={byDate} filters />
+      </section>
+
+      {/* Categories */}
+      <section className="pt-14" aria-labelledby="topics-heading">
+        <h2 id="topics-heading" className={heading}>Browse by topic</h2>
+        <hr className="mt-3 border-t-[3px] border-[#1C1C1C]" />
+        <ul className="mt-5 flex flex-wrap gap-3">
+          {[...new Set(posts.flatMap((p) => p.categories.map(categoryLabel)))].map((label) => <li key={label}>
+            <Link href={`/blog/category/${categorySlug(label)}`} className="inline-flex h-11 items-center gap-2 rounded-full border border-[#D6D3CC] px-5 text-[15px] font-semibold hover:border-[#FF8A05] hover:bg-[#FFF6EB]">{label}<span className="text-[#8A8A8A]">{posts.filter((p) => p.categories.some((c) => categoryLabel(c) === label)).length}</span></Link>
+          </li>)}
+        </ul>
       </section>
 
       {/* Explore more */}
