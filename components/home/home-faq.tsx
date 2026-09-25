@@ -7,7 +7,7 @@ import type { MessageKey } from "@/lib/i18n";
 
 
 // Question counts per tab; the text lives in messages/*.json (faq.<tab>.<n>.q / .a).
-const TABS = [["booking", 5], ["conditions", 3], ["changes", 2], ["payment", 3], ["meeting", 3]] as const;
+const TABS = [["booking", 5], ["conditions", 3], ["changes", 2], ["payment", 3], ["meeting", 4]] as const;
 
 export function HomeFaq() {
   const { t } = useI18n();

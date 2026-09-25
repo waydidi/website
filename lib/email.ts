@@ -1,4 +1,5 @@
 import type { BookingExtras } from "@/lib/booking-extras";
+import { waitingLine } from "@/lib/waiting-policy";
 import { env } from "cloudflare:workers";
 
 const DEFAULT_SITE_URL = "https://waydidi-private-transfer.dankbangkok.chatgpt.site";
@@ -120,6 +121,7 @@ ${detailRow("Service", input.serviceType === "hourly" ? `${input.bookedHours}-ho
 ${detailRow("Pickup", input.pickup)}
 ${detailRow("Drop-off", input.dropoff)}
 ${detailRow("Date & time", formattedDate)}
+${detailRow("Free waiting", waitingLine(input.pickup))}
 ${returnDetails}
 ${detailRow("Travelers", `${input.passengers} passengers - ${input.luggage} bags`)}
 ${detailRow("Vehicle", input.vehicle)}
@@ -280,3 +282,24 @@ export async function sendAccountSignInCode(input: { to: string; code: string; c
     text: `Your Waydidi sign-in code is ${input.code}. It expires in 10 minutes. If you did not ask for it, you can ignore this email.`,
   }, `account-code-${input.codeId}`);
 }
+
+// One friendly nudge to a signed-in member whose booking stopped at payment.
+export async function sendUnfinishedBookingEmail(input: { to: string; name: string; reference: string; destination: string; pickupDate: string; pickupTime: string; path: string }) {
+  const link = `${siteUrl()}${input.path}`;
+  const place = input.destination.split(",")[0]?.trim() || input.destination;
+  const title = `Your ride to ${place} is waiting.`;
+  const when = displayDate(input.pickupDate, input.pickupTime);
+  const html = reminderShell(
+    "Finish your booking",
+    title,
+    `Hi ${input.name}, you started booking a private ride but didn't finish paying. Your trip details are saved, so it only takes a moment to complete.`,
+    `${detailRow("To", input.destination)}${detailRow("Date & time", when)}<tr><td colspan="2" align="center" style="padding-top:26px"><a href="${escapeHtml(link)}" style="display:inline-block;background:#ff8a05;color:#21140a;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:15px;font-weight:700">Finish booking</a></td></tr><tr><td colspan="2" style="padding-top:22px;color:#8a94a6;font-size:12px;line-height:1.5">You're getting this one-time email because you started this booking while signed in to Waydidi. Prices are re-checked when you finish.</td></tr>`,
+  );
+  return resend({
+    to: [input.to],
+    subject: title,
+    html,
+    text: `${title}\nYou started booking a ride to ${input.destination} on ${when} but didn't finish paying.\nFinish booking: ${link}`,
+  }, `member-unfinished-${input.reference}`);
+}
+

@@ -70,3 +70,19 @@ test("confirmation PDF renders the price breakdown, even with a Thai company nam
   const bytes = await createConfirmationPdf(booking, extras);
   assert.ok(bytes.length > 1000);
 });
+
+test("loyalty: every 5th ride is rewarded once", async () => {
+  const { loyaltyProgress, loyaltyDiscount } = await vite.ssrLoadModule("/lib/loyalty-rules.ts");
+  assert.equal(loyaltyProgress(3, 0).eligible, false);
+  assert.equal(loyaltyProgress(4, 0).eligible, true);
+  assert.equal(loyaltyProgress(5, 1).eligible, false);
+  assert.equal(loyaltyProgress(9, 1).eligible, true);
+  assert.equal(loyaltyDiscount(1400), 140);
+  assert.equal(loyaltyDiscount(9000), 500);
+});
+
+test("free waiting depends on airport pickups", async () => {
+  const { waitingLine } = await vite.ssrLoadModule("/lib/waiting-policy.ts");
+  assert.match(waitingLine("Suvarnabhumi Airport (BKK)"), /60 minutes/);
+  assert.match(waitingLine("Hilton Pattaya"), /15 minutes/);
+});

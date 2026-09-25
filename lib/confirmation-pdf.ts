@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { BookingExtras } from "@/lib/booking-extras";
+import { waitingLine } from "@/lib/waiting-policy";
 
 type Confirmation = {
   reference: string; customerName: string; customerEmail: string;
@@ -91,6 +92,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   const total = `THB ${booking.total.toLocaleString()}`;
   page.drawText(total, { x: 531 - bold.widthOfTextAtSize(total, 18), y: 94, size: 18, font: bold, color: ink });
   page.drawText("Keep this confirmation for your pickup.", { x: 46, y: 39, size: 9, font: regular, color: rgb(0.38, 0.43, 0.52) });
+  page.drawText(`Included: ${waitingLine(booking.pickup)}.`, { x: 46, y: 26, size: 9, font: regular, color: rgb(0.38, 0.43, 0.52) });
 
   return pdf.save();
 }

@@ -78,6 +78,8 @@ export type Booking = {
   taxId?: string;
   taxBranch?: string;
   taxAddress?: string;
+  // Someone else who should also get the booking emails.
+  copyEmail?: string;
 };
 type FareQuote = {
   quoteId: string;
@@ -972,6 +974,7 @@ export function BookingFlow({
           pickupInstructions: booking.pickupInstructions,
           childSeats: booking.childSeats,
           exchangeStop,
+          copyEmail: booking.copyEmail?.trim() || undefined,
           saveBilling: Boolean(booking.taxInvoice && saveBilling && signedIn),
           taxInvoice: booking.taxInvoice ? { name: (booking.taxName ?? "").trim(), taxId: (booking.taxId ?? "").replace(/[\s-]/g, ""), branch: (booking.taxBranch ?? "").trim() || "Head office", address: (booking.taxAddress ?? "").trim() } : undefined,
           oversizedLuggage: booking.oversizedLuggage,

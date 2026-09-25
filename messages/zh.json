@@ -1146,5 +1146,25 @@
   "edit.title": {
     "text": "编辑行程",
     "status": "machine"
+  },
+  "faq.meeting.4.q": {
+    "text": "司机会等多久？",
+    "status": "machine"
+  },
+  "faq.meeting.4.a": {
+    "text": "机场接机在航班落地后免费等候 60 分钟，即使航班延误也一样。其他上车点免费等候 15 分钟。",
+    "status": "machine"
+  },
+  "copy.toggle": {
+    "text": "同时将预订发送给他人",
+    "status": "machine"
+  },
+  "copy.email": {
+    "text": "对方的邮箱地址",
+    "status": "machine"
+  },
+  "copy.note": {
+    "text": "对方也会收到确认邮件和行程提醒。如果您登录后为他人预订，您会自动收到副本。",
+    "status": "machine"
   }
 }

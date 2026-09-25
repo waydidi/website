@@ -7,6 +7,7 @@ import { useCurrency } from "@/components/use-currency";
 import { useI18n } from "@/components/i18n-provider";
 import { CancelCalendar3D } from "@/components/icons/cancel-calendar-3d";
 import { inclusionLines, parseInclusions, type Inclusions } from "@/lib/route-inclusions";
+import { waitingLine } from "@/lib/waiting-policy";
 import { decodePolyline } from "@/lib/demo-route";
 import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "@/lib/addons";
 import { TRAFFIC_CASING, TRAFFIC_COLORS, TRAFFIC_REFRESH_MS, sampleIntervals, trafficSegments, type SpeedInterval, type TrafficRoute } from "@/lib/traffic";
@@ -681,7 +682,7 @@ export function BookingResultsMap(props: Props) {
               </ul>
               <h3 className="mt-6 text-[17px] font-medium">Included</h3>
               <ul className="mt-3 grid gap-2.5 text-[16px] text-[#4A4A4A]">
-                {["Private car and driver for your group", "Door-to-door", "Fixed price agreed before you book", ...lines.included].map((line) => <li key={line} className="flex items-center gap-3"><Check size={18} className="shrink-0" aria-hidden="true" />{line}</li>)}
+                {["Private car and driver for your group", "Door-to-door", "Fixed price agreed before you book", waitingLine(props.pickup, locale), ...lines.included].map((line) => <li key={line} className="flex items-center gap-3"><Check size={18} className="shrink-0" aria-hidden="true" />{line}</li>)}
               </ul>
               {lines.excluded.length > 0 && <>
                 <h3 className="mt-6 text-[17px] font-medium">Excluded</h3>

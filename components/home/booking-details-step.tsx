@@ -63,6 +63,7 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
   const toggle = (key: keyof typeof open) => setOpen((current) => ({ ...current, [key]: !current[key] }));
   const phone = splitPhone(booking.phone);
   const [signHelp, setSignHelp] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(Boolean(booking.copyEmail));
   // The Meet & Greet sign follows the lead passenger's name until the customer types their own.
   const autoSign = `${booking.name} ${booking.surname}`.trim();
   const [signEdited, setSignEdited] = useState(() => Boolean(booking.pickupSign) && booking.pickupSign !== autoSign);
@@ -133,6 +134,18 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
               <button type="button" onClick={() => setSignHelp(!signHelp)} aria-expanded={signHelp} aria-label="About Meet & Greet" className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-[#6B6B6B]"><CircleHelp size={20} /></button>
             </div>
             {signHelp && <p className="mt-2 flex gap-2 text-sm text-[#6B6B6B]"><Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />The name your driver shows on the sign at the meeting point. Leave empty to use the lead passenger&apos;s name.</p>}
+          </div>
+          {/* Copy of the booking emails for the booker or a travel companion. */}
+          <div>
+            <label className="flex cursor-pointer items-center gap-3 text-[15px] text-[#1C1C1C]">
+              <input type="checkbox" checked={copyOpen} onChange={(e) => { setCopyOpen(e.target.checked); if (!e.target.checked) change("copyEmail", ""); }} className="size-5 shrink-0 accent-[#FF8A05]" />
+              {t("copy.toggle")}
+            </label>
+            {copyOpen && <div className="mt-3">
+              <label className="sr-only" htmlFor="copy-email">{t("copy.email")}</label>
+              <input id="copy-email" data-booking-field="copyEmail" type="email" autoComplete="off" value={booking.copyEmail ?? ""} onChange={(e) => change("copyEmail", e.target.value)} placeholder={t("copy.email")} aria-invalid={Boolean(fieldErrors.copyEmail)} className={field(Boolean(fieldErrors.copyEmail))} />
+              {fieldErrors.copyEmail ? <p className="mt-1.5 text-sm font-medium text-red-700">{fieldErrors.copyEmail}</p> : <p className="mt-1.5 text-sm text-[#6B6B6B]">{t("copy.note")}</p>}
+            </div>}
           </div>
           {/* Tax invoice: ticking the box reveals the billing fields. */}
           <div className="rounded-xl border border-[#E6E6E6] p-4">

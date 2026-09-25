@@ -1,3 +1,5 @@
+import { sendUnfinishedBookingReminders } from "@/lib/unfinished-bookings";
+import { contactEmailsFor } from "@/lib/booking-contacts";
 import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingAssignments, bookingNotifications, bookings, drivers, operationsAlerts } from "@/db/schema";
@@ -152,6 +154,7 @@ export async function runOperationsAutomation(at = new Date()): Promise<Automati
   const assignmentByBooking = new Map<string, Assignment>();
   for (const row of assignmentRows) if (!assignmentByBooking.has(row.bookingReference)) assignmentByBooking.set(row.bookingReference, row);
   const driverById = new Map<string, Driver>(driverRows.map((driver) => [driver.id, driver]));
+  const contactsByBooking = await contactEmailsFor(references);
   const summary: AutomationSummary = { scanned: bookingRows.length, notificationsSent: 0, notificationsFailed: 0, alertsOpened: 0, alertsResolved: 0, runAt: now };
 
   for (const booking of bookingRows) {
@@ -162,9 +165,11 @@ export async function runOperationsAutomation(at = new Date()): Promise<Automati
     const deliveries: Array<Promise<"sent" | "failed" | "skipped">> = [];
     if (remaining > 3 * HOUR && remaining <= 24 * HOUR) {
       deliveries.push(deliverNotification({ booking, notificationType: "customer_24h", recipient: booking.customerEmail, scheduledFor: pickup - 24 * HOUR, send: async () => sendCustomerTripReminder({ ...common, to: booking.customerEmail, name: booking.customerName, hoursBefore: 24, tripKey: await tripOwnerKey(booking.reference).catch(() => undefined) }) }));
+      (contactsByBooking.get(booking.reference) ?? []).forEach((to, index) => deliveries.push(deliverNotification({ booking, notificationType: `customer_24h_copy${index}`, recipient: to, scheduledFor: pickup - 24 * HOUR, send: async () => sendCustomerTripReminder({ ...common, to, name: "there", hoursBefore: 24, tripKey: await tripOwnerKey(booking.reference).catch(() => undefined) }) })));
     }
     if (remaining > 0 && remaining <= 3 * HOUR) {
       deliveries.push(deliverNotification({ booking, notificationType: "customer_3h", recipient: booking.customerEmail, scheduledFor: pickup - 3 * HOUR, send: async () => sendCustomerTripReminder({ ...common, to: booking.customerEmail, name: booking.customerName, hoursBefore: 3, tripKey: await tripOwnerKey(booking.reference).catch(() => undefined) }) }));
+      (contactsByBooking.get(booking.reference) ?? []).forEach((to, index) => deliveries.push(deliverNotification({ booking, notificationType: `customer_3h_copy${index}`, recipient: to, scheduledFor: pickup - 3 * HOUR, send: async () => sendCustomerTripReminder({ ...common, to, name: "there", hoursBefore: 3, tripKey: await tripOwnerKey(booking.reference).catch(() => undefined) }) })));
       const driver = assignment ? driverById.get(assignment.driverId) : undefined;
       if (assignment && driver?.email && driver.remindersEnabled) deliveries.push(deliverNotification({ booking, assignmentId: assignment.id, notificationType: "driver_3h", recipient: driver.email, scheduledFor: pickup - 3 * HOUR, send: () => sendDriverTripReminder({ ...common, to: driver.email!, driverName: driver.fullName }) }));
     }
@@ -188,5 +193,7 @@ export async function runOperationsAutomation(at = new Date()): Promise<Automati
     await db.update(operationsAlerts).set({ status: "resolved", resolvedAt: now, resolutionNote: "Automatically resolved after the journey state changed.", updatedAt: now }).where(eq(operationsAlerts.id, alert.id));
     summary.alertsResolved += 1;
   }
+  // Members who stopped at payment get one reminder; never blocks the rest of the run.
+  summary.notificationsSent += await sendUnfinishedBookingReminders(at).catch(() => 0);
   return summary;
 }

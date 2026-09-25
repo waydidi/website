@@ -70,6 +70,7 @@ export const checkoutInputSchema = z.object({
   childSeats: z.number().int().min(0).max(4),
   exchangeStop: z.boolean().optional().default(false),
   saveBilling: z.boolean().optional(),
+  copyEmail: z.string().trim().email().max(254).optional().or(z.literal("")),
   taxInvoice: z.object({
     name: z.string().trim().min(2).max(200),
     taxId: z.string().trim().regex(/^\d{13}$/),

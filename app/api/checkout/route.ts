@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { customerFromRequest } from "@/lib/customer-auth";
-import { bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
+import { bookingContacts, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
 import { and as andWhere, eq as eqWhere } from "drizzle-orm";
 import { normalizeCode } from "@/lib/promo";
 import { checkPromo, normalizePhone } from "@/lib/promo-db";
@@ -461,6 +461,13 @@ export async function POST(request: Request) {
       finalTotal: total,
       createdAt: now,
     }).onConflictDoNothing();
+    // Copies of the booking emails: an address the customer typed, and the signed-in
+    // booker when the ride is for someone else.
+    const leadEmail = input.customerEmail.trim().toLowerCase();
+    const contacts = new Map<string, "booker" | "copy">();
+    if (input.copyEmail && input.copyEmail.toLowerCase() !== leadEmail) contacts.set(input.copyEmail.toLowerCase(), "copy");
+    if (account && account.customer.email.toLowerCase() !== leadEmail) contacts.set(account.customer.email.toLowerCase(), "booker");
+    if (contacts.size) await getDb().insert(bookingContacts).values([...contacts].map(([email, role]) => ({ id: crypto.randomUUID(), bookingReference: reference, email, role, createdAt: now }))).onConflictDoNothing().catch(() => undefined);
     if (input.taxInvoice) await getDb().insert(bookingTaxInvoices).values({
       id: crypto.randomUUID(),
       bookingReference: reference,

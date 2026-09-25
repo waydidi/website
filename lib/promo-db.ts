@@ -2,6 +2,7 @@ import { and, count, eq, inArray, notInArray, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookings, promoCodes, promoRedemptions } from "@/db/schema";
 import { evaluatePromo, normalizeCode, type PromoResult } from "./promo";
+import { LOYALTY_CODE, LOYALTY_TITLE, loyaltyDiscount, loyaltyStatus } from "./loyalty";
 
 // Bookings in these states no longer hold a use of their code.
 // Only bookings that were never paid give the use back; cancelled or refunded bookings keep it.
@@ -49,7 +50,16 @@ export async function checkPromo(input: {
   email?: string;
   phone?: string;
   customerId?: string | null;
-}): Promise<PromoResult & { promo?: Awaited<ReturnType<typeof findPromo>> }> {
+}): Promise<PromoResult & { promo?: Pick<NonNullable<Awaited<ReturnType<typeof findPromo>>>, "id" | "code" | "title"> }> {
+  // The loyalty reward is a built-in code for signed-in members only.
+  if (normalizeCode(input.code) === LOYALTY_CODE) {
+    if (!input.customerId) return { ok: false, reason: "Sign in to use your ride reward." };
+    const status = await loyaltyStatus(input.customerId);
+    if (!status.eligible) return { ok: false, reason: "Your ride reward isn't ready yet." };
+    const discount = loyaltyDiscount(input.total);
+    if (discount <= 0) return { ok: false, reason: "This reward doesn't apply to this booking." };
+    return { ok: true, discount, finalTotal: input.total - discount, promo: { id: "loyalty", code: LOYALTY_CODE, title: LOYALTY_TITLE } };
+  }
   const promo = await findPromo(input.code);
   if (!promo) return { ok: false, reason: "This promo code isn't valid." };
   const email = (input.email ?? "").trim().toLowerCase();
@@ -111,6 +121,10 @@ export async function listMemberCoupons(who: Who): Promise<MemberCoupon[]> {
 export async function bestCoupon(input: { total: number; serviceType: "transfer" | "hourly"; returnTrip?: boolean; vehicle: string } & Who) {
   const promos = await activePromos();
   let best: { code: string; title: string; discount: number; finalTotal: number } | null = null;
+  if (input.customerId) {
+    const reward = await checkPromo({ ...input, code: LOYALTY_CODE }).catch(() => null);
+    if (reward?.ok) best = { code: LOYALTY_CODE, title: LOYALTY_TITLE, discount: reward.discount, finalTotal: reward.finalTotal };
+  }
   for (const p of promos) {
     const result = await checkPromo({ code: p.code, total: input.total, serviceType: input.serviceType, returnTrip: input.returnTrip, vehicle: input.vehicle, email: input.email, phone: input.phone, customerId: input.customerId });
     if (result.ok && (!best || result.discount > best.discount)) best = { code: p.code, title: p.title, discount: result.discount, finalTotal: result.finalTotal };

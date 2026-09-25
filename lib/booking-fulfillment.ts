@@ -1,3 +1,4 @@
+import { contactEmails } from "@/lib/booking-contacts";
 import { bookingExtras } from "@/lib/booking-extras";
 import { env } from "cloudflare:workers";
 import { and, eq, isNull, lt, or } from "drizzle-orm";
@@ -46,6 +47,22 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
     extras,
     tripPin,
   });
+  // Copies for the booker or anyone the customer added. A failed copy never blocks the booking.
+  for (const copyTo of await contactEmails(booking.reference)) {
+    await sendConfirmationEmail({
+      to: copyTo, name: "there", reference: booking.reference, pdf,
+      pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate,
+      pickupTime: booking.pickupTime, vehicle: booking.vehicle, customerPhone: booking.customerPhone,
+      passengers: booking.passengers, luggage: booking.luggage, total: booking.total,
+      paymentMethod: booking.paymentMethod,
+      serviceType: booking.serviceType, bookedHours: booking.bookedHours,
+      returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
+      returnDate: booking.returnDate, returnTime: booking.returnTime,
+      outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
+      extras,
+      tripPin,
+    }).catch(() => undefined);
+  }
   await sendOperationsAlert(booking);
 
   await getDb().update(bookings).set({

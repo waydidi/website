@@ -1,5 +1,5 @@
 export type ReviewFieldErrors = Partial<
-  Record<"name" | "surname" | "email" | "phone" | "termsAccepted" | "taxName" | "taxId" | "taxAddress", string>
+  Record<"name" | "surname" | "email" | "phone" | "termsAccepted" | "taxName" | "taxId" | "taxAddress" | "copyEmail", string>
 >;
 
 export function validateBookingReview(input: {
@@ -12,6 +12,7 @@ export function validateBookingReview(input: {
   taxName?: string;
   taxId?: string;
   taxAddress?: string;
+  copyEmail?: string;
 }) {
   const errors: ReviewFieldErrors = {};
   if (input.name.trim().length < 2) errors.name = "Enter the lead passenger’s full name.";
@@ -23,6 +24,7 @@ export function validateBookingReview(input: {
     if (!/^\d{13}$/.test((input.taxId ?? "").replace(/[\s-]/g, ""))) errors.taxId = "Enter the 13-digit tax ID.";
     if ((input.taxAddress ?? "").trim().length < 10) errors.taxAddress = "Enter the full billing address.";
   }
+  if (input.copyEmail?.trim() && !/^\S+@\S+\.\S+$/.test(input.copyEmail.trim())) errors.copyEmail = "Enter a valid email address for the copy.";
   if (!input.termsAccepted) errors.termsAccepted = "Accept the booking terms and privacy notice to continue.";
   return errors;
 }

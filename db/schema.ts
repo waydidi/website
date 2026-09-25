@@ -346,6 +346,20 @@ export const promoCodes = sqliteTable(
   (table) => [index("idx_promo_codes_status").on(table.status)],
 );
 
+// Extra people who get the booking emails: the booker (when booking for someone
+// else while signed in) or an address the customer asked to copy in.
+export const bookingContacts = sqliteTable(
+  "booking_contacts",
+  {
+    id: text("id").primaryKey(),
+    bookingReference: text("booking_reference").notNull(),
+    email: text("email").notNull(),
+    role: text("role").notNull(), // "booker" | "copy"
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("uidx_booking_contacts_ref_email").on(table.bookingReference, table.email)],
+);
+
 // Tax invoice details a customer asked for at checkout (one per booking).
 export const bookingTaxInvoices = sqliteTable(
   "booking_tax_invoices",
