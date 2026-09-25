@@ -44,6 +44,8 @@ export type BlogPost = {
   updated?: string;
   sections?: BlogSection[];
   faq?: { q: string; a: string }[];
+  /** Editor-only: phrase the guide should rank for (stored with the cover settings). */
+  focusKeyword?: string;
   blocks?: BlogBlock[];
   seoTitle?: string | null;
   seoDescription?: string | null;
@@ -196,9 +198,10 @@ export const readingMinutes = (post: BlogPost) =>
   Math.max(2, Math.round(postBlocks(post).map((b) => (b.type === "faq" ? b.items.map((f) => `${f.q} ${f.a}`).join(" ") : "text" in b ? b.text : "items" in b ? b.items.join(" ") : "")).join(" ").split(/\s+/).length / 200));
 
 /** Link to the homepage search, pre-filled with an article's route. */
-export function routeHref(route: NonNullable<BlogPost["route"]>) {
+export function routeHref(route: NonNullable<BlogPost["route"]>, ref?: string) {
   const params = new URLSearchParams({ rebook: "again", service: route.service ?? "transfer", pickup: route.pickup, passengers: "2", luggage: "2", vehicle: "economy_sedan" });
   if ((route.service ?? "transfer") === "transfer") params.set("dropoff", route.dropoff);
+  if (ref) params.set("ref", `blog:${ref}`);
   return `/?${params.toString()}#booking-search`;
 }
 

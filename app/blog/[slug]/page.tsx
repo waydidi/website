@@ -37,7 +37,7 @@ function BookingCard({ post }: { post: BlogPost }) {
     <ul className="mt-3 grid gap-1.5 text-[15px] text-[#4A4A4A]">
       {["Fixed price, agreed before you book", "Free cancellation up to 24 hours before pickup", "Meet & Greet with your name sign"].map((line) => <li key={line} className="flex items-center gap-2"><Check size={16} className="shrink-0 text-[#0E9F6E]" aria-hidden="true" />{line}</li>)}
     </ul>
-    <Link href={routeHref(post.route)} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-[#FF8A05] text-[16px] font-semibold text-white hover:bg-[#F07A00]">See prices <ArrowRight size={18} aria-hidden="true" /></Link>
+    <Link href={routeHref(post.route, post.slug)} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-[#FF8A05] text-[16px] font-semibold text-white hover:bg-[#F07A00]">See prices <ArrowRight size={18} aria-hidden="true" /></Link>
   </aside>;
 }
 
@@ -109,7 +109,7 @@ export default async function BlogArticle({ params, searchParams }: { params: Pr
       })}
       <div className="mt-10 border-t border-[#E6E4DE] pt-6"><ShareButtons url={url} title={post.title} /></div>
     </article>
-    <ArticleBar headings={headings.map(({ id, text }) => ({ id, text }))} bookHref={post.route ? routeHref(post.route) : undefined} />
+    <ArticleBar headings={headings.map(({ id, text }) => ({ id, text }))} bookHref={post.route ? routeHref(post.route, post.slug) : undefined} />
 
     {related.length > 0 && <section className="mx-auto max-w-[1180px] px-5 pb-16 lg:px-0" aria-labelledby="related-heading">
       <h2 id="related-heading" className="text-[24px] font-bold">You might also like</h2>

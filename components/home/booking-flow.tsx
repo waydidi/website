@@ -396,6 +396,9 @@ export function BookingFlow({
   // query parameters. Runs after the draft restore so the chosen trip wins.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    // Remember which travel guide sent the visitor, so the booking can be credited to it.
+    const ref = params.get("ref");
+    if (ref && /^blog:[a-z0-9-]{1,90}$/.test(ref)) { try { sessionStorage.setItem("waydidi_source", ref); } catch { /* storage blocked */ } }
     const mode = params.get("rebook");
     if (mode !== "again" && mode !== "return") return;
     const count = (key: string, fallback: number) => {
@@ -975,6 +978,7 @@ export function BookingFlow({
           childSeats: booking.childSeats,
           exchangeStop,
           copyEmail: booking.copyEmail?.trim() || undefined,
+          source: (() => { try { return sessionStorage.getItem("waydidi_source") || undefined; } catch { return undefined; } })(),
           saveBilling: Boolean(booking.taxInvoice && saveBilling && signedIn),
           taxInvoice: booking.taxInvoice ? { name: (booking.taxName ?? "").trim(), taxId: (booking.taxId ?? "").replace(/[\s-]/g, ""), branch: (booking.taxBranch ?? "").trim() || "Head office", address: (booking.taxAddress ?? "").trim() } : undefined,
           oversizedLuggage: booking.oversizedLuggage,

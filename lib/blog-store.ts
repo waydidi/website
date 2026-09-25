@@ -1,7 +1,7 @@
-import { and, desc, eq, lte, ne } from "drizzle-orm";
+import { and, desc, eq, like, lte, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
-import { blogPosts, blogSlugHistory } from "@/db/schema";
+import { blogPosts, blogSlugHistory, bookingSources } from "@/db/schema";
 import { BLOG_POSTS, categoryLabel, COVER_TONES, postBlocks, type BlogBlock, type BlogPost } from "./blog-posts";
 
 type Row = typeof blogPosts.$inferSelect;
@@ -23,6 +23,7 @@ export function rowToPost(row: Row): BlogPost & { id: string; status: string } {
     categories: parse<string[]>(row.categoriesJson, []),
     featured: row.featured,
     popular: row.popularRank ?? undefined,
+    focusKeyword: (cover as { focusKeyword?: string }).focusKeyword || undefined,
     cover: { headline: cover.headline || row.title, tone: COVER_TONES.includes(cover.tone as never) ? cover.tone! : "orange", photo: row.featuredImage ?? undefined },
     route: parse<BlogPost["route"] | null>(row.routeJson, null) ?? undefined,
     blocks: parse<BlogBlock[]>(row.blocksJson, []),
@@ -74,7 +75,13 @@ export async function renamedSlug(oldSlug: string): Promise<string | null> {
 
 export async function adminPosts() {
   const rows = await getDb().select().from(blogPosts).orderBy(desc(blogPosts.updatedAt));
-  return rows.map((row) => ({ ...rowToPost(row), updatedAt: row.updatedAt, publishedAt: row.publishedAt }));
+  // Bookings made after tapping "See prices" / "Book this ride" in each guide.
+  const counts = new Map<string, number>();
+  try {
+    const bySource = await getDb().select({ source: bookingSources.source, n: sql<number>`count(*)` }).from(bookingSources).where(like(bookingSources.source, "blog:%")).groupBy(bookingSources.source);
+    for (const r of bySource) counts.set(r.source.slice(5), Number(r.n));
+  } catch { /* table not created yet */ }
+  return rows.map((row) => ({ ...rowToPost(row), updatedAt: row.updatedAt, publishedAt: row.publishedAt, bookings: counts.get(row.slug) ?? 0 }));
 }
 
 export async function adminPost(id: string) {
@@ -105,7 +112,7 @@ export const postInputSchema = z.object({
   featured: z.boolean().default(false),
   popularRank: z.number().int().min(1).max(20).nullable().optional(),
   featuredImage: z.string().max(500).nullable().optional(),
-  cover: z.object({ headline: z.string().max(80).default(""), tone: z.enum(COVER_TONES) }),
+  cover: z.object({ headline: z.string().max(80).default(""), tone: z.enum(COVER_TONES), focusKeyword: z.string().trim().max(80).optional() }),
   route: z.object({ pickup: z.string().trim().min(2).max(120), dropoff: z.string().trim().max(120), label: z.string().trim().max(120), service: z.enum(["transfer", "hourly"]).optional() }).nullable().optional(),
   blocks: z.array(block).max(200),
   seoTitle: z.string().trim().max(120).nullable().optional(),

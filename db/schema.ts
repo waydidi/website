@@ -990,3 +990,15 @@ export const blogSlugHistory = sqliteTable("blog_slug_history", {
   postId: text("post_id").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+// Where a booking came from, e.g. "blog:suvarnabhumi-airport-to-pattaya" when the
+// customer tapped "See prices" in a travel guide.
+export const bookingSources = sqliteTable(
+  "booking_sources",
+  {
+    bookingReference: text("booking_reference").primaryKey(),
+    source: text("source").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("idx_booking_sources_source").on(table.source)],
+);

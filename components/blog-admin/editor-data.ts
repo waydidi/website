@@ -13,7 +13,7 @@ export async function editorPost(id: string): Promise<EditorPost | null> {
   return {
     ...EMPTY_POST, id: p.id, title: p.title, slug: p.slug, excerpt: p.excerpt, status: p.status as EditorPost["status"], publishedAt: p.publishedAt,
     categories: p.categories, featured: Boolean(p.featured), popularRank: p.popular ?? null, featuredImage: p.cover.photo ?? null,
-    cover: { headline: p.cover.headline === p.title ? "" : p.cover.headline, tone: p.cover.tone }, route: p.route ? { ...p.route } : null,
+    cover: { headline: p.cover.headline === p.title ? "" : p.cover.headline, tone: p.cover.tone, focusKeyword: p.focusKeyword ?? "" }, route: p.route ? { ...p.route } : null,
     blocks: p.blocks?.length ? p.blocks : EMPTY_POST.blocks, seoTitle: p.seoTitle ?? "", seoDescription: p.seoDescription ?? "", author: p.author ?? "Waydidi team",
   };
 }

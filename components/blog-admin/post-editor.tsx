@@ -7,6 +7,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, Bold, ChevronDown, CircleHelp, Link2, He
 import { BlogCover } from "@/components/blog/blog-cover";
 import { categoryLabel, COVER_TONES, type BlogBlock, type BlogPost, type CoverTone } from "@/lib/blog-posts";
 import type { EditorPost } from "./editor-types";
+import { seoChecks, seoScore } from "@/lib/blog-seo";
 export type { EditorPost } from "./editor-types";
 
 // Textarea with Bold / Link buttons that wrap the selected text in **…** or [text](url).
@@ -34,6 +35,20 @@ function MarkupTextarea({ value, onChange, className, ...rest }: { value: string
     </div>
     <textarea ref={ref} value={value} onChange={(e) => onChange(e.target.value)} className={className} {...rest} />
   </div>;
+}
+
+function SeoPanel({ post, slug, onKeyword }: { post: EditorPost; slug: string; onKeyword: (v: string) => void }) {
+  const checks = seoChecks({ title: post.title, seoTitle: post.seoTitle, seoDescription: post.seoDescription, excerpt: post.excerpt, slug, focusKeyword: post.cover.focusKeyword ?? "", blocks: post.blocks, featuredImage: post.featuredImage, hasRoute: Boolean(post.route?.pickup) });
+  const score = seoScore(checks);
+  const tone = score >= 80 ? "bg-emerald-500" : score >= 55 ? "bg-amber-400" : "bg-red-500";
+  const dot = { good: "bg-emerald-500", warn: "bg-amber-400", bad: "bg-red-500" };
+  return <Panel title={`SEO checklist · ${score}/100`}>
+    <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full ${tone}`} style={{ width: `${score}%` }} /></div>
+    <label className="mt-3 block text-sm font-semibold">Focus keyword<input value={post.cover.focusKeyword ?? ""} onChange={(e) => onKeyword(e.target.value)} maxLength={80} placeholder="e.g. Bangkok to Hua Hin" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-[#FF8A05]" /></label>
+    <ul className="mt-3 grid gap-2.5">
+      {checks.map((c) => <li key={c.id} className="flex gap-2 text-sm"><span className={`mt-1.5 size-2.5 shrink-0 rounded-full ${dot[c.status]}`} aria-label={c.status} /><span><span className="font-semibold">{c.label}</span><span className="block text-xs leading-5 text-slate-500">{c.hint}</span></span></li>)}
+    </ul>
+  </Panel>;
 }
 
 const BLOCK_TYPES: { type: BlogBlock["type"]; label: string; icon: typeof Pilcrow; hint: string }[] = [
@@ -214,6 +229,7 @@ export function PostEditor({ initial, knownCategories }: { initial: EditorPost; 
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={post.featured} onChange={(e) => set("featured", e.target.checked)} className="size-4 accent-[#FF8A05]" />Show in “Featured articles”</label>
           <label className="mt-3 block text-sm font-semibold">Position in “Popular articles”<select value={post.popularRank ?? ""} onChange={(e) => set("popularRank", e.target.value ? Number(e.target.value) : null)} className={`${input} mt-1`}><option value="">Not listed</option>{Array.from({ length: 10 }, (_, i) => <option key={i} value={i + 1}>#{i + 1}</option>)}</select></label>
         </Panel>
+        <SeoPanel post={post} slug={slug} onKeyword={(focusKeyword) => set("cover", { ...post.cover, focusKeyword })} />
         <Panel title="SEO" open={false}>
           <label className="block text-sm font-semibold">SEO title<input value={post.seoTitle} onChange={(e) => set("seoTitle", e.target.value)} maxLength={120} placeholder={post.title} className={`${input} mt-1`} /></label>
           <label className="mt-3 block text-sm font-semibold">Meta description<textarea rows={3} value={post.seoDescription} onChange={(e) => set("seoDescription", e.target.value)} maxLength={300} placeholder={post.excerpt} className={`${input} mt-1 resize-none`} /></label>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { customerFromRequest } from "@/lib/customer-auth";
-import { bookingContacts, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
+import { bookingContacts, bookingSources, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
 import { and as andWhere, eq as eqWhere } from "drizzle-orm";
 import { normalizeCode } from "@/lib/promo";
 import { checkPromo, normalizePhone } from "@/lib/promo-db";
@@ -484,6 +484,7 @@ export async function POST(request: Request) {
         .where(andWhere(eqWhere(customerBillingProfiles.customerId, account.customer.id), eqWhere(customerBillingProfiles.taxId, tax.taxId), eqWhere(customerBillingProfiles.name, tax.name))).limit(1).catch(() => []);
       if (!existing) await getDb().insert(customerBillingProfiles).values({ id: crypto.randomUUID(), customerId: account.customer.id, name: tax.name, taxId: tax.taxId, branch: tax.branch || "Head office", address: tax.address, createdAt: now, updatedAt: now }).catch(() => undefined);
     }
+    if (input.source) await getDb().insert(bookingSources).values({ bookingReference: reference, source: input.source, createdAt: now }).onConflictDoNothing().catch(() => undefined);
     if (account) await getDb().insert(customerBookingLinks).values({ bookingReference: reference, customerId: account.customer.id, createdAt: now }).onConflictDoNothing();
     await getDb().insert(bookingPayments).values({
       id: `primary:${reference}`,

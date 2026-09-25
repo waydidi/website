@@ -33,7 +33,7 @@ export function BlogPostsAdmin({ posts }: { posts: Post[] }) {
   }
 
   // Trash / restore re-save the post with a new status.
-  const setStatus = (p: Post, status: "draft" | "trash") => call({ action: "save", post: { id: p.id, title: p.title, slug: p.slug, excerpt: p.excerpt, status, publishedAt: p.publishedAt, categories: p.categories, featured: p.featured, popularRank: p.popular ?? null, featuredImage: p.cover.photo ?? null, cover: { headline: p.cover.headline, tone: p.cover.tone }, route: p.route ?? null, blocks: p.blocks ?? [], seoTitle: p.seoTitle ?? null, seoDescription: p.seoDescription ?? null, author: p.author } });
+  const setStatus = (p: Post, status: "draft" | "trash") => call({ action: "save", post: { id: p.id, title: p.title, slug: p.slug, excerpt: p.excerpt, status, publishedAt: p.publishedAt, categories: p.categories, featured: p.featured, popularRank: p.popular ?? null, featuredImage: p.cover.photo ?? null, cover: { headline: p.cover.headline, tone: p.cover.tone, focusKeyword: p.focusKeyword }, route: p.route ?? null, blocks: p.blocks ?? [], seoTitle: p.seoTitle ?? null, seoDescription: p.seoDescription ?? null, author: p.author } });
 
   return <div>
     <div className="flex flex-wrap items-center gap-3">
@@ -70,6 +70,7 @@ export function BlogPostsAdmin({ posts }: { posts: Post[] }) {
           </div>
           <p className="mt-1 truncate text-sm text-slate-500">{p.categories.map(categoryLabel).join(", ") || "Uncategorised"} · /blog/{p.slug}</p>
         </div>
+        {p.bookings > 0 && <p className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800" title="Bookings made from this guide's booking button">{p.bookings} booking{p.bookings === 1 ? "" : "s"}</p>}
         <p className="shrink-0 text-sm text-slate-500">{p.status === "published" ? `Published ${when(p.publishedAt)}` : `Last modified ${when(p.updatedAt)}`}</p>
         <div className="flex shrink-0 gap-1">
           {p.status === "trash" ? <>
