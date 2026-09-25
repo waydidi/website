@@ -6,7 +6,6 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
 import { useI18n } from "@/components/i18n-provider";
 import { CancelCalendar3D } from "@/components/icons/cancel-calendar-3d";
-import { FerryIllustration } from "@/components/ferry-illustration";
 import { inclusionLines, parseInclusions, type Inclusions } from "@/lib/route-inclusions";
 import { waitingLine } from "@/lib/waiting-policy";
 import { decodePolyline } from "@/lib/demo-route";
@@ -709,7 +708,7 @@ export function BookingResultsMap(props: Props) {
                 {["Private car and driver for your group", "Door-to-door", "Fixed price agreed before you book", waitingLine(props.pickup, locale), ...lines.included].map((line) => <li key={line} className="flex items-center gap-3"><Check size={18} className="shrink-0" aria-hidden="true" />{line}</li>)}
               </ul>
               {inclusions.hotelTransfer && <div className="mt-5 overflow-hidden rounded-2xl border border-[#E6E6E6]">
-                <FerryIllustration className="block h-auto w-full" />
+                <div className="grid place-items-center bg-white py-3">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/ferry-3d.webp" alt="Ferry to the island" width={240} height={240} className="h-auto w-[60%] max-w-[240px]" loading="lazy" /></div>
                 <div className="p-4">
                   <p className="text-[16px] font-semibold text-[#1C1C1C]">Ferry &amp; hotel transfer</p>
                   <p className="mt-1 text-[14px] leading-6 text-[#6B6B6B]">Your driver takes you to the pier. The ferry crossing and the transfer from the island pier to your hotel are included in this price.</p>
