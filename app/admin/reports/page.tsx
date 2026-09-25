@@ -6,7 +6,7 @@ import { RevenueChart } from "@/components/admin-overview/revenue-chart";
 import { MarkPaid } from "@/components/admin-reports/mark-paid";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import { bangkokDate } from "@/lib/admin-overview";
-import { driverPayouts, revenueReport } from "@/lib/reports";
+import { discountReport, driverPayouts, revenueReport } from "@/lib/reports";
 import { VEHICLES } from "@/lib/vehicles";
 
 export const dynamic = "force-dynamic";
@@ -57,8 +57,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const preset = list.find((p) => p.id === q.range) ?? list[0];
   const from = custom ? q.from! : preset.from, to = custom ? q.to! : preset.to;
   const by = q.by === "month" ? "month" : "day";
-  const tab = q.tab === "payouts" ? "payouts" : "revenue";
-  const [report, payouts] = await Promise.all([revenueReport({ from, to }, by), tab === "payouts" ? driverPayouts({ from, to }) : Promise.resolve([])]);
+  const tab = q.tab === "payouts" ? "payouts" : q.tab === "discounts" ? "discounts" : "revenue";
+  const [report, payouts, discounts] = await Promise.all([revenueReport({ from, to }, by), tab === "payouts" ? driverPayouts({ from, to }) : Promise.resolve([]), tab === "discounts" ? discountReport({ from, to }) : Promise.resolve(null)]);
   const { total } = report;
   const qs = (extra: Record<string, string>) => new URLSearchParams({ ...(custom ? { from, to } : { range: preset.id }), by, tab, ...extra }).toString();
   const chart = by === "day" ? (() => {
@@ -87,10 +87,28 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <p className="-mt-2 text-[13px] text-slate-500">{nice(from)} – {nice(to)} · by trip date · confirmed and completed trips only</p>
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["revenue", "payouts"] as const).map((t) => <Link key={t} href={`?${qs({ tab: t })}`} className={`-mb-px border-b-2 px-4 py-2 text-[14px] font-bold ${tab === t ? "border-[#FF8A05] text-[#1f1726]" : "border-transparent text-slate-500"}`}>{t === "revenue" ? "Revenue" : "Driver payouts"}</Link>)}
+        {(["revenue", "payouts", "discounts"] as const).map((t) => <Link key={t} href={`?${qs({ tab: t })}`} className={`-mb-px border-b-2 px-4 py-2 text-[14px] font-bold ${tab === t ? "border-[#FF8A05] text-[#1f1726]" : "border-transparent text-slate-500"}`}>{t === "revenue" ? "Revenue" : t === "payouts" ? "Driver payouts" : "Discounts"}</Link>)}
       </div>
 
-      {tab === "revenue" ? <>
+      {tab === "discounts" && discounts ? <>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat label="Discount cost" value={thb(discounts.cost)} sub="money off + free extras" />
+          <Stat label="Share of full fares" value={`${(discounts.share * 100).toFixed(1)}%`} sub="of what trips would have cost without discounts" />
+          <Stat label="Trips with a discount" value={`${discounts.discountedTrips} of ${discounts.trips}`} />
+          <Stat label="Avg per discounted trip" value={thb(discounts.discountedTrips ? Math.round(discounts.cost / discounts.discountedTrips) : 0)} />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">{discounts.byGroup.map((g) => <div key={g.group} className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-[13px] font-semibold text-slate-500">{g.group}</p><p className="mt-1 text-[20px] font-black">{thb(g.cost)}</p>
+          <div className="mt-2 h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#FF8A05]" style={{ width: `${discounts.cost ? Math.round((g.cost / discounts.cost) * 100) : 0}%` }} /></div>
+          <p className="mt-1 text-[12px] text-slate-500">{discounts.cost ? Math.round((g.cost / discounts.cost) * 100) : 0}% of discount cost</p>
+        </div>)}</div>
+        <div className="flex justify-end"><a href={`/api/admin/reports/export?${new URLSearchParams({ type: "discounts", from, to })}`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-2 text-[13px] font-bold"><Download size={15} aria-hidden="true" />Export discounts (CSV)</a></div>
+        <Table head={["Discount", "Type", "Bookings", "Cost", "Avg per booking", "Revenue from these bookings", "Cost vs revenue"]} rows={discounts.lines.length ? discounts.lines.map((l) => [l.label, l.group, l.bookings, thb(l.cost), thb(Math.round(l.cost / l.bookings)), thb(l.revenue), l.revenue ? `${((l.cost / l.revenue) * 100).toFixed(1)}%` : "–"]) : [["No discounts on trips in this period", "", "", "", "", "", ""]]} />
+        <p className="text-[12px] text-slate-500">"Revenue from these bookings" is what those customers actually paid. One booking can appear in more than one row, e.g. a promo code plus a member discount.</p>
+        {discounts.partnerTickets.length > 0 && <div><p className="mb-2 text-[14px] font-bold">Partner prizes won (mystery boxes opened in this period)</p>
+          <Table head={["Prize", "Won", "Sent or used"]} rows={discounts.partnerTickets.map((t) => [t.prize, t.won, t.arranged])} />
+          <p className="mt-1 text-[12px] text-slate-500">Their cost depends on your partner deal, so it isn't included above.</p></div>}
+      </> : tab === "revenue" ? <>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Stat label="Trips" value={String(total.trips)} />
           <Stat label="Revenue" value={thb(total.revenue)} sub={total.trips ? `avg ${thb(Math.round(total.revenue / total.trips))}` : undefined} />

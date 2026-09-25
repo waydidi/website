@@ -1,5 +1,5 @@
 import { getWaydidiAdmin } from "@/lib/admin";
-import { driverPayouts, revenueReport, toCsv } from "@/lib/reports";
+import { discountReport, driverPayouts, revenueReport, toCsv } from "@/lib/reports";
 import { VEHICLES } from "@/lib/vehicles";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -14,7 +14,14 @@ export async function GET(request: Request) {
   if (!DATE.test(from) || !DATE.test(to) || from > to) return new Response("Choose a valid date range.", { status: 400 });
   const type = url.searchParams.get("type");
   let csv: string;
-  if (type === "payouts") {
+  if (type === "discounts") {
+    const d = await discountReport({ from, to });
+    csv = toCsv([
+      ["Discount", "Type", "Bookings", "Cost (THB)", "Avg per booking (THB)", "Revenue from these bookings (THB)"],
+      ...d.lines.map((l) => [l.label, l.group, l.bookings, l.cost, Math.round(l.cost / l.bookings), l.revenue]),
+      [], ["Total", "", d.discountedTrips, d.cost, "", ""],
+    ]);
+  } else if (type === "payouts") {
     const groups = await driverPayouts({ from, to });
     csv = toCsv([
       ["Week starting", "Driver", "Phone", "Bank", "Account number", "Account name", "Booking", "Trip date", "Route", "Fare (THB)", "Driver cost (THB)", "Payout status"],
@@ -27,6 +34,6 @@ export async function GET(request: Request) {
       ...trips.sort((a, b) => a.pickupDate.localeCompare(b.pickupDate)).map((t) => [t.reference, t.pickupDate, t.serviceType, t.pickup, t.dropoff, vehicleName(t.vehicle), t.paymentMethod, t.status, t.total, t.promoDiscount, t.memberDiscount, t.driverCost, t.driverCost == null ? null : t.total - t.driverCost]),
     ]);
   }
-  const name = `waydidi-${type === "payouts" ? "driver-payouts" : "revenue"}-${from}-to-${to}.csv`;
+  const name = `waydidi-${type === "payouts" ? "driver-payouts" : type === "discounts" ? "discounts" : "revenue"}-${from}-to-${to}.csv`;
   return new Response("﻿" + csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${name}"`, "Cache-Control": "no-store" } });
 }

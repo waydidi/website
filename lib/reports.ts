@@ -1,6 +1,8 @@
 import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { getDb } from "@/db";
-import { bookingAssignments, bookingCosts, bookingMemberDiscounts, bookings, drivers, promoRedemptions } from "@/db/schema";
+import { bookingAssignments, bookingCosts, bookingFreeAddons, bookingMemberDiscounts, bookings, drivers, memberBoxes, promoRedemptions } from "@/db/schema";
+import { CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "./addons";
+import { TIERS } from "./member-tier-rules";
 
 // Revenue counts trips that went ahead; cancelled/refunded/failed ones are left out.
 const EARNING = ["confirmed", "completed"];
@@ -138,3 +140,78 @@ const cell = (v: string | number | null) => {
   return /[",\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
 };
 export const toCsv = (rows: (string | number | null)[][]) => rows.map((r) => r.map(cell).join(",")).join("\n") + "\n";
+
+// ---- Discount cost ----
+
+export type DiscountLine = { key: string; label: string; group: "Promo codes" | "Member rewards" | "Free add-ons"; cost: number; bookings: number; revenue: number };
+
+const BUILT_IN: Record<string, { label: string; group: DiscountLine["group"] }> = {
+  LOYALTY: { label: "5th-ride reward (10% off)", group: "Member rewards" },
+  SPIN: { label: "Spin-the-wheel prize", group: "Member rewards" },
+  FREERIDE: { label: "Free airport transfer gift", group: "Member rewards" },
+  REWARD: { label: "Mystery-box THB-off coupon", group: "Member rewards" },
+};
+
+/**
+ * What discounts and free extras cost in the range (by trip date, confirmed and completed
+ * trips), and how many bookings and how much revenue came with each.
+ */
+export async function discountReport(range: ReportRange) {
+  const trips = await tripsInRange(range);
+  const refs = trips.map((t) => t.reference);
+  const [promos, members, freebies, tickets] = await Promise.all([
+    inChunks(refs, (part) => getDb().select({ ref: promoRedemptions.bookingReference, code: promoRedemptions.code, discount: promoRedemptions.discount }).from(promoRedemptions).where(inArray(promoRedemptions.bookingReference, part))),
+    inChunks(refs, (part) => getDb().select({ ref: bookingMemberDiscounts.bookingReference, tier: bookingMemberDiscounts.tier, discount: bookingMemberDiscounts.discount }).from(bookingMemberDiscounts).where(inArray(bookingMemberDiscounts.bookingReference, part))).catch(() => []),
+    inChunks(refs, (part) => getDb().select().from(bookingFreeAddons).where(inArray(bookingFreeAddons.bookingReference, part))).catch(() => []),
+    // Partner prizes (cruise, buffet) won in mystery boxes opened in the range.
+    getDb().select({ prize: memberBoxes.prizeName, fulfilment: memberBoxes.fulfilment }).from(memberBoxes)
+      .where(and(gte(memberBoxes.openedAt, `${range.from}T00:00:00`), lte(memberBoxes.openedAt, `${range.to}T23:59:59.999Z`))).catch(() => []),
+  ]);
+  const revenueBy = new Map(trips.map((t) => [t.reference, t.total]));
+  const lines = new Map<string, DiscountLine>();
+  const put = (key: string, label: string, group: DiscountLine["group"], ref: string, cost: number) => {
+    if (cost <= 0) return;
+    if (!lines.has(key)) lines.set(key, { key, label, group, cost: 0, bookings: 0, revenue: 0 });
+    const l = lines.get(key)!;
+    l.cost += cost; l.bookings += 1; l.revenue += revenueBy.get(ref) ?? 0;
+  };
+  for (const p of promos) {
+    const built = BUILT_IN[p.code];
+    put(`code:${p.code}`, built?.label ?? `Code ${p.code}`, built?.group ?? "Promo codes", p.ref, p.discount);
+  }
+  for (const m of members) {
+    const tier = TIERS.find((t) => t.id === m.tier);
+    put(`tier:${m.tier}`, `${tier?.name ?? m.tier} member discount (${tier?.percent ?? "?"}%)`, "Member rewards", m.ref, m.discount);
+  }
+  for (const f of freebies) {
+    // Split what the badge gave for free from what a gift voucher covered.
+    const [tierId] = f.tier.split("+");
+    const tier = TIERS.find((t) => t.id === tierId);
+    const tierSeats = Math.min(f.childSeats, tier?.freeChildSeats ?? 0);
+    const tierExchange = Boolean(f.exchangeStop && tier?.freeExchangeStop);
+    const name = tier?.name ?? "Member";
+    put(`free-seat-tier:${tierId}`, `Free child seat (${name} badge)`, "Free add-ons", f.bookingReference, tierSeats * CHILD_SEAT_THB);
+    put(`free-exchange-tier:${tierId}`, `Free exchange stop (${name} badge)`, "Free add-ons", f.bookingReference, tierExchange ? EXCHANGE_STOP_THB : 0);
+    put("free-seat-gift", "Free child seat (gift voucher)", "Free add-ons", f.bookingReference, (f.childSeats - tierSeats) * CHILD_SEAT_THB);
+    put("free-exchange-gift", "Free exchange stop (gift voucher)", "Free add-ons", f.bookingReference, f.exchangeStop && !tierExchange ? EXCHANGE_STOP_THB : 0);
+  }
+  const list = [...lines.values()].sort((a, b) => b.cost - a.cost);
+  const discountedRefs = new Set([...promos.map((p) => p.ref), ...members.map((m) => m.ref), ...freebies.map((f) => f.bookingReference)]);
+  const revenue = trips.reduce((n, t) => n + t.total, 0);
+  const cost = list.reduce((n, l) => n + l.cost, 0);
+  const ticketCounts = new Map<string, { won: number; arranged: number }>();
+  for (const t of tickets) {
+    if (!t.prize || t.fulfilment == null) continue; // only partner tickets carry a fulfilment status
+    const c = ticketCounts.get(t.prize) ?? { won: 0, arranged: 0 };
+    c.won += 1; if (t.fulfilment !== "to_arrange") c.arranged += 1;
+    ticketCounts.set(t.prize, c);
+  }
+  return {
+    lines: list, cost, revenue, trips: trips.length,
+    discountedTrips: [...discountedRefs].filter((r) => revenueBy.has(r)).length,
+    // Share of what the fares would have been without any discount.
+    share: revenue + cost > 0 ? cost / (revenue + cost) : 0,
+    byGroup: (["Promo codes", "Member rewards", "Free add-ons"] as const).map((g) => ({ group: g, cost: list.filter((l) => l.group === g).reduce((n, l) => n + l.cost, 0) })),
+    partnerTickets: [...ticketCounts].map(([prize, c]) => ({ prize, ...c })),
+  };
+}
