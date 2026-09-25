@@ -14,7 +14,7 @@ import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
 import { AvatarMenu } from "@/components/admin-settings/avatar-menu";
 
 // "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
-const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/routes"))));
+const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly"))));
 
 const tabs = [
   {
@@ -122,7 +122,6 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
     { href: "/admin/pricing", label: "Fare management", icon: MapPinned, children: [
       { href: "/admin/pricing", label: "Areas" },
       { href: "/admin/hourly", label: "Hourly" },
-      { href: "/admin/routes", label: "Routes" },
     ] },
   ] },
   { title: "Marketing", items: [
@@ -212,10 +211,10 @@ export default function AdminShell({
   const active = tabs.find((t) => isActive(pathname, t.href)) ?? tabs[0];
   const title = pathname.startsWith("/admin/settings") ? "Settings" : pathname === "/admin/gifts" ? "Tier gifts" : pathname.startsWith("/admin/gifts/mystery") ? "Mystery gifts" : pathname.startsWith("/admin/journeys") ? "Journey details" : pathname.startsWith("/admin/calendar") ? "Calendar" : active.title;
   return (
-    <div className="flex min-h-screen bg-[#F4F5F7] text-[#15161C]">
+    <div className="flex min-h-screen bg-[#F4F5F7] text-[#15161C] admin-root">
       <aside className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-slate-200/80 bg-[#FBFBFC] transition-[width] duration-300 md:flex ${collapsed ? "w-[76px]" : "w-[272px]"}`}>
         <div className={`flex h-[72px] items-center border-b border-slate-200/70 ${collapsed ? "justify-center px-2" : "justify-between px-5"}`}>
-          {collapsed ? <WaydidiMark className="size-[37px] text-[#FF8A05]" /> : <WaydidiLogo className="h-[46px] w-auto text-[#FF8A05]" />}
+          {collapsed ? <WaydidiMark className="admin-logo size-[37px] text-[#FF8A05]" /> : <WaydidiLogo className="admin-logo h-[46px] w-auto text-[#FF8A05]" />}
           {!collapsed && <button onClick={toggleSidebar} aria-label="Collapse sidebar" title="Collapse sidebar" className="grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#15161C]"><ChevronLeft size={16} /></button>}
         </div>
         {collapsed && <button onClick={toggleSidebar} aria-label="Expand sidebar" title="Expand sidebar" className="mx-auto mt-3 grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#15161C]"><ChevronRight size={16} /></button>}

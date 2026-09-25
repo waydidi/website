@@ -368,14 +368,18 @@ html.admin-dark :is(.bg-white, .bg-white\/95, .bg-\[\#FBFBFC\]) { background-col
 html.admin-dark :is(.bg-\[\#F4F5F7\], .bg-\[\#f3f5f8\], .bg-\[\#F6F7F9\], .bg-slate-50, .bg-slate-100, .bg-slate-100\/80, .bg-\[\#E8EAEE\], .bg-\[\#f3f3f3\], .bg-\[\#F4F4F4\]) { background-color: #0F1014 !important; }
 html.admin-dark :is(.bg-slate-200) { background-color: #23252D !important; }
 html.admin-dark :is(.hover\:bg-slate-50:hover, .hover\:bg-slate-100\/80:hover, .hover\:bg-slate-100:hover, .hover\:bg-slate-200:hover) { background-color: #23252D !important; }
-html.admin-dark :is(.text-\[\#15161C\], .text-\[\#1f1726\], .text-\[\#211726\], .text-\[\#1C1C1C\], .text-ink, .text-slate-900, .text-slate-950, .text-slate-800) { color: #ECEDF1 !important; }
-html.admin-dark :is(.text-slate-700, .text-slate-600) { color: #B7BAC4 !important; }
-html.admin-dark :is(.text-slate-500, .text-slate-400) { color: #8A8E9A !important; }
+html.admin-dark :is(.text-\[\#15161C\], .text-\[\#1f1726\], .text-\[\#211726\], .text-\[\#1C1C1C\], .text-ink, .text-slate-900, .text-slate-950, .text-slate-800) { color: #FFFFFF !important; }
+html.admin-dark :is(.text-slate-700, .text-slate-600) { color: #E4E6EB !important; }
+html.admin-dark :is(.text-slate-500, .text-slate-400) { color: #B4B8C2 !important; }
 html.admin-dark :is(.border-slate-100, .border-slate-200, .border-slate-200\/70, .border-slate-200\/80, .border-slate-300, .divide-slate-100 > *) { border-color: #2A2C34 !important; }
 html.admin-dark :is(.bg-\[\#FFF0DF\], .bg-orange-50, .bg-\[\#FFF0DE\]) { background-color: #3A2710 !important; }
 html.admin-dark :is(.bg-emerald-50) { background-color: #0F2A1F !important; }
 html.admin-dark :is(.bg-amber-50) { background-color: #2E2410 !important; }
 html.admin-dark :is(.bg-red-50) { background-color: #2E1414 !important; }
 html.admin-dark :is(.bg-sky-50, .bg-blue-50) { background-color: #0F2233 !important; }
-html.admin-dark :is(input, select, textarea) { color: #ECEDF1; }
+html.admin-dark :is(input, select, textarea) { color: #FFFFFF; }
+html.admin-dark :is(h1, h2, h3, th, td, dt, dd, label) { color: inherit; }
+html.admin-dark body, html.admin-dark .admin-page-slot { color: #FFFFFF; }
+/* The Waydidi logo turns white in dark mode. */
+html.admin-dark .admin-logo { color: #FFFFFF !important; }
 html.admin-dark :is(input, select, textarea)::placeholder { color: #6B6F7B; }

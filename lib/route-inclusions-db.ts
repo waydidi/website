@@ -1,15 +1,7 @@
-import { eq } from "drizzle-orm";
-import { getDb } from "@/db";
-import { routeInclusions } from "@/db/schema";
 import type { Point } from "./pricing";
-import { DEFAULT_RULES, resolveInclusions } from "./route-inclusions";
+import { resolveInclusions, ROUTE_RULES } from "./route-inclusions";
 
+// Kept async so callers don't change; the routes now live in code (lib/route-inclusions.ts).
 export async function loadInclusions(pickup: Point, dropoff: Point) {
-  try {
-    const rules = await getDb().select().from(routeInclusions).where(eq(routeInclusions.active, true));
-    return resolveInclusions(pickup, dropoff, rules.length ? rules : DEFAULT_RULES);
-  } catch {
-    // No table yet (migration not applied): use the built-in rules.
-    return resolveInclusions(pickup, dropoff, DEFAULT_RULES);
-  }
+  return resolveInclusions(pickup, dropoff, ROUTE_RULES);
 }

@@ -66,23 +66,9 @@ test("messages exist in English, Thai and Chinese", () => {
   for (const locale of ["en", "th", "zh"]) assert.equal(lib.inclusionLines(both, locale).included.length, 2);
 });
 
-test("the built-in rules match the migration seed", () => {
-  const strip = (r) => ({ name: r.name, o: JSON.parse(r.originZoneJson), d: JSON.parse(r.destinationZoneJson), f: r.includesFerry });
-  assert.deepEqual(lib.DEFAULT_RULES.map(strip), rules.map(strip));
-});
-
-test("admin box editing round-trips and still matches routes", async () => {
-  const { createServer } = await import("vite");
-  const { fileURLToPath } = await import("node:url");
-  const root = fileURLToPath(new URL("..", import.meta.url));
-  const server = await createServer({ appType: "custom", configFile: false, root, resolve: { alias: { "@": root } }, server: { middlewareMode: true, hmr: false } });
-  try {
-    const admin = await server.ssrLoadModule("/lib/route-inclusions.ts");
-    const inc = await server.ssrLoadModule("/lib/route-inclusions.ts");
-    const box = { south: 12.4, north: 12.7, west: 99.8, east: 100.1 };
-    assert.deepEqual(admin.boxFromZone(admin.zoneFromBox(box)), box);
-    const bangkok = inc.DEFAULT_RULES[0].originZoneJson;
-    const rule = { name: "Bangkok ⇄ Hua Hin", originZoneJson: bangkok, destinationZoneJson: admin.zoneFromBox(box), bidirectional: true, includesTolls: true, includesFerry: false, active: true, priority: 50 };
-    assert.equal(inc.resolveInclusions({ lat: 12.57, lng: 99.95 }, { lat: 13.69, lng: 100.75 }, [rule]).route, "Bangkok ⇄ Hua Hin");
-  } finally { await server.close(); }
+test("the routes in code include tolls, and ferry to the islands", () => {
+  const pattaya = lib.resolveInclusions(place.suvarnabhumi, place.hiltonPattaya, lib.ROUTE_RULES);
+  assert.equal(pattaya.tolls, true); assert.equal(pattaya.ferry, false); assert.equal(pattaya.route, "Bangkok to Pattaya");
+  const kohChang = lib.resolveInclusions({ lat: 12.05, lng: 102.35 }, place.suvarnabhumi, lib.ROUTE_RULES);
+  assert.equal(kohChang.tolls, true); assert.equal(kohChang.ferry, true);
 });

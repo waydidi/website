@@ -1,7 +1,7 @@
 import { pointInPolygon, type Point } from "./geo";
 
-// What a fare includes on a given route. Resolved from route_inclusions rules
-// when a quote is made and saved with it, so the promise can't change later.
+// What a fare includes on a given route. Resolved from ROUTES below when a
+// quote is made and saved with it, so the promise can't change later.
 export type Inclusions = { tolls: boolean; ferry: boolean; route: string | null };
 export const NO_INCLUSIONS: Inclusions = { tolls: false, ferry: false, route: null };
 
@@ -39,18 +39,26 @@ const box = (south: number, north: number, west: number, east: number) =>
   JSON.stringify([[{ lat: south, lng: west }, { lat: south, lng: east }, { lat: north, lng: east }, { lat: north, lng: west }]]);
 // Bangkok with Nonthaburi, Samut Prakan and both airports.
 const BANGKOK = box(13.45, 14.05, 100.25, 100.97);
-const rule = (name: string, zone: string, includesFerry = false): InclusionRule =>
-  ({ name, originZoneJson: BANGKOK, destinationZoneJson: zone, bidirectional: true, includesTolls: true, includesFerry, active: true, priority: 50 });
 
-// Built-in rules, matching the migration seed. Used while the route_inclusions
-// table has no rows, so these routes are right before any admin setup.
-export const DEFAULT_RULES: InclusionRule[] = [
-  rule("Bangkok ⇄ Pattaya", box(12.62, 13.02, 100.82, 101.0)),
-  rule("Bangkok ⇄ Rayong", box(12.5, 13.1, 101.0, 101.8)),
-  rule("Bangkok ⇄ Chanthaburi", box(12.25, 13.3, 101.8, 102.45)),
-  rule("Bangkok ⇄ Trat, Koh Chang, Koh Kood, Koh Mak", box(11.55, 12.7, 102.2, 102.95), true),
-  rule("Bangkok ⇄ Chachoengsao", box(13.25, 14.05, 100.97, 101.95)),
+// What each route's fare includes. Edit this list to change it; every route
+// works both ways, and routes not listed show tolls as excluded.
+//   Bangkok to Pattaya: motorway toll included
+//   Bangkok to Rayong: motorway toll included
+//   Bangkok to Chanthaburi: motorway toll included
+//   Bangkok to Chachoengsao: motorway toll included
+//   Bangkok to Trat, Koh Chang, Koh Kood, Koh Mak: motorway toll and ferry ticket included
+const ROUTES: { name: string; to: string; ferry?: boolean }[] = [
+  { name: "Bangkok to Pattaya", to: box(12.62, 13.02, 100.82, 101.0) },
+  { name: "Bangkok to Rayong", to: box(12.5, 13.1, 101.0, 101.8) },
+  { name: "Bangkok to Chanthaburi", to: box(12.25, 13.3, 101.8, 102.45) },
+  { name: "Bangkok to Chachoengsao", to: box(13.25, 14.05, 100.97, 101.95) },
+  { name: "Bangkok to Trat, Koh Chang, Koh Kood, Koh Mak", to: box(11.55, 12.7, 102.2, 102.95), ferry: true },
 ];
+
+export const ROUTE_RULES: InclusionRule[] = ROUTES.map((r) => ({
+  name: r.name, originZoneJson: BANGKOK, destinationZoneJson: r.to, bidirectional: true,
+  includesTolls: true, includesFerry: r.ferry === true, active: true, priority: 50,
+}));
 
 export function parseInclusions(json: string | null | undefined): Inclusions {
   try {
@@ -75,17 +83,3 @@ export function inclusionLines(inclusions: Inclusions, locale: string) {
   const excluded = inclusions.tolls ? [] : [text.tollsExcluded];
   return { included, excluded };
 }
-
-// Zones are edited as simple latitude/longitude boxes (south, north, west, east).
-export type Box = { south: number; north: number; west: number; east: number };
-
-export function boxFromZone(zoneJson: string): Box | null {
-  try {
-    const points = (JSON.parse(zoneJson) as { lat: number; lng: number }[][]).flat();
-    if (!points.length) return null;
-    const lats = points.map((p) => p.lat), lngs = points.map((p) => p.lng);
-    return { south: Math.min(...lats), north: Math.max(...lats), west: Math.min(...lngs), east: Math.max(...lngs) };
-  } catch { return null; }
-}
-
-export const zoneFromBox = (b: Box) => JSON.stringify([[{ lat: b.south, lng: b.west }, { lat: b.south, lng: b.east }, { lat: b.north, lng: b.east }, { lat: b.north, lng: b.west }]]);

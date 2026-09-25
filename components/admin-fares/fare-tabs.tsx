@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-const TABS = [["Areas", "/admin/pricing"], ["Hourly", "/admin/hourly"], ["Routes", "/admin/routes"]] as const;
+const TABS = [["Areas", "/admin/pricing"], ["Hourly", "/admin/hourly"]] as const;
 
-// Phone-only sub-tabs of "Fare management" (desktop uses the sidebar dropdown): area fares, hourly pricing and route inclusions.
+// Phone-only sub-tabs of "Fare management" (desktop uses the sidebar dropdown): area fares and hourly pricing.
 export function FareTabs({ current }: { current: (typeof TABS)[number][1] }) {
   return <nav aria-label="Fare management" className="px-4 pt-4 sm:px-8 md:hidden">
     <div className="inline-flex gap-1 rounded-full bg-white p-1 shadow-sm ring-1 ring-slate-200">
