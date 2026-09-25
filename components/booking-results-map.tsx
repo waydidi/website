@@ -11,6 +11,7 @@ import { waitingLine } from "@/lib/waiting-policy";
 import { decodePolyline } from "@/lib/demo-route";
 import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "@/lib/addons";
 import { tierFreeAddons, type Tier } from "@/lib/member-tier-rules";
+import { freeAddonsWithGifts } from "@/lib/gift-rules";
 import { TRAFFIC_CASING, TRAFFIC_COLORS, TRAFFIC_REFRESH_MS, sampleIntervals, trafficSegments, type SpeedInterval, type TrafficRoute } from "@/lib/traffic";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -77,6 +78,8 @@ type Props = {
   exchangeStop?: boolean;
   /** Signed-in member tier: Diamond/Platinum get some add-ons free. */
   memberTier?: Tier | null;
+  /** Gift vouchers the member holds (one free child seat / exchange stop). */
+  giftVouchers?: { childSeat: boolean; exchangeStop: boolean };
   onExtrasChange?: (extras: { childSeats: number; exchangeStop: boolean }) => void;
 };
 
@@ -317,8 +320,10 @@ export function BookingResultsMap(props: Props) {
   }, [props.quote]);
   const selected = props.vehicles.find((item) => item.id === props.selectedVehicle) ?? props.vehicles[0];
   const cheapest = props.vehicles.filter((v) => v.fits !== false).reduce<Vehicle | undefined>((best, v) => !best || v.price < best.price ? v : best, undefined);
+  const freeNow = freeAddonsWithGifts(tierFreeAddons(props.memberTier, props.childSeats ?? 0, props.exchangeStop ?? false), props.childSeats ?? 0, props.exchangeStop ?? false, props.giftVouchers ?? { childSeat: false, exchangeStop: false });
+  const freeSeatsMax = (props.memberTier?.freeChildSeats ?? 0) + (props.giftVouchers?.childSeat ? 1 : 0);
   const addonPrice = (amount: number) => (amount > 0 ? `+${money(amount)}` : "Free");
-  const total = selected ? (props.priceBreakdown?.[selected.id]?.total ?? selected.price) + addonsTotal(props.childSeats ?? 0, props.exchangeStop ?? false, tierFreeAddons(props.memberTier, props.childSeats ?? 0, props.exchangeStop ?? false)) : 0;
+  const total = selected ? (props.priceBreakdown?.[selected.id]?.total ?? selected.price) + addonsTotal(props.childSeats ?? 0, props.exchangeStop ?? false, freeAddonsWithGifts(tierFreeAddons(props.memberTier, props.childSeats ?? 0, props.exchangeStop ?? false), props.childSeats ?? 0, props.exchangeStop ?? false, props.giftVouchers ?? { childSeat: false, exchangeStop: false })) : 0;
   const passengers = props.passengers ?? 0;
   const { currency, money, thb } = useCurrency();
   const [code, amount] = [money(0).split(" ")[0], (v: number) => money(v).split(" ")[1]];
@@ -639,7 +644,7 @@ export function BookingResultsMap(props: Props) {
           <ul className="flex-1 overflow-y-auto px-5 pb-2 pt-2">
             <li className="flex items-center gap-4 border-b border-[#EEEEEE] py-4">
               <Image src="/addon-child-seat.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
-              <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.childSeat")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.childSeatDesc", { max: maxSeats })}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">{props.memberTier?.freeChildSeats ? <><span className="text-[#00B14F]">1 free ({props.memberTier.name})</span> · then {t("addons.each", { price: money(CHILD_SEAT_THB) })}</> : t("addons.each", { price: money(CHILD_SEAT_THB) })}</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.childSeat")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.childSeatDesc", { max: maxSeats })}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">{freeSeatsMax ? <><span className="text-[#00B14F]">{freeSeatsMax} free ({[props.memberTier?.freeChildSeats ? props.memberTier.name : null, props.giftVouchers?.childSeat ? "gift" : null].filter(Boolean).join(" + ")})</span> · then {t("addons.each", { price: money(CHILD_SEAT_THB) })}</> : t("addons.each", { price: money(CHILD_SEAT_THB) })}</span></span>
               <span className="flex items-center gap-3">
                 <button type="button" aria-label="Remove child seat" disabled={seats === 0} onClick={() => setExtras({ childSeats: seats - 1, exchangeStop: exchange })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Minus size={16} aria-hidden="true" /></button>
                 <span className="w-4 text-center text-[16px] font-medium" aria-live="polite">{seats}</span>
@@ -649,7 +654,7 @@ export function BookingResultsMap(props: Props) {
             <li>
               <label className="flex cursor-pointer items-center gap-4 py-4">
                 <Image src="/addon-currency-exchange.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
-                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.exchange")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.exchangeDesc")}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">{props.memberTier?.freeExchangeStop ? <><s className="font-normal text-[#8A8A8A]">+{money(EXCHANGE_STOP_THB)}</s> <span className="text-[#00B14F]">Free ({props.memberTier.name})</span></> : `+${money(EXCHANGE_STOP_THB)}`}</span></span>
+                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.exchange")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.exchangeDesc")}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">{props.memberTier?.freeExchangeStop || props.giftVouchers?.exchangeStop ? <><s className="font-normal text-[#8A8A8A]">+{money(EXCHANGE_STOP_THB)}</s> <span className="text-[#00B14F]">Free ({props.memberTier?.freeExchangeStop ? props.memberTier.name : "gift"})</span></> : `+${money(EXCHANGE_STOP_THB)}`}</span></span>
                 <input type="checkbox" checked={exchange} onChange={(e) => setExtras({ childSeats: seats, exchangeStop: e.target.checked })} className="size-5 accent-[#FF8A05]" />
               </label>
             </li>
@@ -748,8 +753,8 @@ export function BookingResultsMap(props: Props) {
               </>}
               <p className="mt-4 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} aria-hidden="true" />All prices are fixed totals for your private ride</p>
               {lines.included.map((line) => <p key={line} className="mt-2 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} aria-hidden="true" />{line}</p>)}
-              {seats > 0 && <p className="mt-4 flex justify-between text-[16px] text-[#4A4A4A]"><span>Child seat × {seats}</span><span>{addonPrice(Math.max(0, seats - (props.memberTier?.freeChildSeats ?? 0)) * CHILD_SEAT_THB)}</span></p>}
-              {exchange && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Currency exchange stop</span><span>{addonPrice(props.memberTier?.freeExchangeStop ? 0 : EXCHANGE_STOP_THB)}</span></p>}
+              {seats > 0 && <p className="mt-4 flex justify-between text-[16px] text-[#4A4A4A]"><span>Child seat × {seats}</span><span>{addonPrice(Math.max(0, seats - freeNow.childSeats) * CHILD_SEAT_THB)}</span></p>}
+              {exchange && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Currency exchange stop</span><span>{addonPrice(freeNow.exchangeStop ? 0 : EXCHANGE_STOP_THB)}</span></p>}
               <p className="mt-4 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">{money(total)}</strong></p>
               <p className="mt-1 text-right text-[14px] text-[#8A8A8A]">{currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
             </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, Crown, Gem, Medal, Star } from "lucide-react";
 import { TIERS, type memberTier, type Tier, type TierId } from "@/lib/member-tier-rules";
+import { GIFTS, nearNextTier, TIER_GIFTS } from "@/lib/gift-rules";
 
 const ICONS: Record<TierId, typeof Medal> = { bronze: Medal, gold: Star, diamond: Gem, platinum: Crown };
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
@@ -25,6 +26,7 @@ export function TierCard({ status, link = true }: { status: ReturnType<typeof me
     </div>
     <div className="p-5">
       <p className="text-sm text-slate-700">{tier.perks[0]}, taken off automatically when you book signed in, on top of any promo code.</p>
+      {next && nearNextTier(status) && TIER_GIFTS[next.id] && <p className="mt-3 flex items-center gap-2 rounded-xl bg-[#FFF6EB] px-3 py-2.5 text-sm font-semibold text-[#8A4B00]"><span className="text-lg" aria-hidden="true">🎁</span>Almost there! Reach {next.name} to unlock: {GIFTS[TIER_GIFTS[next.id]!].name}</p>}
       {next ? <>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#FF8A05]" style={{ width: `${Math.round(status.progress * 100)}%` }} /></div>
         <p className="mt-2 text-sm text-slate-600"><strong>{status.ridesToNext}</strong> more completed ride{status.ridesToNext === 1 ? "" : "s"} or <strong>{thb(status.spendToNext)}</strong> more spend to reach <strong>{next.name}</strong> ({next.percent}% off).</p>
@@ -43,7 +45,7 @@ export function TierTable({ current }: { current: TierId }) {
         <div className="min-w-0 flex-1"><p className="text-lg font-black">{t.name}</p><p className="text-xs text-slate-500">{t.rides === 0 ? "When you create an account" : `${t.rides} completed rides or ${thb(t.spend)} in 12 months`}</p></div>
         {t.id === current && <span className="rounded-full bg-[#FFF0DF] px-2.5 py-1 text-xs font-black text-[#C96100]">You</span>}
       </div>
-      <ul className="mt-3 grid gap-1.5 text-sm text-slate-700">{t.perks.map((p) => <li key={p}>✓ {p}</li>)}<li>✓ Every 5th ride 10% off (up to THB 500)</li></ul>
+      <ul className="mt-3 grid gap-1.5 text-sm text-slate-700">{t.perks.map((p) => <li key={p}>✓ {p}</li>)}<li>✓ Every 5th ride 10% off (up to THB 500)</li>{TIER_GIFTS[t.id] && <li className="font-semibold text-[#C96100]">🎁 Badge gift: {GIFTS[TIER_GIFTS[t.id]!].name}</li>}</ul>
     </li>)}
   </ol>;
 }

@@ -5,6 +5,8 @@ import { LoyaltyCard } from "@/components/account/loyalty-card";
 import { loyaltyStatus } from "@/lib/loyalty";
 import { memberTierStatus } from "@/lib/member-tier";
 import { spinStatus } from "@/lib/spin";
+import { listMemberGifts } from "@/lib/gifts";
+import { GiftWallet } from "@/components/account/gift-wallet";
 import { TierCard } from "@/components/account/tier-badge";
 import { requireCustomer } from "@/lib/customer-auth";
 import { listMemberCoupons } from "@/lib/promo-db";
@@ -16,6 +18,7 @@ export default async function CouponsPage() {
   const loyalty = await loyaltyStatus(customer.id).catch(() => null);
   const tier = await memberTierStatus(customer.id).catch(() => null);
   const spin = await spinStatus(customer.id).catch(() => null);
+  const gifts = await listMemberGifts(customer.id).catch(() => []);
   const coupons = await listMemberCoupons({ email: customer.email, phone: customer.phone ?? "", customerId: customer.id }).catch(() => []);
   return <AccountShell name={customer.name} email={customer.email}>
     <PageTitle title="My coupons" subtitle="Offers you can use on your next ride." />
@@ -25,6 +28,7 @@ export default async function CouponsPage() {
       <span className="grid size-11 shrink-0 place-items-center rounded-full text-lg font-black text-white" style={{ background: spin.prize.color }}>🎡</span>
       <div className="min-w-0 flex-1"><p className="font-bold">Wheel prize: {spin.prize.label}</p><p className="mt-0.5 text-sm text-slate-600">{spin.used ? "Used — thanks for riding with us." : spin.expired ? "Expired." : `Applied automatically at checkout · valid until ${new Date(spin.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`}</p></div>
     </section>}
+    <GiftWallet gifts={gifts} />
     <CouponWallet coupons={coupons} />
   </AccountShell>;
 }

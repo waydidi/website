@@ -2,6 +2,8 @@
 
 import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "@/lib/addons";
 import { TIERS, tierDiscount, tierFreeAddons, type Tier } from "@/lib/member-tier-rules";
+import { freeAddonsWithGifts } from "@/lib/gift-rules";
+import { isAirportPickup } from "@/lib/waiting-policy";
 import { earliestBangkokPickup } from "@/lib/booking-time";
 import {
   ArrowLeft,
@@ -256,6 +258,7 @@ export function BookingFlow({
   const [savedPlaces, setSavedPlaces] = useState<{ id: string; label: string; placeId: string; address: string }[]>([]);
   const [signedIn, setSignedIn] = useState(false);
   const [memberTier, setMemberTier] = useState<Tier | null>(null);
+  const [vouchers, setVouchers] = useState({ childSeat: false, exchangeStop: false });
   const [savedBilling, setSavedBilling] = useState<{ id: string; name: string; taxId: string; branch: string; address: string }[]>([]);
   const [saveBilling, setSaveBilling] = useState(false);
   const [autoPromoTried, setAutoPromoTried] = useState(false);
@@ -326,6 +329,10 @@ export function BookingFlow({
         if (!active || !account?.signedIn) return;
         setSignedIn(true);
         setMemberTier(TIERS.find((t) => t.id === account.tier) ?? TIERS[0]);
+        fetch("/api/account/gifts", { cache: "no-store" }).then((r) => r.json()).then((d: { gifts?: { giftId: string; status: string }[] }) => {
+          const has = (id: string) => Boolean(d.gifts?.some((g) => g.giftId === id && g.status === "available"));
+          if (active) setVouchers({ childSeat: has("child_seat"), exchangeStop: has("exchange_stop") });
+        }).catch(() => undefined);
         setBooking((current) => ({
           ...current,
           name: current.name || account.name || "",
@@ -576,12 +583,14 @@ export function BookingFlow({
     [vehicle, pricedVehicles],
   );
   const discount = promo?.discount ?? 0;
-  const freeAddons = tierFreeAddons(quoteRequest ? null : memberTier, booking.childSeats, exchangeStop);
+  const tierFree = tierFreeAddons(quoteRequest ? null : memberTier, booking.childSeats, exchangeStop);
+  const freeAddons = freeAddonsWithGifts(tierFree, booking.childSeats, exchangeStop, quoteRequest ? { childSeat: false, exchangeStop: false } : vouchers);
+  const airportTrip = isAirportPickup(booking.pickup) || isAirportPickup(booking.dropoff);
   const addons = addonsTotal(booking.childSeats, exchangeStop, freeAddons);
   // Member tier discount comes off the fare left after any promo code (the server does the same).
   const memberDiscount = memberTier && !quoteRequest ? tierDiscount(memberTier, Math.max(0, chosenVehicle.price - discount)) : 0;
   const payable = Math.max(0, chosenVehicle.price - discount - memberDiscount) + addons;
-  const freeLabel = (amount: number) => (amount > 0 ? `+${money(amount)}` : `Free${memberTier ? ` (${memberTier.name})` : ""}`);
+  const freeLabel = (amount: number, byTier = false) => (amount > 0 ? `+${money(amount)}` : `Free (${byTier && memberTier ? memberTier.name : "gift"})`);
 
   // A different car or price needs the code checked again.
   useEffect(() => {
@@ -600,7 +609,7 @@ export function BookingFlow({
     fetch("/api/promo/best", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ total: chosenVehicle.price, serviceType, returnTrip: serviceType === "transfer" && returnTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
+      body: JSON.stringify({ total: chosenVehicle.price, serviceType, returnTrip: serviceType === "transfer" && returnTrip, airportTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
     })
       .then((r) => (r.ok ? r.json() : { best: null }))
       .then((data: { best: { code: string; title: string; discount: number } | null }) => {
@@ -630,7 +639,7 @@ export function BookingFlow({
       const response = await fetch("/api/promo/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, total: chosenVehicle.price, serviceType, returnTrip: serviceType === "transfer" && returnTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
+        body: JSON.stringify({ code, total: chosenVehicle.price, serviceType, returnTrip: serviceType === "transfer" && returnTrip, airportTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
       });
       const result = (await response.json()) as { ok: boolean; code?: string; title?: string; discount?: number; reason?: string };
       if (!result.ok || !result.code || !result.discount) { setPromo(null); setPromoError(result.reason ?? "This promo code isn't valid."); return; }
@@ -1004,7 +1013,7 @@ export function BookingFlow({
           passengers: booking.passengers,
           luggage: booking.luggage,
           vehicle,
-          paymentMethod: payment,
+          paymentMethod: payable === 0 ? "cash" : payment,
           fareQuoteId: fareQuote?.quoteId,
           returnFareQuoteId: returnTrip ? returnFareQuote?.quoteId : undefined,
           returnDate: returnTrip ? returnDate : undefined,
@@ -1599,6 +1608,7 @@ export function BookingFlow({
           childSeats={booking.childSeats}
           exchangeStop={exchangeStop}
           memberTier={memberTier}
+          giftVouchers={vouchers}
           onExtrasChange={(extras) => { setExchangeStop(extras.exchangeStop); setBooking((current) => ({ ...current, childSeats: extras.childSeats })); }}
           onContinue={() => goToStage("details")}
         /> : <section className="bg-white">
@@ -1911,8 +1921,8 @@ export function BookingFlow({
             )}
             {(booking.childSeats > 0 || exchangeStop) && !quoteRequest && (
               <div className="mb-3 space-y-1 text-sm">
-                {booking.childSeats > 0 && <div className="flex items-center justify-between"><span className="text-white/65">Child seat × {booking.childSeats}</span><span className="font-semibold">{freeLabel((booking.childSeats - freeAddons.childSeats) * CHILD_SEAT_THB)}</span></div>}
-                {exchangeStop && <div className="flex items-center justify-between"><span className="text-white/65">Currency exchange stop</span><span className="font-semibold">{freeLabel(freeAddons.exchangeStop ? 0 : EXCHANGE_STOP_THB)}</span></div>}
+                {booking.childSeats > 0 && <div className="flex items-center justify-between"><span className="text-white/65">Child seat × {booking.childSeats}</span><span className="font-semibold">{freeLabel((booking.childSeats - freeAddons.childSeats) * CHILD_SEAT_THB, tierFree.childSeats >= booking.childSeats)}</span></div>}
+                {exchangeStop && <div className="flex items-center justify-between"><span className="text-white/65">Currency exchange stop</span><span className="font-semibold">{freeLabel(freeAddons.exchangeStop ? 0 : EXCHANGE_STOP_THB, tierFree.exchangeStop)}</span></div>}
               </div>
             )}
             <div className="flex items-end justify-between">
@@ -2005,8 +2015,8 @@ export function BookingFlow({
             )}
             {(booking.childSeats > 0 || exchangeStop) && !quoteRequest && (
               <div className="mb-3 space-y-1 text-sm">
-                {booking.childSeats > 0 && <div className="flex items-center justify-between"><span className="text-white/65">Child seat × {booking.childSeats}</span><span className="font-semibold">{freeLabel((booking.childSeats - freeAddons.childSeats) * CHILD_SEAT_THB)}</span></div>}
-                {exchangeStop && <div className="flex items-center justify-between"><span className="text-white/65">Currency exchange stop</span><span className="font-semibold">{freeLabel(freeAddons.exchangeStop ? 0 : EXCHANGE_STOP_THB)}</span></div>}
+                {booking.childSeats > 0 && <div className="flex items-center justify-between"><span className="text-white/65">Child seat × {booking.childSeats}</span><span className="font-semibold">{freeLabel((booking.childSeats - freeAddons.childSeats) * CHILD_SEAT_THB, tierFree.childSeats >= booking.childSeats)}</span></div>}
+                {exchangeStop && <div className="flex items-center justify-between"><span className="text-white/65">Currency exchange stop</span><span className="font-semibold">{freeLabel(freeAddons.exchangeStop ? 0 : EXCHANGE_STOP_THB, tierFree.exchangeStop)}</span></div>}
               </div>
             )}
             <div className="flex items-end justify-between">

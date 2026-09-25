@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { bookings, promoCodes, promoRedemptions } from "@/db/schema";
 import { evaluatePromo, normalizeCode, type PromoResult } from "./promo";
 import { LOYALTY_CODE, LOYALTY_TITLE, loyaltyDiscount, loyaltyStatus } from "./loyalty";
+import { availableGift, FREE_TRANSFER_CODE, freeTransferDiscount } from "./gifts";
 import { SPIN_CODE, SPIN_MIN_FARE, spinDiscount, spinStatus } from "./spin";
 
 // Bookings in these states no longer hold a use of their code.
@@ -51,6 +52,8 @@ export async function checkPromo(input: {
   email?: string;
   phone?: string;
   customerId?: string | null;
+  /** Pickup or drop-off is an airport (needed for the free airport transfer gift). */
+  airportTrip?: boolean;
 }): Promise<PromoResult & { promo?: Pick<NonNullable<Awaited<ReturnType<typeof findPromo>>>, "id" | "code" | "title"> }> {
   // The loyalty reward is a built-in code for signed-in members only.
   if (normalizeCode(input.code) === LOYALTY_CODE) {
@@ -60,6 +63,16 @@ export async function checkPromo(input: {
     const discount = loyaltyDiscount(input.total);
     if (discount <= 0) return { ok: false, reason: "This reward doesn't apply to this booking." };
     return { ok: true, discount, finalTotal: input.total - discount, promo: { id: "loyalty", code: LOYALTY_CODE, title: LOYALTY_TITLE } };
+  }
+  // Free airport transfer gift (Platinum badge): up to THB 1,500 off a one-way airport ride.
+  if (normalizeCode(input.code) === FREE_TRANSFER_CODE) {
+    if (!input.customerId) return { ok: false, reason: "Sign in to use your gift." };
+    if (input.serviceType !== "transfer" || input.returnTrip) return { ok: false, reason: "Your free transfer gift is for a one-way transfer." };
+    if (!input.airportTrip) return { ok: false, reason: "Your free transfer gift is for rides to or from an airport." };
+    const gift = await availableGift(input.customerId, "airport_transfer", true);
+    if (!gift) return { ok: false, reason: "You don't have a free transfer gift to use." };
+    const discount = freeTransferDiscount(input.total);
+    return { ok: true, discount, finalTotal: input.total - discount, promo: { id: `gift:${gift.id}`, code: FREE_TRANSFER_CODE, title: "Gift: free airport transfer" } };
   }
   // Prize won on the wheel: once per member, within its expiry.
   if (normalizeCode(input.code) === SPIN_CODE) {
@@ -130,12 +143,14 @@ export async function listMemberCoupons(who: Who): Promise<MemberCoupon[]> {
 }
 
 // The code giving the biggest discount on this exact booking, if any applies.
-export async function bestCoupon(input: { total: number; serviceType: "transfer" | "hourly"; returnTrip?: boolean; vehicle: string } & Who) {
+export async function bestCoupon(input: { total: number; serviceType: "transfer" | "hourly"; returnTrip?: boolean; vehicle: string; airportTrip?: boolean } & Who) {
   const promos = await activePromos();
   let best: { code: string; title: string; discount: number; finalTotal: number } | null = null;
   if (input.customerId) {
     const reward = await checkPromo({ ...input, code: LOYALTY_CODE }).catch(() => null);
     if (reward?.ok) best = { code: LOYALTY_CODE, title: LOYALTY_TITLE, discount: reward.discount, finalTotal: reward.finalTotal };
+    const ride = await checkPromo({ ...input, code: FREE_TRANSFER_CODE }).catch(() => null);
+    if (ride?.ok && ride.promo && (!best || ride.discount > best.discount)) best = { code: FREE_TRANSFER_CODE, title: ride.promo.title, discount: ride.discount, finalTotal: ride.finalTotal };
     const spin = await checkPromo({ ...input, code: SPIN_CODE }).catch(() => null);
     if (spin?.ok && spin.promo && (!best || spin.discount > best.discount)) best = { code: SPIN_CODE, title: spin.promo.title, discount: spin.discount, finalTotal: spin.finalTotal };
   }

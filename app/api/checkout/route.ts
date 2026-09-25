@@ -4,6 +4,8 @@ import { bookingContacts, bookingFreeAddons, bookingMemberDiscounts, bookingSour
 import { and as andWhere, eq as eqWhere } from "drizzle-orm";
 import { normalizeCode } from "@/lib/promo";
 import { checkPromo, normalizePhone } from "@/lib/promo-db";
+import { freeAddonsWithGifts, listMemberGifts, useGift } from "@/lib/gifts";
+import { isAirportPickup } from "@/lib/waiting-policy";
 import { memberTierStatus, tierDiscount, tierFreeAddons, TIERS, type Tier } from "@/lib/member-tier";
 import { addonsTotal } from "@/lib/addons";
 import { and, count, eq, gt, lt } from "drizzle-orm";
@@ -353,6 +355,7 @@ export async function POST(request: Request) {
         email: input.customerEmail,
         phone: input.customerPhone,
         customerId: account?.customer.id ?? null,
+        airportTrip: isAirportPickup(input.pickup) || isAirportPickup(input.dropoff),
       });
       if (!result.ok || !result.promo)
         return NextResponse.json(
@@ -374,8 +377,13 @@ export async function POST(request: Request) {
     }
     // Add-ons are charged on top of the fare and are not discounted by promo codes.
     // Diamond and Platinum members get some add-ons free.
-    const freeAddons = tierFreeAddons(memberTier, input.childSeats, input.exchangeStop);
+    // Then one child-seat / exchange-stop gift voucher each, if the member has them.
+    const gifts = account ? await listMemberGifts(account.customer.id).catch(() => []) : [];
+    const voucher = (id: string) => gifts.find((g) => g.giftId === id && g.status === "available") ?? null;
+    const freeAddons = freeAddonsWithGifts(tierFreeAddons(memberTier, input.childSeats, input.exchangeStop), input.childSeats, input.exchangeStop, { childSeat: Boolean(voucher("child_seat")), exchangeStop: Boolean(voucher("exchange_stop")) });
     total += addonsTotal(input.childSeats, input.exchangeStop, freeAddons);
+    // Nothing to pay (e.g. a free transfer gift with no add-ons): no card payment needed.
+    if (total <= 0) { total = 0; input.paymentMethod = "cash"; }
     const reference = await uniqueBookingReference();
     const accessToken = recoveryToken;
     const now = new Date().toISOString();
@@ -497,7 +505,9 @@ export async function POST(request: Request) {
         .where(andWhere(eqWhere(customerBillingProfiles.customerId, account.customer.id), eqWhere(customerBillingProfiles.taxId, tax.taxId), eqWhere(customerBillingProfiles.name, tax.name))).limit(1).catch(() => []);
       if (!existing) await getDb().insert(customerBillingProfiles).values({ id: crypto.randomUUID(), customerId: account.customer.id, name: tax.name, taxId: tax.taxId, branch: tax.branch || "Head office", address: tax.address, createdAt: now, updatedAt: now }).catch(() => undefined);
     }
-    if (memberTier && (freeAddons.childSeats > 0 || freeAddons.exchangeStop)) await getDb().insert(bookingFreeAddons).values({ bookingReference: reference, tier: memberTier.id, ...freeAddons, createdAt: now }).onConflictDoNothing();
+    if (freeAddons.childSeats > 0 || freeAddons.exchangeStop) await getDb().insert(bookingFreeAddons).values({ bookingReference: reference, tier: `${memberTier?.id ?? "bronze"}${freeAddons.usedGifts.length ? "+gift" : ""}`, childSeats: freeAddons.childSeats, exchangeStop: freeAddons.exchangeStop, createdAt: now }).onConflictDoNothing();
+    for (const id of freeAddons.usedGifts) { const g = voucher(id); if (g) await useGift(g.id, reference); }
+    if (promoApplied?.promoId.startsWith("gift:")) await useGift(promoApplied.promoId.slice(5), reference);
     if (memberApplied && account) await getDb().insert(bookingMemberDiscounts).values({ bookingReference: reference, customerId: account.customer.id, ...memberApplied, createdAt: now }).onConflictDoNothing();
     if (input.source) await getDb().insert(bookingSources).values({ bookingReference: reference, source: input.source, createdAt: now }).onConflictDoNothing().catch(() => undefined);
     if (account) await getDb().insert(customerBookingLinks).values({ bookingReference: reference, customerId: account.customer.id, createdAt: now }).onConflictDoNothing();

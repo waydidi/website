@@ -8,6 +8,7 @@ const schema = z.object({
   total: z.number().int().min(1).max(10_000_000),
   serviceType: z.enum(["transfer", "hourly"]),
   returnTrip: z.boolean().optional(),
+  airportTrip: z.boolean().optional(),
   vehicle: z.string().max(40),
   email: z.string().max(254).optional(),
   phone: z.string().max(40).optional(),

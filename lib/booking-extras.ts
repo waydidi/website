@@ -23,7 +23,8 @@ export async function bookingExtras(booking: { reference: string; childSeats: nu
     .from(bookingTaxInvoices).where(eq(bookingTaxInvoices.bookingReference, booking.reference)).limit(1).catch(() => []);
   const [member] = await getDb().select().from(bookingMemberDiscounts).where(eq(bookingMemberDiscounts.bookingReference, booking.reference)).limit(1).catch(() => []);
   const [free] = await getDb().select().from(bookingFreeAddons).where(eq(bookingFreeAddons.bookingReference, booking.reference)).limit(1).catch(() => []);
-  const tierName = free ? TIERS.find((t) => t.id === free.tier)?.name ?? "Member" : "";
+  const [tierId, gift] = (free?.tier ?? "").split("+");
+  const tierName = free ? [free.childSeats > 0 || free.exchangeStop ? TIERS.find((t) => t.id === tierId && (t.freeChildSeats || t.freeExchangeStop))?.name : null, gift ? "gift" : null].filter(Boolean).join(" + ") || "member reward" : "";
   const addons: BookingExtras["addons"] = [];
   if (booking.createdAt >= ADDONS_PRICED_FROM) {
     const freeSeats = Math.min(free?.childSeats ?? 0, booking.childSeats);

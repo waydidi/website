@@ -1032,3 +1032,20 @@ export const bookingFreeAddons = sqliteTable("booking_free_addons", {
   exchangeStop: integer("exchange_stop", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull(),
 });
+
+// Badge gifts issued to members (see lib/gift-rules.ts). A gift counts as used
+// only while its booking is live; an expired or failed booking frees it again.
+export const memberGifts = sqliteTable(
+  "member_gifts",
+  {
+    id: text("id").primaryKey(),
+    customerId: text("customer_id").notNull(),
+    giftId: text("gift_id").notNull(),
+    tier: text("tier").notNull(),
+    issuedAt: text("issued_at").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    usedBookingReference: text("used_booking_reference"),
+    usedAt: text("used_at"),
+  },
+  (table) => [index("idx_member_gifts_customer").on(table.customerId)],
+);

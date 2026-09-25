@@ -219,7 +219,7 @@ export default function ConfirmationClient({
     ],
     [
       "Payment",
-      booking.paymentMethod === "cash" ? "Cash at pickup" : "Paid online",
+      booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : "Paid online",
     ],
     ["Flight", booking.flightNumber],
     ["Pickup sign", booking.pickupSign],
