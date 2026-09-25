@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight, FileText, Headphones, MapPinned, Network, Percent } from "lucide-react";
+import { ChevronRight, FileText, Gauge, Headphones, ListChecks, Mail, MapPinned, Network, Percent, ReceiptText } from "lucide-react";
+import { BookingsMockup, DashboardMockup, DetailMockup } from "@/components/agencies/workspace-mockup";
 import { PublicFooter } from "@/components/public-footer";
 import { AgencyForm } from "@/components/agencies/agency-form";
 import { SITE_URL } from "@/lib/public-content";
@@ -25,6 +26,13 @@ const CARDS = [
   { icon: MapPinned, title: "Thailand, end to end", text: "Airports, cities, beaches and islands: Bangkok, Pattaya, Hua Hin, Phuket, Krabi, Koh Chang and the routes in between." },
   { icon: Percent, title: "Agency rates & clear pricing", text: "Partner rates agreed with you up front, and one fixed price per ride with tolls stated clearly. No surprises for your clients." },
   { icon: Headphones, title: "A real team behind every ride", text: "A local operations team handles flight delays, changes and questions, so your clients are looked after from landing to drop-off." },
+];
+
+// The agency workspace is planned, not live yet: the page says so, and the mockups use example data.
+const WORKSPACE = [
+  { icon: Gauge, label: "Dashboard", Mock: DashboardMockup, title: "Your agency at a glance", text: "The home view will greet you with your agency name, your partner rate and the numbers that matter: passengers served, upcoming rides and total bookings, with quick actions one tap away.", points: ["Upcoming, completed and passenger totals.", "Quick actions to book, manage passengers and download statements.", "A direct line to your Waydidi partnerships contact."] },
+  { icon: ListChecks, label: "Bookings", Mock: BookingsMockup, title: "Every transfer, organised and searchable", text: "Filter upcoming, completed and cancelled rides, search by pickup, destination or passenger, and see each booking's payment status with clear colour-coded labels.", points: ["Upcoming, completed and cancelled tabs.", "Search by reference, passenger, address or date range.", "Status badges: Confirmed, Awaiting payment and more."] },
+  { icon: ReceiptText, label: "Booking detail", Mock: DetailMockup, title: "Full control of every ride", text: "Open any booking to review the route, vehicle, passenger details and total price. Pay securely, share the voucher with your traveller or contact support, all from one screen.", points: ["Route, vehicle and passenger info in a single view.", "Pay securely and download the voucher in one click.", "Reach our partner support whenever you need a hand."] },
 ];
 
 const STEPS = [
@@ -99,6 +107,46 @@ export default function AgenciesPage() {
         </ol>
       </section>
 
+      {/* Agency workspace (preview) */}
+      <section className="pt-24 text-center" aria-labelledby="workspace-heading">
+        <p className="text-[17px] font-semibold text-[#666]">Agency workspace <span className="ml-1 rounded-full bg-[#FFE7C7] px-2.5 py-0.5 text-[13px] font-bold text-[#8A4B00]">Coming soon</span></p>
+        <h2 id="workspace-heading" className="mx-auto mt-5 max-w-[760px] text-[40px] font-bold leading-[1.1] tracking-[-.03em] sm:text-[56px]">A dedicated dashboard for your agency</h2>
+        <p className="mx-auto mt-6 max-w-[720px] text-[19px] leading-8 text-[#555]">A preview of the Waydidi agency account we&apos;re building with our first partners: one clean workspace to run every booking, passenger and invoice. Until it launches, our team books and manages rides for you.</p>
+        <div className="mx-auto mt-12 max-w-[900px]"><DashboardMockup /></div>
+        <p className="mt-3 text-[13px] text-[#999]">Design preview with example data.</p>
+      </section>
+
+      {WORKSPACE.map(({ icon: Icon, label, Mock, title, text, points }, i) => <section key={label} className="pt-20" aria-labelledby={`ws-${i}`}>
+        {i > 0 && <div className="mx-auto mb-14 max-w-[900px]"><Mock /></div>}
+        <p className="flex items-center gap-3 text-[18px] font-semibold text-[#666]"><Icon size={24} className="text-[#111]" aria-hidden="true" />{label}</p>
+        <h3 id={`ws-${i}`} className="mt-6 max-w-[760px] text-[36px] font-bold leading-[1.12] tracking-[-.03em] sm:text-[48px]">{title}</h3>
+        <p className="mt-7 max-w-[760px] text-[19px] leading-8 text-[#555]">{text}</p>
+        <ul className="mt-8 grid gap-5 text-[17px] leading-7 text-[#555]">{points.map((pt) => <li key={pt} className="flex gap-4"><span className="mt-2.5 size-2.5 shrink-0 rounded-full bg-[#999]" aria-hidden="true" />{pt}</li>)}</ul>
+      </section>)}
+
+      <section className="py-24 text-center" aria-labelledby="safe-heading">
+        <h2 id="safe-heading" className="text-[30px] font-bold tracking-[-.02em] sm:text-[36px]">Your customers in safe hands</h2>
+        <p className="mx-auto mt-4 max-w-[560px] text-[18px] leading-8 text-[#555]">Look after your clients&apos; rides in Thailand with a partner built for travel agencies.</p>
+        <a href="#apply" className="mt-9 inline-flex h-14 items-center rounded-full bg-[#FF8A05] px-10 text-[18px] font-bold text-[#111] hover:bg-[#F07A00]">Join Now!</a>
+      </section>
+    </div>
+
+    {/* Let's connect */}
+    <section className="bg-black text-white" aria-labelledby="connect-heading">
+      <div className="mx-auto max-w-[1180px] px-5 py-20 lg:px-0">
+        <p className="text-[17px] font-semibold text-white/60">Agency support</p>
+        <h2 id="connect-heading" className="mt-6 text-[40px] font-bold tracking-[-.03em] sm:text-[56px]">Let&apos;s Connect</h2>
+        <p className="mt-6 max-w-[720px] text-[19px] leading-8 text-white/85">Our partnerships team is here to help you every step of the way.</p>
+        <p className="mt-5 max-w-[720px] text-[17px] leading-7 text-white/70">Prefer to talk first? Send your details in the form below and ask for a call. We&apos;ll get back to you within 2 working days.</p>
+        <div className="mt-10 max-w-[560px] rounded-[28px] border border-white/15 bg-[#0D0D0D] p-8">
+          <div className="flex items-center gap-5"><span className="grid size-16 place-items-center rounded-full bg-white/10"><Mail size={26} aria-hidden="true" /></span><div><p className="text-[22px] font-bold">Waydidi partnerships</p><p className="text-[16px] text-white/60">Travel agency support</p></div></div>
+          <p className="mt-7 text-[15px] text-white/60">Email</p>
+          <a href="mailto:support@waydidi.com?subject=Travel%20agency%20partnership" className="mt-1 block text-[20px] font-bold hover:underline">support@waydidi.com</a>
+        </div>
+      </div>
+    </section>
+
+    <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
       {/* Apply */}
       <section id="apply" className="scroll-mt-24 pb-20 pt-20" aria-labelledby="apply-heading">
         <h2 id="apply-heading" className="text-[40px] font-bold leading-[1.08] tracking-[-.03em] sm:text-[52px]">Apply to partner</h2>
