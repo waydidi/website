@@ -173,7 +173,6 @@ const vehicles = [
     name: "Comfort BMW",
     tagline: "Premium sedan comfort",
     price: 1800,
-    popular: true,
     image: "/vehicle-comfort-bmw.webp",
   },
   {
@@ -181,6 +180,7 @@ const vehicles = [
     name: "Comfort SUV",
     tagline: "More room for every journey",
     price: 2200,
+    popular: true,
     image: "/vehicle-comfort-suv.webp",
   },
   {

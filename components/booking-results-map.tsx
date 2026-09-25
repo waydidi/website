@@ -578,7 +578,7 @@ export function BookingResultsMap(props: Props) {
                     : null}
                   {/* Sits on the card's top edge so it adds no height. */}
                   {badge === "best" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-[#06C755] bg-[#06C755] px-2 py-px text-[12px] font-medium text-white"><Lightbulb size={12} aria-hidden="true" />Best value</span>
-                    : badge === "popular" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-[#F6CFCC] bg-[#FDECEC] px-2 py-px text-[12px] font-medium text-[#B3261E]"><Flame size={12} aria-hidden="true" />Most popular</span> : null}
+                    : badge === "popular" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-[#FF1F2D] bg-[#FF1F2D] px-2 py-px text-[12px] font-medium text-white"><Flame size={12} aria-hidden="true" />Most popular</span> : null}
                 </span>
                 <span className="self-start text-right">
                   <span className="block whitespace-nowrap text-[#1C1C1C]"><span className="text-[13px] text-[#4A4A4A]">{code} </span><strong className="text-[17px] font-semibold">{amount(item.price)}</strong></span>
@@ -670,7 +670,7 @@ export function BookingResultsMap(props: Props) {
               <div className="flex flex-wrap items-center gap-3 border-b border-[#E6E6E6] py-4">
                 <p className="text-[17px] font-medium">Class: {info.name}</p>
                 {info.id === cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-[#06C755] px-2.5 py-0.5 text-[14px] font-medium text-white"><Lightbulb size={14} aria-hidden="true" />Best value</span>}
-                {info.popular && info.id !== cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-[#FDECEC] px-2.5 py-0.5 text-[14px] font-medium text-[#B3261E]"><Flame size={14} aria-hidden="true" />Most popular</span>}
+                {info.popular && info.id !== cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-[#FF1F2D] px-2.5 py-0.5 text-[14px] font-medium text-white"><Flame size={14} aria-hidden="true" />Most popular</span>}
               </div>
               <DialogPrimitive.Description className="sr-only">Vehicle details and price for {info.name}</DialogPrimitive.Description>
               <h3 className="mt-5 text-[17px] font-medium">Vehicle details</h3>
