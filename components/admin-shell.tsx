@@ -215,7 +215,7 @@ export default function AdminShell({
     <div className="flex min-h-screen bg-[#F4F5F7] text-[#15161C]">
       <aside className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-slate-200/80 bg-[#FBFBFC] transition-[width] duration-300 md:flex ${collapsed ? "w-[76px]" : "w-[272px]"}`}>
         <div className={`flex h-[72px] items-center border-b border-slate-200/70 ${collapsed ? "justify-center px-2" : "justify-between px-5"}`}>
-          {collapsed ? <WaydidiMark className="size-11 text-[#FF8A05]" /> : <WaydidiLogo className="h-[46px] w-auto text-[#FF8A05]" />}
+          {collapsed ? <WaydidiMark className="size-[37px] text-[#FF8A05]" /> : <WaydidiLogo className="h-[46px] w-auto text-[#FF8A05]" />}
           {!collapsed && <button onClick={toggleSidebar} aria-label="Collapse sidebar" title="Collapse sidebar" className="grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#15161C]"><ChevronLeft size={16} /></button>}
         </div>
         {collapsed && <button onClick={toggleSidebar} aria-label="Expand sidebar" title="Expand sidebar" className="mx-auto mt-3 grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#15161C]"><ChevronRight size={16} /></button>}
