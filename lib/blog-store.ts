@@ -90,6 +90,7 @@ const block = z.discriminatedUnion("type", [
   z.object({ type: z.literal("list"), items: z.array(z.string().max(500)).max(30) }),
   z.object({ type: z.literal("tip"), text: z.string().max(1000) }),
   z.object({ type: z.literal("image"), src: z.string().max(500), alt: z.string().max(200), caption: z.string().max(300).optional() }),
+  z.object({ type: z.literal("faq"), items: z.array(z.object({ q: z.string().max(300), a: z.string().max(2000) })).max(20) }),
   z.object({ type: z.literal("booking") }),
 ]);
 

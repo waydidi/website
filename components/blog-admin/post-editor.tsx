@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowLeft, ArrowUp, Bold, ChevronDown, Link2, Heading2, ImagePlus, Lightbulb, List, Pilcrow, Plus, Ticket, Trash2, Upload, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Bold, ChevronDown, CircleHelp, Link2, Heading2, ImagePlus, Lightbulb, List, Pilcrow, Plus, Ticket, Trash2, Upload, X } from "lucide-react";
 import { BlogCover } from "@/components/blog/blog-cover";
 import { categoryLabel, COVER_TONES, type BlogBlock, type BlogPost, type CoverTone } from "@/lib/blog-posts";
 import type { EditorPost } from "./editor-types";
@@ -42,9 +42,10 @@ const BLOCK_TYPES: { type: BlogBlock["type"]; label: string; icon: typeof Pilcro
   { type: "list", label: "List", icon: List, hint: "Checklist with ticks" },
   { type: "tip", label: "Tip box", icon: Lightbulb, hint: "Green highlighted tip" },
   { type: "image", label: "Image", icon: ImagePlus, hint: "Upload a photo" },
+  { type: "faq", label: "FAQ", icon: CircleHelp, hint: "Questions & answers (shows in Google)" },
   { type: "booking", label: "Booking card", icon: Ticket, hint: "“See prices” for the post's route" },
 ];
-const newBlock = (type: BlogBlock["type"]): BlogBlock => type === "list" ? { type, items: [""] } : type === "image" ? { type, src: "", alt: "" } : type === "booking" ? { type } : { type, text: "" };
+const newBlock = (type: BlogBlock["type"]): BlogBlock => type === "list" ? { type, items: [""] } : type === "image" ? { type, src: "", alt: "" } : type === "booking" ? { type } : type === "faq" ? { type, items: [{ q: "", a: "" }] } : { type, text: "" };
 
 const slugify = (v: string) => v.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
 const toLocal = (iso: string | null) => (iso ? new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 16) : "");
@@ -91,7 +92,7 @@ export function PostEditor({ initial, knownCategories }: { initial: EditorPost; 
   async function save(status: EditorPost["status"], openPreview = false) {
     setBusy(true); setMessage(null);
     const body = { ...post, slug, status, publishedAt: status === "published" ? (schedule ? post.publishedAt : post.publishedAt && post.publishedAt <= new Date().toISOString() ? post.publishedAt : null) : post.publishedAt,
-      blocks: post.blocks.filter((b) => b.type === "booking" || (b.type === "list" ? b.items.some((x) => x.trim()) : b.type === "image" ? b.src : b.text.trim())).map((b) => (b.type === "list" ? { ...b, items: b.items.filter((x) => x.trim()) } : b)),
+      blocks: post.blocks.filter((b) => b.type === "booking" || (b.type === "list" ? b.items.some((x) => x.trim()) : b.type === "faq" ? b.items.some((f) => f.q.trim() && f.a.trim()) : b.type === "image" ? b.src : b.text.trim())).map((b) => (b.type === "list" ? { ...b, items: b.items.filter((x) => x.trim()) } : b.type === "faq" ? { ...b, items: b.items.filter((f) => f.q.trim() && f.a.trim()) } : b)),
       route: post.route && post.route.pickup.trim() ? post.route : null };
     const response = await fetch("/api/admin/blog", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save", post: body }) });
     const data = (await response.json().catch(() => ({}))) as { id?: string; slug?: string; error?: string };
@@ -157,6 +158,13 @@ export function PostEditor({ initial, knownCategories }: { initial: EditorPost; 
                 <button type="button" onClick={() => setBlock(i, { ...block, items: [...block.items, ""] })} className="w-fit text-sm font-semibold text-[#C96100]">+ Add item</button>
               </div>}
               {block.type === "image" && <ImageBlock block={block} onChange={(b) => setBlock(i, b)} />}
+              {block.type === "faq" && <div className="grid gap-3">
+                {block.items.map((f, j) => <div key={j} className="rounded-xl border border-slate-200 p-3">
+                  <div className="flex items-center gap-2"><span className="text-sm font-bold text-[#C96100]">Q</span><input value={f.q} onChange={(e) => setBlock(i, { ...block, items: block.items.map((x, k) => (k === j ? { ...x, q: e.target.value } : x)) })} placeholder="Question travellers ask" className="w-full bg-transparent text-[16px] font-semibold outline-none" /><button type="button" onClick={() => setBlock(i, { ...block, items: block.items.filter((_, k) => k !== j) })} aria-label="Remove question" className="text-slate-300 hover:text-red-500"><X size={15} /></button></div>
+                  <textarea rows={2} value={f.a} onChange={(e) => setBlock(i, { ...block, items: block.items.map((x, k) => (k === j ? { ...x, a: e.target.value } : x)) })} placeholder="Short, clear answer" className="mt-2 w-full resize-y bg-transparent text-[15px] leading-6 outline-none" />
+                </div>)}
+                <button type="button" onClick={() => setBlock(i, { ...block, items: [...block.items, { q: "", a: "" }] })} className="w-fit text-sm font-semibold text-[#C96100]">+ Add question</button>
+              </div>}
               {block.type === "booking" && <div className="rounded-xl border border-[#FFD8AE] bg-[#FFF6EB] p-4 text-sm text-[#8A4B00]">{post.route?.pickup ? <>Booking card for <strong>{post.route.label || `${post.route.pickup} → ${post.route.dropoff}`}</strong> with a “See prices” button.</> : <>Set the route in <strong>Booking card</strong> on the right to show this card.</>}</div>}
             </div>
             {addMenu(i + 1)}

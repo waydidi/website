@@ -20,6 +20,7 @@ export type BlogBlock =
   | { type: "list"; items: string[] }
   | { type: "tip"; text: string }
   | { type: "image"; src: string; alt: string; caption?: string }
+  | { type: "faq"; items: { q: string; a: string }[] }
   | { type: "booking" };
 
 export const COVER_TONES = ["orange", "navy", "green", "plum"] as const;
@@ -42,6 +43,7 @@ export type BlogPost = {
   /** Last edit (YYYY-MM-DD); shown when later than the publish date. */
   updated?: string;
   sections?: BlogSection[];
+  faq?: { q: string; a: string }[];
   blocks?: BlogBlock[];
   seoTitle?: string | null;
   seoDescription?: string | null;
@@ -59,6 +61,7 @@ export function postBlocks(post: BlogPost): BlogBlock[] {
     if (s.tip) blocks.push({ type: "tip", text: s.tip });
     if (i === Math.min(1, (post.sections ?? []).length - 1) && post.route) blocks.push({ type: "booking" });
   });
+  if (post.faq?.length) blocks.push({ type: "faq", items: post.faq });
   return blocks;
 }
 
@@ -73,6 +76,11 @@ export const BLOG_POSTS: BlogPost[] = [
     popular: 1,
     cover: { headline: "BKK → Pattaya\nthe easy way", photo: "/hero-driver-customer.webp", tone: "orange" },
     route: { pickup: "Suvarnabhumi Airport (BKK)", dropoff: "Pattaya", label: "Suvarnabhumi Airport → Pattaya" },
+    faq: [
+      { q: "How long is the drive from Suvarnabhumi to Pattaya?", a: "Usually about 1 hour 30 minutes. Allow more on Friday evenings and holiday weekends." },
+      { q: "Is the price per car or per person?", a: "Per car. The fixed price covers everyone in the vehicle, up to its seat limit." },
+      { q: "What if my flight is late?", a: "Add your flight number when you book. Your driver follows the arrival time, and the first 60 minutes of waiting at the airport are free." },
+    ],
     sections: [
       { heading: "How far is it?", paragraphs: ["Pattaya is roughly 120 km south-east of Suvarnabhumi Airport. By road the drive usually takes about 1 hour 30 minutes, longer on Friday evenings and holiday weekends when traffic out of Bangkok builds up."] },
       { heading: "Option 1: airport bus", paragraphs: ["Buses to Pattaya leave from the airport's ground floor. They are the cheapest option, but you'll need to wait for the next departure, carry your own luggage and take another ride from the bus stop to your hotel."], tip: "Fine for light travellers on a budget, less so with children or big suitcases." },
@@ -185,7 +193,7 @@ export const BLOG_POSTS: BlogPost[] = [
 export const blogPost = (slug: string) => BLOG_POSTS.find((post) => post.slug === slug) ?? null;
 
 export const readingMinutes = (post: BlogPost) =>
-  Math.max(2, Math.round(postBlocks(post).map((b) => ("text" in b ? b.text : "items" in b ? b.items.join(" ") : "")).join(" ").split(/\s+/).length / 200));
+  Math.max(2, Math.round(postBlocks(post).map((b) => (b.type === "faq" ? b.items.map((f) => `${f.q} ${f.a}`).join(" ") : "text" in b ? b.text : "items" in b ? b.items.join(" ") : "")).join(" ").split(/\s+/).length / 200));
 
 /** Link to the homepage search, pre-filled with an article's route. */
 export function routeHref(route: NonNullable<BlogPost["route"]>) {
