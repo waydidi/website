@@ -1178,5 +1178,29 @@
   "footer.drivers": {
     "text": "成为 Waydidi 司机",
     "status": "machine"
+  },
+  "hero.pickupDate": {
+    "text": "接送日期",
+    "status": "machine"
+  },
+  "hero.passengersLabel": {
+    "text": "乘客",
+    "status": "machine"
+  },
+  "hero.bagsShort": {
+    "text": "{count} 件行李",
+    "status": "machine"
+  },
+  "hero.trustArea": {
+    "text": "覆盖全泰国",
+    "status": "machine"
+  },
+  "hero.trustPrice": {
+    "text": "固定价格",
+    "status": "machine"
+  },
+  "hero.trustCancel": {
+    "text": "免费取消",
+    "status": "machine"
   }
 }

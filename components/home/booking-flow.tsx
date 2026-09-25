@@ -1124,17 +1124,24 @@ export function BookingFlow({
 
   // The search box rows; reused by the "Edit" sheet on the results screen.
   const searchCard = (compact: boolean) => (
-              <div className={compact ? "overflow-visible rounded-[22px] bg-white text-slate-950" : `mt-2.5 overflow-visible rounded-[22px] bg-white p-2.5 text-slate-950 shadow-xl shadow-slate-900/10 lg:mt-0 lg:grid lg:items-end lg:gap-3 lg:rounded-tl-none lg:p-6 ${serviceType === "hourly" ? "lg:grid-cols-[.42fr_1.55fr_1.4fr_.58fr_auto]" : "lg:grid-cols-[.42fr_1.15fr_1.15fr_1.55fr_auto]"}`}>
-                <div className={`flex w-full flex-col gap-2 overflow-visible rounded-[18px] bg-white ${compact ? "" : "lg:contents lg:w-auto"}`}>
+              <div className={compact ? "overflow-visible rounded-[22px] bg-white text-slate-950" : `mt-2.5 overflow-visible rounded-[22px] bg-white p-2.5 text-slate-950 shadow-xl shadow-slate-900/10 md:mt-0 md:grid md:grid-cols-2 md:gap-2 md:rounded-[16px] md:p-2 lg:grid lg:items-stretch lg:gap-0 lg:rounded-[14px] lg:p-2 ${serviceType === "hourly" ? "lg:grid-cols-[1.5fr_1.2fr_1fr_.9fr_auto]" : "lg:grid-cols-[1.1fr_1.1fr_2.5fr_.8fr_auto]"}`}>
+                <div className={`flex w-full flex-col gap-2 overflow-visible rounded-[18px] bg-white ${compact ? "" : "md:contents md:w-auto"}`}>
                 <button
                   type="button"
                   onClick={() => setPeopleOpen(true)}
-                  className="order-1 flex min-h-14 w-full items-center justify-between rounded-[14px] border border-slate-200 bg-white px-4 py-2 text-left lg:order-none lg:px-5 lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]"
+                  className={`order-1 flex min-h-14 w-full items-center justify-between rounded-[14px] border border-slate-200 bg-white px-4 py-2 text-left ${compact ? "" : "md:order-5 md:col-span-2 md:min-h-[80px] md:px-4 lg:order-4 lg:col-span-1 lg:min-h-[64px] lg:rounded-none lg:border-0 lg:border-l lg:px-5"}`}
                   aria-expanded={peopleOpen}
                   aria-controls="passenger-luggage-sheet"
                   aria-label={t("hero.travellersLabel", { passengers: booking.passengers, bags: booking.luggage })}
                 >
-                  <span className="flex items-center gap-3.5 text-[15px]/[24px] font-normal text-slate-950 lg:text-[15px]/[24px]">
+                  {!compact && <span className="hidden min-w-0 md:block">
+                    <span className="block text-[17px]/[24px] text-slate-500 lg:text-[13px]/[20px]">{t("hero.passengersLabel")}</span>
+                    <span className="mt-1 flex items-center gap-4 text-[19px]/[26px] font-semibold text-slate-950 lg:mt-0 lg:gap-3 lg:text-[15px]/[22px]">
+                      <span className="flex items-center gap-1.5"><Users size={18} className="shrink-0 text-slate-500" aria-hidden="true" />{booking.passengers}</span>
+                      <span className="flex items-center gap-1.5"><Luggage size={18} className="shrink-0 text-slate-500" aria-hidden="true" />{booking.luggage}</span>
+                    </span>
+                  </span>}
+                  <span className={`flex items-center gap-3.5 text-[15px]/[24px] font-normal text-slate-950 ${compact ? "" : "md:hidden"}`}>
                     <span className="flex items-center gap-3">
                       <Users size={20} className="shrink-0" aria-hidden="true" /> {booking.passengers}
                     </span>
@@ -1169,22 +1176,26 @@ export function BookingFlow({
                   prefill={routePrefill}
                   connectedMobile
                 />
-                <div className={`order-4 grid min-h-14 ${serviceType === "transfer" ? "grid-cols-2" : "grid-cols-1"} overflow-hidden rounded-[14px] border border-slate-200 bg-white lg:order-none lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]`}>
-                  <div className={`relative flex min-w-0 items-center ${serviceType === "transfer" ? "border-r border-slate-200" : ""}`}>
+                <div className={`order-4 grid min-h-14 ${serviceType === "transfer" ? "grid-cols-2" : "grid-cols-1"} overflow-hidden rounded-[14px] border border-slate-200 bg-white ${compact ? "" : `md:order-3 md:min-h-[80px] md:overflow-visible md:border-0 md:gap-2 ${serviceType === "transfer" ? "md:col-span-2" : ""} lg:order-3 lg:col-span-1 lg:min-h-[64px] lg:gap-0 lg:rounded-none lg:border-l lg:border-slate-200`}`}>
+                  <div className={`relative flex min-w-0 items-center ${serviceType === "transfer" ? "border-r border-slate-200" : ""} ${compact ? "" : "md:rounded-[14px] md:border md:border-slate-200 lg:rounded-none lg:border-0 lg:border-r"}`}>
                     <button
                       type="button"
                       onClick={() => setDateOpen(true)}
-                      className="flex h-full min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-1.5 text-left lg:px-5"
+                      className="flex h-full min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-1.5 text-left md:gap-4 md:px-5 lg:gap-3"
                       aria-expanded={dateOpen}
                     >
                       {departureSelected ? <DepartureIcon /> : <CalendarDays className="shrink-0 text-slate-950" size={20} />}
+                      {!compact && <span className="hidden min-w-0 md:block">
+                        <span className="block text-[17px]/[24px] text-slate-500 lg:text-[13px]/[20px]">{t("hero.pickupDate")}</span>
+                        <span className={`mt-1 block truncate text-[19px]/[26px] lg:mt-0 lg:text-[15px]/[22px] ${departureSelected ? "font-semibold text-slate-950" : "text-slate-400"}`}>{departureSelected ? `${shortDate(booking.date, locale)} · ${formatTimeLabel(booking.time, locale)}` : t("hero.departure")}</span>
+                      </span>}
                       {departureSelected ? (
-                        <span className="min-w-0 font-normal text-slate-950">
+                        <span className={`min-w-0 font-normal text-slate-950 ${compact ? "" : "md:hidden"}`}>
                           <span className="block truncate text-[14px] leading-[21px] tracking-[-.01em] max-[359px]:text-[13px]">{shortDate(booking.date, locale)}</span>
                           <span className="block text-[13px] leading-[18px]">{formatTimeLabel(booking.time, locale)}</span>
                         </span>
                       ) : (
-                        <span className="text-[15px]/[24px] font-normal text-slate-600 lg:text-[15px]/[24px]">{t("hero.departure")}</span>
+                        <span className={`text-[15px]/[24px] font-normal text-slate-600 ${compact ? "" : "md:hidden"}`}>{t("hero.departure")}</span>
                       )}
                     </button>
                     {departureSelected && (
@@ -1206,7 +1217,7 @@ export function BookingFlow({
                     )}
                   </div>
                   {serviceType === "transfer" ? (
-                    <div className="relative flex min-w-0 items-center">
+                    <div className={`relative flex min-w-0 items-center ${compact ? "" : "md:rounded-[14px] md:border md:border-dashed md:border-slate-300 lg:rounded-none lg:border-0"}`}>
                     <button
                       type="button"
                       disabled={!departureSelected}
@@ -1217,7 +1228,7 @@ export function BookingFlow({
                         }
                         setReturnDateOpen(true);
                       }}
-                      className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch px-2.5 py-2 text-left text-slate-500 transition enabled:hover:bg-orange-50 disabled:cursor-not-allowed disabled:text-slate-300 sm:px-3.5"
+                      className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch px-2.5 py-2 text-left text-slate-500 transition enabled:hover:bg-orange-50 disabled:cursor-not-allowed disabled:text-slate-300 sm:px-3.5 md:gap-3 md:rounded-[14px] md:px-5 md:text-[19px] md:font-semibold md:text-slate-700 lg:rounded-none lg:text-[15px]"
                       aria-label={returnTrip ? t("hero.editReturnLabel") : t("hero.addReturnLabel")}
                     >
                       {returnTrip ? (
@@ -1232,7 +1243,7 @@ export function BookingFlow({
                             <span className="block text-[13px] font-normal leading-[18px] text-slate-950">{formatTimeLabel(returnTime, locale)}</span>
                           </>
                         ) : (
-                          <span className="text-[15px]/[24px] font-normal">{t("hero.addReturn")}</span>
+                          <span className="text-[15px]/[24px] font-normal md:text-[19px]/[26px] md:font-semibold lg:text-[15px]/[22px]">{t("hero.addReturn")}</span>
                         )}
                       </span>
                     </button>
@@ -1253,11 +1264,11 @@ export function BookingFlow({
                     </div>
                   ) : null}
                 </div>
-                {serviceType === "hourly" && <label className="order-5 flex min-h-14 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-2 lg:order-none lg:mt-0 lg:min-h-[88px] lg:rounded-xl lg:border-0 lg:bg-[#F4F4F4]"><Clock3 size={18}/><span className="w-full"><span className="block text-[13px]/[20px] font-normal text-slate-500">{t("hero.duration")}</span><select value={booking.bookedHours} onChange={(e)=>{change("bookedHours",Number(e.target.value));setHourlyQuote(null);}} className="w-full bg-transparent text-base font-normal outline-none">{Array.from({length:10},(_,i)=>i+3).map(hours=><option key={hours} value={hours}>{t("hero.hours", { count: hours })}</option>)}</select></span></label>}
+                {serviceType === "hourly" && <label className="order-5 flex min-h-14 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-2 md:order-4 md:min-h-[80px] md:px-5 lg:order-3 lg:mt-0 lg:min-h-[64px] lg:rounded-none lg:border-0 lg:border-l"><Clock3 size={18}/><span className="w-full"><span className="block text-[13px]/[20px] font-normal text-slate-500">{t("hero.duration")}</span><select value={booking.bookedHours} onChange={(e)=>{change("bookedHours",Number(e.target.value));setHourlyQuote(null);}} className="w-full bg-transparent text-base font-normal outline-none">{Array.from({length:10},(_,i)=>i+3).map(hours=><option key={hours} value={hours}>{t("hero.hours", { count: hours })}</option>)}</select></span></label>}
                 </div>
-                <div className="mt-2.5 flex items-center lg:mt-0">
+                <div className="mt-2.5 flex items-center md:order-6 md:col-span-2 md:mt-0 lg:order-5 lg:col-span-1 lg:pl-2">
                   <button
-                    className="flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-brand px-8 text-[15px]/[24px] font-semibold text-white shadow-lg shadow-orange-900/20 transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 lg:min-h-[88px] lg:w-auto lg:rounded-xl"
+                    className="flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-brand px-8 text-[15px]/[24px] font-semibold text-white shadow-lg shadow-orange-900/20 transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 md:min-h-[66px] md:rounded-[14px] md:text-[21px] md:font-bold md:shadow-none lg:h-full lg:min-h-[64px] lg:w-auto lg:rounded-[10px] lg:px-10 lg:text-[17px]"
                     type="submit"
                   >
                     {loading ? t("hero.calculating") : t("hero.seePrices")} <ArrowRight size={18} />
@@ -1298,7 +1309,7 @@ export function BookingFlow({
         </div>
       )}
       <section
-        className={`relative ${stage === "search" ? "overflow-hidden bg-brand text-white" : "bg-white text-ink"}`}
+        className={`relative ${stage === "search" ? "overflow-hidden bg-brand text-white md:bg-[#0E0F12]" : "bg-white text-ink"}`}
       >
         {stage === "search" ? (
           <SiteHeader overlay />
@@ -1318,7 +1329,7 @@ export function BookingFlow({
                 top, rather than stacking overlay layers on it. */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-0 right-0 top-[97px] hidden w-[54%] [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent,black_45%),linear-gradient(to_bottom,transparent,black_64px)] lg:block"
+              className="pointer-events-none absolute inset-0 hidden md:block"
             >
               <Image
                 src="/hero-driver-customer.webp"
@@ -1328,28 +1339,31 @@ export function BookingFlow({
                 // The Worker has no Cloudflare Images binding, so the
                 // optimizer route would fail; serve the file as-is.
                 unoptimized
-                className="object-cover object-[38%_20%]"
+                className="object-cover object-[65%_30%]"
               />
+              {/* Darken toward the text side so the headline and form stay readable. */}
+              <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,10,12,.88)_0%,rgba(10,10,12,.62)_45%,rgba(10,10,12,.25)_100%)]" />
+              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#0E0F12] to-transparent" />
             </div>
           </>
         )}
         {stage === "search" && (
-          <div className="relative z-10 w-full px-5 pb-12 pt-[98px] animate-in fade-in duration-300 motion-reduce:animate-none lg:px-6 lg:pb-18 lg:pt-[160px]">
-            <div className="mb-6 max-w-2xl">
-              <h1 className={`${locale === "en" ? "" : "text-balance "}text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px] lg:text-[51.7px]`}>
+          <div className="relative z-10 mx-auto w-full max-w-[1440px] px-5 pb-12 pt-[98px] animate-in fade-in duration-300 motion-reduce:animate-none md:px-[58px] md:pb-14 md:pt-[170px] lg:px-14 lg:pb-16 lg:pt-[150px]">
+            <div className="mb-6 max-w-2xl md:mb-[62px] md:max-w-[820px] lg:mb-[52px]">
+              <h1 className={`${locale === "en" ? "" : "text-balance "}text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px] md:text-[58px] md:leading-[1.02] md:tracking-[-.02em] lg:text-[60px]`}>
                 {t("hero.title")}
               </h1>
-              <p className="mt-3 text-[17px]/[28px] font-medium text-white sm:text-[19px]/[28px] lg:text-[23px]/[32px]">
+              <p className="mt-3 text-[17px]/[28px] font-medium text-white sm:text-[19px]/[28px] md:mt-8 md:text-[25px]/[32px] md:font-normal md:text-white/90 lg:mt-10 lg:text-[17px]/[26px]">
                 {t("hero.subtitle")}
               </p>
             </div>
             <form id="booking-search" onSubmit={search} className="font-search w-full scroll-mt-28">
-              <div className="inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 lg:inline-flex lg:h-auto lg:w-auto lg:rounded-b-none lg:rounded-t-[26px] lg:p-1.5 lg:pb-0 lg:text-[15px]/[24px] lg:shadow-none">
-                <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
-                  <CarFront className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.transfer")}
+              <div className="inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 md:mb-4 md:inline-flex md:h-auto md:w-auto md:gap-2 md:rounded-[16px] md:p-1.5 md:text-[19px]/[24px] md:font-semibold md:text-slate-800 lg:mb-4 lg:rounded-[14px] lg:p-1 lg:text-[15px]/[22px]">
+                <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
+                  <CarFront className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("hero.transfer")}
                 </button>
-                <button onClick={()=>{setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition lg:min-h-12 lg:gap-2 lg:rounded-full lg:px-6 lg:py-3 ${serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
-                  <Clock3 className="size-[17px] lg:size-[19px]" aria-hidden="true" /> {t("hero.hourly")}
+                <button onClick={()=>{setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
+                  <Clock3 className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("hero.hourly")}
                 </button>
               </div>
               {searchCard(false)}
@@ -1415,6 +1429,7 @@ export function BookingFlow({
                   {pricingMessage}
                 </div>
               )}
+              <p className="mt-5 hidden flex-wrap items-center gap-x-2.5 text-[17px] text-white/85 md:flex lg:mt-5 lg:text-[15px]">{[t("hero.trustArea"), t("hero.trustPrice"), t("hero.trustCancel")].map((item, i) => <span key={item} className="flex items-center gap-2.5">{i > 0 && <span aria-hidden="true">·</span>}{item}</span>)}</p>
               {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-brand"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">{t("hero.includesKm", { km: Math.round((hourlyQuote.prices.economy_sedan?.includedDistanceMeters??0)/1000) })} · {t("legal.priceLocked")}</span></div>}
             </form>
           </div>

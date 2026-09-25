@@ -205,34 +205,34 @@ export function GoogleRoutePicker({
     "w-full bg-transparent text-base font-normal text-slate-950 outline-none placeholder:font-normal placeholder:text-slate-400";
   return (
     <>
-      <label className={`block min-w-0 ${connectedMobile ? "order-2 lg:order-none" : ""}`}>
-        <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
+      <label className={`block min-w-0 ${connectedMobile ? "order-2 md:order-1" : ""}`}>
+        <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none md:min-h-[80px] md:gap-4 md:px-5 lg:min-h-[64px] lg:gap-3 lg:rounded-none lg:border-0 lg:focus-within:ring-0" : "rounded-xl border border-slate-200 shadow-sm"}`}>
         <MapPin size={20} className="shrink-0 text-slate-950" aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          <span className="block text-[13px]/[20px] font-normal text-slate-500">{t("route.from")}</span>
+          <span className={`block text-[13px]/[20px] font-normal text-slate-500 ${connectedMobile ? "md:text-[17px]/[24px] lg:text-[13px]/[20px]" : ""}`}>{t("route.from")}</span>
           <input
             ref={pickupRef}
             required
             value={pickup}
             onChange={(event) => onPickupChange(event.target.value)}
-            className={fieldClass}
+            className={`${fieldClass} ${connectedMobile ? "md:mt-1 md:text-[19px] md:font-semibold lg:mt-0 lg:text-[15px]" : ""}`}
             placeholder={t("route.pickupPlaceholder")}
             aria-label={t("route.pickupLabel")}
             autoComplete="off"
           />
         </span></span>
       </label>
-      {!pickupOnly && <label className={`block min-w-0 ${connectedMobile ? "order-3 lg:order-none" : "mt-3 lg:mt-0"}`}>
-        <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none lg:rounded-xl lg:shadow-sm" : "rounded-xl border border-slate-200 shadow-sm"}`}>
+      {!pickupOnly && <label className={`block min-w-0 ${connectedMobile ? "order-3 md:order-2 lg:border-l lg:border-slate-200" : "mt-3 lg:mt-0"}`}>
+        <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none md:min-h-[80px] md:gap-4 md:px-5 lg:min-h-[64px] lg:gap-3 lg:rounded-none lg:border-0 lg:focus-within:ring-0" : "rounded-xl border border-slate-200 shadow-sm"}`}>
         <MapPin size={20} className="shrink-0 text-slate-950" aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          <span className="block text-[13px]/[20px] font-normal text-slate-500">{t("route.to")}</span>
+          <span className={`block text-[13px]/[20px] font-normal text-slate-500 ${connectedMobile ? "md:text-[17px]/[24px] lg:text-[13px]/[20px]" : ""}`}>{t("route.to")}</span>
           <input
             ref={dropoffRef}
             required
             value={dropoff}
             onChange={(event) => onDropoffChange(event.target.value)}
-            className={fieldClass}
+            className={`${fieldClass} ${connectedMobile ? "md:mt-1 md:text-[19px] md:font-semibold lg:mt-0 lg:text-[15px]" : ""}`}
             placeholder={t("route.dropoffPlaceholder")}
             aria-label={t("route.dropoffLabel")}
             autoComplete="off"
@@ -240,7 +240,7 @@ export function GoogleRoutePicker({
         </span></span>
       </label>}
       {showPreviewMap && mapReady && !pickupOnly && (
-        <div className={`col-span-full border-t border-slate-200 bg-white p-3 ${connectedMobile ? "order-6 lg:order-none" : ""}`}>
+        <div className={`col-span-full border-t border-slate-200 bg-white p-3 ${connectedMobile ? "order-6 md:order-7 md:col-span-2 lg:col-span-full" : ""}`}>
           <div
             ref={mapRef}
             className="h-[260px] w-full overflow-hidden rounded-xl bg-slate-100"

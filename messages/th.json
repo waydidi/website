@@ -1178,5 +1178,29 @@
   "footer.drivers": {
     "text": "ร่วมขับกับ Waydidi",
     "status": "machine"
+  },
+  "hero.pickupDate": {
+    "text": "วันที่รับ",
+    "status": "machine"
+  },
+  "hero.passengersLabel": {
+    "text": "ผู้โดยสาร",
+    "status": "machine"
+  },
+  "hero.bagsShort": {
+    "text": "{count} ใบ",
+    "status": "machine"
+  },
+  "hero.trustArea": {
+    "text": "ทั่วประเทศไทย",
+    "status": "machine"
+  },
+  "hero.trustPrice": {
+    "text": "ราคาคงที่",
+    "status": "machine"
+  },
+  "hero.trustCancel": {
+    "text": "ยกเลิกฟรี",
+    "status": "machine"
   }
 }

@@ -293,5 +293,11 @@
   "copy.note": "They'll get the confirmation and trip reminders too. If you book while signed in for someone else, you get copies automatically.",
   "nav.blog": "Travel guides",
   "footer.travelAgencies": "Travel agencies",
-  "footer.drivers": "Drive with Waydidi"
+  "footer.drivers": "Drive with Waydidi",
+  "hero.pickupDate": "Pickup date",
+  "hero.passengersLabel": "Passengers",
+  "hero.bagsShort": "{count} bags",
+  "hero.trustArea": "All of Thailand",
+  "hero.trustPrice": "Fixed price",
+  "hero.trustCancel": "Free cancellation"
 }
