@@ -55,7 +55,7 @@ export default async function AdminOverviewPage() {
     { n: alerts.changeRequests, label: plural(alerts.changeRequests, "change request", "change requests") + " waiting", href: "/admin/bookings", icon: ClipboardList, urgent: false },
     { n: alerts.ticketsToArrange, label: "partner " + plural(alerts.ticketsToArrange, "ticket", "tickets") + " to arrange", href: "/admin/gifts", icon: Gift, urgent: false },
     { n: alerts.agencyApplications, label: "new agency " + plural(alerts.agencyApplications, "application", "applications"), href: "/admin/agencies", icon: Building2, urgent: false },
-    { n: alerts.driverApplications, label: "new driver " + plural(alerts.driverApplications, "application", "applications"), href: "/admin/driver-applications", icon: IdCard, urgent: false },
+    { n: alerts.driverApplications, label: "new driver " + plural(alerts.driverApplications, "application", "applications"), href: "/admin/drivers?tab=applications", icon: IdCard, urgent: false },
   ].filter((a) => a.n > 0);
   const todayRides = o.rides.filter((r) => r.pickupDate === o.today);
   const tomorrowRides = o.rides.filter((r) => r.pickupDate === o.tomorrow);

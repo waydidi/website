@@ -67,17 +67,17 @@ const tabs = [
     icon: TicketPercent,
   },
   {
-    href: "/admin/driver-applications",
-    label: "Driver applications",
+    href: "/admin/drivers",
+    label: "Driver management",
     mobileLabel: "Drivers",
-    title: "Driver applications",
+    title: "Driver management",
     icon: IdCard,
   },
   {
     href: "/admin/agencies",
-    label: "Agency applications",
+    label: "Travel agencies",
     mobileLabel: "Agencies",
-    title: "Agency applications",
+    title: "Travel agencies",
     icon: Building2,
   },
   {
@@ -130,8 +130,8 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
   ] },
   { title: "People", items: [
     { href: "/admin/users", label: "Users", icon: Users },
-    { href: "/admin/driver-applications", label: "Driver applications", icon: IdCard },
-    { href: "/admin/agencies", label: "Agency applications", icon: Building2 },
+    { href: "/admin/drivers", label: "Driver management", icon: IdCard },
+    { href: "/admin/agencies", label: "Travel agencies", icon: Building2 },
   ] },
 ];
 

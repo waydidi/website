@@ -13,7 +13,6 @@ import {
   MapPinned,
   Navigation,
   Phone,
-  Plus,
   RefreshCw,
   Route,
   ShieldCheck,
@@ -24,9 +23,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { WaydidiLogo } from "@/components/waydidi-logo";
-import { DriverCreateForm } from "@/components/driver-create-form";
-import { DriverDeleteButton } from "@/components/driver-delete-button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // The side panel with journey details is switched off for now (bookings open on their
 // own page). Typed as boolean so the hidden code is still type-checked.
@@ -121,7 +117,6 @@ export default function OperationsWorkspace({ email }: { email: string }) {
     reference: string;
     url: string;
   } | null>(null);
-  const [showAddDriver, setShowAddDriver] = useState(false);
   const selectedLocation = data?.locations.find((location) => location.bookingReference === selected) ?? null;
   const selectedException = data?.exceptions.find((exception) => exception.bookingReference === selected && exception.status === "open") ?? null;
   const load = useCallback(async () => {
@@ -304,59 +299,10 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                   ))}
                 </div>
               </section>
-              <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
-                <button
-                  onClick={() => setShowAddDriver(true)}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] font-black text-white"
-                >
-                  <Plus size={18} /> Add driver
-                </button>
-                <Dialog open={showAddDriver} onOpenChange={setShowAddDriver}>
-                  <DialogContent className="max-h-[90vh] overflow-y-auto rounded-[28px] border-0 bg-white sm:max-w-2xl">
-                    <DialogHeader><DialogTitle className="text-2xl font-black">Add driver</DialogTitle><DialogDescription>Enter identity, vehicle, location, licence, and payment details.</DialogDescription></DialogHeader>
-                    <DriverCreateForm onCreated={async()=>{setShowAddDriver(false);await load();}}/>
-                  </DialogContent>
-                </Dialog>
-                <div className="mt-5 border-t border-slate-100 pt-4">
-                  <p className="text-xs font-black uppercase tracking-wider text-slate-400">Saved drivers</p>
-                  <div className="mt-3 max-h-52 space-y-2 overflow-y-auto">
-                          {data?.drivers.map((driver) => (
-                            <div
-                              key={driver.id}
-                              className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-black">
-                                  {driver.fullName}
-                                </p>
-                                <p className="truncate text-xs text-slate-500">
-                                  {driver.phone}
-                                </p>
-                              </div>
-                              <a
-                                href={`/api/admin/driver-images/${driver.id}/identity`}
-                                target="_blank"
-                                className="text-xs font-bold text-[#D96F00]"
-                              >
-                                ID
-                              </a>
-                              <a
-                                href={`/api/admin/driver-images/${driver.id}/vehicle`}
-                                target="_blank"
-                                className="text-xs font-bold text-[#D96F00]"
-                              >
-                                Car
-                              </a>
-                              <DriverDeleteButton
-                                driverId={driver.id}
-                                driverName={driver.fullName}
-                                onDeleted={load}
-                              />
-                            </div>
-                          ))}
-                  </div>
-                </div>
-              </section>
+              <Link href="/admin/drivers" className="flex items-center justify-between gap-3 rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm hover:border-[#FF8A05]">
+                <span><strong className="block text-lg font-black">{data?.drivers.length ?? 0} drivers</strong><span className="text-sm text-slate-500">Add drivers and review applications in Driver management</span></span>
+                <span className="font-bold text-[#D96F00]">Open →</span>
+              </Link>
             </div>
             {latestLink && (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">

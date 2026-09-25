@@ -6,7 +6,7 @@ import { agencyApplications } from "@/db/schema";
 import { requireWaydidiAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Agency applications · Waydidi operations", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Travel agencies · Waydidi operations", robots: { index: false, follow: false } };
 
 // Partner applications sent from /agencies, newest first.
 export default async function AgencyApplicationsPage() {
@@ -15,7 +15,7 @@ export default async function AgencyApplicationsPage() {
   const rows = await getDb().select().from(agencyApplications).orderBy(desc(agencyApplications.createdAt)).limit(300).catch(() => null);
   return <main className="min-h-screen bg-slate-50 px-4 py-8 text-[#1f1726] sm:px-8">
     <div className="mx-auto max-w-[1200px]">
-      <h1 className="text-2xl font-black">Agency applications</h1>
+      <h1 className="text-2xl font-black">Travel agencies</h1>
       <p className="mt-1 text-sm text-slate-600">From the <a href="/agencies" className="underline">Travel agencies</a> page. Reply by email; the page promises an answer within 2 working days.</p>
       {!rows ? <p className="mt-6 rounded-2xl bg-amber-50 p-5 text-amber-900">The agency_applications table isn&apos;t in the database yet.</p>
         : rows.length === 0 ? <p className="mt-6 rounded-2xl bg-white p-8 text-center text-slate-500">No applications yet.</p>
