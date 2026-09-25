@@ -6,7 +6,7 @@ import {
   Truck,
   Users,
   Newspaper,
-  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronRight, Grid2x2, Moon, Search, Settings, Sun } from "lucide-react";
+  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronRight, Grid2x2, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -169,6 +169,15 @@ function PageSearch() {
   </div>;
 }
 
+
+// Light/dark icon: a circle split into a white half and a black half.
+function ThemeIcon({ size = 18 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" fill="#FFFFFF" stroke="#15161C" strokeWidth="1.8" />
+    <path d="M12 2a10 10 0 0 1 0 20Z" fill="#15161C" />
+  </svg>;
+}
+
 export default function AdminShell({
   children,
 }: {
@@ -248,13 +257,14 @@ export default function AdminShell({
         </nav>
         <div className={`flex items-center gap-1 border-t border-slate-200/70 p-3 ${collapsed ? "flex-col" : ""}`}>
           <Link href="/admin/settings" prefetch aria-current={pathname.startsWith("/admin/settings") ? "page" : undefined} title="Settings" className={`flex h-10 min-w-0 flex-1 items-center gap-3 rounded-[10px] px-3 text-[15px] ${collapsed ? "w-full justify-center" : ""} ${pathname.startsWith("/admin/settings") ? "bg-[#FFF0DF] font-semibold text-[#C96100]" : "text-slate-700 hover:bg-slate-100/80"}`}><Settings size={18} className="shrink-0" />{!collapsed && "Settings"}</Link>
-          <button type="button" onClick={toggleDark} aria-pressed={dark} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"} className="grid size-10 shrink-0 place-items-center rounded-[10px] text-slate-700 hover:bg-slate-100/80">{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
+          <button type="button" onClick={toggleDark} aria-pressed={dark} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"} className="grid size-10 shrink-0 place-items-center rounded-[10px] text-slate-700 hover:bg-slate-100/80"><ThemeIcon /></button>
         </div>
       </aside>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-x-clip">
         <header className="sticky top-0 z-30 flex h-[72px] items-center gap-4 border-b border-slate-200/70 bg-white/95 px-4 backdrop-blur sm:px-8">
           <h1 className="min-w-0 shrink-0 truncate text-[20px] font-semibold tracking-[-.01em] md:hidden">{title}</h1>
           <div className="hidden flex-1 md:block"><PageSearch /></div>
+          <button type="button" onClick={toggleDark} aria-pressed={dark} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"} className="ml-auto grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-white hover:bg-slate-50"><ThemeIcon size={20} /></button>
           <AvatarMenu />
         </header>
         <div className="mx-auto max-w-[1600px] px-4 pt-6 sm:px-8">
