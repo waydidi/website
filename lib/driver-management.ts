@@ -12,7 +12,7 @@ export type ApplicationRow = {
   joined: string; status: string; applicantType: string; fleetSize: string | null; languages: string | null; message: string | null; vehicleYear: string | null;
 };
 
-// Everything the Driver management page shows: saved drivers, applications from /drivers, and the four numbers on top.
+// Everything the Drivers page shows: saved drivers, applications from /drivers, and the four numbers on top.
 export async function driverManagement(at = new Date()) {
   const db = getDb();
   const today = bangkokDate(0, at);

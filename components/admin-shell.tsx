@@ -68,9 +68,9 @@ const tabs = [
   },
   {
     href: "/admin/drivers",
-    label: "Driver management",
+    label: "Drivers",
     mobileLabel: "Drivers",
-    title: "Driver management",
+    title: "Drivers",
     icon: IdCard,
   },
   {
@@ -130,7 +130,7 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
   ] },
   { title: "People", items: [
     { href: "/admin/users", label: "Users", icon: Users },
-    { href: "/admin/drivers", label: "Driver management", icon: IdCard },
+    { href: "/admin/drivers", label: "Drivers", icon: IdCard },
     { href: "/admin/agencies", label: "Travel agencies", icon: Building2 },
   ] },
 ];

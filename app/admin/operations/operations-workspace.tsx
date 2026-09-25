@@ -300,7 +300,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                 </div>
               </section>
               <Link href="/admin/drivers" className="flex items-center justify-between gap-3 rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm hover:border-[#FF8A05]">
-                <span><strong className="block text-lg font-black">{data?.drivers.length ?? 0} drivers</strong><span className="text-sm text-slate-500">Add drivers and review applications in Driver management</span></span>
+                <span><strong className="block text-lg font-black">{data?.drivers.length ?? 0} drivers</strong><span className="text-sm text-slate-500">Add drivers and review applications in Drivers</span></span>
                 <span className="font-bold text-[#D96F00]">Open →</span>
               </Link>
             </div>

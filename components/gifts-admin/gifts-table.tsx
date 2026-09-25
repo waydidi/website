@@ -14,7 +14,7 @@ const PILL: Record<GiftRow["state"], [string, string]> = {
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" });
 const iconBtn = "grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50";
 
-// Issued tier gifts in the same table style as Driver management.
+// Issued tier gifts in the same table style as Drivers.
 export function GiftsTable({ rows }: { rows: GiftRow[] }) {
   const [tab, setTab] = useState<Tab>("all");
   const [query, setQuery] = useState("");
