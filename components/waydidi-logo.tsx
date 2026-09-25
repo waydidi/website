@@ -26,14 +26,14 @@ export function WaydidiMark({ className }: { className?: string }) {
     className={cn("inline-block shrink-0 bg-current", className)}
     style={{
       aspectRatio: "1 / 1",
-      WebkitMaskImage: "url('/waydidi-logo.png')",
-      maskImage: "url('/waydidi-logo.png')",
-      WebkitMaskPosition: "left center",
-      maskPosition: "left center",
+      WebkitMaskImage: "url('/waydidi-bird.png')",
+      maskImage: "url('/waydidi-bird.png')",
+      WebkitMaskPosition: "center",
+      maskPosition: "center",
       WebkitMaskRepeat: "no-repeat",
       maskRepeat: "no-repeat",
-      WebkitMaskSize: "auto 100%",
-      maskSize: "auto 100%",
+      WebkitMaskSize: "contain",
+      maskSize: "contain",
     }}
   />;
 }
