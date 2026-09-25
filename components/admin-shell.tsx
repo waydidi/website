@@ -9,7 +9,6 @@ import {
   Truck,
   Users,
   Newspaper,
-  Route,
   TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3, ChevronDown, Grid2x2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,7 +16,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
 
 // "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
-const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href) || (href === "/admin/pricing" && pathname.startsWith("/admin/hourly")));
+const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/routes"))));
 
 const tabs = [
   {
@@ -104,13 +103,7 @@ const tabs = [
     title: "Blog",
     icon: Newspaper,
   },
-  {
-    href: "/admin/routes",
-    label: "Route inclusions",
-    mobileLabel: "Routes",
-    title: "Route inclusions",
-    icon: Route,
-  },
+
 
 ];
 
