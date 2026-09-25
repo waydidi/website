@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight, FileText, Gauge, Headphones, ListChecks, Mail, MapPinned, Network, Percent, ReceiptText } from "lucide-react";
+import { ChevronRight, Luggage, Users, FileText, Gauge, Headphones, ListChecks, Mail, MapPinned, Network, Percent, ReceiptText } from "lucide-react";
 import { BookingsMockup, DashboardMockup, DetailMockup } from "@/components/agencies/workspace-mockup";
 import { PublicFooter } from "@/components/public-footer";
 import { AgencyForm } from "@/components/agencies/agency-form";
+import { NewsletterForm } from "@/components/agencies/newsletter-form";
+import { VEHICLES } from "@/lib/vehicles";
 import { SITE_URL } from "@/lib/public-content";
 
 export const metadata: Metadata = {
@@ -34,6 +36,13 @@ const WORKSPACE = [
   { icon: ListChecks, label: "Bookings", Mock: BookingsMockup, title: "Every transfer, organised and searchable", text: "Filter upcoming, completed and cancelled rides, search by pickup, destination or passenger, and see each booking's payment status with clear colour-coded labels.", points: ["Upcoming, completed and cancelled tabs.", "Search by reference, passenger, address or date range.", "Status badges: Confirmed, Awaiting payment and more."] },
   { icon: ReceiptText, label: "Booking detail", Mock: DetailMockup, title: "Full control of every ride", text: "Open any booking to review the route, vehicle, passenger details and total price. Pay securely, share the voucher with your traveller or contact support, all from one screen.", points: ["Route, vehicle and passenger info in a single view.", "Pay securely and download the voucher in one click.", "Reach our partner support whenever you need a hand."] },
 ];
+
+const FLEET = [
+  { id: "economy_sedan", title: "Economy", models: "Comfortable 4-door sedan", image: "/vehicle-economy-sedan.webp" },
+  { id: "comfort_bmw", title: "Comfort BMW", models: "BMW sedan or similar", image: "/vehicle-comfort-bmw.webp" },
+  { id: "comfort_suv", title: "Comfort SUV", models: "Spacious SUV for families and luggage", image: "/vehicle-comfort-suv.webp" },
+  { id: "premium_minivan", title: "Premium Minivan", models: "Van for groups of up to 9", image: "/vehicle-premium-minivan.webp" },
+] as const;
 
 const STEPS = [
   { title: "Apply online in minutes", text: "Tell us about your agency and the routes your clients travel." },
@@ -146,6 +155,24 @@ export default function AgenciesPage() {
       </div>
     </section>
 
+    {/* Fleet */}
+    <section className="py-20" aria-labelledby="fleet-heading">
+      <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
+        <h2 id="fleet-heading" className="max-w-[760px] text-[38px] font-bold leading-[1.1] tracking-[-.03em] sm:text-[52px]">Maximum comfort and safety for your clients</h2>
+        <p className="mt-5 text-[20px] text-[#555]">Licensed vehicles, professional drivers</p>
+      </div>
+      <ul className="mx-auto mt-10 flex max-w-[1180px] gap-5 overflow-x-auto px-5 pb-3 [scrollbar-width:none] lg:px-0 [&::-webkit-scrollbar]:hidden">
+        {FLEET.map((v) => { const spec = VEHICLES[v.id]; return <li key={v.id} className="w-[82%] max-w-[360px] shrink-0 overflow-hidden rounded-[28px] border border-[#E4E1DA] bg-white">
+          <div className="grid h-[190px] place-items-center bg-gradient-to-b from-white to-[#F3F2EE] px-6"><Image src={v.image} alt={v.title} width={320} height={180} unoptimized className="max-h-[150px] w-auto object-contain" /></div>
+          <div className="p-7 pt-5">
+            <p className="text-[24px] font-bold tracking-[-.01em]">{v.title}</p>
+            <p className="mt-2 text-[16px] leading-6 text-[#555]">{v.models}</p>
+            <p className="mt-4 flex gap-6 text-[17px] font-semibold"><span className="flex items-center gap-2"><Users size={19} aria-hidden="true" />{spec.passengers}<span className="sr-only">passengers</span></span><span className="flex items-center gap-2"><Luggage size={19} aria-hidden="true" />{spec.bags}<span className="sr-only">bags</span></span></p>
+          </div>
+        </li>; })}
+      </ul>
+    </section>
+
     <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
       {/* Apply */}
       <section id="apply" className="scroll-mt-24 pb-20 pt-20" aria-labelledby="apply-heading">
@@ -155,6 +182,15 @@ export default function AgenciesPage() {
         <p className="mt-6 flex items-center gap-2 text-[15px] text-[#555]"><FileText size={17} aria-hidden="true" />Questions first? <Link href="/contact" className="font-semibold text-[#111] underline">Contact us</Link></p>
       </section>
     </div>
+    {/* Newsletter */}
+    <section className="bg-[#0B0B0B] text-white" aria-labelledby="newsletter-heading">
+      <div className="mx-auto max-w-[760px] px-5 py-20 lg:px-0">
+        <h2 id="newsletter-heading" className="text-[32px] font-bold leading-[1.2] tracking-[-.02em] sm:text-[40px]">Subscribe to the newsletter for travel news and offers</h2>
+        <p className="mt-4 text-[18px] text-white/70">Route tips, new destinations and partner offers, straight to your inbox.</p>
+        <NewsletterForm source="agencies" />
+        <p className="mt-5 text-[14px] leading-6 text-white/60">By subscribing, you agree to our <a href="/privacy" className="underline">privacy policy</a>. We never sell or share your data with third parties. Unsubscribe any time.</p>
+      </div>
+    </section>
     <PublicFooter />
   </main>;
 }

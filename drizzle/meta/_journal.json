@@ -316,6 +316,13 @@
       "when": 1790320295374,
       "tag": "0044_agency_applications",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1790320683700,
+      "tag": "0045_newsletter",
+      "breakpoints": true
     }
   ]
 }

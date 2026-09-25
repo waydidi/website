@@ -1123,3 +1123,10 @@ export const agencyApplications = sqliteTable("agency_applications", {
   status: text("status").notNull().default("new"), // new | contacted | approved | declined
   createdAt: text("created_at").notNull(),
 });
+
+// Newsletter sign-ups (e.g. from /agencies), with where they signed up.
+export const newsletterSubscribers = sqliteTable("newsletter_subscribers", {
+  email: text("email").primaryKey(),
+  source: text("source").notNull(),
+  createdAt: text("created_at").notNull(),
+});
