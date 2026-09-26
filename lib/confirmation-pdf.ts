@@ -90,20 +90,24 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   // Additional services box: picture, name, price on the right.
   const addons = (extras?.addons ?? []).slice(0, 3);
   if (addons.length) {
-    const rowH = 34;
+    const rowH = 36;
     const bottom = lines.length ? 136 + lines.length * 13 + 8 : 142;
-    const height = addons.length * rowH + 22;
-    page.drawRectangle({ x: 42, y: bottom, width: 511, height, color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.89, 0.91), borderWidth: 0.8 });
-    page.drawText("ADDITIONAL SERVICES", { x: 56, y: bottom + height - 14, size: 8, font: bold, color: orange });
+    const height = addons.length * rowH;
+    const w = 511, r = 10;
+    // Rounded box (10pt corners); svg paths are drawn downward from the top-left.
+    page.drawSvgPath(`M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w} ${r} V ${height - r} A ${r} ${r} 0 0 1 ${w - r} ${height} H ${r} A ${r} ${r} 0 0 1 0 ${height - r} V ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`,
+      { x: 42, y: bottom + height, color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.89, 0.91), borderWidth: 0.8 });
+    page.drawText("ADDITIONAL SERVICES", { x: 46, y: bottom + height + 8, size: 8, font: bold, color: orange });
     for (const [index, line] of addons.entries()) {
-      const top = bottom + height - 22 - index * rowH;
+      const top = bottom + height - index * rowH;
+      if (index > 0) page.drawLine({ start: { x: 42, y: top }, end: { x: 553, y: top }, thickness: 0.6, color: rgb(0.88, 0.89, 0.91) });
       const png = /child seat/i.test(line.label) ? childSeatPng : /ferry/i.test(line.label) ? ferryPng : exchangePng;
       const image = await pdf.embedPng(Uint8Array.from(atob(png), (c) => c.charCodeAt(0)));
-      const scale = 28 / Math.max(image.width, image.height);
-      page.drawImage(image, { x: 56, y: top - rowH + 3, width: image.width * scale, height: image.height * scale });
-      page.drawText(latin(line.label), { x: 94, y: top - rowH / 2 - 2, size: 10.5, font: bold, color: ink });
+      const scale = 26 / Math.max(image.width, image.height);
+      page.drawImage(image, { x: 56, y: top - rowH / 2 - (image.height * scale) / 2, width: image.width * scale, height: image.height * scale });
+      page.drawText(latin(line.label), { x: 94, y: top - rowH / 2 - 3.5, size: 10.5, font: bold, color: ink });
       const price = line.amount > 0 ? `THB ${line.amount.toLocaleString()}` : "Free";
-      page.drawText(price, { x: 539 - bold.widthOfTextAtSize(price, 10.5), y: top - rowH / 2 - 2, size: 10.5, font: bold, color: ink });
+      page.drawText(price, { x: 539 - bold.widthOfTextAtSize(price, 10.5), y: top - rowH / 2 - 3.5, size: 10.5, font: bold, color: ink });
     }
   }
 
