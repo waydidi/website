@@ -119,9 +119,10 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
     page.drawText(label, { x: 62, y, size: 10, font: regular, color: rgb(0.38, 0.43, 0.52) });
     page.drawText(value, { x: 531 - bold.widthOfTextAtSize(value, 10), y, size: 10, font: bold, color: label === "Exclusive discount" ? rgb(0.86, 0.15, 0.15) : ink });
   });
-  page.drawText("BOOKING TOTAL", { x: 62, y: 103, size: 9, font: bold, color: orange });
+  page.drawText("Total price", { x: 62, y: 100, size: 18, font: bold, color: orange });
   const total = `THB ${booking.total.toLocaleString()}`;
-  page.drawText(total, { x: 531 - bold.widthOfTextAtSize(total, 18), y: 94, size: 18, font: bold, color: ink });
+  page.drawText(total, { x: 531 - bold.widthOfTextAtSize(total, 18), y: 100, size: 18, font: bold, color: ink });
+  page.drawText("*All inclusive", { x: 531 - regular.widthOfTextAtSize("*All inclusive", 9), y: 86, size: 9, font: regular, color: rgb(0.38, 0.43, 0.52) });
 
   return pdf.save();
 }
