@@ -43,13 +43,14 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
   // Header: headline top-left, Waydidi top-right, reference underneath.
-  page.drawRectangle({ x: 0, y: 686, width: 595, height: 156, color: orange });
+  page.drawRectangle({ x: 0, y: 712, width: 595, height: 130, color: orange });
   const logo = await pdf.embedPng(Uint8Array.from(atob(logoPng), (c) => c.charCodeAt(0)));
   const logoH = 51;
   page.drawImage(logo, { x: 34, y: 768, width: (logo.width / logo.height) * logoH, height: logoH });
   page.drawText("Your ride is booked.", { x: 46, y: 740, size: 31, font: bold, color: rgb(1, 1, 1) });
-  page.drawText("Booking reference", { x: 46, y: 708, size: 12, font: regular, color: rgb(1, 0.86, 0.72) });
-  page.drawText(booking.reference, { x: 159, y: 708, size: 12, font: bold, color: rgb(1, 1, 1) });
+  // Right column: label on the logo row, reference on the headline row.
+  page.drawText("Booking reference", { x: 549 - regular.widthOfTextAtSize("Booking reference", 12), y: 789, size: 12, font: regular, color: rgb(1, 0.86, 0.72) });
+  page.drawText(booking.reference, { x: 549 - bold.widthOfTextAtSize(booking.reference, 22), y: 740, size: 22, font: bold, color: rgb(1, 1, 1) });
 
   const fields = [
     ["Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : "Private transfer"],
@@ -72,7 +73,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   fields.forEach(([label, value], index) => {
     const column = index % 2;
     const row = Math.floor(index / 2);
-    drawField(page, bold, label, value, column === 0 ? 46 : 315, 640 - row * 72);
+    drawField(page, bold, label, value, column === 0 ? 46 : 315, 662 - row * 72);
   });
 
   // Discounts and requests, just above the total.
