@@ -10,6 +10,7 @@ import {
 import { getDb } from "@/db";
 import { bookingAssignments, bookings, bookingTaxInvoices, drivers } from "@/db/schema";
 import { DriverPicker } from "@/components/bookings-admin/driver-picker";
+import { NewBookingButton } from "@/components/bookings-admin/new-booking";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -137,8 +138,11 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           <div role="tablist" aria-label="Service" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
             {([["transfer", "Transfer"], ["hourly", "By the hour"], ["tour", "Tour"]] as const).map(([id, label]) => <Link key={id} role="tab" aria-selected={type === id} href={`/admin/bookings?type=${id}&mode=${mode}`} className={`h-9 rounded-lg px-4 text-[15px] leading-9 ${type === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}>{label}</Link>)}
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+          <NewBookingButton service={type} />
           <div role="tablist" aria-label="View" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
             {([["list", "List", List], ["calendar", "Calendar", CalendarDays], ["board", "Board", Columns3]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}><Icon size={16} />{label}</Link>)}
+          </div>
           </div>
         </div>
         {mode !== "list" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> :

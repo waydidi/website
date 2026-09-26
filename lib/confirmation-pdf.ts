@@ -65,7 +65,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
     ] : []),
     ["Travelers", `${booking.passengers} passengers - ${booking.luggage} bags`],
     ["Vehicle", booking.vehicle],
-    ["Payment", booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : "Paid online"],
+    ["Payment", booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : booking.paymentMethod === "manual" ? "Paid" : "Paid online"],
     ["Total", `THB ${booking.total.toLocaleString()}`],
   ].slice(0, 10) as string[][];
 

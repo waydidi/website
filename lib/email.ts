@@ -84,7 +84,7 @@ async function resend(payload: Record<string, unknown>, idempotencyKey: string):
 
 export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
   const formattedDate = displayDate(input.pickupDate, input.pickupTime);
-  const payment = input.total === 0 ? "Nothing to pay" : input.paymentMethod === "cash" ? "Cash at pickup" : "Paid online";
+  const payment = input.total === 0 ? "Nothing to pay" : input.paymentMethod === "cash" ? "Cash at pickup" : input.paymentMethod === "manual" ? "Paid" : "Paid online";
   const checkUrl = `${siteUrl()}/booking/manage`;
   const safeName = escapeHtml(input.name);
   const safeReference = escapeHtml(input.reference);
@@ -170,7 +170,7 @@ export async function sendOperationsAlert(booking: {
   returnPickup?: string | null; returnDropoff?: string | null; returnDate?: string | null; returnTime?: string | null;
 }) {
   if (!env.BOOKING_ALERT_EMAIL) return { status: "pending_configuration" } as EmailDelivery;
-  const payment = booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : "Paid online";
+  const payment = booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : booking.paymentMethod === "manual" ? "Paid" : "Paid online";
   const returnRows = booking.returnDate && booking.returnTime
     ? `${detailRow("Return pickup", booking.returnPickup ?? booking.dropoff)}${detailRow("Return drop-off", booking.returnDropoff ?? booking.pickup)}${detailRow("Return date & time", displayDate(booking.returnDate, booking.returnTime))}`
     : "";

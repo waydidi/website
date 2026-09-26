@@ -13,6 +13,8 @@ import {
   Save,
   Truck,
   XCircle,
+  Download,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -83,7 +85,8 @@ export default function JourneyDetails({ reference }: { reference: string }) {
     [latestLocation, setLatestLocation] = useState<JourneyLocation | null>(null),
     [journeyExceptions, setJourneyExceptions] = useState<JourneyException[]>([]),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [notice, setNotice] = useState("");
   const [cost, setCost] = useState({
     agreedDriverCost: "0",
     additionalCosts: "0",
@@ -188,6 +191,7 @@ export default function JourneyDetails({ reference }: { reference: string }) {
           <ArrowLeft size={16} />
           Back to journeys
         </Link>
+        {notice && <p role="status" className="mt-4 rounded-2xl bg-emerald-50 p-4 font-bold text-emerald-800">{notice}</p>}
         {error && (
           <p className="mt-4 rounded-2xl bg-red-50 p-4 font-bold text-red-700">
             {error}
@@ -205,12 +209,16 @@ export default function JourneyDetails({ reference }: { reference: string }) {
                   {booking.customerName} · {booking.vehicle}
                 </p>
               </div>
+              <div className="flex items-center gap-2">
+              <a href={`/api/admin/bookings/${encodeURIComponent(booking.reference)}/confirmation`} className="inline-flex h-12 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-bold hover:border-[#FF8A05]"><Download size={17} />PDF</a>
+              <button type="button" disabled={busy} onClick={async () => { setBusy(true); setError(""); const r = await fetch(`/api/admin/bookings/${encodeURIComponent(booking.reference)}/confirmation`, { method: "POST" }).catch(() => null); const out = await r?.json().catch(() => ({})) as { error?: string } | undefined; setBusy(false); if (!r?.ok) setError(out?.error ?? "The email could not be sent."); else setNotice("Confirmation emailed to the customer."); }} className="inline-flex h-12 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-bold hover:border-[#FF8A05] disabled:opacity-50"><Mail size={17} />Email</button>
               <a
                 href={`tel:${booking.customerPhone}`}
                 className="grid size-12 place-items-center rounded-full bg-[#211726] text-white"
               >
                 <Phone size={20} />
               </a>
+              </div>
             </div>
             <div className="mt-6 rounded-2xl bg-slate-50 p-5">
               <p className="flex gap-3 font-bold">
