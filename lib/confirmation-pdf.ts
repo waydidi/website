@@ -41,15 +41,12 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  page.drawRectangle({ x: 0, y: 548, width: 595, height: 294, color: orange });
-  page.drawText("Waydidi", { x: 46, y: 782, size: 25, font: bold, color: rgb(1, 1, 1) });
-  page.drawCircle({ x: 70, y: 704, size: 22, color: rgb(1, 0.68, 0.35) });
-  page.drawLine({ start: { x: 59, y: 704 }, end: { x: 67, y: 696 }, thickness: 3.5, color: rgb(1, 1, 1) });
-  page.drawLine({ start: { x: 67, y: 696 }, end: { x: 82, y: 713 }, thickness: 3.5, color: rgb(1, 1, 1) });
-  page.drawText("PAYMENT RECEIVED", { x: 46, y: 653, size: 11, font: bold, color: rgb(1, 0.88, 0.77) });
-  page.drawText("Your ride is booked.", { x: 46, y: 609, size: 31, font: bold, color: rgb(1, 1, 1) });
-  page.drawText("Booking reference", { x: 46, y: 577, size: 12, font: regular, color: rgb(1, 0.86, 0.72) });
-  page.drawText(booking.reference, { x: 159, y: 577, size: 12, font: bold, color: rgb(1, 1, 1) });
+  // Header: headline top-left, Waydidi top-right, reference underneath.
+  page.drawRectangle({ x: 0, y: 682, width: 595, height: 160, color: orange });
+  page.drawText("Your ride is booked.", { x: 46, y: 772, size: 31, font: bold, color: rgb(1, 1, 1) });
+  page.drawText("Waydidi", { x: 549 - bold.widthOfTextAtSize("Waydidi", 25), y: 776, size: 25, font: bold, color: rgb(1, 1, 1) });
+  page.drawText("Booking reference", { x: 46, y: 730, size: 12, font: regular, color: rgb(1, 0.86, 0.72) });
+  page.drawText(booking.reference, { x: 159, y: 730, size: 12, font: bold, color: rgb(1, 1, 1) });
 
   const fields = [
     ["Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : "Private transfer"],
@@ -72,7 +69,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   fields.forEach(([label, value], index) => {
     const column = index % 2;
     const row = Math.floor(index / 2);
-    drawField(page, bold, label, value, column === 0 ? 46 : 315, 510 - row * 72);
+    drawField(page, bold, label, value, column === 0 ? 46 : 315, 640 - row * 72);
   });
 
   // Price breakdown and requests, just above the total (up to four lines).
