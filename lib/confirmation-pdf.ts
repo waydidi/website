@@ -113,9 +113,9 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
     }
   }
 
-  page.drawRectangle({ x: 42, y: 72, width: 511, height: boxH, color: paleOrange, borderColor: rgb(1, 0.82, 0.64), borderWidth: 0.7 });
+  page.drawRectangle({ x: 42, y: 69, width: 511, height: boxH, color: paleOrange, borderColor: rgb(1, 0.82, 0.64), borderWidth: 0.7 });
   discounts.forEach(([label, value], index) => {
-    const y = boxTop - 22 - index * 18;
+    const y = boxTop - 25 - index * 18;
     page.drawText(label, { x: 56, y, size: 10, font: regular, color: rgb(0.38, 0.43, 0.52) });
     page.drawText(value, { x: 539 - bold.widthOfTextAtSize(value, 10), y, size: 10, font: bold, color: label === "Exclusive discount" ? rgb(0.86, 0.15, 0.15) : ink });
   });
