@@ -30,9 +30,9 @@ function latin(value: string) {
   return value.replace(/[^\x20-\x7E\xA0-\xFF]/g, "").replace(/\s+/g, " ").trim();
 }
 
-function drawField(page: PDFPage, bold: PDFFont, label: string, value: string, x: number, y: number) {
+function drawField(page: PDFPage, bold: PDFFont, label: string, value: string, x: number, y: number, color = ink) {
   page.drawText(label.toUpperCase(), { x, y, size: 8.5, font: bold, color: muted });
-  page.drawText(fitText(value, bold, 11.5, 220), { x, y: y - 23, size: 11.5, font: bold, color: ink });
+  page.drawText(fitText(value, bold, 11.5, 220), { x, y: y - 23, size: 11.5, font: bold, color });
 }
 
 export async function createConfirmationPdf(booking: Confirmation, extras?: BookingExtras) {
@@ -65,14 +65,16 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
     ] : []),
     ["Travelers", `${booking.passengers} passengers - ${booking.luggage} bags`],
     ["Vehicle", booking.vehicle],
-    ["Payment", booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : booking.paymentMethod === "manual" ? "Paid" : "Paid online"],
+    ["Payment", booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Pay in Cash" : "PAID"],
     ["Total", `THB ${booking.total.toLocaleString()}`],
   ].slice(0, 10) as string[][];
 
   fields.forEach(([label, value], index) => {
     const column = index % 2;
     const row = Math.floor(index / 2);
-    drawField(page, bold, label, value, column === 0 ? 46 : 315, 680 - row * 72);
+    // Payment status in colour: LINE MAN green when paid, vivid red when cash is due.
+    const color = label !== "Payment" ? ink : value === "PAID" ? rgb(0.024, 0.78, 0.333) : value === "Pay in Cash" ? rgb(1, 0.122, 0.176) : ink;
+    drawField(page, bold, label, value, column === 0 ? 46 : 315, 680 - row * 72, color);
   });
 
   // Discounts go inside the total box; a tax-invoice note sits just above it.
