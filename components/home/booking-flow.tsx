@@ -1887,7 +1887,7 @@ export function BookingFlow({
                 {booking.pickupSign && <ReviewDetail label="Pickup sign" value={booking.pickupSign} />}
                 {booking.oversizedLuggage && <ReviewDetail label="Oversized luggage" value="Declared" />}
                 {exchangeStop && <ReviewDetail label="Currency exchange stop" value="Requested" />}
-                {ferryHotel > 0 && <ReviewDetail label="Ferry & hotel transfer" value={`${ferryHotel} × ${money(FERRY_HOTEL_THB)}`} />}
+                {ferryHotel > 0 && <ReviewDetail label="Ferry & Hotel transfer" value={`${ferryHotel} × ${money(FERRY_HOTEL_THB)}`} />}
                 {booking.specialRequests && <ReviewDetail label="Special requests" value={booking.specialRequests} />}
               </ReviewSection>
 

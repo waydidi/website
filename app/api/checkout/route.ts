@@ -388,7 +388,7 @@ export async function POST(request: Request) {
       const offered = input.serviceType !== "hourly" && quoteData && quoteData.pickupLatitude != null && quoteData.pickupLongitude != null && quoteData.dropoffLatitude != null && quoteData.dropoffLongitude != null
         ? (await loadInclusions({ lat: quoteData.pickupLatitude, lng: quoteData.pickupLongitude }, { lat: quoteData.dropoffLatitude, lng: quoteData.dropoffLongitude })).hotelTransfer
         : false;
-      if (!offered) return NextResponse.json({ code: "ADDON_UNAVAILABLE", error: "Ferry & hotel transfer is only available to Koh Kood and Koh Mak.", field: "ferryHotel", retryable: false }, { status: 409 });
+      if (!offered) return NextResponse.json({ code: "ADDON_UNAVAILABLE", error: "Ferry & Hotel transfer is only available to Koh Kood and Koh Mak.", field: "ferryHotel", retryable: false }, { status: 409 });
       ferryPeople = Math.min(input.ferryHotelPeople, input.passengers);
     }
     total += addonsTotal(input.childSeats, input.exchangeStop, freeAddons, ferryPeople);

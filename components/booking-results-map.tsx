@@ -672,17 +672,20 @@ export function BookingResultsMap(props: Props) {
                   <button type="button" aria-label="More ferry tickets" disabled={ferry >= maxFerry} onClick={() => setExtras({ ferryHotelPeople: ferry + 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Plus size={16} aria-hidden="true" /></button>
                 </span>
                 {/* Sits on the same line as the "+THB 600 per person" price text. */}
-                {ferry > 0 && <span className="absolute inset-x-0 bottom-0 whitespace-nowrap text-center text-[14px] font-semibold leading-[19.5px] text-[#D32F2F]">+{money(FERRY_HOTEL_THB * ferry)}</span>}
+                {ferry > 0 && <span className="absolute right-0 bottom-0 whitespace-nowrap text-right text-[14px] font-semibold leading-[19.5px] text-[#D32F2F]">+{money(FERRY_HOTEL_THB * ferry)}</span>}
                 </span>
               </div>
             </li>}
             <li className="flex items-center gap-4 border-b border-[#EEEEEE] py-4">
               <Image src="/addon-child-seat.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
               <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.childSeat")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.childSeatDesc", { max: maxSeats })}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">{freeSeatsMax ? <><span className="text-[#00B14F]">{freeSeatsMax} free ({[props.memberTier?.freeChildSeats ? props.memberTier.name : null, props.giftVouchers?.childSeat ? "gift" : null].filter(Boolean).join(" + ")})</span> · then {t("addons.each", { price: money(CHILD_SEAT_THB) })}</> : t("addons.each", { price: money(CHILD_SEAT_THB) })}</span></span>
+              <span className="relative flex items-center self-stretch pb-5">
               <span className="flex items-center gap-3">
                 <button type="button" aria-label="Remove child seat" disabled={seats === 0} onClick={() => setExtras({ childSeats: seats - 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Minus size={16} aria-hidden="true" /></button>
                 <span className="w-4 text-center text-[16px] font-medium" aria-live="polite">{seats}</span>
                 <button type="button" aria-label="Add child seat" disabled={seats >= maxSeats} onClick={() => setExtras({ childSeats: seats + 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Plus size={16} aria-hidden="true" /></button>
+              </span>
+              {seats > 0 && <span className="absolute right-0 bottom-0 whitespace-nowrap text-right text-[14px] font-semibold leading-[19.5px] text-[#D32F2F]">{seats > (freeSeatsMax ?? 0) ? `+${money(CHILD_SEAT_THB * (seats - (freeSeatsMax ?? 0)))}` : "Free"}</span>}
               </span>
             </li>
             <li>
