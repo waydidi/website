@@ -47,7 +47,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   const logo = await pdf.embedPng(Uint8Array.from(atob(logoPng), (c) => c.charCodeAt(0)));
   const logoH = 51;
   page.drawImage(logo, { x: 34, y: 778, width: (logo.width / logo.height) * logoH, height: logoH });
-  page.drawText("Your ride is booked.", { x: 46, y: 750, size: 31, font: bold, color: rgb(1, 1, 1) });
+  page.drawText("Your ride is booked.", { x: 46, y: 750, size: 28, font: bold, color: rgb(1, 1, 1) });
   // Right column, on the logo row: label with the reference just under it.
   page.drawText("Booking reference", { x: 549 - bold.widthOfTextAtSize("Booking reference", 14), y: 800, size: 14, font: bold, color: rgb(1, 1, 1) });
   page.drawText(booking.reference, { x: 549 - regular.widthOfTextAtSize(booking.reference, 10), y: 786, size: 10, font: regular, color: rgb(1, 1, 1) });
