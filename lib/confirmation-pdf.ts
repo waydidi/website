@@ -63,9 +63,10 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
     ["Passengers & luggage", ""],
   ] as string[][];
 
+  page.drawText("Booking details", { x: 46, y: 672, size: 29, font: bold, color: ink });
   // One column: label on the left, value lined up in a second column (values in capitals; email kept as typed).
   fields.forEach(([label, value], index) => {
-    const y = 684 - index * 28;
+    const y = 638 - index * 28;
     // Payment status in colour: LINE MAN green when paid, vivid red when cash is due.
     const color = label !== "Payment" ? ink : value === "PAID" ? rgb(0.024, 0.78, 0.333) : value === "Pay in Cash" ? rgb(1, 0.122, 0.176) : ink;
     page.drawText(label.toUpperCase(), { x: 46, y: y + 1.5, size: 8.5, font: bold, color: muted });
