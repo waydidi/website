@@ -48,29 +48,38 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
 
   const fields = [
     ["Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : "Private transfer"],
-    ["Passenger", booking.customerName],
-    ["Email", booking.customerEmail],
-    ["Phone / WhatsApp", booking.customerPhone],
-    ["Pickup", booking.pickup],
-    ["Drop-off", booking.dropoff],
+    ["Lead passenger", booking.customerName],
     ["Date & time", `${booking.pickupDate} at ${booking.pickupTime}`],
+    ["WhatsApp", booking.customerPhone],
+    ["Email", booking.customerEmail],
+    ["From", booking.pickup],
+    ["To", booking.dropoff],
     ...(booking.returnDate && booking.returnTime ? [
       ["Return", `${booking.returnPickup ?? booking.dropoff} to ${booking.returnDropoff ?? booking.pickup}`],
       ["Return date & time", `${booking.returnDate} at ${booking.returnTime}`],
     ] : []),
-    ["Travelers", `${booking.passengers} passengers - ${booking.luggage} bags`],
     ["Vehicle", booking.vehicle],
     ["Payment", booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Pay in Cash" : "PAID"],
-    ["Total", `THB ${booking.total.toLocaleString()}`],
-  ].slice(0, 10) as string[][];
+    ["Passengers & luggage", ""],
+  ] as string[][];
 
-  // One column: label on the left, value lined up in a second column.
+  // One column: label on the left, value lined up in a second column (values in capitals; email kept as typed).
   fields.forEach(([label, value], index) => {
     const y = 684 - index * 28;
     // Payment status in colour: LINE MAN green when paid, vivid red when cash is due.
     const color = label !== "Payment" ? ink : value === "PAID" ? rgb(0.024, 0.78, 0.333) : value === "Pay in Cash" ? rgb(1, 0.122, 0.176) : ink;
     page.drawText(label.toUpperCase(), { x: 46, y: y + 1.5, size: 8.5, font: bold, color: muted });
-    page.drawText(fitText(value, bold, 11.5, 360), { x: 189, y, size: 11.5, font: bold, color });
+    if (label === "Passengers & luggage") {
+      // Lucide "users-round" and "luggage" icons (24px grid) followed by the counts.
+      const icon = (d: string, x: number) => page.drawSvgPath(d, { x, y: y + 11, scale: 0.6, borderColor: ink, borderWidth: 2, borderLineCap: 1 });
+      icon("M18 21a8 8 0 0 0-16 0 M5 8a5 5 0 1 0 10 0a5 5 0 1 0-10 0 M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3", 189);
+      page.drawText(String(booking.passengers), { x: 209, y, size: 11.5, font: bold, color: ink });
+      icon("M6 20a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2 M8 18V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v14 M10 20h4 M14 20a2 2 0 1 0 4 0a2 2 0 1 0-4 0 M6 20a2 2 0 1 0 4 0a2 2 0 1 0-4 0", 236);
+      page.drawText(String(booking.luggage), { x: 256, y, size: 11.5, font: bold, color: ink });
+    } else {
+      const shown = label === "Email" ? value : latin(value).toUpperCase();
+      page.drawText(fitText(shown, bold, 11.5, 360), { x: 189, y, size: 11.5, font: bold, color });
+    }
     if (index < fields.length - 1) page.drawLine({ start: { x: 46, y: y - 10 }, end: { x: 549, y: y - 10 }, thickness: 0.5, color: rgb(0.92, 0.93, 0.95) });
   });
 
