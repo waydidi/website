@@ -45,8 +45,8 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   // Header: headline top-left, Waydidi top-right, reference underneath.
   page.drawRectangle({ x: 0, y: 686, width: 595, height: 156, color: orange });
   const logo = await pdf.embedPng(Uint8Array.from(atob(logoPng), (c) => c.charCodeAt(0)));
-  const logoH = 42;
-  page.drawImage(logo, { x: 36, y: 774, width: (logo.width / logo.height) * logoH, height: logoH });
+  const logoH = 46;
+  page.drawImage(logo, { x: 35, y: 768, width: (logo.width / logo.height) * logoH, height: logoH });
   page.drawText("Your ride is booked.", { x: 46, y: 740, size: 31, font: bold, color: rgb(1, 1, 1) });
   page.drawText("Booking reference", { x: 46, y: 708, size: 12, font: regular, color: rgb(1, 0.86, 0.72) });
   page.drawText(booking.reference, { x: 159, y: 708, size: 12, font: bold, color: rgb(1, 1, 1) });
