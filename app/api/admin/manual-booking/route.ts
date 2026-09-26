@@ -106,7 +106,7 @@ export async function POST(request: Request) {
   });
   await getDb().insert(bookingSources).values({ bookingReference: reference, source: "manual", createdAt: now }).catch(() => undefined);
   if (discount > 0) await getDb().insert(promoRedemptions).values({
-    id: crypto.randomUUID(), promoId: "manual", code: "Special price", bookingReference: reference,
+    id: crypto.randomUUID(), promoId: "manual", code: "Exclusive discount", bookingReference: reference,
     customerEmail: b.customerEmail, customerPhone: b.customerPhone,
     originalTotal: b.fare, discount, finalTotal: b.fare - discount, createdAt: now,
   }).catch(() => undefined);

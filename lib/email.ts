@@ -55,8 +55,8 @@ function displayDate(date: string, time: string) {
   }).format(parsed);
 }
 
-function detailRow(label: string, value: string) {
-  return `<tr><td style="padding:12px 0;border-bottom:1px solid #edf0f4;color:#8793a6;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;vertical-align:top">${escapeHtml(label)}</td><td style="padding:12px 0 12px 20px;border-bottom:1px solid #edf0f4;color:#211726;font-size:15px;font-weight:700;line-height:1.45;text-align:right;vertical-align:top">${escapeHtml(value)}</td></tr>`;
+function detailRow(label: string, value: string, valueColor = "#211726") {
+  return `<tr><td style="padding:12px 0;border-bottom:1px solid #edf0f4;color:#8793a6;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;vertical-align:top">${escapeHtml(label)}</td><td style="padding:12px 0 12px 20px;border-bottom:1px solid #edf0f4;color:${valueColor};font-size:15px;font-weight:700;line-height:1.45;text-align:right;vertical-align:top">${escapeHtml(value)}</td></tr>`;
 }
 
 /** Outcome of sending one email. */
@@ -99,7 +99,7 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
   const extras = input.extras;
   const extraRows = extras ? [
     ...extras.addons.map((line) => detailRow(line.label, line.amount > 0 ? `+${thb(line.amount)}` : "Free")),
-    extras.discount ? detailRow(`Discount (${extras.discount.code})`, `−${thb(extras.discount.amount)}`) : "",
+    extras.discount ? (/^(exclusive discount|special price)$/i.test(extras.discount.code) ? detailRow("Exclusive discount", `−${thb(extras.discount.amount)}`, "#dc2626") : detailRow(`Discount (${extras.discount.code})`, `−${thb(extras.discount.amount)}`)) : "",
     extras.memberDiscount ? detailRow(extras.memberDiscount.label, `−${thb(extras.memberDiscount.amount)}`) : "",
     extras.taxInvoice ? detailRow("Tax invoice", `Requested for ${extras.taxInvoice.name} (Tax ID ${extras.taxInvoice.taxId}, ${extras.taxInvoice.branch})`) : "",
   ].join("") : "";

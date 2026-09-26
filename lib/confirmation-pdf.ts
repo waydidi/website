@@ -75,14 +75,16 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
 
   // Discounts and requests, just above the total.
   const lines: [string, string][] = extras ? [
-    ...(extras.discount ? [[`Discount (${extras.discount.code})`, `-THB ${extras.discount.amount.toLocaleString()}`] as [string, string]] : []),
+    ...(extras.discount ? [[/^(exclusive discount|special price)$/i.test(extras.discount.code) ? "Exclusive discount" : `Discount (${extras.discount.code})`, `-THB ${extras.discount.amount.toLocaleString()}`] as [string, string]] : []),
     ...(extras.memberDiscount ? [[extras.memberDiscount.label, `-THB ${extras.memberDiscount.amount.toLocaleString()}`] as [string, string]] : []),
     ...(extras.taxInvoice ? [["Tax invoice requested", fitText(latin(`${extras.taxInvoice.name} · Tax ID ${extras.taxInvoice.taxId}`) || `Tax ID ${extras.taxInvoice.taxId}`, regular, 9.5, 300)] as [string, string]] : []),
   ] : [];
   lines.forEach(([label, value], index) => {
     const y = 140 + (lines.length - 1 - index) * 13;
     page.drawText(label, { x: 46, y, size: 9.5, font: regular, color: rgb(0.38, 0.43, 0.52) });
-    page.drawText(value, { x: 549 - regular.widthOfTextAtSize(value, 9.5), y, size: 9.5, font: regular, color: ink });
+    const exclusive = label === "Exclusive discount";
+    const font = exclusive ? bold : regular;
+    page.drawText(value, { x: 549 - font.widthOfTextAtSize(value, 9.5), y, size: 9.5, font, color: exclusive ? rgb(0.86, 0.15, 0.15) : ink });
   });
 
   // Additional services box: picture, name, price on the right.

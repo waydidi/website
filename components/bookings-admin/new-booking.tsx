@@ -132,7 +132,7 @@ export function NewBookingButton({ service }: { service: Service }) {
               <label className="flex items-center justify-between gap-3"><span>Currency exchange stop · {thb(EXCHANGE_STOP_THB)}</span><input type="checkbox" checked={f.exchangeStop} onChange={(e) => set("exchangeStop", e.target.checked)} className="size-5 accent-[#FF8A05]" /></label>
               <div className="flex items-center justify-between gap-3"><span>Ferry &amp; hotel transfer · {thb(FERRY_HOTEL_THB)} per person</span><Stepper value={f.ferryPeople} set={(n) => set("ferryPeople", n)} max={f.passengers} labelText="ferry tickets" /></div>
             </div>
-            <label className={label}>Discount (THB, optional)<input type="number" min={0} inputMode="numeric" className={field} value={f.discount} onChange={(e) => set("discount", e.target.value)} placeholder="0" /></label>
+            <label className={label}>Exclusive discount (THB, optional)<input type="number" min={0} inputMode="numeric" className={field} value={f.discount} onChange={(e) => set("discount", e.target.value)} placeholder="0" /></label>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 p-3">
               <div role="radiogroup" aria-label="Payment" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
                 {([[true, "Paid"], [false, "Pay in cash"]] as const).map(([v, text]) => <button key={text} type="button" role="radio" aria-checked={f.paid === v} onClick={() => set("paid", v)} className={`h-9 rounded-lg px-4 text-[14px] ${f.paid === v ? `bg-white font-medium shadow-sm ${v ? "text-emerald-700" : "text-red-600"}` : "text-slate-600"}`}>{text}</button>)}
