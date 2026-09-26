@@ -41,15 +41,15 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  // Header: headline top-left, Waydidi top-right, reference underneath.
+  // Header: Waydidi logo above the headline, booking reference on the right.
   page.drawRectangle({ x: 0, y: 726, width: 595, height: 116, color: orange });
   const logo = await pdf.embedPng(Uint8Array.from(atob(logoPng), (c) => c.charCodeAt(0)));
-  const logoH = 51;
-  page.drawImage(logo, { x: 34, y: 778, width: (logo.width / logo.height) * logoH, height: logoH });
-  page.drawText("Your ride is booked.", { x: 46, y: 750, size: 28, font: bold, color: rgb(1, 1, 1) });
+  const logoH = 56;
+  page.drawImage(logo, { x: 33, y: 773, width: (logo.width / logo.height) * logoH, height: logoH });
+  page.drawText("Your ride is booked.", { x: 46, y: 746.5, size: 29, font: bold, color: rgb(1, 1, 1) });
   // Right column: label with the reference under it, bottom-aligned with the headline.
-  page.drawText("Booking reference", { x: 549 - bold.widthOfTextAtSize("Booking reference", 14), y: 766, size: 14, font: bold, color: rgb(1, 1, 1) });
-  page.drawText(booking.reference, { x: 549 - regular.widthOfTextAtSize(booking.reference, 10), y: 750, size: 10, font: regular, color: rgb(1, 1, 1) });
+  page.drawText("Booking reference", { x: 549 - bold.widthOfTextAtSize("Booking reference", 14), y: 762.5, size: 14, font: bold, color: rgb(1, 1, 1) });
+  page.drawText(booking.reference, { x: 549 - regular.widthOfTextAtSize(booking.reference, 10), y: 746.5, size: 10, font: regular, color: rgb(1, 1, 1) });
 
   const fields = [
     ["Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : "Private transfer"],
