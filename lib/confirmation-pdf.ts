@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { BookingExtras } from "@/lib/booking-extras";
+import { childSeatPng, exchangePng, ferryPng } from "@/lib/pdf-addon-images";
 import { waitingLine } from "@/lib/waiting-policy";
 
 type Confirmation = {
@@ -72,18 +73,37 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
     drawField(page, bold, label, value, column === 0 ? 46 : 315, 640 - row * 72);
   });
 
-  // Price breakdown and requests, just above the total (up to four lines).
-  const breakdown: [string, string][] = extras ? [
-    ...extras.addons.map((line): [string, string] => [line.label, line.amount > 0 ? `+THB ${line.amount.toLocaleString()}` : "Free"]),
+  // Discounts and requests, just above the total.
+  const lines: [string, string][] = extras ? [
     ...(extras.discount ? [[`Discount (${extras.discount.code})`, `-THB ${extras.discount.amount.toLocaleString()}`] as [string, string]] : []),
     ...(extras.memberDiscount ? [[extras.memberDiscount.label, `-THB ${extras.memberDiscount.amount.toLocaleString()}`] as [string, string]] : []),
     ...(extras.taxInvoice ? [["Tax invoice requested", fitText(latin(`${extras.taxInvoice.name} · Tax ID ${extras.taxInvoice.taxId}`) || `Tax ID ${extras.taxInvoice.taxId}`, regular, 9.5, 300)] as [string, string]] : []),
-  ].slice(0, 4) : [];
-  breakdown.forEach(([label, value], index) => {
-    const y = 180 - index * 13;
+  ] : [];
+  lines.forEach(([label, value], index) => {
+    const y = 140 + (lines.length - 1 - index) * 13;
     page.drawText(label, { x: 46, y, size: 9.5, font: regular, color: rgb(0.38, 0.43, 0.52) });
     page.drawText(value, { x: 549 - regular.widthOfTextAtSize(value, 9.5), y, size: 9.5, font: regular, color: ink });
   });
+
+  // Additional services box: picture, name, price on the right.
+  const addons = (extras?.addons ?? []).slice(0, 3);
+  if (addons.length) {
+    const rowH = 34;
+    const bottom = lines.length ? 136 + lines.length * 13 + 8 : 142;
+    const height = addons.length * rowH + 22;
+    page.drawRectangle({ x: 42, y: bottom, width: 511, height, color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.89, 0.91), borderWidth: 0.8 });
+    page.drawText("ADDITIONAL SERVICES", { x: 56, y: bottom + height - 14, size: 8, font: bold, color: orange });
+    for (const [index, line] of addons.entries()) {
+      const top = bottom + height - 22 - index * rowH;
+      const png = /child seat/i.test(line.label) ? childSeatPng : /ferry/i.test(line.label) ? ferryPng : exchangePng;
+      const image = await pdf.embedPng(Uint8Array.from(atob(png), (c) => c.charCodeAt(0)));
+      const scale = 28 / Math.max(image.width, image.height);
+      page.drawImage(image, { x: 56, y: top - rowH + 3, width: image.width * scale, height: image.height * scale });
+      page.drawText(latin(line.label), { x: 94, y: top - rowH / 2 - 2, size: 10.5, font: bold, color: ink });
+      const price = line.amount > 0 ? `THB ${line.amount.toLocaleString()}` : "Free";
+      page.drawText(price, { x: 539 - bold.widthOfTextAtSize(price, 10.5), y: top - rowH / 2 - 2, size: 10.5, font: bold, color: ink });
+    }
+  }
 
   page.drawRectangle({ x: 42, y: 72, width: 511, height: 58, color: paleOrange, borderColor: rgb(1, 0.82, 0.64), borderWidth: 0.7 });
   page.drawText("BOOKING TOTAL", { x: 62, y: 103, size: 9, font: bold, color: orange });
