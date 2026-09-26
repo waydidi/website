@@ -48,9 +48,9 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   const logoH = 51;
   page.drawImage(logo, { x: 34, y: 768, width: (logo.width / logo.height) * logoH, height: logoH });
   page.drawText("Your ride is booked.", { x: 46, y: 740, size: 31, font: bold, color: rgb(1, 1, 1) });
-  // Right column: label on the logo row, reference on the headline row.
-  page.drawText("Booking reference", { x: 549 - bold.widthOfTextAtSize("Booking reference", 16), y: 787, size: 16, font: bold, color: rgb(1, 1, 1) });
-  page.drawText(booking.reference, { x: 549 - regular.widthOfTextAtSize(booking.reference, 14), y: 742, size: 14, font: regular, color: rgb(1, 1, 1) });
+  // Right column, on the logo row: label with the reference just under it.
+  page.drawText("Booking reference", { x: 549 - bold.widthOfTextAtSize("Booking reference", 14), y: 790, size: 14, font: bold, color: rgb(1, 1, 1) });
+  page.drawText(booking.reference, { x: 549 - regular.widthOfTextAtSize(booking.reference, 10), y: 776, size: 10, font: regular, color: rgb(1, 1, 1) });
 
   const fields = [
     ["Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : "Private transfer"],
