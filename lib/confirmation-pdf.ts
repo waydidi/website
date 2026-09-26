@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import type { BookingExtras } from "@/lib/booking-extras";
 import { childSeatPng, exchangePng, ferryPng, logoPng } from "@/lib/pdf-addon-images";
 
@@ -28,11 +28,6 @@ function fitText(value: string, font: PDFFont, size: number, maxWidth: number) {
 // The standard PDF font only covers Latin-1; drop other characters (e.g. Thai) rather than fail.
 function latin(value: string) {
   return value.replace(/[^\x20-\x7E\xA0-\xFF]/g, "").replace(/\s+/g, " ").trim();
-}
-
-function drawField(page: PDFPage, bold: PDFFont, label: string, value: string, x: number, y: number, color = ink) {
-  page.drawText(label.toUpperCase(), { x, y, size: 8.5, font: bold, color: muted });
-  page.drawText(fitText(value, bold, 11.5, 220), { x, y: y - 17, size: 11.5, font: bold, color });
 }
 
 export async function createConfirmationPdf(booking: Confirmation, extras?: BookingExtras) {
@@ -69,12 +64,14 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
     ["Total", `THB ${booking.total.toLocaleString()}`],
   ].slice(0, 10) as string[][];
 
+  // One column: label on the left, value lined up in a second column.
   fields.forEach(([label, value], index) => {
-    const column = index % 2;
-    const row = Math.floor(index / 2);
+    const y = 684 - index * 28;
     // Payment status in colour: LINE MAN green when paid, vivid red when cash is due.
     const color = label !== "Payment" ? ink : value === "PAID" ? rgb(0.024, 0.78, 0.333) : value === "Pay in Cash" ? rgb(1, 0.122, 0.176) : ink;
-    drawField(page, bold, label, value, column === 0 ? 46 : 315, 680 - row * 72, color);
+    page.drawText(label.toUpperCase(), { x: 46, y: y + 1.5, size: 8.5, font: bold, color: muted });
+    page.drawText(fitText(value, bold, 11.5, 360), { x: 189, y, size: 11.5, font: bold, color });
+    if (index < fields.length - 1) page.drawLine({ start: { x: 46, y: y - 10 }, end: { x: 549, y: y - 10 }, thickness: 0.5, color: rgb(0.92, 0.93, 0.95) });
   });
 
   // Discounts go inside the total box; a tax-invoice note sits just above it.
