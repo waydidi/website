@@ -109,6 +109,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
     page.drawSvgPath(`M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w} ${r} V ${height - r} A ${r} ${r} 0 0 1 ${w - r} ${height} H ${r} A ${r} ${r} 0 0 1 0 ${height - r} V ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`,
       { x: 42, y: bottom + height, color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.89, 0.91), borderWidth: 0.8 });
     page.drawText("ADDITIONAL SERVICES", { x: 46, y: bottom + height + 8, size: 9, font: bold, color: orange });
+    const widestAmount = Math.max(0, ...addons.filter((l) => l.amount > 0).map((l) => bold.widthOfTextAtSize(l.amount.toLocaleString(), 10.5)));
     for (const [index, line] of addons.entries()) {
       const top = bottom + height - index * rowH;
       if (index > 0) page.drawLine({ start: { x: 42, y: top }, end: { x: 553, y: top }, thickness: 0.6, color: rgb(0.88, 0.89, 0.91) });
@@ -117,8 +118,13 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
       const scale = 26 / Math.max(image.width, image.height);
       page.drawImage(image, { x: 70 - (image.width * scale) / 2, y: top - rowH / 2 - (image.height * scale) / 2, width: image.width * scale, height: image.height * scale });
       page.drawText(latin(line.label), { x: 94, y: top - rowH / 2 - 3.5, size: 10.5, font: bold, color: ink });
-      const price = line.amount > 0 ? `THB ${line.amount.toLocaleString()}` : "Free";
-      page.drawText(price, { x: 539 - bold.widthOfTextAtSize(price, 10.5), y: top - rowH / 2 - 3.5, size: 10.5, font: bold, color: ink });
+      // "THB" lines up in one column; the amounts stay right-aligned.
+      const priceY = top - rowH / 2 - 3.5;
+      if (line.amount > 0) {
+        const amount = line.amount.toLocaleString();
+        page.drawText("THB", { x: 539 - widestAmount - bold.widthOfTextAtSize("THB ", 10.5), y: priceY, size: 10.5, font: bold, color: ink });
+        page.drawText(amount, { x: 539 - bold.widthOfTextAtSize(amount, 10.5), y: priceY, size: 10.5, font: bold, color: ink });
+      } else page.drawText("Free", { x: 539 - bold.widthOfTextAtSize("Free", 10.5), y: priceY, size: 10.5, font: bold, color: ink });
     }
   }
 
