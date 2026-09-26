@@ -42,7 +42,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
   // Header: Waydidi logo above the headline, booking reference on the right.
-  page.drawRectangle({ x: 0, y: 726, width: 595, height: 116, color: orange });
+  page.drawRectangle({ x: 0, y: 720, width: 595, height: 122, color: orange });
   const logo = await pdf.embedPng(Uint8Array.from(atob(logoPng), (c) => c.charCodeAt(0)));
   const logoH = 56;
   page.drawImage(logo, { x: 33, y: 773, width: (logo.width / logo.height) * logoH, height: logoH });
