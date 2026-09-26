@@ -32,7 +32,7 @@ function latin(value: string) {
 
 function drawField(page: PDFPage, bold: PDFFont, label: string, value: string, x: number, y: number, color = ink) {
   page.drawText(label.toUpperCase(), { x, y, size: 8.5, font: bold, color: muted });
-  page.drawText(fitText(value, bold, 11.5, 220), { x, y: y - 23, size: 11.5, font: bold, color });
+  page.drawText(fitText(value, bold, 11.5, 220), { x, y: y - 17, size: 11.5, font: bold, color });
 }
 
 export async function createConfirmationPdf(booking: Confirmation, extras?: BookingExtras) {

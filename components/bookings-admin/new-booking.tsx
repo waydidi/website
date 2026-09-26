@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
+import { isAirportPickup } from "@/lib/trip-rules";
 import { VEHICLES } from "@/lib/vehicles";
 
 type Service = "transfer" | "hourly" | "tour";
@@ -52,6 +53,7 @@ export function NewBookingButton({ service }: { service: Service }) {
         ...f, fare, discount, sendEmail,
         bookedHours: f.serviceType === "hourly" ? f.bookedHours : undefined,
         returnDate: f.returnOn ? f.returnDate : "", returnTime: f.returnOn ? f.returnTime : "",
+        flightNumber: isAirportPickup({ pickup: f.pickup, flightNumber: null }) ? f.flightNumber : "",
       }) });
       const out = await res.json().catch(() => ({})) as { error?: string; reference?: string; total?: number; emailStatus?: string };
       if (!res.ok || !out.reference) throw new Error(out.error ?? "The booking could not be saved.");
@@ -104,7 +106,8 @@ export function NewBookingButton({ service }: { service: Service }) {
                 <label className={label}>Return time<input type="time" className={field} value={f.returnTime} onChange={(e) => set("returnTime", e.target.value)} /></label>
               </div>}
             </>}
-            <label className={label}>Flight number (optional)<input className={field} value={f.flightNumber} onChange={(e) => set("flightNumber", e.target.value.toUpperCase())} placeholder="TG 123" /></label>
+            {/* Only shown for airport pickups. */}
+            {isAirportPickup({ pickup: f.pickup, flightNumber: null }) && <label className={label}>Flight number (optional)<input className={field} value={f.flightNumber} onChange={(e) => set("flightNumber", e.target.value.toUpperCase())} placeholder="TG 123" /></label>}
           </section>
 
           <section className="grid gap-3 border-t border-slate-100 pt-4">
