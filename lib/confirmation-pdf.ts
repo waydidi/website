@@ -43,14 +43,14 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
   // Header: headline top-left, Waydidi top-right, reference underneath.
-  page.drawRectangle({ x: 0, y: 712, width: 595, height: 130, color: orange });
+  page.drawRectangle({ x: 0, y: 726, width: 595, height: 116, color: orange });
   const logo = await pdf.embedPng(Uint8Array.from(atob(logoPng), (c) => c.charCodeAt(0)));
   const logoH = 51;
-  page.drawImage(logo, { x: 34, y: 768, width: (logo.width / logo.height) * logoH, height: logoH });
-  page.drawText("Your ride is booked.", { x: 46, y: 740, size: 31, font: bold, color: rgb(1, 1, 1) });
+  page.drawImage(logo, { x: 34, y: 778, width: (logo.width / logo.height) * logoH, height: logoH });
+  page.drawText("Your ride is booked.", { x: 46, y: 750, size: 31, font: bold, color: rgb(1, 1, 1) });
   // Right column, on the logo row: label with the reference just under it.
-  page.drawText("Booking reference", { x: 549 - bold.widthOfTextAtSize("Booking reference", 14), y: 790, size: 14, font: bold, color: rgb(1, 1, 1) });
-  page.drawText(booking.reference, { x: 549 - regular.widthOfTextAtSize(booking.reference, 10), y: 776, size: 10, font: regular, color: rgb(1, 1, 1) });
+  page.drawText("Booking reference", { x: 549 - bold.widthOfTextAtSize("Booking reference", 14), y: 800, size: 14, font: bold, color: rgb(1, 1, 1) });
+  page.drawText(booking.reference, { x: 549 - regular.widthOfTextAtSize(booking.reference, 10), y: 786, size: 10, font: regular, color: rgb(1, 1, 1) });
 
   const fields = [
     ["Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : "Private transfer"],
@@ -73,7 +73,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   fields.forEach(([label, value], index) => {
     const column = index % 2;
     const row = Math.floor(index / 2);
-    drawField(page, bold, label, value, column === 0 ? 46 : 315, 662 - row * 72);
+    drawField(page, bold, label, value, column === 0 ? 46 : 315, 680 - row * 72);
   });
 
   // Discounts and requests, just above the total.
