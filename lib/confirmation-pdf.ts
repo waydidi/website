@@ -106,7 +106,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
       const png = /child seat/i.test(line.label) ? childSeatPng : /ferry/i.test(line.label) ? ferryPng : exchangePng;
       const image = await pdf.embedPng(Uint8Array.from(atob(png), (c) => c.charCodeAt(0)));
       const scale = 26 / Math.max(image.width, image.height);
-      page.drawImage(image, { x: 56, y: top - rowH / 2 - (image.height * scale) / 2, width: image.width * scale, height: image.height * scale });
+      page.drawImage(image, { x: 70 - (image.width * scale) / 2, y: top - rowH / 2 - (image.height * scale) / 2, width: image.width * scale, height: image.height * scale });
       page.drawText(latin(line.label), { x: 94, y: top - rowH / 2 - 3.5, size: 10.5, font: bold, color: ink });
       const price = line.amount > 0 ? `THB ${line.amount.toLocaleString()}` : "Free";
       page.drawText(price, { x: 539 - bold.widthOfTextAtSize(price, 10.5), y: top - rowH / 2 - 3.5, size: 10.5, font: bold, color: ink });
