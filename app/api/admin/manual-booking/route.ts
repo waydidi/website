@@ -44,6 +44,18 @@ const schema = z.object({
 // Admin: record a booking taken by phone, LINE or an agency. Saved as a normal
 // confirmed booking (source "manual"), so it shows everywhere and gets the same PDF.
 export async function POST(request: Request) {
+  try {
+    return await saveManualBooking(request);
+  } catch (error) {
+    // Admin-only endpoint: show the real reason so it can be fixed (e.g. a missing secret).
+    console.error("Manual booking failed", error);
+    const message = error instanceof Error ? error.message : String(error);
+    const hint = /TRIP_PIN_SECRET/.test(message) ? " Add a WAYDIDI_TRIP_PIN_SECRET (32+ characters) in Cloudflare → Workers → waydidi-website → Settings → Variables and Secrets." : "";
+    return NextResponse.json({ error: `The booking could not be saved: ${message}.${hint}` }, { status: 500 });
+  }
+}
+
+async function saveManualBooking(request: Request) {
   if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
   if (!(await getWaydidiAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
