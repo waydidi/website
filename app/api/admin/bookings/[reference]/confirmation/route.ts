@@ -7,7 +7,6 @@ import { bookingExtras } from "@/lib/booking-extras";
 import { createConfirmationPdf } from "@/lib/confirmation-pdf";
 import { sendConfirmationEmail } from "@/lib/email";
 import { sameOrigin } from "@/lib/security";
-import { tripPinForReference } from "@/lib/trip-pin";
 
 async function load(reference: string) {
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
@@ -46,7 +45,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
     returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
-    extras, tripPin: await tripPinForReference(booking.reference),
+    extras,
   });
   await getDb().update(bookings).set({ emailStatus: email.status, updatedAt: new Date().toISOString() }).where(eq(bookings.reference, reference));
   if (email.status !== "sent") return NextResponse.json({ error: email.status === "pending_configuration" ? "Email isn't set up yet." : "The email could not be sent." }, { status: 502 });

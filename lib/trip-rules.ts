@@ -21,7 +21,7 @@ export type DriverStatus = (typeof DRIVER_STATUSES)[number];
 export const NEXT_DRIVER_STATUS: Partial<Record<DriverStatus, DriverStatus>> = {
   assigned: "going_to_standby",
   going_to_standby: "standby",
-  standby: "passenger_verified",
+  standby: "trip_started",
   passenger_verified: "trip_started",
   trip_started: "completed",
   passenger_picked_up: "completed",

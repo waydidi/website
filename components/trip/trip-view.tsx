@@ -5,7 +5,6 @@ import {
   CircleAlert,
   Copy,
   ExternalLink,
-  KeyRound,
   LoaderCircle,
   MapPin,
   Navigation,
@@ -44,7 +43,6 @@ type Trip = {
   dropoffPoint: Point | null;
   meetingPoint: string | null;
   pickupSign: string | null;
-  tripPin: string | null;
   timeline: Array<{ stage: Stage; at: string | null }>;
   location: (Point & { accuracyMetres: number; at: string }) | null;
   eta: { minutes: number; target: "pickup" | "dropoff" } | null;
@@ -165,17 +163,6 @@ export function TripView({ reference }: { reference: string }) {
           <section className="rounded-[26px] bg-white p-5 shadow-sm">
             <p className="leading-7 text-slate-700">{trip.stage === "no_show" ? t("trip.noShowHelp") : t("trip.notFoundHelp")}</p>
             <Link href="/contact" className="mt-4 inline-flex h-12 items-center rounded-full bg-ink px-6 font-bold text-white">{t("trip.contact")}</Link>
-          </section>
-        )}
-
-        {trip.tripPin && (
-          <section className="flex items-center gap-4 rounded-[26px] bg-white p-5 shadow-sm">
-            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-soft text-brand-deep"><KeyRound size={22} aria-hidden="true" /></span>
-            <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[.14em] text-brand-deep">{t("trip.pin.title")}</p>
-              <p className="mt-1 text-3xl font-black tracking-[.25em]">{trip.tripPin}</p>
-              <p className="mt-1 text-sm text-slate-600">{t("trip.pin.help")}</p>
-            </div>
           </section>
         )}
 

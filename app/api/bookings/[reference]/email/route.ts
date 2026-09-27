@@ -7,7 +7,6 @@ import { bookingEvents, bookings } from "@/db/schema";
 import { createConfirmationPdf } from "@/lib/confirmation-pdf";
 import { sendConfirmationEmail } from "@/lib/email";
 import { constantTimeEqual, isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
-import { tripPinForReference } from "@/lib/trip-pin";
 
 export async function POST(request: Request, context: { params: Promise<{ reference: string }> }) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-site request blocked." }, { status: 403 });
@@ -33,7 +32,6 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
     extras,
-    tripPin: await tripPinForReference(reference),
   });
   const now = new Date().toISOString();
   await getDb().update(bookings).set({ emailStatus: email.status, updatedAt: now }).where(eq(bookings.reference, reference));

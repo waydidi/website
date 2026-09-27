@@ -23,7 +23,6 @@ type ConfirmationEmailInput = {
   retryId?: string;
   serviceType?: string;
   bookedHours?: number | null;
-  tripPin: string;
   returnPickup?: string | null;
   returnDropoff?: string | null;
   returnDate?: string | null;
@@ -120,7 +119,7 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
 <tr><td style="padding:34px 38px 38px">
 <p style="margin:0 0 10px;color:#211726;font-size:17px;line-height:1.6">Hi ${safeName},</p>
 <p style="margin:0 0 24px;color:#586579;font-size:16px;line-height:1.6">Your private transfer is confirmed. Keep this email and the attached PDF for your pickup.</p>
-<div style="margin:0 0 24px;padding:22px;border-radius:18px;background:#fff0de;text-align:center"><p style="margin:0;color:#b85e00;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Trip PIN</p><p style="margin:8px 0 4px;color:#211726;font-size:34px;font-weight:800;letter-spacing:.22em">${escapeHtml(input.tripPin)}</p><p style="margin:0;color:#6d7889;font-size:13px">Tell this PIN to your driver at pickup. Do not send it in advance.</p></div>
+
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
 ${detailRow("Service", input.serviceType === "hourly" ? `${input.bookedHours}-hour private driver` : "Private transfer")}
 ${detailRow("Pickup", input.pickup)}
@@ -146,7 +145,7 @@ ${detailRow("Total", total)}
 
   const text = [
     "Your ride is booked.", `Booking reference: ${input.reference}`, "", `Hi ${input.name},`,
-    "Your private transfer is confirmed.", "", `Trip PIN: ${input.tripPin}`, "Tell this PIN to your driver at pickup. Do not send it in advance.", "", `Pickup: ${input.pickup}`, `Drop-off: ${input.dropoff}`,
+    "Your private transfer is confirmed.", "", `Pickup: ${input.pickup}`, `Drop-off: ${input.dropoff}`,
     `Date and time: ${formattedDate}`,
     ...(input.returnDate && input.returnTime ? [`Return: ${input.returnPickup ?? input.dropoff} to ${input.returnDropoff ?? input.pickup}`, `Return date and time: ${displayDate(input.returnDate, input.returnTime)}`] : []),
     `Travelers: ${input.passengers} passengers - ${input.luggage} bags`,

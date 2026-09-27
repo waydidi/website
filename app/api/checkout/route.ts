@@ -24,7 +24,6 @@ import { paymentProviderFor } from "@/lib/payments/provider";
 import { VEHICLES, vehicleFits } from "@/lib/vehicles";
 import { fulfillBooking } from "@/lib/booking-fulfillment";
 import { checkoutInputSchema, validationError, type CheckoutInput } from "@/lib/booking-validation";
-import { tripPinForReference, tripPinHash } from "@/lib/trip-pin";
 import { uniqueBookingReference } from "@/lib/booking-reference-server";
 import { bangkokDepartureTimestamp } from "@/lib/booking-time";
 import {
@@ -412,7 +411,6 @@ export async function POST(request: Request) {
     }
     const accessToken = recoveryToken;
     const now = new Date().toISOString();
-    const tripPin = await tripPinForReference(reference);
     let flight: FlightSnapshot | null = null;
     if (input.flightNumber?.trim()) {
       try { flight = await lookupFlight(input.flightNumber, input.pickupDate); }
@@ -457,8 +455,6 @@ export async function POST(request: Request) {
         termsAcceptedAt: now,
         policyVersion: POLICY_VERSION,
         accessTokenHash: await sha256(accessToken),
-        tripPinHash: await tripPinHash(reference, tripPin),
-        tripPinCreatedAt: now,
         emailStatus: "pending",
         createdAt: now,
         updatedAt: now,

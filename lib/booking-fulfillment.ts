@@ -6,7 +6,6 @@ import { getDb } from "@/db";
 import { bookings, operationsAlerts } from "@/db/schema";
 import { createConfirmationPdf } from "@/lib/confirmation-pdf";
 import { sendConfirmationEmail, sendOperationsAlert } from "@/lib/email";
-import { tripPinForReference } from "@/lib/trip-pin";
 
 type Booking = typeof bookings.$inferSelect;
 
@@ -28,7 +27,6 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
   )).returning();
   if (!claimed) return { emailStatus: booking.emailStatus, pdfKey: booking.pdfKey };
   try {
-  const tripPin = await tripPinForReference(booking.reference);
   const extras = await bookingExtras(booking);
   const pdf = await createConfirmationPdf(booking, extras);
   const pdfKey = `confirmations/${booking.reference}.pdf`;
@@ -45,7 +43,6 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
     returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
     extras,
-    tripPin,
   });
   // Copies for the booker or anyone the customer added. A failed copy never blocks the booking.
   for (const copyTo of await contactEmails(booking.reference)) {
@@ -60,7 +57,6 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
       returnDate: booking.returnDate, returnTime: booking.returnTime,
       outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
       extras,
-      tripPin,
     }).catch(() => undefined);
   }
   await sendOperationsAlert(booking);

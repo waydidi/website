@@ -21,7 +21,9 @@ const at = (iso) => new Date(iso).getTime();
 test("steps run in order and passenger_picked_up is only a legacy route to completion", () => {
   const chain = ["assigned"];
   while (rules.NEXT_DRIVER_STATUS[chain.at(-1)]) chain.push(rules.NEXT_DRIVER_STATUS[chain.at(-1)]);
-  assert.deepEqual(chain, ["assigned", "going_to_standby", "standby", "passenger_verified", "trip_started", "completed"]);
+  assert.deepEqual(chain, ["assigned", "going_to_standby", "standby", "trip_started", "completed"]);
+  // Trips verified with the old Trip PIN can still move on to the ride.
+  assert.equal(rules.NEXT_DRIVER_STATUS.passenger_verified, "trip_started");
   assert.equal(rules.NEXT_DRIVER_STATUS.passenger_picked_up, "completed");
   assert.equal(rules.NEXT_DRIVER_STATUS.no_show, undefined);
   assert.equal(rules.NEXT_DRIVER_STATUS.completed, undefined);

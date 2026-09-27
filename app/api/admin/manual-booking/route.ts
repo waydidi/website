@@ -8,7 +8,6 @@ import { addonsTotal } from "@/lib/addons";
 import { uniqueBookingReference } from "@/lib/booking-reference-server";
 import { fulfillBooking } from "@/lib/booking-fulfillment";
 import { isJsonRequest, sameOrigin, secureToken, sha256 } from "@/lib/security";
-import { tripPinForReference, tripPinHash } from "@/lib/trip-pin";
 import { VEHICLES } from "@/lib/vehicles";
 
 const POLICY_VERSION = "2026-09-07";
@@ -104,8 +103,6 @@ async function saveManualBooking(request: Request) {
     termsAcceptedAt: now,
     policyVersion: POLICY_VERSION,
     accessTokenHash: await sha256(secureToken()),
-    tripPinHash: await tripPinHash(reference, await tripPinForReference(reference)),
-    tripPinCreatedAt: now,
     emailStatus: "pending",
     fulfillmentStatus: "pending",
     createdAt: now, updatedAt: now,

@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { GoogleRoutePicker, type RouteInfo } from "@/components/google-route-picker";
 type Booking = {
-  tripPin: string;
   tripKey?: string;
   reference: string;
   status: string;
@@ -317,11 +316,6 @@ export default function BookingLookup() {
             {tab === "details" && (
               <>
                 <Heading icon={CarFront} title="Booking details" />
-                <div className="mt-6 rounded-3xl bg-[#FFF0DE] p-6 text-center">
-                  <p className="text-xs font-black uppercase tracking-[.16em] text-[#B85E00]">Trip PIN</p>
-                  <p className="mt-2 text-4xl font-black tracking-[.25em]">{b.tripPin}</p>
-                  <p className="mt-2 text-sm text-slate-600">Give this PIN to your driver only when you meet at pickup.</p>
-                </div>
                 {b.status === "confirmed" && (
                   <a href={`/trip/${encodeURIComponent(b.reference)}${b.tripKey ? `?key=${b.tripKey}` : ""}`} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-[#211726] px-6 font-bold text-white">
                     Track your trip

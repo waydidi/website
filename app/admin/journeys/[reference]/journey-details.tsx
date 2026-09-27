@@ -284,10 +284,7 @@ export default function JourneyDetails({ reference }: { reference: string }) {
                   <Clipboard size={16} />
                   Copy link
                 </button>
-                {assignment.currentStatus === "standby" && !assignment.passengerVerifiedAt && (
-                  <button disabled={busy} onClick={() => { const reason = window.prompt("Reason for overriding passenger PIN verification"); if (reason) review({ action: "override_passenger_verification", assignmentId: assignment.id, reason }); }} className="rounded-full border border-amber-300 bg-white px-4 py-2 text-sm font-bold text-amber-800">Override PIN</button>
-                )}
-                {assignment.passengerVerifiedAt && <span className="rounded-full bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-800">Passenger verified · {assignment.passengerVerificationMethod === "operations_override" ? "Admin override" : "Trip PIN"}</span>}
+                {assignment.passengerVerifiedAt && <span className="rounded-full bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-800">Passenger verified · {assignment.passengerVerificationMethod === "operations_override" ? "Admin override" : "Driver"}</span>}
               </div>
             )}
             {latestLocation && (

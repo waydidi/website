@@ -4,7 +4,7 @@ import { bookingAssignments, bookingEvents, bookings } from "@/db/schema";
 import { managedBooking } from "@/lib/booking-management";
 import { parseShareToken, shareIssuedAfterRevoke } from "@/lib/customer-trip-rules";
 import { constantTimeEqual, sha256 } from "@/lib/security";
-import { tripSecretHmacHex } from "@/lib/trip-pin";
+import { tripSecretHmacHex } from "@/lib/trip-secret";
 
 export type TripAccess = "owner" | "shared";
 type Booking = typeof bookings.$inferSelect;

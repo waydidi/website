@@ -5,7 +5,6 @@ import { bookingAssignments, bookings, driverStatusEvents, journeyLocations } fr
 import { CUSTOMER_STAGES, customerStage, etaTarget, freshLocation, locationVisible, shareLinkActive, STAGE_DRIVER_STATUSES, type CustomerStage } from "@/lib/customer-trip-rules";
 import { activeAssignment, resolveTripAccess } from "@/lib/trip-access";
 import { tripEta } from "@/lib/trip-eta";
-import { tripPinForReference } from "@/lib/trip-pin";
 
 type Booking = typeof bookings.$inferSelect;
 
@@ -59,7 +58,6 @@ export async function GET(request: Request, context: { params: Promise<{ referen
     dropoffPoint: point(booking.dropoffLatitude, booking.dropoffLongitude),
     meetingPoint: booking.pickupInstructions,
     pickupSign: owner ? booking.pickupSign || booking.customerName : null,
-    tripPin: owner && !["arrived", "cancelled", "no_show"].includes(stage) ? await tripPinForReference(booking.reference) : null,
     timeline,
     location,
     eta,

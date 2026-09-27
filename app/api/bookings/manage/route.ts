@@ -8,7 +8,6 @@ import {
   managedBooking,
   pickupInstant,
 } from "@/lib/booking-management";
-import { tripPinForReference } from "@/lib/trip-pin";
 import { tripOwnerKey } from "@/lib/trip-access";
 
 export async function GET(request: Request) {
@@ -49,7 +48,6 @@ export async function GET(request: Request) {
         "no_show",
       ].includes(a.currentStatus),
   );
-  const tripPin = await tripPinForReference(booking.reference);
   return NextResponse.json(
     {
       booking: {
@@ -75,7 +73,6 @@ export async function GET(request: Request) {
         refundStatus: booking.refundStatus,
         cancellationReason: booking.cancellationReason,
         bookingVersion: booking.bookingVersion,
-        tripPin,
         tripKey: await tripOwnerKey(booking.reference),
       },
       eligibility: {

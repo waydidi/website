@@ -87,9 +87,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   if (clientEventId && trip.events.some((event) => event.id === clientEventId)) return NextResponse.json({ ok: true, status: requestedStatus, eventId: clientEventId, duplicate: true });
   if (!isDriverStatus(requestedStatus)) return NextResponse.json({ error: "Complete the trip steps in order." }, { status: 409 });
   const noShow = requestedStatus === "no_show";
-  if (noShow ? current !== "standby" : NEXT_DRIVER_STATUS[current] !== requestedStatus) return NextResponse.json({ error: noShow ? "A no-show can only be reported while waiting at pickup, before the Trip PIN is verified." : "Complete the trip steps in order." }, { status: 409 });
-  if (requestedStatus === "passenger_verified") return NextResponse.json({ error: "Verify the passenger using their Trip PIN." }, { status: 409 });
-  if (requestedStatus === "trip_started" && !trip.assignment.passengerVerifiedAt) return NextResponse.json({ error: "Verify the passenger Trip PIN before starting the ride." }, { status: 409 });
+  if (noShow ? current !== "standby" : NEXT_DRIVER_STATUS[current] !== requestedStatus) return NextResponse.json({ error: noShow ? "A no-show can only be reported while waiting at pickup." : "Complete the trip steps in order." }, { status: 409 });
   const note = String(form.get("note") ?? "").trim();
   if (note.length > 500) return NextResponse.json({ error: "The note is too long." }, { status: 400 });
   if (noShow && note.length < NO_SHOW_MIN_NOTE_LENGTH) return NextResponse.json({ error: "Describe how you tried to find the passenger." }, { status: 400 });

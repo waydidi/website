@@ -104,13 +104,6 @@ const steps: Array<{
     help: "แชร์ตำแหน่งปัจจุบันและถ่ายรูปบริเวณจุดรับ",
   },
   {
-    status: "passenger_verified",
-    thai: "ยืนยัน PIN ผู้โดยสาร",
-    english: "PIN verified",
-    action: "ยืนยันผู้โดยสาร",
-    help: "ขอรหัส Trip PIN จากผู้โดยสารเมื่อพบกันที่จุดรับ",
-  },
-  {
     status: "trip_started",
     thai: "เริ่มการเดินทาง",
     english: "On trip",
@@ -141,7 +134,6 @@ export default function DriverTripClient({ token }: { token: string }) {
   } | null>(null);
   const [locationBusy, setLocationBusy] = useState(false);
   const [online, setOnline] = useState(true);
-  const [tripPin, setTripPin] = useState("");
   const [trackingState, setTrackingState] = useState<"off" | "active" | "sending" | "queued" | "error">("off");
   const [lastTrackedAt, setLastTrackedAt] = useState<string | null>(null);
   const [trackingRetry, setTrackingRetry] = useState(0);
@@ -291,7 +283,7 @@ export default function DriverTripClient({ token }: { token: string }) {
   const progressStatuses = ["assigned", ...steps.map((step) => step.status)];
   const currentIndex = trip
     ? trip.assignment.currentStatus === "no_show"
-      ? progressStatuses.indexOf("passenger_verified")
+      ? progressStatuses.indexOf("standby") + 1
       : progressStatuses.indexOf(trip.assignment.currentStatus)
     : 0;
   const next = trip && trip.assignment.currentStatus !== "no_show"
@@ -463,26 +455,6 @@ export default function DriverTripClient({ token }: { token: string }) {
     });
     if (accepted) { setNoShowNote(""); setNoShowPhoto(null); setNoShowOpen(false); }
     setBusy(false);
-  }
-
-  async function verifyPassenger(event: FormEvent) {
-    event.preventDefault();
-    if (!trip || busy) return;
-    setBusy(true); setError(""); setMessage("");
-    try {
-      const currentPosition = await readCurrentLocation();
-      const response = await fetch("/api/driver/passenger/verify", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, pin: tripPin, ...currentPosition }),
-      });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "ตรวจสอบ PIN ไม่สำเร็จ");
-      setTripPin(""); setMessage("ยืนยันผู้โดยสารสำเร็จ สามารถเริ่มการเดินทางได้");
-      await load();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "ตรวจสอบ PIN ไม่สำเร็จ");
-      await load();
-    } finally { setBusy(false); }
   }
 
   async function updateStop(action: "declare" | "clear") {
@@ -745,20 +717,6 @@ export default function DriverTripClient({ token }: { token: string }) {
             )}
             {error && <p role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
           </section>
-        ) : next?.status === "passenger_verified" && !trip.assignment.passengerVerifiedAt ? (
-          <form onSubmit={verifyPassenger} className="rounded-[26px] bg-white p-5 shadow-sm">
-            <span className="inline-flex rounded-full bg-[#FFF0DE] px-3 py-1 text-xs font-black text-[#D96F00]">Passenger verification</span>
-            <h2 className="mt-3 text-2xl font-black">ยืนยัน Trip PIN</h2>
-            <p className="mt-2 leading-6 text-slate-600">ขอรหัส 4 หลักจากผู้โดยสารเมื่อพบกันที่จุดรับ ระบบจะบันทึกเวลาและตำแหน่งนี้</p>
-            <input inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required value={tripPin} onChange={(event) => setTripPin(event.target.value.replace(/\D/g, ""))} placeholder="0000" aria-label="4-digit Trip PIN" className="mt-5 h-16 w-full rounded-2xl border border-slate-200 bg-slate-50 text-center text-3xl font-black tracking-[.35em] outline-none focus:border-[#FF8A05]" />
-            <p className="mt-3 text-sm font-semibold text-slate-500">เหลือ {trip.assignment.passengerVerificationAttemptsRemaining} ครั้ง</p>
-            {error && <p role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
-            {message && <p className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{message}</p>}
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <a href={`tel:${trip.booking.customerPhone}`} className="flex h-13 items-center justify-center gap-2 rounded-full border border-slate-200 font-bold"><Phone size={18}/> โทรหาผู้โดยสาร</a>
-              <button disabled={busy || tripPin.length !== 4 || !online} className="flex h-13 items-center justify-center gap-2 rounded-full bg-[#FF8A05] font-black text-white disabled:opacity-45">{busy ? <LoaderCircle className="animate-spin" size={19}/> : <Check size={19}/>} ยืนยันผู้โดยสาร</button>
-            </div>
-          </form>
         ) : next ? (
           <form
             onSubmit={submit}

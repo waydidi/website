@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 
 type Booking = {
-  tripPin: string;
   reference: string;
   customerName: string;
   customerEmail: string;
@@ -269,13 +268,6 @@ export default function ConfirmationClient({
           </p>
         </div>
         <div className="p-8 sm:p-11">
-          {!cancelled && (
-            <div className="mb-8 rounded-3xl bg-[#FFF0DE] p-6 text-center">
-              <p className="text-xs font-black uppercase tracking-[.16em] text-[#B85E00]">Trip PIN</p>
-              <p className="mt-2 text-4xl font-black tracking-[.25em] text-[#211726]">{booking.tripPin}</p>
-              <p className="mt-2 text-sm text-slate-600">Tell this PIN to your driver at pickup. Do not send it in advance.</p>
-            </div>
-          )}
           <div className="grid gap-8 sm:grid-cols-2">
             {fields.map(([label, value]) => (
               <div key={label}>
