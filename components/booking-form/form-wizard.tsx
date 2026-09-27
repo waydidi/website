@@ -1,10 +1,12 @@
 "use client";
 
-import { ArrowRight, Check, ChevronDown, ChevronUp, LoaderCircle, Luggage, Minus, Plus, UsersRound } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronUp, Lock, LoaderCircle, Luggage, Minus, Pencil, Plus, UsersRound } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
-import { offersFerry, type FormService } from "@/lib/booking-form";
+import { offersFerry, type FormPrefill, type FormService } from "@/lib/booking-form";
+import { PhoneInput } from "@/components/booking-form/phone-input";
+import { PlaceInput } from "@/components/booking-form/place-input";
 import { isAirportPickup } from "@/lib/trip-rules";
 import { smallestFittingVehicle, VEHICLES, vehicleFits, type VehicleId } from "@/lib/vehicles";
 
@@ -14,7 +16,7 @@ type Answers = {
   returnTrip: boolean | null; returnDate: string; returnTime: string;
   passengers: number; luggage: number; vehicle: VehicleId; childSeats: number; exchangeStop: boolean; ferryPeople: number;
 };
-type StepId = "name" | "phone" | "email" | "trip" | "return" | "ride";
+type StepId = "name" | "phone" | "email" | "trip" | "return" | "ride" | "review";
 
 const blank: Answers = {
   name: "", phone: "", email: "", pickup: "", flightNumber: "", dropoff: "", hours: 4, date: "", time: "",
@@ -36,9 +38,16 @@ function Stepper({ value, set, min, max, label }: { value: number; set: (n: numb
 }
 
 // Typeform-style booking form: one step per screen, Enter to continue, progress saved on the device.
-export function FormWizard({ token, service }: { token: string; service: FormService }) {
+export function FormWizard({ token, service, prefill = {} }: { token: string; service: FormService; prefill?: FormPrefill }) {
+  const locked = (k: keyof FormPrefill) => prefill[k] !== undefined;
+  const withPrefill = (x: Answers): Answers => ({
+    ...x,
+    ...(prefill.pickup ? { pickup: prefill.pickup } : {}), ...(prefill.dropoff ? { dropoff: prefill.dropoff } : {}),
+    ...(prefill.hours ? { hours: prefill.hours } : {}), ...(prefill.date ? { date: prefill.date } : {}),
+    ...(prefill.time ? { time: prefill.time } : {}), ...(prefill.vehicle ? { vehicle: prefill.vehicle as VehicleId } : {}),
+  });
   const storageKey = `waydidi-form-${token}`;
-  const [a, setA] = useState<Answers>(blank);
+  const [a, setA] = useState<Answers>(() => withPrefill(blank));
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [error, setError] = useState("");
@@ -51,12 +60,14 @@ export function FormWizard({ token, service }: { token: string; service: FormSer
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null") as { a?: Answers; index?: number } | null;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time restore from device storage
-      if (saved?.a) { setA({ ...blank, ...saved.a }); setIndex(saved.index ?? 0); }
+      if (saved?.a) { setA(withPrefill({ ...blank, ...saved.a })); setIndex(saved.index ?? 0); }
     } catch { /* storage blocked */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once per link
   }, [storageKey]);
   useEffect(() => { try { localStorage.setItem(storageKey, JSON.stringify({ a, index })); } catch { /* storage blocked */ } }, [a, index, storageKey]);
 
-  const steps: StepId[] = ["name", "phone", "email", "trip", ...(service === "transfer" ? ["return" as const] : []), "ride"];
+  const tripLocked = locked("pickup") && (service === "hourly" ? locked("hours") : locked("dropoff")) && locked("date") && locked("time");
+  const steps: StepId[] = ["name", "phone", "email", ...(tripLocked ? [] : ["trip" as const]), ...(service === "transfer" ? ["return" as const] : []), "ride", "review"];
   const step = steps[Math.min(index, steps.length - 1)];
   const set = <K extends keyof Answers>(k: K, v: Answers[K]) => { setA((c) => ({ ...c, [k]: v })); setError(""); };
   const airport = isAirportPickup({ pickup: a.pickup, flightNumber: null });
@@ -110,7 +121,7 @@ export function FormWizard({ token, service }: { token: string; service: FormSer
   }
 
   function setGroup(passengers: number, luggage: number) {
-    setA((c) => ({ ...c, passengers, luggage, vehicle: vehicleFits(c.vehicle, passengers, luggage) ? c.vehicle : smallestFittingVehicle(passengers, luggage) ?? "premium_minivan" }));
+    setA((c) => ({ ...c, passengers, luggage, vehicle: locked("vehicle") || vehicleFits(c.vehicle, passengers, luggage) ? c.vehicle : smallestFittingVehicle(passengers, luggage) ?? "premium_minivan" }));
   }
 
   if (sent) return <main className="grid min-h-dvh place-items-center bg-[#FF8A05] px-6 text-white">
@@ -143,8 +154,8 @@ export function FormWizard({ token, service }: { token: string; service: FormSer
 
         {step === "phone" && <>
           <h1 className="text-[28px] font-bold leading-tight sm:text-[34px]">{firstName ? `Thanks ${firstName}! ` : ""}What&apos;s your WhatsApp number?</h1>
-          <p className="mt-2 text-[17px] text-[#6B6170]">Include your country code, e.g. +44 7700 900123. Your driver will message you here.</p>
-          <input ref={firstInput} type="tel" inputMode="tel" className={`${bigInput} mt-8`} value={a.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+66 81 234 5678" autoComplete="tel" />
+          <p className="mt-2 text-[17px] text-[#6B6170]">Choose your country code, then your number. Your driver will message you here.</p>
+          <div className="mt-8"><PhoneInput inputRef={firstInput} value={a.phone} onChange={(v) => set("phone", v)} className={`${bigInput} min-w-0 flex-1`} /></div>
         </>}
 
         {step === "email" && <>
@@ -156,14 +167,17 @@ export function FormWizard({ token, service }: { token: string; service: FormSer
         {step === "trip" && <>
           <h1 className="text-[28px] font-bold leading-tight sm:text-[34px]">{service === "hourly" ? "Tell us about your day" : service === "tour" ? "Tell us about your tour" : "Tell us about your trip"}</h1>
           <div className="mt-7 grid gap-6">
-            <label className={smallLabel}>Pickup location<input ref={firstInput} className={smallInput} value={a.pickup} onChange={(e) => set("pickup", e.target.value)} placeholder="Airport, hotel name or address" /></label>
+            <label className={smallLabel}>Pickup location{locked("pickup") && <Lock size={13} className="ml-1 inline text-[#9A8F86]" />}<PlaceInput inputRef={firstInput} className={smallInput} value={a.pickup} onChange={(v) => set("pickup", v)} placeholder="Airport, hotel name or address" disabled={locked("pickup")} /></label>
             {airport && <label className={`${smallLabel} animate-in fade-in slide-in-from-top-2`}>Flight number <span className="font-normal text-[#9A8F86]">(optional)</span><input className={smallInput} value={a.flightNumber} onChange={(e) => set("flightNumber", e.target.value.toUpperCase())} placeholder="TG 123" /></label>}
             {service === "hourly"
-              ? <div className={smallLabel}>How many hours?<div className="mt-2"><Stepper value={a.hours} set={(n) => set("hours", n)} min={1} max={24} label="hours" /></div></div>
-              : <label className={smallLabel}>{service === "tour" ? "Which tour?" : "Where are you going?"}<input className={smallInput} value={a.dropoff} onChange={(e) => set("dropoff", e.target.value)} placeholder={service === "tour" ? "e.g. Floating market day trip" : "Hotel name or address"} /></label>}
+              ? <div className={smallLabel}>How many hours?<div className="mt-2">{locked("hours") ? <span className="text-[19px] text-[#1F1726]">{a.hours} hours</span> : <Stepper value={a.hours} set={(n) => set("hours", n)} min={1} max={24} label="hours" />}</div></div>
+              : <label className={smallLabel}>{service === "tour" ? "Which tour?" : "Where are you going?"}{locked("dropoff") && <Lock size={13} className="ml-1 inline text-[#9A8F86]" />}
+                {service === "tour"
+                  ? <input className={smallInput} value={a.dropoff} onChange={(e) => set("dropoff", e.target.value)} placeholder="e.g. Floating market day trip" disabled={locked("dropoff")} />
+                  : <PlaceInput className={smallInput} value={a.dropoff} onChange={(v) => set("dropoff", v)} placeholder="Hotel name or address" disabled={locked("dropoff")} />}</label>}
             <div className="grid grid-cols-2 gap-5">
-              <label className={smallLabel}>Pickup date<input type="date" min={today()} className={smallInput} value={a.date} onChange={(e) => set("date", e.target.value)} /></label>
-              <label className={smallLabel}>Pickup time<input type="time" className={smallInput} value={a.time} onChange={(e) => set("time", e.target.value)} /></label>
+              <label className={smallLabel}>Pickup date<input type="date" min={today()} className={smallInput} value={a.date} onChange={(e) => set("date", e.target.value)} disabled={locked("date")} /></label>
+              <label className={smallLabel}>Pickup time<input type="time" className={smallInput} value={a.time} onChange={(e) => set("time", e.target.value)} disabled={locked("time")} /></label>
             </div>
           </div>
         </>}
@@ -192,9 +206,9 @@ export function FormWizard({ token, service }: { token: string; service: FormSer
 
           <p className="mt-6 text-[15px] font-semibold">Choose your car</p>
           <div className="mt-2 grid grid-cols-2 gap-3">
-            {(Object.keys(VEHICLES) as VehicleId[]).map((id) => {
+            {(Object.keys(VEHICLES) as VehicleId[]).filter((id) => !locked("vehicle") || id === a.vehicle).map((id) => {
               const v = VEHICLES[id];
-              const fits = vehicleFits(id, a.passengers, a.luggage);
+              const fits = locked("vehicle") || vehicleFits(id, a.passengers, a.luggage);
               const chosen = a.vehicle === id;
               return <button key={id} type="button" disabled={!fits} onClick={() => set("vehicle", id)} className={`relative rounded-2xl border-2 bg-white p-3 text-left transition disabled:opacity-40 ${chosen ? "border-[#FF8A05] bg-[#FFF7EE]" : "border-[#F0E3D4] hover:border-[#FFC98A]"}`}>
                 <Image src={`/vehicle-${id.replace(/_/g, "-")}.webp`} alt="" width={200} height={110} unoptimized className="h-16 w-full object-contain" />
@@ -227,6 +241,37 @@ export function FormWizard({ token, service }: { token: string; service: FormSer
           </ul>
         </>}
 
+        {step === "review" && <>
+          <h1 className="text-[28px] font-bold leading-tight sm:text-[34px]">Check your details</h1>
+          <p className="mt-2 text-[17px] text-[#6B6170]">Tap a line to change it, then send.</p>
+          <dl className="mt-6 divide-y divide-[#F0E3D4] rounded-2xl border border-[#F0E3D4] bg-white">
+            {([
+              ["Name", a.name, "name"], ["WhatsApp", a.phone, "phone"], ["Email", a.email, "email"],
+              ["From", a.pickup, "trip"],
+              service === "hourly" ? ["Hours", `${a.hours} hours`, "trip"] : [service === "tour" ? "Tour" : "To", a.dropoff, "trip"],
+              ["Date & time", `${a.date} at ${a.time}`, "trip"],
+              ...(airport && a.flightNumber ? [["Flight", a.flightNumber, "trip"]] : []),
+              ...(service === "transfer" ? [["Return", a.returnTrip ? `${a.returnDate} at ${a.returnTime}` : "No", "return"]] : []),
+              ["Passengers & bags", `${a.passengers} passengers · ${a.luggage} bags`, "ride"],
+              ["Car", VEHICLES[a.vehicle].name, "ride"],
+              ["Extras", [ferry && a.ferryPeople ? `Ferry & Hotel transfer × ${a.ferryPeople}` : "", a.childSeats ? `Child seat × ${a.childSeats}` : "", a.exchangeStop ? "Currency exchange stop" : ""].filter(Boolean).join(", ") || "None", "ride"],
+            ] as [string, string, StepId][]).map(([k, v, target]) => {
+              const at = steps.indexOf(target);
+              return <div key={k}>
+                <button type="button" disabled={at < 0} onClick={() => go(at)} className="flex w-full items-start gap-3 px-4 py-3 text-left enabled:hover:bg-[#FFF7EE]">
+                  <dt className="w-32 shrink-0 text-[14px] text-[#9A8F86]">{k}</dt>
+                  <dd className="min-w-0 flex-1 break-words text-[16px] font-medium">{v}</dd>
+                  {at >= 0 ? <Pencil size={15} className="mt-1 shrink-0 text-[#FF8A05]" /> : <Lock size={15} className="mt-1 shrink-0 text-[#C9BFB5]" />}
+                </button>
+              </div>;
+            })}
+          </dl>
+          {prefill.price !== undefined && <div className="mt-4 flex items-center justify-between rounded-2xl bg-[#FFF0DF] px-4 py-3">
+            <span className="text-[16px] font-semibold">Your agreed price</span>
+            <span className="text-[20px] font-bold">THB {(prefill.price + a.childSeats * CHILD_SEAT_THB + (a.exchangeStop ? EXCHANGE_STOP_THB : 0) + (ferry ? a.ferryPeople * FERRY_HOTEL_THB : 0)).toLocaleString()}</span>
+          </div>}
+        </>}
+
         {error && <p role="alert" className="mt-5 inline-flex rounded-lg bg-[#FFE9E6] px-3 py-1.5 text-[15px] font-medium text-[#C62828]">{error}</p>}
 
         <div className="mt-8 flex items-center gap-3">
@@ -239,7 +284,7 @@ export function FormWizard({ token, service }: { token: string; service: FormSer
       </div>
     </section>
 
-    <nav className="fixed bottom-5 right-5 flex overflow-hidden rounded-lg shadow-md" aria-label="Move between questions">
+    <nav className="fixed bottom-5 right-5 hidden overflow-hidden rounded-lg shadow-md sm:flex" aria-label="Move between questions">
       <button type="button" onClick={() => go(index - 1)} disabled={index === 0} aria-label="Previous question" className="grid size-10 place-items-center border-r border-white/30 bg-[#FF8A05] text-white disabled:opacity-50"><ChevronUp size={22} /></button>
       <button type="button" onClick={() => void next()} disabled={index === steps.length - 1 || busy} aria-label="Next question" className="grid size-10 place-items-center bg-[#FF8A05] text-white disabled:opacity-50"><ChevronDown size={22} /></button>
     </nav>

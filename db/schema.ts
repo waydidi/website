@@ -1169,4 +1169,6 @@ export const bookingForms = sqliteTable("booking_forms", {
   createdAt: text("created_at").notNull(),
   expiresAt: text("expires_at").notNull(),
   submittedAt: text("submitted_at"),
+  prefill: text("prefill"),
+  agencyId: text("agency_id"),
 });

@@ -7,6 +7,13 @@ import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 const STATUSES = ["new", "contacted", "approved", "declined"];
 
+// Approved agencies (they have portal access), for pickers in admin.
+export async function GET() {
+  if (!(await getWaydidiAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const agencies = await getDb().select({ id: agencyApplications.id, name: agencyApplications.agencyName }).from(agencyApplications).where(eq(agencyApplications.status, "approved"));
+  return NextResponse.json({ agencies }, { headers: { "Cache-Control": "no-store" } });
+}
+
 // Change a travel agency application's status.
 export async function PATCH(request: Request) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-site request blocked." }, { status: 403 });

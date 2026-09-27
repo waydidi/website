@@ -120,6 +120,9 @@ export function AgenciesWorkspace({ rows, subscribers }: { rows: AgencyRow[]; su
           </dl>
           {viewing.message && <p className="whitespace-pre-line rounded-xl bg-slate-50 p-3 text-slate-700">{viewing.message}</p>}
           <div className="flex flex-wrap items-center gap-2"><span className="text-[13px] text-slate-500">Status</span><Pill status={viewing.status} /></div>
+          <p className={`rounded-xl p-3 text-[14px] ${viewing.status === "approved" ? "bg-emerald-50 text-emerald-900" : "bg-slate-50 text-slate-600"}`}>{viewing.status === "approved"
+            ? <>Portal access is on. They sign in at <b>/agency</b> with <b>{viewing.email}</b> to see their bookings, download confirmations and send ride requests.</>
+            : <>Mark approved to give them the agency portal (sign-in with {viewing.email}).</>}</p>
           <div className="flex flex-wrap gap-2">
             {(["contacted", "approved", "declined"] as const).filter((s) => s !== viewing.status).map((s) =>
               <button key={s} type="button" disabled={busy} onClick={() => setStatus(viewing, s)} className="h-10 rounded-full border border-slate-200 px-4 font-medium hover:border-[#FF8A05] disabled:opacity-50">Mark {PILL[s][0].toLowerCase()}</button>)}

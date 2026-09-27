@@ -14,6 +14,7 @@ import { listMemberBoxes } from "@/lib/boxes";
 import { TierCard } from "@/components/account/tier-badge";
 import { customerBookings, driverStatuses, requireCustomer } from "@/lib/customer-auth";
 import { tripBucket } from "@/lib/customer-account";
+import { agencyForCustomer } from "@/lib/agency";
 
 export const metadata: Metadata = { title: "My account · Waydidi", robots: { index: false, follow: false } };
 
@@ -44,10 +45,15 @@ export default async function AccountOverview() {
     { href: "/account/profile", label: "Edit profile", icon: UserRound },
     { href: "/contact", label: "Get help", icon: Headphones },
   ];
+  const agency = await agencyForCustomer(customer).catch(() => null);
   return <AccountShell name={customer.name} email={customer.email}>
     <h1 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Hi{customer.name ? `, ${customer.name}` : ""}</h1>
     <p className="mt-2 text-slate-600">{upcoming.length ? `You have ${upcoming.length} upcoming ${upcoming.length === 1 ? "trip" : "trips"}.` : "No upcoming trips yet."}</p>
 
+    {agency && <Link href="/agency" className="mt-6 flex items-center justify-between gap-4 rounded-[22px] bg-[#FF8A05] p-5 text-white hover:bg-[#E67900]">
+      <span><span className="block text-[13px] font-semibold uppercase tracking-[.14em] text-white/80">Agency portal</span><span className="block text-[20px] font-bold">{agency.agencyName}</span><span className="block text-[14px] text-white/90">Your bookings, confirmations and new ride requests</span></span>
+      <span className="text-[26px]" aria-hidden="true">→</span>
+    </Link>}
     {tier && <div className="mt-6"><TierCard status={tier} /></div>}
     {boxes.length > 0 && <div className="mt-4"><MysteryBoxes boxes={boxes} /></div>}
     {gifts.length > 0 && <div className="mt-4"><GiftWallet gifts={gifts} /></div>}

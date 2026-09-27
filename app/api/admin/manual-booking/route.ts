@@ -38,6 +38,7 @@ const schema = z.object({
   pickupSign: text(80).optional().default(""),
   specialRequests: text(400).optional().default(""),
   sendEmail: z.boolean().default(false),
+  agencyId: z.string().max(60).optional().default(""),
 });
 
 // Admin: record a booking taken by phone, LINE or an agency. Saved as a normal
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
     returnDate: hasReturn ? b.returnDate : null,
     returnTime: hasReturn ? b.returnTime : null,
   });
-  await getDb().insert(bookingSources).values({ bookingReference: reference, source: "manual", createdAt: now }).catch(() => undefined);
+  await getDb().insert(bookingSources).values({ bookingReference: reference, source: b.agencyId ? `agency:${b.agencyId}` : "manual", createdAt: now }).catch(() => undefined);
   if (discount > 0) await getDb().insert(promoRedemptions).values({
     id: crypto.randomUUID(), promoId: "manual", code: "Exclusive discount", bookingReference: reference,
     customerEmail: b.customerEmail, customerPhone: b.customerPhone,

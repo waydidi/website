@@ -15,7 +15,7 @@ declare global {
 
 // Loads the Maps JavaScript API once, sharing the script tag used by the
 // homepage route picker. Resolves false when no API key is configured.
-function loadMaps(): Promise<boolean> {
+export function loadMaps(): Promise<boolean> {
   return fetch("/api/maps/config", { cache: "no-store" })
     .then((response) => response.json() as Promise<{ apiKey?: string }>)
     .then(({ apiKey }) => new Promise<boolean>((resolve) => {

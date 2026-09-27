@@ -4,7 +4,7 @@ import Image from "next/image";
 import { getDb } from "@/db";
 import { bookingForms } from "@/db/schema";
 import { FormWizard } from "@/components/booking-form/form-wizard";
-import type { FormService } from "@/lib/booking-form";
+import type { FormPrefill, FormService } from "@/lib/booking-form";
 
 export const metadata: Metadata = { title: "Your ride details | Waydidi", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -26,5 +26,5 @@ export default async function BookingFormPage({ params }: { params: Promise<{ to
   if (!form) return <Notice title="Link not found" text="Please check the link, or ask us to send a new one." />;
   if (form.status !== "waiting") return <Notice title="Thank you!" text="We've received your details and will confirm your ride shortly." />;
   if (form.expiresAt < new Date().toISOString()) return <Notice title="This link has expired" text="Please message us and we'll send you a new one." />;
-  return <FormWizard token={token} service={form.serviceType as FormService} />;
+  return <FormWizard token={token} service={form.serviceType as FormService} prefill={(form.prefill ? JSON.parse(form.prefill) : {}) as FormPrefill} />;
 }

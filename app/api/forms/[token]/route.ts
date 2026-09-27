@@ -1,8 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { bookingForms } from "@/db/schema";
-import { formAnswersSchema } from "@/lib/booking-form";
+import { agencyApplications, bookingForms } from "@/db/schema";
+import { formAnswersSchema, type FormPrefill } from "@/lib/booking-form";
+import { sendFormAlert } from "@/lib/email";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 // Customer: submit the step-by-step booking form. Each link takes one submission.
@@ -18,9 +19,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     const issue = parsed.error.issues[0];
     return NextResponse.json({ error: `Please check ${String(issue?.path?.[0] ?? "your answers")}.` }, { status: 400 });
   }
-  const a = parsed.data;
+  // Anything the admin fixed in advance wins over what the browser sent.
+  const locked = (form.prefill ? JSON.parse(form.prefill) : {}) as FormPrefill;
+  const a = { ...parsed.data, ...Object.fromEntries(Object.entries(locked).filter(([k]) => k !== "price")) };
   if (form.serviceType !== "hourly" && a.dropoff.length < 2) return NextResponse.json({ error: "Please tell us where you're going." }, { status: 400 });
   await getDb().update(bookingForms).set({ status: "submitted", answers: JSON.stringify(a), submittedAt: new Date().toISOString() })
     .where(and(eq(bookingForms.token, token), eq(bookingForms.status, "waiting")));
+  const [agency] = form.agencyId ? await getDb().select({ name: agencyApplications.agencyName }).from(agencyApplications).where(eq(agencyApplications.id, form.agencyId)).limit(1) : [];
+  await sendFormAlert({ token, answers: a, service: form.serviceType, agency: agency?.name ?? null, note: form.note, price: locked.price ?? null }).catch(() => undefined);
   return NextResponse.json({ ok: true });
 }

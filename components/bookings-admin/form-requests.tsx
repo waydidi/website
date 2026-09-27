@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NewBookingButton, type NewBookingPrefill } from "@/components/bookings-admin/new-booking";
-import type { FormAnswers, FormService } from "@/lib/booking-form";
+import type { FormAnswers, FormPrefill, FormService } from "@/lib/booking-form";
 import { VEHICLES } from "@/lib/vehicles";
 
 type FormRow = {
   token: string; serviceType: FormService; note: string | null; status: "waiting" | "submitted" | "booked";
-  answers: FormAnswers | null; bookingReference: string | null; createdAt: string; expiresAt: string; submittedAt: string | null;
+  answers: FormAnswers | null; prefill: FormPrefill | null; agencyId: string | null; agencyName: string | null; bookingReference: string | null; createdAt: string; expiresAt: string; submittedAt: string | null;
 };
 
 const SERVICE_NAMES: Record<FormService, string> = { transfer: "Transfer", hourly: "By the hour", tour: "Tour" };
@@ -28,6 +28,8 @@ function prefillFrom(form: FormRow): NewBookingPrefill {
     passengers: a.passengers, luggage: a.luggage, vehicle: a.vehicle,
     childSeats: a.childSeats, exchangeStop: a.exchangeStop, ferryPeople: a.ferryPeople,
     specialRequests: form.note ?? "",
+    fare: form.prefill?.price !== undefined ? String(form.prefill.price) : "",
+    agencyId: form.agencyId ?? "",
   };
 }
 
@@ -48,11 +50,15 @@ export function FormRequestsButton({ service }: { service: FormService }) {
   const [error, setError] = useState("");
   const [fresh, setFresh] = useState("");
   const [origin, setOrigin] = useState("");
+  const [agencies, setAgencies] = useState<{ id: string; name: string }[]>([]);
+  const [agencyId, setAgencyId] = useState("");
+  const [showPreset, setShowPreset] = useState(false);
+  const [preset, setPreset] = useState({ pickup: "", dropoff: "", hours: "", date: "", time: "", vehicle: "", price: "" });
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/forms", { cache: "no-store" }).catch(() => null);
-    const out = res?.ok ? await res.json() as { forms: FormRow[] } : { forms: [] };
-    setForms(out.forms);
+    const out = res?.ok ? await res.json() as { forms: FormRow[]; agencies: { id: string; name: string }[] } : { forms: [], agencies: [] };
+    setForms(out.forms); setAgencies(out.agencies ?? []);
   }, []);
 
   useEffect(() => {
@@ -66,10 +72,14 @@ export function FormRequestsButton({ service }: { service: FormService }) {
   async function create() {
     setBusy(true); setError("");
     try {
-      const res = await fetch("/api/admin/forms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceType: kind, note }) });
+      const res = await fetch("/api/admin/forms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceType: kind, note, agencyId: agencyId || undefined, prefill: showPreset ? {
+        pickup: preset.pickup.trim() || undefined, dropoff: kind === "hourly" ? undefined : preset.dropoff.trim() || undefined,
+        hours: kind === "hourly" && preset.hours ? Number(preset.hours) : undefined, date: preset.date || undefined, time: preset.time || undefined,
+        vehicle: preset.vehicle || undefined, price: preset.price !== "" ? Math.max(0, Math.round(Number(preset.price))) : undefined,
+      } : undefined }) });
       const out = await res.json().catch(() => ({})) as { token?: string; error?: string };
       if (!res.ok || !out.token) throw new Error(out.error ?? "The link could not be created.");
-      setFresh(out.token); setNote("");
+      setFresh(out.token); setNote(""); setPreset({ pickup: "", dropoff: "", hours: "", date: "", time: "", vehicle: "", price: "" });
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "The link could not be created."); }
     finally { setBusy(false); }
@@ -99,6 +109,22 @@ export function FormRequestsButton({ service }: { service: FormService }) {
             {(Object.keys(SERVICE_NAMES) as FormService[]).map((id) => <button key={id} type="button" role="tab" aria-selected={kind === id} onClick={() => setKind(id)} className={`h-9 rounded-lg px-4 text-[14px] ${kind === id ? "bg-white font-medium shadow-sm" : "text-slate-600"}`}>{SERVICE_NAMES[id]}</button>)}
           </div>
           <label className="block text-[13px] font-medium text-slate-600">Note for yourself (optional)<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. Agency Sunny Tours, special price" className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
+          {agencies.length > 0 && <label className="block text-[13px] font-medium text-slate-600">For agency (optional)<select value={agencyId} onChange={(e) => setAgencyId(e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]">
+            <option value="">No agency, direct customer</option>
+            {agencies.map((ag) => <option key={ag.id} value={ag.id}>{ag.name}</option>)}
+          </select></label>}
+          <label className="flex items-center gap-2 text-[14px] font-medium text-slate-700"><input type="checkbox" checked={showPreset} onChange={(e) => setShowPreset(e.target.checked)} className="size-4 accent-[#FF8A05]" />Pre-fill trip details and price (the customer can&apos;t change them)</label>
+          {showPreset && <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-[13px] font-medium text-slate-600">Pickup<input value={preset.pickup} onChange={(e) => setPreset({ ...preset, pickup: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
+            {kind === "hourly"
+              ? <label className="block text-[13px] font-medium text-slate-600">Hours<input type="number" min={1} max={24} value={preset.hours} onChange={(e) => setPreset({ ...preset, hours: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
+              : <label className="block text-[13px] font-medium text-slate-600">{kind === "tour" ? "Tour" : "Drop-off"}<input value={preset.dropoff} onChange={(e) => setPreset({ ...preset, dropoff: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>}
+            <label className="block text-[13px] font-medium text-slate-600">Date<input type="date" value={preset.date} onChange={(e) => setPreset({ ...preset, date: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
+            <label className="block text-[13px] font-medium text-slate-600">Time<input type="time" value={preset.time} onChange={(e) => setPreset({ ...preset, time: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
+            <label className="block text-[13px] font-medium text-slate-600">Car<select value={preset.vehicle} onChange={(e) => setPreset({ ...preset, vehicle: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]"><option value="">Customer chooses</option>{Object.entries(VEHICLES).map(([id, v]) => <option key={id} value={id}>{v.name}</option>)}</select></label>
+            <label className="block text-[13px] font-medium text-slate-600">Price (THB, shown to customer)<input type="number" min={0} inputMode="numeric" value={preset.price} onChange={(e) => setPreset({ ...preset, price: e.target.value })} placeholder="Leave empty to set later" className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
+            <p className="text-[12px] text-slate-500 sm:col-span-2">Leave any box empty and the customer fills it in.</p>
+          </div>}
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => void create()} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#FF8A05] px-5 font-semibold text-white hover:bg-[#E67900] disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Create link</button>
             {error && <span className="text-[14px] text-red-600">{error}</span>}
@@ -122,6 +148,8 @@ export function FormRequestsButton({ service }: { service: FormService }) {
                   {form.status === "submitted" ? "Answers in" : form.status === "booked" ? "Booked" : expired ? "Expired" : "Waiting"}
                 </span>
                 <span className="text-[14px] font-medium">{a?.name ?? SERVICE_NAMES[form.serviceType]}</span>
+                {form.agencyName && <span className="rounded-md bg-violet-100 px-2 py-0.5 text-[12px] font-semibold text-violet-800">{form.agencyName}</span>}
+                {form.prefill?.price !== undefined && <span className="text-[13px] font-medium text-slate-700">THB {form.prefill.price.toLocaleString()}</span>}
                 {form.note && <span className="text-[13px] text-slate-500">· {form.note}</span>}
                 <span className="ml-auto text-[12px] text-slate-400">{when(form.submittedAt ?? form.createdAt)}</span>
               </div>

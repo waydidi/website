@@ -28,6 +28,23 @@ export const formAnswersSchema = z.object({
 export type FormAnswers = z.infer<typeof formAnswersSchema>;
 
 export type FormService = "transfer" | "hourly" | "tour";
+
+// Details the admin (or an agency) fixes in advance; the customer can't change them.
+export const formPrefillSchema = z.object({
+  pickup: text(300).optional(),
+  dropoff: text(300).optional(),
+  hours: z.number().int().min(1).max(24).optional(),
+  date: date.optional(),
+  time: time.optional(),
+  vehicle: z.enum(Object.keys(VEHICLES) as [string, ...string[]]).optional(),
+  price: z.number().int().min(0).max(1_000_000).optional(),
+});
+export type FormPrefill = z.infer<typeof formPrefillSchema>;
+
+/** Drop empty values so only real presets lock fields. */
+export function cleanPrefill(p: FormPrefill): FormPrefill {
+  return Object.fromEntries(Object.entries(p).filter(([, v]) => v !== undefined && v !== "")) as FormPrefill;
+}
 export const FORM_LINK_DAYS = 7;
 
 // Koh Kood / Koh Mak trips can add the ferry & hotel transfer.

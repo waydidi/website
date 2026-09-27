@@ -2,19 +2,29 @@ import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/db";
-import { bookingForms } from "@/db/schema";
+import { agencyApplications, bookingForms } from "@/db/schema";
 import { getWaydidiAdmin } from "@/lib/admin";
-import { FORM_LINK_DAYS, formToken } from "@/lib/booking-form";
+import { cleanPrefill, FORM_LINK_DAYS, formPrefillSchema, formToken } from "@/lib/booking-form";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 // Admin: list form links, newest first.
 export async function GET() {
   if (!(await getWaydidiAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const rows = await getDb().select().from(bookingForms).orderBy(desc(bookingForms.createdAt)).limit(100);
-  return NextResponse.json({ forms: rows.map((r) => ({ ...r, answers: r.answers ? JSON.parse(r.answers) : null })) }, { headers: { "Cache-Control": "no-store" } });
+  const agencies = await getDb().select({ id: agencyApplications.id, name: agencyApplications.agencyName }).from(agencyApplications).where(eq(agencyApplications.status, "approved"));
+  const agencyName = new Map(agencies.map((a) => [a.id, a.name]));
+  return NextResponse.json({ forms: rows.map((r) => ({
+    ...r, answers: r.answers ? JSON.parse(r.answers) : null, prefill: r.prefill ? JSON.parse(r.prefill) : null,
+    agencyName: r.agencyId ? agencyName.get(r.agencyId) ?? null : null,
+  })), agencies }, { headers: { "Cache-Control": "no-store" } });
 }
 
-const createSchema = z.object({ serviceType: z.enum(["transfer", "hourly", "tour"]), note: z.string().trim().max(200).optional().default("") });
+const createSchema = z.object({
+  serviceType: z.enum(["transfer", "hourly", "tour"]),
+  note: z.string().trim().max(200).optional().default(""),
+  prefill: formPrefillSchema.optional(),
+  agencyId: z.string().max(60).optional(),
+});
 
 // Admin: make a new private form link.
 export async function POST(request: Request) {
@@ -26,6 +36,8 @@ export async function POST(request: Request) {
   const token = formToken();
   await getDb().insert(bookingForms).values({
     token, serviceType: parsed.data.serviceType, note: parsed.data.note || null, status: "waiting",
+    prefill: parsed.data.prefill && Object.keys(cleanPrefill(parsed.data.prefill)).length ? JSON.stringify(cleanPrefill(parsed.data.prefill)) : null,
+    agencyId: parsed.data.agencyId || null,
     createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + FORM_LINK_DAYS * 86_400_000).toISOString(),
   });
   return NextResponse.json({ token });

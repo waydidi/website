@@ -7,7 +7,7 @@ import { SpinWheelDialog } from "./spin-wheel";
 import { inSection } from "@/components/public-header";
 
 const CLOSED_KEY = "waydidi_spin_bar_closed";
-const HIDDEN_ON = ["/admin", "/driver", "/trip", "/booking/confirmation", "/account/sign-in", "/f"];
+const HIDDEN_ON = ["/admin", "/driver", "/trip", "/booking/confirmation", "/account/sign-in", "/f", "/agency"];
 const isHome = (p: string) => p === "/" || p === "/th" || p === "/zh";
 const point = (i: number, r = 16) => {
   const a = ((i * 60 - 90) * Math.PI) / 180;

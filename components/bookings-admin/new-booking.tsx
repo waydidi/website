@@ -3,7 +3,7 @@
 import { CheckCircle2, Download, LoaderCircle, Minus, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
 import { isAirportPickup } from "@/lib/trip-rules";
@@ -32,7 +32,7 @@ function blankDraft(service: Service) {
     returnOn: false, returnDate: "", returnTime: "", flightNumber: "",
     customerName: "", customerSurname: "", customerEmail: "", customerPhone: "", passengers: 2, luggage: 2,
     vehicle: "economy_sedan", fare: "", childSeats: 0, exchangeStop: false, ferryPeople: 0, discount: "",
-    paid: false, pickupSign: "", specialRequests: "",
+    paid: false, pickupSign: "", specialRequests: "", agencyId: "",
   };
 }
 export type NewBookingPrefill = Partial<Draft>;
@@ -46,6 +46,11 @@ export function NewBookingButton({ service, prefill, formToken, trigger }: { ser
   const [error, setError] = useState("");
   const blank = (): Draft => ({ ...blankDraft(service), ...prefill });
   const [f, setF] = useState(blank);
+  const [agencies, setAgencies] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    void fetch("/api/admin/agency-applications", { cache: "no-store" }).then((r) => r.ok ? r.json() : { agencies: [] }).then((out: { agencies: { id: string; name: string }[] }) => setAgencies(out.agencies)).catch(() => undefined);
+  }, [open]);
   const set = <K extends keyof ReturnType<typeof blank>>(k: K, v: ReturnType<typeof blank>[K]) => setF((c) => ({ ...c, [k]: v }));
 
   const fare = Math.max(0, Number(f.fare) || 0);
@@ -122,6 +127,10 @@ export function NewBookingButton({ service, prefill, formToken, trigger }: { ser
 
           <section className="grid gap-3 border-t border-slate-100 pt-4">
             <p className="text-[15px] font-semibold">Customer</p>
+            {agencies.length > 0 && <label className={label}>Booked through agency (optional)<select className={field} value={f.agencyId} onChange={(e) => set("agencyId", e.target.value)}>
+              <option value="">No agency, direct customer</option>
+              {agencies.map((ag) => <option key={ag.id} value={ag.id}>{ag.name}</option>)}
+            </select></label>}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={label}>First name<input className={field} value={f.customerName} onChange={(e) => set("customerName", e.target.value)} /></label>
               <label className={label}>Last name<input className={field} value={f.customerSurname} onChange={(e) => set("customerSurname", e.target.value)} /></label>

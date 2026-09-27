@@ -183,6 +183,31 @@ export async function sendOperationsAlert(booking: {
   }, `operations-${booking.reference}`);
 }
 
+/** Tells operations a customer filled in a form link, so it can be booked. */
+export async function sendFormAlert(input: {
+  token: string; service: string; agency: string | null; note: string | null; price: number | null;
+  answers: { name: string; phone: string; email: string; pickup: string; dropoff?: string; hours?: number; date: string; time: string; returnTrip?: boolean; returnDate?: string; returnTime?: string; passengers: number; luggage: number; vehicle: string };
+}) {
+  if (!env.BOOKING_ALERT_EMAIL) return { status: "pending_configuration" } as EmailDelivery;
+  const a = input.answers;
+  const rows = [
+    detailRow("Name", a.name), detailRow("WhatsApp", a.phone), detailRow("Email", a.email),
+    detailRow("From", a.pickup), a.dropoff ? detailRow("To", a.dropoff) : detailRow("Hours", String(a.hours ?? "")),
+    detailRow("Date & time", displayDate(a.date, a.time)),
+    a.returnTrip && a.returnDate && a.returnTime ? detailRow("Return", displayDate(a.returnDate, a.returnTime)) : "",
+    detailRow("Travelers", `${a.passengers} passengers - ${a.luggage} bags`), detailRow("Vehicle", a.vehicle),
+    input.price != null ? detailRow("Agreed price", `THB ${input.price.toLocaleString("en-US")}`) : "",
+    input.agency ? detailRow("Agency", input.agency) : "", input.note ? detailRow("Note", input.note) : "",
+  ].join("");
+  const html = reminderShell("Form answers in", `${a.name} filled in their ride details`, "Open Admin → Bookings → Form links and tap Create booking.", rows);
+  return resend({
+    to: [env.BOOKING_ALERT_EMAIL],
+    subject: `Form answers in · ${a.name}${input.agency ? ` (${input.agency})` : ""}`,
+    html,
+    text: `${a.name} filled in the form.\n${a.pickup}${a.dropoff ? ` to ${a.dropoff}` : ""}\n${a.date} at ${a.time}\n${a.passengers} passengers, ${a.luggage} bags · ${a.vehicle}\nOpen Admin → Bookings → Form links.`,
+  }, `form-${input.token}`);
+}
+
 type TripReminderInput = {
   reference: string;
   pickup: string;
