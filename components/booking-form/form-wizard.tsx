@@ -148,7 +148,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
   const last = index === steps.length - 1;
 
   return <main className="flex min-h-dvh flex-col bg-[#FFFBF6] text-[#1F1726]" onKeyDown={(e) => {
-    if (e.key === "Enter" && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); void next(); }
+    if (e.key === "Enter" && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof Element && e.target.closest("[role=dialog]"))) { e.preventDefault(); void next(); }
   }}>
     <header className="sticky top-0 z-20 bg-[#FFFBF6]/90 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-xl items-center justify-between px-5">

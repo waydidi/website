@@ -1,46 +1,93 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import { useEffect, useState } from "react";
 
-// Common home countries of Waydidi guests; Thailand first.
+// Common home countries of Waydidi guests; Thailand first. Flags are round SVGs
+// in /public/flags, as in the homepage language switcher.
 const COUNTRIES: [string, string, string][] = [
-  ["TH", "🇹🇭", "+66"], ["GB", "🇬🇧", "+44"], ["US", "🇺🇸", "+1"], ["AU", "🇦🇺", "+61"], ["CN", "🇨🇳", "+86"], ["HK", "🇭🇰", "+852"],
-  ["TW", "🇹🇼", "+886"], ["SG", "🇸🇬", "+65"], ["MY", "🇲🇾", "+60"], ["IN", "🇮🇳", "+91"], ["JP", "🇯🇵", "+81"], ["KR", "🇰🇷", "+82"],
-  ["DE", "🇩🇪", "+49"], ["FR", "🇫🇷", "+33"], ["NL", "🇳🇱", "+31"], ["IT", "🇮🇹", "+39"], ["ES", "🇪🇸", "+34"], ["CH", "🇨🇭", "+41"],
-  ["SE", "🇸🇪", "+46"], ["DK", "🇩🇰", "+45"], ["NO", "🇳🇴", "+47"], ["FI", "🇫🇮", "+358"], ["IE", "🇮🇪", "+353"], ["RU", "🇷🇺", "+7"],
-  ["IL", "🇮🇱", "+972"], ["AE", "🇦🇪", "+971"], ["SA", "🇸🇦", "+966"], ["NZ", "🇳🇿", "+64"], ["CA", "🇨🇦", "+1"], ["VN", "🇻🇳", "+84"],
-  ["ID", "🇮🇩", "+62"], ["PH", "🇵🇭", "+63"], ["KH", "🇰🇭", "+855"], ["LA", "🇱🇦", "+856"], ["MM", "🇲🇲", "+95"], ["BR", "🇧🇷", "+55"],
+  ["th", "+66", "Thailand"], ["gb", "+44", "United Kingdom"], ["us", "+1", "United States"], ["au", "+61", "Australia"],
+  ["cn", "+86", "China"], ["hk", "+852", "Hong Kong"], ["tw", "+886", "Taiwan"], ["sg", "+65", "Singapore"],
+  ["my", "+60", "Malaysia"], ["in", "+91", "India"], ["jp", "+81", "Japan"], ["kr", "+82", "South Korea"],
+  ["de", "+49", "Germany"], ["fr", "+33", "France"], ["nl", "+31", "Netherlands"], ["it", "+39", "Italy"],
+  ["es", "+34", "Spain"], ["ch", "+41", "Switzerland"], ["se", "+46", "Sweden"], ["dk", "+45", "Denmark"],
+  ["no", "+47", "Norway"], ["fi", "+358", "Finland"], ["ie", "+353", "Ireland"], ["ru", "+7", "Russia"],
+  ["il", "+972", "Israel"], ["ae", "+971", "United Arab Emirates"], ["sa", "+966", "Saudi Arabia"], ["nz", "+64", "New Zealand"],
+  ["ca", "+1", "Canada"], ["vn", "+84", "Vietnam"], ["id", "+62", "Indonesia"], ["ph", "+63", "Philippines"],
+  ["kh", "+855", "Cambodia"], ["la", "+856", "Laos"], ["mm", "+95", "Myanmar"], ["br", "+55", "Brazil"],
 ];
+
+function Flag({ country, size }: { country: string; size: number }) {
+  // eslint-disable-next-line @next/next/no-img-element -- tiny local SVG, as in the locale picker
+  return <img src={`/flags/${country}.svg`} alt="" width={size} height={size} style={{ width: size, height: size }} className="shrink-0 rounded-full object-cover ring-1 ring-black/10" />;
+}
 
 /** Splits "+44 7700 900123" into its dial code and the rest, if the code is known. */
 function split(value: string) {
-  const match = COUNTRIES.map((c) => c[2]).sort((x, y) => y.length - x.length).find((code) => value.startsWith(`${code} `) || value === code);
+  const match = COUNTRIES.map((c) => c[1]).sort((x, y) => y.length - x.length).find((code) => value.startsWith(`${code} `) || value === code);
   return match ? { code: match, rest: value.slice(match.length).trim() } : null;
 }
 
-// Country code picker + number; reports "+CC number". Defaults to the phone's region.
+// Round-flag country code button (opens a searchable list) + number; reports "+CC number".
 export function PhoneInput({ value, onChange, inputRef, className }: { value: string; onChange: (v: string) => void; inputRef?: React.Ref<HTMLInputElement>; className: string }) {
   const parsed = split(value);
-  const [code, setCode] = useState(parsed?.code ?? "+66");
+  const [country, setCountry] = useState(() => COUNTRIES.find((c) => c[1] === parsed?.code)?.[0] ?? "th");
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const code = COUNTRIES.find((c) => c[0] === country)?.[1] ?? "+66";
   const rest = parsed ? parsed.rest : value;
 
   useEffect(() => {
     if (value) return;
-    const region = (navigator.languages?.[0] ?? navigator.language ?? "").split("-")[1]?.toUpperCase();
-    const found = COUNTRIES.find((c) => c[0] === region);
+    const region = (navigator.languages?.[0] ?? navigator.language ?? "").split("-")[1]?.toLowerCase();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- default from the browser's region, once
-    if (found) setCode(found[2]);
+    if (region && COUNTRIES.some((c) => c[0] === region)) setCountry(region);
   }, [value]);
 
+  const needle = query.trim().toLowerCase().replace(/^\+/, "");
+  const matches = needle ? COUNTRIES.filter(([, dial, name]) => name.toLowerCase().includes(needle) || dial.slice(1).startsWith(needle)) : COUNTRIES;
+
+  function pick(id: string, dial: string) {
+    setCountry(id); setOpen(false); setQuery("");
+    if (rest) onChange(`${dial} ${rest}`);
+  }
+
   return <div className="flex items-stretch gap-2.5">
-    <label className="relative shrink-0">
-      <span className="sr-only">Country code</span>
-      <select value={COUNTRIES.find((c) => c[2] === code)?.[0] ?? "TH"} onChange={(e) => { const c = COUNTRIES.find((x) => x[0] === e.target.value); if (c) { setCode(c[2]); if (rest) onChange(`${c[2]} ${rest}`); } }} className="h-16 appearance-none rounded-2xl border-2 border-[#F0E3D4] bg-white pl-3 pr-8 text-[18px] outline-none transition focus:border-[#FF8A05] focus:ring-4 focus:ring-[#FF8A05]/15">
-        {COUNTRIES.map(([id, flag, dial]) => <option key={id} value={id}>{flag} {dial}</option>)}
-      </select>
-      <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9A8F86]" />
-    </label>
+    <button type="button" onClick={() => setOpen(true)} aria-label={`Country code ${code}`} className="flex h-16 shrink-0 items-center gap-2 rounded-2xl border-2 border-[#F0E3D4] bg-white pl-3 pr-2.5 text-[18px] outline-none transition hover:border-[#FFC98A] focus-visible:border-[#FF8A05] focus-visible:ring-4 focus-visible:ring-[#FF8A05]/15">
+      <Flag country={country} size={26} /><span className="tabular-nums">{code}</span><ChevronDown size={16} className="text-[#9A8F86]" />
+    </button>
     <input ref={inputRef} type="tel" inputMode="tel" autoComplete="tel-national" value={rest} onChange={(e) => onChange(e.target.value.trim() ? `${code} ${e.target.value}` : "")} placeholder="81 234 5678" className={className} />
+
+    <DialogPrimitive.Root open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQuery(""); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[24px] bg-white text-[#1F1726] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[70dvh] sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[24px] sm:data-[state=open]:slide-in-from-bottom-4 sm:data-[state=open]:zoom-in-95">
+          <div className="flex items-center justify-between px-5 pb-2 pt-5">
+            <DialogPrimitive.Title className="text-[20px] font-bold">Country code</DialogPrimitive.Title>
+            <DialogPrimitive.Close className="grid size-9 place-items-center rounded-full bg-[#F6F1EB] hover:bg-[#FFF0DF]" aria-label="Close"><X size={20} /></DialogPrimitive.Close>
+          </div>
+          <DialogPrimitive.Description className="sr-only">Search and choose the country code for your WhatsApp number</DialogPrimitive.Description>
+          <div className="px-5 pb-2">
+            <label className="flex h-12 items-center gap-2 rounded-2xl border-2 border-[#F0E3D4] bg-[#FFFBF6] px-4 focus-within:border-[#FF8A05]">
+              <Search size={18} className="shrink-0 text-[#9A8F86]" aria-hidden="true" />
+              <span className="sr-only">Search country or code</span>
+              {/* 16px text so iPhone Safari does not zoom in on focus. */}
+              <input type="search" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search country or code" className="w-full bg-transparent text-base outline-none placeholder:text-[#BDB2A8]" />
+            </label>
+          </div>
+          <ul className="flex-1 overflow-y-auto px-3 pb-[max(16px,env(safe-area-inset-bottom))]">
+            {matches.length === 0 && <li className="px-3 py-8 text-center text-[#6B6170]">No countries match &ldquo;{query}&rdquo;.</li>}
+            {matches.map(([id, dial, name]) => {
+              const selected = id === country;
+              return <li key={id}><button type="button" onClick={() => pick(id, dial)} aria-current={selected || undefined} className={`flex min-h-14 w-full items-center gap-3.5 rounded-xl px-3 text-left text-[16px] transition ${selected ? "bg-[#FFF0DF] font-semibold" : "hover:bg-[#FFF7EE]"}`}>
+                <Flag country={id} size={30} /><span className="flex-1">{name}</span><span className="tabular-nums text-[#6B6170]">{dial}</span>
+                {selected && <Check size={18} className="text-[#FF8A05]" />}
+              </button></li>;
+            })}
+          </ul>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   </div>;
 }
