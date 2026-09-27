@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CarFront, Check, ClipboardCheck, Lock, LoaderCircle, Luggage, Mail, MapPin, MessageCircle, Minus, Pencil, Plus, Repeat, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { ArrowLeft, CarFront, Check, ClipboardCheck, Clock3, Lock, LoaderCircle, Luggage, Mail, MapPin, MessageCircle, Minus, Pencil, Plus, Repeat, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
@@ -32,6 +32,21 @@ const smallInput = `${box} mt-1.5 h-14 text-[17px]`;
 // Round icon badge above each question.
 const STEP_ICON: Record<string, LucideIcon> = { name: UserRound, phone: MessageCircle, email: Mail, trip: MapPin, return: Repeat, ride: CarFront, review: ClipboardCheck };
 const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+
+// Pickup times every 15 minutes (00:00 … 23:45), shown as a list instead of the phone's minute wheel.
+const QUARTER_HOURS = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`);
+const label12 = (t: string) => { const [h, m] = t.split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
+
+function TimeSelect({ value, onChange, disabled, className }: { value: string; onChange: (v: string) => void; disabled?: boolean; className: string }) {
+  const options = value && !QUARTER_HOURS.includes(value) ? [value, ...QUARTER_HOURS] : QUARTER_HOURS;
+  return <span className="relative block">
+    <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className={`${className} appearance-none pr-10 ${value ? "" : "text-[#BDB2A8]"}`}>
+      <option value="" disabled>Select time</option>
+      {options.map((t) => <option key={t} value={t}>{label12(t)}</option>)}
+    </select>
+    <Clock3 size={18} className="pointer-events-none absolute right-4 top-1/2 mt-[3px] -translate-y-1/2 text-[#9A8F86]" />
+  </span>;
+}
 
 function Stepper({ value, set, min, max, label }: { value: number; set: (n: number) => void; min: number; max: number; label: string }) {
   return <span className="flex items-center gap-3">
@@ -193,7 +208,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
                   : <PlaceInput className={smallInput} value={a.dropoff} onChange={(v) => set("dropoff", v)} placeholder="Hotel name or address" disabled={locked("dropoff")} />}</label>}
             <div className="grid grid-cols-2 gap-5">
               <label className={smallLabel}>Pickup date<input type="date" min={today()} className={smallInput} value={a.date} onChange={(e) => set("date", e.target.value)} disabled={locked("date")} /></label>
-              <label className={smallLabel}>Pickup time<input type="time" className={smallInput} value={a.time} onChange={(e) => set("time", e.target.value)} disabled={locked("time")} /></label>
+              <label className={smallLabel}>Pickup time<TimeSelect className={smallInput} value={a.time} onChange={(v) => set("time", v)} disabled={locked("time")} /></label>
             </div>
           </div>
         </>}
@@ -209,7 +224,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
           </div>
           {a.returnTrip && <div className="mt-7 grid grid-cols-2 gap-5 animate-in fade-in slide-in-from-top-2">
             <label className={smallLabel}>Return date<input type="date" min={a.date || today()} className={smallInput} value={a.returnDate} onChange={(e) => set("returnDate", e.target.value)} /></label>
-            <label className={smallLabel}>Return time<input type="time" className={smallInput} value={a.returnTime} onChange={(e) => set("returnTime", e.target.value)} /></label>
+            <label className={smallLabel}>Return time<TimeSelect className={smallInput} value={a.returnTime} onChange={(v) => set("returnTime", v)} /></label>
           </div>}
         </>}
 
