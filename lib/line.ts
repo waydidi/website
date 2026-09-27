@@ -13,7 +13,7 @@ type TripLineInput = {
   vehicle: string;
 };
 
-const siteUrl = () => (env.WAYDIDI_PUBLIC_URL || "https://waydidi-private-transfer.dankbangkok.chatgpt.site").replace(/\/$/u, "");
+const siteUrl = () => (env.WAYDIDI_PUBLIC_URL || "https://waydidi-website.contact-waydidi.workers.dev").replace(/\/$/u, "");
 
 async function pushLine(messages: unknown[]) {
   if (!env.LINE_CHANNEL_ACCESS_TOKEN || !env.LINE_ADMIN_TARGET_ID) return { status: "pending_configuration" as const };

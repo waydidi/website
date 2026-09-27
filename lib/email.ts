@@ -1,9 +1,10 @@
 import type { BookingExtras } from "@/lib/booking-extras";
+import { logoPng } from "@/lib/pdf-addon-images";
 import { VEHICLES } from "@/lib/vehicles";
 import { waitingLine } from "@/lib/waiting-policy";
 import { env } from "cloudflare:workers";
 
-const DEFAULT_SITE_URL = "https://waydidi-private-transfer.dankbangkok.chatgpt.site";
+const DEFAULT_SITE_URL = "https://waydidi-website.contact-waydidi.workers.dev";
 
 type ConfirmationEmailInput = {
   to: string;
@@ -62,6 +63,15 @@ function detailRow(label: string, value: string, valueColor = "#211726") {
 /** Outcome of sending one email. */
 export type EmailDelivery = { status: "sent" | "failed" | "pending_configuration" };
 
+// The logo travels inside the email (not loaded from the website), so it always shows.
+const LOGO_ATTACHMENT = { content: logoPng, filename: "waydidi-logo.png", contentId: "waydidi-logo", content_type: "image/png" };
+function withLogo(payload: Record<string, unknown>) {
+  const html = typeof payload.html === "string" ? payload.html : "";
+  const attachments = Array.isArray(payload.attachments) ? payload.attachments as { contentId?: string }[] : [];
+  if (!html.includes("cid:waydidi-logo") || attachments.some((a) => a.contentId === "waydidi-logo")) return payload;
+  return { ...payload, attachments: [...attachments, LOGO_ATTACHMENT] };
+}
+
 async function resend(payload: Record<string, unknown>, idempotencyKey: string): Promise<EmailDelivery> {
   if (!env.RESEND_API_KEY || !env.BOOKING_FROM_EMAIL) return { status: "pending_configuration" };
   try {
@@ -72,7 +82,7 @@ async function resend(payload: Record<string, unknown>, idempotencyKey: string):
         "Content-Type": "application/json",
         "Idempotency-Key": idempotencyKey.slice(0, 256),
       },
-      body: JSON.stringify({ from: env.BOOKING_FROM_EMAIL, ...payload }),
+      body: JSON.stringify({ from: env.BOOKING_FROM_EMAIL, ...withLogo(payload) }),
     });
     if (!response.ok) console.error("Resend rejected email", response.status, await response.text());
     return { status: response.ok ? "sent" : "failed" };
@@ -158,7 +168,7 @@ ${detailRow("Total", total)}
     html,
     text,
     attachments: [
-      { path: `${siteUrl()}/waydidi-logo.png`, filename: "waydidi-logo.png", contentId: "waydidi-logo", content_type: "image/png" },
+      LOGO_ATTACHMENT,
       { filename: `Waydidi-${input.reference}.pdf`, content: toBase64(input.pdf), content_type: "application/pdf" },
     ],
   }, input.retryId ? `confirmation-retry-${input.reference}-${input.retryId}` : `confirmation-${input.reference}`);
@@ -200,12 +210,12 @@ export async function sendFormAlert(input: {
     input.agency ? detailRow("Agency", input.agency) : "", input.note ? detailRow("Note", input.note) : "",
     `<tr><td colspan="2" style="padding:28px 0 4px"><a href="${siteUrl()}/admin/bookings?type=${encodeURIComponent(input.service)}&form=${encodeURIComponent(input.token)}" style="display:block;background:#ff8a05;color:#ffffff;text-align:center;text-decoration:none;font-size:17px;font-weight:700;padding:16px 24px;border-radius:14px">Complete booking</a></td></tr>`,
   ].join("");
-  const html = reminderShell("Form answers in", `${a.name} filled in their ride details`, "Open Admin → Bookings → Form links and tap Create booking.", rows);
+  const html = reminderShell("", `${a.name} filled in their ride details`, "", rows);
   return resend({
     to: [env.BOOKING_ALERT_EMAIL],
     subject: `Form answers in · ${a.name}${input.agency ? ` (${input.agency})` : ""}`,
     html,
-    text: `${a.name} filled in the form.\nComplete booking: ${siteUrl()}/admin/bookings?type=${encodeURIComponent(input.service)}&form=${encodeURIComponent(input.token)}\n${a.pickup}${a.dropoff ? ` to ${a.dropoff}` : ""}\n${a.date} at ${a.time}\n${a.passengers} passengers, ${a.luggage} bags · ${a.vehicle}\nOpen Admin → Bookings → Form links.`,
+    text: `${a.name} filled in the form.\nComplete booking: ${siteUrl()}/admin/bookings?type=${encodeURIComponent(input.service)}&form=${encodeURIComponent(input.token)}\n${a.pickup}${a.dropoff ? ` to ${a.dropoff}` : ""}\n${a.date} at ${a.time}\n${a.passengers} passengers, ${a.luggage} bags · ${a.vehicle}`,
   }, `form-${input.token}`);
 }
 
@@ -219,7 +229,7 @@ type TripReminderInput = {
 };
 
 function reminderShell(kicker: string, title: string, intro: string, rows: string) {
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f3f5f8;color:#211726;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:28px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border-radius:24px;overflow:hidden"><tr><td style="background:#ff8a05;padding:30px 34px;color:#fff"><img src="${siteUrl()}/waydidi-logo.png" width="150" alt="Waydidi" style="display:block;width:150px;height:auto;margin-bottom:28px"><p style="margin:0 0 8px;color:#ffe1c2;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${escapeHtml(kicker)}</p><h1 style="margin:0;color:#fff;font-size:32px;line-height:1.12">${escapeHtml(title)}</h1></td></tr><tr><td style="padding:30px 34px"><p style="margin:0 0 22px;color:#586579;font-size:16px;line-height:1.6">${escapeHtml(intro)}</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rows}</table></td></tr></table></td></tr></table></body></html>`;
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f3f5f8;color:#211726;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:28px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border-radius:24px;overflow:hidden"><tr><td style="background:#ff8a05;padding:30px 34px;color:#fff"><img src="cid:waydidi-logo" width="150" alt="Waydidi" style="display:block;width:150px;height:auto;margin-bottom:28px">${kicker ? `<p style="margin:0 0 8px;color:#ffe1c2;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${escapeHtml(kicker)}</p>` : ""}<h1 style="margin:0;color:#fff;font-size:32px;line-height:1.12">${escapeHtml(title)}</h1></td></tr><tr><td style="padding:30px 34px">${intro ? `<p style="margin:0 0 22px;color:#586579;font-size:16px;line-height:1.6">${escapeHtml(intro)}</p>` : ""}<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rows}</table></td></tr></table></td></tr></table></body></html>`;
 }
 
 export async function sendCustomerTripReminder(input: TripReminderInput & { to: string; name: string; hoursBefore: 24 | 3; tripKey?: string }) {
