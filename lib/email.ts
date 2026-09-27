@@ -195,11 +195,13 @@ export async function sendOperationsAlert(booking: {
 
 /** Tells operations a customer filled in a form link, so it can be booked. */
 export async function sendFormAlert(input: {
-  token: string; service: string; agency: string | null; note: string | null; price: number | null;
+  token: string; service: string; agency: string | null; note: string | null; price: number | null; origin?: string;
   answers: { name: string; phone: string; email: string; pickup: string; dropoff?: string; hours?: number; date: string; time: string; returnTrip?: boolean; returnDate?: string; returnTime?: string; passengers: number; luggage: number; vehicle: string };
 }) {
   if (!env.BOOKING_ALERT_EMAIL) return { status: "pending_configuration" } as EmailDelivery;
   const a = input.answers;
+  // Link back to the site the customer used (falls back to the configured address).
+  const base = (input.origin || siteUrl()).replace(/\/$/, "");
   const rows = [
     detailRow("Name", a.name), detailRow("WhatsApp", a.phone), detailRow("Email", a.email),
     detailRow("From", a.pickup), a.dropoff ? detailRow("To", a.dropoff) : detailRow("Hours", String(a.hours ?? "")),
@@ -208,14 +210,14 @@ export async function sendFormAlert(input: {
     detailRow("Travelers", `${a.passengers} passengers - ${a.luggage} bags`), detailRow("Vehicle", VEHICLES[a.vehicle as keyof typeof VEHICLES]?.name ?? a.vehicle),
     input.price != null ? detailRow("Agreed price", `THB ${input.price.toLocaleString("en-US")}`) : "",
     input.agency ? detailRow("Agency", input.agency) : "", input.note ? detailRow("Note", input.note) : "",
-    `<tr><td colspan="2" style="padding:28px 0 4px"><a href="${siteUrl()}/admin/bookings?type=${encodeURIComponent(input.service)}&form=${encodeURIComponent(input.token)}" style="display:block;background:#ff8a05;color:#ffffff;text-align:center;text-decoration:none;font-size:17px;font-weight:700;padding:16px 24px;border-radius:14px">Complete booking</a></td></tr>`,
+    `<tr><td colspan="2" style="padding:28px 0 4px"><a href="${base}/admin/bookings?type=${encodeURIComponent(input.service)}&form=${encodeURIComponent(input.token)}" style="display:block;background:#ff8a05;color:#ffffff;text-align:center;text-decoration:none;font-size:17px;font-weight:700;padding:16px 24px;border-radius:14px">Complete booking</a></td></tr>`,
   ].join("");
   const html = reminderShell("", `${a.name} filled in their ride details`, "", rows);
   return resend({
     to: [env.BOOKING_ALERT_EMAIL],
     subject: `Form answers in · ${a.name}${input.agency ? ` (${input.agency})` : ""}`,
     html,
-    text: `${a.name} filled in the form.\nComplete booking: ${siteUrl()}/admin/bookings?type=${encodeURIComponent(input.service)}&form=${encodeURIComponent(input.token)}\n${a.pickup}${a.dropoff ? ` to ${a.dropoff}` : ""}\n${a.date} at ${a.time}\n${a.passengers} passengers, ${a.luggage} bags · ${a.vehicle}`,
+    text: `${a.name} filled in the form.\nComplete booking: ${base}/admin/bookings?type=${encodeURIComponent(input.service)}&form=${encodeURIComponent(input.token)}\n${a.pickup}${a.dropoff ? ` to ${a.dropoff}` : ""}\n${a.date} at ${a.time}\n${a.passengers} passengers, ${a.luggage} bags · ${a.vehicle}`,
   }, `form-${input.token}`);
 }
 

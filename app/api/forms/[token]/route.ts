@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { agencyApplications, bookingForms } from "@/db/schema";
 import { formAnswersSchema, type FormPrefill } from "@/lib/booking-form";
 import { sendFormAlert } from "@/lib/email";
-import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
 
 // Customer: submit the step-by-step booking form. Each link takes one submission.
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -26,6 +26,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   await getDb().update(bookingForms).set({ status: "submitted", answers: JSON.stringify(a), submittedAt: new Date().toISOString() })
     .where(and(eq(bookingForms.token, token), eq(bookingForms.status, "waiting")));
   const [agency] = form.agencyId ? await getDb().select({ name: agencyApplications.agencyName }).from(agencyApplications).where(eq(agencyApplications.id, form.agencyId)).limit(1) : [];
-  await sendFormAlert({ token, answers: a, service: form.serviceType, agency: agency?.name ?? null, note: form.note, price: locked.price ?? null }).catch(() => undefined);
+  await sendFormAlert({ token, answers: a, service: form.serviceType, agency: agency?.name ?? null, note: form.note, price: locked.price ?? null, origin: safeOrigin(request) }).catch(() => undefined);
   return NextResponse.json({ ok: true });
 }
