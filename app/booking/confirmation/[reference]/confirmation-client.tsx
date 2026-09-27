@@ -218,7 +218,7 @@ export default function ConfirmationClient({
     ],
     [
       "Payment",
-      booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : "Paid online",
+      booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : booking.paymentMethod === "manual" ? "Paid" : "Paid online",
     ],
     ["Flight", booking.flightNumber],
     ["Pickup sign", booking.pickupSign],
@@ -257,7 +257,7 @@ export default function ConfirmationClient({
             )}
           </span>
           <p className="mt-6 text-sm font-bold uppercase tracking-[.16em] text-white/80">
-            {cancelled ? "Booking cancelled" : "Payment received"}
+            {cancelled ? "Booking cancelled" : booking.paymentMethod === "cash" && booking.total > 0 ? "Booking confirmed" : "Payment received"}
           </p>
           <h1 className="mt-2 text-4xl font-black tracking-[-.04em]">
             {cancelled ? "Your ride was cancelled." : "Your ride is booked."}

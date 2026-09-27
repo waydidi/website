@@ -7,7 +7,7 @@ import { getWaydidiAdmin } from "@/lib/admin";
 import { addonsTotal } from "@/lib/addons";
 import { uniqueBookingReference } from "@/lib/booking-reference-server";
 import { fulfillBooking } from "@/lib/booking-fulfillment";
-import { isJsonRequest, sameOrigin, secureToken, sha256 } from "@/lib/security";
+import { isJsonRequest, safeOrigin, sameOrigin, secureToken, sha256 } from "@/lib/security";
 import { VEHICLES } from "@/lib/vehicles";
 
 const POLICY_VERSION = "2026-09-07";
@@ -78,6 +78,9 @@ async function saveManualBooking(request: Request) {
     b.specialRequests,
   ].filter(Boolean).join(" ").slice(0, 500);
   const vehicle = VEHICLES[b.vehicle as keyof typeof VEHICLES];
+  // Same private confirmation link a website booking gets.
+  const accessToken = secureToken();
+  const confirmationUrl = `${safeOrigin(request)}/booking/confirmation/${reference}?token=${accessToken}`;
 
   await getDb().insert(bookings).values({
     reference,
@@ -102,7 +105,7 @@ async function saveManualBooking(request: Request) {
     reconciliationStatus: "not_required",
     termsAcceptedAt: now,
     policyVersion: POLICY_VERSION,
-    accessTokenHash: await sha256(secureToken()),
+    accessTokenHash: await sha256(accessToken),
     emailStatus: "pending",
     fulfillmentStatus: "pending",
     createdAt: now, updatedAt: now,
@@ -128,5 +131,5 @@ async function saveManualBooking(request: Request) {
   } else {
     await getDb().update(bookings).set({ emailStatus: "not_sent", fulfillmentStatus: "complete", updatedAt: now }).where(eq(bookings.reference, reference));
   }
-  return NextResponse.json({ ok: true, reference, total, emailStatus });
+  return NextResponse.json({ ok: true, reference, total, emailStatus, confirmationUrl });
 }

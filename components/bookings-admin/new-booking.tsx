@@ -41,7 +41,7 @@ export type NewBookingPrefill = Partial<Draft>;
 export function NewBookingButton({ service, prefill, formToken, trigger, autoOpen }: { service: Service; prefill?: NewBookingPrefill; formToken?: string; trigger?: string; autoOpen?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(Boolean(autoOpen));
-  const [done, setDone] = useState<{ reference: string; total: number; emailStatus: string } | null>(null);
+  const [done, setDone] = useState<{ reference: string; total: number; emailStatus: string; confirmationUrl?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const blank = (): Draft => ({ ...blankDraft(service), ...prefill });
@@ -67,10 +67,12 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
         returnDate: f.returnOn ? f.returnDate : "", returnTime: f.returnOn ? f.returnTime : "",
         flightNumber: isAirportPickup({ pickup: f.pickup, flightNumber: null }) ? f.flightNumber : "",
       }) });
-      const out = await res.json().catch(() => ({})) as { error?: string; reference?: string; total?: number; emailStatus?: string };
+      const out = await res.json().catch(() => ({})) as { error?: string; reference?: string; total?: number; emailStatus?: string; confirmationUrl?: string };
       if (!res.ok || !out.reference) throw new Error(out.error ?? "The booking could not be saved.");
-      setDone({ reference: out.reference, total: out.total ?? total, emailStatus: out.emailStatus ?? "not_sent" });
+      setDone({ reference: out.reference, total: out.total ?? total, emailStatus: out.emailStatus ?? "not_sent", confirmationUrl: out.confirmationUrl });
       if (formToken) await fetch("/api/admin/forms", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: formToken, bookingReference: out.reference }) }).catch(() => null);
+      // Save & email: show the same confirmation page a website customer sees.
+      if (sendEmail && out.confirmationUrl) { window.location.assign(out.confirmationUrl); return; }
       router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "The booking could not be saved."); }
     finally { setBusy(false); }
@@ -97,6 +99,7 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
         {done ? <div className="grid gap-4 pt-2">
           <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-emerald-900"><CheckCircle2 className="shrink-0" /><div><p className="text-[18px] font-semibold">{done.reference}</p><p className="text-[14px]">Total {thb(done.total)} · {done.emailStatus === "sent" ? "Confirmation emailed to the customer" : done.emailStatus === "not_sent" ? "Not emailed" : "Email not sent (check email settings)"}</p></div></div>
           <div className="flex flex-wrap gap-2">
+            {done.confirmationUrl && <a href={done.confirmationUrl} className="inline-flex h-11 items-center rounded-full bg-[#211726] px-5 font-semibold text-white">Open confirmation page</a>}
             <a href={`/api/admin/bookings/${done.reference}/confirmation`} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#FF8A05] px-5 font-semibold text-white"><Download size={17} />Download PDF</a>
             <Link href={`/admin/journeys/${done.reference}`} className="inline-flex h-11 items-center rounded-full border border-slate-200 px-5 font-medium hover:border-[#FF8A05]">Open booking</Link>
             <button type="button" onClick={() => { setDone(null); setF(blank()); }} className="inline-flex h-11 items-center rounded-full px-4 font-medium text-slate-600 hover:bg-slate-50">Add another</button>
