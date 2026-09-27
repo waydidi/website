@@ -122,7 +122,7 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
 <tr><td style="background:#ff8a05;padding:36px 38px 40px;color:#fff">
 <img src="cid:waydidi-logo" width="176" alt="Waydidi" style="display:block;width:176px;height:auto;border:0;margin:0 0 38px">
 <div style="width:52px;height:52px;border-radius:50%;background:#ffa84d;color:#fff;font-size:30px;line-height:52px;text-align:center;font-weight:700">✓</div>
-<p style="margin:28px 0 8px;color:#ffe1c2;font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">Payment received</p>
+<p style="margin:28px 0 8px;color:#ffe1c2;font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${input.paymentMethod === "cash" && input.total > 0 ? "Booking confirmed" : "Payment received"}</p>
 <h1 style="margin:0;color:#fff;font-size:38px;line-height:1.08;letter-spacing:-.03em">Your ride is booked.</h1>
 <p style="margin:15px 0 0;color:#ffe5cc;font-size:16px">Booking reference <strong style="color:#fff">${safeReference}</strong></p>
 </td></tr>
@@ -178,18 +178,44 @@ export async function sendOperationsAlert(booking: {
   reference: string; customerName: string; customerEmail: string; customerPhone: string; pickup: string; dropoff: string;
   pickupDate: string; pickupTime: string; passengers: number; luggage: number; vehicle: string; total: number; paymentMethod: string;
   returnPickup?: string | null; returnDropoff?: string | null; returnDate?: string | null; returnTime?: string | null;
+  serviceType?: string | null; bookedHours?: number | null; childSeats?: number | null; specialRequests?: string | null; flightNumber?: string | null;
 }) {
   if (!env.BOOKING_ALERT_EMAIL) return { status: "pending_configuration" } as EmailDelivery;
   const payment = booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : booking.paymentMethod === "manual" ? "Paid" : "Paid online";
-  const returnRows = booking.returnDate && booking.returnTime
-    ? `${detailRow("Return pickup", booking.returnPickup ?? booking.dropoff)}${detailRow("Return drop-off", booking.returnDropoff ?? booking.pickup)}${detailRow("Return date & time", displayDate(booking.returnDate, booking.returnTime))}`
-    : "";
-  const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:auto;color:#211726"><div style="background:#ff8a05;padding:28px 32px;color:#fff;border-radius:20px 20px 0 0"><p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#ffe1c2">New confirmed booking</p><h1 style="margin:0;font-size:28px">${escapeHtml(booking.reference)}</h1></div><div style="padding:28px 32px;border:1px solid #e6e9ef;border-top:0;border-radius:0 0 20px 20px"><table style="width:100%;border-collapse:collapse">${detailRow("Passenger", booking.customerName)}${detailRow("Email", booking.customerEmail)}${detailRow("Phone", booking.customerPhone)}${detailRow("Pickup", booking.pickup)}${detailRow("Drop-off", booking.dropoff)}${detailRow("Date & time", displayDate(booking.pickupDate, booking.pickupTime))}${returnRows}${detailRow("Travelers", `${booking.passengers} passengers - ${booking.luggage} bags`)}${detailRow("Vehicle", booking.vehicle)}${detailRow("Payment", payment)}${detailRow("Total", `THB ${booking.total.toLocaleString("en-US")}`)}</table></div></div>`;
+  const cash = booking.paymentMethod === "cash" && booking.total > 0;
+  // Same look as the customer's confirmation page: stacked label / value blocks.
+  const field = (label: string, value: string) => `<tr><td style="padding:0 0 22px"><p style="margin:0 0 6px;color:#8793a6;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${escapeHtml(label)}</p><p style="margin:0;color:#211726;font-size:17px;font-weight:700;line-height:1.4">${escapeHtml(value)}</p></td></tr>`;
+  const fields = [
+    field("Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : "Private transfer"),
+    field("Passenger", booking.customerName), field("Email", booking.customerEmail), field("Phone / WhatsApp", booking.customerPhone),
+    field("Pickup", booking.pickup), field("Drop-off", booking.dropoff),
+    field("Date & time", `${booking.pickupDate} at ${booking.pickupTime}`),
+    booking.flightNumber ? field("Flight", booking.flightNumber) : "",
+    booking.returnDate && booking.returnTime ? field("Return", `${booking.returnPickup ?? booking.dropoff} to ${booking.returnDropoff ?? booking.pickup}, ${booking.returnDate} at ${booking.returnTime}`) : "",
+    field("Travelers", `${booking.passengers} passengers · ${booking.luggage} bags`), field("Vehicle", booking.vehicle), field("Payment", payment),
+    booking.childSeats ? field("Child seats", String(booking.childSeats)) : "",
+    booking.specialRequests ? field("Special requests", booking.specialRequests) : "",
+    field("Total", `฿${booking.total.toLocaleString("en-US")}`),
+  ].join("");
+  const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"></head>
+<body style="margin:0;background:#f3f5f8;color:#211726;font-family:Arial,Helvetica,sans-serif">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f5f8"><tr><td align="center" style="padding:28px 12px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fff;border-radius:28px;overflow:hidden;box-shadow:0 8px 30px rgba(43,25,10,.08)">
+<tr><td style="background:#ff8a05;padding:36px 38px 40px;color:#fff">
+<img src="cid:waydidi-logo" width="176" alt="Waydidi" style="display:block;width:176px;height:auto;border:0;margin:0 0 38px">
+<div style="width:52px;height:52px;border-radius:50%;background:#ffa84d;color:#fff;font-size:30px;line-height:52px;text-align:center;font-weight:700">✓</div>
+<p style="margin:28px 0 8px;color:#ffe1c2;font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${cash ? "Booking confirmed" : "Payment received"}</p>
+<h1 style="margin:0;color:#fff;font-size:38px;line-height:1.08;letter-spacing:-.03em">Your ride is booked.</h1>
+<p style="margin:15px 0 0;color:#ffe5cc;font-size:16px">Booking reference <strong style="color:#fff">${escapeHtml(booking.reference)}</strong></p>
+</td></tr>
+<tr><td style="padding:34px 38px 30px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0">${fields}</table>
+<a href="${siteUrl()}/admin/journeys/${encodeURIComponent(booking.reference)}" style="display:block;margin-top:8px;background:#211726;color:#fff;text-align:center;text-decoration:none;font-size:17px;font-weight:700;padding:16px 24px;border-radius:999px">Open booking</a>
+</td></tr></table></td></tr></table></body></html>`;
   return resend({
     to: [env.BOOKING_ALERT_EMAIL],
     subject: `New confirmed booking · ${booking.reference}`,
     html,
-    text: `New confirmed booking ${booking.reference}\n${booking.customerName} · ${booking.customerPhone}\n${booking.pickup} to ${booking.dropoff}\n${booking.pickupDate} at ${booking.pickupTime}${booking.returnDate && booking.returnTime ? `\nReturn: ${booking.returnPickup ?? booking.dropoff} to ${booking.returnDropoff ?? booking.pickup}\n${booking.returnDate} at ${booking.returnTime}` : ""}\n${booking.vehicle} · THB ${booking.total.toLocaleString("en-US")} · ${payment}`,
+    text: `New confirmed booking ${booking.reference}\n${booking.customerName} · ${booking.customerPhone}\n${booking.pickup} to ${booking.dropoff}\n${booking.pickupDate} at ${booking.pickupTime}${booking.returnDate && booking.returnTime ? `\nReturn: ${booking.returnPickup ?? booking.dropoff} to ${booking.returnDropoff ?? booking.pickup}\n${booking.returnDate} at ${booking.returnTime}` : ""}\n${booking.vehicle} · THB ${booking.total.toLocaleString("en-US")} · ${payment}\nOpen booking: ${siteUrl()}/admin/journeys/${booking.reference}`,
   }, `operations-${booking.reference}`);
 }
 
