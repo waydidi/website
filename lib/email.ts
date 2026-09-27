@@ -1,4 +1,5 @@
 import type { BookingExtras } from "@/lib/booking-extras";
+import { VEHICLES } from "@/lib/vehicles";
 import { waitingLine } from "@/lib/waiting-policy";
 import { env } from "cloudflare:workers";
 
@@ -195,16 +196,17 @@ export async function sendFormAlert(input: {
     detailRow("From", a.pickup), a.dropoff ? detailRow("To", a.dropoff) : detailRow("Hours", String(a.hours ?? "")),
     detailRow("Date & time", displayDate(a.date, a.time)),
     a.returnTrip && a.returnDate && a.returnTime ? detailRow("Return", displayDate(a.returnDate, a.returnTime)) : "",
-    detailRow("Travelers", `${a.passengers} passengers - ${a.luggage} bags`), detailRow("Vehicle", a.vehicle),
+    detailRow("Travelers", `${a.passengers} passengers - ${a.luggage} bags`), detailRow("Vehicle", VEHICLES[a.vehicle as keyof typeof VEHICLES]?.name ?? a.vehicle),
     input.price != null ? detailRow("Agreed price", `THB ${input.price.toLocaleString("en-US")}`) : "",
     input.agency ? detailRow("Agency", input.agency) : "", input.note ? detailRow("Note", input.note) : "",
+    `<tr><td colspan="2" style="padding:28px 0 4px"><a href="${siteUrl()}/admin/bookings?type=${encodeURIComponent(input.service)}&form=${encodeURIComponent(input.token)}" style="display:block;background:#ff8a05;color:#ffffff;text-align:center;text-decoration:none;font-size:17px;font-weight:700;padding:16px 24px;border-radius:14px">Complete booking</a></td></tr>`,
   ].join("");
   const html = reminderShell("Form answers in", `${a.name} filled in their ride details`, "Open Admin → Bookings → Form links and tap Create booking.", rows);
   return resend({
     to: [env.BOOKING_ALERT_EMAIL],
     subject: `Form answers in · ${a.name}${input.agency ? ` (${input.agency})` : ""}`,
     html,
-    text: `${a.name} filled in the form.\n${a.pickup}${a.dropoff ? ` to ${a.dropoff}` : ""}\n${a.date} at ${a.time}\n${a.passengers} passengers, ${a.luggage} bags · ${a.vehicle}\nOpen Admin → Bookings → Form links.`,
+    text: `${a.name} filled in the form.\nComplete booking: ${siteUrl()}/admin/bookings?type=${encodeURIComponent(input.service)}&form=${encodeURIComponent(input.token)}\n${a.pickup}${a.dropoff ? ` to ${a.dropoff}` : ""}\n${a.date} at ${a.time}\n${a.passengers} passengers, ${a.luggage} bags · ${a.vehicle}\nOpen Admin → Bookings → Form links.`,
   }, `form-${input.token}`);
 }
 

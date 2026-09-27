@@ -38,9 +38,9 @@ function blankDraft(service: Service) {
 export type NewBookingPrefill = Partial<Draft>;
 
 // With `prefill` + `formToken` it opens from a customer form and marks that form as booked once saved.
-export function NewBookingButton({ service, prefill, formToken, trigger }: { service: Service; prefill?: NewBookingPrefill; formToken?: string; trigger?: string }) {
+export function NewBookingButton({ service, prefill, formToken, trigger, autoOpen }: { service: Service; prefill?: NewBookingPrefill; formToken?: string; trigger?: string; autoOpen?: boolean }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(autoOpen));
   const [done, setDone] = useState<{ reference: string; total: number; emailStatus: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

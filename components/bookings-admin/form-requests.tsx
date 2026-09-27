@@ -41,8 +41,8 @@ function CopyButton({ url }: { url: string }) {
 }
 
 // "Form links": send customers a private step-by-step form, then turn answers into a booking.
-export function FormRequestsButton({ service }: { service: FormService }) {
-  const [open, setOpen] = useState(false);
+export function FormRequestsButton({ service, openForm }: { service: FormService; openForm?: string }) {
+  const [open, setOpen] = useState(Boolean(openForm));
   const [forms, setForms] = useState<FormRow[] | null>(null);
   const [kind, setKind] = useState<FormService>(service);
   const [note, setNote] = useState("");
@@ -156,7 +156,7 @@ export function FormRequestsButton({ service }: { service: FormService }) {
               {a && <p className="text-[13px] text-slate-600">{a.pickup}{a.dropoff ? ` → ${a.dropoff}` : a.hours ? ` · ${a.hours} hours` : ""} · {a.date} {a.time} · {a.passengers} pax, {a.luggage} bags · {VEHICLES[a.vehicle as keyof typeof VEHICLES]?.name ?? a.vehicle}{a.returnTrip ? ` · return ${a.returnDate} ${a.returnTime}` : ""}</p>}
               <div className="flex flex-wrap items-center gap-2">
                 {form.status === "waiting" && !expired && <CopyButton url={link(form.token)} />}
-                {form.status === "submitted" && <NewBookingButton service={form.serviceType} prefill={prefillFrom(form)} formToken={form.token} trigger="Create booking" />}
+                {form.status === "submitted" && <NewBookingButton service={form.serviceType} prefill={prefillFrom(form)} formToken={form.token} trigger="Create booking" autoOpen={form.token === openForm} />}
                 {form.status === "booked" && form.bookingReference && <Link href={`/admin/journeys/${form.bookingReference}`} className="text-[14px] font-medium text-[#D96F00] hover:underline">{form.bookingReference}</Link>}
                 {form.status !== "booked" && <button type="button" onClick={() => void remove(form.token)} aria-label="Delete form link" className="ml-auto grid size-9 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>}
               </div>
