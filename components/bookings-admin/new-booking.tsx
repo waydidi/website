@@ -25,19 +25,26 @@ function Stepper({ value, set, max, labelText }: { value: number; set: (n: numbe
 }
 
 // "+ New booking": record a booking taken by phone, LINE or an agency and get its PDF.
-export function NewBookingButton({ service }: { service: Service }) {
+type Draft = ReturnType<typeof blankDraft>;
+function blankDraft(service: Service) {
+  return {
+    serviceType: service, pickup: "", dropoff: "", bookedHours: 4, pickupDate: bangkokToday(), pickupTime: "09:00",
+    returnOn: false, returnDate: "", returnTime: "", flightNumber: "",
+    customerName: "", customerSurname: "", customerEmail: "", customerPhone: "", passengers: 2, luggage: 2,
+    vehicle: "economy_sedan", fare: "", childSeats: 0, exchangeStop: false, ferryPeople: 0, discount: "",
+    paid: false, pickupSign: "", specialRequests: "",
+  };
+}
+export type NewBookingPrefill = Partial<Draft>;
+
+// With `prefill` + `formToken` it opens from a customer form and marks that form as booked once saved.
+export function NewBookingButton({ service, prefill, formToken, trigger }: { service: Service; prefill?: NewBookingPrefill; formToken?: string; trigger?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState<{ reference: string; total: number; emailStatus: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const blank = () => ({
-    serviceType: service as Service, pickup: "", dropoff: "", bookedHours: 4, pickupDate: bangkokToday(), pickupTime: "09:00",
-    returnOn: false, returnDate: "", returnTime: "", flightNumber: "",
-    customerName: "", customerSurname: "", customerEmail: "", customerPhone: "", passengers: 2, luggage: 2,
-    vehicle: "economy_sedan", fare: "", childSeats: 0, exchangeStop: false, ferryPeople: 0, discount: "",
-    paid: false, pickupSign: "", specialRequests: "",
-  });
+  const blank = (): Draft => ({ ...blankDraft(service), ...prefill });
   const [f, setF] = useState(blank);
   const set = <K extends keyof ReturnType<typeof blank>>(k: K, v: ReturnType<typeof blank>[K]) => setF((c) => ({ ...c, [k]: v }));
 
@@ -58,6 +65,7 @@ export function NewBookingButton({ service }: { service: Service }) {
       const out = await res.json().catch(() => ({})) as { error?: string; reference?: string; total?: number; emailStatus?: string };
       if (!res.ok || !out.reference) throw new Error(out.error ?? "The booking could not be saved.");
       setDone({ reference: out.reference, total: out.total ?? total, emailStatus: out.emailStatus ?? "not_sent" });
+      if (formToken) await fetch("/api/admin/forms", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: formToken, bookingReference: out.reference }) }).catch(() => null);
       router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "The booking could not be saved."); }
     finally { setBusy(false); }
@@ -71,7 +79,9 @@ export function NewBookingButton({ service }: { service: Service }) {
   const ready = f.pickup.trim().length > 1 && (f.serviceType === "hourly" || f.dropoff.trim().length > 1) && f.customerName.trim() && /\S+@\S+\.\S+/.test(f.customerEmail) && f.customerPhone.trim().length > 4 && f.fare !== "";
 
   return <>
-    <button type="button" onClick={() => { setF(blank()); setOpen(true); }} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]"><Plus size={17} strokeWidth={2.5} />New booking</button>
+    {trigger
+      ? <button type="button" onClick={() => { setF(blank()); setOpen(true); }} className="inline-flex h-9 items-center rounded-full bg-[#FF8A05] px-4 text-[14px] font-semibold text-white hover:bg-[#E67900]">{trigger}</button>
+      : <button type="button" onClick={() => { setF(blank()); setOpen(true); }} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]"><Plus size={17} strokeWidth={2.5} />New booking</button>}
     <Dialog open={open} onOpenChange={close}>
       <DialogContent showCloseButton={false} className="max-h-[92dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-slate-900 sm:max-w-2xl">
         <DialogHeader className="flex-row items-center justify-between gap-3 text-left">

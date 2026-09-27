@@ -1156,3 +1156,17 @@ export const storedFileParts = sqliteTable("stored_file_parts", {
   data: blob("data").notNull(),
   createdAt: text("created_at").notNull(),
 }, (table) => [primaryKey({ columns: [table.key, table.part] })]);
+
+// Customer booking forms: a private link the admin sends; the customer fills it
+// in step by step and the answers wait here until the admin turns them into a booking.
+export const bookingForms = sqliteTable("booking_forms", {
+  token: text("token").primaryKey(),
+  serviceType: text("service_type").notNull(),
+  note: text("note"),
+  status: text("status").notNull(),
+  answers: text("answers"),
+  bookingReference: text("booking_reference"),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  submittedAt: text("submitted_at"),
+});

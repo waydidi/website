@@ -337,6 +337,13 @@
       "when": 1790362315737,
       "tag": "0047_stored_file_parts",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1790500000000,
+      "tag": "0048_booking_forms",
+      "breakpoints": true
     }
   ]
 }

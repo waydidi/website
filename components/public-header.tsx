@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 
 // Sections with their own chrome. Matched by whole path segment, so e.g. "/driver"
 // hides the header on /driver/trip/… but not on the public /drivers page.
-const OWN_HEADER = ["/booking/confirmation", "/admin", "/driver", "/trip"];
+const OWN_HEADER = ["/booking/confirmation", "/admin", "/driver", "/trip", "/f"];
 const HOMEPAGES = ["/", "/th", "/zh"]; // they place the same header over their hero
 
 export const inSection = (pathname: string, section: string) => pathname === section || pathname.startsWith(`${section}/`);
