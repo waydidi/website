@@ -138,13 +138,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
       <Image src="/waydidi-logo.png" alt="Waydidi" width={180} height={68} className="mx-auto mb-8 h-auto w-40" />
       <span className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-white text-[#FF8A05]"><Check size={34} strokeWidth={3} /></span>
       <h1 className="text-[32px] font-bold leading-tight">Thank you{firstName ? `, ${firstName}` : ""}!</h1>
-      <p className="mt-3 text-[17px] text-white/90">We&apos;ve got your details. Here&apos;s what happens next:</p>
-      <ol className="mx-auto mt-6 grid max-w-sm gap-3 text-left">
-        {["We check the car and driver for your date", "We confirm on WhatsApp and email, with your booking PDF", "Your driver's details arrive before pickup"].map((t, i) =>
-          <li key={t} className="flex items-start gap-3 rounded-2xl bg-white/15 px-4 py-3 text-[15px] animate-in fade-in slide-in-from-bottom-2 fill-mode-both motion-reduce:animate-none" style={{ animationDelay: `${300 + i * 150}ms` }}>
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white text-[13px] font-bold text-[#FF8A05]">{i + 1}</span>{t}
-          </li>)}
-      </ol>
+      <p className="mt-3 text-[17px] text-white/90">We&apos;ve received your details and will confirm your ride shortly on WhatsApp or email.</p>
     </div>
   </main>;
 
