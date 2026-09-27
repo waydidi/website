@@ -33,10 +33,10 @@ export function PhoneInput({ value, onChange, inputRef, className }: { value: st
     if (found) setCode(found[2]);
   }, [value]);
 
-  return <div className="flex items-end gap-3">
+  return <div className="flex items-stretch gap-2.5">
     <label className="relative shrink-0">
       <span className="sr-only">Country code</span>
-      <select value={COUNTRIES.find((c) => c[2] === code)?.[0] ?? "TH"} onChange={(e) => { const c = COUNTRIES.find((x) => x[0] === e.target.value); if (c) { setCode(c[2]); if (rest) onChange(`${c[2]} ${rest}`); } }} className="h-12 appearance-none rounded-xl border-2 border-[#F0E3D4] bg-white pl-3 pr-8 text-[18px] outline-none focus:border-[#FF8A05]">
+      <select value={COUNTRIES.find((c) => c[2] === code)?.[0] ?? "TH"} onChange={(e) => { const c = COUNTRIES.find((x) => x[0] === e.target.value); if (c) { setCode(c[2]); if (rest) onChange(`${c[2]} ${rest}`); } }} className="h-16 appearance-none rounded-2xl border-2 border-[#F0E3D4] bg-white pl-3 pr-8 text-[18px] outline-none transition focus:border-[#FF8A05] focus:ring-4 focus:ring-[#FF8A05]/15">
         {COUNTRIES.map(([id, flag, dial]) => <option key={id} value={id}>{flag} {dial}</option>)}
       </select>
       <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9A8F86]" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, ChevronDown, ChevronUp, Lock, LoaderCircle, Luggage, Minus, Pencil, Plus, UsersRound } from "lucide-react";
+import { ArrowLeft, CarFront, Check, ClipboardCheck, Clock3, Lock, LoaderCircle, Luggage, Mail, MapPin, MessageCircle, Minus, Pencil, Plus, Repeat, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
@@ -24,16 +24,20 @@ const blank: Answers = {
   passengers: 2, luggage: 2, vehicle: "economy_sedan", childSeats: 0, exchangeStop: false, ferryPeople: 0,
 };
 
-const bigInput = "w-full border-0 border-b-2 border-[#FFC98A] bg-transparent pb-2 text-[24px] text-[#1F1726] outline-none placeholder:text-[#C9BFB5] focus:border-[#FF8A05] sm:text-[28px]";
-const smallLabel = "block text-[14px] font-medium text-[#6B6170]";
-const smallInput = "mt-1 w-full border-0 border-b-2 border-[#FFC98A] bg-transparent pb-1.5 text-[19px] text-[#1F1726] outline-none placeholder:text-[#C9BFB5] focus:border-[#FF8A05]";
+const box = "w-full rounded-2xl border-2 font-normal border-[#F0E3D4] bg-white px-4 text-[#1F1726] shadow-[0_1px_2px_rgba(60,30,0,.04)] outline-none transition placeholder:text-[#BDB2A8] focus:border-[#FF8A05] focus:ring-4 focus:ring-[#FF8A05]/15 disabled:bg-[#FAF6F1] disabled:text-[#6B6170]";
+const bigInput = `${box} h-16 text-[20px] sm:text-[22px]`;
+const smallLabel = "block text-[14px] font-semibold text-[#4A3F4F]";
+const smallInput = `${box} mt-1.5 h-14 text-[17px]`;
+
+// Round icon badge above each question.
+const STEP_ICON: Record<string, LucideIcon> = { name: UserRound, phone: MessageCircle, email: Mail, trip: MapPin, return: Repeat, ride: CarFront, review: ClipboardCheck };
 const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 
 function Stepper({ value, set, min, max, label }: { value: number; set: (n: number) => void; min: number; max: number; label: string }) {
   return <span className="flex items-center gap-3">
-    <button type="button" aria-label={`Fewer ${label}`} disabled={value <= min} onClick={() => set(value - 1)} className="grid size-10 place-items-center rounded-full border border-[#E5DDD4] bg-white disabled:opacity-40"><Minus size={18} /></button>
+    <button type="button" aria-label={`Fewer ${label}`} disabled={value <= min} onClick={() => set(value - 1)} className="grid size-10 place-items-center rounded-full border-2 border-[#F0E3D4] bg-white text-[#1F1726] transition active:scale-90 enabled:hover:border-[#FF8A05] disabled:opacity-35"><Minus size={18} /></button>
     <span className="w-6 text-center text-[20px] font-semibold tabular-nums" aria-live="polite">{value}</span>
-    <button type="button" aria-label={`More ${label}`} disabled={value >= max} onClick={() => set(value + 1)} className="grid size-10 place-items-center rounded-full border border-[#E5DDD4] bg-white disabled:opacity-40"><Plus size={18} /></button>
+    <button type="button" aria-label={`More ${label}`} disabled={value >= max} onClick={() => set(value + 1)} className="grid size-10 place-items-center rounded-full border-2 border-[#FF8A05] bg-[#FF8A05] text-white transition active:scale-90 enabled:hover:bg-[#E67900] disabled:border-[#F0E3D4] disabled:bg-white disabled:text-[#1F1726] disabled:opacity-35"><Plus size={18} /></button>
   </span>;
 }
 
@@ -53,6 +57,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [started, setStarted] = useState(false);
   const firstInput = useRef<HTMLInputElement>(null);
 
   // Restore saved answers once, then keep saving as the customer types.
@@ -60,7 +65,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null") as { a?: Answers; index?: number } | null;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time restore from device storage
-      if (saved?.a) { setA(withPrefill({ ...blank, ...saved.a })); setIndex(saved.index ?? 0); }
+      if (saved?.a) { setA(withPrefill({ ...blank, ...saved.a })); setIndex(saved.index ?? 0); setStarted(true); }
     } catch { /* storage blocked */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once per link
   }, [storageKey]);
@@ -74,7 +79,12 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
   const ferry = service !== "hourly" && offersFerry(a.pickup, a.dropoff);
   const firstName = a.name.trim().split(/\s+/)[0] ?? "";
 
-  useEffect(() => { firstInput.current?.focus({ preventScroll: true }); }, [step]);
+  // Focus the first box after the slide-in (not on phones, where the keyboard would cover the question).
+  useEffect(() => {
+    if (!started || window.matchMedia("(max-width: 639px)").matches) return;
+    const t = setTimeout(() => firstInput.current?.focus({ preventScroll: true }), 250);
+    return () => clearTimeout(t);
+  }, [step, started]);
 
   function problem(id: StepId): string {
     if (id === "name" && a.name.trim().length < 2) return "Please type your full name.";
@@ -129,43 +139,71 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
       <Image src="/waydidi-logo.png" alt="Waydidi" width={180} height={68} className="mx-auto mb-8 h-auto w-40" />
       <span className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-white text-[#FF8A05]"><Check size={34} strokeWidth={3} /></span>
       <h1 className="text-[32px] font-bold leading-tight">Thank you{firstName ? `, ${firstName}` : ""}!</h1>
-      <p className="mt-3 text-[17px] text-white/90">We&apos;ve received your details and will confirm your ride shortly on WhatsApp or email.</p>
+      <p className="mt-3 text-[17px] text-white/90">We&apos;ve got your details. Here&apos;s what happens next:</p>
+      <ol className="mx-auto mt-6 grid max-w-sm gap-3 text-left">
+        {["We check the car and driver for your date", "We confirm on WhatsApp and email, with your booking PDF", "Your driver's details arrive before pickup"].map((t, i) =>
+          <li key={t} className="flex items-start gap-3 rounded-2xl bg-white/15 px-4 py-3 text-[15px] animate-in fade-in slide-in-from-bottom-2 fill-mode-both motion-reduce:animate-none" style={{ animationDelay: `${300 + i * 150}ms` }}>
+            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white text-[13px] font-bold text-[#FF8A05]">{i + 1}</span>{t}
+          </li>)}
+      </ol>
     </div>
   </main>;
 
-  const progress = Math.round((index / steps.length) * 100);
+  if (!started) return <main className="flex min-h-dvh flex-col bg-[#FFFBF6] px-6 text-[#1F1726]">
+    <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-10 text-center animate-in fade-in slide-in-from-bottom-4 duration-700 motion-reduce:animate-none">
+      <span className="mx-auto grid size-20 place-items-center rounded-full bg-[#FF8A05] shadow-[0_10px_30px_-8px_rgba(255,138,5,.6)]"><Image src="/waydidi-bird.png" alt="Waydidi" width={48} height={48} className="size-12" /></span>
+      <h1 className="mt-7 text-[32px] font-bold leading-tight">Let&apos;s plan your ride</h1>
+      <p className="mt-3 text-[17px] leading-relaxed text-[#6B6170]">A few quick questions about you and your trip. We&apos;ll confirm everything on WhatsApp.</p>
+      <p className="mt-5 inline-flex items-center justify-center gap-1.5 text-[14px] font-medium text-[#9A8F86]"><Clock3 size={16} />Takes about 1 minute</p>
+      {(prefill.pickup || prefill.dropoff) && <div className="mx-auto mt-6 w-full rounded-2xl border border-[#F0E3D4] bg-white p-4 text-left text-[15px]">
+        <p className="text-[12px] font-semibold uppercase tracking-[.12em] text-[#FF8A05]">Your trip</p>
+        <p className="mt-1 font-semibold">{prefill.pickup ?? "Pickup to be added"}{prefill.dropoff ? ` → ${prefill.dropoff}` : ""}</p>
+        {prefill.date && <p className="text-[#6B6170]">{prefill.date}{prefill.time ? ` at ${prefill.time}` : ""}</p>}
+      </div>}
+      <button type="button" onClick={() => setStarted(true)} className="mx-auto mt-8 inline-flex h-14 w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-[#FF8A05] text-[18px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(255,138,5,.7)] transition hover:bg-[#E67900] active:scale-[.98]">Start</button>
+    </div>
+  </main>;
+
+  const progress = Math.round(((index + 1) / steps.length) * 100);
   const number = index + 1;
+  const Icon = STEP_ICON[step];
+  const last = index === steps.length - 1;
 
   return <main className="flex min-h-dvh flex-col bg-[#FFFBF6] text-[#1F1726]" onKeyDown={(e) => {
     if (e.key === "Enter" && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); void next(); }
   }}>
-    <div className="fixed inset-x-0 top-0 z-10 h-1.5 bg-[#FFE7CC]"><div className="h-full bg-[#FF8A05] transition-[width] duration-500" style={{ width: `${progress}%` }} /></div>
-    <header className="px-5 pt-6 sm:px-10"><span className="grid size-11 place-items-center rounded-full bg-[#FF8A05]"><Image src="/waydidi-bird.png" alt="Waydidi" width={28} height={28} className="size-7" /></span></header>
+    <header className="sticky top-0 z-20 bg-[#FFFBF6]/90 backdrop-blur">
+      <div className="mx-auto flex h-16 w-full max-w-xl items-center justify-between px-5">
+        <button type="button" onClick={() => index === 0 ? setStarted(false) : go(index - 1)} className="-ml-2 inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[15px] font-medium text-[#6B6170] transition hover:bg-[#FFF0DF] hover:text-[#1F1726]"><ArrowLeft size={18} />Back</button>
+        <span className="text-[14px] font-semibold text-[#9A8F86]">Step <span className="text-[#FF8A05]">{number}</span> of {steps.length}</span>
+      </div>
+      <div className="mx-auto h-1.5 w-full max-w-xl px-5"><div className="h-full overflow-hidden rounded-full bg-[#FFE7CC]"><div className="h-full rounded-full bg-[#FF8A05] transition-[width] duration-500 ease-out" style={{ width: `${progress}%` }} /></div></div>
+    </header>
 
-    <section className="flex flex-1 items-center px-5 pb-28 pt-6 sm:px-10">
-      <div key={step} className={`mx-auto w-full max-w-xl animate-in fade-in duration-500 ${direction === 1 ? "slide-in-from-bottom-8" : "slide-in-from-top-8"}`}>
-        <p className="mb-3 flex items-center gap-1.5 text-[15px] font-semibold text-[#FF8A05]">{number}<ArrowRight size={15} /><span className="text-[#9A8F86]">of {steps.length}</span></p>
+    <section className="flex flex-1 items-start px-5 pb-36 pt-8 sm:items-center sm:pb-24">
+      <div key={step} className={`mx-auto w-full max-w-xl animate-in fade-in duration-300 ease-out motion-reduce:animate-none ${direction === 1 ? "slide-in-from-right-6" : "slide-in-from-left-6"}`}>
+        {Icon && <span className="mb-5 grid size-12 place-items-center rounded-2xl bg-[#FFF0DF] text-[#FF8A05]"><Icon size={24} strokeWidth={2.2} /></span>}
 
         {step === "name" && <>
-          <h1 className="text-[28px] font-bold leading-tight sm:text-[34px]">What&apos;s your name?</h1>
-          <p className="mt-2 text-[17px] text-[#6B6170]">The lead passenger&apos;s full name, as the driver should greet you.</p>
-          <input ref={firstInput} className={`${bigInput} mt-8`} value={a.name} onChange={(e) => set("name", e.target.value)} placeholder="Type your answer here..." autoComplete="name" />
+          <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">What&apos;s your name?</h1>
+          <p className="mt-2 text-[17px] text-[#6B6170]">The lead passenger&apos;s full name, so your driver can greet you.</p>
+          <input ref={firstInput} className={`${bigInput} mt-8`} value={a.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Anna Smith" autoComplete="name" />
         </>}
 
         {step === "phone" && <>
-          <h1 className="text-[28px] font-bold leading-tight sm:text-[34px]">{firstName ? `Thanks ${firstName}! ` : ""}What&apos;s your WhatsApp number?</h1>
+          <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">{firstName ? `Thanks ${firstName}! ` : ""}What&apos;s your WhatsApp number?</h1>
           <p className="mt-2 text-[17px] text-[#6B6170]">Choose your country code, then your number. Your driver will message you here.</p>
           <div className="mt-8"><PhoneInput inputRef={firstInput} value={a.phone} onChange={(v) => set("phone", v)} className={`${bigInput} min-w-0 flex-1`} /></div>
         </>}
 
         {step === "email" && <>
-          <h1 className="text-[28px] font-bold leading-tight sm:text-[34px]">And your email?</h1>
+          <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">And your email?</h1>
           <p className="mt-2 text-[17px] text-[#6B6170]">We&apos;ll send your booking confirmation here.</p>
           <input ref={firstInput} type="email" inputMode="email" className={`${bigInput} mt-8`} value={a.email} onChange={(e) => set("email", e.target.value)} placeholder="name@example.com" autoComplete="email" />
         </>}
 
         {step === "trip" && <>
-          <h1 className="text-[28px] font-bold leading-tight sm:text-[34px]">{service === "hourly" ? "Tell us about your day" : service === "tour" ? "Tell us about your tour" : "Tell us about your trip"}</h1>
+          <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">{service === "hourly" ? "Tell us about your day" : service === "tour" ? "Tell us about your tour" : "Tell us about your trip"}</h1>
           <div className="mt-7 grid gap-6">
             <label className={smallLabel}>Pickup location{locked("pickup") && <Lock size={13} className="ml-1 inline text-[#9A8F86]" />}<PlaceInput inputRef={firstInput} className={smallInput} value={a.pickup} onChange={(v) => set("pickup", v)} placeholder="Airport, hotel name or address" disabled={locked("pickup")} /></label>
             {airport && <label className={`${smallLabel} animate-in fade-in slide-in-from-top-2`}>Flight number <span className="font-normal text-[#9A8F86]">(optional)</span><input className={smallInput} value={a.flightNumber} onChange={(e) => set("flightNumber", e.target.value.toUpperCase())} placeholder="TG 123" /></label>}
@@ -183,10 +221,10 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
         </>}
 
         {step === "return" && <>
-          <h1 className="text-[28px] font-bold leading-tight sm:text-[34px]">Do you need a return trip?</h1>
+          <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">Do you need a return trip?</h1>
           <p className="mt-2 text-[17px] text-[#6B6170]">From {a.dropoff || "your drop-off"} back to {a.pickup || "your pickup"}.</p>
-          <div className="mt-7 grid max-w-sm gap-3">
-            {([[true, "A", "Yes, add a return"], [false, "B", "No, one way"]] as const).map(([value, key, text]) => <button key={key} type="button" onClick={() => set("returnTrip", value)} className={`flex h-14 items-center gap-3 rounded-xl border-2 px-4 text-left text-[18px] font-medium transition ${a.returnTrip === value ? "border-[#FF8A05] bg-[#FFF0DF]" : "border-[#F0E3D4] bg-white hover:border-[#FFC98A]"}`}>
+          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            {([[true, "A", "Yes, add a return"], [false, "B", "No, one way"]] as const).map(([value, key, text]) => <button key={key} type="button" onClick={() => set("returnTrip", value)} className={`flex h-16 items-center gap-3 rounded-2xl border-2 px-4 text-left text-[17px] font-semibold transition active:scale-[.98] ${a.returnTrip === value ? "border-[#FF8A05] bg-[#FFF0DF]" : "border-[#F0E3D4] bg-white hover:border-[#FFC98A]"}`}>
               <span className={`grid size-7 place-items-center rounded-md border text-[13px] font-bold ${a.returnTrip === value ? "border-[#FF8A05] bg-[#FF8A05] text-white" : "border-[#E5DDD4] text-[#9A8F86]"}`}>{key}</span>{text}
               {a.returnTrip === value && <Check size={20} className="ml-auto text-[#FF8A05]" />}
             </button>)}
@@ -198,19 +236,19 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
         </>}
 
         {step === "ride" && <>
-          <h1 className="text-[28px] font-bold leading-tight sm:text-[34px]">Your ride</h1>
+          <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">Your ride</h1>
           <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 rounded-2xl border border-[#F0E3D4] bg-white px-5 py-4">
             <span className="flex items-center gap-3"><UsersRound size={24} aria-label="Passengers" /><Stepper value={a.passengers} set={(n) => setGroup(n, a.luggage)} min={1} max={20} label="passengers" /></span>
             <span className="flex items-center gap-3"><Luggage size={24} aria-label="Bags" /><Stepper value={a.luggage} set={(n) => setGroup(a.passengers, n)} min={0} max={30} label="bags" /></span>
           </div>
 
-          <p className="mt-6 text-[15px] font-semibold">Choose your car</p>
+          <p className="mt-7 text-[16px] font-semibold">Choose your car</p>
           <div className="mt-2 grid grid-cols-2 gap-3">
             {(Object.keys(VEHICLES) as VehicleId[]).filter((id) => !locked("vehicle") || id === a.vehicle).map((id) => {
               const v = VEHICLES[id];
               const fits = locked("vehicle") || vehicleFits(id, a.passengers, a.luggage);
               const chosen = a.vehicle === id;
-              return <button key={id} type="button" disabled={!fits} onClick={() => set("vehicle", id)} className={`relative rounded-2xl border-2 bg-white p-3 text-left transition disabled:opacity-40 ${chosen ? "border-[#FF8A05] bg-[#FFF7EE]" : "border-[#F0E3D4] hover:border-[#FFC98A]"}`}>
+              return <button key={id} type="button" disabled={!fits} onClick={() => set("vehicle", id)} className={`relative rounded-2xl border-2 p-3 text-left transition active:scale-[.98] disabled:opacity-35 ${chosen ? "border-[#FF8A05] bg-[#FFF7EE] shadow-[0_6px_16px_-8px_rgba(255,138,5,.6)]" : "border-[#F0E3D4] bg-white hover:border-[#FFC98A]"}`}>
                 <Image src={`/vehicle-${id.replace(/_/g, "-")}.webp`} alt="" width={200} height={110} unoptimized className="h-16 w-full object-contain" />
                 <span className="mt-1 block text-[15px] font-semibold">{v.name}</span>
                 <span className="block text-[13px] text-[#6B6170]">Up to {v.passengers} people · {v.bags} bags</span>
@@ -219,7 +257,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
             })}
           </div>
 
-          <p className="mt-6 text-[15px] font-semibold">Extras <span className="font-normal text-[#9A8F86]">(optional)</span></p>
+          <p className="mt-7 text-[16px] font-semibold">Extras <span className="font-normal text-[#9A8F86]">(optional)</span></p>
           <ul className="mt-2 divide-y divide-[#F0E3D4] rounded-2xl border border-[#F0E3D4] bg-white px-4">
             {ferry && <li className="flex items-center gap-3 py-3">
               <Image src="/ferry-3d.webp" alt="" width={44} height={44} unoptimized className="size-11 object-contain" />
@@ -242,7 +280,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
         </>}
 
         {step === "review" && <>
-          <h1 className="text-[28px] font-bold leading-tight sm:text-[34px]">Check your details</h1>
+          <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">Check your details</h1>
           <p className="mt-2 text-[17px] text-[#6B6170]">Tap a line to change it, then send.</p>
           <dl className="mt-6 divide-y divide-[#F0E3D4] rounded-2xl border border-[#F0E3D4] bg-white">
             {([
@@ -272,21 +310,21 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
           </div>}
         </>}
 
-        {error && <p role="alert" className="mt-5 inline-flex rounded-lg bg-[#FFE9E6] px-3 py-1.5 text-[15px] font-medium text-[#C62828]">{error}</p>}
+        {error && <p key={error} role="alert" className="mt-5 flex items-center gap-2 rounded-xl bg-[#FFE9E6] px-4 py-2.5 text-[15px] font-medium text-[#B42318] animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-[#B42318] text-[12px] font-bold text-white">!</span>{error}</p>}
 
-        <div className="mt-8 flex items-center gap-3">
-          <button type="button" onClick={() => void next()} disabled={busy} className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#FF8A05] px-6 text-[18px] font-semibold text-white shadow-sm hover:bg-[#E67900] disabled:opacity-60">
-            {busy ? <LoaderCircle size={20} className="animate-spin" /> : null}
-            {index === steps.length - 1 ? "Submit" : "OK"}{index < steps.length - 1 && <Check size={20} strokeWidth={3} />}
+        <div className="mt-8 hidden items-center gap-3 sm:flex">
+          <button type="button" onClick={() => void next()} disabled={busy} className="inline-flex h-14 items-center gap-2 rounded-2xl bg-[#FF8A05] px-8 text-[18px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(255,138,5,.7)] transition hover:bg-[#E67900] active:scale-[.98] disabled:opacity-60">
+            {busy && <LoaderCircle size={20} className="animate-spin" />}{last ? "Send my details" : "Continue"}{!last && !busy && <Check size={20} strokeWidth={3} />}
           </button>
-          {index < steps.length - 1 && <span className="hidden text-[13px] text-[#9A8F86] sm:inline">press <b>Enter ↵</b></span>}
+          {!last && <span className="text-[13px] text-[#9A8F86]">or press <b>Enter ↵</b></span>}
         </div>
       </div>
     </section>
 
-    <nav className="fixed bottom-5 right-5 hidden overflow-hidden rounded-lg shadow-md sm:flex" aria-label="Move between questions">
-      <button type="button" onClick={() => go(index - 1)} disabled={index === 0} aria-label="Previous question" className="grid size-10 place-items-center border-r border-white/30 bg-[#FF8A05] text-white disabled:opacity-50"><ChevronUp size={22} /></button>
-      <button type="button" onClick={() => void next()} disabled={index === steps.length - 1 || busy} aria-label="Next question" className="grid size-10 place-items-center bg-[#FF8A05] text-white disabled:opacity-50"><ChevronDown size={22} /></button>
-    </nav>
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#F0E3D4] bg-[#FFFBF6]/95 px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:hidden">
+      <button type="button" onClick={() => void next()} disabled={busy} className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#FF8A05] text-[18px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(255,138,5,.7)] transition active:scale-[.98] disabled:opacity-60">
+        {busy && <LoaderCircle size={20} className="animate-spin" />}{last ? "Send my details" : "Continue"}
+      </button>
+    </div>
   </main>;
 }
