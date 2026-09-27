@@ -3,7 +3,8 @@
 import { useI18n } from "@/components/i18n-provider";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Check, LoaderCircle, Plus } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
 // Promotions (tiket.com style). Real offers come from Admin → Promotions
@@ -45,17 +46,12 @@ function toPromotion(p: PublicPromotion): Promotion {
   };
 }
 
-function PromoCard({ promo, onTerms }: { promo: Promotion; onTerms: () => void }) {
+type CollectState = "idle" | "busy" | "collected";
+
+function PromoCard({ promo, onTerms, state, onCollect }: { promo: Promotion; onTerms: () => void; state: CollectState; onCollect: () => void }) {
   const { t } = useI18n();
   const { title, code } = promo;
-  const [copied, setCopied] = useState(false);
-  async function copy() {
-    try { await navigator.clipboard.writeText(code); } catch { /* still show the code */ }
-    // "Use": the Payment step picks this up and fills in the promo box.
-    try { sessionStorage.setItem("waydidi-promo", code); } catch { /* storage unavailable */ }
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  }
+  const collected = state === "collected";
   return <li className="relative w-[86%] max-w-[360px] shrink-0 snap-start rounded-2xl bg-white px-5 py-5 shadow-[0_2px_10px_rgba(90,40,0,.06)]">
     {/* ticket notches, cut in the section's background colour */}
     <span aria-hidden="true" className="absolute -left-3 top-1/2 size-6 -translate-y-1/2 rounded-full bg-[#FFF3E6]" />
@@ -64,9 +60,13 @@ function PromoCard({ promo, onTerms }: { promo: Promotion; onTerms: () => void }
     <p className="min-h-12 pr-8 text-[16px] font-medium leading-6 text-[#1C1C1C]">{title}</p>
     <div className="mt-4 flex items-center gap-3">
       <span className="flex h-11 min-w-0 flex-1 items-center truncate rounded-lg bg-[#F4F4F2] px-3 text-[15px] text-[#1C1C1C]">{code}</span>
-      <button type="button" onClick={copy} className="h-11 shrink-0 rounded-lg bg-brand px-4 text-[15px] font-semibold text-white transition hover:bg-brand-hover" aria-live="polite">
-        {copied ? t("promo.copied") : t("promo.copyUse")}
-      </button>
+      {collected
+        ? <Link href="/account/coupons" className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border-2 border-[#16A34A] bg-[#F0FDF4] px-3.5 text-[15px] font-semibold text-[#15803D] animate-in zoom-in-95 duration-300" aria-live="polite">
+            <Check size={17} strokeWidth={3} aria-hidden="true" />{t("promo.collected")}
+          </Link>
+        : <button type="button" onClick={onCollect} disabled={state === "busy"} className="inline-flex h-11 min-w-[104px] shrink-0 items-center justify-center gap-1.5 rounded-lg bg-brand px-4 text-[15px] font-semibold text-white transition hover:bg-brand-hover active:scale-[.97] disabled:opacity-70">
+            {state === "busy" ? <LoaderCircle size={17} className="animate-spin" aria-hidden="true" /> : <Plus size={17} strokeWidth={2.75} aria-hidden="true" />}{t("promo.collect")}
+          </button>}
     </div>
   </li>;
 }
@@ -76,6 +76,51 @@ export function Promotions() {
   // Until real codes work at checkout, show only when previewing: /?promos=preview
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [terms, setTerms] = useState<Promotion | null>(null);
+  const [states, setStates] = useState<Record<string, CollectState>>({});
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [toast, setToast] = useState("");
+
+  const collect = useCallback(async (code: string) => {
+    if (signedIn === false) {
+      // Sign in first, then come straight back and collect it.
+      window.location.assign(`/account/sign-in?next=${encodeURIComponent(`/?collect=${code}#promotions-heading`)}`);
+      return;
+    }
+    setStates((s) => ({ ...s, [code]: "busy" }));
+    const res = await fetch("/api/account/coupons/collect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) }).catch(() => null);
+    if (res?.status === 401) { window.location.assign(`/account/sign-in?next=${encodeURIComponent(`/?collect=${code}#promotions-heading`)}`); return; }
+    const ok = Boolean(res?.ok);
+    setStates((s) => ({ ...s, [code]: ok ? "collected" : "idle" }));
+    // Also waiting in the promo box at payment, as before.
+    if (ok) { try { sessionStorage.setItem("waydidi-promo", code); } catch { /* storage unavailable */ } }
+    setToast(ok ? t("promo.collectedToast") : t("promo.collectFailed"));
+    window.setTimeout(() => setToast(""), 2600);
+  }, [signedIn, t]);
+
+  // Which codes this member already has, and finish a collect started before signing in.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/account/coupons/collect", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { signedIn: false, codes: [] }))
+      .then((body: { signedIn: boolean; codes: string[] }) => {
+        if (!alive) return;
+        setSignedIn(body.signedIn);
+        setStates(Object.fromEntries(body.codes.map((c) => [c, "collected" as CollectState])));
+      })
+      .catch(() => { if (alive) setSignedIn(false); });
+    return () => { alive = false; };
+  }, []);
+  useEffect(() => {
+    if (!signedIn) return;
+    const url = new URL(window.location.href);
+    const pending = url.searchParams.get("collect");
+    if (!pending) return;
+    url.searchParams.delete("collect");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- finishes the collect the visitor started before signing in
+    if (states[pending.toUpperCase()] !== "collected") void collect(pending.toUpperCase());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, after sign-in status is known
+  }, [signedIn]);
   useEffect(() => {
     const preview = new URLSearchParams(window.location.search).get("promos") === "preview";
     let alive = true;
@@ -94,9 +139,10 @@ export function Promotions() {
     <h2 id="promotions-heading" className="mx-auto max-w-[1180px] px-5 text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C] lg:px-0">{t("promo.heading")}</h2>
     {/* Native horizontal scroll with snap: smooth with a finger or trackpad. */}
     <ul className="mx-auto mt-4 flex max-w-[1180px] snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto overscroll-x-contain px-5 pb-3 [scrollbar-width:none] lg:scroll-px-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
-      {promotions.map((promo) => <PromoCard key={promo.code} promo={promo} onTerms={() => setTerms(promo)} />)}
+      {promotions.map((promo) => <PromoCard key={promo.code} promo={promo} onTerms={() => setTerms(promo)} state={states[promo.code.toUpperCase()] ?? "idle"} onCollect={() => void collect(promo.code.toUpperCase())} />)}
     </ul>
     <TermsSheet promo={terms} onClose={() => setTerms(null)} />
+    {toast && <div role="status" className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+112px)] z-[90] mx-auto flex w-fit max-w-[90vw] items-center gap-2 rounded-full bg-[#1C1C1C] px-5 py-3 text-[15px] font-medium text-white shadow-xl animate-in fade-in slide-in-from-bottom-4">{toast}{toast === t("promo.collectedToast") && <Link href="/account/coupons" className="font-semibold text-[#FFB04D] underline underline-offset-2">{t("promo.view")}</Link>}</div>}
   </section>;
 }
 

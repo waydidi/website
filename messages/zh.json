@@ -1214,5 +1214,25 @@
   "addons.perPerson": {
     "text": "每人 {price}",
     "status": "machine"
+  },
+  "promo.collect": {
+    "text": "领取",
+    "status": "machine"
+  },
+  "promo.collected": {
+    "text": "已领取",
+    "status": "machine"
+  },
+  "promo.collectedToast": {
+    "text": "已添加到我的优惠券",
+    "status": "machine"
+  },
+  "promo.collectFailed": {
+    "text": "此优惠已结束",
+    "status": "machine"
+  },
+  "promo.view": {
+    "text": "查看",
+    "status": "machine"
   }
 }

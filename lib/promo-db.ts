@@ -1,6 +1,6 @@
 import { and, count, eq, inArray, notInArray, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { bookings, promoCodes, promoRedemptions } from "@/db/schema";
+import { bookings, memberCoupons, promoCodes, promoRedemptions } from "@/db/schema";
 import { evaluatePromo, normalizeCode, type PromoResult } from "./promo";
 import { LOYALTY_CODE, LOYALTY_TITLE, loyaltyDiscount, loyaltyStatus } from "./loyalty";
 import { availableGift, couponValue, FREE_TRANSFER_CODE, freeTransferDiscount, listMemberGifts, REWARD_CODE, REWARD_MIN_FARE, rewardDiscount } from "./gifts";
@@ -132,10 +132,27 @@ export type MemberCoupon = {
 };
 
 // A member's coupon wallet: every live code with whether this member can still use it.
+/** Codes this member collected; null if the table isn't there yet (then every public code shows). */
+export async function collectedCodes(customerId: string) {
+  const rows = await getDb().select({ code: memberCoupons.code }).from(memberCoupons).where(eq(memberCoupons.customerId, customerId)).catch(() => null);
+  return rows ? new Set(rows.map((r) => r.code.toUpperCase())) : null;
+}
+
+/** Adds an active public code to the member's coupons. */
+export async function collectCoupon(customerId: string, code: string) {
+  const wanted = code.trim().toUpperCase();
+  const promo = (await activePromos()).find((p) => p.code.toUpperCase() === wanted);
+  if (!promo) return false;
+  await getDb().insert(memberCoupons).values({ customerId, code: promo.code.toUpperCase(), collectedAt: new Date().toISOString() }).onConflictDoNothing();
+  return true;
+}
+
 export async function listMemberCoupons(who: Who): Promise<MemberCoupon[]> {
   const email = who.email.trim().toLowerCase();
   const phone = normalizePhone(who.phone);
-  const promos = await activePromos();
+  // Members see the public codes they collected (homepage "Collect").
+  const collected = who.customerId ? await collectedCodes(who.customerId) : null;
+  const promos = (await activePromos()).filter((p) => !collected || collected.has(p.code.toUpperCase()));
   const hasPrior = promos.some((p) => p.firstBookingOnly) ? await priorBooking(email || "-", phone || "-") : false;
   const coupons = await Promise.all(promos.map(async (p): Promise<MemberCoupon> => {
     const [usesSoFar, mine] = await Promise.all([liveUses(p.id), liveUses(p.id, { email: email || "-", phone: phone || "-", customerId: who.customerId })]);

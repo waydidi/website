@@ -1172,3 +1172,10 @@ export const bookingForms = sqliteTable("booking_forms", {
   prefill: text("prefill"),
   agencyId: text("agency_id"),
 });
+
+// Public promo codes a member collected from the homepage into My coupons.
+export const memberCoupons = sqliteTable("member_coupons", {
+  customerId: text("customer_id").notNull(),
+  code: text("code").notNull(),
+  collectedAt: text("collected_at").notNull(),
+}, (table) => [primaryKey({ columns: [table.customerId, table.code] })]);

@@ -302,5 +302,10 @@
   "hero.trustCancel": "Free cancellation",
   "addons.ferryHotel": "Ferry & Hotel transfer",
   "addons.ferryHotelDesc": "Ferry to the island and a transfer from the pier to your hotel",
-  "addons.perPerson": "{price} per person"
+  "addons.perPerson": "{price} per person",
+  "promo.collect": "Collect",
+  "promo.collected": "Collected",
+  "promo.collectedToast": "Added to My coupons.",
+  "promo.collectFailed": "This offer has ended.",
+  "promo.view": "View"
 }

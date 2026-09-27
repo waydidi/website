@@ -1214,5 +1214,25 @@
   "addons.perPerson": {
     "text": "{price} ต่อคน",
     "status": "machine"
+  },
+  "promo.collect": {
+    "text": "เก็บคูปอง",
+    "status": "machine"
+  },
+  "promo.collected": {
+    "text": "เก็บแล้ว",
+    "status": "machine"
+  },
+  "promo.collectedToast": {
+    "text": "เพิ่มในคูปองของฉันแล้ว",
+    "status": "machine"
+  },
+  "promo.collectFailed": {
+    "text": "ข้อเสนอนี้หมดแล้ว",
+    "status": "machine"
+  },
+  "promo.view": {
+    "text": "ดู",
+    "status": "machine"
   }
 }

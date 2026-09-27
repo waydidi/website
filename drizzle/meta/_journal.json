@@ -351,6 +351,13 @@
       "when": 1790510000000,
       "tag": "0049_booking_form_prefill",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1790520000000,
+      "tag": "0050_member_coupons",
+      "breakpoints": true
     }
   ]
 }
