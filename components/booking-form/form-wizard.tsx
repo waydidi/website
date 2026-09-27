@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CarFront, Check, ClipboardCheck, Clock3, Lock, LoaderCircle, Luggage, Mail, MapPin, MessageCircle, Minus, Pencil, Plus, Repeat, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { ArrowLeft, CarFront, Check, ClipboardCheck, Lock, LoaderCircle, Luggage, Mail, MapPin, MessageCircle, Minus, Pencil, Plus, Repeat, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
@@ -57,7 +57,6 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
-  const [started, setStarted] = useState(false);
   const firstInput = useRef<HTMLInputElement>(null);
 
   // Restore saved answers once, then keep saving as the customer types.
@@ -65,7 +64,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null") as { a?: Answers; index?: number } | null;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time restore from device storage
-      if (saved?.a) { setA(withPrefill({ ...blank, ...saved.a })); setIndex(saved.index ?? 0); setStarted(true); }
+      if (saved?.a) { setA(withPrefill({ ...blank, ...saved.a })); setIndex(saved.index ?? 0); }
     } catch { /* storage blocked */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once per link
   }, [storageKey]);
@@ -81,10 +80,10 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
 
   // Focus the first box after the slide-in (not on phones, where the keyboard would cover the question).
   useEffect(() => {
-    if (!started || window.matchMedia("(max-width: 639px)").matches) return;
+    if (window.matchMedia("(max-width: 639px)").matches) return;
     const t = setTimeout(() => firstInput.current?.focus({ preventScroll: true }), 250);
     return () => clearTimeout(t);
-  }, [step, started]);
+  }, [step]);
 
   function problem(id: StepId): string {
     if (id === "name" && a.name.trim().length < 2) return "Please type your full name.";
@@ -149,21 +148,6 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
     </div>
   </main>;
 
-  if (!started) return <main className="flex min-h-dvh flex-col bg-[#FFFBF6] px-6 text-[#1F1726]">
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-10 text-center animate-in fade-in slide-in-from-bottom-4 duration-700 motion-reduce:animate-none">
-      <span className="mx-auto grid size-20 place-items-center rounded-full bg-[#FF8A05] shadow-[0_10px_30px_-8px_rgba(255,138,5,.6)]"><Image src="/waydidi-bird.png" alt="Waydidi" width={48} height={48} className="size-12" /></span>
-      <h1 className="mt-7 text-[32px] font-bold leading-tight">Let&apos;s plan your ride</h1>
-      <p className="mt-3 text-[17px] leading-relaxed text-[#6B6170]">A few quick questions about you and your trip. We&apos;ll confirm everything on WhatsApp.</p>
-      <p className="mt-5 inline-flex items-center justify-center gap-1.5 text-[14px] font-medium text-[#9A8F86]"><Clock3 size={16} />Takes about 1 minute</p>
-      {(prefill.pickup || prefill.dropoff) && <div className="mx-auto mt-6 w-full rounded-2xl border border-[#F0E3D4] bg-white p-4 text-left text-[15px]">
-        <p className="text-[12px] font-semibold uppercase tracking-[.12em] text-[#FF8A05]">Your trip</p>
-        <p className="mt-1 font-semibold">{prefill.pickup ?? "Pickup to be added"}{prefill.dropoff ? ` → ${prefill.dropoff}` : ""}</p>
-        {prefill.date && <p className="text-[#6B6170]">{prefill.date}{prefill.time ? ` at ${prefill.time}` : ""}</p>}
-      </div>}
-      <button type="button" onClick={() => setStarted(true)} className="mx-auto mt-8 inline-flex h-14 w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-[#FF8A05] text-[18px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(255,138,5,.7)] transition hover:bg-[#E67900] active:scale-[.98]">Start</button>
-    </div>
-  </main>;
-
   const progress = Math.round(((index + 1) / steps.length) * 100);
   const number = index + 1;
   const Icon = STEP_ICON[step];
@@ -174,7 +158,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
   }}>
     <header className="sticky top-0 z-20 bg-[#FFFBF6]/90 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-xl items-center justify-between px-5">
-        <button type="button" onClick={() => index === 0 ? setStarted(false) : go(index - 1)} className="-ml-2 inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[15px] font-medium text-[#6B6170] transition hover:bg-[#FFF0DF] hover:text-[#1F1726]"><ArrowLeft size={18} />Back</button>
+        <button type="button" onClick={() => go(index - 1)} disabled={index === 0} className="-ml-2 inline-flex disabled:invisible h-10 items-center gap-1.5 rounded-full px-3 text-[15px] font-medium text-[#6B6170] transition hover:bg-[#FFF0DF] hover:text-[#1F1726]"><ArrowLeft size={18} />Back</button>
         <span className="text-[14px] font-semibold text-[#9A8F86]">Step <span className="text-[#FF8A05]">{number}</span> of {steps.length}</span>
       </div>
       <div className="mx-auto h-1.5 w-full max-w-xl px-5"><div className="h-full overflow-hidden rounded-full bg-[#FFE7CC]"><div className="h-full rounded-full bg-[#FF8A05] transition-[width] duration-500 ease-out" style={{ width: `${progress}%` }} /></div></div>
