@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 export type PickerDriver = { id: string; name: string; phone: string; email: string | null; area: string; vehicle: string };
 
 // Driver column: shows the assigned driver; opens a searchable list to assign or change.
-export function DriverPicker({ reference, drivers, current, canAssign, onAssigned, wide }: { reference: string; drivers: PickerDriver[]; current: string | null; canAssign: boolean; wide?: boolean; onAssigned?: (driverUrl?: string) => void }) {
+export function DriverPicker({ reference, drivers, current, canAssign, onAssigned, wide, onAddDriver }: { reference: string; drivers: PickerDriver[]; current: string | null; canAssign: boolean; wide?: boolean; onAddDriver?: () => void; onAssigned?: (driverUrl?: string) => void }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -60,6 +60,7 @@ export function DriverPicker({ reference, drivers, current, canAssign, onAssigne
           </button>
         </li>)}
       </ul>
+      {onAddDriver && <button type="button" onClick={() => { setOpen(false); onAddDriver(); }} className="mt-1 flex w-full items-center gap-1.5 border-t border-slate-100 px-2.5 pb-1 pt-2.5 text-left text-[13.5px] font-bold text-[#C96100] hover:underline">+ Add driver</button>}
       {error && <p role="alert" className="px-2.5 pt-1 text-[12px] font-semibold text-red-600">{error}</p>}
     </div>}
   </div>;

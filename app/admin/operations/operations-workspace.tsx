@@ -365,9 +365,8 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex flex-col items-start gap-1.5">
-                              <DriverPicker reference={booking.reference} drivers={(data?.drivers ?? []).filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.fullName, phone: d.phone, email: d.email, area: d.driverType === "outsource" ? "Outsource" : d.baseLocation ?? "", vehicle: [d.vehicle, d.carPlate].filter(Boolean).join(" · ") }))} current={driver?.id ?? null} canAssign={booking.status === "confirmed"} onAssigned={(url) => assigned(booking.reference, url)} />
+                              <DriverPicker reference={booking.reference} drivers={(data?.drivers ?? []).filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.fullName, phone: d.phone, email: d.email, area: d.driverType === "outsource" ? "Outsource" : d.baseLocation ?? "", vehicle: [d.vehicle, d.carPlate].filter(Boolean).join(" · ") }))} current={driver?.id ?? null} canAssign={booking.status === "confirmed"} onAssigned={(url) => assigned(booking.reference, url)} onAddDriver={() => setAddingFor(booking.reference)} />
                               {driver && <span className="text-xs text-slate-500">{driver.phone}</span>}
-                              {booking.status === "confirmed" && <button type="button" onClick={() => setAddingFor(booking.reference)} className="text-xs font-bold text-[#C96100] hover:underline">+ Add driver</button>}
                             </div>
                           </td>
                           <td className="px-5 py-4">

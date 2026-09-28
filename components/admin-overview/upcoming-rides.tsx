@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ImagePlus, LoaderCircle, Plus, X } from "lucide-react";
+import { ArrowRight, ImagePlus, LoaderCircle, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -31,8 +31,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-2.5 py-1 text-[11.5px] font-bold ${r.driverId ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{r.driverId ? "Assigned" : "Not assigned"}</span>
-          <DriverPicker reference={r.reference} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} />
-          {r.status === "confirmed" && <button type="button" onClick={() => setAdding(r.reference)} className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-[12.5px] font-bold text-[#C96100] hover:bg-orange-50"><Plus size={14} />Add driver</button>}
+          <DriverPicker reference={r.reference} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} onAddDriver={() => setAdding(r.reference)} />
         </div>
       </li>)}
     </ul>}
