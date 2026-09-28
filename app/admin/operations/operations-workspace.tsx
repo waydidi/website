@@ -181,6 +181,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
   const [links, setLinks] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState("");
   const [addingFor, setAddingFor] = useState("");
+  const [evidenceFor, setEvidenceFor] = useState("");
   function assigned(reference: string, url?: string) {
     if (url) { setLinks((l) => ({ ...l, [reference]: url })); setLatestLink({ reference, url }); }
     void load();
@@ -339,6 +340,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                 <span className="font-bold text-[#D96F00]">Open →</span>
               </Link>
             </div>
+            {evidenceFor && <EvidenceSheet reference={evidenceFor} events={(data?.events ?? []).filter((e) => e.bookingReference === evidenceFor && e.assignmentId === activeAssignments.get(evidenceFor)?.id)} onClose={() => setEvidenceFor("")} />}
             {addingFor && <AddDriverDialog reference={addingFor} onClose={() => setAddingFor("")} onDone={(url) => assigned(addingFor, url)} />}
             {latestLink && (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
@@ -427,13 +429,10 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                             )}
                           </td>
                           <td className="px-5 py-4">
-                            {pending ? (
-                              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
-                                {pending} to review
-                              </span>
-                            ) : (
-                              <span className="text-slate-400">Up to date</span>
-                            )}
+                            <div className="flex flex-col items-start gap-1">
+                              <button type="button" onClick={() => setEvidenceFor(booking.reference)} className="text-sm font-bold text-[#C96100] hover:underline">See</button>
+                              {pending > 0 && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">{pending} to review</span>}
+                            </div>
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-2">
@@ -656,4 +655,47 @@ export default function OperationsWorkspace({ email }: { email: string }) {
       </div>
     </main>
   );
+}
+
+// Photos the driver took at each stage, newest per stage, in a sheet that slides up from the bottom.
+const STAGES: [string, string, string[]][] = [
+  ["standby", "Stand by", ["standby"]],
+  ["pickup", "Pick up", ["passenger_picked_up", "trip_started", "passenger_verified"]],
+  ["dropoff", "Drop off", ["completed"]],
+];
+function EvidenceSheet({ reference, events, onClose }: { reference: string; events: DriverEvent[]; onClose: () => void }) {
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onClose]);
+  const latest = (statuses: string[]) => events
+    .filter((e) => statuses.includes(e.status))
+    .sort((x, y) => y.createdAt.localeCompare(x.createdAt))[0];
+  const time = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
+  return <div role="dialog" aria-modal="true" aria-labelledby="evidence-title" className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="max-h-[88dvh] w-full max-w-lg animate-in slide-in-from-bottom overflow-y-auto rounded-t-[28px] bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] duration-300">
+      <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-200" />
+      <div className="flex items-center justify-between">
+        <h3 id="evidence-title" className="text-lg font-black">Evidence · {reference}</h3>
+        <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+      </div>
+      <ul className="mt-3 grid gap-4">
+        {STAGES.map(([id, label, statuses]) => {
+          const event = latest(statuses);
+          return <li key={id}>
+            <div className="flex items-baseline justify-between">
+              <p className="text-[15px] font-bold">{label}</p>
+              {event && <p className="text-xs text-slate-500">{time(event.createdAt)}</p>}
+            </div>
+            {event?.evidenceKey
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <a href={`/api/admin/evidence/${event.id}`} target="_blank" rel="noreferrer"><img src={`/api/admin/evidence/${event.id}`} alt={`${label} photo`} className="mt-1.5 aspect-[4/3] w-full rounded-2xl bg-slate-100 object-cover" /></a>
+              : <div className="mt-1.5 grid aspect-[4/3] w-full place-items-center rounded-2xl bg-slate-100 text-sm text-slate-400">{event ? "No photo" : "Not reached yet"}</div>}
+            {event?.driverNote && <p className="mt-1 text-xs text-slate-500">{event.driverNote}</p>}
+          </li>;
+        })}
+      </ul>
+    </div>
+  </div>;
 }
