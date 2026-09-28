@@ -9,7 +9,7 @@ import {
   TicketPercent, Gift, Building2, Store, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
 import { AvatarMenu } from "@/components/admin-settings/avatar-menu";
 
@@ -288,33 +288,70 @@ export default function AdminShell({
   );
 }
 
-// Mobile bottom bar: the first four tabs plus "More" in one row. "More" expands the
-// sheet upward to show the rest; it closes again on tap or after picking a page.
+// Mobile bottom bar: three tabs plus "More" in one row. "More" expands the sheet upward
+// to show the rest. Press and hold a tab to swap it for another page; the choice is kept
+// on this device.
+const DEFAULT_MAIN = ["/admin", "/admin/bookings", "/admin/operations"];
+const MAIN_KEY = "waydidi-admin-tabs";
 function MobileTabBar({ pathname }: { pathname: string }) {
   const [open, setOpen] = useState(false);
-  const MAIN = ["/admin", "/admin/bookings", "/admin/operations"];
-  const main = MAIN.map((href) => tabs.find((tab) => tab.href === href)!).filter(Boolean);
+  const [MAIN, setMain] = useState(DEFAULT_MAIN);
+  const [editing, setEditing] = useState<number | null>(null);
+  const hold = useRef<{ timer?: number; fired?: boolean }>({});
   // Fare management is desktop-only, so it is left out of the phone menu.
-  const more = tabs.filter((tab) => !MAIN.includes(tab.href) && tab.href !== "/admin/pricing");
+  const phoneTabs = tabs.filter((tab) => tab.href !== "/admin/pricing");
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(MAIN_KEY) ?? "null") as string[] | null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read the saved tabs after hydration
+      if (Array.isArray(saved) && saved.length === 3 && saved.every((h) => phoneTabs.some((t) => t.href === h))) setMain(saved);
+    } catch { /* storage unavailable: keep the defaults */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const main = MAIN.map((href) => phoneTabs.find((tab) => tab.href === href)!).filter(Boolean);
+  const more = phoneTabs.filter((tab) => !MAIN.includes(tab.href));
   const moreActive = more.find((tab) => isActive(pathname, tab.href));
-  const item = (selected: boolean) => `flex min-w-0 flex-col items-center justify-center gap-1 rounded-[21px] px-1 py-2.5 text-[10px] font-black transition-all duration-200 ${selected ? "bg-[#FFF0DF] text-[#D96F00]" : "text-slate-600 active:bg-slate-100"}`;
-  const link = ({ href, mobileLabel, icon: Icon }: (typeof tabs)[number]) => {
+  const item = (selected: boolean) => `flex min-w-0 select-none flex-col items-center justify-center gap-1 rounded-[21px] px-1 py-2.5 text-[10px] font-black transition-all duration-200 [-webkit-touch-callout:none] ${selected ? "bg-[#FFF0DF] text-[#D96F00]" : "text-slate-600 active:bg-slate-100"}`;
+  function swap(slot: number, href: string) {
+    const next = [...MAIN];
+    const other = next.indexOf(href);
+    if (other >= 0) next[other] = next[slot];
+    next[slot] = href;
+    setMain(next); setEditing(null);
+    try { localStorage.setItem(MAIN_KEY, JSON.stringify(next)); } catch { /* not saved */ }
+  }
+  const link = ({ href, mobileLabel, icon: Icon }: (typeof tabs)[number], slot?: number) => {
     const selected = isActive(pathname, href);
-    return <Link key={href} href={href} prefetch onClick={() => setOpen(false)} aria-current={selected ? "page" : undefined} className={item(selected)}>
+    const holdable = slot !== undefined;
+    return <Link key={href} href={href} prefetch aria-current={selected ? "page" : undefined}
+      className={`${item(selected)} ${holdable && editing === slot ? "ring-2 ring-[#FF8A05]" : ""}`}
+      onContextMenu={holdable ? (e) => e.preventDefault() : undefined}
+      onPointerDown={holdable ? () => { hold.current.fired = false; hold.current.timer = window.setTimeout(() => { hold.current.fired = true; navigator.vibrate?.(15); setOpen(false); setEditing(slot); }, 500); } : undefined}
+      onPointerUp={holdable ? () => window.clearTimeout(hold.current.timer) : undefined}
+      onPointerLeave={holdable ? () => window.clearTimeout(hold.current.timer) : undefined}
+      onPointerCancel={holdable ? () => window.clearTimeout(hold.current.timer) : undefined}
+      onClick={(e) => { if (holdable && hold.current.fired) { e.preventDefault(); hold.current.fired = false; return; } setOpen(false); setEditing(null); }}>
       <Icon size={21} strokeWidth={selected ? 2.6 : 2.1} />
       <span className="w-full truncate text-center">{mobileLabel}</span>
     </Link>;
   };
   const MoreIcon = open ? ChevronDown : ChevronUp;
   return <>
-    {open && <button type="button" aria-label="Close menu" onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/20 md:hidden" />}
+    {(open || editing !== null) && <button type="button" aria-label="Close menu" onClick={() => { setOpen(false); setEditing(null); }} className="fixed inset-0 z-40 bg-black/20 md:hidden" />}
     <nav aria-label="Mobile admin sections" className="fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-50 rounded-[28px] border border-white/80 bg-white/95 p-2 shadow-[0_14px_45px_rgba(33,23,38,.24)] backdrop-blur-xl md:hidden">
+      {editing !== null && <div className="mb-1 border-b border-slate-100 pb-2">
+        <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
+          <p className="text-[12px] font-bold text-slate-500">Replace {main[editing]?.mobileLabel} with…</p>
+          <button type="button" onClick={() => { setMain(DEFAULT_MAIN); setEditing(null); try { localStorage.removeItem(MAIN_KEY); } catch { /* ignore */ } }} className="text-[12px] font-bold text-[#C96100]">Reset</button>
+        </div>
+        <div className="grid grid-cols-5 gap-1">{phoneTabs.filter((t) => t.href !== MAIN[editing]).map(({ href, mobileLabel, icon: Icon }) => <button key={href} type="button" onClick={() => swap(editing, href)} className={item(false)}><Icon size={21} strokeWidth={2.1} /><span className="w-full truncate text-center">{mobileLabel}</span></button>)}</div>
+      </div>}
       <div id="admin-more-tabs" hidden={!open} className="mb-1 border-b border-slate-100 pb-1">
-        <div className="grid grid-cols-5 gap-1">{more.map(link)}</div>
+        <div className="grid grid-cols-5 gap-1">{more.map((t) => link(t))}</div>
       </div>
       <div className="grid grid-cols-4 gap-1">
-        {main.map(link)}
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls="admin-more-tabs" className={item(Boolean(moreActive) || open)}>
+        {main.map((t, i) => link(t, i))}
+        <button type="button" onClick={() => { setEditing(null); setOpen((v) => !v); }} aria-expanded={open} aria-controls="admin-more-tabs" className={item(Boolean(moreActive) || open)}>
           <MoreIcon size={21} strokeWidth={moreActive || open ? 2.6 : 2.1} />
           <span className="w-full truncate text-center">{open ? "Less" : "More"}</span>
         </button>
