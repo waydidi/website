@@ -68,6 +68,8 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
   });
   const storageKey = `waydidi-form-${token}`;
   const [a, setA] = useState<Answers>(() => withPrefill(blank));
+  // Extras appear once a car has been tapped (or the car was set by us).
+  const [carPicked, setCarPicked] = useState(() => prefill.vehicle !== undefined);
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [error, setError] = useState("");
@@ -87,7 +89,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
   useEffect(() => { try { localStorage.setItem(storageKey, JSON.stringify({ a, index })); } catch { /* storage blocked */ } }, [a, index, storageKey]);
 
   const tripLocked = locked("pickup") && (service === "hourly" ? locked("hours") : locked("dropoff")) && locked("date") && locked("time");
-  const steps: StepId[] = ["name", "phone", "email", ...(tripLocked ? [] : ["trip" as const]), ...(service === "transfer" ? ["return" as const] : []), "ride", "review"];
+  const steps: StepId[] = ["name", ...(tripLocked ? [] : ["trip" as const]), ...(service === "transfer" ? ["return" as const] : []), "ride", "review"];
   const step = steps[Math.min(index, steps.length - 1)];
   const set = <K extends keyof Answers>(k: K, v: Answers[K]) => { setA((c) => ({ ...c, [k]: v })); setError(""); };
   const airport = isAirportPickup({ pickup: a.pickup, flightNumber: null });
@@ -103,8 +105,8 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
 
   function problem(id: StepId): string {
     if (id === "name" && a.name.trim().length < 2) return "Please type your full name.";
-    if (id === "phone" && a.phone.replace(/\D/g, "").length < 7) return "Please add your WhatsApp number with country code.";
-    if (id === "email" && !/^\S+@\S+\.\S+$/.test(a.email.trim())) return "Please check your email address.";
+    if (id === "name" && a.phone.replace(/\D/g, "").length < 7) return "Please add your WhatsApp number with country code.";
+    if (id === "name" && !/^\S+@\S+\.\S+$/.test(a.email.trim())) return "Please check your email address.";
     if (id === "trip") {
       if (a.pickup.trim().length < 2) return "Where should we pick you up?";
       if (service !== "hourly" && a.dropoff.trim().length < 2) return service === "tour" ? "Which tour would you like?" : "Where are you going?";
@@ -114,6 +116,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
       if (a.returnTrip === null) return "Please choose Yes or No.";
       if (a.returnTrip && (!a.returnDate || !a.returnTime)) return "Please choose the return date and time.";
     }
+    if (id === "ride" && !carPicked) return "Please choose a car.";
     return "";
   }
 
@@ -181,20 +184,12 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
 
         {step === "name" && <>
           <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">What&apos;s your name?</h1>
-          <p className="mt-2 text-[17px] text-[#6B6170]">The lead passenger&apos;s full name, so your driver can greet you.</p>
-          <input ref={firstInput} className={`${bigInput} mt-8`} value={a.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Anna Smith" autoComplete="name" />
-        </>}
-
-        {step === "phone" && <>
-          <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">{firstName ? `Thanks ${firstName}! ` : ""}What&apos;s your WhatsApp number?</h1>
-          <p className="mt-2 text-[17px] text-[#6B6170]">Choose your country code, then your number. Your driver will message you here.</p>
-          <div className="mt-8"><PhoneInput inputRef={firstInput} value={a.phone} onChange={(v) => set("phone", v)} className={`${bigInput} min-w-0 flex-1`} /></div>
-        </>}
-
-        {step === "email" && <>
-          <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">And your email?</h1>
-          <p className="mt-2 text-[17px] text-[#6B6170]">We&apos;ll send your booking confirmation here.</p>
-          <input ref={firstInput} type="email" inputMode="email" className={`${bigInput} mt-8`} value={a.email} onChange={(e) => set("email", e.target.value)} placeholder="name@example.com" autoComplete="email" />
+          <p className="mt-2 text-[17px] text-[#6B6170]">The lead passenger&apos;s details, so your driver can greet and message you.</p>
+          <div className="mt-7 grid gap-4">
+            <label className={smallLabel}>Full name<input ref={firstInput} className={smallInput} value={a.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Anna Smith" autoComplete="name" /></label>
+            <div className={smallLabel}>WhatsApp<div className="mt-1.5"><PhoneInput value={a.phone} onChange={(v) => set("phone", v)} className={`${smallInput} mt-0 min-w-0 flex-1`} /></div></div>
+            <label className={smallLabel}>Email<input type="email" inputMode="email" className={smallInput} value={a.email} onChange={(e) => set("email", e.target.value)} placeholder="name@example.com" autoComplete="email" /></label>
+          </div>
         </>}
 
         {step === "trip" && <>
@@ -243,15 +238,16 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
               const v = VEHICLES[id];
               const fits = locked("vehicle") || vehicleFits(id, a.passengers, a.luggage);
               const chosen = a.vehicle === id;
-              return <button key={id} type="button" disabled={!fits} onClick={() => set("vehicle", id)} className={`relative rounded-2xl border-2 p-3 text-left transition active:scale-[.98] disabled:opacity-35 ${chosen ? "border-[#FF8A05] bg-[#FFF7EE] shadow-[0_6px_16px_-8px_rgba(255,138,5,.6)]" : "border-[#F0E3D4] bg-white hover:border-[#FFC98A]"}`}>
+              return <button key={id} type="button" disabled={!fits} onClick={() => { set("vehicle", id); setCarPicked(true); }} className={`relative rounded-2xl border-2 p-3 text-left transition active:scale-[.98] disabled:opacity-35 ${chosen && carPicked ? "border-[#FF8A05] bg-[#FFF7EE] shadow-[0_6px_16px_-8px_rgba(255,138,5,.6)]" : "border-[#F0E3D4] bg-white hover:border-[#FFC98A]"}`}>
                 <Image src={`/vehicle-${id.replace(/_/g, "-")}.webp`} alt="" width={200} height={110} unoptimized className="h-16 w-full object-contain" />
                 <span className="mt-1 block text-[15px] font-semibold">{v.name}</span>
                 <span className="block text-[13px] text-[#6B6170]">Up to {v.passengers} people · {v.bags} bags</span>
-                {chosen && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-[#FF8A05] text-white"><Check size={15} strokeWidth={3} /></span>}
+                {chosen && carPicked && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-[#FF8A05] text-white"><Check size={15} strokeWidth={3} /></span>}
               </button>;
             })}
           </div>
 
+          {carPicked && <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <p className="mt-7 text-[16px] font-semibold">Extras <span className="font-normal text-[#9A8F86]">(optional)</span></p>
           <ul className="mt-2 divide-y divide-[#F0E3D4] rounded-2xl border border-[#F0E3D4] bg-white px-4">
             {ferry && <li className="flex items-center gap-3 py-3">
@@ -272,6 +268,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
               </label>
             </li>
           </ul>
+          </div>}
         </>}
 
         {step === "review" && <>
@@ -279,7 +276,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
           <p className="mt-2 text-[17px] text-[#6B6170]">Tap a line to change it, then send.</p>
           <dl className="mt-6 divide-y divide-[#F0E3D4] rounded-2xl border border-[#F0E3D4] bg-white">
             {([
-              ["Name", a.name, "name"], ["WhatsApp", a.phone, "phone"], ["Email", a.email, "email"],
+              ["Name", a.name, "name"], ["WhatsApp", a.phone, "name"], ["Email", a.email, "name"],
               ["From", a.pickup, "trip"],
               service === "hourly" ? ["Hours", `${a.hours} hours`, "trip"] : [service === "tour" ? "Tour" : "To", a.dropoff, "trip"],
               ["Date & time", `${a.date} at ${a.time}`, "trip"],

@@ -5,7 +5,7 @@ import { ArrowLeft, Banknote, CarFront, Check, ClipboardCheck, CreditCard, Lugga
 import Image from "next/image";
 import { LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { bigInput, smallInput, smallLabel, Stepper, TimeSelect, today } from "@/components/booking-form/form-wizard";
+import { smallInput, smallLabel, Stepper, TimeSelect, today } from "@/components/booking-form/form-wizard";
 import { PhoneInput } from "@/components/booking-form/phone-input";
 import { PlaceInput } from "@/components/booking-form/place-input";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
@@ -14,7 +14,7 @@ import { smallestFittingVehicle, VEHICLES, vehicleFits, type VehicleId } from "@
 
 type Quote = { quoteId: string; prices: Partial<Record<VehicleId, { total: number }>>; hotelTransfer: boolean };
 type StepId = "name" | "phone" | "email" | "trip" | "return" | "ride" | "review";
-const STEPS: StepId[] = ["name", "phone", "email", "trip", "return", "ride", "review"];
+const STEPS: StepId[] = ["name", "trip", "return", "ride", "review"];
 const ICONS: Record<StepId, LucideIcon> = { name: UserRound, phone: MessageCircle, email: Mail, trip: MapPin, return: Repeat, ride: CarFront, review: ClipboardCheck };
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 const heading = "text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]";
@@ -29,6 +29,8 @@ async function quote(pickupPlaceId: string, dropoffPlaceId: string, date: string
 // Storefront QR booking (/s/[slug]): the same step-by-step form, with live prices,
 // the store's special price, and payment at the counter. Books through the normal checkout.
 export function StoreWizard({ store, cardEnabled }: { store: { slug: string; name: string; discountPercent: number }; cardEnabled: boolean }) {
+  // Extras appear once a car has been tapped.
+  const [carPicked, setCarPicked] = useState(false);
   const [a, setA] = useState({
     name: "", phone: "", email: "", pickup: "", pickupId: null as string | null, dropoff: "", dropoffId: null as string | null, flight: "",
     date: "", time: "", returnTrip: null as boolean | null, returnDate: "", returnTime: "",
@@ -46,7 +48,6 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
   const step = STEPS[index];
   const set = <K extends keyof typeof a>(k: K, v: (typeof a)[K]) => { setA((c) => ({ ...c, [k]: v })); setError(""); };
   const airport = isAirportPickup({ pickup: a.pickup, flightNumber: null });
-  const firstName = a.name.trim().split(/\s+/)[0] ?? "";
 
   useEffect(() => {
     if (window.matchMedia("(max-width: 639px)").matches) return;
@@ -75,8 +76,8 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
     setError("");
     try {
       if (step === "name" && a.name.trim().length < 2) throw new Error("Please type your full name.");
-      if (step === "phone" && a.phone.replace(/\D/g, "").length < 7) throw new Error("Please add your WhatsApp number.");
-      if (step === "email" && !/^\S+@\S+\.\S+$/.test(a.email.trim())) throw new Error("Please check your email address.");
+      if (step === "name" && a.phone.replace(/\D/g, "").length < 7) throw new Error("Please add your WhatsApp number.");
+      if (step === "name" && !/^\S+@\S+\.\S+$/.test(a.email.trim())) throw new Error("Please check your email address.");
       if (step === "trip") {
         if (!a.pickupId) throw new Error("Choose your pickup from the suggestions list.");
         if (!a.dropoffId) throw new Error("Choose your destination from the suggestions list.");
@@ -95,7 +96,7 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
           setBack(await quote(a.dropoffId!, a.pickupId!, a.returnDate, a.returnTime));
         } else setBack(null);
       }
-      if (step === "ride" && !fareFor(a.vehicle)) throw new Error("Please choose a car.");
+      if (step === "ride" && (!carPicked || !fareFor(a.vehicle))) throw new Error("Please choose a car.");
       if (step !== "review") { go(index + 1); return; }
 
       if (!a.terms) throw new Error("Please accept the booking terms.");
@@ -148,18 +149,12 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
 
         {step === "name" && <>
           <h1 className={heading}>What&apos;s your name?</h1>
-          <p className="mt-2 text-[17px] text-[#6B6170]">The lead passenger&apos;s full name, so your driver can greet you.</p>
-          <input ref={firstInput} className={`${bigInput} mt-8`} value={a.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Anna Smith" autoComplete="name" />
-        </>}
-        {step === "phone" && <>
-          <h1 className={heading}>{firstName ? `Thanks ${firstName}! ` : ""}What&apos;s your WhatsApp number?</h1>
-          <p className="mt-2 text-[17px] text-[#6B6170]">Your driver will message you here.</p>
-          <div className="mt-8"><PhoneInput inputRef={firstInput} value={a.phone} onChange={(v) => set("phone", v)} className={`${bigInput} min-w-0 flex-1`} /></div>
-        </>}
-        {step === "email" && <>
-          <h1 className={heading}>And your email?</h1>
-          <p className="mt-2 text-[17px] text-[#6B6170]">We&apos;ll send your booking confirmation here.</p>
-          <input ref={firstInput} type="email" inputMode="email" className={`${bigInput} mt-8`} value={a.email} onChange={(e) => set("email", e.target.value)} placeholder="name@example.com" autoComplete="email" />
+          <p className="mt-2 text-[17px] text-[#6B6170]">The lead passenger&apos;s details, so your driver can greet and message you.</p>
+          <div className="mt-7 grid gap-4">
+            <label className={smallLabel}>Full name<input ref={firstInput} className={smallInput} value={a.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Anna Smith" autoComplete="name" /></label>
+            <div className={smallLabel}>WhatsApp<div className="mt-1.5"><PhoneInput value={a.phone} onChange={(v) => set("phone", v)} className={`${smallInput} mt-0 min-w-0 flex-1`} /></div></div>
+            <label className={smallLabel}>Email<input type="email" inputMode="email" className={smallInput} value={a.email} onChange={(e) => set("email", e.target.value)} placeholder="name@example.com" autoComplete="email" /></label>
+          </div>
         </>}
         {step === "trip" && <>
           <h1 className={heading}>Where are you going?</h1>
@@ -196,21 +191,23 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
               const fare = fareFor(id);
               const fits = vehicleFits(id, a.passengers, a.luggage) && Boolean(fare);
               const picked = a.vehicle === id;
-              return <button key={id} type="button" disabled={!fits} onClick={() => set("vehicle", id)} className={`relative rounded-2xl border-2 p-3 text-left transition disabled:opacity-35 ${picked ? "border-[#FF8A05] bg-[#FFF7EE]" : "border-[#F0E3D4] bg-white"}`}>
+              return <button key={id} type="button" disabled={!fits} onClick={() => { set("vehicle", id); setCarPicked(true); }} className={`relative rounded-2xl border-2 p-3 text-left transition disabled:opacity-35 ${picked && carPicked ? "border-[#FF8A05] bg-[#FFF7EE]" : "border-[#F0E3D4] bg-white"}`}>
                 <Image src={`/vehicle-${id.replace(/_/g, "-")}.webp`} alt="" width={200} height={110} unoptimized className="h-16 w-full object-contain" />
                 <span className="mt-1 block text-[15px] font-semibold">{VEHICLES[id].name}</span>
                 <span className="block text-[13px] text-[#6B6170]">Up to {VEHICLES[id].passengers} people · {VEHICLES[id].bags} bags</span>
                 {fare && <span className="mt-1 block"><b className="text-[17px]">{thb(fare.price)}</b>{fare.off > 0 && <s className="ml-1.5 text-[13px] text-[#9A8F86]">{thb(fare.full)}</s>}</span>}
-                {picked && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-[#FF8A05] text-white"><Check size={15} strokeWidth={3} /></span>}
+                {picked && carPicked && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-[#FF8A05] text-white"><Check size={15} strokeWidth={3} /></span>}
               </button>;
             })}
           </div>
+          {carPicked && <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <p className="mt-6 text-[16px] font-semibold">Extras <span className="font-normal text-[#9A8F86]">(optional)</span></p>
           <ul className="mt-2 divide-y divide-[#F0E3D4] rounded-2xl border border-[#F0E3D4] bg-white px-4">
             {ferry && <li className="flex items-center gap-3 py-3"><Image src="/ferry-3d.webp" alt="" width={44} height={44} unoptimized className="size-11 object-contain" /><span className="flex-1"><span className="block font-medium">Ferry &amp; Hotel transfer</span><span className="text-[13px] text-[#6B6170]">+{thb(FERRY_HOTEL_THB)} per person</span></span><Stepper value={a.ferryPeople} set={(n) => set("ferryPeople", n)} min={0} max={a.passengers} label="ferry tickets" /></li>}
             <li className="flex items-center gap-3 py-3"><Image src="/addon-child-seat.webp" alt="" width={44} height={44} unoptimized className="size-11 object-contain" /><span className="flex-1"><span className="block font-medium">Child seat</span><span className="text-[13px] text-[#6B6170]">+{thb(CHILD_SEAT_THB)} each</span></span><Stepper value={a.childSeats} set={(n) => set("childSeats", n)} min={0} max={Math.min(4, a.passengers)} label="child seats" /></li>
             <li><label className="flex cursor-pointer items-center gap-3 py-3"><Image src="/addon-currency-exchange.webp" alt="" width={44} height={44} unoptimized className="size-11 object-contain" /><span className="flex-1"><span className="block font-medium">Currency exchange stop</span><span className="text-[13px] text-[#6B6170]">+{thb(EXCHANGE_STOP_THB)}</span></span><input type="checkbox" checked={a.exchangeStop} onChange={(e) => set("exchangeStop", e.target.checked)} className="size-5 accent-[#FF8A05]" /></label></li>
           </ul>
+          </div>}
         </>}
         {step === "review" && chosen && <>
           <h1 className={heading}>Check and pay</h1>
