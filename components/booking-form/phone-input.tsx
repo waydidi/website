@@ -3,20 +3,9 @@
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useEffect, useState } from "react";
+import { COUNTRIES, MAIN_COUNTRY } from "@/lib/country-codes";
 
-// Common home countries of Waydidi guests; Thailand first. Flags are round SVGs
-// in /public/flags, as in the homepage language switcher.
-const COUNTRIES: [string, string, string][] = [
-  ["th", "+66", "Thailand"], ["gb", "+44", "United Kingdom"], ["us", "+1", "United States"], ["au", "+61", "Australia"],
-  ["cn", "+86", "China"], ["hk", "+852", "Hong Kong"], ["tw", "+886", "Taiwan"], ["sg", "+65", "Singapore"],
-  ["my", "+60", "Malaysia"], ["in", "+91", "India"], ["jp", "+81", "Japan"], ["kr", "+82", "South Korea"],
-  ["de", "+49", "Germany"], ["fr", "+33", "France"], ["nl", "+31", "Netherlands"], ["it", "+39", "Italy"],
-  ["es", "+34", "Spain"], ["ch", "+41", "Switzerland"], ["se", "+46", "Sweden"], ["dk", "+45", "Denmark"],
-  ["no", "+47", "Norway"], ["fi", "+358", "Finland"], ["ie", "+353", "Ireland"], ["ru", "+7", "Russia"],
-  ["il", "+972", "Israel"], ["ae", "+971", "United Arab Emirates"], ["sa", "+966", "Saudi Arabia"], ["nz", "+64", "New Zealand"],
-  ["ca", "+1", "Canada"], ["vn", "+84", "Vietnam"], ["id", "+62", "Indonesia"], ["ph", "+63", "Philippines"],
-  ["kh", "+855", "Cambodia"], ["la", "+856", "Laos"], ["mm", "+95", "Myanmar"], ["br", "+55", "Brazil"],
-];
+
 
 function Flag({ country, size }: { country: string; size: number }) {
   // eslint-disable-next-line @next/next/no-img-element -- tiny local SVG, as in the locale picker
@@ -32,7 +21,7 @@ function split(value: string) {
 // Round-flag country code button (opens a searchable list) + number; reports "+CC number".
 export function PhoneInput({ value, onChange, inputRef, className }: { value: string; onChange: (v: string) => void; inputRef?: React.Ref<HTMLInputElement>; className: string }) {
   const parsed = split(value);
-  const [country, setCountry] = useState(() => COUNTRIES.find((c) => c[1] === parsed?.code)?.[0] ?? "th");
+  const [country, setCountry] = useState(() => (parsed ? MAIN_COUNTRY[parsed.code] ?? COUNTRIES.find((c) => c[1] === parsed.code)?.[0] : undefined) ?? "th");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const code = COUNTRIES.find((c) => c[0] === country)?.[1] ?? "+66";

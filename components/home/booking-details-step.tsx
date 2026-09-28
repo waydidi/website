@@ -1,5 +1,6 @@
 "use client";
 
+import { COUNTRIES, MAIN_COUNTRY } from "@/lib/country-codes";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ChevronDown, CircleHelp, Info, NotebookPen, Plane, Plus, Search, UsersRound, X } from "lucide-react";
@@ -10,14 +11,7 @@ import { useI18n } from "@/components/i18n-provider";
 
 type Traveller = { id: string; name: string; surname: string; email: string | null; phone: string | null; notes: string | null };
 
-// Dial codes offered next to the mobile number; Thailand first. Flags are
-// round SVGs in /public/flags, as in the homepage language switcher.
-const DIAL_CODES = [
-  ["th", "+66", "Thailand"], ["gb", "+44", "United Kingdom"], ["us", "+1", "United States"], ["au", "+61", "Australia"],
-  ["sg", "+65", "Singapore"], ["cn", "+86", "China"], ["hk", "+852", "Hong Kong"], ["my", "+60", "Malaysia"],
-  ["in", "+91", "India"], ["jp", "+81", "Japan"], ["kr", "+82", "South Korea"], ["de", "+49", "Germany"],
-  ["fr", "+33", "France"], ["ru", "+7", "Russia"],
-] as const;
+const DIAL_CODES = COUNTRIES;
 
 function Flag({ country, size }: { country: string; size: number }) {
   // eslint-disable-next-line @next/next/no-img-element -- tiny local SVG, as in the locale picker
@@ -63,7 +57,6 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
   const toggle = (key: keyof typeof open) => setOpen((current) => ({ ...current, [key]: !current[key] }));
   const phone = splitPhone(booking.phone);
   const [signHelp, setSignHelp] = useState(false);
-  const [copyOpen, setCopyOpen] = useState(Boolean(booking.copyEmail));
   // The Meet & Greet sign follows the lead passenger's name until the customer types their own.
   const autoSign = `${booking.name} ${booking.surname}`.trim();
   const [signEdited, setSignEdited] = useState(() => Boolean(booking.pickupSign) && booking.pickupSign !== autoSign);
@@ -118,7 +111,7 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
               <label htmlFor="lead-phone" className="block text-[13px] text-[#6B6B6B]">Mobile number (WhatsApp if possible)</label>
               <div className="mt-0.5 flex items-center gap-2">
                 <button type="button" onClick={() => setDialOpen(true)} aria-label={`Country code ${phone.code}. Change`} className="flex shrink-0 items-center gap-1.5 py-1">
-                  <Flag country={DIAL_CODES.find(([, c]) => c === phone.code)?.[0] ?? "th"} size={26} />
+                  <Flag country={MAIN_COUNTRY[phone.code] ?? DIAL_CODES.find(([, c]) => c === phone.code)?.[0] ?? "th"} size={26} />
                   <ChevronDown size={16} className="text-[#6B6B6B]" aria-hidden="true" />
                 </button>
                 <span className="shrink-0 text-[17px] text-[#1C1C1C]">{phone.code}</span>
@@ -134,18 +127,6 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
               <button type="button" onClick={() => setSignHelp(!signHelp)} aria-expanded={signHelp} aria-label="About Meet & Greet" className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-[#6B6B6B]"><CircleHelp size={20} /></button>
             </div>
             {signHelp && <p className="mt-2 flex gap-2 text-sm text-[#6B6B6B]"><Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />The name your driver shows on the sign at the meeting point. Leave empty to use the lead passenger&apos;s name.</p>}
-          </div>
-          {/* Copy of the booking emails for the booker or a travel companion. */}
-          <div>
-            <label className="flex cursor-pointer items-center gap-3 text-[15px] text-[#1C1C1C]">
-              <input type="checkbox" checked={copyOpen} onChange={(e) => { setCopyOpen(e.target.checked); if (!e.target.checked) change("copyEmail", ""); }} className="size-5 shrink-0 accent-[#FF8A05]" />
-              {t("copy.toggle")}
-            </label>
-            {copyOpen && <div className="mt-3">
-              <label className="sr-only" htmlFor="copy-email">{t("copy.email")}</label>
-              <input id="copy-email" data-booking-field="copyEmail" type="email" autoComplete="off" value={booking.copyEmail ?? ""} onChange={(e) => change("copyEmail", e.target.value)} placeholder={t("copy.email")} aria-invalid={Boolean(fieldErrors.copyEmail)} className={field(Boolean(fieldErrors.copyEmail))} />
-              {fieldErrors.copyEmail ? <p className="mt-1.5 text-sm font-medium text-red-700">{fieldErrors.copyEmail}</p> : <p className="mt-1.5 text-sm text-[#6B6B6B]">{t("copy.note")}</p>}
-            </div>}
           </div>
           {/* Tax invoice: ticking the box reveals the billing fields. */}
           <div className="rounded-xl border border-[#E6E6E6] p-4">
@@ -208,7 +189,7 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
             {dialMatches.length === 0 && <li className="px-3 py-6 text-center text-[#6B6B6B]">No countries match &ldquo;{dialQuery}&rdquo;.</li>}
             {dialMatches.map(([country, code, name]) => {
               const selected = code === phone.code;
-              return <li key={code}><button type="button" onClick={() => { change("phone", `${code} ${phone.local}`.trim()); setDialOpen(false); setDialQuery(""); }} aria-current={selected || undefined} className={`flex min-h-14 w-full items-center gap-4 rounded-xl px-3 text-left text-base transition ${selected ? "bg-[#F5F7FA] font-medium text-[#3264FF]" : "hover:bg-[#F5F7FA]"}`}>
+              return <li key={country}><button type="button" onClick={() => { change("phone", `${code} ${phone.local}`.trim()); setDialOpen(false); setDialQuery(""); }} aria-current={selected || undefined} className={`flex min-h-14 w-full items-center gap-4 rounded-xl px-3 text-left text-base transition ${selected ? "bg-[#F5F7FA] font-medium text-[#3264FF]" : "hover:bg-[#F5F7FA]"}`}>
                 <Flag country={country} size={32} /><span className="flex-1">{name}</span><span className="text-[#6B6B6B]">{code}</span>
               </button></li>;
             })}
