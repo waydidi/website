@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, ImagePlus, LoaderCircle, Plus, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/driver-picker";
@@ -18,7 +19,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
   return <section aria-labelledby="upcoming-heading" className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
     <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
       <h2 id="upcoming-heading" className="text-[15px] font-black">Upcoming rides</h2>
-      <span className="text-[12px] font-semibold text-slate-500">{rides.filter((r) => !r.driverId).length} not assigned · next 7 days</span>
+      <Link href="/admin/bookings" className="text-[13px] font-bold text-[#C96100] hover:underline">See all →</Link>
     </div>
     <div className="hidden grid-cols-[7fr_3fr] gap-3 bg-slate-50 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 sm:grid"><span>Booking route</span><span>Driver</span></div>
     {rides.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No upcoming rides.</p> : <ul className="divide-y divide-slate-100">
