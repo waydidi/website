@@ -23,6 +23,8 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { WaydidiLogo } from "@/components/waydidi-logo";
+import { AddDriverDialog } from "@/components/admin-overview/upcoming-rides";
+import { DriverPicker } from "@/components/bookings-admin/driver-picker";
 
 // The side panel with journey details is switched off for now (bookings open on their
 // own page). Typed as boolean so the hidden code is still type-checked.
@@ -51,6 +53,10 @@ type Driver = {
   status: string;
   idImageKey?: string | null;
   carImageKey?: string | null;
+  vehicle?: string;
+  baseLocation?: string;
+  carPlate?: string | null;
+  driverType?: string;
 };
 type Assignment = {
   id: string;
@@ -170,6 +176,35 @@ export default function OperationsWorkspace({ email }: { email: string }) {
       setError(cause instanceof Error ? cause.message : "Action failed.");
       return false;
     }
+  }
+  // Driver links made in this session, so copying again doesn't replace the link.
+  const [links, setLinks] = useState<Record<string, string>>({});
+  const [copied, setCopied] = useState("");
+  const [addingFor, setAddingFor] = useState("");
+  function assigned(reference: string, url?: string) {
+    if (url) { setLinks((l) => ({ ...l, [reference]: url })); setLatestLink({ reference, url }); }
+    void load();
+  }
+  // The driver link is only shown once when made, so an older one is replaced by a fresh link.
+  async function copyLink(reference: string, assignmentId: string) {
+    setError("");
+    const known = links[reference];
+    const fetchUrl = async () => {
+      if (known) return known;
+      const res = await fetch("/api/admin/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "rotate_link", assignmentId }) });
+      const out = await res.json().catch(() => ({})) as { error?: string; driverUrl?: string };
+      if (!res.ok || !out.driverUrl) throw new Error(out.error ?? "The link could not be made.");
+      setLinks((l) => ({ ...l, [reference]: out.driverUrl! }));
+      return out.driverUrl;
+    };
+    try {
+      if (!known && typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        // Safari needs the clipboard write to start inside the tap.
+        await navigator.clipboard.write([new ClipboardItem({ "text/plain": fetchUrl().then((u) => new Blob([u], { type: "text/plain" })) })]);
+      } else await navigator.clipboard.writeText(await fetchUrl());
+      setCopied(reference); window.setTimeout(() => setCopied(""), 1800);
+      if (!known) void load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "The link could not be copied."); }
   }
   const activeAssignments = useMemo(
     () =>
@@ -304,6 +339,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                 <span className="font-bold text-[#D96F00]">Open →</span>
               </Link>
             </div>
+            {addingFor && <AddDriverDialog reference={addingFor} onClose={() => setAddingFor("")} onDone={(url) => assigned(addingFor, url)} />}
             {latestLink && (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
                 <CheckCircle2 size={20} />
@@ -372,16 +408,11 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                             </p>
                           </td>
                           <td className="px-5 py-4">
-                            {driver ? (
-                              <>
-                                <strong>{driver.fullName}</strong>
-                                <p className="text-slate-500">{driver.phone}</p>
-                              </>
-                            ) : (
-                              <span className="font-bold text-amber-700">
-                                Unassigned
-                              </span>
-                            )}
+                            <div className="flex flex-col items-start gap-1.5">
+                              <DriverPicker reference={booking.reference} drivers={(data?.drivers ?? []).filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.fullName, phone: d.phone, email: d.email, area: d.driverType === "outsource" ? "Outsource" : d.baseLocation ?? "", vehicle: [d.vehicle, d.carPlate].filter(Boolean).join(" · ") }))} current={driver?.id ?? null} canAssign={booking.status === "confirmed"} onAssigned={(url) => assigned(booking.reference, url)} />
+                              {driver && <span className="text-xs text-slate-500">{driver.phone}</span>}
+                              {booking.status === "confirmed" && <button type="button" onClick={() => setAddingFor(booking.reference)} className="text-xs font-bold text-[#C96100] hover:underline">+ Add driver</button>}
+                            </div>
                           </td>
                           <td className="px-5 py-4">
                             {assignment ? (
@@ -406,6 +437,9 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-2">
+                              <button type="button" disabled={!assignment} onClick={() => assignment && void copyLink(booking.reference, assignment.id)} title={assignment ? "Copy the driver's trip link" : "Assign a driver first"} className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#FF8A05] px-3.5 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400">
+                                {copied === booking.reference ? <Check size={15} /> : <Clipboard size={15} />}{copied === booking.reference ? "Copied" : "Copy link"}
+                              </button>
                               <Link
                                 href={`/admin/journeys/${encodeURIComponent(booking.reference)}`}
                                 aria-label={`View ${booking.reference}`}
@@ -413,9 +447,6 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                               >
                                 <Eye size={16} />
                               </Link>
-                              {!assignment && (
-                                <Link href={`/admin/journeys/${encodeURIComponent(booking.reference)}`} className="rounded-full bg-[#FF8A05] px-4 py-2 text-xs font-bold text-white">Assign</Link>
-                              )}
                             </div>
                           </td>
                         </tr>

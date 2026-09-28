@@ -52,7 +52,7 @@ function ImageField({ name, label }: { name: string; label: string }) {
 }
 
 // Temporary (outsourced) driver: saved as a driver, then assigned to this ride.
-function AddDriverDialog({ reference, onClose }: { reference: string; onClose: () => void }) {
+export function AddDriverDialog({ reference, onClose, onDone }: { reference: string; onClose: () => void; onDone?: (driverUrl?: string) => void }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -68,9 +68,10 @@ function AddDriverDialog({ reference, onClose }: { reference: string; onClose: (
       const out = await res.json().catch(() => ({})) as { error?: string; driver?: { id: string } };
       if (!res.ok || !out.driver) throw new Error(out.error ?? "The driver could not be saved.");
       const assign = await fetch("/api/admin/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "assign", bookingReference: reference, driverId: out.driver.id }) });
-      const a = await assign.json().catch(() => ({})) as { error?: string };
+      const a = await assign.json().catch(() => ({})) as { error?: string; driverUrl?: string };
       if (!assign.ok) throw new Error(a.error ?? "Driver saved, but could not be assigned.");
-      onClose(); router.refresh();
+      onClose();
+      if (onDone) onDone(a.driverUrl); else router.refresh();
     } catch (err) { setError(err instanceof Error ? err.message : "Something went wrong."); }
     finally { setBusy(false); }
   }

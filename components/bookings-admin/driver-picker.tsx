@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 export type PickerDriver = { id: string; name: string; phone: string; email: string | null; area: string; vehicle: string };
 
 // Driver column: shows the assigned driver; opens a searchable list to assign or change.
-export function DriverPicker({ reference, drivers, current, canAssign }: { reference: string; drivers: PickerDriver[]; current: string | null; canAssign: boolean }) {
+export function DriverPicker({ reference, drivers, current, canAssign, onAssigned }: { reference: string; drivers: PickerDriver[]; current: string | null; canAssign: boolean; onAssigned?: (driverUrl?: string) => void }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -32,10 +32,10 @@ export function DriverPicker({ reference, drivers, current, canAssign }: { refer
     setBusy(true); setError("");
     try {
       const res = await fetch("/api/admin/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "assign", bookingReference: reference, driverId }) });
-      const out = await res.json().catch(() => ({})) as { error?: string };
+      const out = await res.json().catch(() => ({})) as { error?: string; driverUrl?: string };
       if (!res.ok) throw new Error(out.error ?? "The driver could not be assigned.");
       setOpen(false); setQuery("");
-      router.refresh();
+      if (onAssigned) onAssigned(out.driverUrl); else router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "The driver could not be assigned."); }
     finally { setBusy(false); }
   }
