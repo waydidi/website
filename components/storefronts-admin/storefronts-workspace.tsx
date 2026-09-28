@@ -161,7 +161,7 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
     <div className="-mt-[52px] flex justify-end max-md:mt-0">
       <button type="button" onClick={() => setAdding(true)} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]"><Plus size={17} strokeWidth={2.5} />Add storefront</button>
     </div>
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <StatCard title="Storefronts" value={String(stores.length)} sub={`${stores.filter((s) => s.active).length} active`} />
       <StatCard title="QR bookings" value={String(bookings)} sub="All time" />
       <StatCard title="Commission earned" value={thb(earned)} sub={`${thb(pending)} on upcoming rides`} />
