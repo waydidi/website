@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, LoaderCircle, Send, Trash2, X } from "lucide-react";
+import { Check, Copy, LoaderCircle, Luggage, Send, Trash2, UsersRound, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -40,6 +40,14 @@ function CopyButton({ url }: { url: string }) {
   </button>;
 }
 
+// "27/09/2026 — 01:15 am"
+function dateTime(date: string, time: string) {
+  const [y, m, d] = date.split("-");
+  const [h = 0, min = 0] = time.split(":").map(Number);
+  const t = time ? ` — ${String(h % 12 || 12).padStart(2, "0")}:${String(min).padStart(2, "0")} ${h < 12 ? "am" : "pm"}` : "";
+  return y ? `${d}/${m}/${y}${t}` : time;
+}
+
 // "Form links": send customers a private step-by-step form, then turn answers into a booking.
 export function FormRequestsButton({ openForm, openSignal, openKind, onWaiting }: { service?: FormService; openKind?: FormService; openForm?: string; openSignal?: number; onWaiting?: (n: number) => void }) {
   const [open, setOpen] = useState(Boolean(openForm));
@@ -50,6 +58,7 @@ export function FormRequestsButton({ openForm, openSignal, openKind, onWaiting }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [fresh, setFresh] = useState("");
+  const [expanded, setExpanded] = useState("");
   const [origin, setOrigin] = useState("");
   const [agencies, setAgencies] = useState<{ id: string; name: string }[]>([]);
   const [agencyId, setAgencyId] = useState("");
@@ -153,24 +162,41 @@ export function FormRequestsButton({ openForm, openSignal, openKind, onWaiting }
           {forms?.map((form) => {
             const expired = form.status === "waiting" && form.expiresAt < new Date().toISOString();
             const a = form.answers;
-            return <li key={form.token} className="grid gap-2 py-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`rounded-md px-2 py-0.5 text-[12px] font-semibold ${form.status === "submitted" ? "bg-orange-100 text-orange-800" : form.status === "booked" ? "bg-emerald-100 text-emerald-800" : expired ? "bg-slate-200 text-slate-600" : "bg-sky-100 text-sky-800"}`}>
+            const open = expanded === form.token;
+            const route = a ? `${a.pickup}${a.dropoff ? ` → ${a.dropoff}` : a.hours ? ` · ${a.hours} hours` : ""}` : form.note || SERVICE_NAMES[form.serviceType];
+            const details: [string, React.ReactNode][] = a ? [
+              ["Passengers & luggage", <span key="pl" className="inline-flex items-center gap-3"><span className="inline-flex items-center gap-1"><UsersRound size={15} />{a.passengers}</span><span className="inline-flex items-center gap-1"><Luggage size={15} />{a.luggage}</span></span>],
+              ["Vehicle", VEHICLES[a.vehicle as keyof typeof VEHICLES]?.name ?? a.vehicle],
+              ["Date & time", dateTime(a.date, a.time)],
+              ["From", a.pickup],
+              ...(a.dropoff ? [["To", a.dropoff] as [string, string]] : a.hours ? [["Hours", `${a.hours} hours`] as [string, string]] : []),
+              ...(a.returnTrip ? [["Return", dateTime(a.returnDate ?? "", a.returnTime ?? "")] as [string, string]] : []),
+              ["Price", form.prefill?.price !== undefined ? `THB ${form.prefill.price.toLocaleString()}` : "Not set"],
+            ] : [];
+            return <li key={form.token} className="grid gap-1.5 py-3">
+              <div className="flex items-center gap-2">
+                <span className={`shrink-0 rounded-md px-2 py-0.5 text-[12px] font-semibold ${form.status === "submitted" ? "bg-orange-100 text-orange-800" : form.status === "booked" ? "bg-emerald-100 text-emerald-800" : expired ? "bg-slate-200 text-slate-600" : "bg-sky-100 text-sky-800"}`}>
                   {form.status === "submitted" ? "Answers in" : form.status === "booked" ? "Booked" : expired ? "Expired" : "Waiting"}
                 </span>
-                <span className="text-[14px] font-medium">{a?.name ?? SERVICE_NAMES[form.serviceType]}</span>
-                {form.agencyName && <span className="rounded-md bg-violet-100 px-2 py-0.5 text-[12px] font-semibold text-violet-800">{form.agencyName}</span>}
-                {form.prefill?.price !== undefined && <span className="text-[13px] font-medium text-slate-700">THB {form.prefill.price.toLocaleString()}</span>}
-                {form.note && <span className="text-[13px] text-slate-500">· {form.note}</span>}
-                <span className="ml-auto text-[12px] text-slate-400">{when(form.submittedAt ?? form.createdAt)}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{a?.name ?? SERVICE_NAMES[form.serviceType]}</span>
+                {form.status === "booked" && form.bookingReference
+                  ? <Link href={`/admin/journeys/${form.bookingReference}`} className="shrink-0 font-mono text-[13px] font-semibold text-[#D96F00] hover:underline">{form.bookingReference}</Link>
+                  : <span className="shrink-0 text-[12px] text-slate-400">{when(form.submittedAt ?? form.createdAt)}</span>}
               </div>
-              {a && <p className="text-[13px] text-slate-600">{a.pickup}{a.dropoff ? ` → ${a.dropoff}` : a.hours ? ` · ${a.hours} hours` : ""} · {a.date} {a.time} · {a.passengers} pax, {a.luggage} bags · {VEHICLES[a.vehicle as keyof typeof VEHICLES]?.name ?? a.vehicle}{a.returnTrip ? ` · return ${a.returnDate} ${a.returnTime}` : ""}</p>}
-              <div className="flex flex-wrap items-center gap-2">
+              {(a || form.note) && <div className="flex items-center gap-2">
+                <p className="min-w-0 flex-1 truncate text-[13px] text-slate-600">{route}</p>
+                {a && <button type="button" onClick={() => setExpanded(open ? "" : form.token)} aria-expanded={open} className="shrink-0 text-[13px] font-semibold text-[#D96F00] hover:underline">{open ? "See less" : "See more"}</button>}
+              </div>}
+              {open && <dl className="mt-1 grid gap-1.5 rounded-xl bg-slate-50 p-3 text-[13px]">
+                {form.agencyName && <div className="flex justify-between gap-3"><dt className="text-slate-500">Agency</dt><dd className="text-right font-medium">{form.agencyName}</dd></div>}
+                {details.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{v}</dd></div>)}
+                {form.note && <div className="flex justify-between gap-3"><dt className="text-slate-500">Note</dt><dd className="text-right font-medium">{form.note}</dd></div>}
+              </dl>}
+              {form.status !== "booked" && <div className="flex flex-wrap items-center gap-2">
                 {form.status === "waiting" && !expired && <CopyButton url={link(form.token)} />}
                 {form.status === "submitted" && <NewBookingButton service={form.serviceType} prefill={prefillFrom(form)} formToken={form.token} trigger="Create booking" autoOpen={form.token === openForm} />}
-                {form.status === "booked" && form.bookingReference && <Link href={`/admin/journeys/${form.bookingReference}`} className="text-[14px] font-medium text-[#D96F00] hover:underline">{form.bookingReference}</Link>}
-                {form.status !== "booked" && <button type="button" onClick={() => void remove(form.token)} aria-label="Delete form link" className="ml-auto grid size-9 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>}
-              </div>
+                {<button type="button" onClick={() => void remove(form.token)} aria-label="Delete form link" className="ml-auto grid size-9 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>}
+              </div>}
             </li>;
           })}
         </ul>
