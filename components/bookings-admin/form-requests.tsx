@@ -41,7 +41,7 @@ function CopyButton({ url }: { url: string }) {
 }
 
 // "Form links": send customers a private step-by-step form, then turn answers into a booking.
-export function FormRequestsButton({ service, openForm }: { service: FormService; openForm?: string }) {
+export function FormRequestsButton({ service, openForm, openSignal, onWaiting }: { service: FormService; openForm?: string; openSignal?: number; onWaiting?: (n: number) => void }) {
   const [open, setOpen] = useState(Boolean(openForm));
   const [forms, setForms] = useState<FormRow[] | null>(null);
   const [kind, setKind] = useState<FormService>(service);
@@ -68,6 +68,11 @@ export function FormRequestsButton({ service, openForm }: { service: FormService
   }, [load]);
 
   const waitingAnswers = forms?.filter((f) => f.status === "submitted").length ?? 0;
+  useEffect(() => { onWaiting?.(waitingAnswers); }, [onWaiting, waitingAnswers]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- open when the Create menu asks
+    if (openSignal) { setOpen(true); setFresh(""); void load(); }
+  }, [openSignal, load]);
 
   async function create() {
     setBusy(true); setError("");
@@ -93,10 +98,10 @@ export function FormRequestsButton({ service, openForm }: { service: FormService
   const link = (token: string) => `${origin}/f/${token}`;
 
   return <>
-    <button type="button" onClick={() => { setOpen(true); setFresh(""); void load(); }} className="relative inline-flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-[15px] font-semibold text-slate-800 hover:border-[#FF8A05]">
+    {openSignal === undefined && <button type="button" onClick={() => { setOpen(true); setFresh(""); void load(); }} className="relative inline-flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-[15px] font-semibold text-slate-800 hover:border-[#FF8A05]">
       <Send size={16} />Form links
       {waitingAnswers > 0 && <span className="absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full bg-[#D32F2F] px-1 text-[11px] font-bold text-white">{waitingAnswers}</span>}
-    </button>
+    </button>}
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent showCloseButton={false} className="max-h-[92dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-slate-900 sm:max-w-2xl">
         <DialogHeader className="flex-row items-center justify-between gap-3 text-left">

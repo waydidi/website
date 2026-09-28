@@ -38,7 +38,7 @@ function blankDraft(service: Service) {
 export type NewBookingPrefill = Partial<Draft>;
 
 // With `prefill` + `formToken` it opens from a customer form and marks that form as booked once saved.
-export function NewBookingButton({ service, prefill, formToken, trigger, autoOpen }: { service: Service; prefill?: NewBookingPrefill; formToken?: string; trigger?: string; autoOpen?: boolean }) {
+export function NewBookingButton({ service, prefill, formToken, trigger, autoOpen, openSignal }: { service: Service; prefill?: NewBookingPrefill; formToken?: string; trigger?: string; autoOpen?: boolean; openSignal?: number }) {
   const router = useRouter();
   const [open, setOpen] = useState(Boolean(autoOpen));
   const [done, setDone] = useState<{ reference: string; total: number; emailStatus: string; confirmationUrl?: string } | null>(null);
@@ -85,8 +85,15 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
 
   const ready = f.pickup.trim().length > 1 && (f.serviceType === "hourly" || f.dropoff.trim().length > 1) && f.customerName.trim() && /\S+@\S+\.\S+/.test(f.customerEmail) && f.customerPhone.trim().length > 4 && f.fare !== "";
 
+  // Opened from the "Create" menu: no button of its own.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- open when the Create menu asks
+    if (openSignal) { setF(blank()); setOpen(true); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSignal]);
+
   return <>
-    {trigger
+    {openSignal !== undefined ? null : trigger
       ? <button type="button" onClick={() => { setF(blank()); setOpen(true); }} className="inline-flex h-9 items-center rounded-full bg-[#FF8A05] px-4 text-[14px] font-semibold text-white hover:bg-[#E67900]">{trigger}</button>
       : <button type="button" onClick={() => { setF(blank()); setOpen(true); }} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]"><Plus size={17} strokeWidth={2.5} />New booking</button>}
     <Dialog open={open} onOpenChange={close}>

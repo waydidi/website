@@ -10,8 +10,7 @@ import {
 import { getDb } from "@/db";
 import { agencyApplications, bookingAssignments, bookings, bookingSources, bookingStorefronts, bookingTaxInvoices, drivers, storefronts } from "@/db/schema";
 import { DriverPicker } from "@/components/bookings-admin/driver-picker";
-import { FormRequestsButton } from "@/components/bookings-admin/form-requests";
-import { NewBookingButton } from "@/components/bookings-admin/new-booking";
+import { CreateMenu } from "@/components/bookings-admin/create-menu";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -154,14 +153,14 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
             Pricing areas
           </a>
         </nav>
+        {/* "Create" sits on the page title row. */}
+        <div className="-mt-[40px] mb-1 flex justify-end"><CreateMenu service={type} openForm={q.form} /></div>
         {/* Transfer / By the hour, each with a list or calendar view. */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div role="tablist" aria-label="Service" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
             {([["transfer", "Transfer"], ["hourly", "By the hour"], ["tour", "Tour"]] as const).map(([id, label]) => <Link key={id} role="tab" aria-selected={type === id} href={`/admin/bookings?type=${id}&mode=${mode}`} className={`h-9 rounded-lg px-4 text-[15px] leading-9 ${type === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}>{label}</Link>)}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-          <FormRequestsButton service={type} openForm={q.form} />
-          <NewBookingButton service={type} />
           <div role="tablist" aria-label="View" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
             {([["list", "List", List], ["calendar", "Calendar", CalendarDays], ["board", "Board", Columns3]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}><Icon size={16} />{label}</Link>)}
           </div>
