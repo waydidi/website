@@ -1179,3 +1179,33 @@ export const memberCoupons = sqliteTable("member_coupons", {
   code: text("code").notNull(),
   collectedAt: text("collected_at").notNull(),
 }, (table) => [primaryKey({ columns: [table.customerId, table.code] })]);
+
+// Storefront partners: a shop or hotel desk with a Waydidi QR poster. Customers who
+// book through it get the store's special price; the store earns a commission.
+export const storefronts = sqliteTable("storefronts", {
+  id: text("id").primaryKey(),
+  slug: text("slug").notNull(),
+  name: text("name").notNull(),
+  contactName: text("contact_name"),
+  phone: text("phone"),
+  area: text("area"),
+  discountPercent: real("discount_percent").notNull().default(0),
+  commissionPercent: real("commission_percent").notNull().default(0),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [uniqueIndex("uidx_storefronts_slug").on(table.slug)]);
+
+// One row per booking made through a storefront QR: the price given and the commission owed.
+export const bookingStorefronts = sqliteTable("booking_storefronts", {
+  bookingReference: text("booking_reference").primaryKey(),
+  storefrontId: text("storefront_id").notNull(),
+  fareBeforeDiscount: integer("fare_before_discount").notNull(),
+  discountPercent: real("discount_percent").notNull(),
+  discount: integer("discount").notNull(),
+  commissionPercent: real("commission_percent").notNull(),
+  commission: integer("commission").notNull(),
+  cashAtStore: integer("cash_at_store", { mode: "boolean" }).notNull().default(false),
+  settledAt: text("settled_at"),
+  createdAt: text("created_at").notNull(),
+}, (table) => [index("idx_booking_storefronts_store").on(table.storefrontId)]);

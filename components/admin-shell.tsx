@@ -6,7 +6,7 @@ import {
   Truck,
   Users,
   Newspaper,
-  TicketPercent, Gift, Building2, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronRight, Grid2x2, Search, Settings } from "lucide-react";
+  TicketPercent, Gift, Building2, Store, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronRight, Grid2x2, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -75,6 +75,13 @@ const tabs = [
     icon: IdCard,
   },
   {
+    href: "/admin/storefronts",
+    label: "Storefronts",
+    mobileLabel: "Stores",
+    title: "Storefronts",
+    icon: Store,
+  },
+  {
     href: "/admin/agencies",
     label: "Travel agencies",
     mobileLabel: "Agencies",
@@ -136,6 +143,7 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
     { href: "/admin/users", label: "Users", icon: Users },
     { href: "/admin/drivers", label: "Drivers", icon: IdCard },
     { href: "/admin/agencies", label: "Travel agencies", icon: Building2 },
+    { href: "/admin/storefronts", label: "Storefronts", icon: Store },
   ] },
 ];
 

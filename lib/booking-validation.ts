@@ -72,7 +72,7 @@ export const checkoutInputSchema = z.object({
   ferryHotelPeople: z.number().int().min(0).max(20).optional().default(0),
   saveBilling: z.boolean().optional(),
   copyEmail: z.string().trim().email().max(254).optional().or(z.literal("")),
-  source: z.string().regex(/^blog:[a-z0-9-]{1,90}$/).optional().catch(undefined),
+  source: z.string().regex(/^(blog:[a-z0-9-]{1,90}|store:[a-z0-9-]{2,40})$/).optional().catch(undefined),
   taxInvoice: z.object({
     name: z.string().trim().min(2).max(200),
     taxId: z.string().trim().regex(/^\d{13}$/),

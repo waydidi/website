@@ -24,20 +24,20 @@ const blank: Answers = {
   passengers: 2, luggage: 2, vehicle: "economy_sedan", childSeats: 0, exchangeStop: false, ferryPeople: 0,
 };
 
-const box = "w-full rounded-2xl border-2 font-normal border-[#F0E3D4] bg-white px-4 text-[#1F1726] shadow-[0_1px_2px_rgba(60,30,0,.04)] outline-none transition placeholder:text-[#BDB2A8] focus:border-[#FF8A05] focus:ring-4 focus:ring-[#FF8A05]/15 disabled:bg-[#FAF6F1] disabled:text-[#6B6170]";
-const bigInput = `${box} h-16 text-[20px] sm:text-[22px]`;
-const smallLabel = "block text-[14px] font-semibold text-[#4A3F4F]";
-const smallInput = `${box} mt-1.5 h-14 text-[17px]`;
+export const box = "w-full rounded-2xl border-2 font-normal border-[#F0E3D4] bg-white px-4 text-[#1F1726] shadow-[0_1px_2px_rgba(60,30,0,.04)] outline-none transition placeholder:text-[#BDB2A8] focus:border-[#FF8A05] focus:ring-4 focus:ring-[#FF8A05]/15 disabled:bg-[#FAF6F1] disabled:text-[#6B6170]";
+export const bigInput = `${box} h-16 text-[20px] sm:text-[22px]`;
+export const smallLabel = "block text-[14px] font-semibold text-[#4A3F4F]";
+export const smallInput = `${box} mt-1.5 h-14 text-[17px]`;
 
 // Round icon badge above each question.
 const STEP_ICON: Record<string, LucideIcon> = { name: UserRound, phone: MessageCircle, email: Mail, trip: MapPin, return: Repeat, ride: CarFront, review: ClipboardCheck };
-const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+export const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 
 // Pickup times every 15 minutes (00:00 … 23:45), shown as a list instead of the phone's minute wheel.
 const QUARTER_HOURS = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`);
 const label12 = (t: string) => { const [h, m] = t.split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
 
-function TimeSelect({ value, onChange, disabled, className }: { value: string; onChange: (v: string) => void; disabled?: boolean; className: string }) {
+export function TimeSelect({ value, onChange, disabled, className }: { value: string; onChange: (v: string) => void; disabled?: boolean; className: string }) {
   const options = value && !QUARTER_HOURS.includes(value) ? [value, ...QUARTER_HOURS] : QUARTER_HOURS;
   return <span className="relative block">
     <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className={`${className} appearance-none pr-10 ${value ? "" : "text-[#BDB2A8]"}`}>
@@ -48,7 +48,7 @@ function TimeSelect({ value, onChange, disabled, className }: { value: string; o
   </span>;
 }
 
-function Stepper({ value, set, min, max, label }: { value: number; set: (n: number) => void; min: number; max: number; label: string }) {
+export function Stepper({ value, set, min, max, label }: { value: number; set: (n: number) => void; min: number; max: number; label: string }) {
   return <span className="flex items-center gap-3">
     <button type="button" aria-label={`Fewer ${label}`} disabled={value <= min} onClick={() => set(value - 1)} className="grid size-10 place-items-center rounded-full border-2 border-[#F0E3D4] bg-white text-[#1F1726] transition active:scale-90 enabled:hover:border-[#FF8A05] disabled:opacity-35"><Minus size={18} /></button>
     <span className="w-6 text-center text-[20px] font-semibold tabular-nums" aria-live="polite">{value}</span>

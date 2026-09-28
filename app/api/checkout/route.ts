@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { storeCommission, storeDiscount, storefrontBySlug } from "@/lib/storefront";
 import { customerFromRequest } from "@/lib/customer-auth";
-import { bookingContacts, bookingFreeAddons, bookingMemberDiscounts, bookingSources, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
+import { bookingContacts, bookingFreeAddons, bookingMemberDiscounts, bookingSources, bookingStorefronts, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
 import { and as andWhere, eq as eqWhere } from "drizzle-orm";
 import { normalizeCode } from "@/lib/promo";
 import { checkPromo, normalizePhone } from "@/lib/promo-db";
@@ -344,6 +345,16 @@ export async function POST(request: Request) {
     // Promo code: checked here against the real quote price; the browser's
     // preview is never trusted.
     const account = await customerFromRequest(request);
+    // Storefront QR booking: the store's special price replaces promo codes and member discounts.
+    const storefront = input.source?.startsWith("store:") ? await storefrontBySlug(input.source.slice(6)) : null;
+    if (input.source?.startsWith("store:") && !storefront) input.source = undefined;
+    if (storefront) input.promoCode = undefined;
+    let storeApplied: { fare: number; percent: number; discount: number } | null = null;
+    if (storefront) {
+      const discount = storeDiscount(total, storefront.discountPercent);
+      storeApplied = { fare: total, percent: storefront.discountPercent, discount };
+      total -= discount;
+    }
     let promoApplied: { promoId: string; code: string; originalTotal: number; discount: number } | null = null;
     if (input.promoCode) {
       const result = await checkPromo({
@@ -369,7 +380,7 @@ export async function POST(request: Request) {
     // left after any promo code (so both apply).
     let memberApplied: { tier: string; percent: number; discount: number } | null = null;
     let memberTier: Tier | null = null;
-    if (account) {
+    if (account && !storefront) {
       const { tier } = await memberTierStatus(account.customer.id).catch(() => ({ tier: TIERS[0] }));
       memberTier = tier;
       const amount = tierDiscount(tier, total);
@@ -529,6 +540,17 @@ export async function POST(request: Request) {
     if (freeAddons.childSeats > 0 || freeAddons.exchangeStop) await getDb().insert(bookingFreeAddons).values({ bookingReference: reference, tier: `${memberTier?.id ?? "bronze"}${freeAddons.usedGifts.length ? "+gift" : ""}`, childSeats: freeAddons.childSeats, exchangeStop: freeAddons.exchangeStop, createdAt: now }).onConflictDoNothing();
     if (memberApplied && account) await getDb().insert(bookingMemberDiscounts).values({ bookingReference: reference, customerId: account.customer.id, ...memberApplied, createdAt: now }).onConflictDoNothing();
     if (input.source) await getDb().insert(bookingSources).values({ bookingReference: reference, source: input.source, createdAt: now }).onConflictDoNothing().catch(() => undefined);
+    if (storefront && storeApplied) await getDb().insert(bookingStorefronts).values({
+      bookingReference: reference, storefrontId: storefront.id,
+      fareBeforeDiscount: storeApplied.fare, discountPercent: storeApplied.percent, discount: storeApplied.discount,
+      commissionPercent: storefront.commissionPercent, commission: storeCommission(storeApplied.fare - storeApplied.discount, storefront.commissionPercent),
+      cashAtStore: input.paymentMethod === "cash", createdAt: now,
+    }).onConflictDoNothing().catch((error) => console.error("storefront link failed", error));
+    if (storefront && storeApplied && storeApplied.discount > 0) await getDb().insert(promoRedemptions).values({
+      id: crypto.randomUUID(), promoId: "storefront", code: `${storefront.name} special price`, bookingReference: reference,
+      customerEmail: input.customerEmail, customerPhone: input.customerPhone,
+      originalTotal: storeApplied.fare, discount: storeApplied.discount, finalTotal: storeApplied.fare - storeApplied.discount, createdAt: now,
+    }).onConflictDoNothing().catch(() => undefined);
     if (account) await getDb().insert(customerBookingLinks).values({ bookingReference: reference, customerId: account.customer.id, createdAt: now }).onConflictDoNothing();
     await getDb().insert(bookingPayments).values({
       id: `primary:${reference}`,
