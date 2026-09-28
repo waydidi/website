@@ -371,8 +371,9 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                 <table className="w-full min-w-[950px] text-left text-sm">
                   <thead className="bg-slate-100 text-xs uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-5 py-4">Journey</th>
-                      <th className="px-5 py-4">Pickup</th>
+                      <th className="px-5 py-4">Reference ID</th>
+                      <th className="px-5 py-4">Route</th>
+                      <th className="px-5 py-4">Date</th>
                       <th className="px-5 py-4">Driver</th>
                       <th className="px-5 py-4">Status</th>
                       <th className="px-5 py-4">Evidence</th>
@@ -397,9 +398,9 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                           key={booking.reference}
                           className="align-top hover:bg-orange-50/40"
                         >
+                          <td className="px-5 py-4"><strong>{booking.reference}</strong></td>
                           <td className="px-5 py-4">
-                            <strong>{booking.reference}</strong>
-                            <p className="mt-1 max-w-[260px] text-slate-500">
+                            <p className="max-w-[260px] text-slate-500">
                               {booking.pickup} → {booking.dropoff}
                             </p>
                           </td>
@@ -454,7 +455,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                     {rows.length === 0 && (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className="px-5 py-14 text-center text-slate-500"
                         >
                           No journeys match this filter.
