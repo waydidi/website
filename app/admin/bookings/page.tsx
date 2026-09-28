@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { getDb } from "@/db";
 import { bookingAssignments, bookingCosts, bookings, bookingStorefronts, bookingTaxInvoices, drivers } from "@/db/schema";
-import { DriverPicker } from "@/components/bookings-admin/driver-picker";
+import { EditDriverButton } from "@/components/bookings-admin/edit-driver";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 import { isAirportPickup } from "@/lib/trip-rules";
 import { VEHICLES } from "@/lib/vehicles";
@@ -177,7 +177,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-600">
-                <tr>{["Reference ID", "Customer name", "Date & time", "From", "To", "Vehicle", "Payment", "Driver", "Assignment"].map((h) => <th key={h} className="h-14 whitespace-nowrap px-4 text-[14px] font-normal">{h}</th>)}</tr>
+                <tr>{["Reference ID", "Customer name", "Date & time", "From", "To", "Vehicle", "Payment", "Driver", "Assignment", ""].map((h) => <th key={h} className="h-14 whitespace-nowrap px-4 text-[14px] font-normal">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {rows.map((row) => {
@@ -198,13 +198,14 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                         : <span className="inline-flex rounded-full bg-slate-200 px-2.5 py-0.5 text-[13px] font-medium text-slate-700">{row.paymentStatus.replaceAll("_", " ")}</span>}
                       <p className="mt-1 text-[12px] text-slate-500">฿{row.total.toLocaleString()}</p>
                     </td>
-                    <td className="px-4 py-4"><DriverPicker reference={row.reference} drivers={driverOptions} current={assigned.get(row.reference) ?? null} canAssign={row.status === "confirmed"} /></td>
+                    <td className="whitespace-nowrap px-4 py-4">{(() => { const d = driverOptions.find((o) => o.id === assigned.get(row.reference)); return d ? <span className="text-slate-900">{d.name}</span> : <span className="text-slate-400">Not assigned</span>; })()}</td>
                     <td className="px-4 py-4"><CopyTextButton text={jobText(row)} label={`Copy driver job for ${row.reference}`} /></td>
+                    <td className="px-4 py-4"><EditDriverButton reference={row.reference} drivers={driverOptions} current={assigned.get(row.reference) ?? null} canAssign={row.status === "confirmed"} /></td>
                   </tr>;
                 })}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-5 py-16 text-center text-slate-500">
+                    <td colSpan={10} className="px-5 py-16 text-center text-slate-500">
                       {type === "tour" ? "No tour bookings yet." : type === "hourly" ? "No hourly bookings yet." : "No bookings yet."}
                     </td>
                   </tr>

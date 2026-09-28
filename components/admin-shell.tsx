@@ -11,6 +11,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
+import { NotificationBell } from "@/components/admin-settings/notification-bell";
 import { AvatarMenu } from "@/components/admin-settings/avatar-menu";
 import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings/settings-dialog";
 
@@ -274,7 +275,7 @@ export default function AdminShell({
           {/* Phones: the logo sits where desktop has the sidebar; the title is shown large below, like desktop. */}
           <Link href="/admin" aria-label="Waydidi admin home" className="shrink-0 md:hidden"><WaydidiLogo className="admin-logo h-[46px] w-auto text-[#FF8A05]" /></Link>
           <div className="hidden flex-1 md:block"><PageSearch /></div>
-          <button type="button" onClick={toggleDark} aria-pressed={dark} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"} className="ml-auto grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-white hover:bg-slate-50"><ThemeIcon size={20} /></button>
+          <NotificationBell />
           <AvatarMenu />
           <SettingsDialog dark={dark} onToggleDark={toggleDark} />
         </header>
