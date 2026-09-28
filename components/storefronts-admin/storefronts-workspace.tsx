@@ -157,8 +157,8 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
   const pending = stores.reduce((n, s) => n + s.stats.pendingCommission, 0);
   const owed = stores.reduce((n, s) => n + Math.max(0, s.stats.balance), 0);
 
-  return <div className="grid gap-5">
-    <div className="-mt-[52px] flex justify-end max-md:mt-0">
+  return <div className="grid gap-5 px-4 pb-10 pt-4 sm:px-8">
+    <div className="-mt-[52px] -mb-1 flex justify-end">
       <button type="button" onClick={() => setAdding(true)} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]"><Plus size={17} strokeWidth={2.5} />Add storefront</button>
     </div>
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

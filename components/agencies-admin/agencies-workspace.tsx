@@ -64,7 +64,7 @@ export function AgenciesWorkspace({ rows, subscribers }: { rows: AgencyRow[]; su
   }
 
   return <div className="px-4 pb-10 pt-4 sm:px-8">
-    <div className="-mt-[52px] mb-6 flex justify-end gap-2 max-md:mt-0">
+    <div className="-mt-[52px] mb-6 flex justify-end gap-2">
       <button type="button" onClick={exportCsv} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-[15px] text-slate-800 hover:bg-slate-50"><Download size={16} />Export</button>
     </div>
     <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
