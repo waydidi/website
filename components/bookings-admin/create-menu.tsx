@@ -13,8 +13,8 @@ export function CreateMenu({ service, openForm }: { service: FormService; openFo
   const [formSignal, setFormSignal] = useState(0);
   const [bookingSignal, setBookingSignal] = useState(0);
   const [waiting, setWaiting] = useState(0);
-  // Step 2 of "Create form": pick the service in the same centred popup.
-  const [step, setStep] = useState<"choose" | "service">("choose");
+  // Step 2 of "Create form" / "Create booking": pick the service in the same centred popup.
+  const [step, setStep] = useState<"choose" | "form" | "booking">("choose");
   const [kind, setKind] = useState<FormService>("transfer");
   const choice = "flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-7 text-[15px] font-bold text-slate-900 transition hover:border-[#FF8A05] hover:bg-orange-50/50";
   const icon = "grid size-14 place-items-center rounded-2xl bg-[#FFF0DF] text-[#D96F00]";
@@ -26,22 +26,22 @@ export function CreateMenu({ service, openForm }: { service: FormService; openFo
     </button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="rounded-[28px] border-0 bg-white p-6 text-slate-900 sm:max-w-md">
-        <DialogTitle className="flex items-center gap-2 text-[22px] font-semibold">{step === "service" && <button type="button" onClick={() => setStep("choose")} aria-label="Back" className="rounded-full p-1 hover:bg-slate-100"><ArrowLeft size={20} /></button>}{step === "service" ? "Create form" : "Create"}</DialogTitle>
+        <DialogTitle className="flex items-center gap-2 text-[22px] font-semibold">{step !== "choose" && <button type="button" onClick={() => setStep("choose")} aria-label="Back" className="rounded-full p-1 hover:bg-slate-100"><ArrowLeft size={20} /></button>}{step === "form" ? "Create form" : step === "booking" ? "Create booking" : "Create"}</DialogTitle>
         <DialogDescription className="sr-only">Choose a form link for a customer or a booking.</DialogDescription>
-        {step === "service" ? <div className="mt-2 grid gap-3">
-          {([["transfer", "Transfer", Car], ["hourly", "By the hour", Clock], ["tour", "Tour", MapIcon]] as const).map(([id, label, Icon]) => <button key={id} type="button" onClick={() => { setKind(id); setOpen(false); setFormSignal((n) => n + 1); }} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-left text-[16px] font-bold text-slate-900 transition hover:border-[#FF8A05] hover:bg-orange-50/50"><span className="grid size-12 place-items-center rounded-2xl bg-[#FFF0DF] text-[#D96F00]"><Icon size={24} /></span>{label}</button>)}
+        {step !== "choose" ? <div className="mt-2 grid gap-3">
+          {([["transfer", "Transfer", Car], ["hourly", "By the hour", Clock], ["tour", "Tour", MapIcon]] as const).map(([id, label, Icon]) => <button key={id} type="button" onClick={() => { setKind(id); setOpen(false); if (step === "form") setFormSignal((n) => n + 1); else setBookingSignal((n) => n + 1); }} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-left text-[16px] font-bold text-slate-900 transition hover:border-[#FF8A05] hover:bg-orange-50/50"><span className="grid size-12 place-items-center rounded-2xl bg-[#FFF0DF] text-[#D96F00]"><Icon size={24} /></span>{label}</button>)}
         </div> : <div className="mt-2 grid grid-cols-2 gap-3">
-          <button type="button" onClick={() => setStep("service")} className={`relative ${choice}`}>
+          <button type="button" onClick={() => setStep("form")} className={`relative ${choice}`}>
             <span className={icon}><FileText size={26} /></span>Create form
             {waiting > 0 && <span className="absolute right-3 top-3 rounded-full bg-[#D32F2F] px-2 py-0.5 text-[11px] font-bold text-white">{waiting} new</span>}
           </button>
-          <button type="button" onClick={() => { setOpen(false); setBookingSignal((n) => n + 1); }} className={choice}>
+          <button type="button" onClick={() => setStep("booking")} className={choice}>
             <span className={icon}><CalendarPlus size={26} /></span>Create booking
           </button>
         </div>}
       </DialogContent>
     </Dialog>
     <FormRequestsButton service={service} openForm={openForm} openSignal={formSignal} openKind={kind} onWaiting={setWaiting} />
-    <NewBookingButton service={service} openSignal={bookingSignal} />
+    <NewBookingButton service={service} openSignal={bookingSignal} openKind={kind} />
   </>;
 }

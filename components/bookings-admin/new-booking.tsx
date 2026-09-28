@@ -38,7 +38,7 @@ function blankDraft(service: Service) {
 export type NewBookingPrefill = Partial<Draft>;
 
 // With `prefill` + `formToken` it opens from a customer form and marks that form as booked once saved.
-export function NewBookingButton({ service, prefill, formToken, trigger, autoOpen, openSignal }: { service: Service; prefill?: NewBookingPrefill; formToken?: string; trigger?: string; autoOpen?: boolean; openSignal?: number }) {
+export function NewBookingButton({ service, prefill, formToken, trigger, autoOpen, openSignal, openKind }: { service: Service; prefill?: NewBookingPrefill; formToken?: string; trigger?: string; autoOpen?: boolean; openSignal?: number; openKind?: Service }) {
   const router = useRouter();
   const [open, setOpen] = useState(Boolean(autoOpen));
   const [done, setDone] = useState<{ reference: string; total: number; emailStatus: string; confirmationUrl?: string } | null>(null);
@@ -88,7 +88,7 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
   // Opened from the "Create" menu: no button of its own.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- open when the Create menu asks
-    if (openSignal) { setF(blank()); setOpen(true); }
+    if (openSignal) { setF({ ...blank(), ...(openKind ? { serviceType: openKind } : {}) }); setOpen(true); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openSignal]);
 
