@@ -3,7 +3,7 @@ import { and, count, eq, gt, lt } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { checkoutAttempts } from "@/db/schema";
-import { ADMIN_COOKIE, ADMIN_EMAIL, ADMIN_SESSION_SECONDS, createAdminSession, verifyAdminKey, verifyAdminLogin } from "@/lib/admin";
+import { adminUsername, getWaydidiAdmin, ADMIN_COOKIE, ADMIN_EMAIL, ADMIN_SESSION_SECONDS, createAdminSession, verifyAdminKey, verifyAdminLogin } from "@/lib/admin";
 import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
 
 export async function POST(request: Request) {
@@ -44,4 +44,11 @@ export async function DELETE(request: Request) {
   const response = NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   response.cookies.set(ADMIN_COOKIE, "", { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 0 });
   return response;
+}
+
+// Who is signed in, for the settings popup.
+export async function GET() {
+  const admin = await getWaydidiAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return NextResponse.json({ username: adminUsername() });
 }

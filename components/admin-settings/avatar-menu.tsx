@@ -1,7 +1,6 @@
 "use client";
 
 import { ImagePlus, LogOut, Settings, Trash2 } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 // Top-bar profile picture: tap to change the photo or sign out.
@@ -57,7 +56,7 @@ export function AvatarMenu() {
       <p className="border-b border-slate-100 px-4 py-2.5 font-semibold text-[#15161C]">Waydidi Admin</p>
       <button type="button" role="menuitem" disabled={busy} onClick={() => fileRef.current?.click()} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50"><ImagePlus size={16} />{hasPhoto ? "Change photo" : "Add photo"}</button>
       {hasPhoto && <button type="button" role="menuitem" disabled={busy} onClick={removePhoto} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50"><Trash2 size={16} />Remove photo</button>}
-      <Link href="/admin/settings" role="menuitem" onClick={() => setOpen(false)} className="flex w-full items-center gap-2.5 border-t border-slate-100 px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50"><Settings size={16} />Settings</Link>
+      <button type="button" role="menuitem" onClick={() => { setOpen(false); window.dispatchEvent(new Event("waydidi:open-settings")); }} className="flex w-full items-center gap-2.5 border-t border-slate-100 px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50"><Settings size={16} />Settings</button>
       <button type="button" role="menuitem" disabled={busy} onClick={signOut} className="flex w-full items-center gap-2.5 border-t border-slate-100 px-4 py-2.5 text-left text-red-600 hover:bg-slate-50"><LogOut size={16} />Sign out</button>
       {error && <p role="alert" className="px-4 pb-2.5 text-[12px] font-semibold text-red-600">{error}</p>}
     </div>}

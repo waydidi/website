@@ -12,6 +12,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
 import { AvatarMenu } from "@/components/admin-settings/avatar-menu";
+import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings/settings-dialog";
 
 // "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
 const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly"))));
@@ -264,7 +265,7 @@ export default function AdminShell({
           </div>)}
         </nav>
         <div className={`flex items-center gap-1 border-t border-slate-200/70 p-3 ${collapsed ? "flex-col" : ""}`}>
-          <Link href="/admin/settings" prefetch aria-current={pathname.startsWith("/admin/settings") ? "page" : undefined} title="Settings" className={`flex h-10 min-w-0 flex-1 items-center gap-3 rounded-[10px] px-3 text-[15px] ${collapsed ? "w-full justify-center" : ""} ${pathname.startsWith("/admin/settings") ? "bg-[#FFF0DF] font-semibold text-[#C96100]" : "text-slate-700 hover:bg-slate-100/80"}`}><Settings size={18} className="shrink-0" />{!collapsed && "Settings"}</Link>
+          <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_SETTINGS_EVENT))} title="Settings" className={`flex h-10 min-w-0 flex-1 items-center gap-3 rounded-[10px] px-3 text-[15px] ${collapsed ? "w-full justify-center" : ""} ${pathname.startsWith("/admin/settings") ? "bg-[#FFF0DF] font-semibold text-[#C96100]" : "text-slate-700 hover:bg-slate-100/80"}`}><Settings size={18} className="shrink-0" />{!collapsed && "Settings"}</button>
           <button type="button" onClick={toggleDark} aria-pressed={dark} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"} className="grid size-10 shrink-0 place-items-center rounded-[10px] text-slate-700 hover:bg-slate-100/80"><ThemeIcon /></button>
         </div>
       </aside>
@@ -275,6 +276,7 @@ export default function AdminShell({
           <div className="hidden flex-1 md:block"><PageSearch /></div>
           <button type="button" onClick={toggleDark} aria-pressed={dark} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"} className="ml-auto grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-white hover:bg-slate-50"><ThemeIcon size={20} /></button>
           <AvatarMenu />
+          <SettingsDialog dark={dark} onToggleDark={toggleDark} />
         </header>
         <div className="mx-auto max-w-[1600px] px-4 pt-5 sm:px-8 md:pt-6">
           <h1 className="text-[26px] font-semibold tracking-[-.02em] md:text-[28px]">{title}</h1>
