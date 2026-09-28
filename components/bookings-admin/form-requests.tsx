@@ -163,7 +163,6 @@ export function FormRequestsButton({ openForm, openSignal, openKind, onWaiting }
             const expired = form.status === "waiting" && form.expiresAt < new Date().toISOString();
             const a = form.answers;
             const open = expanded === form.token;
-            const route = a ? `${a.pickup}${a.dropoff ? ` → ${a.dropoff}` : a.hours ? ` · ${a.hours} hours` : ""}` : form.note || SERVICE_NAMES[form.serviceType];
             const details: [string, React.ReactNode][] = a ? [
               ["Passengers & luggage", <span key="pl" className="inline-flex items-center gap-3"><span className="inline-flex items-center gap-1"><UsersRound size={15} />{a.passengers}</span><span className="inline-flex items-center gap-1"><Luggage size={15} />{a.luggage}</span></span>],
               ["Vehicle", VEHICLES[a.vehicle as keyof typeof VEHICLES]?.name ?? a.vehicle],
@@ -174,19 +173,15 @@ export function FormRequestsButton({ openForm, openSignal, openKind, onWaiting }
               ["Price", form.prefill?.price !== undefined ? `THB ${form.prefill.price.toLocaleString()}` : "Not set"],
             ] : [];
             return <li key={form.token} className="grid gap-1.5 py-3">
-              <div className="flex items-center gap-2">
+              <div role={a ? "button" : undefined} tabIndex={a ? 0 : undefined} aria-expanded={a ? open : undefined} onClick={() => a && setExpanded(open ? "" : form.token)} onKeyDown={(e) => { if (a && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setExpanded(open ? "" : form.token); } }} className={`flex items-center gap-2 ${a ? "cursor-pointer" : ""}`}>
                 <span className={`shrink-0 rounded-md px-2 py-0.5 text-[12px] font-semibold ${form.status === "submitted" ? "bg-orange-100 text-orange-800" : form.status === "booked" ? "bg-emerald-100 text-emerald-800" : expired ? "bg-slate-200 text-slate-600" : "bg-sky-100 text-sky-800"}`}>
                   {form.status === "submitted" ? "Answers in" : form.status === "booked" ? "Booked" : expired ? "Expired" : "Waiting"}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{a?.name ?? SERVICE_NAMES[form.serviceType]}</span>
                 {form.status === "booked" && form.bookingReference
-                  ? <Link href={`/admin/journeys/${form.bookingReference}`} className="shrink-0 font-mono text-[13px] font-semibold text-[#D96F00] hover:underline">{form.bookingReference}</Link>
+                  ? <Link href={`/admin/journeys/${form.bookingReference}`} onClick={(e) => e.stopPropagation()} className="shrink-0 font-mono text-[13px] font-semibold text-[#D96F00] hover:underline">{form.bookingReference}</Link>
                   : <span className="shrink-0 text-[12px] text-slate-400">{when(form.submittedAt ?? form.createdAt)}</span>}
               </div>
-              {(a || form.note) && <div className="flex items-center gap-2">
-                <p className="min-w-0 flex-1 truncate text-[13px] text-slate-600">{route}</p>
-                {a && <button type="button" onClick={() => setExpanded(open ? "" : form.token)} aria-expanded={open} className="shrink-0 text-[13px] font-semibold text-[#D96F00] hover:underline">{open ? "See less" : "See more"}</button>}
-              </div>}
               {open && <dl className="mt-1 grid gap-1.5 rounded-xl bg-slate-50 p-3 text-[13px]">
                 {form.agencyName && <div className="flex justify-between gap-3"><dt className="text-slate-500">Agency</dt><dd className="text-right font-medium">{form.agencyName}</dd></div>}
                 {details.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{v}</dd></div>)}
