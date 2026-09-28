@@ -41,10 +41,11 @@ function CopyButton({ url }: { url: string }) {
 }
 
 // "Form links": send customers a private step-by-step form, then turn answers into a booking.
-export function FormRequestsButton({ service, openForm, openSignal, onWaiting }: { service: FormService; openForm?: string; openSignal?: number; onWaiting?: (n: number) => void }) {
+export function FormRequestsButton({ openForm, openSignal, onWaiting }: { service?: FormService; openForm?: string; openSignal?: number; onWaiting?: (n: number) => void }) {
   const [open, setOpen] = useState(Boolean(openForm));
   const [forms, setForms] = useState<FormRow[] | null>(null);
-  const [kind, setKind] = useState<FormService>(service);
+  // No service is picked up front: choosing one is required before a link can be made.
+  const [kind, setKind] = useState<FormService | "">("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -75,6 +76,7 @@ export function FormRequestsButton({ service, openForm, openSignal, onWaiting }:
   }, [openSignal, load]);
 
   async function create() {
+    if (!kind) { setError("Choose a service first."); return; }
     setBusy(true); setError("");
     try {
       const res = await fetch("/api/admin/forms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceType: kind, note, agencyId: agencyId || undefined, prefill: showPreset ? {
@@ -105,14 +107,17 @@ export function FormRequestsButton({ service, openForm, openSignal, onWaiting }:
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent showCloseButton={false} className="max-h-[92dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-slate-900 sm:max-w-2xl">
         <DialogHeader className="flex-row items-center justify-between gap-3 text-left">
-          <div><DialogTitle className="text-[24px] font-semibold">Form links</DialogTitle><DialogDescription>Send a customer a link to fill in their ride details step by step. Their answers arrive here, ready to book.</DialogDescription></div>
+          <div><DialogTitle className="text-[24px] font-semibold">Form links</DialogTitle><DialogDescription className="sr-only">Create and manage customer form links.</DialogDescription></div>
           <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 hover:bg-orange-50"><X size={20} /></button>
         </DialogHeader>
 
         <section className="mt-2 grid gap-3 rounded-2xl bg-slate-50 p-4">
-          <div role="tablist" aria-label="Service" className="inline-flex w-fit rounded-xl bg-[#E8EAEE] p-1">
-            {(Object.keys(SERVICE_NAMES) as FormService[]).map((id) => <button key={id} type="button" role="tab" aria-selected={kind === id} onClick={() => setKind(id)} className={`h-9 rounded-lg px-4 text-[14px] ${kind === id ? "bg-white font-medium shadow-sm" : "text-slate-600"}`}>{SERVICE_NAMES[id]}</button>)}
-          </div>
+          <fieldset>
+            <legend className="text-[13px] font-medium text-slate-600">Service <span className="text-red-600">*</span></legend>
+            <div role="radiogroup" aria-required="true" className="mt-1 grid grid-cols-3 gap-2">
+              {(Object.keys(SERVICE_NAMES) as FormService[]).map((id) => <button key={id} type="button" role="radio" aria-checked={kind === id} onClick={() => setKind(id)} className={`flex h-11 items-center justify-center whitespace-nowrap rounded-xl border px-1 text-[14px] font-semibold ${kind === id ? "border-[#FF8A05] bg-orange-50 text-[#C96100]" : "border-slate-200 bg-white text-slate-700 hover:border-[#FF8A05]"}`}>{SERVICE_NAMES[id]}</button>)}
+            </div>
+          </fieldset>
           <label className="block text-[13px] font-medium text-slate-600">Note for yourself (optional)<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. Agency Sunny Tours, special price" className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
           {agencies.length > 0 && <label className="block text-[13px] font-medium text-slate-600">For agency (optional)<select value={agencyId} onChange={(e) => setAgencyId(e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]">
             <option value="">No agency, direct customer</option>
@@ -131,7 +136,7 @@ export function FormRequestsButton({ service, openForm, openSignal, onWaiting }:
             <p className="text-[12px] text-slate-500 sm:col-span-2">Leave any box empty and the customer fills it in.</p>
           </div>}
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => void create()} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#FF8A05] px-5 font-semibold text-white hover:bg-[#E67900] disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Create link</button>
+            <button type="button" onClick={() => void create()} disabled={busy || !kind} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#FF8A05] px-5 font-semibold text-white hover:bg-[#E67900] disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Create link</button>
             {error && <span className="text-[14px] text-red-600">{error}</span>}
           </div>
           {fresh && <div className="flex flex-wrap items-center gap-2 rounded-xl bg-emerald-50 p-3 text-emerald-900">
