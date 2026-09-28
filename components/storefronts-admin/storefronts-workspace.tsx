@@ -1,5 +1,6 @@
 "use client";
 
+import { PlaceInput } from "@/components/booking-form/place-input";
 import { Eye, LoaderCircle, Pencil, Plus, Printer, QrCode, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -101,7 +102,7 @@ function EditDialog({ store, open, onClose }: { store: Store | null; open: boole
         <label className={label}>Commission (% of fare)<input type="number" min={0} max={50} className={field} value={f.commissionPercent} onChange={(e) => setF({ ...f, commissionPercent: e.target.value })} /></label>
         <label className={label}>Contact name<input className={field} value={f.contactName} onChange={(e) => setF({ ...f, contactName: e.target.value })} /></label>
         <label className={label}>Phone<input className={field} value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></label>
-        <label className={`${label} sm:col-span-2`}>Area<input className={field} value={f.area} onChange={(e) => setF({ ...f, area: e.target.value })} placeholder="Sukhumvit, Bangkok" /></label>
+        <label className={`${label} sm:col-span-2`}>Area<PlaceInput className={field} value={f.area} onChange={(v) => setF((cur) => ({ ...cur, area: v }))} placeholder="Search Google Maps, e.g. Sukhumvit, Bangkok" /></label>
         <label className="flex items-center gap-2 text-[14px] font-medium sm:col-span-2"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} className="size-4 accent-[#FF8A05]" />QR code active (customers can book)</label>
       </div>
       {error && <p className="mt-3 rounded-xl bg-red-50 p-3 text-[14px] text-red-700">{error}</p>}
