@@ -158,8 +158,7 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
   const owed = stores.reduce((n, s) => n + Math.max(0, s.stats.balance), 0);
 
   return <div className="grid gap-5">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="max-w-2xl text-[15px] text-slate-600">Partner stores with a Waydidi QR poster. Customers get the store&apos;s special price; the store earns commission when the ride is completed.</p>
+    <div className="-mt-[52px] flex justify-end max-md:mt-0">
       <button type="button" onClick={() => setAdding(true)} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]"><Plus size={17} strokeWidth={2.5} />Add storefront</button>
     </div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
