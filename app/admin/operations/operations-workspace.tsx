@@ -249,7 +249,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
               <p className="text-xs font-bold uppercase tracking-[.14em] text-white/70">
                 Waydidi operations
               </p>
-              <h1 className="text-2xl font-black">Driver control</h1>
+              <h1 className="text-2xl font-black">Operations</h1>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-bold">
@@ -322,13 +322,14 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                 <table className="w-full min-w-[950px] text-left text-sm">
                   <thead className="bg-slate-100 text-xs uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-5 py-4">Reference ID</th>
+                      <th className="px-5 py-4">Ref ID</th>
+                      <th className="px-5 py-4">Customer name</th>
                       <th className="px-5 py-4">Route</th>
-                      <th className="px-5 py-4">Date</th>
+                      <th className="px-5 py-4">Date &amp; Time</th>
                       <th className="px-5 py-4">Driver</th>
                       <th className="px-5 py-4">Status</th>
                       <th className="px-5 py-4">Evidence</th>
-                      <th className="px-5 py-4">Action</th>
+                      <th className="px-5 py-4"><span className="sr-only">Actions</span></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -350,6 +351,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                           className="align-top hover:bg-orange-50/40"
                         >
                           <td className="px-5 py-4"><strong>{booking.reference}</strong></td>
+                          <td className="px-5 py-4">{booking.customerName}</td>
                           <td className="px-5 py-4">
                             <p className="max-w-[260px] text-slate-500">
                               {booking.pickup} → {booking.dropoff}
@@ -388,8 +390,8 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-2">
-                              <button type="button" disabled={!assignment} onClick={() => assignment && void copyLink(booking.reference, assignment.id)} title={assignment ? "Copy the driver's trip link" : "Assign a driver first"} className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#FF8A05] px-3.5 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400">
-                                {copied === booking.reference ? <Check size={15} /> : <Clipboard size={15} />}{copied === booking.reference ? "Copied" : "Copy link"}
+                              <button type="button" disabled={!assignment} onClick={() => assignment && void copyLink(booking.reference, assignment.id)} title={assignment ? "Copy the driver's trip link" : "Assign a driver first"} aria-label={copied === booking.reference ? "Link copied" : "Copy driver link"} className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FF8A05] text-white disabled:bg-slate-200 disabled:text-slate-400">
+                                {copied === booking.reference ? <Check size={16} /> : <Clipboard size={16} />}
                               </button>
                               <Link
                                 href={`/admin/journeys/${encodeURIComponent(booking.reference)}`}
@@ -406,7 +408,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                     {rows.length === 0 && (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={8}
                           className="px-5 py-14 text-center text-slate-500"
                         >
                           No journeys match this filter.

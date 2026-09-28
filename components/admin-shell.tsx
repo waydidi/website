@@ -44,7 +44,7 @@ const tabs = [
     href: "/admin/operations",
     label: "Booking operations",
     mobileLabel: "Operations",
-    title: "Driver control",
+    title: "Operations",
     icon: Truck,
   },
   {
