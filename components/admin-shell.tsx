@@ -6,7 +6,7 @@ import {
   Truck,
   Users,
   Newspaper,
-  TicketPercent, Gift, Building2, Store, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronRight, Grid2x2, Search, Settings } from "lucide-react";
+  TicketPercent, Gift, Building2, Store, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -292,9 +292,10 @@ export default function AdminShell({
 // sheet upward to show the rest; it closes again on tap or after picking a page.
 function MobileTabBar({ pathname }: { pathname: string }) {
   const [open, setOpen] = useState(false);
-  const main = tabs.slice(0, 4);
+  const MAIN = ["/admin", "/admin/bookings", "/admin/operations"];
+  const main = MAIN.map((href) => tabs.find((tab) => tab.href === href)!).filter(Boolean);
   // Fare management is desktop-only, so it is left out of the phone menu.
-  const more = tabs.slice(4).filter((tab) => tab.href !== "/admin/pricing");
+  const more = tabs.filter((tab) => !MAIN.includes(tab.href) && tab.href !== "/admin/pricing");
   const moreActive = more.find((tab) => isActive(pathname, tab.href));
   const item = (selected: boolean) => `flex min-w-0 flex-col items-center justify-center gap-1 rounded-[21px] px-1 py-2.5 text-[10px] font-black transition-all duration-200 ${selected ? "bg-[#FFF0DF] text-[#D96F00]" : "text-slate-600 active:bg-slate-100"}`;
   const link = ({ href, mobileLabel, icon: Icon }: (typeof tabs)[number]) => {
@@ -304,18 +305,18 @@ function MobileTabBar({ pathname }: { pathname: string }) {
       <span className="w-full truncate text-center">{mobileLabel}</span>
     </Link>;
   };
-  const MoreIcon = open ? ChevronDown : moreActive?.icon ?? Grid2x2;
+  const MoreIcon = open ? ChevronDown : ChevronUp;
   return <>
     {open && <button type="button" aria-label="Close menu" onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/20 md:hidden" />}
     <nav aria-label="Mobile admin sections" className="fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-50 rounded-[28px] border border-white/80 bg-white/95 p-2 shadow-[0_14px_45px_rgba(33,23,38,.24)] backdrop-blur-xl md:hidden">
       <div id="admin-more-tabs" hidden={!open} className="mb-1 border-b border-slate-100 pb-1">
         <div className="grid grid-cols-5 gap-1">{more.map(link)}</div>
       </div>
-      <div className="grid grid-cols-5 gap-1">
+      <div className="grid grid-cols-4 gap-1">
         {main.map(link)}
         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls="admin-more-tabs" className={item(Boolean(moreActive) || open)}>
           <MoreIcon size={21} strokeWidth={moreActive || open ? 2.6 : 2.1} />
-          <span className="w-full truncate text-center">{open ? "Less" : moreActive?.mobileLabel ?? "More"}</span>
+          <span className="w-full truncate text-center">{open ? "Less" : "More"}</span>
         </button>
       </div>
     </nav>
