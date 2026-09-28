@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, BadgeCheck, CalendarDays, CarFront, ChevronDown, Clock, Headphones, Luggage, MapPin, Plane, Route, ShieldCheck, Timer, UserRoundCheck, Users } from "lucide-react";
+import { ArrowRight, BadgeCheck, CarFront, ChevronDown, Clock, Headphones, Luggage, MapPin, Plane, Route, ShieldCheck, Timer, UserRoundCheck } from "lucide-react";
 import { PublicFooter } from "@/components/public-footer";
+import { BookingFlow } from "@/components/home/booking-flow";
 import { Breadcrumbs, JsonLd, breadcrumbSchema, faqSchema } from "@/components/seo";
 import { destinations, SITE_URL, type Destination } from "@/lib/public-content";
 
@@ -46,25 +47,10 @@ export default async function DestinationPage({params}:{params:Promise<{slug:str
   const schemas:object[]=[breadcrumbSchema(crumbs),{"@context":"https://schema.org","@type":"TaxiService",name:`Waydidi private transfers in ${d.name}`,description:d.seoDescription??d.intro,url:`${SITE_URL}/destinations/${d.slug}`,provider:{"@type":"Organization",name:"Waydidi",url:SITE_URL},areaServed:{"@type":"City",name:d.name,containedInPlace:{"@type":"Country",name:"Thailand"}}}];
   if(d.faq?.length)schemas.push(faqSchema(d.faq));
 
-  return <main className="bg-white text-[#211726]">
+  return <BookingFlow hero={{title:d.h1??`Private transfers in ${d.name}`,subtitle:d.intro,image:d.image,top:<Breadcrumbs crumbs={crumbs} className="text-white"/>}}><main className="bg-white text-[#211726]">
   <JsonLd data={schemas}/>
 
   {/* Hero: photo (or brand colour) background, breadcrumb, headline and a search bar that opens the booking form */}
-  <section className="relative overflow-hidden text-white" style={{backgroundColor:d.color}}>
-    {d.image ? <img src={d.image} alt="" className="absolute inset-0 h-full w-full object-cover"/> : <div className="absolute -right-24 top-0 h-full w-[46%] rotate-[-8deg] bg-[#FF8A05] opacity-80"/>}
-    <div className="absolute inset-0 bg-gradient-to-r from-[#211726]/85 via-[#211726]/55 to-[#211726]/20"/>
-    <div className="relative mx-auto max-w-[1180px] px-5 pb-16 pt-12 sm:pt-16 lg:pb-24">
-      <Breadcrumbs crumbs={crumbs} className="text-white"/>
-      <h1 className="mt-6 max-w-4xl text-4xl font-black tracking-[-.045em] sm:text-6xl">{d.h1??`Private transfers in ${d.name}`}</h1>
-      <p className="mt-5 max-w-3xl text-lg leading-8 text-white/85 sm:text-xl">{d.intro}</p>
-      <Link href="/#booking-search" aria-label={`Search private transfers in ${d.name}`} className="mt-9 grid gap-1 rounded-[22px] bg-white p-2 text-slate-500 shadow-2xl shadow-black/20 sm:rounded-full md:grid-cols-[1fr_1fr_.8fr_auto] md:items-center">
-        <span className="flex items-center gap-3 px-4 py-3"><MapPin size={20} className="shrink-0 text-[#211726]"/>From airport, hotel, address</span>
-        <span className="flex items-center gap-3 border-slate-200 px-4 py-3 md:border-l"><MapPin size={20} className="shrink-0 text-[#FF8A05]"/>To {d.name} or anywhere</span>
-        <span className="flex items-center gap-3 border-slate-200 px-4 py-3 md:border-l"><CalendarDays size={20} className="shrink-0 text-[#211726]"/>Date <Users size={18} className="ml-auto shrink-0"/> 2</span>
-        <span className="rounded-full bg-[#FF8A05] px-8 py-4 text-center font-black text-white">Search</span>
-      </Link>
-    </div>
-  </section>
 
   {/* Trust strip */}
   <section className="border-b border-slate-200 bg-[#F5F6F8]"><div className="mx-auto flex max-w-[1180px] flex-wrap gap-x-8 gap-y-3 px-5 py-5 text-sm font-bold sm:text-base">{[["Private car, never shared",CarFront],["Price shown before you book",BadgeCheck],["Local drivers and support",Headphones]].map(([t,Icon])=>{const I=Icon as typeof CarFront;return <span key={t as string} className="flex items-center gap-2"><I size={19} className="text-[#D96F00]"/>{t as string}</span>})}</div></section>
@@ -98,4 +84,4 @@ export default async function DestinationPage({params}:{params:Promise<{slug:str
   <section className="border-t border-slate-200 py-14"><div className="mx-auto max-w-[1180px] px-5"><h2 className="text-2xl font-black">Private transfers across Thailand</h2><ul className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">{destinations.filter(x=>x.slug!==d.slug).map(x=><li key={x.slug}><Link href={`/destinations/${x.slug}`} className="text-slate-600 hover:text-[#D96F00] hover:underline">{x.name} transfers</Link></li>)}<li><Link href="/destinations" className="font-bold text-[#D96F00] hover:underline">All destinations</Link></li></ul></div></section>
 
   <PublicFooter/>
-</main>}
+</main></BookingFlow>}
