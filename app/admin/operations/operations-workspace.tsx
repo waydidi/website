@@ -13,7 +13,6 @@ import {
   MapPinned,
   Navigation,
   Phone,
-  RefreshCw,
   Route,
   ShieldCheck,
   Truck,
@@ -118,7 +117,6 @@ export default function OperationsWorkspace({ email }: { email: string }) {
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState("");
-  const [filter, setFilter] = useState("active");
   const [latestLink, setLatestLink] = useState<{
     reference: string;
     url: string;
@@ -221,18 +219,10 @@ export default function OperationsWorkspace({ email }: { email: string }) {
       (booking) =>
         booking.status === "confirmed" || booking.status === "completed" || booking.status === "no_show",
     )
+    // Journeys still to run (finished and no-show journeys are left out).
     .filter((booking) => {
-      const assignment = activeAssignments.get(booking.reference);
-      if (filter === "unassigned") return !assignment;
-      if (filter === "review")
-        return (data?.events ?? []).some(
-          (event) =>
-            event.bookingReference === booking.reference &&
-            event.verificationStatus === "pending_review",
-        ) || (data?.exceptions ?? []).some((exception) => exception.bookingReference === booking.reference && exception.status === "open");
-      if (filter === "completed")
-        return assignment?.currentStatus === "completed" || assignment?.currentStatus === "no_show";
-      return assignment?.currentStatus !== "completed" && assignment?.currentStatus !== "no_show";
+      const status = activeAssignments.get(booking.reference)?.currentStatus;
+      return status !== "completed" && status !== "no_show";
     });
   const selectedBooking = data?.bookings.find(
     (item) => item.reference === selected,
@@ -301,45 +291,6 @@ export default function OperationsWorkspace({ email }: { email: string }) {
         </nav>
         <section className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-5">
           <div className="min-w-0 space-y-5">
-            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
-              <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-xl font-black">Active journeys</h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Updates refresh every 20 seconds.
-                    </p>
-                  </div>
-                  <button
-                    onClick={load}
-                    className="grid size-11 place-items-center rounded-full border border-slate-200"
-                    aria-label="Refresh"
-                  >
-                    <RefreshCw size={18} />
-                  </button>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {[
-                    ["active", "Active"],
-                    ["unassigned", "Unassigned"],
-                    ["review", "Needs review"],
-                    ["completed", "Completed"],
-                  ].map(([value, label]) => (
-                    <button
-                      key={value}
-                      onClick={() => setFilter(value)}
-                      className={`rounded-full px-4 py-2 text-sm font-bold ${filter === value ? "bg-[#211726] text-white" : "bg-slate-100 text-slate-600"}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </section>
-              <Link href="/admin/drivers" className="flex items-center justify-between gap-3 rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm hover:border-[#FF8A05]">
-                <span><strong className="block text-lg font-black">{data?.drivers.length ?? 0} {(data?.drivers.length ?? 0) === 1 ? "driver" : "drivers"}</strong><span className="text-sm text-slate-500">Add drivers and review applications in Drivers</span></span>
-                <span className="font-bold text-[#D96F00]">Open →</span>
-              </Link>
-            </div>
             {evidenceFor && <EvidenceSheet reference={evidenceFor} events={(data?.events ?? []).filter((e) => e.bookingReference === evidenceFor && e.assignmentId === activeAssignments.get(evidenceFor)?.id)} onClose={() => setEvidenceFor("")} />}
             {addingFor && <AddDriverDialog reference={addingFor} onClose={() => setAddingFor("")} onDone={(url) => assigned(addingFor, url)} />}
             {latestLink && (
