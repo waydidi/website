@@ -1,18 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Building2, CalendarClock, CircleAlert, ClipboardList, Gift, IdCard, UserX } from "lucide-react";
+import { AlertTriangle, ArrowRight, Building2, CircleAlert, ClipboardList, Gift, IdCard, UserX } from "lucide-react";
 import { AdminKeyLogin } from "@/components/admin-key-login";
 import { UpcomingRides } from "@/components/admin-overview/upcoming-rides";
 import { requireWaydidiAdmin } from "@/lib/admin";
-import { adminOverview, type OverviewRide } from "@/lib/admin-overview";
-import { VEHICLES } from "@/lib/vehicles";
+import { adminOverview } from "@/lib/admin-overview";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Overview · Waydidi operations", robots: { index: false, follow: false } };
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
-const dayName = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -22,27 +20,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   </div>;
 }
 
-function RideRow({ r }: { r: OverviewRide }) {
-  const vehicle = (VEHICLES as Record<string, { name: string }>)[r.vehicle]?.name ?? r.vehicle;
-  return <li>
-    <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 hover:border-[#FF8A05] sm:grid-cols-[70px_minmax(0,1fr)_auto] sm:items-center">
-      <p className="text-[20px] font-black">{r.pickupTime}</p>
-      <div className="min-w-0">
-        <p className="truncate text-[15px] font-bold">{r.pickup} → {r.dropoff}</p>
-        <p className="truncate text-[13px] text-slate-500">{r.reference} · {r.name} · {vehicle} · {r.paymentMethod === "cash" ? `Cash ${thb(r.total)}` : thb(r.total)}{r.flightNumber ? ` · ✈ ${r.flightNumber}${r.flightStatus ? ` (${r.flightStatus})` : ""}` : ""}</p>
-      </div>
-      <div className="flex flex-wrap gap-1.5 sm:justify-end">
-        {r.status === "pending_payment" && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[12px] font-bold text-amber-800">Awaiting payment</span>}
-        {r.attention && <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[12px] font-bold text-red-800"><AlertTriangle size={12} aria-hidden="true" />Needs attention</span>}
-        {r.driver
-          ? <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-bold text-emerald-800">✓ {r.driver}{r.driverStatus && r.driverStatus !== "assigned" ? ` · ${r.driverStatus.replaceAll("_", " ")}` : ""}</span>
-          : <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-[12px] font-bold text-white"><UserX size={12} aria-hidden="true" />No driver</span>}
-      </div>
-    </Link>
-  </li>;
-}
-
-// Admin home: what needs attention now, today's and tomorrow's rides, and the key numbers.
+// Admin home: what needs attention now, upcoming rides, and the key numbers.
 export default async function AdminOverviewPage() {
   const access = await requireWaydidiAdmin("/admin");
   if (!access.authorized) return <AdminKeyLogin configured={access.configured} />;
@@ -57,8 +35,6 @@ export default async function AdminOverviewPage() {
     { n: alerts.agencyApplications, label: "new agency " + plural(alerts.agencyApplications, "application", "applications"), href: "/admin/agencies", icon: Building2, urgent: false },
     { n: alerts.driverApplications, label: "new driver " + plural(alerts.driverApplications, "application", "applications"), href: "/admin/drivers?tab=applications", icon: IdCard, urgent: false },
   ].filter((a) => a.n > 0);
-  const todayRides = o.rides.filter((r) => r.pickupDate === o.today);
-  const tomorrowRides = o.rides.filter((r) => r.pickupDate === o.tomorrow);
 
   return <main className="min-h-screen bg-[#F6F7F9] px-4 py-6 text-[#1f1726] sm:px-8">
     <div className="mx-auto grid max-w-[1200px] gap-6">
@@ -85,17 +61,6 @@ export default async function AdminOverviewPage() {
         </div>
         <UpcomingRides rides={o.rides} drivers={o.drivers} />
       </section>
-
-      {/* Rides */}
-      {[["Today", o.today, todayRides], ["Tomorrow", o.tomorrow, tomorrowRides]].map(([title, day, rides]) => <section key={title as string} aria-labelledby={`rides-${title}`}>
-        <div className="flex items-baseline justify-between">
-          <h2 id={`rides-${title}`} className="flex items-center gap-2 text-[17px] font-black"><CalendarClock size={18} aria-hidden="true" />{title as string} <span className="text-[13px] font-semibold text-slate-500">{dayName(day as string)} · {(rides as OverviewRide[]).length} ride{(rides as OverviewRide[]).length === 1 ? "" : "s"}</span></h2>
-          <Link href="/admin/calendar" className="text-[13px] font-bold text-[#C96100]">Calendar →</Link>
-        </div>
-        {(rides as OverviewRide[]).length === 0
-          ? <p className="mt-2 rounded-2xl bg-white p-4 text-[14px] text-slate-500">No rides.</p>
-          : <ul className="mt-2 grid gap-2">{(rides as OverviewRide[]).map((r) => <RideRow key={r.reference} r={r} />)}</ul>}
-      </section>)}
 
       {/* Quick links */}
       <nav aria-label="Quick links" className="flex flex-wrap gap-2 pb-6">
