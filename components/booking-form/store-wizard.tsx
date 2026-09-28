@@ -1,5 +1,6 @@
 "use client";
 
+import { WaydidiLogo } from "@/components/waydidi-logo";
 import { ArrowLeft, Banknote, CarFront, Check, ClipboardCheck, CreditCard, Luggage, Mail, MapPin, MessageCircle, Repeat, Store, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { LoaderCircle } from "lucide-react";
@@ -128,15 +129,16 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
   const Icon = ICONS[step];
   const last = step === "review";
 
-  return <main className="flex min-h-dvh flex-col bg-[#FFFBF6] text-[#1F1726]" onKeyDown={(e) => {
+  return <main className="flex min-h-dvh flex-col bg-white text-[#1F1726]" onKeyDown={(e) => {
     if (e.key === "Enter" && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof Element && e.target.closest("[role=dialog]"))) { e.preventDefault(); void next(); }
   }}>
-    <header className="sticky top-0 z-20 bg-[#FFFBF6]/90 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-xl items-center justify-between px-5">
-        <button type="button" onClick={() => go(index - 1)} disabled={index === 0} className="-ml-2 inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[15px] font-medium text-[#6B6170] transition hover:bg-[#FFF0DF] disabled:invisible"><ArrowLeft size={18} />Back</button>
-        <span className="text-[14px] font-semibold text-[#9A8F86]">Step <span className="text-[#FF8A05]">{index + 1}</span> of {STEPS.length}</span>
+    <header className="sticky top-0 z-20 bg-[#FF8A05] pb-3 text-white">
+      <div className="mx-auto flex h-16 w-full max-w-xl items-center gap-2 px-5">
+        <WaydidiLogo className="mr-auto h-11 w-auto text-white" />
+        <button type="button" onClick={() => go(index - 1)} disabled={index === 0} className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[15px] font-medium text-white transition hover:bg-white/15 disabled:invisible"><ArrowLeft size={18} />Back</button>
+        <span className="text-[14px] font-semibold text-white/85">Step <span className="text-white">{index + 1}</span> of {STEPS.length}</span>
       </div>
-      <div className="mx-auto h-1.5 w-full max-w-xl px-5"><div className="h-full overflow-hidden rounded-full bg-[#FFE7CC]"><div className="h-full rounded-full bg-[#FF8A05] transition-[width] duration-500 ease-out" style={{ width: `${((index + 1) / STEPS.length) * 100}%` }} /></div></div>
+      <div className="mx-auto h-1.5 w-full max-w-xl px-5"><div className="h-full overflow-hidden rounded-full bg-white/30"><div className="h-full rounded-full bg-white transition-[width] duration-500 ease-out" style={{ width: `${((index + 1) / STEPS.length) * 100}%` }} /></div></div>
     </header>
 
     <section className="flex flex-1 items-start px-5 pb-36 pt-6 sm:items-center sm:pb-24">
@@ -236,7 +238,7 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
         </div>
       </div>
     </section>
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#F0E3D4] bg-[#FFFBF6]/95 px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#F0E3D4] bg-white/95 px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:hidden">
       <button type="button" onClick={() => void next()} disabled={busy} className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#FF8A05] text-[18px] font-semibold text-white disabled:opacity-60">{busy && <LoaderCircle size={20} className="animate-spin" />}{last ? `Book now${chosen ? ` · ${thb(chosen.price + addons)}` : ""}` : "Continue"}</button>
     </div>
   </main>;
