@@ -293,7 +293,8 @@ export default function AdminShell({
 function MobileTabBar({ pathname }: { pathname: string }) {
   const [open, setOpen] = useState(false);
   const main = tabs.slice(0, 4);
-  const more = tabs.slice(4);
+  // Fare management is desktop-only, so it is left out of the phone menu.
+  const more = tabs.slice(4).filter((tab) => tab.href !== "/admin/pricing");
   const moreActive = more.find((tab) => isActive(pathname, tab.href));
   const item = (selected: boolean) => `flex min-w-0 flex-col items-center justify-center gap-1 rounded-[21px] px-1 py-2.5 text-[10px] font-black transition-all duration-200 ${selected ? "bg-[#FFF0DF] text-[#D96F00]" : "text-slate-600 active:bg-slate-100"}`;
   const link = ({ href, mobileLabel, icon: Icon }: (typeof tabs)[number]) => {
