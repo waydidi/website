@@ -41,7 +41,7 @@ function CopyButton({ url }: { url: string }) {
 }
 
 // "Form links": send customers a private step-by-step form, then turn answers into a booking.
-export function FormRequestsButton({ openForm, openSignal, onWaiting }: { service?: FormService; openForm?: string; openSignal?: number; onWaiting?: (n: number) => void }) {
+export function FormRequestsButton({ openForm, openSignal, openKind, onWaiting }: { service?: FormService; openKind?: FormService; openForm?: string; openSignal?: number; onWaiting?: (n: number) => void }) {
   const [open, setOpen] = useState(Boolean(openForm));
   const [forms, setForms] = useState<FormRow[] | null>(null);
   // No service is picked up front: choosing one is required before a link can be made.
@@ -72,7 +72,8 @@ export function FormRequestsButton({ openForm, openSignal, onWaiting }: { servic
   useEffect(() => { onWaiting?.(waitingAnswers); }, [onWaiting, waitingAnswers]);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- open when the Create menu asks
-    if (openSignal) { setOpen(true); setFresh(""); void load(); }
+    if (openSignal) { setOpen(true); setFresh(""); if (openKind) setKind(openKind); void load(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openSignal, load]);
 
   async function create() {
