@@ -8,8 +8,11 @@ import {
   Columns3,
 } from "lucide-react";
 import { getDb } from "@/db";
-import { bookingAssignments, bookings, bookingStorefronts, bookingTaxInvoices, drivers } from "@/db/schema";
+import { bookingAssignments, bookingCosts, bookings, bookingStorefronts, bookingTaxInvoices, drivers } from "@/db/schema";
 import { DriverPicker } from "@/components/bookings-admin/driver-picker";
+import { CopyTextButton } from "@/components/bookings-admin/copy-text";
+import { isAirportPickup } from "@/lib/trip-rules";
+import { VEHICLES } from "@/lib/vehicles";
 import { CreateMenu } from "@/components/bookings-admin/create-menu";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
@@ -58,6 +61,25 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const refs = rows.map((r) => r.reference).slice(0, 100);
   const storeLinks = refs.length ? await getDb().select({ ref: bookingStorefronts.bookingReference, cash: bookingStorefronts.cashAtStore }).from(bookingStorefronts).where(inArray(bookingStorefronts.bookingReference, refs)).catch(() => []) : [];
   const cashAtStore = new Set(storeLinks.filter((l) => l.cash).map((l) => l.ref));
+  // Driver job message (Thai labels) copied from the Assignment column.
+  const costRows = refs.length ? await getDb().select({ ref: bookingCosts.bookingReference, total: bookingCosts.totalDriverCost, agreed: bookingCosts.agreedDriverCost }).from(bookingCosts).where(inArray(bookingCosts.bookingReference, refs)).catch(() => []) : [];
+  const driverCost = new Map(costRows.map((c) => [c.ref, c.total || c.agreed]));
+  const jobText = (row: (typeof rows)[number]) => {
+    const [y, m, d] = row.pickupDate.split("-");
+    const cost = driverCost.get(row.reference);
+    const flight = row.flightNumber?.trim() && isAirportPickup(row) ? row.flightNumber.trim() : "";
+    return [
+      `${(VEHICLES as Record<string, { name: string }>)[row.vehicle]?.name ?? row.vehicle.replaceAll("_", " ")}🚗`,
+      "",
+      `ชื่อลูกค้า: ${[row.customerName, row.customerSurname].filter(Boolean).join(" ")}`,
+      `จำนวน: ${row.passengers} คน, ${row.luggage} กระเป๋า`,
+      `วันที่/เวลา: ${d}/${m}/${y} ${row.pickupTime}`,
+      ...(flight ? [`ไฟลท์: ${flight}`] : []),
+      `รับ: ${row.pickup}`,
+      `ส่ง: ${row.serviceType === "hourly" ? `${row.bookedHours ?? ""} ชั่วโมง` : row.dropoff}`,
+      `ราคา: ${cost ? `${cost.toLocaleString("en-US")} บาท` : "-"}`,
+    ].join("\n");
+  };
   const confirmed = activeRows.filter((row) => row.status === "confirmed").length;
   const pending = activeRows.filter((row) => row.status === "pending_payment").length;
   const emailIssues = activeRows.filter(
@@ -155,7 +177,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-600">
-                <tr>{["Reference ID", "Customer name", "Date & time", "From", "To", "Vehicle", "Payment", "Driver"].map((h) => <th key={h} className="h-14 whitespace-nowrap px-4 text-[14px] font-normal">{h}</th>)}</tr>
+                <tr>{["Reference ID", "Customer name", "Date & time", "From", "To", "Vehicle", "Payment", "Driver", "Assignment"].map((h) => <th key={h} className="h-14 whitespace-nowrap px-4 text-[14px] font-normal">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {rows.map((row) => {
@@ -177,11 +199,12 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                       <p className="mt-1 text-[12px] text-slate-500">฿{row.total.toLocaleString()}</p>
                     </td>
                     <td className="px-4 py-4"><DriverPicker reference={row.reference} drivers={driverOptions} current={assigned.get(row.reference) ?? null} canAssign={row.status === "confirmed"} /></td>
+                    <td className="px-4 py-4"><CopyTextButton text={jobText(row)} label={`Copy driver job for ${row.reference}`} /></td>
                   </tr>;
                 })}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-5 py-16 text-center text-slate-500">
+                    <td colSpan={9} className="px-5 py-16 text-center text-slate-500">
                       {type === "tour" ? "No tour bookings yet." : type === "hourly" ? "No hourly bookings yet." : "No bookings yet."}
                     </td>
                   </tr>
