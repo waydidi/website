@@ -45,6 +45,7 @@ import {
 import { validateBookingReview, type ReviewFieldErrors } from "@/lib/booking-review";
 import { VEHICLES, smallestFittingVehicle, vehicleFits, type VehicleId } from "@/lib/vehicles";
 import { DateTimePicker } from "./date-time-picker";
+import { DurationPicker } from "./duration-picker";
 import { BookingDetailsStep } from "./booking-details-step";
 import { SiteHeader } from "@/components/site-header";
 import { useCurrency } from "@/components/use-currency";
@@ -1274,7 +1275,7 @@ export function BookingFlow({
                     </div>
                   ) : null}
                 </div>
-                {serviceType === "hourly" && <label className="order-5 flex min-h-14 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-2 md:order-4 md:min-h-[80px] md:px-5 lg:order-3 lg:mt-0 lg:min-h-[64px] lg:rounded-none lg:border-0 lg:border-l"><Clock3 size={18}/><span className="w-full"><span className="block text-[13px]/[20px] font-normal text-slate-500">{t("hero.duration")}</span><select value={booking.bookedHours} onChange={(e)=>{change("bookedHours",Number(e.target.value));setHourlyQuote(null);}} className="w-full bg-transparent text-base font-normal outline-none">{Array.from({length:10},(_,i)=>i+3).map(hours=><option key={hours} value={hours}>{t("hero.hours", { count: hours })}</option>)}</select></span></label>}
+                {serviceType === "hourly" && <DurationPicker value={booking.bookedHours} options={Array.from({length:10},(_,i)=>i+3)} label={t("hero.duration")} format={(hours)=>t("hero.hours", { count: hours })} onChange={(hours)=>{change("bookedHours",hours);setHourlyQuote(null);}} className="order-5 flex h-14 w-full items-center gap-3 rounded-[14px] border border-slate-200 bg-white px-4 md:order-4 md:h-[80px] md:gap-4 md:px-5 lg:order-3 lg:mt-0 lg:h-[64px] lg:gap-3 lg:rounded-none lg:border-0 lg:border-l" />}
                 </div>
                 <div className="mt-2.5 flex items-center md:order-6 md:col-span-2 md:mt-0 lg:order-5 lg:col-span-1 lg:pl-2">
                   <button
