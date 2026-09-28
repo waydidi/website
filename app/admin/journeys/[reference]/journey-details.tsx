@@ -2,22 +2,17 @@
 
 import {
   ArrowLeft,
-  Camera,
-  Check,
   Clipboard,
   ExternalLink,
   MapPin,
-  Navigation,
   Phone,
   Route,
   Save,
-  Truck,
-  XCircle,
   Download,
   Mail,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type Booking = {
   reference: string;
@@ -81,7 +76,7 @@ export default function JourneyDetails({ reference }: { reference: string }) {
     [drivers, setDrivers] = useState<Driver[]>([]),
     [chosenDriver, setChosenDriver] = useState(""),
     [assignment, setAssignment] = useState<Assignment | null>(null),
-    [events, setEvents] = useState<Event[]>([]),
+    [, setEvents] = useState<Event[]>([]),
     [latestLocation, setLatestLocation] = useState<JourneyLocation | null>(null),
     [journeyExceptions, setJourneyExceptions] = useState<JourneyException[]>([]),
     [error, setError] = useState(""),
@@ -300,91 +295,6 @@ export default function JourneyDetails({ reference }: { reference: string }) {
                 <p className="mt-1 text-xs opacity-75">Started {new Date(exception.startedAt).toLocaleString("en-GB", { timeZone: "Asia/Bangkok" })} · Last seen {new Date(exception.lastSeenAt).toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok" })}</p>
               </div>
             ))}
-            <h2 className="mt-7 text-xl font-black">Driver confirmations</h2>
-            <div className="mt-4 space-y-3">
-              {events.map((event) => (
-                <article
-                  key={event.id}
-                  className="rounded-2xl border border-slate-200 p-4"
-                >
-                  <div className="flex justify-between gap-3">
-                    <div>
-                      <p className="font-black">
-                        {labels[event.status] ?? event.status}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {new Date(event.createdAt).toLocaleString("en-GB", {
-                          timeZone: "Asia/Bangkok",
-                        })}
-                      </p>
-                    </div>
-                    <span className="h-fit rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-                      {event.verificationStatus.replaceAll("_", " ")}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {event.evidenceKey && (
-                      <a
-                        target="_blank"
-                        href={`/api/admin/evidence/${event.id}`}
-                        className="flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold"
-                      >
-                        <Camera size={14} />
-                        View picture
-                      </a>
-                    )}
-                    {event.latitude != null && event.longitude != null && (
-                      <a
-                        target="_blank"
-                        rel="noreferrer"
-                        href={`https://www.google.com/maps?q=${event.latitude},${event.longitude}`}
-                        className="flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold"
-                      >
-                        <Navigation size={14} />
-                        GPS · ±{event.accuracyMetres ?? "?"}m
-                        <ExternalLink size={12} />
-                      </a>
-                    )}
-                  </div>
-                  {event.verificationStatus === "pending_review" && (
-                    <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
-                      <button
-                        disabled={busy}
-                        onClick={() =>
-                          review({ action: "verify_event", eventId: event.id })
-                        }
-                        className="flex h-11 items-center justify-center gap-2 rounded-full bg-emerald-600 text-sm font-bold text-white disabled:opacity-50"
-                      >
-                        <Check size={16} /> Verify drop-off
-                      </button>
-                      <button
-                        disabled={busy}
-                        onClick={() => {
-                          const reason = window.prompt(
-                            "Reason for rejecting this drop-off evidence",
-                          );
-                          if (reason)
-                            review({
-                              action: "reject_event",
-                              eventId: event.id,
-                              reason,
-                            });
-                        }}
-                        className="flex h-11 items-center justify-center gap-2 rounded-full bg-red-50 text-sm font-bold text-red-700 disabled:opacity-50"
-                      >
-                        <XCircle size={16} /> Reject
-                      </button>
-                    </div>
-                  )}
-                </article>
-              ))}
-              {events.length === 0 && (
-                <div className="rounded-2xl border border-dashed p-8 text-center text-slate-500">
-                  <Truck className="mx-auto mb-2" />
-                  No driver updates yet.
-                </div>
-              )}
-            </div>
           </section>
           <aside className="h-fit rounded-[28px] bg-white p-6 shadow-sm lg:sticky lg:top-5">
             <div className="flex items-center justify-between">
