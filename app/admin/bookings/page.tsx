@@ -8,7 +8,7 @@ import {
   Columns3,
 } from "lucide-react";
 import { getDb } from "@/db";
-import { agencyApplications, bookingAssignments, bookings, bookingSources, bookingStorefronts, bookingTaxInvoices, drivers, storefronts } from "@/db/schema";
+import { bookingAssignments, bookings, bookingStorefronts, bookingTaxInvoices, drivers } from "@/db/schema";
 import { DriverPicker } from "@/components/bookings-admin/driver-picker";
 import { CreateMenu } from "@/components/bookings-admin/create-menu";
 import { requireWaydidiAdmin } from "@/lib/admin";
@@ -54,26 +54,10 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const driverOptions = driverRows.filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.name, phone: d.phone, email: d.email, area: d.area, vehicle: d.vehicle }));
   const assigned = new Map(assignmentRows.map((a) => [a.ref, a.driverId]));
   const rows = (view === "bin" ? binRows : activeRows).filter((row) => (row.serviceType ?? "transfer") === type);
-  // Where each booking came from (website, blog, storefront QR, agency, manual).
+  // Bookings where the storefront collects cash at the counter.
   const refs = rows.map((r) => r.reference).slice(0, 100);
-  const [sourceRows, storeRows, storeLinks, agencyRows] = await Promise.all([
-    refs.length ? getDb().select().from(bookingSources).where(inArray(bookingSources.bookingReference, refs)).catch(() => []) : [],
-    getDb().select({ slug: storefronts.slug, name: storefronts.name }).from(storefronts).catch(() => []),
-    refs.length ? getDb().select({ ref: bookingStorefronts.bookingReference, cash: bookingStorefronts.cashAtStore }).from(bookingStorefronts).where(inArray(bookingStorefronts.bookingReference, refs)).catch(() => []) : [],
-    getDb().select({ id: agencyApplications.id, name: agencyApplications.agencyName }).from(agencyApplications).catch(() => []),
-  ]);
-  const sourceOf = new Map(sourceRows.map((r) => [r.bookingReference, r.source]));
-  const storeName = new Map(storeRows.map((r) => [r.slug, r.name]));
-  const agencyName = new Map(agencyRows.map((r) => [r.id, r.name]));
+  const storeLinks = refs.length ? await getDb().select({ ref: bookingStorefronts.bookingReference, cash: bookingStorefronts.cashAtStore }).from(bookingStorefronts).where(inArray(bookingStorefronts.bookingReference, refs)).catch(() => []) : [];
   const cashAtStore = new Set(storeLinks.filter((l) => l.cash).map((l) => l.ref));
-  const sourceLabel = (ref: string): [string, string] => {
-    const src = sourceOf.get(ref) ?? "";
-    if (src.startsWith("store:")) return [`🏪 ${storeName.get(src.slice(6)) ?? src.slice(6)}`, "bg-orange-100 text-orange-800"];
-    if (src.startsWith("agency:")) return [`🏢 ${agencyName.get(src.slice(7)) ?? "Agency"}`, "bg-violet-100 text-violet-800"];
-    if (src.startsWith("blog:")) return ["📝 Blog", "bg-sky-100 text-sky-800"];
-    if (src === "manual") return ["✍️ Manual", "bg-slate-200 text-slate-700"];
-    return ["🌐 Website", "bg-emerald-50 text-emerald-800"];
-  };
   const confirmed = activeRows.filter((row) => row.status === "confirmed").length;
   const pending = activeRows.filter((row) => row.status === "pending_payment").length;
   const emailIssues = activeRows.filter(
@@ -171,7 +155,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-600">
-                <tr>{["Reference ID", "Source", "Customer name", "Date & time", "From", "To", "Vehicle", "Payment", "Driver"].map((h) => <th key={h} className="h-14 whitespace-nowrap px-4 text-[14px] font-normal">{h}</th>)}</tr>
+                <tr>{["Reference ID", "Customer name", "Date & time", "From", "To", "Vehicle", "Payment", "Driver"].map((h) => <th key={h} className="h-14 whitespace-nowrap px-4 text-[14px] font-normal">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {rows.map((row) => {
@@ -180,7 +164,6 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                   const tax = taxByBooking.get(row.reference);
                   return <tr key={row.reference} className="align-middle hover:bg-orange-50/40">
                     <td className="px-4 py-4"><Link href={`/admin/journeys/${encodeURIComponent(row.reference)}`} className="font-semibold text-slate-900 hover:text-[#C96100]">{row.reference}</Link>{row.status !== "confirmed" && <p className="mt-0.5 text-[12px] capitalize text-slate-500">{row.status.replaceAll("_", " ")}</p>}</td>
-                    <td className="whitespace-nowrap px-4 py-4">{(() => { const [text, cls] = sourceLabel(row.reference); return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[13px] font-medium ${cls}`}>{text}</span>; })()}</td>
                     <td className="px-4 py-4"><p className="font-medium text-slate-900">{row.customerName}</p><p className="text-[12px] text-slate-500">{row.customerPhone}</p>{tax && <p className="mt-1 text-[12px] font-medium text-amber-700">Tax invoice requested</p>}</td>
                     <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${row.pickupDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{row.pickupTime}{row.returnDate && row.returnTime ? ` · return ${row.returnDate} ${row.returnTime}` : ""}</p></td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.pickup}</p></td>
@@ -198,7 +181,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                 })}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-5 py-16 text-center text-slate-500">
+                    <td colSpan={8} className="px-5 py-16 text-center text-slate-500">
                       {type === "tour" ? "No tour bookings yet." : type === "hourly" ? "No hourly bookings yet." : "No bookings yet."}
                     </td>
                   </tr>
