@@ -1,7 +1,7 @@
 "use client";
 
 import { WaydidiLogo } from "@/components/waydidi-logo";
-import { ArrowLeft, Banknote, CarFront, Check, ClipboardCheck, CreditCard, Luggage, Mail, MapPin, MessageCircle, Repeat, Store, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Banknote, Check, CreditCard, Luggage, Store, UsersRound } from "lucide-react";
 import Image from "next/image";
 import { LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -15,7 +15,6 @@ import { smallestFittingVehicle, VEHICLES, vehicleFits, type VehicleId } from "@
 type Quote = { quoteId: string; prices: Partial<Record<VehicleId, { total: number }>>; hotelTransfer: boolean };
 type StepId = "name" | "phone" | "email" | "trip" | "return" | "ride" | "review";
 const STEPS: StepId[] = ["name", "trip", "return", "ride", "review"];
-const ICONS: Record<StepId, LucideIcon> = { name: UserRound, phone: MessageCircle, email: Mail, trip: MapPin, return: Repeat, ride: CarFront, review: ClipboardCheck };
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 const heading = "text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]";
 
@@ -133,7 +132,6 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
     setA((c) => ({ ...c, passengers, luggage, vehicle: vehicleFits(c.vehicle, passengers, luggage) ? c.vehicle : smallestFittingVehicle(passengers, luggage) ?? "premium_minivan" }));
   }
 
-  const Icon = ICONS[step];
   const last = step === "review";
 
   return <main className="flex min-h-dvh flex-col bg-white text-[#1F1726]" onKeyDown={(e) => {
@@ -151,7 +149,6 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
     <section className="flex flex-1 items-start px-5 pb-36 pt-6 sm:items-center sm:pb-24">
       <div key={step} className={`mx-auto w-full max-w-xl animate-in fade-in duration-300 ease-out motion-reduce:animate-none ${direction === 1 ? "slide-in-from-right-6" : "slide-in-from-left-6"}`}>
         {index === 0 && <p className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#FFF0DF] px-3 py-1.5 text-[14px] font-semibold text-[#B85E00]"><Store size={16} />{store.name}{store.discountPercent > 0 ? ` · ${store.discountPercent}% off special price` : ""}</p>}
-        <span className="mb-5 grid size-12 place-items-center rounded-2xl bg-[#FFF0DF] text-[#FF8A05]"><Icon size={24} strokeWidth={2.2} /></span>
 
         {step === "name" && <>
           <h1 className={heading}>What&apos;s your name?</h1>

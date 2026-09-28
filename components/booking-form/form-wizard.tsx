@@ -1,7 +1,7 @@
 "use client";
 
 import { WaydidiLogo } from "@/components/waydidi-logo";
-import { ArrowLeft, CarFront, Check, ClipboardCheck, Clock3, Lock, LoaderCircle, Luggage, Mail, MapPin, MessageCircle, Minus, Pencil, Plus, Repeat, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Check, Clock3, Lock, LoaderCircle, Luggage, Minus, Pencil, Plus, UsersRound } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
@@ -31,7 +31,6 @@ export const smallLabel = "block text-[14px] font-semibold text-[#4A3F4F]";
 export const smallInput = `${box} mt-1.5 h-14 text-[17px]`;
 
 // Round icon badge above each question.
-const STEP_ICON: Record<string, LucideIcon> = { name: UserRound, phone: MessageCircle, email: Mail, trip: MapPin, return: Repeat, ride: CarFront, review: ClipboardCheck };
 export const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 
 // Pickup times every 15 minutes (00:00 … 23:45), shown as a list instead of the phone's minute wheel.
@@ -163,7 +162,6 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
 
   const progress = Math.round(((index + 1) / steps.length) * 100);
   const number = index + 1;
-  const Icon = STEP_ICON[step];
   const last = index === steps.length - 1;
 
   return <main className="flex min-h-dvh flex-col bg-white text-[#1F1726]" onKeyDown={(e) => {
@@ -180,7 +178,6 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
 
     <section className="flex flex-1 items-start px-5 pb-36 pt-8 sm:items-center sm:pb-24">
       <div key={step} className={`mx-auto w-full max-w-xl animate-in fade-in duration-300 ease-out motion-reduce:animate-none ${direction === 1 ? "slide-in-from-right-6" : "slide-in-from-left-6"}`}>
-        {Icon && <span className="mb-5 grid size-12 place-items-center rounded-2xl bg-[#FFF0DF] text-[#FF8A05]"><Icon size={24} strokeWidth={2.2} /></span>}
 
         {step === "name" && <>
           <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">What&apos;s your name?</h1>
