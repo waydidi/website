@@ -170,7 +170,7 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
     </div>
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table className="w-full min-w-[900px] text-left text-[14px]">
-        <thead className="bg-slate-50 text-slate-500"><tr>{["Store", "Special price", "Commission", "Bookings", "Revenue", "Balance", "QR", ""].map((h) => <th key={h} className="px-5 py-3 font-medium">{h}</th>)}</tr></thead>
+        <thead className="bg-slate-50 text-slate-500"><tr>{["Store", "Special price", "Commission", "Bookings", "Revenue", "Balance", "Status", ""].map((h) => <th key={h} className="px-5 py-3 font-medium">{h}</th>)}</tr></thead>
         <tbody>
           {stores.length === 0 && <tr><td colSpan={8} className="px-5 py-14 text-center text-slate-500">No storefronts yet. Tap “Add storefront” to create your first QR poster.</td></tr>}
           {stores.map((s) => <tr key={s.id} className="border-t border-slate-100">
@@ -180,7 +180,7 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
             <td className="px-5">{s.bookings.length}</td>
             <td className="px-5">{thb(s.revenue)}</td>
             <td className="px-5"><Balance value={s.stats.balance} /></td>
-            <td className="px-5"><span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${s.active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-600"}`}>{s.active ? "Active" : "Off"}</span></td>
+            <td className="px-5"><StatusSwitch id={s.id} name={s.name} active={s.active} /></td>
             <td className="px-5"><span className="flex items-center gap-3 text-slate-500">
               <button type="button" onClick={() => setQr(s)} aria-label={`QR code for ${s.name}`} title="QR poster" className="hover:text-[#C96100]"><QrCode size={19} /></button>
               <button type="button" onClick={() => setEditing(s)} aria-label={`Edit ${s.name}`} title="Edit" className="hover:text-[#C96100]"><Pencil size={18} /></button>
@@ -194,4 +194,22 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
     <QrDialog store={qr} onClose={() => setQr(null)} />
     <DetailDialog store={viewing} onClose={() => setViewing(null)} />
   </div>;
+}
+
+// On (LINE MAN green) / off (red) switch for a storefront's QR.
+function StatusSwitch({ id, name, active }: { id: string; name: string; active: boolean }) {
+  const router = useRouter();
+  const [on, setOn] = useState(active);
+  const [busy, setBusy] = useState(false);
+  async function flip() {
+    const next = !on;
+    setOn(next); setBusy(true);
+    const res = await fetch("/api/admin/storefronts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, toggle: true, active: next }) }).catch(() => null);
+    setBusy(false);
+    if (!res?.ok) { setOn(!next); return; }
+    router.refresh();
+  }
+  return <button type="button" role="switch" aria-checked={on} aria-label={`${name} QR ${on ? "on" : "off"}`} disabled={busy} onClick={(e) => { e.stopPropagation(); void flip(); }} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-70 ${on ? "bg-[#06C755]" : "bg-[#E53935]"}`}>
+    <span className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
+  </button>;
 }
