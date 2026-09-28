@@ -16,6 +16,8 @@ import { VEHICLES } from "@/lib/vehicles";
 import { CreateMenu } from "@/components/bookings-admin/create-menu";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { tripOwnerKey } from "@/lib/trip-access";
 import Link from "next/link";
 import { NotionCalendar } from "@/components/bookings-admin/notion-calendar";
 import { WaydidiLogo } from "@/components/waydidi-logo";
@@ -35,6 +37,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
     return <AdminKeyLogin configured={access.configured} />;
   }
   const q = await searchParams;
+  const requestHeaders = await headers();
   const view = q.view === "bin" ? "bin" : "active";
   const type = q.type === "hourly" ? "hourly" : q.type === "tour" ? "tour" : "transfer";
   const mode = q.mode === "calendar" ? "calendar" : q.mode === "board" ? "board" : "list";
@@ -61,6 +64,9 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const refs = rows.map((r) => r.reference).slice(0, 100);
   const storeLinks = refs.length ? await getDb().select({ ref: bookingStorefronts.bookingReference, cash: bookingStorefronts.cashAtStore }).from(bookingStorefronts).where(inArray(bookingStorefronts.bookingReference, refs)).catch(() => []) : [];
   const cashAtStore = new Set(storeLinks.filter((l) => l.cash).map((l) => l.ref));
+  // Customer trip status page links for bookings that have a driver.
+  const origin = (() => { const h = requestHeaders.get("host"); return h ? `${h.startsWith("localhost") ? "http" : "https"}://${h}` : ""; })();
+  const tripLinks = new Map(await Promise.all(rows.filter((r) => assigned.has(r.reference)).map(async (r) => [r.reference, `${origin}/trip/${encodeURIComponent(r.reference)}?key=${await tripOwnerKey(r.reference)}`] as const)));
   // Driver job message (Thai labels) copied from the Assignment column.
   const costRows = refs.length ? await getDb().select({ ref: bookingCosts.bookingReference, total: bookingCosts.totalDriverCost, agreed: bookingCosts.agreedDriverCost }).from(bookingCosts).where(inArray(bookingCosts.bookingReference, refs)).catch(() => []) : [];
   const driverCost = new Map(costRows.map((c) => [c.ref, c.total || c.agreed]));
@@ -198,7 +204,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                         : <span className="inline-flex rounded-full bg-slate-200 px-2.5 py-0.5 text-[13px] font-medium text-slate-700">{row.paymentStatus.replaceAll("_", " ")}</span>}
                       <p className="mt-1 text-[12px] text-slate-500">฿{row.total.toLocaleString()}</p>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-4">{(() => { const d = driverOptions.find((o) => o.id === assigned.get(row.reference)); return d ? <span className="text-slate-900">{d.name}</span> : <span className="text-slate-400">Not assigned</span>; })()}</td>
+                    <td className="whitespace-nowrap px-4 py-4">{(() => { const d = driverOptions.find((o) => o.id === assigned.get(row.reference)); return d ? <span className="flex items-center gap-2"><span className="text-slate-900">{d.name}</span>{tripLinks.get(row.reference) && <CopyTextButton icon="link" text={tripLinks.get(row.reference)!} label={`Copy trip status link for ${row.reference}`} />}</span> : <span className="text-slate-400">Not assigned</span>; })()}</td>
                     <td className="px-4 py-4"><CopyTextButton text={jobText(row)} label={`Copy driver job for ${row.reference}`} /></td>
                     <td className="px-4 py-4"><EditDriverButton reference={row.reference} drivers={driverOptions} current={assigned.get(row.reference) ?? null} canAssign={row.status === "confirmed"} /></td>
                   </tr>;
