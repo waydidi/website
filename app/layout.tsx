@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { env } from "cloudflare:workers";
 import "./globals.css";
+import { GoogleAnalytics } from "@/components/google-analytics";
 import { PublicPathHeader } from "@/components/public-header";
 import { SpinBar } from "@/components/spin/spin-bar";
 
@@ -25,6 +27,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Google Analytics 4 measurement ID, e.g. G-ABC123XYZ (a public ID, set in Cloudflare).
+  const gaRaw = String((env as Record<string, unknown>).GA_MEASUREMENT_ID ?? "").trim().toUpperCase();
+  const gaId = /^G-[A-Z0-9]{4,20}$/.test(gaRaw) ? gaRaw : "";
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "Service",
@@ -49,6 +54,7 @@ export default function RootLayout({
         <PublicPathHeader />
         {children}
         <SpinBar />
+        {gaId && <GoogleAnalytics id={gaId} />}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

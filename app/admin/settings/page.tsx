@@ -21,6 +21,7 @@ export default async function SettingsPage() {
     { title: "Maps and flights", rows: [
       ["Google Maps", set("GOOGLE_MAPS_SERVER_KEY"), "GOOGLE_MAPS_SERVER_KEY"],
       ["Flight tracking", set("AVIATIONSTACK_API_KEY"), "AVIATIONSTACK_API_KEY"],
+      ["Google Analytics", set("GA_MEASUREMENT_ID"), "GA_MEASUREMENT_ID (e.g. G-ABC123XYZ)"],
     ] },
     { title: "Customer sign-in", rows: [
       ["Google", set("GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"), "GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET"],
