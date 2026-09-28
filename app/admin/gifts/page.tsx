@@ -36,7 +36,6 @@ export default async function GiftsAdminPage() {
   const badge = (tier: string) => (tier.startsWith("box-") ? `${TIERS.find((t) => `box-${t.id}` === tier)?.name ?? ""} box` : TIERS.find((t) => t.id === tier)?.name ?? tier);
   const rows: GiftRow[] = (gifts ?? []).map((g) => ({ id: g.id, member: email.get(g.customerId) ?? g.customerId, gift: giftInfo(g.giftId).name, badge: badge(g.tier), issuedAt: g.issuedAt, expiresAt: g.expiresAt, usedRef: g.usedBookingReference, state: g.usedBookingReference ? "used" : g.expiresAt < now ? "expired" : "available" }));
   return <div className="px-4 pb-10 pt-4 sm:px-8">
-    <p className="max-w-3xl text-[14px] text-slate-600">Gifts are issued automatically when a member reaches Gold ({GIFTS.child_seat.name}), Diamond ({GIFTS.exchange_stop.name}) or Platinum ({GIFTS.airport_transfer.name}). Each lasts 90 days and is used automatically at checkout.</p>
     <div className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
       <StatCard label="Gifts issued" value={rows.length} sub="All time" />
       <StatCard label="Available now" value={rows.filter((r) => r.state === "available").length} sub="Waiting to be used" />

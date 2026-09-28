@@ -24,7 +24,6 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: P
     <div className="mx-auto max-w-[1500px]">
       {/* The admin layout shows the page title in its own header bar. */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-        <p className="text-slate-500">Members who registered on the website{query ? ` · matching “${query}”` : ""}. Only admins can delete an account.</p>
         <div className="flex gap-2 text-sm font-bold">
           <span className="rounded-full bg-slate-200 px-4 py-2">{users.length}{users.length === 500 ? "+" : ""} {query ? "found" : users.length === 1 ? "member" : "members"}</span>
           {!query && <span className="rounded-full bg-emerald-100 px-4 py-2 text-emerald-800">{newThisMonth} new this month</span>}

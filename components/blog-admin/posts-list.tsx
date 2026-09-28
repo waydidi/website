@@ -41,7 +41,6 @@ export function BlogPostsAdmin({ posts }: { posts: Post[] }) {
       <Link href="/admin/blog/new" className="inline-flex items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 py-2 text-sm font-bold text-white hover:bg-[#F07A00]"><Plus size={16} />Add New Post</Link>
       <Link href="/blog" target="_blank" className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900">View blog <ExternalLink size={14} /></Link>
     </div>
-    <p className="mt-1 text-slate-600">Write travel guides for the Waydidi blog. Published posts appear on /blog straight away.</p>
 
     {posts.length === 0 && <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
       <p className="font-bold">The blog is showing the 8 built-in starter guides</p>
