@@ -4,7 +4,7 @@ import { AdminKeyLogin } from "@/components/admin-key-login";
 import { getDb } from "@/db";
 import { customers } from "@/db/schema";
 import { requireWaydidiAdmin } from "@/lib/admin";
-import { adminGifts, GIFTS, giftInfo } from "@/lib/gifts";
+import { adminGifts, giftInfo } from "@/lib/gifts";
 import { adminBoxes, listPrizes } from "@/lib/boxes";
 import { TIERS } from "@/lib/member-tier-rules";
 import { GiftsTable, type GiftRow } from "@/components/gifts-admin/gifts-table";
