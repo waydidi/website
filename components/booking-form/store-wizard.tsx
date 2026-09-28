@@ -7,7 +7,7 @@ import { LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { smallInput, smallLabel, Stepper, TimeSelect, today } from "@/components/booking-form/form-wizard";
 import { PhoneInput } from "@/components/booking-form/phone-input";
-import { PlaceInput } from "@/components/booking-form/place-input";
+import { PlaceInput, resolvePlaceId } from "@/components/booking-form/place-input";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
 import { isAirportPickup } from "@/lib/trip-rules";
 import { smallestFittingVehicle, VEHICLES, vehicleFits, type VehicleId } from "@/lib/vehicles";
@@ -79,11 +79,17 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
       if (step === "name" && a.phone.replace(/\D/g, "").length < 7) throw new Error("Please add your WhatsApp number.");
       if (step === "name" && !/^\S+@\S+\.\S+$/.test(a.email.trim())) throw new Error("Please check your email address.");
       if (step === "trip") {
-        if (!a.pickupId) throw new Error("Choose your pickup from the suggestions list.");
-        if (!a.dropoffId) throw new Error("Choose your destination from the suggestions list.");
+        if (a.pickup.trim().length < 2) throw new Error("Where should we pick you up?");
+        if (a.dropoff.trim().length < 2) throw new Error("Where are you going?");
         if (!a.date || !a.time) throw new Error("Please choose the pickup date and time.");
         setBusy(true);
-        const q = await quote(a.pickupId, a.dropoffId, a.date, a.time);
+        // Typed without picking a suggestion: use Google's best match for the text.
+        const pickupId = a.pickupId ?? await resolvePlaceId(a.pickup);
+        const dropoffId = a.dropoffId ?? await resolvePlaceId(a.dropoff);
+        if (!pickupId) throw new Error("We couldn't find that pickup. Please check the address.");
+        if (!dropoffId) throw new Error("We couldn't find that destination. Please check the address.");
+        setA((c) => ({ ...c, pickupId, dropoffId }));
+        const q = await quote(pickupId, dropoffId, a.date, a.time);
         setOutbound(q);
         setA((c) => ({ ...c, vehicle: vehicleFits(c.vehicle, c.passengers, c.luggage) && q.prices[c.vehicle] ? c.vehicle : (Object.keys(q.prices)[0] as VehicleId) ?? c.vehicle }));
       }
@@ -93,7 +99,7 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
           if (!a.returnDate || !a.returnTime) throw new Error("Please choose the return date and time.");
           if (`${a.returnDate}T${a.returnTime}` <= `${a.date}T${a.time}`) throw new Error("The return must be after your first pickup.");
           setBusy(true);
-          setBack(await quote(a.dropoffId!, a.pickupId!, a.returnDate, a.returnTime));
+          setBack(await quote((a.dropoffId ?? await resolvePlaceId(a.dropoff))!, (a.pickupId ?? await resolvePlaceId(a.pickup))!, a.returnDate, a.returnTime));
         } else setBack(null);
       }
       if (step === "ride" && (!carPicked || !fareFor(a.vehicle))) throw new Error("Please choose a car.");

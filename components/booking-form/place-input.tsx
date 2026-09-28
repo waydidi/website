@@ -33,3 +33,14 @@ export function PlaceInput({ value, onChange, placeholder, className, inputRef, 
 
   return <input ref={ref} value={value} onChange={(e) => { onChange(e.target.value); onPlace?.(null); }} placeholder={placeholder} className={className} autoComplete="off" disabled={disabled} />;
 }
+
+/** Best Google match for typed text (Thailand), when no suggestion was picked. */
+export async function resolvePlaceId(text: string): Promise<string | null> {
+  if (text.trim().length < 2 || !(await loadMaps())) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const places = (window.google.maps as any).places;
+  return new Promise((resolve) => {
+    new places.AutocompleteService().getPlacePredictions({ input: text.trim(), componentRestrictions: { country: "th" } },
+      (predictions: { place_id: string }[] | null) => resolve(predictions?.[0]?.place_id ?? null));
+  });
+}
