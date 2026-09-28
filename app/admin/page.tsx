@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Building2, CalendarClock, CircleAlert, ClipboardList, Gift, IdCard, UserX } from "lucide-react";
 import { AdminKeyLogin } from "@/components/admin-key-login";
-import { RevenueChart } from "@/components/admin-overview/revenue-chart";
+import { UpcomingRides } from "@/components/admin-overview/upcoming-rides";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import { adminOverview, type OverviewRide } from "@/lib/admin-overview";
 import { VEHICLES } from "@/lib/vehicles";
@@ -83,10 +83,7 @@ export default async function AdminOverviewPage() {
           <Stat label="Last 30 days" value={String(o.stats.month.bookings)} sub={`${thb(o.stats.month.revenue)} · avg ${thb(o.stats.month.average)}`} />
           <Stat label="Cash to collect" value={thb(o.cashDue.amount)} sub={`${o.cashDue.count} upcoming cash ride${o.cashDue.count === 1 ? "" : "s"}`} />
         </div>
-        <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-[14px] font-bold">Revenue per day, last 30 days</p>
-          <div className="mt-2"><RevenueChart data={o.trend} /></div>
-        </div>
+        <UpcomingRides rides={o.rides} drivers={o.drivers} />
       </section>
 
       {/* Rides */}

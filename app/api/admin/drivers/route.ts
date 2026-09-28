@@ -29,9 +29,11 @@ export async function POST(request: Request) {
     );
 
   const form = await request.formData();
+  const outsource = form.get("driverType") === "outsource";
+  const carPlate = String(form.get("carPlate") ?? "").trim().toUpperCase().slice(0, 30);
   const fullName = String(form.get("fullName") ?? "").trim();
   const phone = String(form.get("phone") ?? "").trim();
-  const baseLocation = String(form.get("baseLocation") ?? "").trim();
+  const baseLocation = String(form.get("baseLocation") ?? "").trim() || (outsource ? "Outsource" : "");
   const vehicle = String(form.get("vehicle") ?? "").trim();
   const bankCode = String(form.get("bankCode") ?? "").trim().toUpperCase();
   const bankAccountNumber = String(form.get("bankAccountNumber") ?? "").replace(/[^0-9]/gu, "");
@@ -46,15 +48,19 @@ export async function POST(request: Request) {
     baseLocation.length > 150 ||
     vehicle.length < 2 ||
     vehicle.length > 150 ||
-    !THAI_BANKS.some((bank) => bank.code === bankCode) ||
-    bankAccountNumber.length < 8 ||
-    bankAccountNumber.length > 16 ||
+    (outsource
+      ? carPlate.length < 2 || (bankCode !== "" && !THAI_BANKS.some((bank) => bank.code === bankCode))
+      : !THAI_BANKS.some((bank) => bank.code === bankCode) ||
+        bankAccountNumber.length < 8 ||
+        bankAccountNumber.length > 16) ||
     (email && !emailValid(email))
   )
     return NextResponse.json(
       {
         error:
-          "Full name, phone number, base location, vehicle, driving licence, Thai bank, and a valid account number are required.",
+          outsource
+            ? "Driver name, phone number, car plate, vehicle, driving licence/Thai ID and car picture are required."
+            : "Full name, phone number, base location, vehicle, driving licence, Thai bank, and a valid account number are required.",
       },
       { status: 400 },
     );
@@ -106,6 +112,8 @@ export async function POST(request: Request) {
       carImageSha256: carImage.sha256,
       remindersEnabled: true,
       status: "active",
+      carPlate: carPlate || null,
+      driverType: outsource ? "outsource" : "staff",
       createdAt: now,
       updatedAt: now,
     };

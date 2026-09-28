@@ -524,6 +524,8 @@ export const drivers = sqliteTable(
     carImageSha256: text("car_image_sha256"),
     remindersEnabled: integer("reminders_enabled", { mode: "boolean" }).notNull().default(true),
     status: text("status").notNull().default("active"),
+    carPlate: text("car_plate"),
+    driverType: text("driver_type").notNull().default("staff"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

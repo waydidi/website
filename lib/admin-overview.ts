@@ -17,7 +17,7 @@ export function bangkokDate(offset = 0, at = new Date()) {
 export type OverviewRide = {
   reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string;
   vehicle: string; status: string; paymentMethod: string; total: number; flightNumber: string | null; flightStatus: string | null;
-  driver: string | null; driverStatus: string | null; attention: boolean;
+  driver: string | null; driverId: string | null; driverStatus: string | null; attention: boolean;
 };
 
 export async function adminOverview(at = new Date()) {
@@ -28,7 +28,9 @@ export async function adminOverview(at = new Date()) {
   const soon = new Date(at.getTime() + 24 * 3600_000);
 
   // Everything below is independent, so it runs at the same time.
-  const [upcoming, recent, cashDue, changeRequests, openAlerts, tickets, agencyNew, driverNew, attention] = await Promise.all([
+  const [driverList, upcoming, recent, cashDue, changeRequests, openAlerts, tickets, agencyNew, driverNew, attention] = await Promise.all([
+    db.select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, carPlate: drivers.carPlate, driverType: drivers.driverType })
+      .from(drivers).where(eq(drivers.status, "active")).orderBy(drivers.fullName).catch(() => []),
     // Only the columns shown: the bookings table is at D1's 100-column limit, so
     // selecting all of it plus the joined columns would fail.
     db.select({
@@ -37,11 +39,11 @@ export async function adminOverview(at = new Date()) {
         customerName: bookings.customerName, customerSurname: bookings.customerSurname, vehicle: bookings.vehicle, status: bookings.status,
         paymentMethod: bookings.paymentMethod, total: bookings.total, flightNumber: bookings.flightNumber, flightStatus: bookings.flightStatus, attentionStatus: bookings.attentionStatus,
       },
-      driver: drivers.fullName, driverStatus: bookingAssignments.currentStatus,
+      driver: drivers.fullName, driverId: drivers.id, driverStatus: bookingAssignments.currentStatus,
     }).from(bookings)
       .leftJoin(bookingAssignments, and(eq(bookingAssignments.bookingReference, bookings.reference), isNull(bookingAssignments.revokedAt)))
       .leftJoin(drivers, eq(drivers.id, bookingAssignments.driverId))
-      .where(and(gte(bookings.pickupDate, today), lte(bookings.pickupDate, tomorrow), inArray(bookings.status, ["pending_payment", "confirmed"]), isNull(bookings.binnedAt)))
+      .where(and(gte(bookings.pickupDate, today), lte(bookings.pickupDate, bangkokDate(14, at)), inArray(bookings.status, ["pending_payment", "confirmed"]), isNull(bookings.binnedAt)))
       .orderBy(bookings.pickupDate, bookings.pickupTime),
     db.select({ createdAt: bookings.createdAt, total: bookings.total, status: bookings.status, cancelledAt: bookings.cancelledAt }).from(bookings)
       .where(and(gte(bookings.createdAt, since30), notInArray(bookings.status, DEAD), isNull(bookings.binnedAt))),
@@ -55,10 +57,10 @@ export async function adminOverview(at = new Date()) {
     db.select({ n: count() }).from(bookings).where(and(eq(bookings.attentionStatus, "attention"), inArray(bookings.status, LIVE), gte(bookings.pickupDate, today), isNull(bookings.binnedAt))),
   ]);
 
-  const rides: OverviewRide[] = upcoming.map(({ b, driver, driverStatus }) => ({
+  const rides: OverviewRide[] = upcoming.map(({ b, driver, driverId, driverStatus }) => ({
     reference: b.reference, pickupDate: b.pickupDate, pickupTime: b.pickupTime, pickup: b.pickup, dropoff: b.dropoff,
     name: `${b.customerName} ${b.customerSurname ?? ""}`.trim(), vehicle: b.vehicle, status: b.status, paymentMethod: b.paymentMethod,
-    total: b.total, flightNumber: b.flightNumber, flightStatus: b.flightStatus, driver: driver ?? null, driverStatus: driverStatus ?? null,
+    total: b.total, flightNumber: b.flightNumber, flightStatus: b.flightStatus, driver: driver ?? null, driverId: driverId ?? null, driverStatus: driverStatus ?? null,
     attention: b.attentionStatus === "attention",
   }));
   const pickupAt = (r: OverviewRide) => new Date(`${r.pickupDate}T${r.pickupTime}:00+07:00`);
@@ -86,6 +88,7 @@ export async function adminOverview(at = new Date()) {
 
   return {
     today, tomorrow, rides,
+    drivers: driverList.map((d) => ({ ...d, vehicle: [d.vehicle, d.carPlate].filter(Boolean).join(" · "), area: d.driverType === "outsource" ? "Outsource" : d.area })),
     stats: { today: period(29, null), week: period(23, cancelled7), month: period(0, cancelled30) },
     cashDue: { count: cashDue[0]?.n ?? 0, amount: Number(cashDue[0]?.sum ?? 0) },
     trend,
