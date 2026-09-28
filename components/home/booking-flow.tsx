@@ -483,7 +483,7 @@ export function BookingFlow({
       .then(({ apiKey }) => {
         setMapsAvailable(Boolean(apiKey));
         // Prototype: with live pricing off, pre-fill the demo route so one tap
-        // on See prices opens the map screen. Leaves typed or restored trips alone.
+        // on Choose a vehicle opens the map screen. Leaves typed or restored trips alone.
         if (!apiKey && !restoringDraftRef.current) {
           setBooking((current) => current.dropoff === "Grande Centre Point Sukhumvit 55, Bangkok"
             ? { ...current, pickup: "Suvarnabhumi Airport (BKK)", dropoff: "Hilton Pattaya" }
