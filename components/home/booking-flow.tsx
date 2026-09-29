@@ -50,6 +50,7 @@ import { AreaPicker } from "./area-picker";
 import { HourlyAreaMap } from "./hourly-area-map";
 const shortPlaceName = (v: string) => v.split(",")[0]?.trim() || v;
 import { HOURLY_AREAS, type HourlyArea } from "@/lib/hourly-areas-data";
+import { pointInPolygon } from "@/lib/geo";
 import { BookingDetailsStep } from "./booking-details-step";
 import { SiteHeader } from "@/components/site-header";
 import { useCurrency } from "@/components/use-currency";
@@ -277,6 +278,16 @@ export function BookingFlow({
   }, []);
   const hourlyAreas = useMemo(() => hourlyAreaSlugs ? hourlyAreaSlugs.map((slug) => HOURLY_AREAS.find((a) => a.slug === slug)).filter((a): a is HourlyArea => Boolean(a)) : HOURLY_AREAS, [hourlyAreaSlugs]);
   const areaGeo = HOURLY_AREAS.find((a) => a.slug === hourlyArea) ?? null;
+  // Where the chosen pickup/drop-off are, to spot city-to-city trips before pricing.
+  const [pickupLoc, setPickupLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [dropoffLoc, setDropoffLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const outsideArea = (p: { lat: number; lng: number } | null) => Boolean(p && areaGeo && !areaGeo.polygons.some((ring) => pointInPolygon(p, ring.map(([lat, lng]) => ({ lat, lng })))));
+  const cityToCity = serviceType === "hourly" && Boolean(areaGeo) && (outsideArea(pickupLoc) || (Boolean(hourlyDropoffId && booking.dropoff.trim()) && outsideArea(dropoffLoc)));
+  // City-to-city trips can't be booked for fewer than 6 hours.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- raise the duration when the trip becomes city-to-city
+    if (cityToCity && booking.bookedHours < 6) setBooking((current) => ({ ...current, bookedHours: 6 }));
+  }, [cityToCity, booking.bookedHours]);
   const areaBounds = useMemo(() => {
     if (!areaGeo) return null;
     const pts = areaGeo.polygons.flat();
@@ -1221,9 +1232,9 @@ export function BookingFlow({
                   onRouteChange={handleRouteChange}
                   pickupOnly={serviceType === "hourly"}
                   optionalDropoff={serviceType === "hourly"}
-                  onDropoffPlaceChange={(id)=>{setHourlyDropoffId(id);setHourlyQuote(null);}}
+                  onDropoffPlaceChange={(id, loc)=>{setHourlyDropoffId(id);setDropoffLoc(loc ?? null);setHourlyQuote(null);}}
                   bounds={serviceType === "hourly" ? areaBounds : null}
-                  onPickupPlaceChange={(id)=>{setPickupPlaceId(id);setHourlyQuote(null);}}
+                  onPickupPlaceChange={(id, loc)=>{setPickupPlaceId(id);if (loc !== undefined) setPickupLoc(loc);setHourlyQuote(null);}}
                   prefill={routePrefill}
                   connectedMobile
                 />
@@ -1314,7 +1325,7 @@ export function BookingFlow({
                     )}
                     </div>
                   ) : (
-                    <DurationPicker value={booking.bookedHours} options={Array.from({length:10},(_,i)=>i+1)} label={t("hero.duration")} format={(hours)=>t("hero.hours", { count: hours })} onChange={(hours)=>{change("bookedHours",hours);setHourlyQuote(null);}} className={`flex h-full min-w-0 items-center gap-2.5 px-3 text-left sm:px-3.5 ${compact ? "" : "md:gap-3 md:rounded-[14px] md:border md:border-slate-200 md:px-5 lg:rounded-none lg:border-0"}`} />
+                    <DurationPicker value={booking.bookedHours} options={Array.from({length:10},(_,i)=>i+1).filter((h) => !cityToCity || h >= 6)} label={cityToCity ? "Duration (city-to-city)" : t("hero.duration")} format={(hours)=>t("hero.hours", { count: hours })} onChange={(hours)=>{change("bookedHours",hours);setHourlyQuote(null);}} className={`flex h-full min-w-0 items-center gap-2.5 px-3 text-left sm:px-3.5 ${compact ? "" : "md:gap-3 md:rounded-[14px] md:border md:border-slate-200 md:px-5 lg:rounded-none lg:border-0"}`} />
                   )}
                 </div>
                 </div>

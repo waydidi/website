@@ -41,7 +41,7 @@ export function GoogleRoutePicker({
   onDropoffChange: (value: string) => void;
   onRouteChange: (value: RouteInfo | null) => void;
   pickupOnly?: boolean;
-  onPickupPlaceChange?: (placeId: string) => void;
+  onPickupPlaceChange?: (placeId: string, location?: { lat: number; lng: number } | null) => void;
   /** Known Google place IDs for the current pickup/drop-off text (saved
    *  places, "book again"). Change `nonce` to apply a new prefill. */
   prefill?: { pickupPlaceId?: string; dropoffPlaceId?: string; nonce: number } | null;
@@ -49,7 +49,7 @@ export function GoogleRoutePicker({
   showPreviewMap?: boolean;
   /** Hourly: also show an optional drop-off (no route is calculated). */
   optionalDropoff?: boolean;
-  onDropoffPlaceChange?: (placeId: string) => void;
+  onDropoffPlaceChange?: (placeId: string, location?: { lat: number; lng: number } | null) => void;
   /** Favour suggestions inside this box (the chosen hourly area). */
   bounds?: { south: number; west: number; north: number; east: number } | null;
 }) {
@@ -170,7 +170,7 @@ export function GoogleRoutePicker({
     const selectPickup = () => {
       const place = pickupAutocomplete.getPlace();
       pickupPlaceIdRef.current = place.place_id ?? "";
-      onPickupPlaceChange?.(pickupPlaceIdRef.current);
+      onPickupPlaceChange?.(pickupPlaceIdRef.current, place.geometry?.location ? { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() } : null);
       onPickupChange(
         place.formatted_address || place.name || pickupRef.current?.value || "",
       );
@@ -185,7 +185,7 @@ export function GoogleRoutePicker({
           dropoffRef.current?.value ||
           "",
       );
-      onDropoffPlaceChange?.(dropoffPlaceIdRef.current);
+      onDropoffPlaceChange?.(dropoffPlaceIdRef.current, place.geometry?.location ? { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() } : null);
       if (!pickupOnly) window.setTimeout(calculate, 0);
     };
     pickupAutocomplete.addListener("place_changed", selectPickup);
