@@ -791,15 +791,7 @@ export function BookingResultsMap(props: Props) {
               <p className="mt-3 flex justify-between border-t border-[#E6E6E6] pt-3 text-[16px]"><span>Total</span><span className="font-medium">{money(props.priceBreakdown?.[info.id]?.total ?? info.price)}</span></p>
             </div>
             <div className="grid gap-3 px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
-              <DialogPrimitive.Close className="h-12 rounded-full border border-[#D9D9D9] text-[16px] font-medium">Close</DialogPrimitive.Close>
-              <button
-                type="button"
-                disabled={!ready || info.fits === false || props.checkoutReady === false}
-                onClick={() => { const id = info.id; setInfoId(null); props.onSelectVehicle(id); props.onContinue(); }}
-                className="h-12 rounded-full bg-brand text-[16px] font-semibold text-white disabled:opacity-50"
-              >
-                {info.fits === false ? "Too small for your group" : "Continue"}
-              </button>
+              <DialogPrimitive.Close className="h-12 rounded-full bg-brand text-[16px] font-semibold text-white transition hover:bg-brand-hover">Close</DialogPrimitive.Close>
             </div>
           </>}
         </DialogPrimitive.Content>
