@@ -67,7 +67,7 @@ export const checkoutInputSchema = z.object({
   pickupDate: bookingDateSchema,
   pickupTime: bookingTimeSchema,
   timezone: timezoneSchema,
-  passengers: z.number().int().min(1).max(9),
+  passengers: z.number().int().min(1).max(10),
   luggage: z.number().int().min(0).max(12),
   vehicle: vehicleIdSchema,
   flightNumber: z.string().max(30).optional().default(""),

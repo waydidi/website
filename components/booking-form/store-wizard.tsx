@@ -113,7 +113,7 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
         customerName: words.length > 1 ? words.slice(0, -1).join(" ") : a.name.trim(), customerSurname: words.length > 1 ? words[words.length - 1] : "-",
         customerEmail: a.email.trim(), customerPhone: a.phone.trim(),
         pickup: a.pickup, dropoff: a.dropoff, pickupDate: a.date, pickupTime: a.time, timezone: "Asia/Bangkok",
-        passengers: Math.min(9, a.passengers), luggage: Math.min(12, a.luggage), vehicle: a.vehicle,
+        passengers: Math.min(10, a.passengers), luggage: Math.min(12, a.luggage), vehicle: a.vehicle,
         flightNumber: airport ? a.flight : "", childSeats: a.childSeats, exchangeStop: a.exchangeStop, ferryHotelPeople: ferry ? a.ferryPeople : 0,
         oversizedLuggage: false, termsAccepted: true, paymentMethod: a.payment, serviceType: "transfer",
         fareQuoteId: outbound!.quoteId,
@@ -186,7 +186,7 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
           <h1 className={heading}>Choose your car</h1>
           {store.discountPercent > 0 && <p className="mt-2 text-[16px] font-medium text-[#15803D]">{store.name} special price: {store.discountPercent}% off already applied.</p>}
           <div className="mt-5 flex flex-wrap items-center gap-x-8 gap-y-4 rounded-2xl border border-[#F0E3D4] bg-white px-5 py-4">
-            <span className="flex items-center gap-3"><UsersRound size={24} aria-label="Passengers" /><Stepper value={a.passengers} set={(n) => setGroup(n, a.luggage)} min={1} max={9} label="passengers" /></span>
+            <span className="flex items-center gap-3"><UsersRound size={24} aria-label="Passengers" /><Stepper value={a.passengers} set={(n) => setGroup(n, a.luggage)} min={1} max={10} label="passengers" /></span>
             <span className="flex items-center gap-3"><Luggage size={24} aria-label="Bags" /><Stepper value={a.luggage} set={(n) => setGroup(a.passengers, n)} min={0} max={12} label="bags" /></span>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3">

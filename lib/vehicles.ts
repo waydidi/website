@@ -4,10 +4,10 @@
 // confirmation from operations: change them here and every card, the
 // booking form and checkout follow.
 export const VEHICLES = {
-  economy_sedan: { name: "Economy sedan", total: 1250, passengers: 3, bags: 2 },
-  comfort_bmw: { name: "Comfort BMW", total: 1800, passengers: 3, bags: 2 },
+  economy_sedan: { name: "Economy sedan", total: 1250, passengers: 2, bags: 2 },
+  comfort_bmw: { name: "Comfort BMW", total: 1800, passengers: 2, bags: 2 },
   comfort_suv: { name: "Comfort SUV", total: 2200, passengers: 4, bags: 4 },
-  premium_minivan: { name: "Premium Minivan", total: 2850, passengers: 9, bags: 9 },
+  premium_minivan: { name: "Premium Minivan", total: 2850, passengers: 10, bags: 8 },
 } as const;
 
 export type VehicleId = keyof typeof VEHICLES;
