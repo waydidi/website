@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   if (!access.authorized) return <AdminKeyLogin configured={access.configured} />;
   const groups: { title: string; rows: [string, boolean, string][] }[] = [
     { title: "Payments and alerts", rows: [
-      ["Card payments (Stripe)", set("STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"), "STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET"],
+      ["Card payments (Stripe)", set("STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY", "STRIPE_WEBHOOK_SECRET"), "STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET"],
       ["LINE alerts", set("LINE_CHANNEL_ACCESS_TOKEN", "LINE_ADMIN_TARGET_ID"), "LINE_CHANNEL_ACCESS_TOKEN, LINE_ADMIN_TARGET_ID"],
     ] },
     { title: "Maps and flights", rows: [

@@ -16,8 +16,9 @@ export async function createCheckoutSession(input: {
   const params = new URLSearchParams({
     mode: "payment",
     customer_email: input.customerEmail,
-    success_url: `${input.origin}/booking/confirmation/${input.reference}?token=${input.accessToken}&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${input.origin}/?payment=cancelled`,
+    // Embedded Checkout: the card form sits on Waydidi's own /pay page.
+    ui_mode: "embedded",
+    return_url: `${input.origin}/booking/confirmation/${input.reference}?token=${input.accessToken}&session_id={CHECKOUT_SESSION_ID}`,
     "line_items[0][price_data][currency]": "thb",
     "line_items[0][price_data][unit_amount]": String(input.total * 100),
     "line_items[0][price_data][product_data][name]": `Waydidi · ${selected.name}`,
@@ -36,18 +37,25 @@ export async function createCheckoutSession(input: {
   });
   const result = (await response.json()) as {
     id?: string;
-    url?: string;
+    client_secret?: string;
     error?: { message?: string };
   };
-  if (!response.ok || !result.id || !result.url)
+  if (!response.ok || !result.id || !result.client_secret)
     throw new Error(
       result.error?.message ?? "Stripe Checkout could not start.",
     );
-  return { id: result.id, url: result.url };
+  return { id: result.id, url: payPageUrl(input.origin, input.reference, input.accessToken, result.id) };
+}
+
+/** Waydidi's own payment page that shows the embedded Stripe form. */
+export function payPageUrl(origin: string, reference: string, accessToken: string, sessionId: string) {
+  return `${origin}/pay/${encodeURIComponent(reference)}?token=${encodeURIComponent(accessToken)}&session_id=${encodeURIComponent(sessionId)}`;
 }
 
 export type StripeCheckoutSession = {
   id?: string;
+  client_secret?: string;
+  ui_mode?: string;
   payment_intent?: string;
   payment_status?: string;
   status?: string;

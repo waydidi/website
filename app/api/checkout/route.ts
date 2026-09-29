@@ -1,3 +1,4 @@
+import { payPageUrl } from "@/lib/stripe";
 import { NextResponse } from "next/server";
 import { storeCommission, storeDiscount, storefrontBySlug } from "@/lib/storefront";
 import { customerFromRequest } from "@/lib/customer-auth";
@@ -99,6 +100,8 @@ async function existingCheckoutResponse(
   try {
     const session = await paymentProviderFor("stripe").retrievePayment(booking.checkoutSessionId);
     if (session.checkoutUrl) return NextResponse.json({ checkoutUrl: session.checkoutUrl, reused: true });
+    // Embedded Checkout sessions have no Stripe URL: send them back to the /pay page.
+    if (session.status === "pending" && session.providerStatus !== "expired") return NextResponse.json({ checkoutUrl: payPageUrl(safeOrigin(request), booking.reference, accessToken, booking.checkoutSessionId), reused: true });
     if (session.status === "paid") {
       return NextResponse.json({ checkoutUrl: confirmationUrl, reused: true });
     }
