@@ -1,3 +1,4 @@
+import { confirmationPdfName } from "@/lib/confirmation-pdf";
 import type { BookingExtras } from "@/lib/booking-extras";
 import { logoPng } from "@/lib/pdf-addon-images";
 import { VEHICLES } from "@/lib/vehicles";
@@ -169,7 +170,7 @@ ${detailRow("Total", total)}
     text,
     attachments: [
       LOGO_ATTACHMENT,
-      { filename: `Waydidi-${input.reference}.pdf`, content: toBase64(input.pdf), content_type: "application/pdf" },
+      { filename: confirmationPdfName(input.reference, input.pickupDate), content: toBase64(input.pdf), content_type: "application/pdf" },
     ],
   }, input.retryId ? `confirmation-retry-${input.reference}-${input.retryId}` : `confirmation-${input.reference}`);
 }

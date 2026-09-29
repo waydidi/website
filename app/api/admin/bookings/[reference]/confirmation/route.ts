@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { bookings } from "@/db/schema";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { bookingExtras } from "@/lib/booking-extras";
-import { createConfirmationPdf } from "@/lib/confirmation-pdf";
+import { createConfirmationPdf, confirmationPdfName } from "@/lib/confirmation-pdf";
 import { sendConfirmationEmail } from "@/lib/email";
 import { sameOrigin } from "@/lib/security";
 
@@ -22,7 +22,7 @@ export async function GET(_request: Request, context: { params: Promise<{ refere
   const pdf = await createConfirmationPdf(booking, await bookingExtras(booking));
   return new Response(new Blob([new Uint8Array(pdf)], { type: "application/pdf" }), { headers: {
     "Content-Type": "application/pdf",
-    "Content-Disposition": `attachment; filename="Waydidi-${reference}.pdf"`,
+    "Content-Disposition": `attachment; filename="${confirmationPdfName(booking.reference, booking.pickupDate)}"`,
     "Cache-Control": "private, no-store",
   } });
 }

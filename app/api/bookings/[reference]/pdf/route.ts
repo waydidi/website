@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { bookings } from "@/db/schema";
-import { createConfirmationPdf } from "@/lib/confirmation-pdf";
+import { createConfirmationPdf, confirmationPdfName } from "@/lib/confirmation-pdf";
 import { constantTimeEqual, sha256 } from "@/lib/security";
 
 export async function GET(request: Request, context: { params: Promise<{ reference: string }> }) {
@@ -19,7 +19,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   }
   return new Response(new Blob([new Uint8Array(pdf)], { type: "application/pdf" }), { headers: {
     "Content-Type": "application/pdf",
-    "Content-Disposition": `attachment; filename="Waydidi-${reference}.pdf"`,
+    "Content-Disposition": `attachment; filename="${confirmationPdfName(booking.reference, booking.pickupDate)}"`,
     "Cache-Control": "private, no-store",
   } });
 }

@@ -1,6 +1,6 @@
 import { bookingExtras } from "@/lib/booking-extras";
 import { NextResponse } from "next/server";
-import { createConfirmationPdf } from "@/lib/confirmation-pdf";
+import { createConfirmationPdf, confirmationPdfName } from "@/lib/confirmation-pdf";
 import { customerBooking, customerFromRequest } from "@/lib/customer-auth";
 
 export async function GET(request: Request, context: { params: Promise<{ reference: string }> }) {
@@ -13,7 +13,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   const pdf = await createConfirmationPdf(booking, await bookingExtras(booking));
   return new Response(new Blob([new Uint8Array(pdf)], { type: "application/pdf" }), { headers: {
     "Content-Type": "application/pdf",
-    "Content-Disposition": `attachment; filename="Waydidi-${booking.reference}.pdf"`,
+    "Content-Disposition": `attachment; filename="${confirmationPdfName(booking.reference, booking.pickupDate)}"`,
     "Cache-Control": "private, no-store",
   } });
 }
