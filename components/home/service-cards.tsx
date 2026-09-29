@@ -39,11 +39,11 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
       <h2 className="text-[28px] font-bold leading-[1.1] tracking-[-.03em]">
         {t("services.heading")}
       </h2>
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
+      <div className="-mx-5 mt-6 flex gap-3 overflow-x-auto overscroll-x-contain px-5 pb-2 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:pb-0 [&::-webkit-scrollbar]:hidden">
         {cards.map((card) => { const ride = card.image.src === "/service-ride-airport.webp"; return (
           <article
             key={card.title}
-            className="group relative flex min-h-[170px] min-w-0 flex-col rounded-2xl bg-surface px-5 py-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            className="group relative flex min-h-[170px] w-[84%] shrink-0 flex-col md:w-auto md:min-w-0 md:shrink rounded-2xl bg-surface px-5 py-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
             <div className="grid flex-1 grid-cols-[minmax(0,1fr)_106px] items-start gap-2">
               <div>
