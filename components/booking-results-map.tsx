@@ -806,7 +806,7 @@ export function BookingResultsMap(props: Props) {
           <div className="flex items-start justify-between px-5 pt-4">
             <div>
               <DialogPrimitive.Title className="text-[26px] font-semibold leading-tight">Your Booking</DialogPrimitive.Title>
-              <DialogPrimitive.Description className="text-[16px] text-[#6B6B6B]">{props.returnTrip ? "Return" : "One way"}</DialogPrimitive.Description>
+              <DialogPrimitive.Description className="sr-only">Trip details, price and route</DialogPrimitive.Description>
             </div>
             <DialogPrimitive.Close className="grid size-10 place-items-center rounded-full hover:bg-slate-100" aria-label="Close"><X size={24} /></DialogPrimitive.Close>
           </div>
@@ -816,7 +816,7 @@ export function BookingResultsMap(props: Props) {
               <span className="flex items-center gap-2 rounded-full border border-[#D9D9D9] px-4 py-1.5 text-[15px] font-medium"><Users size={18} aria-hidden="true" />{passengers} Passenger{passengers === 1 ? "" : "s"}</span>
             </div>
 
-            <Leg title="Outward" date={props.date} time={props.time} from={props.pickup} to={props.dropoff} quote={props.quote} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
+            <Leg title="Travel Date" date={props.date} time={props.time} from={props.pickup} to={props.dropoff} quote={props.quote} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
             {props.returnTrip && props.returnDate && props.returnTime
               ? <Leg title="Return" date={props.returnDate} time={props.returnTime} from={props.dropoff} to={props.pickup} quote={props.returnQuote ?? null} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
               : <button type="button" onClick={() => { setDetailsOpen(false); (props.onAddReturn ?? props.onEditRoute ?? props.onEdit)(); }} className="mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[#BDBDBD] text-[16px] text-[#1C1C1C]"><ArrowRightLeft size={20} className="text-brand" aria-hidden="true" />Add return</button>}
