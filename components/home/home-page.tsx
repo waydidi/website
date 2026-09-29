@@ -7,6 +7,7 @@ import { BookingFlow } from "./booking-flow";
 import { ThailandDestinationMap } from "./destination-map";
 const SHOW_MAP: boolean = false;
 import { WaydidiFooter } from "./footer";
+import { FleetSection } from "./fleet-section";
 import { ServiceCards } from "./service-cards";
 import { Promotions } from "./promotions";
 
@@ -47,6 +48,7 @@ export function HomePage({ locale }: { locale: Locale }) {
       <HowItWorks />
       {/* Hidden for now: "Where Waydidi takes you" map. */}
       {SHOW_MAP && <ThailandDestinationMap />}
+      <FleetSection />
       <HomeFaq />
       <WaydidiFooter locale={locale} />
     </BookingFlow>
