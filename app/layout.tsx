@@ -61,10 +61,6 @@ export default function RootLayout({
             __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
           }}
         />
-        {/* Mobile Safari tints its floating bottom toolbar from what touches the
-            screen's bottom edge; this faint, fading white haze gives it a light,
-            floating look on every page. Booking bars sit above it (z-50). */}
-        <div aria-hidden="true" className="no-print pointer-events-none fixed inset-x-0 bottom-0 z-40 h-[calc(env(safe-area-inset-bottom)+28px)] bg-gradient-to-b from-white/0 via-white/25 to-white/55 lg:hidden" />
       </body>
     </html>
   );
