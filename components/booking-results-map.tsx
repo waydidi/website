@@ -775,7 +775,7 @@ export function BookingResultsMap(props: Props) {
               </ul>
               <h3 className="mt-6 text-[17px] font-medium">Included</h3>
               <ul className="mt-3 grid gap-2.5 text-[16px] text-[#4A4A4A]">
-                {["Private car and driver for your group", "Door-to-door", "Fixed price agreed before you book", waitingLine(props.pickup, locale), ...lines.included].map((line) => <li key={line} className="flex items-center gap-3"><Check size={18} className="shrink-0" aria-hidden="true" />{line}</li>)}
+                {["Private car and driver for your group", "Door-to-door", "Fixed price agreed before you book", waitingLine(props.pickup, locale), ...lines.included].map((line) => <li key={line} className="flex items-center gap-3"><Check size={18} className="shrink-0 text-[#06C755]" aria-hidden="true" />{line}</li>)}
               </ul>
               {lines.excluded.length > 0 && <>
                 <h3 className="mt-6 text-[17px] font-medium">Excluded</h3>
@@ -827,8 +827,8 @@ export function BookingResultsMap(props: Props) {
                 <p className="mt-5 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(props.priceBreakdown[selected.id].outbound)}</span></p>
                 <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>{money(props.priceBreakdown[selected.id].return)}</span></p>
               </>}
-              <p className="mt-4 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} aria-hidden="true" />All prices are fixed totals for your private ride</p>
-              {lines.included.map((line) => <p key={line} className="mt-2 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} aria-hidden="true" />{line}</p>)}
+              <p className="mt-4 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} className="shrink-0 text-[#06C755]" aria-hidden="true" />All prices are fixed totals for your private ride</p>
+              {lines.included.map((line) => <p key={line} className="mt-2 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} className="shrink-0 text-[#06C755]" aria-hidden="true" />{line}</p>)}
               {seats > 0 && <p className="mt-4 flex justify-between text-[16px] text-[#4A4A4A]"><span>Child seat × {seats}</span><span>{addonPrice(Math.max(0, seats - freeNow.childSeats) * CHILD_SEAT_THB)}</span></p>}
               {ferryAvailable && ferry > 0 && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Ferry &amp; hotel transfer × {ferry}</span><span>{addonPrice(FERRY_HOTEL_THB * ferry)}</span></p>}
               {exchange && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Currency exchange stop</span><span>{addonPrice(freeNow.exchangeStop ? 0 : EXCHANGE_STOP_THB)}</span></p>}
