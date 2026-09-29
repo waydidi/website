@@ -5,6 +5,7 @@ import { getMessages, localeInfo, type Locale } from "@/lib/i18n";
 import { SITE_URL } from "@/lib/public-content";
 import { BookingFlow } from "./booking-flow";
 import { ThailandDestinationMap } from "./destination-map";
+const SHOW_MAP: boolean = false;
 import { WaydidiFooter } from "./footer";
 import { ServiceCards } from "./service-cards";
 import { Promotions } from "./promotions";
@@ -44,7 +45,8 @@ export function HomePage({ locale }: { locale: Locale }) {
       <Promotions />
       <ServiceCards locale={locale} />
       <HowItWorks />
-      <ThailandDestinationMap />
+      {/* Hidden for now: "Where Waydidi takes you" map. */}
+      {SHOW_MAP && <ThailandDestinationMap />}
       <HomeFaq />
       <WaydidiFooter locale={locale} />
     </BookingFlow>
