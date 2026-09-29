@@ -205,6 +205,27 @@ export const hourlyPackages = sqliteTable(
   (table) => [index("idx_hourly_packages_area_vehicle").on(table.areaId, table.vehicleId)],
 );
 
+// By-the-hour prices per city (lib/hourly-areas-data.ts) and car. The row with
+// vehicle_id "_area" holds the city's on/off switch and list order.
+export const hourlyAreaRates = sqliteTable(
+  "hourly_area_rates",
+  {
+    id: text("id").primaryKey(),
+    areaSlug: text("area_slug").notNull(),
+    vehicleId: text("vehicle_id").notNull(),
+    hourlyRate: integer("hourly_rate").notNull().default(0),
+    p4: integer("p4").notNull().default(0),
+    p5: integer("p5").notNull().default(0),
+    p6: integer("p6").notNull().default(0),
+    p8: integer("p8").notNull().default(0),
+    p10: integer("p10").notNull().default(0),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_hourly_area_rates_area").on(table.areaSlug)],
+);
+
 export const hourlyQuotes = sqliteTable(
   "hourly_quotes",
   {
@@ -216,6 +237,9 @@ export const hourlyQuotes = sqliteTable(
     areaId: text("area_id"),
     areaName: text("area_name").notNull(),
     bookedHours: integer("booked_hours").notNull(),
+    dropoffText: text("dropoff_text"),
+    dropoffLatitude: real("dropoff_latitude"),
+    dropoffLongitude: real("dropoff_longitude"),
     vehiclePricesJson: text("vehicle_prices_json").notNull(),
     pricingVersion: integer("pricing_version").notNull(),
     departureDate: text("departure_date"),

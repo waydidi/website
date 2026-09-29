@@ -82,7 +82,8 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
       `วันที่/เวลา: ${d}/${m}/${y} ${row.pickupTime}`,
       ...(flight ? [`ไฟลท์: ${flight}`] : []),
       `รับ: ${row.pickup}`,
-      `ส่ง: ${row.serviceType === "hourly" ? `${row.bookedHours ?? ""} ชั่วโมง` : row.dropoff}`,
+      ...(row.serviceType === "hourly" ? [`พื้นที่: ${row.pricingArea ?? "-"}`, `ระยะเวลา: ${row.bookedHours ?? ""} ชั่วโมง`] : []),
+      `ส่ง: ${row.serviceType === "hourly" ? (row.dropoff && !row.dropoff.startsWith("Flexible itinerary") ? row.dropoff : "จุดเดียวกับจุดรับ") : row.dropoff}`,
       `ราคา: ${cost ? `${cost.toLocaleString("en-US")} บาท` : "-"}`,
     ].join("\n");
   };
@@ -195,7 +196,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                     <td className="px-4 py-4"><p className="font-medium text-slate-900">{row.customerName}</p><p className="text-[12px] text-slate-500">{row.customerPhone}</p>{tax && <p className="mt-1 text-[12px] font-medium text-amber-700">Tax invoice requested</p>}</td>
                     <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${row.pickupDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{row.pickupTime}{row.returnDate && row.returnTime ? ` · return ${row.returnDate} ${row.returnTime}` : ""}</p></td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.pickup}</p></td>
-                    <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.serviceType === "hourly" ? `${row.bookedHours ?? ""} hours` : row.dropoff}</p></td>
+                    <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.serviceType === "hourly" ? `${row.bookedHours ?? ""} hours${row.pricingArea ? ` · ${row.pricingArea}` : ""}` : row.dropoff}</p></td>
                     <td className="px-4 py-4"><p className="text-slate-900">{row.vehicle.replaceAll("_", " ")}</p><p className="text-[12px] text-slate-500">{row.passengers} people · {row.luggage} bags</p></td>
                     <td className="whitespace-nowrap px-4 py-4">
                       {paid ? <span className="inline-flex rounded-full bg-[#06C755] px-2.5 py-0.5 text-[13px] font-medium text-white">Paid</span>

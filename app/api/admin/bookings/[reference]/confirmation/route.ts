@@ -41,7 +41,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate,
     pickupTime: booking.pickupTime, vehicle: booking.vehicle, customerPhone: booking.customerPhone,
     passengers: booking.passengers, luggage: booking.luggage, total: booking.total,
-    paymentMethod: booking.paymentMethod, serviceType: booking.serviceType, bookedHours: booking.bookedHours,
+    paymentMethod: booking.paymentMethod, serviceType: booking.serviceType, bookedHours: booking.bookedHours, pricingArea: booking.pricingArea,
     returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
     returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,

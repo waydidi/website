@@ -31,6 +31,9 @@ export function GoogleRoutePicker({
   prefill,
   connectedMobile = false,
   showPreviewMap = false,
+  optionalDropoff = false,
+  onDropoffPlaceChange,
+  bounds,
 }: {
   pickup: string;
   dropoff: string;
@@ -44,6 +47,11 @@ export function GoogleRoutePicker({
   prefill?: { pickupPlaceId?: string; dropoffPlaceId?: string; nonce: number } | null;
   connectedMobile?: boolean;
   showPreviewMap?: boolean;
+  /** Hourly: also show an optional drop-off (no route is calculated). */
+  optionalDropoff?: boolean;
+  onDropoffPlaceChange?: (placeId: string) => void;
+  /** Favour suggestions inside this box (the chosen hourly area). */
+  bounds?: { south: number; west: number; north: number; east: number } | null;
 }) {
   const { t } = useI18n();
   const pickupRef = useRef<HTMLInputElement>(null);
@@ -52,6 +60,7 @@ export function GoogleRoutePicker({
   const pickupPlaceIdRef = useRef("");
   const dropoffPlaceIdRef = useRef("");
   const calculateRef = useRef<(() => void) | null>(null);
+  const autocompletesRef = useRef<any[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
 
@@ -124,6 +133,7 @@ export function GoogleRoutePicker({
     const dropoffAutocomplete = dropoffRef.current
       ? new maps.places.Autocomplete(dropoffRef.current, options)
       : null;
+    autocompletesRef.current = [pickupAutocomplete, dropoffAutocomplete].filter(Boolean);
     const calculate = () => {
       if (!pickupRef.current?.value || !dropoffRef.current?.value) return;
       service.route(
@@ -175,7 +185,8 @@ export function GoogleRoutePicker({
           dropoffRef.current?.value ||
           "",
       );
-      window.setTimeout(calculate, 0);
+      onDropoffPlaceChange?.(dropoffPlaceIdRef.current);
+      if (!pickupOnly) window.setTimeout(calculate, 0);
     };
     pickupAutocomplete.addListener("place_changed", selectPickup);
     dropoffAutocomplete?.addListener("place_changed", selectDropoff);
@@ -184,7 +195,13 @@ export function GoogleRoutePicker({
       maps.event.clearInstanceListeners(pickupAutocomplete);
       if (dropoffAutocomplete) maps.event.clearInstanceListeners(dropoffAutocomplete);
     };
-  }, [mapReady, pickupOnly, showPreviewMap]);
+  }, [mapReady, pickupOnly, showPreviewMap, optionalDropoff]);
+
+  // Hourly: suggestions favour the chosen area (anywhere is still allowed).
+  useEffect(() => {
+    if (!mapReady || !window.google?.maps) return;
+    for (const a of autocompletesRef.current) a.setBounds(bounds ? new window.google.maps.LatLngBounds({ lat: bounds.south, lng: bounds.west }, { lat: bounds.north, lng: bounds.east }) : undefined);
+  }, [mapReady, bounds, optionalDropoff, pickupOnly]);
 
   // Apply prefilled place IDs once Maps is ready and the new text has rendered.
   useEffect(() => {
@@ -222,18 +239,18 @@ export function GoogleRoutePicker({
           />
         </span></span>
       </label>
-      {!pickupOnly && <label className={`block min-w-0 ${connectedMobile ? "order-3 md:order-2 lg:border-l lg:border-slate-200" : "mt-3 lg:mt-0"}`}>
+      {(!pickupOnly || optionalDropoff) && <label className={`block min-w-0 ${connectedMobile ? "order-3 md:order-2 lg:border-l lg:border-slate-200" : "mt-3 lg:mt-0"}`}>
         <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none md:min-h-[80px] md:gap-4 md:px-5 lg:min-h-[64px] lg:gap-3 lg:rounded-none lg:border-0 lg:focus-within:ring-0" : "rounded-xl border border-slate-200 shadow-sm"}`}>
         <MapPin size={20} className="shrink-0 text-slate-950" aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          <span className={`block text-[13px]/[20px] font-normal text-slate-500 ${connectedMobile ? "md:text-[17px]/[24px] lg:text-[13px]/[20px]" : ""}`}>{t("route.to")}</span>
+          <span className={`block text-[13px]/[20px] font-normal text-slate-500 ${connectedMobile ? "md:text-[17px]/[24px] lg:text-[13px]/[20px]" : ""}`}>{optionalDropoff ? "Drop-off (optional)" : t("route.to")}</span>
           <input
             ref={dropoffRef}
-            required
+            required={!optionalDropoff}
             value={dropoff}
             onChange={(event) => onDropoffChange(event.target.value)}
             className={`${fieldClass} ${connectedMobile ? "md:mt-1 md:text-[19px] md:font-semibold lg:mt-0 lg:text-[15px]" : ""}`}
-            placeholder={t("route.dropoffPlaceholder")}
+            placeholder={optionalDropoff ? "Same as pickup if empty" : t("route.dropoffPlaceholder")}
             aria-label={t("route.dropoffLabel")}
             autoComplete="off"
           />

@@ -236,7 +236,7 @@ export async function POST(request: Request) {
       routePolyline: string | null;
       total: number;
     } | null = null;
-    let hourlyData: { id:string;pickupText:string;areaName:string;bookedHours:number;pricingVersion:number;basePrice:number;includedDistanceMeters:number;extraHourRate:number;extraDistanceRate:number;pickupLatitude:number|null;pickupLongitude:number|null } | null = null;
+    let hourlyData: { id:string;pickupText:string;areaName:string;bookedHours:number;pricingVersion:number;basePrice:number;includedDistanceMeters:number;extraHourRate:number;extraDistanceRate:number;pickupLatitude:number|null;pickupLongitude:number|null;dropoffText:string|null } | null = null;
     if (input.serviceType === "hourly") {
       const [quote] = await getDb().select().from(hourlyQuotes).where(eq(hourlyQuotes.id,input.hourlyQuoteId!)).limit(1);
       if (!quote || quote.bookedHours !== input.bookedHours || quote.departureDate !== input.pickupDate || quote.departureTime !== input.pickupTime || quote.timezone !== input.timezone) return NextResponse.json({code:"QUOTE_MISMATCH",error:"Your hourly booking details changed. Please calculate the price again.",field:"hourlyQuoteId",retryable:true},{status:409});
@@ -244,7 +244,7 @@ export async function POST(request: Request) {
       const price=prices[input.vehicle];
       if (!price || !Number.isInteger(price.total)) return NextResponse.json({error:"This vehicle is unavailable for hourly booking."},{status:409});
       total=price.total;
-      hourlyData={id:quote.id,pickupText:quote.pickupText,areaName:quote.areaName,bookedHours:quote.bookedHours,pricingVersion:quote.pricingVersion,basePrice:price.basePrice,includedDistanceMeters:price.includedDistanceMeters,extraHourRate:price.extraHourRate,extraDistanceRate:price.extraDistanceRate,pickupLatitude:quote.pickupLatitude,pickupLongitude:quote.pickupLongitude};
+      hourlyData={id:quote.id,pickupText:quote.pickupText,areaName:quote.areaName,bookedHours:quote.bookedHours,pricingVersion:quote.pricingVersion,basePrice:price.basePrice,includedDistanceMeters:price.includedDistanceMeters,extraHourRate:price.extraHourRate,extraDistanceRate:price.extraDistanceRate,pickupLatitude:quote.pickupLatitude,pickupLongitude:quote.pickupLongitude,dropoffText:quote.dropoffText};
     }
     if (input.serviceType !== "hourly") {
       const [quote] = await getDb()
@@ -436,7 +436,7 @@ export async function POST(request: Request) {
         customerEmail: input.customerEmail.trim().toLowerCase(),
         customerPhone: input.customerPhone.trim(),
         pickup: hourlyData?.pickupText ?? quoteData?.pickupText ?? input.pickup.trim(),
-        dropoff: input.serviceType === "hourly" ? "Flexible itinerary — hourly service" : quoteData?.dropoffText ?? input.dropoff.trim(),
+        dropoff: input.serviceType === "hourly" ? hourlyData?.dropoffText ?? "Flexible itinerary — hourly service" : quoteData?.dropoffText ?? input.dropoff.trim(),
         pickupDate: input.pickupDate,
         pickupTime: input.pickupTime,
         passengers: input.passengers,

@@ -25,6 +25,7 @@ type ConfirmationEmailInput = {
   retryId?: string;
   serviceType?: string;
   bookedHours?: number | null;
+  pricingArea?: string | null;
   returnPickup?: string | null;
   returnDropoff?: string | null;
   returnDate?: string | null;
@@ -132,7 +133,7 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
 <p style="margin:0 0 24px;color:#586579;font-size:16px;line-height:1.6">Your private transfer is confirmed. Keep this email and the attached PDF for your pickup.</p>
 
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-${detailRow("Service", input.serviceType === "hourly" ? `${input.bookedHours}-hour private driver` : "Private transfer")}
+${detailRow("Service", input.serviceType === "hourly" ? `${input.bookedHours}-hour private driver${input.pricingArea ? ` · ${input.pricingArea}` : ""}` : "Private transfer")}
 ${detailRow("Pickup", input.pickup)}
 ${detailRow("Drop-off", input.dropoff)}
 ${detailRow("Date & time", formattedDate)}
@@ -179,7 +180,7 @@ export async function sendOperationsAlert(booking: {
   reference: string; customerName: string; customerEmail: string; customerPhone: string; pickup: string; dropoff: string;
   pickupDate: string; pickupTime: string; passengers: number; luggage: number; vehicle: string; total: number; paymentMethod: string;
   returnPickup?: string | null; returnDropoff?: string | null; returnDate?: string | null; returnTime?: string | null;
-  serviceType?: string | null; bookedHours?: number | null; childSeats?: number | null; specialRequests?: string | null; flightNumber?: string | null;
+  serviceType?: string | null; bookedHours?: number | null; pricingArea?: string | null; childSeats?: number | null; specialRequests?: string | null; flightNumber?: string | null;
 }) {
   if (!env.BOOKING_ALERT_EMAIL) return { status: "pending_configuration" } as EmailDelivery;
   const payment = booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : booking.paymentMethod === "manual" ? "Paid" : "Paid online";
@@ -187,7 +188,7 @@ export async function sendOperationsAlert(booking: {
   // Same look as the customer's confirmation page: stacked label / value blocks.
   const field = (label: string, value: string) => `<tr><td style="padding:0 0 22px"><p style="margin:0 0 6px;color:#8793a6;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${escapeHtml(label)}</p><p style="margin:0;color:#211726;font-size:17px;font-weight:700;line-height:1.4">${escapeHtml(value)}</p></td></tr>`;
   const fields = [
-    field("Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : "Private transfer"),
+    field("Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver${booking.pricingArea ? ` · ${booking.pricingArea}` : ""}` : "Private transfer"),
     field("Passenger", booking.customerName), field("Email", booking.customerEmail), field("Phone / WhatsApp", booking.customerPhone),
     field("Pickup", booking.pickup), field("Drop-off", booking.dropoff),
     field("Date & time", `${booking.pickupDate} at ${booking.pickupTime}`),

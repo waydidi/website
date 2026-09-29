@@ -46,6 +46,10 @@ import { validateBookingReview, type ReviewFieldErrors } from "@/lib/booking-rev
 import { VEHICLES, smallestFittingVehicle, vehicleFits, type VehicleId } from "@/lib/vehicles";
 import { DateTimePicker } from "./date-time-picker";
 import { DurationPicker } from "./duration-picker";
+import { AreaPicker } from "./area-picker";
+import { HourlyAreaMap } from "./hourly-area-map";
+const shortPlaceName = (v: string) => v.split(",")[0]?.trim() || v;
+import { HOURLY_AREAS, type HourlyArea } from "@/lib/hourly-areas-data";
 import { BookingDetailsStep } from "./booking-details-step";
 import { SiteHeader } from "@/components/site-header";
 import { useCurrency } from "@/components/use-currency";
@@ -110,6 +114,8 @@ type HourlyQuote = {
   bookedHours: number;
   prices: Record<string, { total:number;basePrice:number;includedDistanceMeters:number;extraHourRate:number;extraDistanceRate:number }>;
   expiresAt: string;
+  pickup?: { lat: number; lng: number; text: string };
+  dropoff?: { lat: number; lng: number; text: string } | null;
 };
 type QuoteSummary = {
   currency: "THB";
@@ -261,6 +267,20 @@ export function BookingFlow({
   const [quoteSummary, setQuoteSummary] = useState<QuoteSummary | null>(null);
   const [hourlyQuote, setHourlyQuote] = useState<HourlyQuote | null>(null);
   const [pickupPlaceId, setPickupPlaceId] = useState("");
+  // By the hour: the city the driver works in, and an optional drop-off.
+  const [hourlyArea, setHourlyArea] = useState("");
+  const [hourlyDropoffId, setHourlyDropoffId] = useState("");
+  const [hourlyAreaSlugs, setHourlyAreaSlugs] = useState<string[] | null>(null);
+  useEffect(() => {
+    fetch("/api/hourly-areas").then((r) => r.ok ? r.json() : null).then((o: { areas?: string[] } | null) => setHourlyAreaSlugs(o?.areas ?? null)).catch(() => undefined);
+  }, []);
+  const hourlyAreas = useMemo(() => hourlyAreaSlugs ? hourlyAreaSlugs.map((slug) => HOURLY_AREAS.find((a) => a.slug === slug)).filter((a): a is HourlyArea => Boolean(a)) : HOURLY_AREAS, [hourlyAreaSlugs]);
+  const areaGeo = HOURLY_AREAS.find((a) => a.slug === hourlyArea) ?? null;
+  const areaBounds = useMemo(() => {
+    if (!areaGeo) return null;
+    const pts = areaGeo.polygons.flat();
+    return { south: Math.min(...pts.map((p) => p[0])), north: Math.max(...pts.map((p) => p[0])), west: Math.min(...pts.map((p) => p[1])), east: Math.max(...pts.map((p) => p[1])) };
+  }, [areaGeo]);
   const [routePrefill, setRoutePrefill] = useState<{ pickupPlaceId?: string; dropoffPlaceId?: string; nonce: number } | null>(null);
   const [savedPlaces, setSavedPlaces] = useState<{ id: string; label: string; placeId: string; address: string }[]>([]);
   const [signedIn, setSignedIn] = useState(false);
@@ -832,10 +852,12 @@ export function BookingFlow({
       return;
     }
     if (serviceType === "hourly" && !hourlyQuote) {
+      if (!hourlyArea) { setPricingMessage("Choose the area where your driver will be."); return; }
       if (!pickupPlaceId) { setPricingMessage(t("search.selectPickup")); return; }
+      if (booking.dropoff.trim() && !hourlyDropoffId) { setPricingMessage("Choose your drop-off from the suggestions, or leave it empty."); return; }
       try {
         setLoading(true); setPricingMessage("");
-        const response = await fetch("/api/hourly-quote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pickupPlaceId,bookedHours:booking.bookedHours,pickupDate:booking.date,pickupTime:booking.time,timezone:"Asia/Bangkok"})});
+        const response = await fetch("/api/hourly-quote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pickupPlaceId,areaSlug:hourlyArea,...(hourlyDropoffId&&booking.dropoff.trim()?{dropoffPlaceId:hourlyDropoffId}:{}),bookedHours:booking.bookedHours,pickupDate:booking.date,pickupTime:booking.time,timezone:"Asia/Bangkok"})});
         const result = await response.json() as HourlyQuote & {error?:string};
         if (!response.ok) { setPricingMessage(result.error??t("search.hourlyUnavailable")); return; }
         setHourlyQuote(result);
@@ -1137,13 +1159,13 @@ export function BookingFlow({
           : null;
 
   // The search box rows; reused by the "Edit" sheet on the results screen.
-  const searchCard = (compact: boolean) => (
-              <div className={compact ? "overflow-visible rounded-[22px] bg-white text-slate-950" : `mt-2.5 overflow-visible rounded-[22px] bg-white p-2.5 text-slate-950 shadow-xl shadow-slate-900/10 md:mt-0 md:grid md:grid-cols-2 md:gap-2 md:rounded-[16px] md:p-2 lg:grid lg:items-stretch lg:gap-0 lg:rounded-[14px] lg:p-2 ${serviceType === "hourly" ? "lg:grid-cols-[1.5fr_1.2fr_1fr_.9fr_auto]" : "lg:grid-cols-[1.1fr_1.1fr_2.5fr_.8fr_auto]"}`}>
-                <div className={`flex w-full flex-col gap-2 overflow-visible rounded-[18px] bg-white ${compact ? "" : "md:contents md:w-auto"}`}>
+  const searchCard = (compact: boolean) => {
+    // Passengers & bags; on "By the hour" it shares a row with the area.
+    const peopleButton = (inRow: boolean) => (
                 <button
                   type="button"
                   onClick={() => setPeopleOpen(true)}
-                  className={`order-1 flex min-h-14 w-full items-center justify-between rounded-[14px] border border-slate-200 bg-white px-4 py-2 text-left ${compact ? "" : "md:order-5 md:col-span-2 md:min-h-[80px] md:px-4 lg:order-4 lg:col-span-1 lg:min-h-[64px] lg:rounded-none lg:border-0 lg:border-l lg:px-5"}`}
+                  className={inRow ? `flex min-h-14 w-full min-w-0 items-center justify-between rounded-[14px] border border-slate-200 bg-white px-3.5 py-1.5 text-left ${compact ? "" : "md:min-h-[80px] md:px-4 lg:min-h-[64px] lg:rounded-none lg:border-0 lg:border-l lg:px-4"}` : `order-1 flex min-h-14 w-full items-center justify-between rounded-[14px] border border-slate-200 bg-white px-4 py-2 text-left ${compact ? "" : "md:order-5 md:col-span-2 md:min-h-[80px] md:px-4 lg:order-4 lg:col-span-1 lg:min-h-[64px] lg:rounded-none lg:border-0 lg:border-l lg:px-5"}`}
                   aria-expanded={peopleOpen}
                   aria-controls="passenger-luggage-sheet"
                   aria-label={t("hero.travellersLabel", { passengers: booking.passengers, bags: booking.luggage })}
@@ -1169,6 +1191,14 @@ export function BookingFlow({
                     aria-hidden="true"
                   />
                 </button>
+    );
+    return (
+              <div className={compact ? "overflow-visible rounded-[22px] bg-white text-slate-950" : `mt-2.5 overflow-visible rounded-[22px] bg-white p-2.5 text-slate-950 shadow-xl shadow-slate-900/10 md:mt-0 md:grid md:grid-cols-2 md:gap-2 md:rounded-[16px] md:p-2 lg:grid lg:items-stretch lg:gap-0 lg:rounded-[14px] lg:p-2 ${serviceType === "hourly" ? "lg:grid-cols-[1.5fr_1.1fr_1.1fr_1.8fr_auto]" : "lg:grid-cols-[1.1fr_1.1fr_2.5fr_.8fr_auto]"}`}>
+                <div className={`flex w-full flex-col gap-2 overflow-visible rounded-[18px] bg-white ${compact ? "" : "md:contents md:w-auto"}`}>
+                {serviceType === "hourly" ? <div className={`order-1 grid grid-cols-2 gap-2 ${compact ? "" : "md:order-5 md:col-span-2 lg:order-first lg:col-span-1 lg:gap-0"}`}>
+                  <AreaPicker areas={hourlyAreas} value={hourlyArea} onChange={(slug) => { setHourlyArea(slug); setHourlyQuote(null); setPricingMessage(""); }} className={`flex min-h-14 min-w-0 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-1.5 ${compact ? "" : "md:min-h-[80px] md:px-5 lg:min-h-[64px] lg:rounded-none lg:border-0 lg:px-4"}`} />
+                  {peopleButton(true)}
+                </div> : peopleButton(false)}
                 <GoogleRoutePicker
                   pickup={booking.pickup}
                   dropoff={booking.dropoff}
@@ -1180,18 +1210,22 @@ export function BookingFlow({
                   }}
                   onDropoffChange={(value) => {
                     change("dropoff", value);
+                    if (serviceType === "hourly") { setHourlyDropoffId(""); setHourlyQuote(null); }
                     setFareQuote(null);
                     setReturnFareQuote(null);
                     setQuoteSummary(null);
                   }}
                   onRouteChange={handleRouteChange}
                   pickupOnly={serviceType === "hourly"}
+                  optionalDropoff={serviceType === "hourly"}
+                  onDropoffPlaceChange={(id)=>{setHourlyDropoffId(id);setHourlyQuote(null);}}
+                  bounds={serviceType === "hourly" ? areaBounds : null}
                   onPickupPlaceChange={(id)=>{setPickupPlaceId(id);setHourlyQuote(null);}}
                   prefill={routePrefill}
                   connectedMobile
                 />
-                <div className={`order-4 grid min-h-14 ${serviceType === "transfer" ? "grid-cols-2" : "grid-cols-1"} overflow-hidden rounded-[14px] border border-slate-200 bg-white ${compact ? "" : `md:order-3 md:min-h-[80px] md:overflow-visible md:border-0 md:gap-2 ${serviceType === "transfer" ? "md:col-span-2" : ""} lg:order-3 lg:col-span-1 lg:min-h-[64px] lg:gap-0 lg:rounded-none lg:border-l lg:border-slate-200`}`}>
-                  <div className={`relative flex min-w-0 items-center ${serviceType === "transfer" ? "border-r border-slate-200" : ""} ${compact ? "" : "md:rounded-[14px] md:border md:border-slate-200 lg:rounded-none lg:border-0 lg:border-r"}`}>
+                <div className={`order-4 grid min-h-14 grid-cols-2 overflow-hidden rounded-[14px] border border-slate-200 bg-white ${compact ? "" : `md:order-3 md:min-h-[80px] md:overflow-visible md:border-0 md:gap-2 md:col-span-2 lg:order-3 lg:col-span-1 lg:min-h-[64px] lg:gap-0 lg:rounded-none lg:border-l lg:border-slate-200`}`}>
+                  <div className={`relative flex min-w-0 items-center border-r border-slate-200 ${compact ? "" : "md:rounded-[14px] md:border md:border-slate-200 lg:rounded-none lg:border-0 lg:border-r"}`}>
                     <button
                       type="button"
                       onClick={() => setDateOpen(true)}
@@ -1276,9 +1310,10 @@ export function BookingFlow({
                       </button>
                     )}
                     </div>
-                  ) : null}
+                  ) : (
+                    <DurationPicker value={booking.bookedHours} options={Array.from({length:10},(_,i)=>i+1)} label={t("hero.duration")} format={(hours)=>t("hero.hours", { count: hours })} onChange={(hours)=>{change("bookedHours",hours);setHourlyQuote(null);}} className={`flex h-full min-w-0 items-center gap-2.5 px-3 text-left sm:px-3.5 ${compact ? "" : "md:gap-3 md:rounded-[14px] md:border md:border-slate-200 md:px-5 lg:rounded-none lg:border-0"}`} />
+                  )}
                 </div>
-                {serviceType === "hourly" && <DurationPicker value={booking.bookedHours} options={Array.from({length:10},(_,i)=>i+3)} label={t("hero.duration")} format={(hours)=>t("hero.hours", { count: hours })} onChange={(hours)=>{change("bookedHours",hours);setHourlyQuote(null);}} className="order-5 flex h-14 w-full items-center gap-3 rounded-[14px] border border-slate-200 bg-white px-4 md:order-4 md:h-[80px] md:gap-4 md:px-5 lg:order-3 lg:mt-0 lg:h-[64px] lg:gap-3 lg:rounded-none lg:border-0 lg:border-l" />}
                 </div>
                 <div className="mt-2.5 flex items-center md:order-6 md:col-span-2 md:mt-0 lg:order-5 lg:col-span-1 lg:pl-2">
                   <button
@@ -1290,6 +1325,7 @@ export function BookingFlow({
                 </div>
               </div>
   );
+  };
 
   return (
     <I18nProvider locale={locale} messages={messages}>
@@ -1377,7 +1413,7 @@ export function BookingFlow({
                 <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
                   <CarFront className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("hero.transfer")}
                 </button>
-                <button onClick={()=>{setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
+                <button onClick={()=>{if(serviceType!=="hourly"){change("dropoff","");setHourlyDropoffId("");}setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
                   <Clock3 className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("hero.hourly")}
                 </button>
               </div>
@@ -1666,24 +1702,23 @@ export function BookingFlow({
                 </p>
               </div>
             )}
-            {hourlyQuote && (
-              <dl className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
-                <div className="min-w-0 rounded-2xl bg-brand-soft p-3 sm:p-4">
-                  <dt className="text-[11px] font-bold uppercase tracking-[.08em] text-slate-500 sm:text-xs">Duration</dt>
-                  <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">{hourlyQuote.bookedHours} hours</dd>
-                </div>
+            {hourlyQuote && (() => { const geo = HOURLY_AREAS.find((a) => a.slug === hourlyQuote.area.id); return <>
+              {geo && <div className="mt-5"><HourlyAreaMap area={geo} pickup={hourlyQuote.pickup ?? null} dropoff={hourlyQuote.dropoff ?? null} /></div>}
+              <dl className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
                 <div className="min-w-0 rounded-2xl bg-brand-soft p-3 sm:p-4">
                   <dt className="text-[11px] font-bold uppercase tracking-[.08em] text-slate-500 sm:text-xs">Area</dt>
                   <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">{hourlyQuote.area.name}</dd>
                 </div>
                 <div className="min-w-0 rounded-2xl bg-brand-soft p-3 sm:p-4">
-                  <dt className="text-[11px] font-bold uppercase tracking-[.08em] text-slate-500 sm:text-xs">Included</dt>
-                  <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">
-                    {Math.round((hourlyQuote.prices.economy_sedan?.includedDistanceMeters ?? 0) / 1000)} km
-                  </dd>
+                  <dt className="text-[11px] font-bold uppercase tracking-[.08em] text-slate-500 sm:text-xs">Duration</dt>
+                  <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">{hourlyQuote.bookedHours} {hourlyQuote.bookedHours === 1 ? "hour" : "hours"}</dd>
+                </div>
+                <div className="min-w-0 rounded-2xl bg-brand-soft p-3 sm:p-4">
+                  <dt className="text-[11px] font-bold uppercase tracking-[.08em] text-slate-500 sm:text-xs">Drop-off</dt>
+                  <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">{hourlyQuote.dropoff ? shortPlaceName(hourlyQuote.dropoff.text) : "Same as pickup"}</dd>
                 </div>
               </dl>
-            )}
+            </>; })()}
             <h2 className="mt-8 text-sm font-black uppercase tracking-[.12em] text-ink">Choose your ride</h2>
             <div className="mt-3 space-y-3">
               {pricedVehicles.map((item) => (
@@ -1868,7 +1903,7 @@ export function BookingFlow({
             <div className="mt-8 space-y-4">
               <ReviewSection title="Journey" onEdit={() => goToStage("search")} editLabel="Edit journey">
                 <ReviewDetail label="Pickup" value={booking.pickup} />
-                <ReviewDetail label="Destination" value={serviceType === "hourly" ? "Flexible hourly itinerary" : booking.dropoff} />
+                <ReviewDetail label="Destination" value={serviceType === "hourly" ? (booking.dropoff.trim() && hourlyDropoffId ? booking.dropoff : "Same as pickup") : booking.dropoff} />
                 <ReviewDetail label="Departure" value={`${formatDate(booking.date)} · ${formatTimeLabel(booking.time)} · Thailand time`} />
                 {returnTrip && <ReviewDetail label="Return" value={`${formatDate(returnDate)} · ${formatTimeLabel(returnTime)} · Thailand time`} />}
                 <ReviewDetail label="Travelers" value={`${booking.passengers} passengers · ${booking.luggage} luggage`} />
@@ -1876,7 +1911,7 @@ export function BookingFlow({
 
               <ReviewSection title="Ride" onEdit={() => goToStage("vehicle")} editLabel="Edit vehicle">
                 <ReviewDetail label="Vehicle" value={chosenVehicle.name} />
-                <ReviewDetail label="Service" value={serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : returnTrip ? "Round trip private transfer" : "One-way private transfer"} />
+                <ReviewDetail label="Service" value={serviceType === "hourly" ? `${booking.bookedHours}-hour private driver${hourlyQuote ? ` · ${hourlyQuote.area.name}` : ""}` : returnTrip ? "Round trip private transfer" : "One-way private transfer"} />
                 {serviceType === "transfer" && fareQuote?.inclusions && (() => {
                   const lines = inclusionLines(fareQuote.inclusions, locale);
                   return <ReviewDetail label="Tolls" value={lines.included.length ? lines.included.join(" · ") : `Not included: ${lines.excluded.join(", ")}`} />;

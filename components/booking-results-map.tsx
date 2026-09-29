@@ -84,7 +84,7 @@ type Props = {
   onExtrasChange?: (extras: { childSeats: number; exchangeStop: boolean; ferryHotelPeople: number }) => void;
 };
 
-function shortPlace(value: string) {
+export function shortPlace(value: string) {
   return value.split(",")[0]?.trim() || value;
 }
 
@@ -139,8 +139,8 @@ function grabMarker(name: string, color: string, side: "right" | "left") {
     : `<div style="position:absolute;right:0;top:${tagTop}px">${placeTag(name, "left")}</div>`;
   return `<div style="position:relative;width:0;height:0">${tag}<div style="position:absolute;left:-16px;top:-39px">${teardrop(color)}</div></div>`;
 }
-const grabPickup = (name: string) => grabMarker(name, "#E8543C", "right");
-const grabDropoff = (name: string) => grabMarker(name, "#3478F6", "left");
+export const grabPickup = (name: string) => grabMarker(name, "#E8543C", "right");
+export const grabDropoff = (name: string) => grabMarker(name, "#3478F6", "left");
 
 // Time/distance bubble beside the line: to the right of a mostly vertical
 // stretch, above a mostly horizontal one, never on top of the route.
@@ -242,7 +242,7 @@ const VEHICLE_MODELS: Record<string, string> = {
 };
 
 let leafletPromise: Promise<void> | null = null;
-function loadLeaflet() {
+export function loadLeaflet() {
   leafletPromise ??= new Promise<void>((resolve, reject) => {
     if ((window as any).L) return resolve();
     const css = document.createElement("link");

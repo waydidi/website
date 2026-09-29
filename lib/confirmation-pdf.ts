@@ -9,7 +9,7 @@ type Confirmation = {
   customerPhone: string; flightNumber: string | null; pickupSign: string | null;
   pickupInstructions: string | null; childSeats: number; oversizedLuggage: boolean;
   specialRequests: string | null; paymentMethod?: string;
-  serviceType?: string; bookedHours?: number | null; includedDistanceMeters?: number | null; extraHourRate?: number | null; extraDistanceRate?: number | null;
+  serviceType?: string; bookedHours?: number | null; pricingArea?: string | null; includedDistanceMeters?: number | null; extraHourRate?: number | null; extraDistanceRate?: number | null;
   returnPickup?: string | null; returnDropoff?: string | null; returnDate?: string | null; returnTime?: string | null;
 };
 
@@ -47,7 +47,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   page.drawText(booking.reference, { x: 549 - regular.widthOfTextAtSize(booking.reference, 10), y: 743.5, size: 10, font: regular, color: rgb(1, 1, 1) });
 
   const fields = [
-    ["Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver` : "Private transfer"],
+    ["Service", booking.serviceType === "hourly" ? `${booking.bookedHours}-hour private driver${booking.pricingArea ? ` · ${booking.pricingArea}` : ""}` : "Private transfer"],
     ["Lead passenger", booking.customerName],
     ["Date & time", `${booking.pickupDate} at ${booking.pickupTime}`],
     ["WhatsApp", booking.customerPhone],

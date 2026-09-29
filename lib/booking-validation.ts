@@ -31,7 +31,10 @@ export const fareQuoteInputSchema = z.object({
 
 export const hourlyQuoteInputSchema = z.object({
   pickupPlaceId: placeIdSchema,
-  bookedHours: z.number().int().min(3).max(12),
+  // City chosen for the hourly service (lib/hourly-areas-data.ts) and optional drop-off.
+  areaSlug: z.string().regex(/^[a-z0-9-]{2,40}$/).optional(),
+  dropoffPlaceId: placeIdSchema.optional(),
+  bookedHours: z.number().int().min(1).max(12),
   pickupDate: bookingDateSchema,
   pickupTime: bookingTimeSchema,
   timezone: timezoneSchema,
