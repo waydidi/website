@@ -17,7 +17,7 @@ export function HomeFaq() {
   const items = Array.from({ length: count }, (_, i) => ({ q: t(`faq.${tab}.${i + 1}.q` as MessageKey), a: t(`faq.${tab}.${i + 1}.a` as MessageKey) }));
 
   return <section aria-labelledby="home-faq-heading" className="font-home bg-white py-10 sm:py-14">
-    <h2 id="home-faq-heading" className="mx-auto max-w-[760px] px-5 text-left text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C]">{t("faq.title")}</h2>
+    <h2 id="home-faq-heading" className="mx-auto max-w-[760px] px-5 text-center text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C]">{t("faq.title")}</h2>
     <div role="tablist" aria-label="FAQ topics" className="mx-auto mt-6 flex max-w-[760px] gap-2 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {TABS.map(([id]) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => { setTab(id); setOpen(null); }}
         className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[15px] font-semibold transition ${tab === id ? "bg-brand text-white" : "text-[#8A8A8A] hover:text-[#1C1C1C]"}`}>{t(`faq.tab.${id}` as MessageKey)}</button>)}
