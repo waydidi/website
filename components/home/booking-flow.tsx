@@ -1157,7 +1157,22 @@ export function BookingFlow({
   }, [returnToTripEdit, peopleOpen, dateOpen]);
 
   // The transfer results screen has its own full-screen layout and Book bar.
-  const mapView = stage === "vehicle" && serviceType === "transfer" && (!quoteRequest || demoRoute);
+  // By the hour: the same screen shows the chosen area with pickup/drop-off pins.
+  const hourlyMap = useMemo(() => {
+    if (serviceType !== "hourly" || !hourlyQuote) return null;
+    const geo = HOURLY_AREAS.find((a) => a.slug === hourlyQuote.area.id);
+    if (!geo) return null;
+    // Without Google, known sample places still get a pin.
+    const typedPickup = /suvarnabhumi|\bbkk\b/i.test(booking.pickup) ? { lat: DEMO_PICKUP.latitude, lng: DEMO_PICKUP.longitude } : null;
+    const demoDrop = booking.dropoff.trim() ? demoTripFor("Suvarnabhumi", booking.dropoff) : null;
+    return {
+      name: geo.name,
+      polygons: geo.polygons,
+      pickup: hourlyQuote.pickup ? { lat: hourlyQuote.pickup.lat, lng: hourlyQuote.pickup.lng } : typedPickup,
+      dropoff: hourlyQuote.dropoff ? { lat: hourlyQuote.dropoff.lat, lng: hourlyQuote.dropoff.lng } : demoDrop ? { lat: demoDrop.dropoff.latitude, lng: demoDrop.dropoff.longitude } : null,
+    };
+  }, [serviceType, hourlyQuote, booking.pickup, booking.dropoff]);
+  const mapView = stage === "vehicle" && ((serviceType === "transfer" && (!quoteRequest || demoRoute)) || Boolean(hourlyMap));
   const priceBar =
     mapView ? null : stage === "vehicle"
       ? {
@@ -1677,18 +1692,19 @@ export function BookingFlow({
       {/* Keyed by stage so each step fades in rather than swapping abruptly. */}
       <div key={stage} className="animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
       {stage === "vehicle" && (
-        serviceType === "transfer" && (!quoteRequest || demoRoute) ? <BookingResultsMap
+        (serviceType === "transfer" && (!quoteRequest || demoRoute)) || hourlyMap ? <BookingResultsMap
+          area={hourlyMap}
           pickup={booking.pickup}
-          dropoff={booking.dropoff}
+          dropoff={hourlyMap ? (booking.dropoff.trim() || booking.pickup) : booking.dropoff}
           date={booking.date}
           time={booking.time}
           vehicles={pricedVehicles}
           selectedVehicle={vehicle}
-          quote={fareQuote}
-          returnQuote={returnFareQuote}
+          quote={hourlyMap ? null : fareQuote}
+          returnQuote={hourlyMap ? null : returnFareQuote}
           returnDate={returnDate}
           returnTime={returnTime}
-          returnTrip={returnTrip}
+          returnTrip={hourlyMap ? false : returnTrip}
           priceBreakdown={quoteSummary?.prices}
           checkoutReady={!returnTrip || Boolean(returnFareQuote && quoteSummary)}
           loading={routeLoading}

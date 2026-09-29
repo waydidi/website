@@ -47,6 +47,8 @@ export type Vehicle = {
 };
 
 type Props = {
+  /** By the hour: draw this area and pins instead of a route. */
+  area?: { name: string; polygons: [number, number][][]; pickup?: { lat: number; lng: number } | null; dropoff?: { lat: number; lng: number } | null } | null;
   pickup: string;
   dropoff: string;
   date: string;
@@ -425,6 +427,49 @@ export function BookingResultsMap(props: Props) {
     return () => { fitRef.current = null; map.remove(); };
   }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
 
+  // By the hour: the chosen area's border (orange, 70% line, light tint) with the
+  // pickup pin, and the drop-off pin only when it is a different place.
+  const area = props.area;
+  useEffect(() => {
+    if (!area || (!mapReady && !leafletReady) || !mapRef.current) return;
+    const pickup = area.pickup ?? null;
+    const dropoff = area.dropoff && (!pickup || Math.hypot(area.dropoff.lat - pickup.lat, area.dropoff.lng - pickup.lng) > 0.001) ? area.dropoff : null;
+    if (mapReady && window.google?.maps) {
+      const maps = window.google.maps;
+      const map = new maps.Map(mapRef.current, { disableDefaultUI: true, clickableIcons: false, gestureHandling: "greedy", styles: GREY_MAP });
+      const shapes = area.polygons.map((ring) => new maps.Polygon({ map, paths: ring.map(([lat, lng]) => ({ lat, lng })), strokeColor: "#FF8A05", strokeOpacity: 0.7, strokeWeight: 3, fillColor: "#FF8A05", fillOpacity: 0.12, clickable: false }));
+      const overlays = [
+        ...(dropoff ? [htmlOverlay(maps, map, new maps.LatLng(dropoff), grabDropoff(shortPlace(props.dropoff)), "point")] : []),
+        ...(pickup ? [htmlOverlay(maps, map, new maps.LatLng(pickup), grabPickup(shortPlace(props.pickup)), "point")] : []),
+      ];
+      const bounds = new maps.LatLngBounds();
+      area.polygons.flat().forEach(([lat, lng]) => bounds.extend({ lat, lng }));
+      if (pickup) bounds.extend(pickup);
+      if (dropoff) bounds.extend(dropoff);
+      fitRef.current = (bottom) => map.fitBounds(bounds, { top: mapTopPadding(expandedRef.current), right: 40, bottom, left: 40 });
+      fitRef.current(mapBottomPadding(expandedRef.current));
+      return () => { fitRef.current = null; overlays.forEach((o) => o.setMap(null)); shapes.forEach((s) => s.setMap(null)); };
+    }
+    const L = (window as any).L;
+    if (!L) return;
+    const map = L.map(mapRef.current, { zoomControl: false, attributionControl: true });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap · Boundaries: geoBoundaries" }).addTo(map);
+    const tiles = map.getPane("tilePane");
+    if (tiles) tiles.style.filter = "saturate(.35) brightness(1.08) contrast(.9)";
+    const shape = L.polygon(area.polygons, { color: "#FF8A05", opacity: 0.7, weight: 3, fillColor: "#FF8A05", fillOpacity: 0.12, lineJoin: "round", interactive: false }).addTo(map);
+    const icon = (html: string) => L.divIcon({ className: "", html, iconSize: [0, 0] });
+    const bounds = shape.getBounds();
+    if (dropoff) { L.marker([dropoff.lat, dropoff.lng], { icon: icon(grabDropoff(shortPlace(props.dropoff))), interactive: false, zIndexOffset: 500 }).addTo(map); bounds.extend([dropoff.lat, dropoff.lng]); }
+    if (pickup) { L.marker([pickup.lat, pickup.lng], { icon: icon(grabPickup(shortPlace(props.pickup))), interactive: false, zIndexOffset: 1000 }).addTo(map); bounds.extend([pickup.lat, pickup.lng]); }
+    let first = true;
+    fitRef.current = (bottom) => {
+      const options = { paddingTopLeft: [40, mapTopPadding(expandedRef.current)], paddingBottomRight: [40, bottom] };
+      if (first) { map.fitBounds(bounds, options); first = false; } else map.flyToBounds(bounds, { ...options, duration: 0.45, easeLinearity: 0.3 });
+    };
+    fitRef.current(mapBottomPadding(expandedRef.current));
+    return () => { fitRef.current = null; map.remove(); };
+  }, [area, mapReady, leafletReady, props.pickup, props.dropoff]);
+
   // Bottom sheet, phone only: collapsed (map 70%) or expanded. The sheet is
   // moved with transform alone, written straight to the DOM while the finger
   // moves (no React re-render per frame), then springs to the nearest stop.
@@ -541,13 +586,15 @@ export function BookingResultsMap(props: Props) {
     return () => { [html.style.overflow, body.style.overflow, html.style.overscrollBehavior] = previous; };
   }, []);
 
-  const disabled = !props.quote || props.loading || !selected || selected.fits === false || props.checkoutReady === false;
+  // Priced and ready to show: a route quote, or (by the hour) the area.
+  const ready = Boolean(props.quote || props.area);
+  const disabled = !ready || props.loading || !selected || selected.fits === false || props.checkoutReady === false;
 
   return <section className="fixed inset-0 z-30 overflow-hidden overscroll-none bg-white lg:relative lg:inset-auto lg:z-auto lg:h-[100svh]" aria-live="polite">
     {/* Map */}
     <div className="absolute inset-x-0 top-0 h-[70svh] lg:inset-y-0 lg:left-[460px] lg:right-0 lg:h-auto">
       <div ref={mapRef} className="absolute inset-0 isolate z-0 bg-[#EDEDED]" aria-label={`Route map from ${props.pickup} to ${props.dropoff}`} />
-      {!props.quote && !props.error && <div className="absolute inset-0 grid place-items-center bg-[#EDEDED]">
+      {!ready && !props.error && <div className="absolute inset-0 grid place-items-center bg-[#EDEDED]">
         <div className="rounded-2xl bg-white/95 px-6 py-5 text-center shadow-xl">
           <span className="mx-auto block size-8 animate-spin rounded-full border-4 border-brand border-r-transparent motion-reduce:animate-none" />
           <p className="mt-3 font-medium text-ink">Calculating your route…</p>
@@ -584,7 +631,7 @@ export function BookingResultsMap(props: Props) {
         <ul className="grid gap-3 pt-2.5">
           {props.vehicles.map((item) => {
             const active = item.id === selected?.id;
-            const off = !props.quote || item.fits === false;
+            const off = !ready || item.fits === false;
             const badge = item.fits === false ? null : item.id === cheapest?.id ? "best" : item.popular ? "popular" : null;
             return <li key={item.id}>
               <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`relative grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-[15px] text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-[#FF8A05] bg-white" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
@@ -620,7 +667,7 @@ export function BookingResultsMap(props: Props) {
         </ul>
 
         {/* Free cancellation up to 24 hours before pickup (Transfeero style). */}
-        {props.quote && (cancelDeadlineAt(props.date, props.time) > Date.now() ? <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
+        {ready && (cancelDeadlineAt(props.date, props.time) > Date.now() ? <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
           <CancelCalendar3D size={56} className="shrink-0" />
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-[#17563A]">FREE Cancellation 24H</p>
@@ -747,7 +794,7 @@ export function BookingResultsMap(props: Props) {
               <DialogPrimitive.Close className="h-12 rounded-full border border-[#D9D9D9] text-[16px] font-medium">Close</DialogPrimitive.Close>
               <button
                 type="button"
-                disabled={!props.quote || info.fits === false || props.checkoutReady === false}
+                disabled={!ready || info.fits === false || props.checkoutReady === false}
                 onClick={() => { const id = info.id; setInfoId(null); props.onSelectVehicle(id); props.onContinue(); }}
                 className="h-12 rounded-full bg-brand text-[16px] font-semibold text-white disabled:opacity-50"
               >
