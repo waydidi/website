@@ -116,6 +116,7 @@ type HourlyQuote = {
   expiresAt: string;
   pickup?: { lat: number; lng: number; text: string };
   dropoff?: { lat: number; lng: number; text: string } | null;
+  cityToCity?: boolean;
 };
 type QuoteSummary = {
   currency: "THB";
@@ -860,6 +861,8 @@ export function BookingFlow({
         const response = await fetch("/api/hourly-quote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pickupPlaceId,areaSlug:hourlyArea,...(hourlyDropoffId&&booking.dropoff.trim()?{dropoffPlaceId:hourlyDropoffId}:{}),bookedHours:booking.bookedHours,pickupDate:booking.date,pickupTime:booking.time,timezone:"Asia/Bangkok"})});
         const result = await response.json() as HourlyQuote & {error?:string};
         if (!response.ok) { setPricingMessage(result.error??t("search.hourlyUnavailable")); return; }
+        // City-to-city trips start at 6 hours; the quote may raise the duration.
+        setBooking((current) => ({ ...current, bookedHours: result.bookedHours }));
         setHourlyQuote(result);
       } catch { setPricingMessage(t("search.hourlyTempUnavailable")); return; }
       finally { setLoading(false); }
@@ -1706,7 +1709,7 @@ export function BookingFlow({
               {geo && <div className="mt-5"><HourlyAreaMap area={geo} pickup={hourlyQuote.pickup ?? null} dropoff={hourlyQuote.dropoff ?? null} /></div>}
               <dl className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
                 <div className="min-w-0 rounded-2xl bg-brand-soft p-3 sm:p-4">
-                  <dt className="text-[11px] font-bold uppercase tracking-[.08em] text-slate-500 sm:text-xs">Area</dt>
+                  <dt className="text-[11px] font-bold uppercase tracking-[.08em] text-slate-500 sm:text-xs">{hourlyQuote.cityToCity ? "City-to-city" : "Area"}</dt>
                   <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">{hourlyQuote.area.name}</dd>
                 </div>
                 <div className="min-w-0 rounded-2xl bg-brand-soft p-3 sm:p-4">
@@ -1718,6 +1721,7 @@ export function BookingFlow({
                   <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">{hourlyQuote.dropoff ? shortPlaceName(hourlyQuote.dropoff.text) : "Same as pickup"}</dd>
                 </div>
               </dl>
+              {hourlyQuote.cityToCity && <p className="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm text-ink">Your pickup or drop-off is outside {hourlyQuote.area.name}, so this is a city-to-city trip. City-to-city trips start at 6 hours.</p>}
             </>; })()}
             <h2 className="mt-8 text-sm font-black uppercase tracking-[.12em] text-ink">Choose your ride</h2>
             <div className="mt-3 space-y-3">

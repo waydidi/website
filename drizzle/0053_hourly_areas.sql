@@ -16,3 +16,9 @@ CREATE INDEX IF NOT EXISTS `idx_hourly_area_rates_area` ON `hourly_area_rates` (
 ALTER TABLE `hourly_quotes` ADD `dropoff_text` text;--> statement-breakpoint
 ALTER TABLE `hourly_quotes` ADD `dropoff_latitude` real;--> statement-breakpoint
 ALTER TABLE `hourly_quotes` ADD `dropoff_longitude` real;
+--> statement-breakpoint
+ALTER TABLE `hourly_area_rates` ADD `c6` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE `hourly_area_rates` ADD `c7` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE `hourly_area_rates` ADD `c8` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE `hourly_area_rates` ADD `c9` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE `hourly_area_rates` ADD `c10` integer DEFAULT 0 NOT NULL;

@@ -7,6 +7,7 @@ import type { AreaRate, AreaSetting } from "@/lib/hourly-area-pricing";
 import type { PricingVehicleId } from "@/lib/pricing";
 
 const CARS: [PricingVehicleId, string][] = [["economy_sedan", "Economy sedan"], ["comfort_bmw", "Comfort BMW"], ["comfort_suv", "Comfort SUV"], ["premium_minivan", "Premium Minivan"]];
+const CITY_COLS: [keyof AreaRate, string][] = [["c6", "6 hours"], ["c7", "7 hours"], ["c8", "8 hours"], ["c9", "9 hours"], ["c10", "10 hours"]];
 const COLS: [keyof AreaRate, string][] = [["hourlyRate", "Per hour (1–3 h)"], ["p4", "4 hours"], ["p5", "5 hours"], ["p6", "6 hours"], ["p8", "7–8 hours"], ["p10", "9–10 hours"]];
 
 // Small outline of a city's border, drawn from its lat/lng rings.
@@ -71,7 +72,18 @@ export default function HourlyWorkspace() {
             </tr>; })}</tbody>
           </table>
         </div>
-        <p className="mt-3 text-[12px] text-slate-500">Prices in THB. Under 4 hours the customer pays the hourly rate × hours; from 4 hours the package price applies. Pickups or drop-offs outside the border use the same prices.</p>
+        <p className="mt-3 text-[12px] text-slate-500">Prices in THB. Under 4 hours the customer pays the hourly rate × hours; from 4 hours the package price applies.</p>
+        <h3 className="mt-6 text-[15px] font-bold">City-to-city</h3>
+        <p className="text-[12px] text-slate-500">When the pickup or drop-off is outside the border. Always at least 6 hours.</p>
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full min-w-[560px] text-[13px]">
+            <thead><tr className="text-left text-slate-500"><th className="py-2 pr-3 font-medium">Car</th>{CITY_COLS.map(([, l]) => <th key={l} className="px-1.5 py-2 text-right font-medium">{l}</th>)}</tr></thead>
+            <tbody>{CARS.map(([id, label]) => { const r = current.rates[id]; return <tr key={id} className="border-t border-slate-100">
+              <td className="py-2 pr-3 font-medium">{label}</td>
+              {CITY_COLS.map(([k]) => <td key={k} className="px-1.5 py-2"><input type="number" min={0} inputMode="numeric" aria-label={`${label} city-to-city ${k}`} className={input} value={r[k] as number} onChange={(e) => edit((a) => { (a.rates[id] as Record<string, unknown>)[k] = Math.max(0, Math.round(Number(e.target.value) || 0)); return a; })} /></td>)}
+            </tr>; })}</tbody>
+          </table>
+        </div>
         <div className="mt-4 flex items-center gap-3">
           <button type="button" onClick={() => void save()} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#FF8A05] px-6 font-semibold text-white disabled:opacity-60">{busy ? <LoaderCircle size={16} className="animate-spin" /> : <Check size={16} />}Save {geo.name}</button>
           {note && <span className={`text-[14px] font-medium ${note === "Saved" ? "text-emerald-700" : "text-red-600"}`}>{note}</span>}

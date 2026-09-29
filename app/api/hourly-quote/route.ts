@@ -4,7 +4,8 @@ import { getDb } from "@/db";
 import { hourlyQuotes } from "@/db/schema";
 import { hourlyQuoteInputSchema, validationError } from "@/lib/booking-validation";
 import { hourlyPrices } from "@/lib/hourly-pricing";
-import { areaHourlyPrices, HOURLY_MAX_HOURS } from "@/lib/hourly-area-pricing";
+import { areaHourlyPrices, CITY_TO_CITY_MIN_HOURS, HOURLY_MAX_HOURS } from "@/lib/hourly-area-pricing";
+import { pointInPolygon } from "@/lib/geo";
 import { HOURLY_AREAS } from "@/lib/hourly-areas-data";
 import { matchPublishedArea } from "@/lib/pricing";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
@@ -31,11 +32,16 @@ export async function POST(request: Request) {
     if (input.areaSlug) {
       const city = HOURLY_AREAS.find((a) => a.slug === input.areaSlug);
       if (input.bookedHours > HOURLY_MAX_HOURS || !city) return NextResponse.json({error:"Choose an area and up to 10 hours."},{status:400});
-      const prices = await areaHourlyPrices(city.slug, input.bookedHours);
+      // City-to-city: pickup or drop-off outside the border; always at least 6 hours.
+      const inside = (p: {latitude:number;longitude:number}) => city.polygons.some((ring) => pointInPolygon({lat:p.latitude,lng:p.longitude}, ring.map(([lat,lng]) => ({lat,lng}))));
+      const cityToCity = !inside(place.location) || Boolean(dropoff && !inside(dropoff.location));
+      const hours = cityToCity ? Math.max(CITY_TO_CITY_MIN_HOURS, input.bookedHours) : input.bookedHours;
+      input.bookedHours = hours;
+      const prices = await areaHourlyPrices(city.slug, hours, cityToCity);
       if (!prices || !Object.keys(prices).length) return NextResponse.json({error:`Hourly service in ${city.name} isn't available right now.`},{status:409});
       const id=crypto.randomUUID(), expiresAt="9999-12-31T23:59:59.999Z";
-      await getDb().insert(hourlyQuotes).values({id,pickupPlaceId:place.id,pickupText:place.formattedAddress??"Pickup",pickupLatitude:place.location.latitude,pickupLongitude:place.location.longitude,areaId:city.slug,areaName:city.name,bookedHours:input.bookedHours,dropoffText:dropoff?.formattedAddress??null,dropoffLatitude:dropoff?.location.latitude??null,dropoffLongitude:dropoff?.location.longitude??null,vehiclePricesJson:JSON.stringify(prices),pricingVersion:1,departureDate:input.pickupDate,departureTime:input.pickupTime,timezone:input.timezone,expiresAt,createdAt:new Date().toISOString()});
-      return NextResponse.json({quoteId:id,area:{id:city.slug,name:city.name,color:"#FF8A05"},bookedHours:input.bookedHours,prices,expiresAt,
+      await getDb().insert(hourlyQuotes).values({id,pickupPlaceId:place.id,pickupText:place.formattedAddress??"Pickup",pickupLatitude:place.location.latitude,pickupLongitude:place.location.longitude,areaId:city.slug,areaName:cityToCity?`${city.name} (city-to-city)`:city.name,bookedHours:input.bookedHours,dropoffText:dropoff?.formattedAddress??null,dropoffLatitude:dropoff?.location.latitude??null,dropoffLongitude:dropoff?.location.longitude??null,vehiclePricesJson:JSON.stringify(prices),pricingVersion:1,departureDate:input.pickupDate,departureTime:input.pickupTime,timezone:input.timezone,expiresAt,createdAt:new Date().toISOString()});
+      return NextResponse.json({quoteId:id,area:{id:city.slug,name:city.name,color:"#FF8A05"},bookedHours:input.bookedHours,cityToCity,prices,expiresAt,
         pickup:{lat:place.location.latitude,lng:place.location.longitude,text:place.formattedAddress??"Pickup"},
         dropoff:dropoff?{lat:dropoff.location.latitude,lng:dropoff.location.longitude,text:dropoff.formattedAddress??"Drop-off"}:null});
     }
