@@ -6,6 +6,7 @@ import { hourlyQuoteInputSchema, validationError } from "@/lib/booking-validatio
 import { hourlyPrices } from "@/lib/hourly-pricing";
 import { areaHourlyPrices, CITY_TO_CITY_MIN_HOURS, HOURLY_MAX_HOURS } from "@/lib/hourly-area-pricing";
 import { pointInPolygon } from "@/lib/geo";
+import { typedCityToCity } from "@/lib/hourly-area-match";
 import { HOURLY_AREAS } from "@/lib/hourly-areas-data";
 import { matchPublishedArea } from "@/lib/pricing";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
@@ -23,12 +24,15 @@ export async function POST(request: Request) {
     const city = HOURLY_AREAS.find((a) => a.slug === input.areaSlug);
     if (!city || !input.pickupText || input.bookedHours > HOURLY_MAX_HOURS) return NextResponse.json({error:"Choose an area, a pickup and up to 10 hours."},{status:400});
     try {
-      const prices = await areaHourlyPrices(city.slug, input.bookedHours);
+      // City-to-city from the typed addresses (e.g. area Pattaya, pickup Suvarnabhumi): 6 hours minimum.
+      const cityToCity = typedCityToCity(city.slug, input.pickupText, input.dropoffText);
+      if (cityToCity) input.bookedHours = Math.max(CITY_TO_CITY_MIN_HOURS, input.bookedHours);
+      const prices = await areaHourlyPrices(city.slug, input.bookedHours, cityToCity);
       if (!prices || !Object.keys(prices).length) return NextResponse.json({error:`Hourly service in ${city.name} isn't available right now.`},{status:409});
       const id=crypto.randomUUID(), expiresAt="9999-12-31T23:59:59.999Z";
       const dropoffText = input.dropoffText?.trim() || null;
-      await getDb().insert(hourlyQuotes).values({id,pickupPlaceId:"typed",pickupText:input.pickupText,areaId:city.slug,areaName:city.name,bookedHours:input.bookedHours,dropoffText,vehiclePricesJson:JSON.stringify(prices),pricingVersion:1,departureDate:input.pickupDate,departureTime:input.pickupTime,timezone:input.timezone,expiresAt,createdAt:new Date().toISOString()});
-      return NextResponse.json({quoteId:id,area:{id:city.slug,name:city.name,color:"#FF8A05"},bookedHours:input.bookedHours,cityToCity:false,prices,expiresAt,pickup:null,dropoff:null});
+      await getDb().insert(hourlyQuotes).values({id,pickupPlaceId:"typed",pickupText:input.pickupText,areaId:city.slug,areaName:cityToCity?`${city.name} (city-to-city)`:city.name,bookedHours:input.bookedHours,dropoffText,vehiclePricesJson:JSON.stringify(prices),pricingVersion:1,departureDate:input.pickupDate,departureTime:input.pickupTime,timezone:input.timezone,expiresAt,createdAt:new Date().toISOString()});
+      return NextResponse.json({quoteId:id,area:{id:city.slug,name:city.name,color:"#FF8A05"},bookedHours:input.bookedHours,cityToCity,prices,expiresAt,pickup:null,dropoff:null});
     } catch (error) {
       logOperationalError("hourly_quote.failed", requestId, error);
       return NextResponse.json({ code: "HOURLY_QUOTE_UNAVAILABLE", error: "We could not price this hourly booking. Please try again.", retryable: true, requestId }, { status: 503, headers: monitoredHeaders(requestId, startedAt) });

@@ -51,6 +51,7 @@ import { HourlyAreaMap } from "./hourly-area-map";
 const shortPlaceName = (v: string) => v.split(",")[0]?.trim() || v;
 import { HOURLY_AREAS, type HourlyArea } from "@/lib/hourly-areas-data";
 import { pointInPolygon } from "@/lib/geo";
+import { typedCityToCity } from "@/lib/hourly-area-match";
 import { BookingDetailsStep } from "./booking-details-step";
 import { SiteHeader } from "@/components/site-header";
 import { useCurrency } from "@/components/use-currency";
@@ -284,7 +285,11 @@ export function BookingFlow({
   const [pickupLoc, setPickupLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [dropoffLoc, setDropoffLoc] = useState<{ lat: number; lng: number } | null>(null);
   const outsideArea = (p: { lat: number; lng: number } | null) => Boolean(p && areaGeo && !areaGeo.polygons.some((ring) => pointInPolygon(p, ring.map(([lat, lng]) => ({ lat, lng })))));
-  const cityToCity = serviceType === "hourly" && Boolean(areaGeo) && (outsideArea(pickupLoc) || (Boolean(hourlyDropoffId && booking.dropoff.trim()) && outsideArea(dropoffLoc)));
+  // Located places are checked against the border; typed ones by the city they name.
+  const cityToCity = serviceType === "hourly" && Boolean(areaGeo) && (
+    (pickupLoc ? outsideArea(pickupLoc) : typedCityToCity(hourlyArea, booking.pickup)) ||
+    (booking.dropoff.trim() ? (hourlyDropoffId && dropoffLoc ? outsideArea(dropoffLoc) : typedCityToCity(hourlyArea, "", booking.dropoff)) : false)
+  );
   // City-to-city trips can't be booked for fewer than 6 hours.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- raise the duration when the trip becomes city-to-city
