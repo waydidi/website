@@ -43,7 +43,7 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
         {cards.map((card) => { const ride = card.image.src === "/service-ride-airport.webp"; return (
           <article
             key={card.title}
-            className="group relative flex min-h-[170px] w-[84%] shrink-0 flex-col md:w-auto md:min-w-0 md:shrink rounded-2xl bg-surface px-5 py-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            className="group relative flex min-h-[170px] w-full shrink-0 flex-col md:w-auto md:min-w-0 md:shrink rounded-2xl bg-surface px-5 py-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
             <div className="grid flex-1 grid-cols-[minmax(0,1fr)_106px] items-start gap-2">
               <div>
