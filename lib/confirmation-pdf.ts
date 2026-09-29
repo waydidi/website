@@ -142,8 +142,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   return pdf.save();
 }
 
-/** File name for a booking's confirmation PDF: "<REFERENCE>_<pickup date>.pdf", e.g. "B5L3RM_2026-10-10.pdf". */
-export function confirmationPdfName(reference: string, pickupDate?: string | null) {
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(pickupDate ?? "") ? `_${pickupDate}` : "";
-  return `${reference.replace(/[^A-Za-z0-9-]/g, "")}${date}.pdf`;
+/** File name for a booking's confirmation PDF, e.g. "Waydidi-B5L3RM.pdf". */
+export function confirmationPdfName(reference: string, _pickupDate?: string | null) {
+  return `Waydidi-${reference.replace(/[^A-Za-z0-9-]/g, "")}.pdf`;
 }
