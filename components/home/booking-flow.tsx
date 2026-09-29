@@ -272,6 +272,8 @@ export function BookingFlow({
   // By the hour: the city the driver works in, and an optional drop-off.
   const [hourlyArea, setHourlyArea] = useState("");
   const [hourlyDropoffId, setHourlyDropoffId] = useState("");
+  // The Transfer "To" address, kept while the By the hour tab uses the field.
+  const transferDropoff = useRef("");
   const [hourlyAreaSlugs, setHourlyAreaSlugs] = useState<string[] | null>(null);
   useEffect(() => {
     fetch("/api/hourly-areas").then((r) => r.ok ? r.json() : null).then((o: { areas?: string[] } | null) => setHourlyAreaSlugs(o?.areas ?? null)).catch(() => undefined);
@@ -1440,10 +1442,10 @@ export function BookingFlow({
             </div>
             <form id="booking-search" onSubmit={search} className="font-search w-full scroll-mt-28">
               <div className="inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 md:mb-4 md:inline-flex md:h-auto md:w-auto md:gap-2 md:rounded-[16px] md:p-1.5 md:text-[19px]/[24px] md:font-semibold md:text-slate-800 lg:mb-4 lg:rounded-[14px] lg:p-1 lg:text-[15px]/[22px]">
-                <button onClick={()=>{setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
+                <button onClick={()=>{if(serviceType==="hourly"){change("dropoff",transferDropoff.current);setHourlyDropoffId("");}setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
                   <CarFront className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("hero.transfer")}
                 </button>
-                <button onClick={()=>{if(serviceType!=="hourly"){change("dropoff","");setHourlyDropoffId("");}setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
+                <button onClick={()=>{if(serviceType!=="hourly"){transferDropoff.current=booking.dropoff;change("dropoff","");setHourlyDropoffId("");}setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
                   <Clock3 className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("hero.hourly")}
                 </button>
               </div>
