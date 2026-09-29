@@ -30,10 +30,13 @@ export const fareQuoteInputSchema = z.object({
 });
 
 export const hourlyQuoteInputSchema = z.object({
-  pickupPlaceId: placeIdSchema,
+  // A Google place, or (when Maps isn't available) the typed address plus a chosen area.
+  pickupPlaceId: placeIdSchema.optional(),
+  pickupText: z.string().trim().min(3).max(300).optional(),
   // City chosen for the hourly service (lib/hourly-areas-data.ts) and optional drop-off.
   areaSlug: z.string().regex(/^[a-z0-9-]{2,40}$/).optional(),
   dropoffPlaceId: placeIdSchema.optional(),
+  dropoffText: z.string().trim().max(300).optional(),
   bookedHours: z.number().int().min(1).max(12),
   pickupDate: bookingDateSchema,
   pickupTime: bookingTimeSchema,

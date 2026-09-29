@@ -805,6 +805,22 @@ export function BookingFlow({
         setPricingMessage(t(needsDropoff ? "search.enterAddresses" : "search.enterPickup"));
         return;
       }
+      // By the hour prices from the chosen area even without Maps.
+      if (serviceType === "hourly") {
+        if (!hourlyArea) { setPricingMessage("Choose the area where your driver will be."); return; }
+        try {
+          setLoading(true); setPricingMessage("");
+          const response = await fetch("/api/hourly-quote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pickupText:booking.pickup.trim(),areaSlug:hourlyArea,...(booking.dropoff.trim()?{dropoffText:booking.dropoff.trim()}:{}),bookedHours:booking.bookedHours,pickupDate:booking.date,pickupTime:booking.time,timezone:"Asia/Bangkok"})});
+          const result = await response.json() as HourlyQuote & {error?:string};
+          if (!response.ok) { setPricingMessage(result.error??t("search.hourlyUnavailable")); return; }
+          setQuoteRequest(false);
+          setBooking((current) => ({ ...current, bookedHours: result.bookedHours }));
+          setHourlyQuote(result);
+          goToStage("vehicle");
+        } catch { setPricingMessage(t("search.hourlyTempUnavailable")); }
+        finally { setLoading(false); }
+        return;
+      }
       setPricingMessage("");
       setQuoteRequest(true);
       const trip = serviceType === "transfer" ? demoTripFor(booking.pickup, booking.dropoff) : null;
