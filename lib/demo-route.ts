@@ -28,7 +28,8 @@ export type DemoTrip = { id: "pattaya" | "koh-kood"; dropoff: { latitude: number
 /** Which sample route (if any) the typed pickup and drop-off match. */
 export function demoTripFor(pickup: string, dropoff: string): DemoTrip | null {
   if (!/suvarnabhumi|\bbkk\b/i.test(pickup)) return null;
-  if (/hilton/i.test(dropoff) && /pattaya/i.test(dropoff)) return { id: "pattaya", dropoff: DEMO_DROPOFF, driveTo: DEMO_DROPOFF, prices: DEMO_PRICES, fallback: FALLBACK_PATH, fallbackMeters: 125_000, fallbackSeconds: 100 * 60 };
+  // Any Pattaya drop-off (Pattaya, Jomtien, Naklua, พัทยา) uses the Pattaya route.
+  if (/pattaya|jomtien|naklua|พัทยา|จอมเทียน|นาเกลือ/i.test(dropoff)) return { id: "pattaya", dropoff: DEMO_DROPOFF, driveTo: DEMO_DROPOFF, prices: DEMO_PRICES, fallback: FALLBACK_PATH, fallbackMeters: 125_000, fallbackSeconds: 100 * 60 };
   if (/koh\s*k(oo|u)d|เกาะกูด/i.test(dropoff)) return { id: "koh-kood", dropoff: KOH_KOOD, driveTo: LAEM_SOK_PIER, prices: KOOD_PRICES, fallback: KOOD_FALLBACK, fallbackMeters: 370_000, fallbackSeconds: 290 * 60 };
   return null;
 }
