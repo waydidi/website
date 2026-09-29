@@ -2,7 +2,7 @@ import Image from "next/image";
 import { VEHICLES } from "@/lib/vehicles";
 
 const FLEET: { id: keyof typeof VEHICLES; name: string; models: string }[] = [
-  { id: "economy_sedan", name: "Economy", models: "Toyota Corolla Altis, Honda City or similar" },
+  { id: "economy_sedan", name: "Economy", models: "Toyota Corolla Altis or similar" },
   { id: "comfort_bmw", name: "Comfort BMW", models: "BMW 3 Series or similar" },
   { id: "comfort_suv", name: "Comfort SUV", models: "Toyota Fortuner or similar" },
   { id: "premium_minivan", name: "Premium Minivan", models: "Toyota Commuter or similar" },
