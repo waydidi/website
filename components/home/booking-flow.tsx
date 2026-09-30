@@ -839,8 +839,15 @@ export function BookingFlow({
         const route = await fetchDemoRoute(trip);
         const prices = trip!.prices;
         const demoInclusions = resolveInclusions({ lat: DEMO_PICKUP.latitude, lng: DEMO_PICKUP.longitude }, { lat: trip!.dropoff.latitude, lng: trip!.dropoff.longitude }, ROUTE_RULES);
+        // Save the sample route as a real quote so it can be booked (cash or card).
+        let ids: { quoteId?: string; returnQuoteId?: string | null } = {};
+        try {
+          const res = await fetch("/api/demo-quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pickup: booking.pickup, dropoff: booking.dropoff, date: booking.date, time: booking.time, ...(returnTrip ? { returnDate, returnTime } : {}), distanceMeters: route.distanceMeters, durationSeconds: route.durationSeconds }) });
+          if (res.ok) ids = await res.json();
+        } catch { /* stays a quote request */ }
+        if (ids.quoteId && (!returnTrip || ids.returnQuoteId)) setQuoteRequest(false);
         setFareQuote({
-          quoteId: "demo",
+          quoteId: ids.quoteId ?? "demo",
           area: { id: "demo", name: "Prototype", color: "#FF8A05", pricingType: "demo" },
           distanceMeters: route.distanceMeters,
           durationSeconds: route.durationSeconds,
@@ -855,7 +862,7 @@ export function BookingFlow({
         if (returnTrip) {
           const journey = (quoteId: string, pickup: string, dropoff: string, date: string, time: string): QuoteJourney => ({ quoteId, pickup, dropoff, departureDate: date, departureTime: time, timezone: "Asia/Bangkok", distanceMeters: route.distanceMeters, durationSeconds: route.durationSeconds });
           setReturnFareQuote({
-            quoteId: "demo-return",
+            quoteId: ids.returnQuoteId ?? "demo-return",
             area: { id: "demo", name: "Prototype", color: "#FF8A05", pricingType: "demo" },
             distanceMeters: route.distanceMeters,
             durationSeconds: route.durationSeconds,
@@ -868,8 +875,8 @@ export function BookingFlow({
           });
           setQuoteSummary({
             currency: "THB",
-            outbound: journey("demo", booking.pickup, booking.dropoff, booking.date, booking.time),
-            return: journey("demo-return", booking.dropoff, booking.pickup, returnDate, returnTime),
+            outbound: journey(ids.quoteId ?? "demo", booking.pickup, booking.dropoff, booking.date, booking.time),
+            return: journey(ids.returnQuoteId ?? "demo-return", booking.dropoff, booking.pickup, returnDate, returnTime),
             prices: Object.fromEntries(Object.entries(prices).map(([id, total]) => [id, { outbound: total, return: total, total: total * 2 }])),
           });
         } else {
