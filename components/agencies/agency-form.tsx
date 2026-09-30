@@ -1,13 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
+import type { PartnerType } from "@/lib/transfer-partners";
 
 const field = "mt-1.5 h-12 w-full rounded-xl border border-[#DAD7CF] bg-white px-4 text-[16px] text-[#111] outline-none focus:border-[#111]";
 const label = "block text-[13px] font-semibold text-[#111]";
 
 // Partner application form: stored for the Waydidi team to review.
-export function AgencyForm() {
+export function AgencyForm({ partnerType = "travel-agent", initialEmail, initialName }: { partnerType?: PartnerType; initialEmail?: string; initialName?: string }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<{ text: string; field?: string } | null>(null);
@@ -35,9 +37,10 @@ export function AgencyForm() {
   </div>;
 
   return <form onSubmit={submit} className="grid gap-5 rounded-[28px] border border-[#E4E1DA] bg-white p-6 sm:grid-cols-2 sm:p-8" noValidate>
+    <label className={`${label} sm:col-span-2`}>Partnership type<select name="partnerType" defaultValue={partnerType} className={field}><option value="travel-agent">Travel agent</option><option value="host-agency">Host agency / consortium</option></select></label>
     <label className={label}>Agency name<input name="agencyName" required autoComplete="organization" className={field} /></label>
-    <label className={label}>Your name<input name="contactName" required autoComplete="name" className={field} /></label>
-    <label className={label}>Work email<input name="email" type="email" required autoComplete="email" className={field} /></label>
+    <label className={label}>Your name<input name="contactName" required defaultValue={initialName} autoComplete="name" className={field} /></label>
+    <label className={label}>Work email<input name="email" type="email" required defaultValue={initialEmail} readOnly={Boolean(initialEmail)} autoComplete="email" className={field} /></label>
     <label className={label}>Phone / WhatsApp<input name="phone" type="tel" required autoComplete="tel" className={field} /></label>
     <label className={label}>Country<input name="country" required autoComplete="country-name" className={field} /></label>
     <label className={label}>Website <span className="font-normal text-[#8A8A8A]">(optional)</span><input name="website" type="url" placeholder="https://" className={field} /></label>
@@ -52,7 +55,7 @@ export function AgencyForm() {
     {error && <p className="rounded-xl bg-red-50 p-3 text-[14px] font-semibold text-red-700 sm:col-span-2" role="alert">{error.text}</p>}
     <div className="sm:col-span-2">
       <button type="submit" disabled={busy} className="h-14 rounded-full bg-[#FF8A05] px-10 text-[15px] font-bold text-[#111] hover:bg-[#F07A00] disabled:opacity-60">{busy ? "Sending…" : "Send application"}</button>
-      <p className="mt-3 text-[13px] text-[#8A8A8A]">We use these details only to review your application and contact you. See our <a href="/privacy" className="underline">privacy policy</a>.</p>
+      <p className="mt-3 text-[13px] text-[#8A8A8A]">We use these details only to review your application and contact you. See our <Link href="/privacy" className="underline">privacy policy</Link>.</p>
     </div>
   </form>;
 }

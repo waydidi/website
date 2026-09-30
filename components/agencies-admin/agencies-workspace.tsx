@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ArrowUpDown, Download, Eye, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { partnerTypeName, readPartnerApplication } from "@/lib/transfer-partners";
 
 export type AgencyRow = { id: string; agencyName: string; contactName: string; email: string; phone: string; country: string; website: string | null; monthlyTransfers: string; message: string | null; status: string; createdAt: string };
 type Tab = "all" | "new" | "contacted" | "approved" | "declined";
@@ -58,7 +59,7 @@ export function AgenciesWorkspace({ rows, subscribers }: { rows: AgencyRow[]; su
   }
   function exportCsv() {
     const cell = (v: string) => { const safe = /^[=+\-@]/.test(v) && !/^[+\d\s()-]+$/.test(v) ? `'${v}` : v; return `"${safe.replaceAll('"', '""')}"`; };
-    const lines = [["Agency", "Contact", "Email", "Phone", "Country", "Website", "Transfers per month", "Received", "Status"], ...shown.map((r) => [r.agencyName, r.contactName, r.email, r.phone, r.country, r.website ?? "", r.monthlyTransfers, r.createdAt.slice(0, 10), r.status])];
+    const lines = [["Agency", "Partner type", "Contact", "Email", "Phone", "Country", "Website", "Transfers per month", "Received", "Status"], ...shown.map((r) => [r.agencyName, partnerTypeName(readPartnerApplication(r.message).type), r.contactName, r.email, r.phone, r.country, r.website ?? "", r.monthlyTransfers, r.createdAt.slice(0, 10), r.status])];
     const url = URL.createObjectURL(new Blob([lines.map((l) => l.map(cell).join(",")).join("\n")], { type: "text/csv" }));
     const a = document.createElement("a"); a.href = url; a.download = `waydidi-travel-agencies-${tab}.csv`; a.click(); URL.revokeObjectURL(url);
   }
@@ -94,7 +95,7 @@ export function AgenciesWorkspace({ rows, subscribers }: { rows: AgencyRow[]; su
         <tbody>
           {shown.length === 0 && <tr><td colSpan={8} className="px-5 py-14 text-center text-slate-500">{rows.length ? "No agencies match." : "No applications yet."}</td></tr>}
           {shown.map((r) => <tr key={r.id} className="border-t border-slate-100">
-            <td className="h-[72px] px-5"><p className="font-medium text-[#15161C]">{r.agencyName}</p>{r.website && <p className="max-w-[220px] truncate text-[13px] text-slate-500">{r.website.replace(/^https?:\/\//, "")}</p>}</td>
+            <td className="h-[72px] px-5"><p className="font-medium text-[#15161C]">{r.agencyName}</p><p className="text-[12px] text-slate-500">{partnerTypeName(readPartnerApplication(r.message).type)}</p>{r.website && <p className="max-w-[220px] truncate text-[13px] text-slate-500">{r.website.replace(/^https?:\/\//, "")}</p>}</td>
             <td className="px-5"><p>{r.contactName}</p><p className="text-[13px] text-slate-500">{r.email}</p></td>
             <td className="whitespace-nowrap px-5 tabular-nums">{r.phone}</td>
             <td className="px-5">{r.country}</td>
@@ -115,10 +116,10 @@ export function AgenciesWorkspace({ rows, subscribers }: { rows: AgencyRow[]; su
         </DialogHeader>
         {viewing && <div className="grid gap-4 py-3 text-[15px]">
           <dl className="grid grid-cols-2 gap-3">
-            {[["Contact", viewing.contactName], ["Email", viewing.email], ["Phone", viewing.phone], ["Transfers / month", viewing.monthlyTransfers], ["Website", viewing.website || "N/A"], ["Country", viewing.country]].map(([k, v]) =>
+            {[["Partner type", partnerTypeName(readPartnerApplication(viewing.message).type)], ["Contact", viewing.contactName], ["Email", viewing.email], ["Phone", viewing.phone], ["Transfers / month", viewing.monthlyTransfers], ["Website", viewing.website || "N/A"], ["Country", viewing.country]].map(([k, v]) =>
               <div key={k} className="min-w-0 rounded-xl bg-slate-50 p-3"><dt className="text-[12px] text-slate-500">{k}</dt><dd className="break-words font-medium">{v}</dd></div>)}
           </dl>
-          {viewing.message && <p className="whitespace-pre-line rounded-xl bg-slate-50 p-3 text-slate-700">{viewing.message}</p>}
+          {readPartnerApplication(viewing.message).message && <p className="whitespace-pre-line rounded-xl bg-slate-50 p-3 text-slate-700">{readPartnerApplication(viewing.message).message}</p>}
           <div className="flex flex-wrap items-center gap-2"><span className="text-[13px] text-slate-500">Status</span><Pill status={viewing.status} /></div>
           <p className={`rounded-xl p-3 text-[14px] ${viewing.status === "approved" ? "bg-emerald-50 text-emerald-900" : "bg-slate-50 text-slate-600"}`}>{viewing.status === "approved"
             ? <>Portal access is on. They sign in at <b>/agency</b> with <b>{viewing.email}</b> to see their bookings, download confirmations and send ride requests.</>
