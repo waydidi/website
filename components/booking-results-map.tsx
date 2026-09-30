@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Minus, Pencil, Plus, Route, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, Flame, Info, Lightbulb, Luggage, Minus, Pencil, Plus, Users, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
 import { useI18n } from "@/components/i18n-provider";
@@ -822,7 +822,7 @@ export function BookingResultsMap(props: Props) {
               : <button type="button" onClick={() => { setDetailsOpen(false); (props.onAddReturn ?? props.onEditRoute ?? props.onEdit)(); }} className="mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[#BDBDBD] text-[16px] text-[#1C1C1C]"><ArrowRightLeft size={20} className="text-brand" aria-hidden="true" />Add return</button>}
 
             <div className="mt-8 border-t border-[#E6E6E6] pt-6">
-              <h3 className="flex items-center gap-3 text-[19px] font-medium"><Route size={22} aria-hidden="true" />Includes</h3>
+              <h3 className="flex items-center gap-3 text-[19px] font-medium">Includes</h3>
               {props.returnTrip && selected && props.priceBreakdown?.[selected.id] && <>
                 <p className="mt-5 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(props.priceBreakdown[selected.id].outbound)}</span></p>
                 <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>{money(props.priceBreakdown[selected.id].return)}</span></p>
