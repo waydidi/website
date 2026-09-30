@@ -37,7 +37,7 @@ export const hourlyQuoteInputSchema = z.object({
   areaSlug: z.string().regex(/^[a-z0-9-]{2,40}$/).optional(),
   dropoffPlaceId: placeIdSchema.optional(),
   dropoffText: z.string().trim().max(300).optional(),
-  bookedHours: z.number().int().min(1).max(12),
+  bookedHours: z.number().int().min(3).max(10),
   pickupDate: bookingDateSchema,
   pickupTime: bookingTimeSchema,
   timezone: timezoneSchema,
@@ -95,7 +95,7 @@ export const checkoutInputSchema = z.object({
   promoCode: z.string().trim().max(40).optional(),
   returnDate: bookingDateSchema.optional(),
   returnTime: bookingTimeSchema.optional(),
-  bookedHours: z.number().int().min(3).max(12).optional(),
+  bookedHours: z.number().int().min(3).max(10).optional(),
   hourlyQuoteId: z.string().uuid().optional(),
 }).strict().superRefine((input, context) => {
   if (!validBangkokPickup(input.pickupDate, input.pickupTime)) {
@@ -116,6 +116,9 @@ export const checkoutInputSchema = z.object({
         context.addIssue({ code: z.ZodIssueCode.custom, path: ["returnDate"], message: "Choose a return date and time after your departure." });
       }
     }
+  }
+  if (input.serviceType === "hourly" && input.vehicle === "comfort_bmw") {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["vehicle"], message: "BMW is not offered for By the Hour." });
   }
   if (input.serviceType === "hourly" && (!input.hourlyQuoteId || !input.bookedHours)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["hourlyQuoteId"], message: "Calculate your hourly price before checkout." });

@@ -39,6 +39,9 @@ import { logOperationalError, monitoredHeaders, requestIdFor } from "@/lib/obser
 import { lookupFlight, type FlightSnapshot } from "@/lib/aviationstack";
 import { expireAbandonedCheckouts } from "@/lib/booking-expiry";
 
+import { validHourlyQuoteWindow } from "@/lib/hourly-policy";
+import { hourlyQuoteVehicleAvailable } from "@/lib/hourly-city-pricing";
+
 const POLICY_VERSION = "2026-09-07";
 
 type StoredBooking = typeof bookings.$inferSelect;
@@ -239,15 +242,17 @@ export async function POST(request: Request) {
       routePolyline: string | null;
       total: number;
     } | null = null;
-    let hourlyData: { id:string;pickupText:string;areaName:string;bookedHours:number;pricingVersion:number;basePrice:number;includedDistanceMeters:number;extraHourRate:number;extraDistanceRate:number;pickupLatitude:number|null;pickupLongitude:number|null;dropoffText:string|null } | null = null;
+    let hourlyData: { id:string;pickupText:string;areaName:string;bookedHours:number;pricingVersion:number;basePrice:number;includedDistanceMeters:number;extraHourRate:number;extraDistanceRate:number;pickupLatitude:number|null;pickupLongitude:number|null;dropoffText:string|null;dropoffLatitude:number|null;dropoffLongitude:number|null;routeDistanceMeters:number|null;routeDurationSeconds:number|null;routePolyline:string|null } | null = null;
     if (input.serviceType === "hourly") {
       const [quote] = await getDb().select().from(hourlyQuotes).where(eq(hourlyQuotes.id,input.hourlyQuoteId!)).limit(1);
       if (!quote || quote.bookedHours !== input.bookedHours || quote.departureDate !== input.pickupDate || quote.departureTime !== input.pickupTime || quote.timezone !== input.timezone) return NextResponse.json({code:"QUOTE_MISMATCH",error:"Your hourly booking details changed. Please calculate the price again.",field:"hourlyQuoteId",retryable:true},{status:409});
+      if (!validHourlyQuoteWindow(quote)) return NextResponse.json({code:"HOURLY_QUOTE_EXPIRED",error:"Your hourly price expired. Search again for a fresh 30-minute quote.",retryable:true},{status:409});
+      if (!await hourlyQuoteVehicleAvailable(quote, input.vehicle)) return NextResponse.json({code:"HOURLY_UNAVAILABLE",error:"This vehicle or itinerary is no longer available. Search again or request an operations quote.",retryable:true},{status:409});
       const prices=JSON.parse(quote.vehiclePricesJson) as Record<string,{total:number;basePrice:number;includedDistanceMeters:number;extraHourRate:number;extraDistanceRate:number}>;
       const price=prices[input.vehicle];
-      if (!price || !Number.isInteger(price.total)) return NextResponse.json({error:"This vehicle is unavailable for hourly booking."},{status:409});
+      if (!price || !Number.isSafeInteger(price.total) || price.total <= 0) return NextResponse.json({error:"This vehicle is unavailable for hourly booking."},{status:409});
       total=price.total;
-      hourlyData={id:quote.id,pickupText:quote.pickupText,areaName:quote.areaName,bookedHours:quote.bookedHours,pricingVersion:quote.pricingVersion,basePrice:price.basePrice,includedDistanceMeters:price.includedDistanceMeters,extraHourRate:price.extraHourRate,extraDistanceRate:price.extraDistanceRate,pickupLatitude:quote.pickupLatitude,pickupLongitude:quote.pickupLongitude,dropoffText:quote.dropoffText};
+      hourlyData={id:quote.id,pickupText:quote.pickupText,areaName:quote.areaName,bookedHours:quote.bookedHours,pricingVersion:quote.pricingVersion,basePrice:price.basePrice,includedDistanceMeters:price.includedDistanceMeters,extraHourRate:price.extraHourRate,extraDistanceRate:price.extraDistanceRate,pickupLatitude:quote.pickupLatitude,pickupLongitude:quote.pickupLongitude,dropoffText:quote.dropoffText,dropoffLatitude:quote.dropoffLatitude,dropoffLongitude:quote.dropoffLongitude,routeDistanceMeters:quote.routeDistanceMeters,routeDurationSeconds:quote.routeDurationSeconds,routePolyline:quote.routePolyline};
     }
     if (input.serviceType !== "hourly") {
       const [quote] = await getDb()
@@ -269,7 +274,7 @@ export async function POST(request: Request) {
         { total: number; basePrice: number; distanceSurcharge: number }
       >;
       const price = prices[input.vehicle];
-      if (!price || !Number.isInteger(price.total))
+      if (!price || !Number.isSafeInteger(price.total) || price.total <= 0)
         return NextResponse.json(
           { error: "This vehicle is unavailable for the selected area." },
           { status: 409 },
@@ -484,13 +489,13 @@ export async function POST(request: Request) {
         returnDurationSeconds: returnData?.durationSeconds,
         returnRoutePolyline: returnData?.routePolyline,
         pricingArea: hourlyData?.areaName ?? quoteData?.areaName,
-        routeDistanceMeters: quoteData?.distanceMeters,
-        routeDurationSeconds: quoteData?.durationSeconds,
-        expectedRoutePolyline: quoteData?.routePolyline,
+        routeDistanceMeters: hourlyData?.routeDistanceMeters ?? quoteData?.distanceMeters,
+        routeDurationSeconds: hourlyData?.routeDurationSeconds ?? quoteData?.durationSeconds,
+        expectedRoutePolyline: hourlyData?.routePolyline ?? quoteData?.routePolyline,
         pickupLatitude: hourlyData?.pickupLatitude ?? quoteData?.pickupLatitude,
         pickupLongitude: hourlyData?.pickupLongitude ?? quoteData?.pickupLongitude,
-        dropoffLatitude: quoteData?.dropoffLatitude,
-        dropoffLongitude: quoteData?.dropoffLongitude,
+        dropoffLatitude: hourlyData?.dropoffLatitude ?? quoteData?.dropoffLatitude,
+        dropoffLongitude: hourlyData?.dropoffLongitude ?? quoteData?.dropoffLongitude,
         basePrice: hourlyData?.basePrice ?? quoteData?.basePrice,
         distanceSurcharge: quoteData?.distanceSurcharge,
         pricingVersion: hourlyData?.pricingVersion ?? quoteData?.pricingVersion,

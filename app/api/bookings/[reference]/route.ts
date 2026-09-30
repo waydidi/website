@@ -21,6 +21,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
     status: booking.status, emailStatus: booking.emailStatus, paymentMethod: booking.paymentMethod,
     checkoutSessionId: booking.checkoutSessionId, paymentStatus: booking.paymentStatus, paymentFailureMessage: booking.paymentFailureMessage,
     serviceType: booking.serviceType, bookedHours: booking.bookedHours, scheduledEndAt: booking.scheduledEndAt,
+    hourlyPolicy: booking.serviceType === "hourly" && booking.pricingVersion === 2 ? { unlimitedKilometres: true, tollsIncluded: true, overtimeGraceMinutes: 15 } : null,
     includedDistanceMeters: booking.includedDistanceMeters, extraHourRate: booking.extraHourRate, extraDistanceRate: booking.extraDistanceRate,
   }, { headers: { "Cache-Control": "no-store" } });
 }

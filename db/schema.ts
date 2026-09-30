@@ -235,6 +235,38 @@ export const hourlyAreaRates = sqliteTable(
   (table) => [index("idx_hourly_area_rates_area").on(table.areaSlug)],
 );
 
+export const hourlyOvertimeCharges = sqliteTable("hourly_overtime_charges", {
+  bookingReference: text("booking_reference").primaryKey().references(() => bookings.reference),
+  extraMinutes: integer("extra_minutes").notNull(),
+  chargedHours: integer("charged_hours").notNull(),
+  hourlyRate: integer("hourly_rate").notNull(),
+  amountMinor: integer("amount_minor").notNull(),
+  assessedBy: text("assessed_by").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+export const hourlyOvertimeReceipts = sqliteTable("hourly_overtime_receipts", {
+  id: text("id").primaryKey(),
+  bookingReference: text("booking_reference").notNull().references(() => hourlyOvertimeCharges.bookingReference),
+  amountMinor: integer("amount_minor").notNull(),
+  collectedBy: text("collected_by").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const hourlyCityPairRates = sqliteTable("hourly_city_pair_rates", {
+  id: text("id").primaryKey(),
+  pairId: text("pair_id").notNull(),
+  vehicleId: text("vehicle_id").notNull(),
+  c6: integer("c6").notNull().default(0),
+  c7: integer("c7").notNull().default(0),
+  c8: integer("c8").notNull().default(0),
+  c9: integer("c9").notNull().default(0),
+  c10: integer("c10").notNull().default(0),
+  extraHourRate: integer("extra_hour_rate").notNull().default(0),
+  maxDrivingMinutes: integer("max_driving_minutes").notNull().default(360),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [uniqueIndex("idx_hourly_pair_vehicle").on(table.pairId, table.vehicleId)]);
+
 export const hourlyQuotes = sqliteTable(
   "hourly_quotes",
   {
@@ -245,6 +277,11 @@ export const hourlyQuotes = sqliteTable(
     pickupLongitude: real("pickup_longitude"),
     areaId: text("area_id"),
     areaName: text("area_name").notNull(),
+    cityPairId: text("city_pair_id"),
+    pricingAreaSlug: text("pricing_area_slug"),
+    routeDistanceMeters: integer("route_distance_meters"),
+    routeDurationSeconds: integer("route_duration_seconds"),
+    routePolyline: text("route_polyline"),
     bookedHours: integer("booked_hours").notNull(),
     dropoffText: text("dropoff_text"),
     dropoffLatitude: real("dropoff_latitude"),
