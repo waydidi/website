@@ -1,4 +1,4 @@
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, lt, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingEvents, bookingPayments, bookings } from "@/db/schema";
 
@@ -28,6 +28,7 @@ export async function expireAbandonedCheckouts(now = new Date()) {
     .where(and(
       eq(bookings.status, "pending_payment"),
       eq(bookings.paymentStatus, "pending"),
+      isNull(bookings.checkoutSessionId),
       lt(bookings.createdAt, cutoff),
     ))
     .limit(100);
@@ -41,6 +42,7 @@ export async function expireAbandonedCheckouts(now = new Date()) {
         eq(bookings.reference, row.reference),
         eq(bookings.status, "pending_payment"),
         eq(bookings.paymentStatus, "pending"),
+      isNull(bookings.checkoutSessionId),
       ))
       .returning({ reference: bookings.reference });
     if (!updated) continue;

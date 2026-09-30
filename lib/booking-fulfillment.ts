@@ -11,7 +11,7 @@ type Booking = typeof bookings.$inferSelect;
 
 export async function fulfillBooking(booking: Booking, paymentIntentId?: string | null) {
   const now = new Date().toISOString();
-  if (booking.fulfillmentStatus === "complete" && booking.status === "confirmed") {
+  if (["completed", "cancelled", "no_show", "binned"].includes(booking.status) || booking.fulfillmentStatus === "complete") {
     return { emailStatus: booking.emailStatus, pdfKey: booking.pdfKey };
   }
   const staleBefore = new Date(Date.now() - 5 * 60 * 1000).toISOString();
@@ -19,6 +19,7 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
     fulfillmentStatus: "processing", fulfillmentStartedAt: now, updatedAt: now,
   }).where(and(
     eq(bookings.reference, booking.reference),
+    or(eq(bookings.status, "pending_payment"), eq(bookings.status, "confirmed"), eq(bookings.status, "expired")),
     or(
       eq(bookings.fulfillmentStatus, "pending"),
       eq(bookings.fulfillmentStatus, "failed"),
@@ -64,7 +65,7 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
   await getDb().update(bookings).set({
     status: "confirmed", paymentIntentId: paymentIntentId ?? booking.paymentIntentId,
     pdfKey, emailStatus: email.status, fulfillmentStatus: "complete", updatedAt: new Date().toISOString(),
-  }).where(eq(bookings.reference, booking.reference));
+  }).where(and(eq(bookings.reference, booking.reference),or(eq(bookings.status,"pending_payment"),eq(bookings.status,"expired"),eq(bookings.status,"confirmed"))));
   return { emailStatus: email.status, pdfKey };
   } catch (error) {
     const failedAt = new Date().toISOString();

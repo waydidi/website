@@ -1,3 +1,4 @@
+import { completeJourney, journeysFor, journeyFor, parseLeg } from "@/lib/journey-legs";
 import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -15,7 +16,7 @@ function emailValid(value: string) {
   return /^\S+@\S+\.\S+$/u.test(value) && value.length <= 254;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const admin = await getWaydidiAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const [bookingRows, driverRows, assignmentRows, eventRows, locationRows, exceptionRows] = await Promise.all([
@@ -26,22 +27,25 @@ export async function GET() {
     getDb().select().from(journeyLocations).orderBy(desc(journeyLocations.serverTimestamp)).limit(1000),
     getDb().select().from(journeyExceptions).orderBy(desc(journeyExceptions.updatedAt)).limit(300),
   ]);
+  const leg = parseLeg(new URL(request.url).searchParams.get("leg"));
+  const journeyRows = (await journeysFor(bookingRows)).filter(row => row.leg === leg);
+  const assignmentIds = new Set(assignmentRows.filter(a => a.leg === leg).map(a => a.id));
   return NextResponse.json({
-    bookings: bookingRows.map((row) => ({
+    bookings: journeyRows.map((row) => ({
       reference: row.reference, customerName: row.customerName, customerEmail: row.customerEmail,
       customerPhone: row.customerPhone, pickup: row.pickup, dropoff: row.dropoff,
       pickupDate: row.pickupDate, pickupTime: row.pickupTime, passengers: row.passengers,
       luggage: row.luggage, vehicle: row.vehicle, total: row.total, status: row.status,
     })),
     drivers: driverRows.map((row) => ({ id: row.id, fullName: row.fullName, phone: row.phone, email: row.email, vehicle: row.vehicle, baseLocation: row.baseLocation, carPlate: row.carPlate, driverType: row.driverType, remindersEnabled: row.remindersEnabled, status: row.status, createdAt: row.createdAt, updatedAt: row.updatedAt, idImageKey: row.idImageKey ? "available" : null, carImageKey: row.carImageKey ? "available" : null })),
-    assignments: assignmentRows.map((row) => ({
+    assignments: assignmentRows.filter(row => row.leg === leg).map((row) => ({
       id: row.id, bookingReference: row.bookingReference, driverId: row.driverId,
       currentStatus: row.currentStatus, assignedBy: row.assignedBy, assignedAt: row.assignedAt,
       tokenExpiresAt: row.tokenExpiresAt, revokedAt: row.revokedAt, completedAt: row.completedAt,
       updatedAt: row.updatedAt,
       passengerVerifiedAt: row.passengerVerifiedAt, passengerVerificationMethod: row.passengerVerificationMethod,
     })),
-    events: eventRows.map((row) => ({
+    events: eventRows.filter(row => assignmentIds.has(row.assignmentId)).map((row) => ({
       id: row.id, assignmentId: row.assignmentId, bookingReference: row.bookingReference,
       status: row.status, previousStatus: row.previousStatus, latitude: row.latitude,
       longitude: row.longitude, accuracyMetres: row.accuracyMetres,
@@ -50,8 +54,8 @@ export async function GET() {
       verifiedBy: row.verifiedBy, verifiedAt: row.verifiedAt,
       rejectionReason: row.rejectionReason, createdAt: row.createdAt,
     })),
-    locations: locationRows.map((row) => ({ id: row.id, bookingReference: row.bookingReference, assignmentId: row.assignmentId, latitude: row.latitude, longitude: row.longitude, accuracyMetres: row.accuracyMetres, clientTimestamp: row.clientTimestamp, serverTimestamp: row.serverTimestamp, sequenceNumber: row.sequenceNumber, quality: row.quality })),
-    exceptions: exceptionRows,
+    locations: locationRows.filter(row => assignmentIds.has(row.assignmentId)).map((row) => ({ id: row.id, bookingReference: row.bookingReference, assignmentId: row.assignmentId, latitude: row.latitude, longitude: row.longitude, accuracyMetres: row.accuracyMetres, clientTimestamp: row.clientTimestamp, serverTimestamp: row.serverTimestamp, sequenceNumber: row.sequenceNumber, quality: row.quality })),
+    exceptions: exceptionRows.filter(row => assignmentIds.has(row.assignmentId)),
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -59,7 +63,7 @@ export async function POST(request: Request) {
   const admin = await getWaydidiAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
-  const input = await request.json() as { action?: string; driverId?: string; bookingReference?: string; fullName?: string; phone?: string; email?: string; assignmentId?: string; eventId?: string; reason?: string };
+  const input = await request.json() as { action?: string; leg?: string; driverId?: string; bookingReference?: string; fullName?: string; phone?: string; email?: string; assignmentId?: string; eventId?: string; reason?: string };
   const now = new Date().toISOString();
 
   if (input.action === "create_driver") {
@@ -73,6 +77,8 @@ export async function POST(request: Request) {
   }
 
   if (input.action === "assign" || input.action === "rotate_link") {
+    let rotation: typeof bookingAssignments.$inferSelect | null = null;
+    let leg = parseLeg(input.leg);
     let bookingReference = input.bookingReference?.trim() ?? "";
     let driverId = input.driverId?.trim() ?? "";
     if (input.action === "rotate_link") {
@@ -80,12 +86,23 @@ export async function POST(request: Request) {
       if (!existing) return NextResponse.json({ error: "Assignment not found." }, { status: 404 });
       bookingReference = existing.bookingReference;
       driverId = existing.driverId;
+      leg = parseLeg(existing.leg);
+      rotation = existing;
     }
-    const [[booking], [driver]] = await Promise.all([
+    const [[parentBooking], [driver]] = await Promise.all([
       getDb().select().from(bookings).where(eq(bookings.reference, bookingReference)).limit(1),
       getDb().select().from(drivers).where(eq(drivers.id, driverId)).limit(1),
     ]);
+    const booking = parentBooking ? await journeyFor(parentBooking, leg) : null;
     if (!booking || booking.status !== "confirmed" || !driver || driver.status !== "active") return NextResponse.json({ error: "Choose a confirmed booking and an active driver." }, { status: 409 });
+    if (rotation) {
+      if (rotation.revokedAt) return NextResponse.json({error:"This driver link was revoked."},{status:409});
+      const token = secureToken(); const tokenExpiresAt = new Date(Math.max(Date.now()+48*3600_000,new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime()+24*3600_000)).toISOString();
+      const [updated] = await getDb().update(bookingAssignments).set({tokenHash:await sha256(token),tokenExpiresAt,updatedAt:now}).where(and(eq(bookingAssignments.id,rotation.id),isNull(bookingAssignments.revokedAt))).returning();
+      if (!updated) return NextResponse.json({error:"Assignment changed. Refresh and retry."},{status:409});
+      await getDb().insert(bookingEvents).values({bookingReference,eventType:"driver_link_rotated",providerEventId:`rotation:${crypto.randomUUID()}`,createdAt:now});
+      return NextResponse.json({assignment:{id:updated.id,bookingReference,leg,driverId,currentStatus:updated.currentStatus,assignedAt:updated.assignedAt,tokenExpiresAt},driverUrl:`${safeOrigin(request)}/driver/trip/${token}`});
+    }
     if (input.action === "assign") {
       const [driverAssignments, allBookings, unavailableRows] = await Promise.all([
         getDb().select().from(bookingAssignments).where(and(eq(bookingAssignments.driverId, driverId), isNull(bookingAssignments.revokedAt))),
@@ -93,10 +110,10 @@ export async function POST(request: Request) {
         getDb().select().from(driverAvailability).where(eq(driverAvailability.driverId, driverId)),
       ]);
       const candidate = bookingWindow(booking);
-      const bookingMap = new Map(allBookings.map((row) => [row.reference, row]));
+      const bookingMap = new Map((await journeysFor(allBookings)).map((row) => [row.journeyId, row]));
       const conflicts: string[] = [];
-      for (const assignment of driverAssignments.filter((row) => row.bookingReference !== bookingReference && row.currentStatus !== "completed" && row.currentStatus !== "no_show")) {
-        const assignedBooking = bookingMap.get(assignment.bookingReference);
+      for (const assignment of driverAssignments.filter((row) => (row.bookingReference !== bookingReference || row.leg !== leg) && row.currentStatus !== "completed" && row.currentStatus !== "no_show")) {
+        const assignedBooking = bookingMap.get(`${assignment.bookingReference}:${assignment.leg}`);
         if (!assignedBooking || assignedBooking.status !== "confirmed") continue;
         const occupied = bookingWindow(assignedBooking);
         if (rangesOverlap(candidate.startsAt, candidate.endsAt, occupied.startsAt, occupied.endsAt)) conflicts.push(`Overlaps ${assignedBooking.reference} at ${assignedBooking.pickupTime}`);
@@ -106,13 +123,14 @@ export async function POST(request: Request) {
       }
       if (conflicts.length) return NextResponse.json({ error: `Driver schedule conflict: ${conflicts.join("; ")}. Use Operations Calendar to review or override.` }, { status: 409 });
     }
-    const active = await getDb().select().from(bookingAssignments).where(and(eq(bookingAssignments.bookingReference, bookingReference), isNull(bookingAssignments.revokedAt)));
-    for (const row of active) await getDb().update(bookingAssignments).set({ revokedAt: now, updatedAt: now }).where(eq(bookingAssignments.id, row.id));
     const token = secureToken();
     const pickup = new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime();
     const expiry = new Date(Math.max(Date.now() + 48 * 60 * 60 * 1000, pickup + 24 * 60 * 60 * 1000)).toISOString();
-    const assignment = { id: crypto.randomUUID(), bookingReference, driverId, tokenHash: await sha256(token), currentStatus: "assigned", assignedBy: admin.email, assignedAt: now, tokenExpiresAt: expiry, updatedAt: now };
-    await getDb().insert(bookingAssignments).values(assignment);
+    const assignment = { id: crypto.randomUUID(), bookingReference, leg, driverId, tokenHash: await sha256(token), currentStatus: "assigned", assignedBy: admin.email, assignedAt: now, tokenExpiresAt: expiry, updatedAt: now };
+    await getDb().batch([
+      getDb().update(bookingAssignments).set({revokedAt:now,updatedAt:now}).where(and(eq(bookingAssignments.bookingReference,bookingReference),eq(bookingAssignments.leg,leg),isNull(bookingAssignments.revokedAt))),
+      getDb().insert(bookingAssignments).values(assignment),
+    ]);
     await getDb().insert(bookingEvents).values({ bookingReference, eventType: input.action === "rotate_link" ? "driver_link_rotated" : "driver_assigned", providerEventId: `assignment:${assignment.id}`, createdAt: now });
     const driverUrl = `${safeOrigin(request)}/driver/trip/${token}`;
     if (driver.email && driver.remindersEnabled) {
@@ -137,12 +155,12 @@ export async function POST(request: Request) {
     if (!assignment) return NextResponse.json({ error: "Assignment not found." }, { status: 404 });
     if (assignment.currentStatus !== "standby" || assignment.passengerVerifiedAt) return NextResponse.json({ error: "This passenger cannot be overridden at the current trip step." }, { status: 409 });
     const [{ attempts }] = await getDb().select({ attempts: count() }).from(passengerVerifications).where(eq(passengerVerifications.assignmentId, assignment.id));
-    await getDb().transaction(async (tx) => {
-      await tx.update(bookingAssignments).set({ currentStatus: "passenger_verified", passengerVerifiedAt: now, passengerVerificationMethod: "operations_override", passengerVerifiedBy: admin.email, updatedAt: now }).where(eq(bookingAssignments.id, assignment.id));
-      await tx.insert(passengerVerifications).values({ id: crypto.randomUUID(), bookingReference: assignment.bookingReference, assignmentId: assignment.id, driverId: assignment.driverId, result: "override", attemptNumber: attempts + 1, actor: admin.email, reason, createdAt: now });
-      await tx.insert(driverStatusEvents).values({ id: crypto.randomUUID(), assignmentId: assignment.id, bookingReference: assignment.bookingReference, status: "passenger_verified", previousStatus: "standby", verificationStatus: "verified", verifiedBy: admin.email, verifiedAt: now, driverNote: `Operations override: ${reason}`, createdAt: now });
-      await tx.insert(bookingEvents).values({ bookingReference: assignment.bookingReference, eventType: "passenger_verification_override", providerEventId: `passenger-override:${assignment.id}`, createdAt: now });
-    });
+    await getDb().batch([
+      getDb().update(bookingAssignments).set({ currentStatus: "passenger_verified", passengerVerifiedAt: now, passengerVerificationMethod: "operations_override", passengerVerifiedBy: admin.email, updatedAt: now }).where(eq(bookingAssignments.id, assignment.id)),
+      getDb().insert(passengerVerifications).values({ id: crypto.randomUUID(), bookingReference: assignment.bookingReference, assignmentId: assignment.id, driverId: assignment.driverId, result: "override", attemptNumber: attempts + 1, actor: admin.email, reason, createdAt: now }),
+      getDb().insert(driverStatusEvents).values({ id: crypto.randomUUID(), assignmentId: assignment.id, bookingReference: assignment.bookingReference, status: "passenger_verified", previousStatus: "standby", verificationStatus: "verified", verifiedBy: admin.email, verifiedAt: now, driverNote: `Operations override: ${reason}`, createdAt: now }),
+      getDb().insert(bookingEvents).values({ bookingReference: assignment.bookingReference, eventType: "passenger_verification_override", providerEventId: `passenger-override:${assignment.id}`, createdAt: now }),
+    ]);
     return NextResponse.json({ ok: true });
   }
 
@@ -152,7 +170,8 @@ export async function POST(request: Request) {
     if (event.verificationStatus !== "pending_review") return NextResponse.json({ error: "This evidence has already been reviewed." }, { status: 409 });
     const reason = input.reason?.trim() ?? "";
     if (input.action === "reject_event" && (reason.length < 3 || reason.length > 300)) return NextResponse.json({ error: "Add a reason for the driver." }, { status: 400 });
-    await getDb().update(driverStatusEvents).set({ verificationStatus: input.action === "verify_event" ? "verified" : "rejected", verifiedBy: admin.email, verifiedAt: now, rejectionReason: input.action === "reject_event" ? reason : null }).where(eq(driverStatusEvents.id, event.id));
+    const [reviewed] = await getDb().update(driverStatusEvents).set({ verificationStatus: input.action === "verify_event" ? "verified" : "rejected", verifiedBy: admin.email, verifiedAt: now, rejectionReason: input.action === "reject_event" ? reason : null }).where(and(eq(driverStatusEvents.id, event.id),eq(driverStatusEvents.verificationStatus,"pending_review"))).returning();
+    if (!reviewed) return NextResponse.json({error:"This evidence has already been reviewed."},{status:409});
     if (input.action === "reject_event") {
       const [assignment] = await getDb().select().from(bookingAssignments).where(eq(bookingAssignments.id, event.assignmentId)).limit(1);
       if (assignment?.currentStatus === event.status) {
@@ -160,14 +179,16 @@ export async function POST(request: Request) {
       }
     }
     if (input.action === "verify_event" && event.status === "no_show") {
-      await getDb().update(bookings).set({ status: "no_show", attentionStatus: "normal", attentionReason: null, updatedAt: now }).where(eq(bookings.reference, event.bookingReference));
+      const [a] = await getDb().select().from(bookingAssignments).where(eq(bookingAssignments.id,event.assignmentId)).limit(1);
+      if (a) await completeJourney(event.bookingReference,parseLeg(a.leg),"no_show");
       await getDb().insert(bookingEvents).values({ bookingReference: event.bookingReference, eventType: "no_show_verified", providerEventId: `no-show:${event.id}`, createdAt: now });
     }
     if (input.action === "reject_event" && event.status === "no_show") {
       await getDb().update(bookings).set({ attentionStatus: "normal", attentionReason: null, updatedAt: now }).where(eq(bookings.reference, event.bookingReference));
     }
     if (input.action === "verify_event" && event.status === "completed") {
-      await getDb().update(bookings).set({ status: "completed", updatedAt: now }).where(eq(bookings.reference, event.bookingReference));
+      const [a] = await getDb().select().from(bookingAssignments).where(eq(bookingAssignments.id,event.assignmentId)).limit(1);
+      if (a) await completeJourney(event.bookingReference,parseLeg(a.leg),"completed");
       await getDb().insert(bookingEvents).values({ bookingReference: event.bookingReference, eventType: "trip_completed_verified", providerEventId: `completed:${event.id}`, createdAt: now });
     }
     return NextResponse.json({ ok: true });

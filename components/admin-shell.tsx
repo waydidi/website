@@ -19,6 +19,7 @@ import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings
 const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly"))));
 
 const tabs = [
+  { href: "/admin/payments", label: "Payments", mobileLabel: "Payments", title: "Payments", icon: BarChart3 },
   {
     href: "/admin",
     label: "Overview",
@@ -123,6 +124,7 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
       { href: "/admin/bookings?type=tour", label: "Tour", match: (p, t) => p.startsWith("/admin/bookings") && t === "tour" },
     ] },
     { href: "/admin/operations", label: "Operations", icon: Truck },
+    { href: "/admin/payments", label: "Payments", icon: BarChart3 },
     { href: "/admin/reports", label: "Reports", icon: BarChart3, children: [
       { href: "/admin/reports", label: "Revenue", match: reportTab("revenue") },
       { href: "/admin/reports?tab=payouts", label: "Driver payouts", match: reportTab("payouts") },

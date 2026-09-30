@@ -51,7 +51,7 @@ function ImageField({ name, label }: { name: string; label: string }) {
 }
 
 // Temporary (outsourced) driver: saved as a driver, then assigned to this ride.
-export function AddDriverDialog({ reference, onClose, onDone }: { reference: string; onClose: () => void; onDone?: (driverUrl?: string) => void }) {
+export function AddDriverDialog({ reference, leg = "outbound", onClose, onDone }: { reference: string; leg?: "outbound" | "return"; onClose: () => void; onDone?: (driverUrl?: string) => void }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -66,7 +66,7 @@ export function AddDriverDialog({ reference, onClose, onDone }: { reference: str
       const res = await fetch("/api/admin/drivers", { method: "POST", body: form });
       const out = await res.json().catch(() => ({})) as { error?: string; driver?: { id: string } };
       if (!res.ok || !out.driver) throw new Error(out.error ?? "The driver could not be saved.");
-      const assign = await fetch("/api/admin/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "assign", bookingReference: reference, driverId: out.driver.id }) });
+      const assign = await fetch("/api/admin/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "assign", bookingReference: reference, leg, driverId: out.driver.id }) });
       const a = await assign.json().catch(() => ({})) as { error?: string; driverUrl?: string };
       if (!assign.ok) throw new Error(a.error ?? "Driver saved, but could not be assigned.");
       onClose();

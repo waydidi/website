@@ -1,6 +1,7 @@
-import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
 import { getDb } from "@/db";
-import { bookingAssignments, bookingCosts, bookingFreeAddons, bookingMemberDiscounts, bookings, drivers, memberBoxes, promoRedemptions } from "@/db/schema";
+import { bookingAssignments, bookingCosts, bookingFreeAddons, bookingMemberDiscounts, bookings, drivers, journeyCosts, memberBoxes, promoRedemptions } from "@/db/schema";
+import { journeysFor } from "@/lib/journey-legs";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "./addons";
 import { TIERS } from "./member-tier-rules";
 
@@ -19,15 +20,16 @@ export type ReportRange = { from: string; to: string }; // YYYY-MM-DD, by pickup
 /** Trips in the range with their money: fare, discounts and driver cost. */
 async function tripsInRange({ from, to }: ReportRange) {
   const rows = await getDb().select({
-    reference: bookings.reference, pickupDate: bookings.pickupDate, pickup: bookings.pickup, dropoff: bookings.dropoff,
+    reference: bookings.reference, returnDate: bookings.returnDate, pickupDate: bookings.pickupDate, pickup: bookings.pickup, dropoff: bookings.dropoff,
     vehicle: bookings.vehicle, paymentMethod: bookings.paymentMethod, total: bookings.total, status: bookings.status, serviceType: bookings.serviceType,
   }).from(bookings)
     .where(and(gte(bookings.pickupDate, from), lte(bookings.pickupDate, to), inArray(bookings.status, EARNING), isNull(bookings.binnedAt)));
   const refs = rows.map((r) => r.reference);
-  const [promos, members, costs] = await Promise.all([
+  const [promos, members, costs, splitCosts] = await Promise.all([
     inChunks(refs, (part) => getDb().select({ ref: promoRedemptions.bookingReference, discount: promoRedemptions.discount, code: promoRedemptions.code }).from(promoRedemptions).where(inArray(promoRedemptions.bookingReference, part))),
     inChunks(refs, (part) => getDb().select({ ref: bookingMemberDiscounts.bookingReference, discount: bookingMemberDiscounts.discount }).from(bookingMemberDiscounts).where(inArray(bookingMemberDiscounts.bookingReference, part))).catch(() => []),
     inChunks(refs, (part) => getDb().select({ ref: bookingCosts.bookingReference, cost: bookingCosts.totalDriverCost }).from(bookingCosts).where(inArray(bookingCosts.bookingReference, part))),
+    inChunks(refs,(part)=>getDb().select().from(journeyCosts).where(inArray(journeyCosts.bookingReference,part))),
   ]);
   const promoBy = new Map(promos.map((p) => [p.ref, p.discount]));
   const memberBy = new Map(members.map((m) => [m.ref, m.discount]));
@@ -36,7 +38,7 @@ async function tripsInRange({ from, to }: ReportRange) {
     ...r,
     promoDiscount: promoBy.get(r.reference) ?? 0,
     memberDiscount: memberBy.get(r.reference) ?? 0,
-    driverCost: costBy.has(r.reference) ? costBy.get(r.reference)! : null,
+    driverCost: splitCosts.some(c=>c.bookingReference===r.reference) ? splitCosts.filter(c=>c.bookingReference===r.reference).length === (r.returnDate?2:1) ? splitCosts.filter(c=>c.bookingReference===r.reference).reduce((sum,c)=>sum+c.costMinor/100,0) : null : costBy.has(r.reference) ? costBy.get(r.reference)! : null,
   }));
 }
 export type ReportTrip = Awaited<ReturnType<typeof tripsInRange>>[number];
@@ -76,7 +78,7 @@ export function weekStart(date: string) {
   return new Date(d.getTime() - shift * 86_400_000).toISOString().slice(0, 10);
 }
 
-export type PayoutTrip = { reference: string; pickupDate: string; route: string; fare: number; cost: number | null; status: string };
+export type PayoutTrip = { reference: string; pickupDate: string; route: string; fare: number; cost: number | null; status: string; leg: string; costSource: "journey" | "booking" };
 export type PayoutGroup = {
   driverId: string; driverName: string; phone: string; bank: { code: string; account: string; name: string };
   week: string; trips: PayoutTrip[]; owed: number; paid: number; unpaid: number; costMissing: number; state: "paid" | "unpaid" | "partly_paid";
@@ -84,24 +86,35 @@ export type PayoutGroup = {
 
 /** Driver earnings per driver per week, from trips with a driver assigned. */
 export async function driverPayouts({ from, to }: ReportRange): Promise<PayoutGroup[]> {
-  const rows = await getDb().select({
-    reference: bookings.reference, pickupDate: bookings.pickupDate, pickup: bookings.pickup, dropoff: bookings.dropoff, total: bookings.total,
-    driverId: bookingAssignments.driverId, driverName: drivers.fullName, phone: drivers.phone,
-    bankCode: drivers.bankCode, bankAccount: drivers.bankAccountNumber, bankName: drivers.bankAccountName,
-  }).from(bookings)
-    .innerJoin(bookingAssignments, and(eq(bookingAssignments.bookingReference, bookings.reference), isNull(bookingAssignments.revokedAt)))
-    .innerJoin(drivers, eq(drivers.id, bookingAssignments.driverId))
-    .where(and(gte(bookings.pickupDate, from), lte(bookings.pickupDate, to), inArray(bookings.status, EARNING), isNull(bookings.binnedAt)));
-  const costs = await inChunks(rows.map((r) => r.reference), (part) => getDb().select({ ref: bookingCosts.bookingReference, cost: bookingCosts.totalDriverCost, status: bookingCosts.paymentStatus }).from(bookingCosts).where(inArray(bookingCosts.bookingReference, part)));
-  const costBy = new Map(costs.map((c) => [c.ref, c]));
+  // D1 caps result columns at 100; select bookings separately from drivers.
+  const [parents,driverRows] = await Promise.all([
+    getDb().select().from(bookings).where(and(inArray(bookings.status,[...EARNING,"no_show"]),isNull(bookings.binnedAt),or(and(gte(bookings.pickupDate,from),lte(bookings.pickupDate,to)),and(gte(bookings.returnDate,from),lte(bookings.returnDate,to))))),
+    getDb().select().from(drivers),
+  ]);
+  const parentMap = new Map(parents.map(b=>[b.reference,b]));
+  const driverMap = new Map(driverRows.map(d=>[d.id,d]));
+  const assignments = await inChunks(parents.map(b=>b.reference),part=>getDb().select().from(bookingAssignments).where(and(inArray(bookingAssignments.bookingReference,part),isNull(bookingAssignments.revokedAt))));
+  const joined = assignments.flatMap(a=>{const booking=parentMap.get(a.bookingReference);const driver=driverMap.get(a.driverId);return booking&&driver ? [{booking,leg:a.leg,driverId:driver.id,driverName:driver.fullName,phone:driver.phone,bankCode:driver.bankCode,bankAccount:driver.bankAccountNumber,bankName:driver.bankAccountName}] : [];});
+  const journeys = await journeysFor(joined.map(r=>r.booking));
+  const journeyMap = new Map(journeys.map(j=>[j.journeyId,j]));
+  const rows = joined.flatMap(r=>{const j=journeyMap.get(`${r.booking.reference}:${r.leg}`);return j && j.pickupDate>=from && j.pickupDate<=to ? [{...r,...j}] : [];});
+  const refs = rows.map(r=>r.reference);
+  const [costs,splitCosts] = await Promise.all([
+    inChunks(refs,(part)=>getDb().select({ref:bookingCosts.bookingReference,cost:bookingCosts.totalDriverCost,status:bookingCosts.paymentStatus}).from(bookingCosts).where(inArray(bookingCosts.bookingReference,part))),
+    inChunks(refs,(part)=>getDb().select().from(journeyCosts).where(inArray(journeyCosts.bookingReference,part))),
+  ]);
+  const costBy = new Map(costs.map(c=>[c.ref,c]));
+  const splitBy = new Map(splitCosts.map(c=>[c.id,c]));
+  const splitReferences = new Set(splitCosts.map(c=>c.bookingReference));
   const groups = new Map<string, PayoutGroup>();
   for (const r of rows) {
     const week = weekStart(r.pickupDate);
     const key = `${r.driverId}|${week}`;
     if (!groups.has(key)) groups.set(key, { driverId: r.driverId, driverName: r.driverName, phone: r.phone, bank: { code: r.bankCode, account: r.bankAccount, name: r.bankName }, week, trips: [], owed: 0, paid: 0, unpaid: 0, costMissing: 0, state: "unpaid" });
     const g = groups.get(key)!;
-    const cost = costBy.get(r.reference);
-    g.trips.push({ reference: r.reference, pickupDate: r.pickupDate, route: `${r.pickup.split(",")[0]} → ${r.dropoff.split(",")[0]}`, fare: r.total, cost: cost ? cost.cost : null, status: cost?.status ?? "unpaid" });
+    const splitCost = splitBy.get(r.journeyId);
+    const cost = splitCost ? {cost:splitCost.costMinor/100,status:splitCost.paymentStatus} : !splitReferences.has(r.reference) && r.leg === "outbound" ? costBy.get(r.reference) : undefined;
+    g.trips.push({ reference: r.reference, leg:r.leg,costSource:splitCost?"journey":"booking", pickupDate: r.pickupDate, route: `${r.leg === "return" ? "Return · " : ""}${r.pickup.split(",")[0]} → ${r.dropoff.split(",")[0]}`, fare: r.total, cost: cost ? cost.cost : null, status: cost?.status ?? "unpaid" });
     if (!cost) { g.costMissing += 1; continue; }
     g.owed += cost.cost;
     if (cost.status === "paid") g.paid += cost.cost; else g.unpaid += cost.cost;
@@ -120,13 +133,14 @@ export async function driverPayouts({ from, to }: ReportRange): Promise<PayoutGr
 export async function markWeekPaid(driverId: string, week: string, paymentReference: string, adminEmail: string) {
   const end = new Date(new Date(`${week}T00:00:00Z`).getTime() + 6 * 86_400_000).toISOString().slice(0, 10);
   const group = (await driverPayouts({ from: week, to: end })).find((g) => g.driverId === driverId && g.week === week);
-  const refs = group ? group.trips.filter((t) => t.cost != null && t.status !== "paid").map((t) => t.reference) : [];
-  const now = new Date().toISOString();
-  let updated = 0;
-  for (let i = 0; i < refs.length; i += CHUNK) {
-    const res = await getDb().update(bookingCosts).set({ paymentStatus: "paid", paidAt: now, paymentReference: paymentReference || null, updatedBy: adminEmail, updatedAt: now })
-      .where(inArray(bookingCosts.bookingReference, refs.slice(i, i + CHUNK))).returning({ ref: bookingCosts.bookingReference });
-    updated += res.length;
+  const trips = group ? group.trips.filter(t=>t.cost!=null && t.status!=="paid") : [];
+  const now = new Date().toISOString(); let updated = 0;
+  for(const trip of trips){
+    if(trip.costSource === "journey") {
+      const rows = await getDb().update(journeyCosts).set({paymentStatus:"paid",updatedBy:adminEmail,updatedAt:now}).where(eq(journeyCosts.id,`${trip.reference}:${trip.leg}`)).returning();updated+=rows.length;
+    } else {
+      const rows = await getDb().update(bookingCosts).set({paymentStatus:"paid",paidAt:now,paymentReference:paymentReference||null,updatedBy:adminEmail,updatedAt:now}).where(eq(bookingCosts.bookingReference,trip.reference)).returning();updated+=rows.length;
+    }
   }
   return updated;
 }

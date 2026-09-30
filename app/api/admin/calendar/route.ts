@@ -1,3 +1,4 @@
+import { journeysFor, journeyFor, parseLeg } from "@/lib/journey-legs";
 import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -33,11 +34,6 @@ function rangeInstants(from: string, to: string) {
   };
 }
 
-function shiftDate(value: string, amount: number) {
-  const date = new Date(`${value}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + amount);
-  return date.toISOString().slice(0, 10);
-}
 
 function textValue(value: unknown, maximum: number) {
   return typeof value === "string" ? value.trim().slice(0, maximum) : "";
@@ -55,9 +51,9 @@ export async function GET(request: Request) {
   if (rangeEnd < rangeStart || rangeEnd - rangeStart > 93 * 24 * 60 * 60 * 1000) return NextResponse.json({ error: "Choose a date range of 93 days or less." }, { status: 400 });
   const instants = rangeInstants(from, to);
 
-  const [bookingRows, scheduleBookingRows, driverRows, assignmentRows, eventRows, availabilityRows, calendarRows, alertRows, notificationRows] = await Promise.all([
-    getDb().select().from(bookings).where(and(gte(bookings.pickupDate, from), lte(bookings.pickupDate, to))).orderBy(bookings.pickupDate, bookings.pickupTime),
-    getDb().select().from(bookings).where(and(gte(bookings.pickupDate, shiftDate(from, -1)), lte(bookings.pickupDate, shiftDate(to, 1)))),
+  const [parentRows, scheduleParentRows, driverRows, assignmentRows, eventRows, availabilityRows, calendarRows, alertRows, notificationRows] = await Promise.all([
+    getDb().select().from(bookings),
+    getDb().select().from(bookings),
     getDb().select().from(drivers).orderBy(drivers.fullName),
     getDb().select().from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)).orderBy(desc(bookingAssignments.assignedAt)),
     getDb().select().from(driverStatusEvents).where(gte(driverStatusEvents.createdAt, new Date(rangeStart - 7 * 24 * 60 * 60 * 1000).toISOString())).orderBy(desc(driverStatusEvents.createdAt)).limit(1000),
@@ -67,11 +63,14 @@ export async function GET(request: Request) {
     getDb().select().from(bookingNotifications).where(and(gte(bookingNotifications.createdAt, new Date(rangeStart - 2 * 24 * 60 * 60 * 1000).toISOString()), lte(bookingNotifications.createdAt, instants.endsAt))).orderBy(desc(bookingNotifications.createdAt)).limit(500),
   ]);
 
+  const leg = parseLeg(url.searchParams.get("leg"));
+  const bookingRows = (await journeysFor(parentRows)).filter(j => j.leg === leg && j.pickupDate >= from && j.pickupDate <= to);
+  const scheduleBookingRows = await journeysFor(scheduleParentRows);
   const activeAssignments = new Map<string, typeof assignmentRows[number]>();
-  for (const assignment of assignmentRows) if (!activeAssignments.has(assignment.bookingReference)) activeAssignments.set(assignment.bookingReference, assignment);
-  const bookingByReference = new Map(scheduleBookingRows.map((booking) => [booking.reference, booking]));
+  for (const assignment of assignmentRows.filter(a => a.leg === leg)) if (!activeAssignments.has(assignment.bookingReference)) activeAssignments.set(assignment.bookingReference, assignment);
+  const bookingByReference = new Map(scheduleBookingRows.map((booking) => [booking.journeyId, booking]));
   const conflicts = new Map<string, string[]>();
-  const assigned = assignmentRows.map((assignment) => ({ assignment, booking: bookingByReference.get(assignment.bookingReference) })).filter((row): row is { assignment: typeof assignmentRows[number]; booking: typeof bookingRows[number] } => Boolean(row.booking));
+  const assigned = assignmentRows.map((assignment) => ({ assignment, booking: bookingByReference.get(`${assignment.bookingReference}:${assignment.leg}`) })).filter((row): row is { assignment: typeof assignmentRows[number]; booking: typeof bookingRows[number] } => Boolean(row.booking));
   for (let index = 0; index < assigned.length; index += 1) {
     const left = assigned[index];
     const leftWindow = bookingWindow(left.booking);
@@ -80,24 +79,24 @@ export async function GET(request: Request) {
       if (left.assignment.driverId !== right.assignment.driverId) continue;
       const rightWindow = bookingWindow(right.booking);
       if (!rangesOverlap(leftWindow.startsAt, leftWindow.endsAt, rightWindow.startsAt, rightWindow.endsAt)) continue;
-      conflicts.set(left.booking.reference, [...(conflicts.get(left.booking.reference) ?? []), `Overlaps ${right.booking.reference}`]);
-      conflicts.set(right.booking.reference, [...(conflicts.get(right.booking.reference) ?? []), `Overlaps ${left.booking.reference}`]);
+      conflicts.set(left.booking.journeyId, [...(conflicts.get(left.booking.journeyId) ?? []), `Overlaps ${right.booking.reference}`]);
+      conflicts.set(right.booking.journeyId, [...(conflicts.get(right.booking.journeyId) ?? []), `Overlaps ${left.booking.reference}`]);
     }
   }
   for (const { assignment, booking } of assigned) {
     const window = bookingWindow(booking);
     for (const unavailable of availabilityRows.filter((row) => row.driverId === assignment.driverId)) {
       if (rangesOverlap(window.startsAt, window.endsAt, new Date(unavailable.startsAt).getTime(), new Date(unavailable.endsAt).getTime())) {
-        conflicts.set(booking.reference, [...(conflicts.get(booking.reference) ?? []), unavailable.reason ? `Driver unavailable: ${unavailable.reason}` : "Driver unavailable"]);
+        conflicts.set(booking.journeyId, [...(conflicts.get(booking.journeyId) ?? []), unavailable.reason ? `Driver unavailable: ${unavailable.reason}` : "Driver unavailable"]);
       }
     }
   }
 
   const responseBookings = bookingRows.filter((row) => ACTIVE_BOOKING_STATUSES.has(row.status)).map((row) => {
     const assignment = activeAssignments.get(row.reference);
-    const pendingEvidence = eventRows.filter((event) => event.bookingReference === row.reference && event.verificationStatus === "pending_review").length;
+    const pendingEvidence = eventRows.filter((event) => event.assignmentId === assignment?.id && event.verificationStatus === "pending_review").length;
     const window = bookingWindow(row);
-    const bookingConflicts = conflicts.get(row.reference) ?? [];
+    const bookingConflicts = conflicts.get(row.journeyId) ?? [];
     const attention = attentionForJourney({ bookingStatus: row.status, attentionStatus: row.attentionStatus, pickup: window.pickup, assignmentStatus: assignment?.currentStatus, hasAssignment: Boolean(assignment), pendingEvidence, hasConflict: bookingConflicts.length > 0 });
     return {
       serviceType: row.serviceType,
@@ -159,19 +158,23 @@ export async function POST(request: Request) {
     const reference = textValue(input.bookingReference, 40);
     const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
     if (!booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+    const leg = parseLeg(input.leg);
+    const journey = await journeyFor(booking,leg);
+    if (!journey || journey.status !== "confirmed") return NextResponse.json({error:"Only active journeys can be rescheduled."},{status:409});
     const attentionStatus = input.attentionStatus === "attention" ? "attention" : "normal";
     const attentionReason = textValue(input.attentionReason, 300) || null;
     const internalNotes = textValue(input.internalNotes, 2000) || null;
-    const pickupDate = textValue(input.pickupDate, 10) || booking.pickupDate;
-    const pickupTime = textValue(input.pickupTime, 5) || booking.pickupTime;
+    const pickupDate = textValue(input.pickupDate, 10) || journey.pickupDate;
+    const pickupTime = textValue(input.pickupTime, 5) || journey.pickupTime;
     const preparationBufferMinutes = Math.min(240, Math.max(0, Number(input.preparationBufferMinutes ?? booking.preparationBufferMinutes)));
     const postTripBufferMinutes = Math.min(240, Math.max(0, Number(input.postTripBufferMinutes ?? booking.postTripBufferMinutes)));
     if (!validCalendarDate(pickupDate) || !/^([01]\d|2[0-3]):[0-5]\d$/u.test(pickupTime)) return NextResponse.json({ error: "Choose a valid pickup date and time." }, { status: 400 });
     if (!Number.isInteger(preparationBufferMinutes) || !Number.isInteger(postTripBufferMinutes)) return NextResponse.json({ error: "Buffers must be whole minutes." }, { status: 400 });
-    await getDb().update(bookings).set({ pickupDate, pickupTime, attentionStatus, attentionReason, internalNotes, preparationBufferMinutes, postTripBufferMinutes, updatedAt: now }).where(eq(bookings.reference, reference));
-    if (pickupDate !== booking.pickupDate || pickupTime !== booking.pickupTime) {
+    const schedule = leg === "return" ? {returnDate:pickupDate,returnTime:pickupTime} : {pickupDate,pickupTime};
+    await getDb().update(bookings).set({ ...schedule, attentionStatus, attentionReason, internalNotes, preparationBufferMinutes, postTripBufferMinutes, updatedAt: now }).where(eq(bookings.reference, reference));
+    if (pickupDate !== journey.pickupDate || pickupTime !== journey.pickupTime) {
       const tokenExpiresAt = new Date(Math.max(Date.now() + 48 * 60 * 60 * 1000, pickupTimestamp(pickupDate, pickupTime) + 24 * 60 * 60 * 1000)).toISOString();
-      await getDb().update(bookingAssignments).set({ tokenExpiresAt, updatedAt: now }).where(and(eq(bookingAssignments.bookingReference, reference), isNull(bookingAssignments.revokedAt)));
+      await getDb().update(bookingAssignments).set({ tokenExpiresAt, updatedAt: now }).where(and(eq(bookingAssignments.bookingReference, reference), eq(bookingAssignments.leg,leg), isNull(bookingAssignments.revokedAt)));
     }
     await getDb().insert(bookingEvents).values({ bookingReference: reference, eventType: "operations_updated", providerEventId: `operations:${crypto.randomUUID()}`, createdAt: now });
     return NextResponse.json({ ok: true });
@@ -222,19 +225,21 @@ export async function POST(request: Request) {
     const bookingReference = textValue(input.bookingReference, 40);
     const driverId = textValue(input.driverId, 80);
     const overrideConflict = input.overrideConflict === true;
-    const [[booking], [driver], activeAssignments, allBookingRows, unavailableRows] = await Promise.all([
+    const [[parentBooking], [driver], activeAssignments, allBookingRows, unavailableRows] = await Promise.all([
       getDb().select().from(bookings).where(eq(bookings.reference, bookingReference)).limit(1),
       getDb().select().from(drivers).where(eq(drivers.id, driverId)).limit(1),
       getDb().select().from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)),
       getDb().select().from(bookings),
       getDb().select().from(driverAvailability).where(eq(driverAvailability.driverId, driverId)),
     ]);
+    const leg = parseLeg(input.leg);
+    const booking = parentBooking ? await journeyFor(parentBooking,leg) : null;
     if (!booking || booking.status !== "confirmed" || !driver || driver.status !== "active") return NextResponse.json({ error: "Choose a confirmed booking and active driver." }, { status: 409 });
     const candidateWindow = bookingWindow(booking);
-    const bookingMap = new Map(allBookingRows.map((row) => [row.reference, row]));
+    const bookingMap = new Map((await journeysFor(allBookingRows)).map((row) => [row.journeyId,row]));
     const conflictMessages: string[] = [];
-    for (const assignment of activeAssignments.filter((row) => row.driverId === driverId && row.bookingReference !== bookingReference && row.currentStatus !== "completed" && row.currentStatus !== "no_show")) {
-      const assignedBooking = bookingMap.get(assignment.bookingReference);
+    for (const assignment of activeAssignments.filter((row) => row.driverId === driverId && (row.bookingReference !== bookingReference || row.leg !== leg) && row.currentStatus !== "completed" && row.currentStatus !== "no_show")) {
+      const assignedBooking = bookingMap.get(`${assignment.bookingReference}:${assignment.leg}`);
       if (!assignedBooking || assignedBooking.status !== "confirmed") continue;
       const assignedWindow = bookingWindow(assignedBooking);
       if (rangesOverlap(candidateWindow.startsAt, candidateWindow.endsAt, assignedWindow.startsAt, assignedWindow.endsAt)) conflictMessages.push(`Overlaps ${assignedBooking.reference} at ${assignedBooking.pickupTime}`);
@@ -244,11 +249,13 @@ export async function POST(request: Request) {
     }
     if (conflictMessages.length && !overrideConflict) return NextResponse.json({ error: "This driver has a schedule conflict.", conflicts: conflictMessages, canOverride: true }, { status: 409 });
 
-    for (const existing of activeAssignments.filter((row) => row.bookingReference === bookingReference)) await getDb().update(bookingAssignments).set({ revokedAt: now, updatedAt: now }).where(eq(bookingAssignments.id, existing.id));
     const token = secureToken();
     const expiry = new Date(Math.max(Date.now() + 48 * 60 * 60 * 1000, pickupTimestamp(booking.pickupDate, booking.pickupTime) + 24 * 60 * 60 * 1000)).toISOString();
-    const assignment = { id: crypto.randomUUID(), bookingReference, driverId, tokenHash: await sha256(token), currentStatus: "assigned", assignedBy: admin.email, assignedAt: now, tokenExpiresAt: expiry, updatedAt: now };
-    await getDb().insert(bookingAssignments).values(assignment);
+    const assignment = { id: crypto.randomUUID(), bookingReference, leg, driverId, tokenHash: await sha256(token), currentStatus: "assigned", assignedBy: admin.email, assignedAt: now, tokenExpiresAt: expiry, updatedAt: now };
+    await getDb().batch([
+      getDb().update(bookingAssignments).set({revokedAt:now,updatedAt:now}).where(and(eq(bookingAssignments.bookingReference,bookingReference),eq(bookingAssignments.leg,leg),isNull(bookingAssignments.revokedAt))),
+      getDb().insert(bookingAssignments).values(assignment),
+    ]);
     await getDb().insert(bookingEvents).values({ bookingReference, eventType: overrideConflict && conflictMessages.length ? "driver_assigned_conflict_override" : "driver_assigned", providerEventId: `assignment:${assignment.id}`, createdAt: now });
     const driverUrl = `${safeOrigin(request)}/driver/trip/${token}`;
     if (driver.email && driver.remindersEnabled) {

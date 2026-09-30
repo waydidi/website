@@ -34,6 +34,7 @@ export async function createCheckoutSession(input: {
       "Idempotency-Key": `checkout-${input.idempotencyKey}`,
     },
     body: params,
+    signal: AbortSignal.timeout(8000),
   });
   const result = (await response.json()) as {
     id?: string;
@@ -73,6 +74,7 @@ export async function retrieveCheckoutSession(sessionId: string) {
     `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
     {
       headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` },
+      signal: AbortSignal.timeout(8000),
     },
   );
   const result = (await response.json()) as StripeCheckoutSession;

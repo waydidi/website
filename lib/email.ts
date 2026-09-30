@@ -262,8 +262,8 @@ function reminderShell(kicker: string, title: string, intro: string, rows: strin
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f3f5f8;color:#211726;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:28px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border-radius:24px;overflow:hidden"><tr><td style="background:#ff8a05;padding:30px 34px;color:#fff"><img src="cid:waydidi-logo" width="150" alt="Waydidi" style="display:block;width:150px;height:auto;margin-bottom:28px">${kicker ? `<p style="margin:0 0 8px;color:#ffe1c2;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${escapeHtml(kicker)}</p>` : ""}<h1 style="margin:0;color:#fff;font-size:32px;line-height:1.12">${escapeHtml(title)}</h1></td></tr><tr><td style="padding:30px 34px">${intro ? `<p style="margin:0 0 22px;color:#586579;font-size:16px;line-height:1.6">${escapeHtml(intro)}</p>` : ""}<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rows}</table></td></tr></table></td></tr></table></body></html>`;
 }
 
-export async function sendCustomerTripReminder(input: TripReminderInput & { to: string; name: string; hoursBefore: 24 | 3; tripKey?: string }) {
-  const tripUrl = input.tripKey ? `${siteUrl()}/trip/${encodeURIComponent(input.reference)}?key=${input.tripKey}` : null;
+export async function sendCustomerTripReminder(input: TripReminderInput & { to: string; name: string; hoursBefore: 24 | 3; tripKey?: string; leg?: "outbound" | "return" }) {
+  const tripUrl = input.tripKey ? `${siteUrl()}/trip/${encodeURIComponent(input.reference)}?key=${input.tripKey}&leg=${input.leg ?? "outbound"}` : null;
   const when = displayDate(input.pickupDate, input.pickupTime);
   const title = input.hoursBefore === 24 ? "Your ride is tomorrow." : "Your ride is coming up soon.";
   const html = reminderShell(

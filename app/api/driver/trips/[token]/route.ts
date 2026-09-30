@@ -1,3 +1,4 @@
+import { journeyFor, parseLeg } from "@/lib/journey-legs";
 import { env } from "cloudflare:workers";
 import { and, count, desc, eq, gt, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -29,7 +30,9 @@ async function tripForToken(token: string) {
     getDb().select().from(driverStatusEvents).where(eq(driverStatusEvents.assignmentId, assignment.id)).orderBy(desc(driverStatusEvents.createdAt)),
   ]);
   if (!booking || !driver) return null;
-  return { assignment, booking, driver, events };
+  const journey = await journeyFor(booking,parseLeg(assignment.leg));
+  if (!journey) return null;
+  return { assignment, booking: journey, driver, events };
 }
 
 function eligibleAtIso(booking: typeof bookings.$inferSelect) {
@@ -51,7 +54,7 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     assignment: { id: assignment.id, currentStatus: assignment.currentStatus === "standby" && assignment.passengerVerifiedAt ? "passenger_verified" : assignment.currentStatus, tokenExpiresAt: assignment.tokenExpiresAt, passengerVerifiedAt: assignment.passengerVerifiedAt, passengerVerificationMethod: assignment.passengerVerificationMethod, passengerVerificationAttemptsRemaining: Math.max(0, 5 - failedAttempts) },
     driver: { fullName: driver.fullName, phone: driver.phone, bankCode: payout?.bankCode ?? driver.bankCode, bankAccountNumber: payout?.accountNumber ?? driver.bankAccountNumber, bankAccountName: payout?.accountName ?? driver.bankAccountName },
     booking: {
-      reference: booking.reference, customerName: booking.customerName, customerPhone: booking.customerPhone,
+      leg: booking.leg, reference: booking.reference, customerName: booking.customerName, customerPhone: booking.customerPhone,
       pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate, pickupTime: booking.pickupTime,
       passengers: booking.passengers, luggage: booking.luggage, vehicle: booking.vehicle, flightNumber: booking.flightNumber,
       pickupLatitude: booking.pickupLatitude, pickupLongitude: booking.pickupLongitude,
@@ -143,25 +146,29 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const now = new Date(nowMs).toISOString();
   const final = requestedStatus === "completed" || noShow;
   const statements = [
-    env.DB.prepare(`INSERT INTO driver_status_events (id, assignment_id, booking_reference, status, previous_status, latitude, longitude, accuracy_metres, expected_distance_metres, driver_note, evidence_key, evidence_mime, evidence_bytes, evidence_sha256, verification_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, trip.assignment.id, trip.booking.reference, requestedStatus, current, coordinatesValid ? latitude : null, coordinatesValid ? longitude : null, coordinatesValid ? accuracy : null, expectedDistance, note || null, evidenceKey, evidenceMime, evidenceBytes, evidenceSha256, adminReviewRequired(requestedStatus) ? "pending_review" : "not_required", occurredAt),
-    env.DB.prepare(`UPDATE booking_assignments SET current_status = ?, completed_at = ?, updated_at = ? WHERE id = ? AND current_status = ? AND revoked_at IS NULL`).bind(requestedStatus, final ? occurredAt : null, now, trip.assignment.id, storedCurrent),
+    env.DB.prepare(`INSERT INTO driver_status_events (id, assignment_id, booking_reference, status, previous_status, latitude, longitude, accuracy_metres, expected_distance_metres, driver_note, evidence_key, evidence_mime, evidence_bytes, evidence_sha256, verification_status, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM booking_assignments WHERE id = ? AND current_status = ? AND revoked_at IS NULL`).bind(id, trip.assignment.id, trip.booking.reference, requestedStatus, current, coordinatesValid ? latitude : null, coordinatesValid ? longitude : null, coordinatesValid ? accuracy : null, expectedDistance, note || null, evidenceKey, evidenceMime, evidenceBytes, evidenceSha256, adminReviewRequired(requestedStatus) ? "pending_review" : "not_required", occurredAt, trip.assignment.id, storedCurrent),
+    env.DB.prepare(`UPDATE booking_assignments SET current_status = ?, completed_at = ?, updated_at = ? WHERE id = ? AND current_status = ? AND revoked_at IS NULL AND EXISTS(SELECT 1 FROM driver_status_events WHERE id = ? AND assignment_id = ?)`).bind(requestedStatus, final ? occurredAt : null, now, trip.assignment.id, storedCurrent, id, trip.assignment.id),
   ];
   if (occurredAt !== now) {
-    statements.push(env.DB.prepare(`INSERT OR IGNORE INTO booking_events (booking_reference, event_type, provider_event_id, created_at) VALUES (?, 'driver_status_sent_late', ?, ?)`).bind(trip.booking.reference, `driver-status-late:${id}`, now));
+    statements.push(env.DB.prepare(`INSERT OR IGNORE INTO booking_events (booking_reference, event_type, provider_event_id, created_at) SELECT ?, 'driver_status_sent_late', ?, ? WHERE EXISTS(SELECT 1 FROM driver_status_events WHERE id = ?)`).bind(trip.booking.reference, `driver-status-late:${id}`, now, id));
   }
   const alerts: Array<{ type: string; severity: "warning" | "critical"; title: string; details: string }> = [];
   if (noShow) {
     alerts.push({ type: "passenger_no_show", severity: "critical", title: "Passenger no-show reported", details: `Driver reported a no-show${expectedDistance !== null ? ` ${expectedDistance} m from pickup` : ""}. Review the photo and note, contact the passenger, then approve or reject. Note: ${note}` });
-    statements.push(env.DB.prepare(`UPDATE bookings SET attention_status = 'attention', attention_reason = ?, updated_at = ? WHERE reference = ?`).bind("Driver reported a passenger no-show. Review the evidence and decide any charge.", now, trip.booking.reference));
+    statements.push(env.DB.prepare(`UPDATE bookings SET attention_status = 'attention', attention_reason = ?, updated_at = ? WHERE reference = ? AND EXISTS(SELECT 1 FROM driver_status_events WHERE id = ?)`).bind("Driver reported a passenger no-show. Review the evidence and decide any charge.", now, trip.booking.reference, id));
   }
   if (requestedStatus === "trip_started" && expectedDistance !== null && expectedDistance > TRIP_START_WARNING_METRES) {
     alerts.push({ type: "trip_started_away", severity: "warning", title: "Trip started away from pickup", details: `The driver started the trip about ${(expectedDistance / 1000).toFixed(1)} km from the booked pickup point.` });
   }
   for (const alert of alerts) {
-    statements.push(env.DB.prepare(`INSERT OR IGNORE INTO operations_alerts (id, booking_reference, assignment_id, alert_type, severity, title, details, dedupe_key, status, detected_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)`).bind(crypto.randomUUID(), trip.booking.reference, trip.assignment.id, alert.type, alert.severity, alert.title, alert.details, `${alert.type}:${trip.assignment.id}`, now, now, now));
+    statements.push(env.DB.prepare(`INSERT OR IGNORE INTO operations_alerts (id, booking_reference, assignment_id, alert_type, severity, title, details, dedupe_key, status, detected_at, created_at, updated_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ? WHERE EXISTS(SELECT 1 FROM driver_status_events WHERE id = ?)`).bind(crypto.randomUUID(), trip.booking.reference, trip.assignment.id, alert.type, alert.severity, alert.title, alert.details, `${alert.type}:${trip.assignment.id}`, now, now, now, id));
   }
   try {
-    await env.DB.batch(statements);
+    const result = await env.DB.batch(statements);
+    if (!result[0].meta.changes || !result[1].meta.changes) {
+      if (evidenceKey) await deleteFile(evidenceKey).catch(() => undefined);
+      return NextResponse.json({error:"The journey changed while this update was uploading. Refresh and retry."},{status:409});
+    }
   } catch (error) {
     if (evidenceKey) await deleteFile(evidenceKey).catch(() => undefined);
     console.error("Driver status update failed", error);

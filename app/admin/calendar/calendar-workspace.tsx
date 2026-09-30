@@ -185,6 +185,7 @@ function thaiIso(value: string) {
 export default function CalendarWorkspace({ email, serviceType, embedded = false }: { email: string; serviceType?: "transfer" | "hourly" | "tour"; embedded?: boolean }) {
   const [anchor, setAnchor] = useState(todayInBangkok);
   const [view, setView] = useState<ViewMode>("today");
+  const [leg, setLeg] = useState<"outbound" | "return">("outbound");
   const [data, setData] = useState<CalendarData | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -215,14 +216,14 @@ export default function CalendarWorkspace({ email, serviceType, embedded = false
   const load = useCallback(async () => {
     setError("");
     try {
-      const response = await fetch(`/api/admin/calendar?from=${range.from}&to=${range.to}`, { cache: "no-store" });
+      const response = await fetch(`/api/admin/calendar?from=${range.from}&to=${range.to}&leg=${leg}`, { cache: "no-store" });
       const result = await response.json() as CalendarData & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Calendar unavailable.");
       setData(result);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Calendar unavailable.");
     }
-  }, [range.from, range.to]);
+  }, [range.from, range.to, leg]);
 
   useEffect(() => {
     load();
@@ -263,12 +264,13 @@ export default function CalendarWorkspace({ email, serviceType, embedded = false
   const selectedBooking = data?.bookings.find((booking) => booking.reference === selected) ?? null;
   const selectedAssignmentDriver = data?.drivers.find((driver) => driver.id === selectedBooking?.assignment?.driverId);
 
-  async function calendarAction(payload: Record<string, unknown>, success: string, allowOverride = false) {
+  async function calendarAction(payload: Record<string, unknown>
+, success: string, allowOverride = false) {
     setBusy(String(payload.action ?? "action"));
     setError("");
     setMessage("");
     try {
-      const response = await fetch("/api/admin/calendar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const response = await fetch("/api/admin/calendar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, leg }) });
       const result = await response.json() as { error?: string; conflicts?: string[]; canOverride?: boolean; driverUrl?: string };
       if (!response.ok) {
         if (allowOverride && result.canOverride && result.conflicts?.length && window.confirm(`${result.error}\n\n${result.conflicts.join("\n")}\n\nAssign anyway?`)) {
@@ -293,7 +295,7 @@ export default function CalendarWorkspace({ email, serviceType, embedded = false
     setError("");
     setMessage("");
     try {
-      const response = await fetch("/api/admin/automation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const response = await fetch("/api/admin/automation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, leg }) });
       const result = await response.json() as { error?: string; summary?: { notificationsSent: number; alertsOpened: number; alertsResolved: number } };
       if (!response.ok) throw new Error(result.error ?? "Automation action failed.");
       setMessage(result.summary ? `${success} ${result.summary.notificationsSent} reminders sent, ${result.summary.alertsOpened} alerts opened, ${result.summary.alertsResolved} resolved.` : success);
@@ -319,6 +321,7 @@ export default function CalendarWorkspace({ email, serviceType, embedded = false
 
   return (
     <main className="min-h-screen bg-[#f3f5f8] text-[#211726]">
+      <div className="mb-4 flex gap-2" aria-label="Journey direction">{(["outbound", "return"] as const).map(value => <button key={value} onClick={() => { setLeg(value); setSelected(""); }} className={`rounded-full px-5 py-2 font-bold ${leg === value ? "bg-orange-500 text-white" : "bg-slate-100"}`}>{value === "outbound" ? "Outbound journeys" : "Return journeys"}</button>)}</div>
       {!embedded && <><header className="border-b border-orange-400 bg-[#FF8A05] px-4 py-4 text-white sm:px-8">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">

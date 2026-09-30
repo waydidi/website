@@ -1,4 +1,5 @@
 import { asc, desc, eq } from "drizzle-orm";
+import { journeyFor, journeysFor, parseLeg } from "@/lib/journey-legs";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { bookingAssignments, bookings, driverStatusEvents, journeyLocations } from "@/db/schema";
@@ -16,9 +17,13 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   const reference = (await context.params).reference.toUpperCase();
   const resolved = await resolveTripAccess(request, reference);
   if (!resolved) return NextResponse.json({ error: "We could not find this trip. Check the link in your email." }, { status: 404, headers: { "Cache-Control": "no-store" } });
-  const { booking, access } = resolved;
+  const { access } = resolved;
   const now = Date.now();
-  const assignment = await activeAssignment(reference);
+  const leg = parseLeg(new URL(request.url).searchParams.get("leg"));
+  const journey = await journeyFor(resolved.booking,leg);
+  if (!journey) return NextResponse.json({error:"Journey not found."},{status:404});
+  const assignment = await activeAssignment(reference,leg);
+  const booking = journey;
   const stage = customerStage(booking.status, assignment?.currentStatus);
   if (access === "shared" && !shareLinkActive({ booking, stage, completedAt: assignment?.completedAt, now })) {
     return NextResponse.json({ error: "This shared trip link has expired." }, { status: 410, headers: { "Cache-Control": "no-store" } });
@@ -44,6 +49,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   const owner = access === "owner";
   const standby = accepted.find((event) => event.status === "standby");
   return NextResponse.json({
+    leg, legs: (await journeysFor([resolved.booking])).map(j => ({leg:j.leg,status:j.status,pickupDate:j.pickupDate,pickupTime:j.pickupTime})),
     reference: booking.reference,
     access,
     stage,

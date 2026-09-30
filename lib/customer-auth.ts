@@ -106,6 +106,6 @@ export async function requireCustomer(returnTo: string) {
 export async function driverStatuses(references: string[]) {
   if (!references.length) return new Map<string, string>();
   const rows = await getDb().select({ reference: bookingAssignments.bookingReference, status: bookingAssignments.currentStatus })
-    .from(bookingAssignments).where(and(inArray(bookingAssignments.bookingReference, references.slice(0, 90)), isNull(bookingAssignments.revokedAt)));
+    .from(bookingAssignments).where(and(inArray(bookingAssignments.bookingReference, references.slice(0, 90)), eq(bookingAssignments.leg,"outbound"), isNull(bookingAssignments.revokedAt)));
   return new Map(rows.map((row) => [row.reference, row.status]));
 }

@@ -32,6 +32,8 @@ type Trip = {
   reference: string;
   access: "owner" | "shared";
   stage: Stage;
+  leg: "outbound" | "return";
+  legs: Array<{leg: "outbound" | "return";status: string;pickupDate:string;pickupTime:string}>;
   serviceType: string;
   bookedHours: number | null;
   pickup: string;
@@ -52,7 +54,7 @@ type Trip = {
 };
 
 const POLL_MS = 20_000;
-const AUTH_PARAMS = ["token", "key", "share"] as const;
+const AUTH_PARAMS = ["token", "key", "share", "leg"] as const;
 
 function authQuery() {
   const current = new URLSearchParams(window.location.search);
@@ -132,6 +134,7 @@ export function TripView({ reference }: { reference: string }) {
   const live = trip.stage === "on_trip";
   return (
     <main className="min-h-screen bg-surface pb-16 text-ink">
+      {trip.legs.length > 1 && <nav className="mx-auto flex max-w-3xl gap-3 p-4" aria-label="Journey direction">{trip.legs.map(j => { const params = new URLSearchParams(query ?? ""); params.set("leg",j.leg); return <a key={j.leg} href={`?${params}`} className={`rounded-full px-4 py-2 font-bold ${trip.leg === j.leg ? "bg-orange-500 text-white" : "bg-slate-100"}`}>{j.leg === "outbound" ? "Outbound" : "Return"} · {j.pickupDate}</a>; })}</nav>}
       <header className="bg-brand px-4 pb-10 pt-4 text-white">
         <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
           <Link href="/" aria-label={t("nav.home")} className="inline-flex text-white"><WaydidiLogo className="h-[48px] w-auto" /></Link>
