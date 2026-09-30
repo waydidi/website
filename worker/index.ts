@@ -1,3 +1,4 @@
+import { SITE_URL } from "../lib/site";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
@@ -73,8 +74,8 @@ const worker = {
 
 function withSecurityHeaders(response: Response, url: URL) {
     const secured = new Response(response.body, response);
-    // The workers.dev preview address must not compete with the real domain in search.
-    if (url.hostname.endsWith(".workers.dev")) secured.headers.set("X-Robots-Tag", "noindex, nofollow");
+    // Index the sole live origin; keep other workers.dev previews out of search.
+    if (url.hostname.endsWith(".workers.dev") && url.hostname !== new URL(SITE_URL).hostname) secured.headers.set("X-Robots-Tag", "noindex, nofollow");
     secured.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     secured.headers.set("X-Content-Type-Options", "nosniff");
     secured.headers.set("X-Frame-Options", "DENY");

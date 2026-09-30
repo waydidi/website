@@ -1,5 +1,6 @@
 "use client";
 
+import { SITE_URL } from "@/lib/site";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
@@ -233,7 +234,7 @@ export function PostEditor({ initial, knownCategories }: { initial: EditorPost; 
         <Panel title="SEO" open={false}>
           <label className="block text-sm font-semibold">SEO title<input value={post.seoTitle} onChange={(e) => set("seoTitle", e.target.value)} maxLength={120} placeholder={post.title} className={`${input} mt-1`} /></label>
           <label className="mt-3 block text-sm font-semibold">Meta description<textarea rows={3} value={post.seoDescription} onChange={(e) => set("seoDescription", e.target.value)} maxLength={300} placeholder={post.excerpt} className={`${input} mt-1 resize-none`} /></label>
-          <div className="mt-3 rounded-xl border border-slate-200 p-3"><p className="text-xs text-slate-500">Google preview</p><p className="mt-1 truncate text-[15px] text-[#1a0dab]">{post.seoTitle || post.title || "Post title"} | Waydidi</p><p className="text-xs text-emerald-700">waydidi.com/blog/{slug}</p><p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{post.seoDescription || post.excerpt || "Add an excerpt or meta description."}</p></div>
+          <div className="mt-3 rounded-xl border border-slate-200 p-3"><p className="text-xs text-slate-500">Google preview</p><p className="mt-1 truncate text-[15px] text-[#1a0dab]">{post.seoTitle || post.title || "Post title"} | Waydidi</p><p className="text-xs text-emerald-700">{new URL(SITE_URL).host}/blog/{slug}</p><p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{post.seoDescription || post.excerpt || "Add an excerpt or meta description."}</p></div>
         </Panel>
       </aside>
     </div>
