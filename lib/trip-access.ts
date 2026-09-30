@@ -40,7 +40,7 @@ export async function resolveTripAccess(request: Request, reference: string): Pr
   if (!REFERENCE_PATTERN.test(reference)) return null;
   const params = new URL(request.url).searchParams;
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
-  if (!booking || booking.status === "binned" || booking.status === "pending_payment") return null;
+  if (!booking || ["binned","pending_payment","expired"].includes(booking.status)) return null;
 
   const token = params.get("token") ?? "";
   if (token && token.length <= 200 && constantTimeEqual(await sha256(token), booking.accessTokenHash)) return { booking, access: "owner" };
@@ -56,9 +56,9 @@ export async function resolveTripAccess(request: Request, reference: string): Pr
   return null;
 }
 
-export async function activeAssignment(reference: string) {
+export async function activeAssignment(reference: string, leg = "outbound") {
   const [assignment] = await getDb().select().from(bookingAssignments)
-    .where(and(eq(bookingAssignments.bookingReference, reference), isNull(bookingAssignments.revokedAt)))
+    .where(and(eq(bookingAssignments.bookingReference, reference), eq(bookingAssignments.leg,leg), isNull(bookingAssignments.revokedAt)))
     .orderBy(desc(bookingAssignments.assignedAt)).limit(1);
   return assignment ?? null;
 }

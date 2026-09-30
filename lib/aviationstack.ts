@@ -46,7 +46,7 @@ export async function lookupFlight(rawFlightNumber: string, flightDate: string, 
   if (!response.ok) throw new Error(response.status === 429 ? "FLIGHT_API_LIMIT" : "FLIGHT_API_UNAVAILABLE");
   const payload = await response.json() as { error?: unknown; data?: AviationstackFlight[] };
   if (payload.error) throw new Error("FLIGHT_API_UNAVAILABLE");
-  const item = payload.data?.find((row) => row.flight_date === flightDate) ?? payload.data?.[0];
+  const item = payload.data?.find((row) => row.flight_date === flightDate);
   if (!item) throw new Error("FLIGHT_NOT_FOUND");
   const status = String(item.flight_status ?? "scheduled").toLowerCase();
   const fetchedAt = new Date().toISOString();

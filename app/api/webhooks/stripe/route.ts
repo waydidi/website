@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { bookings, operationsAlerts } from "@/db/schema";
-import { markProviderFailure, reconcileBooking, reconcileCheckoutSession, updateRefundOrDispute } from "@/lib/payment-reconciliation";
+import { bookings } from "@/db/schema";
+import { markProviderFailure, reconcileBooking } from "@/lib/payment-reconciliation";
 import { claimPaymentProviderEvent, completePaymentProviderEvent, failPaymentProviderEvent } from "@/lib/payment-provider-events";
 import { paymentProviderFor } from "@/lib/payments/provider";
-import { normalizeStripeSession, type StripeWebhookEvent } from "@/lib/payments/stripe-provider";
+import { type StripeWebhookEvent } from "@/lib/payments/stripe-provider";
 
 async function processStripeEvent(event: StripeWebhookEvent) {
   const object = event.data.object;
@@ -14,27 +14,25 @@ async function processStripeEvent(event: StripeWebhookEvent) {
     if (!reference) return;
     const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
     if (!booking) return;
+    if (object.id !== booking.checkoutSessionId) return;
     if (event.type === "checkout.session.async_payment_failed") {
       await markProviderFailure(reference, "async_payment_failed", "Stripe reported that the payment failed.", `stripe:${event.id}`);
       return;
     }
-    await reconcileCheckoutSession(booking, normalizeStripeSession(object), "webhook");
+    if (object.id !== booking.checkoutSessionId) return;
+    await reconcileBooking(reference, "webhook");
     return;
   }
   if (event.type === "payment_intent.payment_failed") {
     const reference = object.metadata?.booking_reference;
-    if (reference) await markProviderFailure(reference, object.last_payment_error?.code ?? object.failure_code ?? "payment_failed", object.last_payment_error?.message ?? "Stripe reported that the payment failed.", `stripe:${event.id}`);
+    const [bound] = reference ? await getDb().select().from(bookings).where(eq(bookings.reference,reference)).limit(1) : [];
+    if (reference && bound?.paymentIntentId === object.id) await markProviderFailure(reference, object.last_payment_error?.code ?? object.failure_code ?? "payment_failed", object.last_payment_error?.message ?? "Stripe reported that the payment failed.", `stripe:${event.id}`);
   } else if (event.type === "payment_intent.succeeded") {
     const reference = object.metadata?.booking_reference;
     if (reference) await reconcileBooking(reference, "webhook");
-  } else if (event.type === "charge.refunded" && object.payment_intent) {
-    await updateRefundOrDispute(object.payment_intent, (object.amount_refunded ?? 0) >= (object.amount ?? Number.MAX_SAFE_INTEGER) ? "refunded" : "partially_refunded", `stripe:${event.id}`);
-  } else if (event.type === "charge.dispute.created" && object.payment_intent) {
-    await updateRefundOrDispute(object.payment_intent, "disputed", `stripe:${event.id}`);
-  } else if (event.type === "charge.dispute.closed" && object.payment_intent) {
-    const now = new Date().toISOString();
-    const [booking] = await getDb().select().from(bookings).where(eq(bookings.paymentIntentId, object.payment_intent)).limit(1);
-    if (booking) await getDb().update(operationsAlerts).set({ status: "resolved", resolvedAt: now, resolutionNote: "Stripe dispute closed", updatedAt: now }).where(eq(operationsAlerts.dedupeKey, `payment_disputed:${booking.reference}`));
+  } else if (["charge.refunded", "charge.dispute.created", "charge.dispute.updated", "charge.dispute.closed"].includes(event.type) && object.payment_intent) {
+    const [b] = await getDb().select().from(bookings).where(eq(bookings.paymentIntentId,object.payment_intent)).limit(1);
+    if (b) await reconcileBooking(b.reference,"webhook");
   }
 }
 

@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AddDriverDialog } from "@/components/admin-overview/upcoming-rides";
+import { FlightAssistancePanel } from "@/components/flight-assistance-panel";
 import { DriverPicker } from "@/components/bookings-admin/driver-picker";
 
 // The side panel with journey details is switched off for now (bookings open on their
@@ -114,6 +115,7 @@ const statusStyle: Record<string, string> = {
 };
 
 export default function OperationsWorkspace({ email }: { email: string }) {
+  const [leg, setLeg] = useState<"outbound" | "return">("outbound");
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState("");
@@ -126,7 +128,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
   const load = useCallback(async () => {
     setError("");
     try {
-      const response = await fetch("/api/admin/operations", {
+      const response = await fetch(`/api/admin/operations?leg=${leg}`, {
         cache: "no-store",
       });
       const result = (await response.json()) as Data & { error?: string };
@@ -140,19 +142,20 @@ export default function OperationsWorkspace({ email }: { email: string }) {
         cause instanceof Error ? cause.message : "Operations data unavailable.",
       );
     }
-  }, [selected]);
+  }, [selected, leg]);
   useEffect(() => {
     load();
     const timer = window.setInterval(load, 20_000);
     return () => window.clearInterval(timer);
   }, [load]);
-  async function action(payload: Record<string, string>) {
+  async function action(payload: Record<string, string>
+) {
     setError("");
     try {
       const response = await fetch("/api/admin/operations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, leg }),
       });
       const result = (await response.json()) as {
         error?: string;
@@ -238,6 +241,8 @@ export default function OperationsWorkspace({ email }: { email: string }) {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return (
     <main className="min-h-screen bg-[#f3f5f8] text-[#211726]">
+      <div className="mb-4 flex gap-2" aria-label="Journey direction">{(["outbound", "return"] as const).map(value => <button key={value} onClick={() => { setLeg(value); setSelected(""); setLinks({}); setLatestLink(null); }} className={`rounded-full px-5 py-2 font-bold ${leg === value ? "bg-orange-500 text-white" : "bg-slate-100"}`}>{value === "outbound" ? "Outbound journeys" : "Return journeys"}</button>)}</div>
+      <FlightAssistancePanel/>
       <header className="border-b border-orange-400 bg-[#FF8A05] px-5 py-5 text-white sm:px-8">
         <div className="mx-auto flex max-w-[1550px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-5">
@@ -292,7 +297,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
         <section className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-5">
           <div className="min-w-0 space-y-5">
             {evidenceFor && <EvidenceSheet reference={evidenceFor} events={(data?.events ?? []).filter((e) => e.bookingReference === evidenceFor && e.assignmentId === activeAssignments.get(evidenceFor)?.id)} onClose={() => setEvidenceFor("")} />}
-            {addingFor && <AddDriverDialog reference={addingFor} onClose={() => setAddingFor("")} onDone={(url) => assigned(addingFor, url)} />}
+            {addingFor && <AddDriverDialog leg={leg} reference={addingFor} onClose={() => setAddingFor("")} onDone={(url) => assigned(addingFor, url)} />}
             {latestLink && (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
                 <CheckCircle2 size={20} />
@@ -365,7 +370,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex flex-col items-start gap-1.5">
-                              <DriverPicker reference={booking.reference} drivers={(data?.drivers ?? []).filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.fullName, phone: d.phone, email: d.email, area: d.driverType === "outsource" ? "Outsource" : d.baseLocation ?? "", vehicle: [d.vehicle, d.carPlate].filter(Boolean).join(" · ") }))} current={driver?.id ?? null} canAssign={booking.status === "confirmed"} onAssigned={(url) => assigned(booking.reference, url)} onAddDriver={() => setAddingFor(booking.reference)} />
+                              <DriverPicker leg={leg} reference={booking.reference} drivers={(data?.drivers ?? []).filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.fullName, phone: d.phone, email: d.email, area: d.driverType === "outsource" ? "Outsource" : d.baseLocation ?? "", vehicle: [d.vehicle, d.carPlate].filter(Boolean).join(" · ") }))} current={driver?.id ?? null} canAssign={booking.status === "confirmed"} onAssigned={(url) => assigned(booking.reference, url)} onAddDriver={() => setAddingFor(booking.reference)} />
                               {driver && <span className="text-xs text-slate-500">{driver.phone}</span>}
                             </div>
                           </td>

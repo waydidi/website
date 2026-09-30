@@ -1,20 +1,23 @@
+import { runPaymentRecovery } from "@/lib/payment-recovery";
+import { runFlightAssistance } from "@/lib/flight-assistance";
+import { journeysFor, type Journey } from "@/lib/journey-legs";
 import { sendUnfinishedBookingReminders } from "@/lib/unfinished-bookings";
 import { sendRewardEmails } from "@/lib/reward-emails";
 import { contactEmailsFor } from "@/lib/booking-contacts";
-import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingAssignments, bookingNotifications, bookings, drivers, operationsAlerts } from "@/db/schema";
 import { sendCustomerTripReminder, sendDriverTripReminder, sendLateJourneyAlert } from "@/lib/email";
 import { tripOwnerKey } from "@/lib/trip-access";
 import { notifyLineOperationsAlert } from "@/lib/line";
 import { isAirportPickup, standbyDeadline } from "@/lib/trip-rules";
-import { DEFAULT_ROUTE_SECONDS, pickupTimestamp } from "@/lib/operations-calendar";
+import { bookingWindow, pickupTimestamp } from "@/lib/operations-calendar";
 
 const HOUR = 60 * 60 * 1000;
 const MINUTE = 60 * 1000;
 const MAX_NOTIFICATION_ATTEMPTS = 3;
 
-type Booking = typeof bookings.$inferSelect;
+type Booking = Journey;
 type Assignment = typeof bookingAssignments.$inferSelect;
 type Driver = typeof drivers.$inferSelect;
 type Delivery = { status: "sent" | "failed" | "pending_configuration" };
@@ -51,6 +54,7 @@ function addDays(value: string, amount: number) {
 function reminderInput(booking: Booking) {
   return {
     reference: booking.reference,
+    leg: booking.leg,
     pickup: booking.pickup,
     dropoff: booking.dropoff,
     pickupDate: booking.pickupDate,
@@ -69,7 +73,7 @@ async function deliverNotification(input: {
 }) {
   const db = getDb();
   const now = new Date().toISOString();
-  const dedupeKey = `${input.notificationType}:${input.booking.reference}${input.assignmentId ? `:${input.assignmentId}` : ""}`;
+  const dedupeKey = `${input.notificationType}:${input.booking.reference}:${input.booking.leg}${input.assignmentId ? `:${input.assignmentId}` : ""}`;
   await db.insert(bookingNotifications).values({
     id: crypto.randomUUID(),
     bookingReference: input.booking.reference,
@@ -119,7 +123,7 @@ function activeAlert(booking: Booking, assignment: Assignment | undefined, now: 
   if (remaining > 0 && remaining <= HOUR && assignment.currentStatus === "assigned") {
     return { type: "driver_not_started", severity: "warning", title: "Driver has not started", details: "Pickup is within 60 minutes and the driver has not started the standby journey.", expectedAt: pickup - HOUR };
   }
-  const expectedDropoff = pickup + Math.max(15 * MINUTE, (booking.routeDurationSeconds ?? DEFAULT_ROUTE_SECONDS) * 1000);
+  const expectedDropoff = bookingWindow(booking).endsAt - booking.postTripBufferMinutes * MINUTE;
   if (now >= expectedDropoff + 30 * MINUTE && ["trip_started", "passenger_picked_up"].includes(assignment.currentStatus)) {
     return { type: "dropoff_late", severity: "critical", title: "Drop-off is overdue", details: "The journey is still active 30 minutes after the estimated drop-off time.", expectedAt: expectedDropoff + 30 * MINUTE };
   }
@@ -128,7 +132,7 @@ function activeAlert(booking: Booking, assignment: Assignment | undefined, now: 
 
 async function openAlert(booking: Booking, assignment: Assignment | undefined, alert: AlertDefinition, now: string) {
   const db = getDb();
-  const dedupeKey = `${alert.type}:${booking.reference}:${assignment?.id ?? "unassigned"}`;
+  const dedupeKey = `${alert.type}:${booking.reference}:${booking.leg}:${assignment?.id ?? "unassigned"}`;
   await db.insert(operationsAlerts).values({
     id: crypto.randomUUID(), bookingReference: booking.reference, assignmentId: assignment?.id ?? null,
     alertType: alert.type, severity: alert.severity, title: alert.title, details: alert.details,
@@ -144,16 +148,19 @@ async function openAlert(booking: Booking, assignment: Assignment | undefined, a
 }
 
 export async function runOperationsAutomation(at = new Date()): Promise<AutomationSummary> {
+  await runPaymentRecovery(at).catch(error => console.error("Payment recovery failed",error));
+  await runFlightAssistance(at).catch(error => console.error("Flight assistance failed",error));
   const db = getDb();
   const nowMs = at.getTime();
   const now = at.toISOString();
   const today = bangkokDate(nowMs);
-  const bookingRows = await db.select().from(bookings).where(and(eq(bookings.status, "confirmed"), gte(bookings.pickupDate, addDays(today, -1)), lte(bookings.pickupDate, addDays(today, 2))));
+  const parentRows = await db.select().from(bookings).where(eq(bookings.status, "confirmed"));
+  const bookingRows = (await journeysFor(parentRows)).filter(j => j.status === "confirmed" && j.pickupDate >= addDays(today,-1) && j.pickupDate <= addDays(today,2));
   const references = bookingRows.map((booking) => booking.reference);
   const assignmentRows = references.length ? await db.select().from(bookingAssignments).where(and(inArray(bookingAssignments.bookingReference, references), isNull(bookingAssignments.revokedAt))) : [];
   const driverRows = await db.select().from(drivers);
   const assignmentByBooking = new Map<string, Assignment>();
-  for (const row of assignmentRows) if (!assignmentByBooking.has(row.bookingReference)) assignmentByBooking.set(row.bookingReference, row);
+  for (const row of assignmentRows) if (!assignmentByBooking.has(`${row.bookingReference}:${row.leg}`)) assignmentByBooking.set(`${row.bookingReference}:${row.leg}`, row);
   const driverById = new Map<string, Driver>(driverRows.map((driver) => [driver.id, driver]));
   const contactsByBooking = await contactEmailsFor(references);
   const summary: AutomationSummary = { scanned: bookingRows.length, notificationsSent: 0, notificationsFailed: 0, alertsOpened: 0, alertsResolved: 0, runAt: now };
@@ -161,7 +168,7 @@ export async function runOperationsAutomation(at = new Date()): Promise<Automati
   for (const booking of bookingRows) {
     const pickup = pickupTimestamp(booking.pickupDate, booking.pickupTime);
     const remaining = pickup - nowMs;
-    const assignment = assignmentByBooking.get(booking.reference);
+    const assignment = assignmentByBooking.get(booking.journeyId);
     const common = reminderInput(booking);
     const deliveries: Array<Promise<"sent" | "failed" | "skipped">> = [];
     if (remaining > 3 * HOUR && remaining <= 24 * HOUR) {
@@ -184,12 +191,13 @@ export async function runOperationsAutomation(at = new Date()): Promise<Automati
 
   // Only close alerts this automation opens; driver-reported alerts (PIN failures, no-shows) stay open for a person.
   const unresolved = await db.select().from(operationsAlerts).where(and(inArray(operationsAlerts.status, ["open", "acknowledged"]), inArray(operationsAlerts.alertType, AUTOMATED_ALERT_TYPES)));
-  const bookingMap = new Map(bookingRows.map((booking) => [booking.reference, booking]));
+  const bookingMap = new Map(bookingRows.map((booking) => [booking.journeyId, booking]));
   for (const alert of unresolved) {
-    const booking = bookingMap.get(alert.bookingReference);
-    const assignment = booking ? assignmentByBooking.get(booking.reference) : undefined;
+    const key = alert.assignmentId ? assignmentRows.find(a => a.id === alert.assignmentId)?.leg : alert.dedupeKey.includes(":return:") ? "return" : "outbound";
+    const booking = bookingMap.get(`${alert.bookingReference}:${key}`);
+    const assignment = booking ? assignmentByBooking.get(booking.journeyId) : undefined;
     const current = booking ? activeAlert(booking, assignment, nowMs) : null;
-    const currentKey = current && `${current.type}:${booking!.reference}:${assignment?.id ?? "unassigned"}`;
+    const currentKey = current && `${current.type}:${booking!.reference}:${booking!.leg}:${assignment?.id ?? "unassigned"}`;
     if (currentKey === alert.dedupeKey) continue;
     await db.update(operationsAlerts).set({ status: "resolved", resolvedAt: now, resolutionNote: "Automatically resolved after the journey state changed.", updatedAt: now }).where(eq(operationsAlerts.id, alert.id));
     summary.alertsResolved += 1;

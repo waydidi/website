@@ -13,8 +13,9 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
   if (!booking || booking.status === "binned" || !input.token || !constantTimeEqual(await sha256(input.token), booking.accessTokenHash)) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
   if (booking.status === "confirmed" && booking.paymentStatus === "paid") return NextResponse.json({ status: booking.status, paymentStatus: booking.paymentStatus });
-  if (!input.sessionId || input.sessionId !== booking.checkoutSessionId) return NextResponse.json({ error: "Checkout session does not match." }, { status: 400 });
+  if (input.sessionId && input.sessionId !== booking.checkoutSessionId) return NextResponse.json({ error: "Checkout session does not match." }, { status: 400 });
   const result = await reconcileBooking(reference, "customer_return");
   const confirmed = result.status === "paid";
-  return NextResponse.json({ status: confirmed ? "confirmed" : "pending_payment", paymentStatus: result.status }, { status: confirmed ? 200 : 202 });
+  const [fresh] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
+  return NextResponse.json({ status: fresh.status, paymentStatus: fresh.paymentStatus }, { status: confirmed ? 200 : 202 });
 }

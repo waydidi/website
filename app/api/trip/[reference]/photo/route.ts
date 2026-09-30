@@ -1,4 +1,5 @@
 import { and, asc, eq, ne } from "drizzle-orm";
+import { journeyFor, journeysFor, parseLeg } from "@/lib/journey-legs";
 import { NextResponse } from "next/server";
 import { getFile } from "@/lib/file-store";
 import { getDb } from "@/db";
@@ -11,10 +12,13 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   const reference = (await context.params).reference.toUpperCase();
   const resolved = await resolveTripAccess(request, reference);
   if (!resolved) return NextResponse.json({ error: "Not found." }, { status: 404 });
-  const assignment = await activeAssignment(reference);
-  const stage = customerStage(resolved.booking.status, assignment?.currentStatus);
+  const leg = parseLeg(new URL(request.url).searchParams.get("leg"));
+  const journey = await journeyFor(resolved.booking,leg);
+  if (!journey) return NextResponse.json({error:"Journey not found."},{status:404});
+  const assignment = await activeAssignment(reference,leg);
+  const stage = customerStage(journey.status, assignment?.currentStatus);
   if (!assignment || stage !== "waiting") return NextResponse.json({ error: "Not available." }, { status: 404 });
-  if (resolved.access === "shared" && !shareLinkActive({ booking: resolved.booking, stage, completedAt: assignment.completedAt, now: Date.now() })) return NextResponse.json({ error: "Expired." }, { status: 410 });
+  if (resolved.access === "shared" && !shareLinkActive({ booking: journey, stage, completedAt: assignment.completedAt, now: Date.now() })) return NextResponse.json({ error: "Expired." }, { status: 410 });
   const [event] = await getDb().select().from(driverStatusEvents)
     .where(and(eq(driverStatusEvents.assignmentId, assignment.id), eq(driverStatusEvents.status, "standby"), ne(driverStatusEvents.verificationStatus, "rejected")))
     .orderBy(asc(driverStatusEvents.createdAt)).limit(1);

@@ -1,3 +1,4 @@
+import { journeyFor, parseLeg } from "@/lib/journey-legs";
 import { env } from "cloudflare:workers";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -15,14 +16,14 @@ function configuredNumber(value: string | undefined, fallback: number, minimum: 
   return Number.isFinite(parsed) ? Math.max(minimum, Math.min(maximum, Math.round(parsed))) : fallback;
 }
 
-async function expectedPolyline(booking: typeof bookings.$inferSelect) {
+async function expectedPolyline(booking: typeof bookings.$inferSelect & { leg: string }) {
   if (booking.expectedRoutePolyline) return booking.expectedRoutePolyline;
   if (!env.GOOGLE_MAPS_SERVER_KEY || booking.pickupLatitude == null || booking.pickupLongitude == null || booking.dropoffLatitude == null || booking.dropoffLongitude == null) return null;
   const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", { method: "POST", headers: { "Content-Type": "application/json", "X-Goog-Api-Key": env.GOOGLE_MAPS_SERVER_KEY, "X-Goog-FieldMask": "routes.polyline.encodedPolyline" }, body: JSON.stringify({ origin: { location: { latLng: { latitude: booking.pickupLatitude, longitude: booking.pickupLongitude } } }, destination: { location: { latLng: { latitude: booking.dropoffLatitude, longitude: booking.dropoffLongitude } } }, travelMode: "DRIVE", routingPreference: "TRAFFIC_AWARE" }) });
   if (!response.ok) return null;
   const data = await response.json() as { routes?: Array<{ polyline?: { encodedPolyline?: string } }> };
   const polyline = data.routes?.[0]?.polyline?.encodedPolyline ?? null;
-  if (polyline) await getDb().update(bookings).set({ expectedRoutePolyline: polyline, updatedAt: new Date().toISOString() }).where(eq(bookings.reference, booking.reference));
+  if (polyline && booking.leg === "outbound") await getDb().update(bookings).set({ expectedRoutePolyline: polyline, updatedAt: new Date().toISOString() }).where(eq(bookings.reference, booking.reference));
   return polyline;
 }
 
@@ -32,7 +33,8 @@ export async function POST(request: Request) {
   const assignment = await activeAssignmentForToken(input.token ?? "");
   if (!assignment) return NextResponse.json({ error: "Driver session unavailable." }, { status: 404 });
   if (!["trip_started", "passenger_picked_up"].includes(assignment.currentStatus)) return NextResponse.json({ error: "Live tracking is not active for this journey." }, { status: 409 });
-  const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, assignment.bookingReference)).limit(1);
+  const [parent] = await getDb().select().from(bookings).where(eq(bookings.reference, assignment.bookingReference)).limit(1);
+  const booking = parent ? await journeyFor(parent,parseLeg(assignment.leg)) : null;
   if (!booking || booking.status !== "confirmed") return NextResponse.json({ error: "This journey is no longer active." }, { status: 409 });
   const latitude = Number(input.latitude), longitude = Number(input.longitude), accuracy = Math.round(Number(input.accuracyMetres));
   const sequence = Math.floor(Number(input.sequenceNumber));

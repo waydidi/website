@@ -19,7 +19,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
     flightNumber: booking.flightNumber, pickupSign: booking.pickupSign, pickupInstructions: booking.pickupInstructions,
     childSeats: booking.childSeats, oversizedLuggage: booking.oversizedLuggage, specialRequests: booking.specialRequests,
     status: booking.status, emailStatus: booking.emailStatus, paymentMethod: booking.paymentMethod,
-    paymentStatus: booking.paymentStatus, paymentFailureMessage: booking.paymentFailureMessage,
+    checkoutSessionId: booking.checkoutSessionId, paymentStatus: booking.paymentStatus, paymentFailureMessage: booking.paymentFailureMessage,
     serviceType: booking.serviceType, bookedHours: booking.bookedHours, scheduledEndAt: booking.scheduledEndAt,
     includedDistanceMeters: booking.includedDistanceMeters, extraHourRate: booking.extraHourRate, extraDistanceRate: booking.extraDistanceRate,
   }, { headers: { "Cache-Control": "no-store" } });
