@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#FE8B05">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <title>Waydidi Travel · Offline</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;background:#fff8ef;color:#162235;font-family:system-ui,-apple-system,sans-serif;padding:24px;padding-bottom:max(24px,env(safe-area-inset-bottom))}main{width:100%;max-width:440px;background:#fff;border:1px solid #ffe2bb;border-radius:24px;padding:32px;box-shadow:0 12px 50px #482a0810}img{width:72px;height:72px;border-radius:18px}small{display:block;margin-top:16px;color:#8b4500;font-weight:700}h1{font-size:28px;line-height:1.2;margin:10px 0 16px}p{font-size:15px;line-height:1.7;color:#465569}.notice{background:#fff8ef;border-radius:12px;padding:14px}button,a{font:inherit;font-weight:700;border-radius:999px;padding:13px 18px;text-align:center;display:block;width:100%;text-decoration:none}button{border:0;background:#162235;color:#fff;cursor:pointer;margin-top:24px}a{color:#162235;border:1px solid #d6dde7;margin-top:12px}button:focus-visible,a:focus-visible{outline:3px solid #FE8B05;outline-offset:4px}.number{text-align:center;font-size:13px;margin:12px 0 0}
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/pwa/icon-192.png" alt="Waydidi Travel" width="72" height="72">
+    <small>WAYDIDI TRAVEL</small>
+    <h1 id="title">You’re offline</h1>
+    <p id="description">Reconnect to continue your Thailand journey.</p>
+    <p id="notice" class="notice">Bookings, payments, maps and live trip updates need an internet connection. No booking or payment has been submitted by this offline page.</p>
+    <button id="retry" type="button">Try again</button>
+    <a id="call" href="tel:+66632064884">Call Waydidi</a>
+    <p class="number">+66 63-206-4884</p>
+  </main>
+  <script>
+    const translations = {
+      th: { title: "คุณกำลังออฟไลน์", description: "เชื่อมต่ออินเทอร์เน็ตเพื่อเดินทางต่อกับ Waydidi", notice: "การจอง การชำระเงิน แผนที่ และข้อมูลการเดินทางล่าสุดต้องใช้อินเทอร์เน็ต หน้าออฟไลน์นี้ไม่ได้ส่งการจองหรือการชำระเงินใด ๆ", retry: "ลองอีกครั้ง", call: "โทรหา Waydidi" },
+      zh: { title: "您目前处于离线状态", description: "连接网络，继续您的泰国之旅。", notice: "预订、付款、地图和实时行程更新需要网络连接。此离线页面未提交任何预订或付款。", retry: "重试", call: "致电 Waydidi" }
+    };
+    const prefix = location.pathname.split("/")[1];
+    const language = ["th", "zh"].includes(prefix) ? prefix : navigator.language.split("-")[0];
+    if (translations[language]) {
+      document.documentElement.lang = language === "zh" ? "zh-Hans" : language;
+      for (const [id, text] of Object.entries(translations[language])) document.getElementById(id).textContent = text;
+    }
+    document.getElementById("retry").addEventListener("click", () => location.reload());
+  </script>
+</body>
+</html>

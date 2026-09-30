@@ -4,12 +4,14 @@ import "./globals.css";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { PublicPathHeader } from "@/components/public-header";
 import { SpinBar } from "@/components/spin/spin-bar";
+import { PwaProvider } from "@/components/pwa/pwa-provider";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://waydidi-private-transfer.dankbangkok.chatgpt.site"),
   title: "Waydidi — Private Transfers in Thailand",
   description:
     "Book a comfortable private transfer across Thailand with professional drivers and clear, upfront pricing.",
+  applicationName: "Waydidi Travel",
   openGraph: {
     title: "Waydidi — Private Transfers in Thailand",
     description: "Book a comfortable private transfer across Thailand with trusted local drivers.",
@@ -20,7 +22,7 @@ export const metadata: Metadata = {
 
 // "cover" lets the page reach under Safari's floating toolbar, so the light
 // strip below can sit behind it.
-export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#FE8B05" };
 
 export default function RootLayout({
   children,
@@ -43,17 +45,27 @@ export default function RootLayout({
     <html lang="en">
       {/* A relative link: metadata icons are made absolute with metadataBase,
           which breaks the favicon on any other domain (e.g. workers.dev). */}
-      <head><link rel="icon" href="/favicon.png" type="image/png" sizes="256x256" /><link rel="apple-touch-icon" href="/apple-touch-icon.png" /></head>
+      <head>
+        <link rel="icon" href="/favicon.png" type="image/png" sizes="256x256" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        {/* Explicit tags: vinext does not currently emit appleWebApp metadata. */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="Waydidi Travel" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+      </head>
       <body className="antialiased">
-        <a
-          href="#booking-search"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-white focus:px-5 focus:py-3 focus:font-bold focus:text-[#D96F00] focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#FF8A05]"
-        >
-          Skip to booking
-        </a>
-        <PublicPathHeader />
-        {children}
-        <SpinBar />
+        <PwaProvider>
+          <a
+            href="#booking-search"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-white focus:px-5 focus:py-3 focus:font-bold focus:text-[#D96F00] focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#FF8A05]"
+          >
+            Skip to booking
+          </a>
+          <PublicPathHeader />
+          {children}
+          <SpinBar />
+        </PwaProvider>
         {gaId && <GoogleAnalytics id={gaId} />}
         <script
           type="application/ld+json"

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { WaydidiWordmark } from "@/components/waydidi-logo";
 import { destinations } from "@/lib/public-content";
 import { FooterLegal } from "@/components/footer-legal";
+import { PwaInstall } from "@/components/pwa/pwa-install";
 import { getMessages, translate, type Locale, type MessageKey } from "@/lib/i18n";
 
 export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
@@ -20,6 +21,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
               >
                 <WaydidiWordmark className="h-[40px] w-[156px]" />
               </Link>
+              <PwaInstall locale={locale} />
             </div>
             <FooterLinks
               title={t("footer.ride")}

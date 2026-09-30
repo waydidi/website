@@ -1234,5 +1234,41 @@
   "promo.view": {
     "text": "查看",
     "status": "machine"
+  },
+  "pwa.install": {
+    "text": "安装 Waydidi",
+    "status": "machine"
+  },
+  "pwa.description": {
+    "text": "一键开启您的泰国之旅。",
+    "status": "machine"
+  },
+  "pwa.title": {
+    "text": "将 Waydidi 添加到主屏幕",
+    "status": "machine"
+  },
+  "pwa.close": {
+    "text": "关闭安装说明",
+    "status": "machine"
+  },
+  "pwa.done": {
+    "text": "知道了",
+    "status": "machine"
+  },
+  "pwa.ios": {
+    "text": "在 Safari 中打开此网站。轻点分享，然后选择添加到主屏幕。如有以网页 App 打开的选项，请保持开启并轻点添加。",
+    "status": "machine"
+  },
+  "pwa.android": {
+    "text": "打开浏览器菜单，选择安装应用或添加到主屏幕。如果没有该选项，请尝试使用 Chrome。",
+    "status": "machine"
+  },
+  "pwa.desktop": {
+    "text": "查找浏览器地址栏中的安装图标，或从菜单中选择安装 Waydidi Travel。如果没有该选项，请在 Chrome 或 Edge 中打开此网站。",
+    "status": "machine"
+  },
+  "pwa.onlineRequired": {
+    "text": "预订、付款、查看地图和跟踪行程需要网络连接。",
+    "status": "machine"
   }
 }
