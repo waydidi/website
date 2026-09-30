@@ -1225,8 +1225,8 @@ export function BookingFlow({
   // The transfer results screen has its own full-screen layout and Book bar.
   // By the hour: the same screen shows the chosen area with pickup/drop-off pins.
   const hourlyMap = useMemo(() => {
-    if (serviceType !== "hourly" || !hourlyQuote) return null;
-    const geo = HOURLY_AREAS.find((a) => a.slug === hourlyQuote.area.id);
+    if (serviceType !== "hourly") return null;
+    const geo = HOURLY_AREAS.find((a) => a.slug === (hourlyQuote?.area.id ?? hourlyArea));
     if (!geo) return null;
     // Without Google, known sample places still get a pin.
     const typedPickup = /suvarnabhumi|\bbkk\b/i.test(booking.pickup) ? { lat: DEMO_PICKUP.latitude, lng: DEMO_PICKUP.longitude } : null;
@@ -1234,10 +1234,10 @@ export function BookingFlow({
     return {
       name: geo.name,
       polygons: geo.polygons,
-      pickup: hourlyQuote.pickup ? { lat: hourlyQuote.pickup.lat, lng: hourlyQuote.pickup.lng } : typedPickup,
-      dropoff: hourlyQuote.dropoff ? { lat: hourlyQuote.dropoff.lat, lng: hourlyQuote.dropoff.lng } : demoDrop ? { lat: demoDrop.dropoff.latitude, lng: demoDrop.dropoff.longitude } : null,
+      pickup: hourlyQuote?.pickup ? { lat: hourlyQuote.pickup.lat, lng: hourlyQuote.pickup.lng } : pickupLoc ?? typedPickup,
+      dropoff: hourlyQuote?.dropoff ? { lat: hourlyQuote.dropoff.lat, lng: hourlyQuote.dropoff.lng } : dropoffLoc ?? (demoDrop ? { lat: demoDrop.dropoff.latitude, lng: demoDrop.dropoff.longitude } : null),
     };
-  }, [serviceType, hourlyQuote, booking.pickup, booking.dropoff]);
+  }, [serviceType, hourlyQuote, hourlyArea, pickupLoc, dropoffLoc, booking.pickup, booking.dropoff]);
   const mapView = stage === "vehicle" && ((serviceType === "transfer" && (!quoteRequest || demoRoute)) || Boolean(hourlyMap));
   const priceBar =
     mapView ? null : stage === "vehicle"
@@ -1760,7 +1760,9 @@ export function BookingFlow({
       {stage === "vehicle" && (
         (serviceType === "transfer" && (!quoteRequest || demoRoute)) || hourlyMap ? <BookingResultsMap
           area={hourlyMap}
-          hourly={hourlyQuote && serviceType === "hourly" ? { hours: hourlyQuote.bookedHours, itinerary: hourlyQuote.area.name, serviceArea: hourlyQuote.serviceArea ?? hourlyMap?.name ?? hourlyArea, overtimeRate: hourlyQuote.prices[chosenVehicle.id]?.extraHourRate ?? 0, averageDurationMinutes: hourlyQuote.averageDurationMinutes } : undefined}
+          hourly={serviceType === "hourly" ? { hours: hourlyQuote?.bookedHours ?? booking.bookedHours, itinerary: hourlyQuote?.area.name ?? hourlyMap?.name ?? hourlyArea, serviceArea: hourlyQuote?.serviceArea ?? hourlyMap?.name ?? hourlyArea, overtimeRate: hourlyQuote?.prices[chosenVehicle.id]?.extraHourRate ?? 0, averageDurationMinutes: hourlyQuote?.averageDurationMinutes } : undefined}
+          quoteRequest={serviceType === "hourly" && quoteRequest}
+          quoteRequestNote={hourlyRequestNote}
           pickup={booking.pickup}
           dropoff={hourlyMap ? (booking.dropoff.trim() || booking.pickup) : booking.dropoff}
           date={booking.date}
@@ -1773,7 +1775,7 @@ export function BookingFlow({
           returnTime={returnTime}
           returnTrip={hourlyMap ? false : returnTrip}
           priceBreakdown={quoteSummary?.prices}
-          checkoutReady={serviceType === "hourly" || !returnTrip || Boolean(returnFareQuote && quoteSummary)}
+          checkoutReady={serviceType === "hourly" ? Boolean(hourlyQuote) || quoteRequest : !returnTrip || Boolean(returnFareQuote && quoteSummary)}
           loading={routeLoading}
           error={pricingMessage}
           onSelectVehicle={setVehicle}

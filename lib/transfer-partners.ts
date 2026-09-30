@@ -5,7 +5,7 @@ export const TRANSFER_PARTNERS = [
     id: "travel-agent" as const,
     label: "Travel Agents",
     title: "Transform your clients’ transfers into unforgettable experiences",
-    description: "Elevate your clients' travel experience with Waydidi's stress-free, private car transfers, whether they're heading to the airport, traveling within the city, or exploring the area.",
+    description: "Elevate your clients' travel experience with\nWaydidi's stress-free, private car transfers, whether they're heading to the airport, traveling within the city, or exploring the area.",
     benefits: [
       "24/7 support for you and your clients",
       "Competitive commission or net rate options",

@@ -77,8 +77,7 @@ export function HowItWorks() {
   const { t } = useI18n();
   return <section aria-labelledby="how-heading" className="font-home bg-white py-10">
     <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
-      <p className="text-[14px] font-semibold text-[#6B6B6B]">{t("how.eyebrow")}</p>
-      <h2 id="how-heading" className="mt-1 text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C]">{t("how.title")}</h2>
+      <h2 id="how-heading" className="text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C]">{t("how.title")}</h2>
       <p className="mt-2 text-[15px] text-[#4A4A4A]">{t("how.subtitle")}</p>
     </div>
     {/* Free horizontal scroll: no snap, so cards stop wherever the swipe ends. */}

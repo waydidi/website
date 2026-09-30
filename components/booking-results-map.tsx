@@ -50,6 +50,8 @@ type Props = {
   /** By the hour: draw this area and pins instead of a route. */
   area?: { name: string; polygons: [number, number][][]; pickup?: { lat: number; lng: number } | null; dropoff?: { lat: number; lng: number } | null } | null;
   hourly?: { hours: number; itinerary: string; serviceArea: string; overtimeRate: number; averageDurationMinutes?: number | null };
+  quoteRequest?: boolean;
+  quoteRequestNote?: string;
   pickup: string;
   dropoff: string;
   date: string;
@@ -330,13 +332,14 @@ export function BookingResultsMap(props: Props) {
     return () => { alive = false; window.clearInterval(timer); };
   }, [props.quote]);
   const selected = props.vehicles.find((item) => item.id === props.selectedVehicle) ?? props.vehicles[0];
-  const cheapest = props.vehicles.filter((v) => v.fits !== false).reduce<Vehicle | undefined>((best, v) => !best || v.price < best.price ? v : best, undefined);
+  const cheapest = props.quoteRequest ? undefined : props.vehicles.filter((v) => v.fits !== false).reduce<Vehicle | undefined>((best, v) => !best || v.price < best.price ? v : best, undefined);
   const freeNow = freeAddonsWithGifts(tierFreeAddons(props.memberTier, props.childSeats ?? 0, props.exchangeStop ?? false), props.childSeats ?? 0, props.exchangeStop ?? false, props.giftVouchers ?? { childSeat: false, exchangeStop: false });
   const freeSeatsMax = (props.memberTier?.freeChildSeats ?? 0) + (props.giftVouchers?.childSeat ? 1 : 0);
   const addonPrice = (amount: number) => (amount > 0 ? `+${money(amount)}` : "Free");
   const total = selected ? (props.priceBreakdown?.[selected.id]?.total ?? selected.price) + addonsTotal(props.childSeats ?? 0, props.exchangeStop ?? false, freeAddonsWithGifts(tierFreeAddons(props.memberTier, props.childSeats ?? 0, props.exchangeStop ?? false), props.childSeats ?? 0, props.exchangeStop ?? false, props.giftVouchers ?? { childSeat: false, exchangeStop: false }), ferryAvailable ? ferry : 0) : 0;
   const passengers = props.passengers ?? 0;
   const { currency, money, thb } = useCurrency();
+  const fareText = (value: number) => props.quoteRequest ? "Quote on request" : money(value);
   const [code, amount] = [money(0).split(" ")[0], (v: number) => money(v).split(" ")[1]];
 
   useEffect(() => {
@@ -635,7 +638,8 @@ export function BookingResultsMap(props: Props) {
           <strong>{props.hourly.hours}-hour private driver · {props.hourly.itinerary}</strong>
           <p className="mt-1 text-xs">Service area: {props.hourly.serviceArea}. Unlimited kilometres within the approved itinerary. Fuel, tolls, parking, ferries and driver return travel included.</p>
           {props.hourly.averageDurationMinutes && <p className="mt-1 text-xs">Average travel time: {props.hourly.averageDurationMinutes} minutes</p>}
-          <p className="mt-1 text-xs">Overtime: {amount(props.hourly.overtimeRate)} {code}/hour. First 15 minutes free, then each started hour is charged. Price held for 30 minutes.</p>
+          {!props.quoteRequest && <p className="mt-1 text-xs">Overtime: {amount(props.hourly.overtimeRate)} {code}/hour. First 15 minutes free, then each started hour is charged. Price held for 30 minutes.</p>}
+          {props.quoteRequest && <p className="mt-2 text-xs">{props.quoteRequestNote || "We’ll confirm your itinerary and price before payment."} Choose your vehicle and continue to request a quote.</p>}
         </div>}
 
         <ul className="grid gap-3 pt-2.5">
@@ -667,9 +671,9 @@ export function BookingResultsMap(props: Props) {
                     : badge === "popular" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-[#FF1F2D] bg-[#FF1F2D] px-2 py-px text-[12px] font-medium text-white"><Flame size={12} aria-hidden="true" />Most popular</span> : null}
                 </span>
                 <span className="self-start text-right">
-                  <span className="block whitespace-nowrap text-[#1C1C1C]"><span className="text-[13px] text-[#4A4A4A]">{code} </span><strong className="text-[17px] font-semibold">{amount(item.price)}</strong></span>
-                  {currency !== "THB" && <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">~{thb(item.price)}</span>}
-                  <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">{props.returnTrip ? t("results.roundTrip") : t("results.totalPrice")}</span>
+                  <span className="block whitespace-nowrap text-[#1C1C1C]">{!props.quoteRequest && <span className="text-[13px] text-[#4A4A4A]">{code} </span>}<strong className="text-[17px] font-semibold">{props.quoteRequest ? "On request" : amount(item.price)}</strong></span>
+                  {!props.quoteRequest && currency !== "THB" && <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">~{thb(item.price)}</span>}
+                  <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">{props.hourly ? `${props.hourly.hours} hours` : props.returnTrip ? t("results.roundTrip") : t("results.totalPrice")}</span>
                 </span>
               </button>
             </li>;
@@ -677,7 +681,7 @@ export function BookingResultsMap(props: Props) {
         </ul>
 
         {/* Free cancellation up to 24 hours before pickup (Transfeero style). */}
-        {ready && (cancelDeadlineAt(props.date, props.time) > clock ? <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
+        {ready && !props.quoteRequest && (cancelDeadlineAt(props.date, props.time) > clock ? <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
           <CancelCalendar3D size={56} className="shrink-0" />
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-[#17563A]">FREE Cancellation 24H</p>
@@ -694,7 +698,7 @@ export function BookingResultsMap(props: Props) {
     {/* Bottom bar */}
     <div ref={barRef} className="absolute inset-x-0 bottom-0 z-20 border-t border-[#EEEEEE] bg-white px-4 lg:right-auto lg:w-[460px] pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="flex min-w-0 items-center gap-2 leading-none"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{money(total)}</strong>{currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}{extrasCount > 0 && <span className="min-w-0 touch-pan-x overflow-x-auto whitespace-nowrap text-[12px] font-medium text-[#D32F2F] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{t("addons.including", { items: [seats > 0 ? (seats > 1 ? t("addons.childSeats", { count: seats }) : t("addons.childSeat")) : null, exchange ? t("addons.exchange") : null, ferry > 0 ? `${t("addons.ferryHotel")} × ${ferry}` : null].filter(Boolean).join(", ") })}</span>}</p>
+        <p className="flex min-w-0 items-center gap-2 leading-none"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{fareText(total)}</strong>{!props.quoteRequest && currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}{extrasCount > 0 && <span className="min-w-0 touch-pan-x overflow-x-auto whitespace-nowrap text-[12px] font-medium text-[#D32F2F] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{t("addons.including", { items: [seats > 0 ? (seats > 1 ? t("addons.childSeats", { count: seats }) : t("addons.childSeat")) : null, exchange ? t("addons.exchange") : null, ferry > 0 ? `${t("addons.ferryHotel")} × ${ferry}` : null].filter(Boolean).join(", ") })}</span>}</p>
         <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
       </div>
       <div className="mt-5 flex items-center gap-3">
@@ -797,8 +801,8 @@ export function BookingResultsMap(props: Props) {
               {props.returnTrip && props.priceBreakdown?.[info.id] ? <>
                 <p className="mt-3 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(props.priceBreakdown[info.id].outbound)}</span></p>
                 <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>{money(props.priceBreakdown[info.id].return)}</span></p>
-              </> : <p className="mt-3 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(info.price)}</span></p>}
-              <p className="mt-3 flex justify-between border-t border-[#E6E6E6] pt-3 text-[16px]"><span>Total</span><span className="font-medium">{money(props.priceBreakdown?.[info.id]?.total ?? info.price)}</span></p>
+              </> : <p className="mt-3 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{fareText(info.price)}</span></p>}
+              <p className="mt-3 flex justify-between border-t border-[#E6E6E6] pt-3 text-[16px]"><span>Total</span><span className="font-medium">{fareText(props.priceBreakdown?.[info.id]?.total ?? info.price)}</span></p>
             </div>
             <div className="grid gap-3 px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
               <DialogPrimitive.Close className="h-12 rounded-full bg-brand text-[16px] font-semibold text-white transition hover:bg-brand-hover">Close</DialogPrimitive.Close>
@@ -822,14 +826,14 @@ export function BookingResultsMap(props: Props) {
           </div>
           <div className="flex-1 overflow-y-auto px-5 pb-8 pt-5">
             <div className="flex items-center justify-between">
-              <strong className="text-[18px] font-medium">{props.returnTrip ? "Return" : "One way"}</strong>
+              <strong className="text-[18px] font-medium">{props.hourly ? `${props.hourly.hours}-hour private driver` : props.returnTrip ? "Return" : "One way"}</strong>
               <span className="flex items-center gap-2 rounded-full border border-[#D9D9D9] px-4 py-1.5 text-[15px] font-medium"><Users size={18} aria-hidden="true" />{passengers} Passenger{passengers === 1 ? "" : "s"}</span>
             </div>
 
             <Leg title="Travel Date" date={props.date} time={props.time} from={props.pickup} to={props.dropoff} quote={props.quote} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
             {props.returnTrip && props.returnDate && props.returnTime
               ? <Leg title="Return" date={props.returnDate} time={props.returnTime} from={props.dropoff} to={props.pickup} quote={props.returnQuote ?? null} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
-              : <button type="button" onClick={() => { setDetailsOpen(false); (props.onAddReturn ?? props.onEditRoute ?? props.onEdit)(); }} className="mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[#BDBDBD] text-[16px] text-[#1C1C1C]"><ArrowRightLeft size={20} className="text-brand" aria-hidden="true" />Add return</button>}
+              : !props.hourly && <button type="button" onClick={() => { setDetailsOpen(false); (props.onAddReturn ?? props.onEditRoute ?? props.onEdit)(); }} className="mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[#BDBDBD] text-[16px] text-[#1C1C1C]"><ArrowRightLeft size={20} className="text-brand" aria-hidden="true" />Add return</button>}
 
             <div className="mt-8 border-t border-[#E6E6E6] pt-6">
               <h3 className="flex items-center gap-3 text-[19px] font-medium">Includes</h3>
@@ -837,13 +841,13 @@ export function BookingResultsMap(props: Props) {
                 <p className="mt-5 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(props.priceBreakdown[selected.id].outbound)}</span></p>
                 <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>{money(props.priceBreakdown[selected.id].return)}</span></p>
               </>}
-              <p className="mt-4 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} className="shrink-0 text-[#06C755]" aria-hidden="true" />All prices are fixed totals for your private ride</p>
+              {!props.quoteRequest && <p className="mt-4 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} className="shrink-0 text-[#06C755]" aria-hidden="true" />All prices are fixed totals for your private ride</p>}
               {lines.included.map((line) => <p key={line} className="mt-2 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} className="shrink-0 text-[#06C755]" aria-hidden="true" />{line}</p>)}
               {seats > 0 && <p className="mt-4 flex justify-between text-[16px] text-[#4A4A4A]"><span>Child seat × {seats}</span><span>{addonPrice(Math.max(0, seats - freeNow.childSeats) * CHILD_SEAT_THB)}</span></p>}
               {ferryAvailable && ferry > 0 && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Ferry &amp; hotel transfer × {ferry}</span><span>{addonPrice(FERRY_HOTEL_THB * ferry)}</span></p>}
               {exchange && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Currency exchange stop</span><span>{addonPrice(freeNow.exchangeStop ? 0 : EXCHANGE_STOP_THB)}</span></p>}
-              <p className="mt-4 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">{money(total)}</strong></p>
-              <p className="mt-1 text-right text-[14px] text-[#8A8A8A]">{currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
+              <p className="mt-4 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">{fareText(total)}</strong></p>
+              <p className="mt-1 text-right text-[14px] text-[#8A8A8A]">{!props.quoteRequest && currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
             </div>
           </div>
         </DialogPrimitive.Content>

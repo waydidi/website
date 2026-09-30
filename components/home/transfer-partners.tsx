@@ -43,7 +43,7 @@ export function TransferPartners() {
       className={`rounded-[28px] px-[22px] pb-[62px] pt-6 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FE8B05] sm:rounded-[32px] sm:p-10 sm:pb-[70px] lg:p-14 lg:pb-[86px] ${partner.gradient}`}
     >
       <h3 className="max-w-[850px] text-[20px] font-semibold leading-[1.15] tracking-[-.025em] sm:text-[28px] lg:text-[32px]">{partner.title}</h3>
-      <p className="mt-4 max-w-[940px] text-[14px] leading-[1.33] tracking-[-.01em] sm:mt-6 sm:text-[18px] sm:leading-[1.5]">{partner.description}</p>
+      <p className="mt-4 max-w-[940px] whitespace-pre-line text-[14px] leading-[1.33] tracking-[-.01em] sm:mt-6 sm:text-[18px] sm:leading-[1.5]">{partner.description}</p>
       <p className="mt-8 text-[14px] font-bold leading-[1.33] tracking-[-.02em] sm:mt-10 sm:text-[18px]">Partnering with Waydidi includes:</p>
       <ul className="mt-2 space-y-1.5 text-[14px] leading-[1.33] tracking-[-.01em] text-[#50575B] sm:mt-4 sm:space-y-3 sm:text-[18px]">
         {partner.benefits.map((benefit) => <li key={benefit} className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[#171D21] sm:size-5" strokeWidth={1.8} aria-hidden="true" /><span>{benefit}</span></li>)}
