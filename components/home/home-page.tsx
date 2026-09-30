@@ -10,6 +10,7 @@ import { WaydidiFooter } from "./footer";
 import { FleetSection } from "./fleet-section";
 import { ServiceCards } from "./service-cards";
 import { Promotions } from "./promotions";
+import { TransferPartners } from "./transfer-partners";
 
 export function homeMetadata(locale: Locale): Metadata {
   const messages = getMessages(locale);
@@ -49,6 +50,7 @@ export function HomePage({ locale }: { locale: Locale }) {
       {/* Hidden for now: "Where Waydidi takes you" map. */}
       {SHOW_MAP && <ThailandDestinationMap />}
       <FleetSection />
+      <TransferPartners />
       <HomeFaq />
       <WaydidiFooter locale={locale} />
     </BookingFlow>

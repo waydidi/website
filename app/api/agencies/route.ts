@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb } from "@/db";
 import { agencyApplications } from "@/db/schema";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { partnerApplicationMessage } from "@/lib/transfer-partners";
 
 const schema = z.object({
   agencyName: z.string().trim().min(2, "Enter your agency's name.").max(120),
@@ -14,6 +15,7 @@ const schema = z.object({
   monthlyTransfers: z.enum(["1-10", "11-50", "51-200", "200+"]),
   message: z.string().trim().max(1000).optional().or(z.literal("")),
   company: z.string().max(0).optional(), // honeypot: real people leave it empty
+  partnerType: z.enum(["travel-agent", "host-agency"]).default("travel-agent"),
 });
 
 // Travel agency partner application. Stored for the team to review in admin.
@@ -24,8 +26,13 @@ export async function POST(request: Request) {
     const issue = parsed.error.issues[0];
     return NextResponse.json({ error: issue?.message ?? "Check the form.", field: issue?.path.join(".") }, { status: 400 });
   }
-  const { company: _honeypot, ...input } = parsed.data;
-  await getDb().insert(agencyApplications).values({ id: crypto.randomUUID(), ...input, website: input.website || null, message: input.message || null, createdAt: new Date().toISOString() });
+  const { company: _honeypot, partnerType, ...input } = parsed.data;
+  void _honeypot;
+  try {
+    await getDb().insert(agencyApplications).values({ id: crypto.randomUUID(), ...input, website: input.website || null, message: partnerApplicationMessage(partnerType, input.message), createdAt: new Date().toISOString() });
+  } catch {
+    return NextResponse.json({ error: "We couldn't save your application. Please try again." }, { status: 503 });
+  }
   console.info("Agency application received", { agency: input.agencyName, country: input.country });
   return NextResponse.json({ ok: true });
 }

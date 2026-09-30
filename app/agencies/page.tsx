@@ -50,14 +50,15 @@ const STEPS = [
   { title: "Book and relax", text: "Book rides in a few taps. Your clients get a clear confirmation, Meet & Greet at arrivals and support if plans change." },
 ];
 
-export default function AgenciesPage() {
+export default async function AgenciesPage({ searchParams }: { searchParams: Promise<{ partner?: string }> }) {
+  const hostAgency = (await searchParams).partner === "host-agency";
   return <main className="font-home bg-[#F5F4F0] text-[#111]">
     {/* Hero */}
     <section className="relative isolate overflow-hidden bg-[#111] text-white">
       <Image src="/hero-driver-customer.webp" alt="" fill priority unoptimized sizes="100vw" className="-z-10 object-cover object-[65%_center] opacity-45" />
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/55 via-black/40 to-black/80" />
       <div className="mx-auto max-w-[1180px] px-5 pb-16 pt-24 sm:pt-32 lg:px-0">
-        <h1 className="text-[30px] font-bold leading-[1.15] tracking-[-.02em] sm:text-[48px]">Travel Agencies</h1>
+        <h1 className="text-[30px] font-bold leading-[1.15] tracking-[-.02em] sm:text-[48px]">{hostAgency ? "Host Agencies & Consortia" : "Travel Agencies"}</h1>
         <p className="mt-5 max-w-[640px] text-[15px] leading-[22px] text-white/85 sm:text-[18px] sm:leading-8">Partner with Waydidi and offer your clients private transfers across Thailand. Apply today for agency rates and a team that looks after every ride.</p>
         <a href="#apply" className="mt-8 inline-flex h-12 items-center rounded-2xl bg-white px-10 text-[15px] font-bold text-[#111] hover:bg-white/90">Join Now!</a>
         <dl className="mt-10 grid max-w-[560px] grid-cols-2 gap-y-8">
@@ -178,7 +179,7 @@ export default function AgenciesPage() {
       <section id="apply" className="scroll-mt-24 pb-20 pt-20" aria-labelledby="apply-heading">
         <h2 id="apply-heading" className="text-[34px] font-bold leading-[1.15] tracking-[-.02em] sm:text-[52px]">Apply to partner</h2>
         <p className="mb-8 mt-4 max-w-[640px] text-[14px] leading-[23px] text-[#555] sm:text-[17px] sm:leading-7">Tell us about your agency. Our partnerships team replies within 2 working days.</p>
-        <AgencyForm />
+        <AgencyForm partnerType={hostAgency ? "host-agency" : "travel-agent"} />
         <p className="mt-6 flex items-center gap-2 text-[13px] text-[#555]"><FileText size={17} aria-hidden="true" />Questions first? <Link href="/contact" className="font-semibold text-[#111] underline">Contact us</Link></p>
       </section>
     </div>
@@ -188,7 +189,7 @@ export default function AgenciesPage() {
         <h2 id="newsletter-heading" className="text-[23px] font-bold leading-[1.3] tracking-[-.01em] sm:text-[34px]">Subscribe to the newsletter for travel news and offers</h2>
         <p className="mt-4 text-[13px] text-white/70 sm:text-[16px]">Route tips, new destinations and partner offers, straight to your inbox.</p>
         <NewsletterForm source="agencies" />
-        <p className="mt-5 text-[12px] leading-[18px] text-white/60">By subscribing, you agree to our <a href="/privacy" className="underline">privacy policy</a>. We never sell or share your data with third parties. Unsubscribe any time.</p>
+        <p className="mt-5 text-[12px] leading-[18px] text-white/60">By subscribing, you agree to our <Link href="/privacy" className="underline">privacy policy</Link>. We never sell or share your data with third parties. Unsubscribe any time.</p>
       </div>
     </section>
     <PublicFooter />
