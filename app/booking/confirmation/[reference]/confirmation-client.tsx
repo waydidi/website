@@ -39,6 +39,7 @@ type Booking = {
   specialRequests: string | null;
   serviceType: string;
   bookedHours: number | null;
+  hourlyPolicy?: { unlimitedKilometres: boolean; tollsIncluded: boolean; overtimeGraceMinutes: number } | null;
   includedDistanceMeters: number | null;
   extraHourRate: number | null;
   extraDistanceRate: number | null;
@@ -202,16 +203,17 @@ export default function ConfirmationClient({
     ["Vehicle", booking.vehicle],
     [
       "Included distance",
-      booking.serviceType === "hourly" && booking.includedDistanceMeters
+      booking.hourlyPolicy?.unlimitedKilometres ? "Unlimited within the approved itinerary" : booking.serviceType === "hourly" && booking.includedDistanceMeters
         ? `${booking.includedDistanceMeters / 1000} km`
         : null,
     ],
     [
       "Extra time",
       booking.serviceType === "hourly" && booking.extraHourRate
-        ? `฿${booking.extraHourRate.toLocaleString()}/hour`
+        ? `฿${booking.extraHourRate.toLocaleString()}/hour${booking.hourlyPolicy ? "; first 15 minutes free, then each started hour" : ""}`
         : null,
     ],
+    ["Tolls", booking.hourlyPolicy?.tollsIncluded ? "Included" : null],
     [
       "Extra distance",
       booking.serviceType === "hourly" && booking.extraDistanceRate

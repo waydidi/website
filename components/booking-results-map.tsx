@@ -49,6 +49,7 @@ export type Vehicle = {
 type Props = {
   /** By the hour: draw this area and pins instead of a route. */
   area?: { name: string; polygons: [number, number][][]; pickup?: { lat: number; lng: number } | null; dropoff?: { lat: number; lng: number } | null } | null;
+  hourly?: { hours: number; itinerary: string; serviceArea: string; overtimeRate: number; averageDurationMinutes?: number | null };
   pickup: string;
   dropoff: string;
   date: string;
@@ -262,6 +263,8 @@ export function loadLeaflet() {
 }
 
 export function BookingResultsMap(props: Props) {
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setClock(Date.now()), 60000); return () => window.clearInterval(timer); }, []);
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapReady, setMapReady] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -290,7 +293,7 @@ export function BookingResultsMap(props: Props) {
       .catch(() => undefined);
     return () => { alive = false; };
   }, [props.quote]);
-  const inclusions = props.quote?.inclusions ?? lookedUp ?? { tolls: false, ferry: false, route: null };
+  const inclusions = props.hourly ? { tolls: true, ferry: true, route: null } : props.quote?.inclusions ?? lookedUp ?? { tolls: false, ferry: false, route: null };
   // Ferry & hotel transfer is offered only on Koh Kood / Koh Mak routes.
   const ferryAvailable = Boolean(inclusions.hotelTransfer);
   const lines = inclusionLines(inclusions, locale);
@@ -628,6 +631,13 @@ export function BookingResultsMap(props: Props) {
           <div className="mt-3 flex gap-2"><button onClick={props.onEdit} className="min-h-11 rounded-full bg-white px-4 font-medium">Edit trip</button><button onClick={props.onRetry} className="min-h-11 rounded-full bg-brand px-4 font-medium text-white">Try again</button></div>
         </div> : null}
 
+        {props.hourly && <div className="mb-3 rounded-xl bg-orange-50 p-3 text-sm text-ink">
+          <strong>{props.hourly.hours}-hour private driver · {props.hourly.itinerary}</strong>
+          <p className="mt-1 text-xs">Service area: {props.hourly.serviceArea}. Unlimited kilometres within the approved itinerary. Fuel, tolls, parking, ferries and driver return travel included.</p>
+          {props.hourly.averageDurationMinutes && <p className="mt-1 text-xs">Average travel time: {props.hourly.averageDurationMinutes} minutes</p>}
+          <p className="mt-1 text-xs">Overtime: {amount(props.hourly.overtimeRate)} {code}/hour. First 15 minutes free, then each started hour is charged. Price held for 30 minutes.</p>
+        </div>}
+
         <ul className="grid gap-3 pt-2.5">
           {props.vehicles.map((item) => {
             const active = item.id === selected?.id;
@@ -667,7 +677,7 @@ export function BookingResultsMap(props: Props) {
         </ul>
 
         {/* Free cancellation up to 24 hours before pickup (Transfeero style). */}
-        {ready && (cancelDeadlineAt(props.date, props.time) > Date.now() ? <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
+        {ready && (cancelDeadlineAt(props.date, props.time) > clock ? <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
           <CancelCalendar3D size={56} className="shrink-0" />
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-[#17563A]">FREE Cancellation 24H</p>

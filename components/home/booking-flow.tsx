@@ -50,8 +50,8 @@ import { AreaPicker } from "./area-picker";
 import { HourlyAreaMap } from "./hourly-area-map";
 const shortPlaceName = (v: string) => v.split(",")[0]?.trim() || v;
 import { HOURLY_AREAS, type HourlyArea } from "@/lib/hourly-areas-data";
-import { pointInPolygon } from "@/lib/geo";
-import { typedCityToCity } from "@/lib/hourly-area-match";
+import { hourlyCityAt, HOURLY_VEHICLES } from "@/lib/hourly-policy";
+import { cityOfText } from "@/lib/hourly-area-match";
 import { BookingDetailsStep } from "./booking-details-step";
 import { SiteHeader } from "@/components/site-header";
 import { useCurrency } from "@/components/use-currency";
@@ -119,6 +119,9 @@ type HourlyQuote = {
   pickup?: { lat: number; lng: number; text: string };
   dropoff?: { lat: number; lng: number; text: string } | null;
   cityToCity?: boolean;
+  serviceArea?: string;
+  distanceMeters?: number | null;
+  averageDurationMinutes?: number | null;
 };
 type QuoteSummary = {
   currency: "THB";
@@ -277,19 +280,16 @@ export function BookingFlow({
   const transferDropoff = useRef("");
   const [hourlyAreaSlugs, setHourlyAreaSlugs] = useState<string[] | null>(null);
   useEffect(() => {
-    fetch("/api/hourly-areas").then((r) => r.ok ? r.json() : null).then((o: { areas?: string[] } | null) => setHourlyAreaSlugs(o?.areas ?? null)).catch(() => undefined);
+    fetch("/api/hourly-areas").then((r) => r.ok ? r.json() : null).then((o: { areas?: string[] } | null) => setHourlyAreaSlugs(o?.areas ?? [])).catch(() => setHourlyAreaSlugs([]));
   }, []);
   const hourlyAreas = useMemo(() => hourlyAreaSlugs ? hourlyAreaSlugs.map((slug) => HOURLY_AREAS.find((a) => a.slug === slug)).filter((a): a is HourlyArea => Boolean(a)) : HOURLY_AREAS, [hourlyAreaSlugs]);
   const areaGeo = HOURLY_AREAS.find((a) => a.slug === hourlyArea) ?? null;
   // Where the chosen pickup/drop-off are, to spot city-to-city trips before pricing.
   const [pickupLoc, setPickupLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [dropoffLoc, setDropoffLoc] = useState<{ lat: number; lng: number } | null>(null);
-  const outsideArea = (p: { lat: number; lng: number } | null) => Boolean(p && areaGeo && !areaGeo.polygons.some((ring) => pointInPolygon(p, ring.map(([lat, lng]) => ({ lat, lng })))));
-  // Located places are checked against the border; typed ones by the city they name.
-  const cityToCity = serviceType === "hourly" && Boolean(areaGeo) && (
-    (pickupLoc ? outsideArea(pickupLoc) : typedCityToCity(hourlyArea, booking.pickup)) ||
-    (booking.dropoff.trim() ? (hourlyDropoffId && dropoffLoc ? outsideArea(dropoffLoc) : typedCityToCity(hourlyArea, "", booking.dropoff)) : false)
-  );
+  const pickupCity = (pickupLoc ? hourlyCityAt(pickupLoc) : null) ?? cityOfText(booking.pickup);
+  const dropoffCity = (dropoffLoc ? hourlyCityAt(dropoffLoc) : null) ?? cityOfText(booking.dropoff);
+  const cityToCity = serviceType === "hourly" && (hourlyQuote?.cityToCity ?? Boolean(booking.dropoff.trim() && pickupCity && dropoffCity && pickupCity !== dropoffCity));
   // City-to-city trips can't be booked for fewer than 6 hours.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- raise the duration when the trip becomes city-to-city
@@ -324,6 +324,9 @@ export function BookingFlow({
   // the flow runs as a quote request: no price, no payment.
   const [mapsAvailable, setMapsAvailable] = useState(true);
   const [quoteRequest, setQuoteRequest] = useState(false);
+  const [hourlyRequestNote, setHourlyRequestNote] = useState("");
+  const [hourlyRequestSubmitted, setHourlyRequestSubmitted] = useState(false);
+  const hourlyRequestId = useRef("");
   // Results screen: "edit trip" popup (passengers, date and time).
   const [tripEditOpen, setTripEditOpen] = useState(false);
   const [routeEditOpen, setRouteEditOpen] = useState(false);
@@ -614,20 +617,41 @@ export function BookingFlow({
 
   const pricedVehicles = useMemo(
     () =>
-      vehicles.map((item) => ({
+      vehicles.filter((item) => serviceType !== "hourly" || (HOURLY_VEHICLES.includes(item.id as typeof HOURLY_VEHICLES[number]) && (!hourlyQuote || Object.hasOwn(hourlyQuote.prices, item.id)))).map((item) => ({
         ...item,
         passengers: VEHICLES[item.id as VehicleId].passengers,
         bags: VEHICLES[item.id as VehicleId].bags,
         fits: vehicleFits(item.id as VehicleId, booking.passengers, booking.luggage),
         price: hourlyQuote?.prices[item.id]?.total ?? quoteSummary?.prices[item.id]?.total ?? fareQuote?.prices[item.id]?.total ?? item.price,
       })),
-    [fareQuote, hourlyQuote, quoteSummary, booking.passengers, booking.luggage],
+    [serviceType, fareQuote, hourlyQuote, quoteSummary, booking.passengers, booking.luggage],
   );
+  useEffect(() => {
+    if (!hourlyQuote) return;
+    const expiresIn = Date.parse(hourlyQuote.expiresAt) - Date.now();
+    const timer = window.setTimeout(() => {
+      setHourlyQuote(null); setPromo(null);
+      setPricingMessage("Your hourly quote expired. Search again for a fresh 30-minute price.");
+      setStage("search");
+    }, Math.max(0, Math.min(expiresIn, 1800000)));
+    return () => window.clearTimeout(timer);
+  }, [hourlyQuote]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- edited details need a new operations submission
+    setHourlyRequestSubmitted(false);
+    hourlyRequestId.current = "";
+  }, [booking, vehicle, hourlyArea, hourlyRequestNote]);
   const chosenVehicle = useMemo(
     () =>
       pricedVehicles.find((item) => item.id === vehicle) ?? pricedVehicles[0],
     [vehicle, pricedVehicles],
   );
+  useEffect(() => {
+    if (!pricedVehicles.some((item) => item.id === vehicle)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- unavailable hourly cars cannot remain selected
+      setVehicle((pricedVehicles.find((item) => item.fits) ?? pricedVehicles[0]).id);
+    }
+  }, [pricedVehicles, vehicle]);
   const discount = promo?.discount ?? 0;
   const tierFree = tierFreeAddons(quoteRequest ? null : memberTier, booking.childSeats, exchangeStop);
   const freeAddons = freeAddonsWithGifts(tierFree, booking.childSeats, exchangeStop, quoteRequest ? { childSeat: false, exchangeStop: false } : vouchers);
@@ -795,8 +819,41 @@ export function BookingFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requoteReturn, returnTrip]);
 
+  function applyHourlyQuoteResponse(response: Response, result: HourlyQuote & { error?: string; manualReview?: boolean }) {
+    if (!response.ok) {
+      if (result.manualReview) {
+        setHourlyQuote(null); setQuoteRequest(true); setHourlyRequestNote(result.error ?? "Operations quote required.");
+        setPricingMessage(""); goToStage("vehicle");
+      } else setPricingMessage(result.error ?? t("search.hourlyUnavailable"));
+      return false;
+    }
+    setQuoteRequest(false); setHourlyRequestNote("");
+    setBooking((current) => ({ ...current, bookedHours: result.bookedHours }));
+    setHourlyQuote(result);
+    return true;
+  }
+
+  async function submitHourlyRequest() {
+    if (loading || hourlyRequestSubmitted) return;
+    const validation = validateBookingReview(booking);
+    if (Object.keys(validation).length) { setFieldErrors(validation); goToStage("details"); return; }
+    setLoading(true); setError("");
+    if (!hourlyRequestId.current) hourlyRequestId.current = crypto.randomUUID();
+    try {
+      const response = await fetch("/api/hourly-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId: hourlyRequestId.current, areaSlug: hourlyArea, note: [hourlyRequestNote, booking.specialRequests].filter(Boolean).join(" ").slice(0, 500), answers: {
+        name: `${booking.name} ${booking.surname}`.trim(), phone: booking.phone, email: booking.email, pickup: booking.pickup.slice(0, 300), dropoff: booking.dropoff.slice(0, 300), hours: booking.bookedHours,
+        date: booking.date, time: booking.time, vehicle, passengers: booking.passengers, luggage: booking.luggage, flightNumber: booking.flightNumber, childSeats: booking.childSeats, exchangeStop, ferryPeople: 0,
+      } }) });
+      const result = await response.json();
+      if (!response.ok) { if (response.status === 409) hourlyRequestId.current = ""; throw new Error(result.error ?? "Could not submit the request."); }
+      setHourlyRequestSubmitted(true);
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not submit the request."); }
+    finally { setLoading(false); }
+  }
+
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setHourlyRequestSubmitted(false); hourlyRequestId.current = "";
     if (!navigator.onLine) {
       setPricingMessage(t("search.offline"));
       return;
@@ -818,12 +875,8 @@ export function BookingFlow({
         try {
           setLoading(true); setPricingMessage("");
           const response = await fetch("/api/hourly-quote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pickupText:booking.pickup.trim(),areaSlug:hourlyArea,...(booking.dropoff.trim()?{dropoffText:booking.dropoff.trim()}:{}),bookedHours:booking.bookedHours,pickupDate:booking.date,pickupTime:booking.time,timezone:"Asia/Bangkok"})});
-          const result = await response.json() as HourlyQuote & {error?:string};
-          if (!response.ok) { setPricingMessage(result.error??t("search.hourlyUnavailable")); return; }
-          setQuoteRequest(false);
-          setBooking((current) => ({ ...current, bookedHours: result.bookedHours }));
-          setHourlyQuote(result);
-          goToStage("vehicle");
+          const result = await response.json() as HourlyQuote & {error?:string;manualReview?:boolean};
+          if (applyHourlyQuoteResponse(response, result)) goToStage("vehicle");
         } catch { setPricingMessage(t("search.hourlyTempUnavailable")); }
         finally { setLoading(false); }
         return;
@@ -886,18 +939,15 @@ export function BookingFlow({
       setPricingMessage(t("search.selectBoth"));
       return;
     }
-    if (serviceType === "hourly" && !hourlyQuote) {
+    if (serviceType === "hourly" && (!hourlyQuote || Date.parse(hourlyQuote.expiresAt) <= Date.now())) {
       if (!hourlyArea) { setPricingMessage("Choose the area where your driver will be."); return; }
       if (!pickupPlaceId) { setPricingMessage(t("search.selectPickup")); return; }
       if (booking.dropoff.trim() && !hourlyDropoffId) { setPricingMessage("Choose your drop-off from the suggestions, or leave it empty."); return; }
       try {
         setLoading(true); setPricingMessage("");
         const response = await fetch("/api/hourly-quote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pickupPlaceId,areaSlug:hourlyArea,...(hourlyDropoffId&&booking.dropoff.trim()?{dropoffPlaceId:hourlyDropoffId}:{}),bookedHours:booking.bookedHours,pickupDate:booking.date,pickupTime:booking.time,timezone:"Asia/Bangkok"})});
-        const result = await response.json() as HourlyQuote & {error?:string};
-        if (!response.ok) { setPricingMessage(result.error??t("search.hourlyUnavailable")); return; }
-        // City-to-city trips start at 6 hours; the quote may raise the duration.
-        setBooking((current) => ({ ...current, bookedHours: result.bookedHours }));
-        setHourlyQuote(result);
+        const result = await response.json() as HourlyQuote & {error?:string;manualReview?:boolean};
+        if (!applyHourlyQuoteResponse(response, result)) return;
       } catch { setPricingMessage(t("search.hourlyTempUnavailable")); return; }
       finally { setLoading(false); }
     }
@@ -1122,6 +1172,10 @@ export function BookingFlow({
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
+      if (!response.ok && serviceType === "hourly" && ["QUOTE_MISMATCH", "HOURLY_QUOTE_EXPIRED", "HOURLY_UNAVAILABLE"].includes(result.code ?? "")) {
+        checkoutAttemptRef.current = ""; setHourlyQuote(null); setPromo(null); setError("");
+        setPricingMessage(result.error ?? "Search again for your latest hourly price."); goToStage("search"); return;
+      }
       if (!response.ok && result.code === "PROMO_INVALID") {
         checkoutAttemptRef.current = "";
         setPromo(null);
@@ -1197,9 +1251,9 @@ export function BookingFlow({
         : stage === "review" && quoteRequest
           ? {
               label: chosenVehicle.name,
-              action: "Contact us",
-              onClick: () => window.location.assign("/contact"),
-              disabled: false,
+              action: serviceType === "hourly" ? (hourlyRequestSubmitted ? "Request received" : "Request operations quote") : "Contact us",
+              onClick: () => serviceType === "hourly" ? void submitHourlyRequest() : window.location.assign("/contact"),
+              disabled: serviceType === "hourly" && (loading || hourlyRequestSubmitted || !isOnline),
             }
         : stage === "review"
           ? {
@@ -1363,7 +1417,7 @@ export function BookingFlow({
                     )}
                     </div>
                   ) : (
-                    <DurationPicker value={booking.bookedHours} options={Array.from({length:10},(_,i)=>i+1).filter((h) => !cityToCity || h >= 6)} label={cityToCity ? "Duration (city-to-city)" : t("hero.duration")} format={(hours)=>t("hero.hours", { count: hours })} onChange={(hours)=>{change("bookedHours",hours);setHourlyQuote(null);}} className={`flex h-full min-w-0 items-center gap-2.5 px-3 text-left sm:px-3.5 ${compact ? "" : "md:gap-3 md:rounded-[14px] md:border md:border-slate-200 md:px-5 lg:rounded-none lg:border-0"}`} />
+                    <DurationPicker value={booking.bookedHours} options={Array.from({length:8},(_,i)=>i+3).filter((h) => !cityToCity || h >= 6)} label={cityToCity ? "Duration (city-to-city)" : t("hero.duration")} format={(hours)=>t("hero.hours", { count: hours })} onChange={(hours)=>{change("bookedHours",hours);setHourlyQuote(null);}} className={`flex h-full min-w-0 items-center gap-2.5 px-3 text-left sm:px-3.5 ${compact ? "" : "md:gap-3 md:rounded-[14px] md:border md:border-slate-200 md:px-5 lg:rounded-none lg:border-0"}`} />
                   )}
                 </div>
                 </div>
@@ -1533,7 +1587,7 @@ export function BookingFlow({
                 </div>
               )}
               <p className="mt-5 hidden flex-wrap items-center gap-x-2.5 text-[17px] text-white/85 md:flex lg:mt-5 lg:text-[15px]">{[t("hero.trustArea"), t("hero.trustPrice"), t("hero.trustCancel")].map((item, i) => <span key={item} className="flex items-center gap-2.5">{i > 0 && <span aria-hidden="true">·</span>}{item}</span>)}</p>
-              {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-brand"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">{t("hero.includesKm", { km: Math.round((hourlyQuote.prices.economy_sedan?.includedDistanceMeters??0)/1000) })} · {t("legal.priceLocked")}</span></div>}
+              {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-brand"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">Unlimited kilometres within your itinerary · Tolls included · Price held for 30 minutes</span></div>}
             </form>
           </div>
         )}
@@ -1699,6 +1753,7 @@ export function BookingFlow({
       {stage === "vehicle" && (
         (serviceType === "transfer" && (!quoteRequest || demoRoute)) || hourlyMap ? <BookingResultsMap
           area={hourlyMap}
+          hourly={hourlyQuote && serviceType === "hourly" ? { hours: hourlyQuote.bookedHours, itinerary: hourlyQuote.area.name, serviceArea: hourlyQuote.serviceArea ?? hourlyMap?.name ?? hourlyArea, overtimeRate: hourlyQuote.prices[chosenVehicle.id]?.extraHourRate ?? 0, averageDurationMinutes: hourlyQuote.averageDurationMinutes } : undefined}
           pickup={booking.pickup}
           dropoff={hourlyMap ? (booking.dropoff.trim() || booking.pickup) : booking.dropoff}
           date={booking.date}
@@ -1711,7 +1766,7 @@ export function BookingFlow({
           returnTime={returnTime}
           returnTrip={hourlyMap ? false : returnTrip}
           priceBreakdown={quoteSummary?.prices}
-          checkoutReady={!returnTrip || Boolean(returnFareQuote && quoteSummary)}
+          checkoutReady={serviceType === "hourly" || !returnTrip || Boolean(returnFareQuote && quoteSummary)}
           loading={routeLoading}
           error={pricingMessage}
           onSelectVehicle={setVehicle}
@@ -1751,7 +1806,7 @@ export function BookingFlow({
                 </p>
                 <p className="mt-2 truncate text-ink/70">
                   {booking.pickup}
-                  {serviceType === "transfer" && ` → ${booking.dropoff}`}
+                  {booking.dropoff && ` → ${booking.dropoff}`}
                 </p>
               </div>
             )}
@@ -1768,10 +1823,11 @@ export function BookingFlow({
                 </div>
                 <div className="min-w-0 rounded-2xl bg-brand-soft p-3 sm:p-4">
                   <dt className="text-[11px] font-bold uppercase tracking-[.08em] text-slate-500 sm:text-xs">Drop-off</dt>
-                  <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">{hourlyQuote.dropoff ? shortPlaceName(hourlyQuote.dropoff.text) : "Same as pickup"}</dd>
+                  <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">{hourlyQuote.dropoff ? shortPlaceName(hourlyQuote.dropoff.text) : "Flexible itinerary within the pickup city"}</dd>
                 </div>
               </dl>
-              {hourlyQuote.cityToCity && <p className="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm text-ink">Your pickup or drop-off is outside {hourlyQuote.area.name}, so this is a city-to-city trip. City-to-city trips start at 6 hours.</p>}
+              {hourlyQuote.cityToCity && <p className="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm text-ink">{hourlyQuote.area.name} · Same package prices in both directions. Minimum 6 hours.</p>}
+              <p className="mt-3 text-sm text-slate-600">Unlimited kilometres within the approved itinerary. Fuel, tolls, parking, ferries and driver return travel included. Overtime: {money(hourlyQuote.prices[chosenVehicle.id]?.extraHourRate ?? 0)}/hour; the first 15 minutes are free, then each started hour is charged.</p>
             </>; })()}
             <h2 className="mt-8 text-sm font-black uppercase tracking-[.12em] text-ink">Choose your ride</h2>
             <div className="mt-3 space-y-3">
@@ -1796,7 +1852,7 @@ export function BookingFlow({
               Continue with {chosenVehicle.name} <ArrowRight size={18} aria-hidden="true" />
             </button>
             <p className="mt-3 text-center text-xs text-slate-500">
-              {quoteRequest ? "Private driver · price confirmed before payment" : "Private driver · price locked for 20 minutes"}
+              {quoteRequest ? "Private driver · price confirmed before payment" : "Private driver · price held for 30 minutes"}
             </p>
           </div>
         </section>
@@ -1830,8 +1886,8 @@ export function BookingFlow({
           <div className="mx-auto grid max-w-[1120px] items-start gap-6 lg:grid-cols-[1fr_440px]">
             {/* Payment option */}
             <div className="rounded-2xl bg-white p-5 sm:p-6">
-              <h2 className="flex items-center gap-3 text-[20px] font-semibold text-ink"><Wallet size={22} className="text-slate-600" aria-hidden="true" />Select payment option</h2>
-              <div role="radiogroup" aria-label="Payment method" className="mt-5 grid gap-4">
+              <h2 className="flex items-center gap-3 text-[20px] font-semibold text-ink"><Wallet size={22} className="text-slate-600" aria-hidden="true" />{quoteRequest ? "Request your itinerary quote" : "Select payment option"}</h2>
+              {quoteRequest ? <p className="mt-5 text-sm text-slate-600">Operations will confirm your itinerary, availability and price before you choose a payment method.</p> : <div role="radiogroup" aria-label="Payment method" className="mt-5 grid gap-4">
                 {([
                   ["card", "Card or online payment", "You’ll continue to Stripe’s secure page to pay. Waydidi never receives or stores your card details."],
                   ["cash", "Cash to driver", "Your booking is confirmed now. Pay the driver in Thai baht at pickup."],
@@ -1853,7 +1909,7 @@ export function BookingFlow({
                     {on && <p className="flex items-start gap-2 px-4 pb-4 text-[14px] leading-6 text-slate-600 sm:px-5"><ShieldCheck size={18} className="mt-0.5 shrink-0 text-brand-deep" aria-hidden="true" />{note}</p>}
                   </div>;
                 })}
-              </div>
+              </div>}
               <label className="mt-6 flex cursor-pointer items-start gap-3 text-[14px] leading-6 text-slate-700">
                 <input
                   data-booking-field="termsAccepted"
@@ -2033,13 +2089,18 @@ export function BookingFlow({
             </div>
             <p className="mt-3 text-sm leading-6 text-white/65">
               {quoteRequest
-                ? "Online booking needs live route pricing, which isn't connected yet. Contact us with these details and we'll confirm your ride and price."
+                ? serviceType === "hourly" ? "Send your itinerary to operations. We will confirm your price and availability before payment." : "Contact us with these details and we will confirm your ride and price."
                 : "The server verifies the current journey and price again before confirmation."}
             </p>
             {error && <p role="alert" className="mt-4 rounded-xl bg-red-950/40 p-4 text-sm font-semibold text-red-100">{error}</p>}
             {/* The server only accepts bookings backed by a live quote, so a
                 quote request ends in contact instead of a payment that would fail. */}
-            {quoteRequest ? (
+            {quoteRequest && serviceType === "hourly" ? (
+              <>
+                {hourlyRequestSubmitted && <p role="status" className="mt-4 rounded-xl bg-emerald-900/40 p-4">Your request is with operations. We will contact you to confirm your itinerary and price.</p>}
+                <button onClick={submitHourlyRequest} disabled={loading || hourlyRequestSubmitted || !isOnline} className="mt-6 flex h-14 w-full items-center justify-center rounded-full bg-brand font-bold text-ink disabled:opacity-60">{hourlyRequestSubmitted ? "Request received" : loading ? "Sending request…" : "Request operations quote"}</button>
+              </>
+            ) : quoteRequest ? (
               <Link
                 href="/contact"
                 className="mt-6 flex h-14 w-full items-center justify-center gap-3 rounded-full bg-brand font-bold text-ink"

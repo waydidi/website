@@ -3,78 +3,91 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { hourlyQuotes } from "@/db/schema";
 import { hourlyQuoteInputSchema, validationError } from "@/lib/booking-validation";
-import { hourlyPrices } from "@/lib/hourly-pricing";
-import { areaHourlyPrices, CITY_TO_CITY_MIN_HOURS, HOURLY_MAX_HOURS } from "@/lib/hourly-area-pricing";
-import { pointInPolygon } from "@/lib/geo";
-import { typedCityToCity } from "@/lib/hourly-area-match";
+import { areaHourlyPrices, hourlyAreaSettings } from "@/lib/hourly-area-pricing";
+import { hourlyCityPairSettings, cityPairPrices } from "@/lib/hourly-city-pricing";
+import { approvedHourlyPair, hourlyCityAt, CITY_TO_CITY_MIN_HOURS, HOURLY_POLICY_VERSION, HOURLY_QUOTE_MINUTES } from "@/lib/hourly-policy";
+import { bangkokDepartureIso } from "@/lib/booking-time";
 import { HOURLY_AREAS } from "@/lib/hourly-areas-data";
-import { matchPublishedArea } from "@/lib/pricing";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { allowHourlyRequest } from "@/lib/hourly-request-limit";
 import { logOperationalError, monitoredHeaders, requestIdFor } from "@/lib/observability";
 
+type Place = { id: string; formattedAddress?: string; addressComponents?: { longText?: string; shortText?: string; types?: string[] }[]; location: { latitude: number; longitude: number } };
+function operationsQuote(reason: string) {
+  return NextResponse.json({ code: "HOURLY_OPERATIONS_QUOTE", error: reason, manualReview: true }, { status: 422 });
+}
 export async function POST(request: Request) {
-  const startedAt = Date.now();
-  const requestId = requestIdFor(request);
-  if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({error:"Request blocked"},{status:403});
-  const parsed = hourlyQuoteInputSchema.safeParse(await request.json());
-  if (!parsed.success) return NextResponse.json(validationError(parsed),{status:400});
+  const startedAt = Date.now(), requestId = requestIdFor(request);
+  if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
+  const parsed = hourlyQuoteInputSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json(validationError(parsed), { status: 400 });
   const input = parsed.data;
-  // Without Google Maps: price the chosen area from the typed address (no location check).
-  if (!input.pickupPlaceId || !env.GOOGLE_MAPS_SERVER_KEY) {
-    const city = HOURLY_AREAS.find((a) => a.slug === input.areaSlug);
-    if (!city || !input.pickupText || input.bookedHours > HOURLY_MAX_HOURS) return NextResponse.json({error:"Choose an area, a pickup and up to 10 hours."},{status:400});
-    try {
-      // City-to-city from the typed addresses (e.g. area Pattaya, pickup Suvarnabhumi): 6 hours minimum.
-      const cityToCity = typedCityToCity(city.slug, input.pickupText, input.dropoffText);
-      if (cityToCity) input.bookedHours = Math.max(CITY_TO_CITY_MIN_HOURS, input.bookedHours);
-      const prices = await areaHourlyPrices(city.slug, input.bookedHours, cityToCity);
-      if (!prices || !Object.keys(prices).length) return NextResponse.json({error:`Hourly service in ${city.name} isn't available right now.`},{status:409});
-      const id=crypto.randomUUID(), expiresAt="9999-12-31T23:59:59.999Z";
-      const dropoffText = input.dropoffText?.trim() || null;
-      await getDb().insert(hourlyQuotes).values({id,pickupPlaceId:"typed",pickupText:input.pickupText,areaId:city.slug,areaName:cityToCity?`${city.name} (city-to-city)`:city.name,bookedHours:input.bookedHours,dropoffText,vehiclePricesJson:JSON.stringify(prices),pricingVersion:1,departureDate:input.pickupDate,departureTime:input.pickupTime,timezone:input.timezone,expiresAt,createdAt:new Date().toISOString()});
-      return NextResponse.json({quoteId:id,area:{id:city.slug,name:city.name,color:"#FF8A05"},bookedHours:input.bookedHours,cityToCity,prices,expiresAt,pickup:null,dropoff:null});
-    } catch (error) {
-      logOperationalError("hourly_quote.failed", requestId, error);
-      return NextResponse.json({ code: "HOURLY_QUOTE_UNAVAILABLE", error: "We could not price this hourly booking. Please try again.", retryable: true, requestId }, { status: 503, headers: monitoredHeaders(requestId, startedAt) });
-    }
-  }
-  const pickupPlaceId = input.pickupPlaceId;
+  const selected = HOURLY_AREAS.find((a) => a.slug === input.areaSlug);
+  if (!selected) return NextResponse.json({ error: "Choose a service area." }, { status: 400 });
   try {
-    const lookup = async (placeId: string) => {
-      const response = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {headers:{"X-Goog-Api-Key":env.GOOGLE_MAPS_SERVER_KEY,"X-Goog-FieldMask":"id,formattedAddress,location"}});
+    if (!await allowHourlyRequest(request, "quote")) return NextResponse.json({ error: "Too many requests. Please try again shortly." }, { status: 429 });
+    const settings = await hourlyAreaSettings();
+    const serviceArea = settings.find((a) => a.slug === selected.slug && a.active);
+    if (!serviceArea) return NextResponse.json({ code: "HOURLY_UNAVAILABLE", error: "This service area is unavailable." }, { status: 409 });
+    if (!input.pickupPlaceId || !env.GOOGLE_MAPS_SERVER_KEY) return operationsQuote("Operations will verify your addresses and confirm the itinerary price before payment.");
+    // An unresolved typed destination must never disappear from the quote.
+    if (input.dropoffText?.trim() && !input.dropoffPlaceId) return operationsQuote("Please select your destination from the suggestions, or request an operations quote.");
+    const lookup = async (placeId: string): Promise<Place> => {
+      const response = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, { headers: { "X-Goog-Api-Key": env.GOOGLE_MAPS_SERVER_KEY!, "X-Goog-FieldMask": "id,formattedAddress,location,addressComponents" }, signal: AbortSignal.timeout(8000) });
       if (!response.ok) throw new Error("PLACE_LOOKUP_FAILED");
-      const found = await response.json() as {id:string;formattedAddress?:string;location?:{latitude:number;longitude:number}};
-      if (!found.location) throw new Error("PLACE_LOCATION_MISSING");
-      return found as {id:string;formattedAddress?:string;location:{latitude:number;longitude:number}};
+      const place = await response.json() as Place;
+      if (!place.location || !Number.isFinite(place.location.latitude) || !Number.isFinite(place.location.longitude)) throw new Error("PLACE_LOCATION_MISSING");
+      return place;
     };
-    const [place, dropoff] = await Promise.all([lookup(pickupPlaceId), input.dropoffPlaceId ? lookup(input.dropoffPlaceId) : null]);
-    // A chosen city prices by that city's hourly rates, wherever the pickup is.
-    if (input.areaSlug) {
-      const city = HOURLY_AREAS.find((a) => a.slug === input.areaSlug);
-      if (input.bookedHours > HOURLY_MAX_HOURS || !city) return NextResponse.json({error:"Choose an area and up to 10 hours."},{status:400});
-      // City-to-city: pickup or drop-off outside the border; always at least 6 hours.
-      const inside = (p: {latitude:number;longitude:number}) => city.polygons.some((ring) => pointInPolygon({lat:p.latitude,lng:p.longitude}, ring.map(([lat,lng]) => ({lat,lng}))));
-      const cityToCity = !inside(place.location) || Boolean(dropoff && !inside(dropoff.location));
-      const hours = cityToCity ? Math.max(CITY_TO_CITY_MIN_HOURS, input.bookedHours) : input.bookedHours;
-      input.bookedHours = hours;
-      const prices = await areaHourlyPrices(city.slug, hours, cityToCity);
-      if (!prices || !Object.keys(prices).length) return NextResponse.json({error:`Hourly service in ${city.name} isn't available right now.`},{status:409});
-      const id=crypto.randomUUID(), expiresAt="9999-12-31T23:59:59.999Z";
-      await getDb().insert(hourlyQuotes).values({id,pickupPlaceId:place.id,pickupText:place.formattedAddress??"Pickup",pickupLatitude:place.location.latitude,pickupLongitude:place.location.longitude,areaId:city.slug,areaName:cityToCity?`${city.name} (city-to-city)`:city.name,bookedHours:input.bookedHours,dropoffText:dropoff?.formattedAddress??null,dropoffLatitude:dropoff?.location.latitude??null,dropoffLongitude:dropoff?.location.longitude??null,vehiclePricesJson:JSON.stringify(prices),pricingVersion:1,departureDate:input.pickupDate,departureTime:input.pickupTime,timezone:input.timezone,expiresAt,createdAt:new Date().toISOString()});
-      return NextResponse.json({quoteId:id,area:{id:city.slug,name:city.name,color:"#FF8A05"},bookedHours:input.bookedHours,cityToCity,prices,expiresAt,
-        pickup:{lat:place.location.latitude,lng:place.location.longitude,text:place.formattedAddress??"Pickup"},
-        dropoff:dropoff?{lat:dropoff.location.latitude,lng:dropoff.location.longitude,text:dropoff.formattedAddress??"Drop-off"}:null});
+    const [pickup, dropoff] = await Promise.all([lookup(input.pickupPlaceId), input.dropoffPlaceId ? lookup(input.dropoffPlaceId) : null]);
+    const cityOf = (p: Place) => hourlyCityAt({ lat: p.location.latitude, lng: p.location.longitude, addressComponents: p.addressComponents });
+    const origin = cityOf(pickup), destination = dropoff ? cityOf(dropoff) : origin;
+    if (!origin || !destination) return operationsQuote("This destination needs an operations quote.");
+    if (!dropoff && origin !== selected.slug) return operationsQuote("Add a destination so operations can verify an itinerary outside your selected service area.");
+    const cityToCity = origin !== destination;
+    const pair = cityToCity ? approvedHourlyPair(origin, destination) : null;
+    if (cityToCity && !pair) return operationsQuote("This city pair is not available for instant booking. Operations will confirm your price.");
+    const hours = cityToCity ? Math.max(CITY_TO_CITY_MIN_HOURS, input.bookedHours) : input.bookedHours;
+    const endpointAreas = [origin, destination].map((slug) => settings.find((a) => a.slug === slug)).filter((a) => a !== undefined);
+    if (endpointAreas.some((a) => !a.active)) return operationsQuote("This itinerary needs availability confirmation from operations.");
+    let distanceMeters: number | null = null, durationSeconds: number | null = null, routePolyline: string | null = null;
+    let prices;
+    if (pair && dropoff) {
+      const pairSetting = (await hourlyCityPairSettings()).find((p) => p.id === pair.id)!;
+      if (!pairSetting.active) return operationsQuote("This city pair needs an operations quote.");
+      const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+        method: "POST", signal: AbortSignal.timeout(8000),
+        headers: { "Content-Type": "application/json", "X-Goog-Api-Key": env.GOOGLE_MAPS_SERVER_KEY, "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline" },
+        body: JSON.stringify({ origin: { location: { latLng: pickup.location } }, destination: { location: { latLng: dropoff.location } }, travelMode: "DRIVE", routingPreference: "TRAFFIC_AWARE_OPTIMAL", departureTime: bangkokDepartureIso(input.pickupDate, input.pickupTime), trafficModel: "BEST_GUESS", computeAlternativeRoutes: false }),
+      });
+      if (!response.ok) return operationsQuote("Operations will review the travel time and confirm your price.");
+      const data = await response.json() as { routes?: { distanceMeters?: number; duration?: string; polyline?: { encodedPolyline?: string } }[] };
+      const route = data.routes?.[0];
+      distanceMeters = route?.distanceMeters ?? null;
+      durationSeconds = route?.duration ? Math.ceil(Number.parseFloat(route.duration)) : null;
+      routePolyline = route?.polyline?.encodedPolyline ?? null;
+      if (!distanceMeters || !durationSeconds || !Number.isFinite(durationSeconds)) return operationsQuote("Operations will review this route before quoting.");
+      // The default cap is the six-hour base package; operations can lower it per pair.
+      if (durationSeconds > pairSetting.maxDrivingMinutes * 60 || durationSeconds > hours * 3600) return operationsQuote("This route is unusually long for the package. Operations will confirm your itinerary and price.");
+      prices = cityPairPrices(pairSetting, hours);
+    } else {
+      prices = await areaHourlyPrices(origin, hours);
     }
-    const area = await matchPublishedArea({lat:place.location.latitude,lng:place.location.longitude});
-    const prices = await hourlyPrices(area?.id ?? null, input.bookedHours);
-    const id=crypto.randomUUID(), now=new Date(), expiresAt="9999-12-31T23:59:59.999Z";
-    await getDb().insert(hourlyQuotes).values({id,pickupPlaceId:place.id,pickupText:place.formattedAddress??"Pickup",pickupLatitude:place.location.latitude,pickupLongitude:place.location.longitude,areaId:area?.id,areaName:area?.name??"Thailand hourly service",bookedHours:input.bookedHours,vehiclePricesJson:JSON.stringify(prices),pricingVersion:area?.version??1,departureDate:input.pickupDate,departureTime:input.pickupTime,timezone:input.timezone,expiresAt,createdAt:now.toISOString()});
-    return NextResponse.json({quoteId:id,area:{id:area?.id??"ANY",name:area?.name??"Thailand hourly service",color:area?.color??"#FF8A05"},bookedHours:input.bookedHours,prices,expiresAt});
+    if (prices) prices = Object.fromEntries(Object.entries(prices).filter(([v]) => serviceArea.rates[v as keyof typeof serviceArea.rates]?.active && endpointAreas.every((a) => a.rates[v as keyof typeof a.rates]?.active)));
+    if (!prices || !Object.keys(prices).length) return operationsQuote("Operations will confirm vehicle availability for this itinerary.");
+    const id = crypto.randomUUID(), now = new Date(), expiresAt = new Date(now.getTime() + HOURLY_QUOTE_MINUTES * 60000).toISOString();
+    const areaName = pair?.name ?? HOURLY_AREAS.find((a) => a.slug === origin)?.name ?? origin;
+    await getDb().insert(hourlyQuotes).values({ id, pickupPlaceId: pickup.id, pickupText: pickup.formattedAddress ?? "Pickup", pickupLatitude: pickup.location.latitude, pickupLongitude: pickup.location.longitude,
+      areaId: selected.slug, areaName, pricingAreaSlug: origin, cityPairId: pair?.id ?? null, bookedHours: hours,
+      dropoffText: dropoff?.formattedAddress ?? null, dropoffLatitude: dropoff?.location.latitude ?? null, dropoffLongitude: dropoff?.location.longitude ?? null,
+      vehiclePricesJson: JSON.stringify(prices), pricingVersion: HOURLY_POLICY_VERSION, departureDate: input.pickupDate, departureTime: input.pickupTime, timezone: input.timezone,
+      routeDistanceMeters: distanceMeters, routeDurationSeconds: durationSeconds, routePolyline, expiresAt, createdAt: now.toISOString() });
+    return NextResponse.json({ quoteId: id, area: { id: selected.slug, name: areaName, color: "#FF8A05" }, serviceArea: selected.name, cityPairId: pair?.id ?? null, bookedHours: hours, cityToCity, prices, expiresAt,
+      inclusions: { unlimitedKilometres: true, tollsIncluded: true, overtimeGraceMinutes: 15 }, distanceMeters, averageDurationMinutes: durationSeconds ? Math.max(5, Math.round(durationSeconds / 300) * 5) : null,
+      pickup: { lat: pickup.location.latitude, lng: pickup.location.longitude, text: pickup.formattedAddress ?? "Pickup" },
+      dropoff: dropoff ? { lat: dropoff.location.latitude, lng: dropoff.location.longitude, text: dropoff.formattedAddress ?? "Destination" } : null });
   } catch (error) {
     logOperationalError("hourly_quote.failed", requestId, error);
-    return NextResponse.json(
-      { code: "HOURLY_QUOTE_UNAVAILABLE", error: "We could not price this hourly booking. Please try again.", retryable: true, requestId },
-      { status: 503, headers: monitoredHeaders(requestId, startedAt) },
-    );
+    return NextResponse.json({ code: "HOURLY_QUOTE_UNAVAILABLE", error: "We could not price this hourly booking. Please try again.", retryable: true, requestId }, { status: 503, headers: monitoredHeaders(requestId, startedAt) });
   }
 }

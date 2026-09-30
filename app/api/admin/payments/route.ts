@@ -7,6 +7,7 @@ import { getWaydidiAdmin } from "@/lib/admin";
 import { paymentDashboard } from "@/lib/payment-dashboard";
 import { reconcileBooking } from "@/lib/payment-reconciliation";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { assessHourlyOvertime, collectHourlyOvertime } from "@/lib/hourly-overtime-db";
 export async function GET() { if (!await getWaydidiAdmin())
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); return NextResponse.json(await paymentDashboard(), { headers: { "Cache-Control": "no-store" } }); }
 export async function POST(request: Request) {
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
     if (!sameOrigin(request) || !isJsonRequest(request))
         return NextResponse.json({ error: "Request blocked" }, { status: 403 });
     const input = await request.json() as {
+        extraMinutes?: number;
         action?: string;
         reference?: string;
         amountMinor?: number;
@@ -26,6 +28,13 @@ export async function POST(request: Request) {
         paymentStatus?: string;
     };
     const reference = String(input.reference ?? "").slice(0, 40);
+    if (input.action === "assess_hourly_overtime" || input.action === "collect_hourly_overtime") {
+        try {
+            if (input.action === "assess_hourly_overtime") return NextResponse.json({ ok: true, charge: await assessHourlyOvertime(reference, input.extraMinutes!, admin.email) });
+            await collectHourlyOvertime(reference, input.amountMinor!, input.receiptId ?? "", admin.email);
+            return NextResponse.json({ ok: true });
+        } catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Could not record overtime." }, { status: 409 }); }
+    }
     if (input.action === "update_leg_cost") {
         const [b] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
         if (!b || !["confirmed", "completed", "no_show"].includes(b.status) || !["outbound", "return"].includes(input.leg ?? "") || input.leg === "return" && !b.returnDate || !Number.isSafeInteger(input.costMinor) || input.costMinor! < 0 || input.costMinor! > 100000000 || !["unpaid", "scheduled", "paid"].includes(input.paymentStatus ?? ""))
