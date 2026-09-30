@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 export type PickerDriver = { id: string; name: string; phone: string; email: string | null; area: string; vehicle: string };
 
 // Driver column: shows the assigned driver; opens a searchable list to assign or change.
-export function DriverPicker({ reference, drivers, current, canAssign, onAssigned, wide, onAddDriver }: { reference: string; drivers: PickerDriver[]; current: string | null; canAssign: boolean; wide?: boolean; onAddDriver?: () => void; onAssigned?: (driverUrl?: string) => void }) {
+export function DriverPicker({ reference, leg = "outbound", drivers, current, canAssign, onAssigned, wide, onAddDriver }: { reference: string; leg?: "outbound" | "return"; drivers: PickerDriver[]; current: string | null; canAssign: boolean; wide?: boolean; onAddDriver?: () => void; onAssigned?: (driverUrl?: string) => void }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -31,7 +31,7 @@ export function DriverPicker({ reference, drivers, current, canAssign, onAssigne
     if (driverId === current) { setOpen(false); return; }
     setBusy(true); setError("");
     try {
-      const res = await fetch("/api/admin/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "assign", bookingReference: reference, driverId }) });
+      const res = await fetch("/api/admin/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "assign", bookingReference: reference, leg, driverId }) });
       const out = await res.json().catch(() => ({})) as { error?: string; driverUrl?: string };
       if (!res.ok) throw new Error(out.error ?? "The driver could not be assigned.");
       setOpen(false); setQuery("");

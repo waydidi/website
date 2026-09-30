@@ -28,7 +28,7 @@ export function PayForm({ reference, token, sessionId }: { reference: string; to
       try {
         const res = await fetch(`/api/pay/${encodeURIComponent(reference)}?token=${encodeURIComponent(token)}&session_id=${encodeURIComponent(sessionId)}`, { cache: "no-store" });
         const out = await res.json() as { clientSecret?: string; publishableKey?: string; done?: boolean; error?: string };
-        if (out.done) { window.location.replace(`/booking/confirmation/${reference}?token=${encodeURIComponent(token)}`); return; }
+        if (out.done) { window.location.replace(`/booking/confirmation/${reference}?token=${encodeURIComponent(token)}&session_id=${encodeURIComponent(sessionId)}`); return; }
         if (!res.ok || !out.clientSecret || !out.publishableKey) throw new Error(out.error ?? "Payment could not be loaded.");
         await loadStripe();
         if (cancelled || !window.Stripe || !box.current) return;

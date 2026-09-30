@@ -10,6 +10,8 @@ import { fulfillBooking } from "@/lib/booking-fulfillment";
 import { isJsonRequest, safeOrigin, sameOrigin, secureToken, sha256 } from "@/lib/security";
 import { VEHICLES } from "@/lib/vehicles";
 
+import { OVERTIME_RATES, type HourlyVehicle } from "@/lib/hourly-policy";
+
 const POLICY_VERSION = "2026-09-07";
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const time = z.string().regex(/^\d{2}:\d{2}$/);
@@ -65,6 +67,7 @@ async function saveManualBooking(request: Request) {
   const b = parsed.data;
   if (b.serviceType !== "hourly" && b.dropoff.length < 2) return NextResponse.json({ error: b.serviceType === "tour" ? "Enter the tour name." : "Enter the drop-off." }, { status: 400 });
   if (b.serviceType === "hourly" && !b.bookedHours) return NextResponse.json({ error: "Enter the number of hours." }, { status: 400 });
+  if (b.serviceType === "hourly" && (b.vehicle === "comfort_bmw" || (b.bookedHours ?? 0) < 3)) return NextResponse.json({ error: "By the Hour starts at 3 hours and does not offer BMW." }, { status: 400 });
   const hasReturn = Boolean(b.returnDate && b.returnTime) && b.serviceType === "transfer";
 
   const addons = addonsTotal(b.childSeats, b.exchangeStop, undefined, b.ferryPeople);
@@ -111,6 +114,9 @@ async function saveManualBooking(request: Request) {
     createdAt: now, updatedAt: now,
     serviceType: b.serviceType,
     bookedHours: b.serviceType === "hourly" ? b.bookedHours : null,
+    extraHourRate: b.serviceType === "hourly" ? OVERTIME_RATES[b.vehicle as HourlyVehicle] : null,
+    extraDistanceRate: b.serviceType === "hourly" ? 0 : null,
+    pricingVersion: b.serviceType === "hourly" ? 2 : null,
     scheduledEndAt: b.serviceType === "hourly" && b.bookedHours ? new Date(new Date(`${b.pickupDate}T${b.pickupTime}:00+07:00`).getTime() + b.bookedHours * 3600_000).toISOString() : null,
     returnPickup: hasReturn ? b.dropoff : null,
     returnDropoff: hasReturn ? b.pickup : null,

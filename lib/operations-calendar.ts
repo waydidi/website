@@ -6,6 +6,9 @@ export type CalendarBookingWindow = {
   pickupDate: string;
   pickupTime: string;
   routeDurationSeconds: number | null;
+  serviceType?: string;
+  bookedHours?: number | null;
+  scheduledEndAt?: string | null;
   preparationBufferMinutes: number;
   postTripBufferMinutes: number;
 };
@@ -26,7 +29,8 @@ export function pickupTimestamp(pickupDate: string, pickupTime: string) {
 
 export function bookingWindow(booking: CalendarBookingWindow) {
   const pickup = pickupTimestamp(booking.pickupDate, booking.pickupTime);
-  const durationSeconds = Math.max(15 * 60, booking.routeDurationSeconds ?? DEFAULT_ROUTE_SECONDS);
+  const hourlySeconds = booking.serviceType === "hourly" ? Math.max(0, (booking.bookedHours ?? 0) * 3600, booking.scheduledEndAt ? (Date.parse(booking.scheduledEndAt) - pickup) / 1000 : 0) : 0;
+  const durationSeconds = Math.max(15 * 60, hourlySeconds, booking.routeDurationSeconds ?? DEFAULT_ROUTE_SECONDS);
   return {
     pickup,
     startsAt: pickup - Math.max(0, booking.preparationBufferMinutes) * 60_000,

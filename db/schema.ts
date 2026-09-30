@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const bookings = sqliteTable(
@@ -127,6 +128,9 @@ export const bookingPayments = sqliteTable(
     providerSessionId: text("provider_session_id"),
     providerTransactionId: text("provider_transaction_id"),
     providerStatus: text("provider_status"),
+    refundedMinor: integer("refunded_minor").notNull().default(0),
+    feeMinor: integer("fee_minor"),
+    disputeStatus: text("dispute_status"),
     amountExpected: integer("amount_expected").notNull(),
     amountPaid: integer("amount_paid").notNull().default(0),
     currency: text("currency").notNull().default("thb"),
@@ -231,6 +235,38 @@ export const hourlyAreaRates = sqliteTable(
   (table) => [index("idx_hourly_area_rates_area").on(table.areaSlug)],
 );
 
+export const hourlyOvertimeCharges = sqliteTable("hourly_overtime_charges", {
+  bookingReference: text("booking_reference").primaryKey().references(() => bookings.reference),
+  extraMinutes: integer("extra_minutes").notNull(),
+  chargedHours: integer("charged_hours").notNull(),
+  hourlyRate: integer("hourly_rate").notNull(),
+  amountMinor: integer("amount_minor").notNull(),
+  assessedBy: text("assessed_by").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+export const hourlyOvertimeReceipts = sqliteTable("hourly_overtime_receipts", {
+  id: text("id").primaryKey(),
+  bookingReference: text("booking_reference").notNull().references(() => hourlyOvertimeCharges.bookingReference),
+  amountMinor: integer("amount_minor").notNull(),
+  collectedBy: text("collected_by").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const hourlyCityPairRates = sqliteTable("hourly_city_pair_rates", {
+  id: text("id").primaryKey(),
+  pairId: text("pair_id").notNull(),
+  vehicleId: text("vehicle_id").notNull(),
+  c6: integer("c6").notNull().default(0),
+  c7: integer("c7").notNull().default(0),
+  c8: integer("c8").notNull().default(0),
+  c9: integer("c9").notNull().default(0),
+  c10: integer("c10").notNull().default(0),
+  extraHourRate: integer("extra_hour_rate").notNull().default(0),
+  maxDrivingMinutes: integer("max_driving_minutes").notNull().default(360),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [uniqueIndex("idx_hourly_pair_vehicle").on(table.pairId, table.vehicleId)]);
+
 export const hourlyQuotes = sqliteTable(
   "hourly_quotes",
   {
@@ -241,6 +277,11 @@ export const hourlyQuotes = sqliteTable(
     pickupLongitude: real("pickup_longitude"),
     areaId: text("area_id"),
     areaName: text("area_name").notNull(),
+    cityPairId: text("city_pair_id"),
+    pricingAreaSlug: text("pricing_area_slug"),
+    routeDistanceMeters: integer("route_distance_meters"),
+    routeDurationSeconds: integer("route_duration_seconds"),
+    routePolyline: text("route_polyline"),
     bookedHours: integer("booked_hours").notNull(),
     dropoffText: text("dropoff_text"),
     dropoffLatitude: real("dropoff_latitude"),
@@ -566,6 +607,7 @@ export const bookingAssignments = sqliteTable(
   {
     id: text("id").primaryKey(),
     bookingReference: text("booking_reference").notNull(),
+    leg: text("leg").notNull().default("outbound"),
     driverId: text("driver_id").notNull(),
     tokenHash: text("token_hash").notNull().unique(),
     currentStatus: text("current_status").notNull().default("assigned"),
@@ -581,6 +623,7 @@ export const bookingAssignments = sqliteTable(
     passengerVerifiedBy: text("passenger_verified_by"),
   },
   (table) => [
+    uniqueIndex("uidx_assignment_active_leg").on(table.bookingReference, table.leg).where(sql`${table.revokedAt} IS NULL`),
     index("idx_assignments_booking_active").on(table.bookingReference, table.revokedAt),
     index("idx_assignments_driver_status").on(table.driverId, table.currentStatus),
   ],
@@ -1240,3 +1283,23 @@ export const bookingStorefronts = sqliteTable("booking_storefronts", {
   settledAt: text("settled_at"),
   createdAt: text("created_at").notNull(),
 }, (table) => [index("idx_booking_storefronts_store").on(table.storefrontId)]);
+
+export const journeyLegs = sqliteTable("journey_legs", {
+  id: text("id").primaryKey(), bookingReference: text("booking_reference").notNull(),
+  leg: text("leg").notNull(), status: text("status").notNull(),
+  pickupDate: text("pickup_date"), pickupTime: text("pickup_time"),
+  flightDate: text("flight_date"), arrivalPickupOffsetMinutes: integer("arrival_pickup_offset_minutes"),
+  createdAt: text("created_at").notNull(), updatedAt: text("updated_at").notNull(),
+}, (t) => [uniqueIndex("uidx_journey_leg").on(t.bookingReference, t.leg)]);
+
+export const cashReceipts = sqliteTable("cash_receipts", {
+ id: text("id").primaryKey(), bookingReference: text("booking_reference").notNull(),
+ amountMinor: integer("amount_minor").notNull(), collectedBy: text("collected_by").notNull(),
+ note: text("note"), createdAt: text("created_at").notNull(),
+}, t => [index("idx_cash_receipts_booking").on(t.bookingReference)]);
+
+export const journeyCosts = sqliteTable("journey_costs", {
+ id:text("id").primaryKey(), bookingReference:text("booking_reference").notNull(), leg:text("leg").notNull(),
+ costMinor:integer("cost_minor").notNull(), paymentStatus:text("payment_status").notNull().default("unpaid"),
+ updatedBy:text("updated_by").notNull(), createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(),
+},t=>[uniqueIndex("uidx_journey_cost_leg").on(t.bookingReference,t.leg)]);

@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmationPaymentLabel } from "@/lib/confirmation-payment";
 import { Check, Clock3, Download, Mail, RotateCw, XCircle, Navigation } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -27,6 +28,7 @@ type Booking = {
   status: string;
   emailStatus: string;
   paymentMethod: string;
+  checkoutSessionId: string | null;
   paymentStatus: string;
   paymentFailureMessage: string | null;
   flightNumber: string | null;
@@ -37,6 +39,7 @@ type Booking = {
   specialRequests: string | null;
   serviceType: string;
   bookedHours: number | null;
+  hourlyPolicy?: { unlimitedKilometres: boolean; tollsIncluded: boolean; overtimeGraceMinutes: number } | null;
   includedDistanceMeters: number | null;
   extraHourRate: number | null;
   extraDistanceRate: number | null;
@@ -71,7 +74,7 @@ export default function ConfirmationClient({
         if (!response.ok) throw new Error("Booking unavailable");
         let result = (await response.json()) as Booking;
         setBooking(result);
-        if (result.status === "pending_payment" && sessionId) {
+        if (result.status === "pending_payment" && result.paymentMethod !== "cash") {
           await fetch(`/api/bookings/${encodeURIComponent(reference)}/verify`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -152,16 +155,16 @@ export default function ConfirmationClient({
         </div>
       </main>
     );
-  if (!booking || booking.status === "pending_payment")
+  if (!booking || !["confirmed", "completed", "cancelled", "no_show"].includes(booking.status))
     return (
       <main className="grid min-h-screen place-items-center bg-white p-6 text-[#1f1726]">
         <div className="max-w-md text-center">
           {booking?.paymentStatus === "failed" || booking?.paymentStatus === "expired" ? <XCircle className="mx-auto text-red-600" size={42} /> : <Clock3 className="mx-auto animate-pulse text-[#D96F00]" size={42} />}
-          <h1 className="mt-5 text-3xl font-black">{booking?.paymentStatus === "failed" ? "Your payment was not completed" : booking?.paymentStatus === "expired" ? "Your payment session expired" : "Confirming your payment…"}</h1>
+          <h1 className="mt-5 text-3xl font-black">{booking?.paymentStatus === "refunded" ? "Payment refunded · booking unconfirmed" : booking?.paymentStatus === "disputed" ? "Payment under review" : booking?.paymentStatus === "failed" ? "Your payment was not completed" : booking?.paymentStatus === "expired" || booking?.status === "expired" ? "Your payment session expired" : "Confirming your payment…"}</h1>
           <p className="mt-3 text-slate-500">
-            {booking?.paymentStatus === "failed" ? (booking.paymentFailureMessage ?? "No confirmed charge was found. Your journey details remain saved.") : booking?.paymentStatus === "expired" ? "Your journey details are still saved. Return to your booking to restart secure payment." : "Stripe confirmation can take a few moments. You can safely close this page—we’ll continue checking."}
+            {["refunded","disputed"].includes(booking?.paymentStatus ?? "") ? "Please contact Waydidi operations to review this booking. A ride confirmation has not been issued." : booking?.paymentStatus === "failed" ? (booking.paymentFailureMessage ?? "No confirmed charge was found. Your journey details remain saved.") : booking?.paymentStatus === "expired" ? "Your journey details are still saved. Return to your booking to restart secure payment." : "Stripe confirmation can take a few moments. You can safely close this page—we’ll continue checking."}
           </p>
-          {(booking?.paymentStatus === "failed" || booking?.paymentStatus === "expired") && <Link href="/?recover=payment" className="mt-6 inline-flex h-12 items-center rounded-full bg-[#FF8A05] px-6 font-bold text-white">Return to booking</Link>}
+          {(booking?.paymentStatus === "failed" || booking?.paymentStatus === "expired") && <Link href={booking?.paymentStatus === "failed" && booking.checkoutSessionId ? `/pay/${reference}?token=${encodeURIComponent(token)}&session_id=${encodeURIComponent(booking.checkoutSessionId)}` : "/?recover=payment"} className="mt-6 inline-flex h-12 items-center rounded-full bg-[#FF8A05] px-6 font-bold text-white">Return to booking</Link>}
           {timedOut && (
             <>
               <p className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
@@ -200,16 +203,17 @@ export default function ConfirmationClient({
     ["Vehicle", booking.vehicle],
     [
       "Included distance",
-      booking.serviceType === "hourly" && booking.includedDistanceMeters
+      booking.hourlyPolicy?.unlimitedKilometres ? "Unlimited within the approved itinerary" : booking.serviceType === "hourly" && booking.includedDistanceMeters
         ? `${booking.includedDistanceMeters / 1000} km`
         : null,
     ],
     [
       "Extra time",
       booking.serviceType === "hourly" && booking.extraHourRate
-        ? `฿${booking.extraHourRate.toLocaleString()}/hour`
+        ? `฿${booking.extraHourRate.toLocaleString()}/hour${booking.hourlyPolicy ? "; first 15 minutes free, then each started hour" : ""}`
         : null,
     ],
+    ["Tolls", booking.hourlyPolicy?.tollsIncluded ? "Included" : null],
     [
       "Extra distance",
       booking.serviceType === "hourly" && booking.extraDistanceRate
@@ -218,7 +222,7 @@ export default function ConfirmationClient({
     ],
     [
       "Payment",
-      booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : booking.paymentMethod === "manual" ? "Paid" : "Paid online",
+      confirmationPaymentLabel(booking.paymentMethod,booking.paymentStatus,booking.total),
     ],
     ["Flight", booking.flightNumber],
     ["Pickup sign", booking.pickupSign],
@@ -257,10 +261,10 @@ export default function ConfirmationClient({
             )}
           </span>
           <p className="mt-6 text-sm font-bold uppercase tracking-[.16em] text-white/80">
-            {cancelled ? "Booking cancelled" : booking.paymentMethod === "cash" && booking.total > 0 ? "Booking confirmed" : "Payment received"}
+            {cancelled ? "Booking cancelled" : booking.paymentStatus === "refunded" ? "Payment refunded" : booking.paymentStatus === "partially_refunded" ? "Payment partly refunded" : booking.paymentStatus === "disputed" ? "Payment under review" : booking.paymentMethod === "cash" && booking.paymentStatus === "paid" ? "Cash collected" : booking.paymentMethod === "cash" && booking.total > 0 ? "Booking confirmed · cash due" : booking.paymentStatus === "paid" ? "Payment received" : "Booking confirmed"}
           </p>
           <h1 className="mt-2 text-4xl font-black tracking-[-.04em]">
-            {cancelled ? "Your ride was cancelled." : "Your ride is booked."}
+            {cancelled ? "Your ride was cancelled." : booking.status === "completed" ? "Your journey is complete." : booking.status === "no_show" ? "This journey was recorded as a no-show." : "Your ride is booked."}
           </h1>
           <p className="mt-3 text-white/80">
             Booking reference{" "}

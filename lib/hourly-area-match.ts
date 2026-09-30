@@ -1,6 +1,8 @@
 // Which Waydidi hourly city a typed address mentions, used to spot city-to-city
 // trips when Google Maps can't place the address. Null when no city is named.
 const CITY_WORDS: [string, RegExp][] = [
+  ["ratchaburi", /ratchaburi|raychaburi|mae[\s-]*klo?ng|damnoen\s*saduak|samut\s*songkhram|ราชบุรี|แม่กลอง|ดำเนินสะดวก|สมุทรสงคราม/i],
+  ["khao-yai", /khao\s*(?:yai|yao)|pak\s*chong|เขาใหญ่|ปากช่อง/i],
   ["bangkok", /bangkok|suvarnabhumi|\bbkk\b|don\s*mueang|\bdmk\b|sukhumvit|silom|sathorn|siam|khao\s*san|กรุงเทพ|สุวรรณภูมิ|ดอนเมือง/i],
   ["pattaya", /pattaya|jomtien|naklua|bang\s*lamung|พัทยา|จอมเทียน|นาเกลือ|บางละมุง/i],
   ["koh-chang", /ko(h)?\s*chang|เกาะช้าง/i],
