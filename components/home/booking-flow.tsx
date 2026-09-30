@@ -1514,10 +1514,10 @@ export function BookingFlow({
           <div className={`relative z-10 mx-auto w-full max-w-[1440px] px-5 animate-in fade-in duration-300 motion-reduce:animate-none md:px-[58px] lg:px-14 ${hero ? "pb-8 pt-[88px] md:pb-10 md:pt-[120px] lg:pb-12 lg:pt-[128px]" : "pb-12 pt-[98px] md:pb-14 md:pt-[170px] lg:pb-16 lg:pt-[150px]"}`}>
             <div className={hero ? "mb-5 max-w-2xl md:mb-8 md:max-w-[820px]" : "mb-6 max-w-2xl md:mb-[62px] md:max-w-[820px] lg:mb-[52px]"}>
               {hero?.top}
-              <h1 className={`${locale === "en" ? "" : "text-balance "}text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px] md:text-[58px] md:leading-[1.02] md:tracking-[-.02em] ${hero ? "mt-3 lg:text-[52px]" : "lg:text-[60px]"}`}>
+              <h1 className={`${locale === "en" ? "" : "text-balance "}font-semibold tracking-[-.03em] md:tracking-[-.02em] ${hero ? "mt-3 text-[32px] leading-[1.1] sm:text-[44px]" : "text-[32.5px] leading-[1.08] sm:text-[45.3px] md:text-[58px] md:leading-[1.02] lg:text-[60px]"}`}>
                 {hero?.title ?? t("hero.title")}
               </h1>
-              <p className="mt-3 text-[17px]/[28px] font-medium text-white sm:text-[19px]/[28px] md:mt-8 md:text-[25px]/[32px] md:font-normal md:text-white/90 lg:mt-10 lg:text-[17px]/[26px]">
+              <p className={`mt-3 font-medium text-white md:mt-8 md:font-normal md:text-white/90 lg:mt-10 ${hero ? "text-[14px]/[1.33] sm:text-[20px]/[1.15]" : "text-[17px]/[28px] sm:text-[19px]/[28px] md:text-[25px]/[32px] lg:text-[17px]/[26px]"}`}>
                 {hero?.subtitle ?? t("hero.subtitle")}
               </p>
             </div>
