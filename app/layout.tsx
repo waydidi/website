@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site";
 import type { Metadata, Viewport } from "next";
 import { env } from "cloudflare:workers";
 import "./globals.css";
@@ -7,7 +8,7 @@ import { SpinBar } from "@/components/spin/spin-bar";
 import { PwaProvider } from "@/components/pwa/pwa-provider";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://waydidi-private-transfer.dankbangkok.chatgpt.site"),
+  metadataBase: new URL(SITE_URL),
   title: "Waydidi — Private Transfers in Thailand",
   description:
     "Book a comfortable private transfer across Thailand with professional drivers and clear, upfront pricing.",
@@ -36,10 +37,10 @@ export default function RootLayout({
     "@context": "https://schema.org",
     "@type": "Service",
     name: "Waydidi Private Transfers",
-    provider: { "@type": "Organization", name: "Waydidi", url: "https://waydidi-private-transfer.dankbangkok.chatgpt.site" },
+    provider: { "@type": "Organization", name: "Waydidi", url: SITE_URL },
     areaServed: { "@type": "Country", name: "Thailand" },
     serviceType: "Private passenger transfer",
-    url: "https://waydidi-private-transfer.dankbangkok.chatgpt.site",
+    url: SITE_URL,
   };
   return (
     <html lang="en">

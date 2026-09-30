@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site";
 // Browser-window mockups of the planned agency workspace (example data only).
 const NAV = ["Dashboard", "Bookings", "Passengers", "Profile", "Billing", "Reports"];
 
@@ -10,7 +11,7 @@ function Frame({ active, children }: { active: string; children: React.ReactNode
   return <div className="overflow-hidden rounded-xl border border-[#DDD9D0] bg-white text-left shadow-[0_18px_40px_rgba(0,0,0,.12)]" aria-hidden="true">
     <div className="flex items-center gap-2 border-b border-[#EEE] bg-[#F6F6F6] px-3 py-2">
       <span className="flex gap-1"><i className="size-2 rounded-full bg-[#FF5F57]" /><i className="size-2 rounded-full bg-[#FEBC2E]" /><i className="size-2 rounded-full bg-[#28C840]" /></span>
-      <span className="mx-auto rounded bg-white px-8 py-0.5 text-[7px] text-[#999]">waydidi.com/agency</span>
+      <span className="mx-auto rounded bg-white px-8 py-0.5 text-[7px] text-[#999]">{new URL(SITE_URL).host}/agency</span>
     </div>
     <div className="flex items-center justify-between bg-black px-3 py-1.5 text-[8px] font-bold text-white"><span className="text-[#FF8A05]">Waydidi</span><span className="rounded bg-white px-1.5 py-0.5 text-[6px] text-black">Siam Travel Co.</span></div>
     <div className="flex min-h-[210px] sm:min-h-[300px]">

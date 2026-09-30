@@ -1,4 +1,4 @@
-# vinext-starter
+# Waydidi Travel
 
 A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
 
@@ -7,9 +7,15 @@ A clean full-stack starter running on [vinext](https://github.com/cloudflare/vin
 - Node.js `>=22.13.0`
 - Linux with `flock`, `curl`, and GNU `timeout`
 
-## Sites Lifecycle
+## Production deployment
 
-The Sites lifecycle CLI runs the locked dependency install before returning this checkout. Edit the source under `app/`, then checkpoint when a coherent milestone is ready to inspect or share. The remote Sites builder runs `npm run build` against the pushed commit. Do not repeat install or build as a normal pre-checkpoint step.
+Waydidi’s only live site is [https://waydidi-website.contact-waydidi.workers.dev](https://waydidi-website.contact-waydidi.workers.dev). GitHub `main` is the source for the Cloudflare Worker `waydidi-website`. Use Cloudflare Workers Builds for deployment; pushing a review branch alone does not publish it. Keep `WAYDIDI_PUBLIC_URL` in the Worker settings equal to this origin. Do not publish this repository to the former ChatGPT Sites address.
+
+Canonical URLs, structured data, sitemap and robots metadata use `lib/site.ts`. The historical `.openai/hosting.json` is retained for build compatibility and logical bindings; it is not a deployment target.
+
+## Starter build tooling
+
+Install locked dependencies with `npm run install:ci`, then build with `npm run build`. Cloudflare deploys the built Worker using the configuration generated from `vite.config.ts`.
 
 This starter does not use `wrangler.jsonc`.
 

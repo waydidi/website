@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site";
 import { env } from "cloudflare:workers";
 import { thaiBank } from "@/lib/thai-banks";
 
@@ -13,7 +14,7 @@ type TripLineInput = {
   vehicle: string;
 };
 
-const siteUrl = () => (env.WAYDIDI_PUBLIC_URL || "https://waydidi-website.contact-waydidi.workers.dev").replace(/\/$/u, "");
+const siteUrl = () => (env.WAYDIDI_PUBLIC_URL || SITE_URL).replace(/\/$/u, "");
 
 async function pushLine(messages: unknown[]) {
   if (!env.LINE_CHANNEL_ACCESS_TOKEN || !env.LINE_ADMIN_TARGET_ID) return { status: "pending_configuration" as const };

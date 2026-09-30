@@ -5,7 +5,7 @@ import { VEHICLES } from "@/lib/vehicles";
 import { waitingLine } from "@/lib/waiting-policy";
 import { env } from "cloudflare:workers";
 
-const DEFAULT_SITE_URL = "https://waydidi-website.contact-waydidi.workers.dev";
+import { SITE_URL } from "@/lib/site";
 
 type ConfirmationEmailInput = {
   to: string;
@@ -46,7 +46,7 @@ function escapeHtml(value: string) {
 }
 
 function siteUrl() {
-  return (env.WAYDIDI_PUBLIC_URL || DEFAULT_SITE_URL).replace(/\/$/, "");
+  return (env.WAYDIDI_PUBLIC_URL || SITE_URL).replace(/\/$/, "");
 }
 
 function displayDate(date: string, time: string) {

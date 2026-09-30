@@ -1,9 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import { BadgeCheck, BriefcaseBusiness, Building2, CarFront, CircleHelp, Clock3, Headphones, Luggage, MapPin, Plane, ReceiptText, RefreshCcw, Route, ShieldCheck, UserRoundCheck } from "lucide-react";
 
-// Switch to "https://waydidi.com" once the domain is registered and pointed at this site.
-// Canonical URLs, the sitemap and robots.txt all read from this value.
-export const SITE_URL = "https://waydidi-private-transfer.dankbangkok.chatgpt.site";
+import { SITE_URL } from "@/lib/site";
+export { SITE_URL };
 
 export type InfoSection = { title: string; body: string; bullets?: string[] };
 export type PublicPage = {

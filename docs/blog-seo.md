@@ -2,7 +2,7 @@
 
 ## Google Search Console (one-time)
 1. Go to https://search.google.com/search-console and choose **Add property → Domain**.
-2. Enter the live domain (the one in `SITE_URL`, `lib/public-content.ts`), not the `*.workers.dev` address — that address sends `X-Robots-Tag: noindex` on purpose.
+2. Enter `https://waydidi-website.contact-waydidi.workers.dev`, Waydidi’s sole live site. `SITE_URL` in `lib/site.ts` supplies canonical URLs. Other workers.dev preview hosts remain noindex.
 3. Verify with the DNS TXT record Google gives you (add it in Cloudflare DNS).
 4. In **Sitemaps**, submit `https://<your-domain>/sitemap.xml`. It lists every published guide and topic page.
 5. After publishing a new guide, paste its URL into **URL inspection → Request indexing** to speed things up.
