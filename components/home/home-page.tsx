@@ -1,3 +1,4 @@
+import { DestinationCards } from "./destination-cards";
 import { HowItWorks } from "@/components/home/how-it-works";
 import { HomeFaq } from "@/components/home/home-faq";
 import type { Metadata } from "next";
@@ -49,6 +50,7 @@ export function HomePage({ locale }: { locale: Locale }) {
       <HowItWorks />
       {/* Hidden for now: "Where Waydidi takes you" map. */}
       {SHOW_MAP && <ThailandDestinationMap />}
+      <DestinationCards />
       <FleetSection />
       <TransferPartners />
       <HomeFaq />
