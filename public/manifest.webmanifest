@@ -1,0 +1,22 @@
+{
+  "id": "/",
+  "name": "Waydidi Travel",
+  "short_name": "Waydidi",
+  "description": "Private transfers and day trips across Thailand.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#FE8B05",
+  "icons": [
+    { "src": "/pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Book a ride", "url": "/#booking-search" },
+    { "name": "Manage booking", "url": "/booking/manage" },
+    { "name": "Contact Waydidi", "url": "/contact" }
+  ],
+  "prefer_related_applications": false
+}

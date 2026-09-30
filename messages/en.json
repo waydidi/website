@@ -307,5 +307,14 @@
   "promo.collected": "Collected",
   "promo.collectedToast": "Added to My coupons.",
   "promo.collectFailed": "This offer has ended.",
-  "promo.view": "View"
+  "promo.view": "View",
+  "pwa.install": "Install Waydidi",
+  "pwa.description": "Your Thailand journeys, one tap away.",
+  "pwa.title": "Add Waydidi to your home screen",
+  "pwa.close": "Close installation instructions",
+  "pwa.done": "Got it",
+  "pwa.ios": "Open this website in Safari. Tap Share, then Add to Home Screen. If shown, leave Open as Web App enabled and tap Add.",
+  "pwa.android": "Open your browser menu and choose Install app or Add to Home screen. If the option is missing, try Chrome.",
+  "pwa.desktop": "Look for the install icon in your browser’s address bar, or choose Install Waydidi Travel from its menu. If it is unavailable, open this site in Chrome or Edge.",
+  "pwa.onlineRequired": "An internet connection is needed to book, pay, view maps and follow your trip."
 }

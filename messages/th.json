@@ -1234,5 +1234,41 @@
   "promo.view": {
     "text": "ดู",
     "status": "machine"
+  },
+  "pwa.install": {
+    "text": "ติดตั้ง Waydidi",
+    "status": "machine"
+  },
+  "pwa.description": {
+    "text": "การเดินทางในไทย เปิดได้ในแตะเดียว",
+    "status": "machine"
+  },
+  "pwa.title": {
+    "text": "เพิ่ม Waydidi ไปยังหน้าจอโฮม",
+    "status": "machine"
+  },
+  "pwa.close": {
+    "text": "ปิดคำแนะนำการติดตั้ง",
+    "status": "machine"
+  },
+  "pwa.done": {
+    "text": "เข้าใจแล้ว",
+    "status": "machine"
+  },
+  "pwa.ios": {
+    "text": "เปิดเว็บไซต์นี้ใน Safari แตะปุ่มแชร์ แล้วเลือก เพิ่มไปยังหน้าจอโฮม หากมีตัวเลือก เปิดเป็นเว็บแอป ให้เปิดไว้ แล้วแตะ เพิ่ม",
+    "status": "machine"
+  },
+  "pwa.android": {
+    "text": "เปิดเมนูของเบราว์เซอร์ แล้วเลือก ติดตั้งแอป หรือ เพิ่มไปยังหน้าจอโฮม หากไม่มีตัวเลือกนี้ ให้ลองใช้ Chrome",
+    "status": "machine"
+  },
+  "pwa.desktop": {
+    "text": "มองหาไอคอนติดตั้งในแถบที่อยู่ของเบราว์เซอร์ หรือเลือก ติดตั้ง Waydidi Travel จากเมนู หากไม่มีตัวเลือกนี้ ให้เปิดเว็บไซต์ใน Chrome หรือ Edge",
+    "status": "machine"
+  },
+  "pwa.onlineRequired": {
+    "text": "ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อจอง ชำระเงิน ดูแผนที่ และติดตามการเดินทาง",
+    "status": "machine"
   }
 }
