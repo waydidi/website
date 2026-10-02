@@ -51,7 +51,7 @@ export function PhoneInput({ value, onChange, inputRef, className }: { value: st
     <DialogPrimitive.Root open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQuery(""); }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[24px] bg-white text-[#1F1726] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[70dvh] sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[24px] sm:data-[state=open]:slide-in-from-bottom-4 sm:data-[state=open]:zoom-in-95">
+        <DialogPrimitive.Content className="fixed inset-x-0 bottom-0 z-[81] flex h-[40dvh] min-h-[260px] flex-col rounded-t-[24px] bg-white text-[#1F1726] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:h-auto sm:min-h-0 sm:max-h-[70dvh] sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[24px] sm:data-[state=open]:slide-in-from-bottom-4 sm:data-[state=open]:zoom-in-95">
           <div className="flex items-center justify-between px-5 pb-2 pt-5">
             <DialogPrimitive.Title className="text-[20px] font-bold">Country code</DialogPrimitive.Title>
             <DialogPrimitive.Close className="grid size-9 place-items-center rounded-full bg-[#F6F1EB] hover:bg-[#FFF0DF]" aria-label="Close"><X size={20} /></DialogPrimitive.Close>
@@ -62,7 +62,7 @@ export function PhoneInput({ value, onChange, inputRef, className }: { value: st
               <Search size={18} className="shrink-0 text-[#9A8F86]" aria-hidden="true" />
               <span className="sr-only">Search country or code</span>
               {/* 16px text so iPhone Safari does not zoom in on focus. */}
-              <input type="search" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search country or code" className="w-full bg-transparent text-base outline-none placeholder:text-[#BDB2A8]" />
+              <input type="search" autoFocus={typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search country or code" className="w-full bg-transparent text-base outline-none placeholder:text-[#BDB2A8]" />
             </label>
           </div>
           <ul className="flex-1 overflow-y-auto px-3 pb-[max(16px,env(safe-area-inset-bottom))]">
