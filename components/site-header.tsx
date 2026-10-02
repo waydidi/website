@@ -80,12 +80,14 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   }, [menuOpen]);
 
   const solid = !overlay || scrolled || menuOpen;
+  // Once the page scrolls, the bar turns white with Waydidi-orange logo, links and button.
+  const light = scrolled && !menuOpen;
 
   return (
     <header
-      className={`z-40 flex h-[69px] w-full items-center justify-between px-5 text-white transition-[background-color] duration-300 lg:h-[97px] lg:px-8 ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${solid ? "bg-[#FF8A05]" : "bg-transparent"}`}
+      className={`z-40 flex h-[69px] w-full items-center justify-between px-5 transition-[background-color,color,box-shadow] duration-300 lg:h-[97px] lg:px-8 ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-[#FF8A05] text-white" : "bg-transparent text-white"}`}
     >
-      <Link href="/" className="inline-flex shrink-0 text-white" aria-label={t("nav.home")}>
+      <Link href="/" className={`inline-flex shrink-0 transition-colors duration-300 ${light ? "text-[#FF8A05]" : "text-white"}`} aria-label={t("nav.home")}>
         {/* Explicit widths (logo is 810:308): Safari collapses a width-less
             mask span to 0px when its container is allowed to shrink. */}
         <WaydidiLogo className="h-[40px] w-[105px] min-[360px]:h-[53px] min-[360px]:w-[139px] sm:h-[68px] sm:w-[179px] lg:h-[91px] lg:w-[240px]" />
@@ -98,7 +100,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           <Link
             key={link.href}
             href={link.href}
-            className="rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
           >
             {t(link.labelKey)}
           </Link>
@@ -106,14 +108,14 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         <LocalePicker />
         <Link
           href={accountHref}
-          className={`flex items-center gap-2 rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${account ? "" : "invisible"}`}
+          className={`flex items-center gap-2 rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current ${account ? "" : "invisible"}`}
         >
-          <span className="grid size-8 place-items-center rounded-full bg-white/20"><UserRound size={18} /></span>
+          <span className={`grid size-8 place-items-center rounded-full ${light ? "bg-orange-50" : "bg-white/20"}`}><UserRound size={18} /></span>
           <span className="max-w-[140px] truncate">{accountLabel}</span>
         </Link>
         <Link
           href="/booking/manage"
-          className="flex h-12 items-center gap-2 rounded-full bg-white px-6 font-bold text-[#D96F00] transition-colors duration-500 hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#FF8A05]"
+          className={`flex h-12 items-center gap-2 rounded-full px-6 font-bold transition-colors duration-300 ${light ? "bg-[#FF8A05] text-white hover:bg-[#E67900]" : "bg-white text-[#D96F00] hover:bg-orange-50"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#FF8A05]`}
         >
           <CarFront size={20} /> {t("nav.checkBooking")}
         </Link>
@@ -126,7 +128,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           aria-expanded={menuOpen}
           aria-controls="mobile-menu"
           aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
-          className="grid size-10 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          className="grid size-10 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
         >
           {menuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
