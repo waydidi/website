@@ -894,6 +894,10 @@ function Leg({ title, date, time, from, to, quote, onEdit }: { title: string; da
     </div>
     <div className="relative mt-5 pl-9">
       <span className="absolute bottom-3 left-[6px] top-2 w-[3px] bg-[#1C1C1C]" aria-hidden="true" />
+      {/* Waydidi orange line travelling from the pickup (black) square to the drop-off (orange) one. */}
+      <span className="absolute bottom-3 left-[6px] top-2 w-[3px] overflow-hidden" aria-hidden="true">
+        <span className="waydidi-route-fill absolute inset-0 origin-top bg-[#FF8A05]" />
+      </span>
       <span className="absolute left-0 top-1.5 size-[15px] rounded-[3px] bg-[#1C1C1C]" aria-hidden="true" />
       <span className="absolute bottom-1 left-0 size-[15px] rounded-[3px] bg-brand" aria-hidden="true" />
       <div className="flex justify-between gap-3"><p className="min-w-0 truncate text-[18px]">{start.name}</p><p className="shrink-0 text-[17px] text-[#6B6B6B]">{clockLabel(date, time)}</p></div>
