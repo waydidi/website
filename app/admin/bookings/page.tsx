@@ -7,15 +7,17 @@ import {
   List,
   Columns3,
   Trash2,
+  FileText,
 } from "lucide-react";
 import { getDb } from "@/db";
-import { bookingAssignments, bookingCosts, bookings, bookingStorefronts, bookingTaxInvoices, drivers } from "@/db/schema";
+import { bookingAssignments, bookingCosts, bookings, bookingStorefronts, bookingTaxInvoices, bookingForms, drivers } from "@/db/schema";
 import { EditDriverButton } from "@/components/bookings-admin/edit-driver";
 import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 import { isAirportPickup } from "@/lib/trip-rules";
 import { VEHICLES } from "@/lib/vehicles";
 import { CreateMenu } from "@/components/bookings-admin/create-menu";
+import { FormsTable } from "@/components/bookings-admin/form-requests";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
@@ -40,7 +42,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   }
   const q = await searchParams;
   const requestHeaders = await headers();
-  const view = q.view === "bin" ? "bin" : "active";
+  const view = q.form || q.view === "forms" ? "forms" : q.view === "bin" ? "bin" : "active";
   const type = q.type === "hourly" ? "hourly" : q.type === "tour" ? "tour" : "transfer";
   const mode = q.mode === "calendar" ? "calendar" : q.mode === "board" ? "board" : "list";
   await backfillUnifiedPaymentFields();
@@ -53,6 +55,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   // Tax invoice requests (the table may not exist yet before its migration runs).
   const taxRows = await getDb().select().from(bookingTaxInvoices).limit(500).catch(() => []);
   const taxByBooking = new Map(taxRows.map((tax) => [tax.bookingReference, tax]));
+  const formsReceived = (await getDb().select({ token: bookingForms.token }).from(bookingForms).where(eq(bookingForms.status, "submitted")).catch(() => [])).length;
   // The bin is read on its own so older binned bookings still show.
   const binRows = await getDb().select().from(bookings).where(eq(bookings.status, "binned")).orderBy(desc(bookings.binnedAt)).limit(200);
   const activeRows = allRows.filter((row) => row.status !== "binned");
@@ -170,7 +173,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           </a>
         </nav>
         {/* "Create" sits on the page title row. */}
-        <div className="-mt-[40px] mb-1 flex justify-end"><CreateMenu service={type} openForm={q.form} /></div>
+        <div className="-mt-[40px] mb-1 flex justify-end"><CreateMenu service={type} waiting={formsReceived} /></div>
         {/* Transfer / By the hour, each with a list or calendar view. */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div role="tablist" aria-label="Service" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
@@ -180,10 +183,11 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           <div role="tablist" aria-label="View" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
             {([["list", "List", List], ["calendar", "Calendar", CalendarDays], ["board", "Board", Columns3]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}><Icon size={16} />{label}</Link>)}
           </div>
+          <Link href={view === "forms" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=forms`} aria-current={view === "forms" ? "page" : undefined} className={`flex h-11 items-center gap-1.5 rounded-xl px-4 text-[15px] font-semibold ${view === "forms" ? "bg-[#211726] text-white" : "bg-[#E8EAEE] text-slate-700 hover:text-slate-950"}`}><FileText size={16} aria-hidden="true" />Forms{formsReceived > 0 && <span className="rounded-full bg-[#D32F2F] px-2 text-[12px] text-white">{formsReceived}</span>}</Link>
           <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} className={`flex h-11 items-center gap-1.5 rounded-xl px-4 text-[15px] font-semibold ${view === "bin" ? "bg-[#211726] text-white" : "bg-[#E8EAEE] text-slate-700 hover:text-slate-950"}`}><Trash2 size={16} aria-hidden="true" />Bin & restore{binRows.length > 0 && <span className={`rounded-full px-2 text-[12px] ${view === "bin" ? "bg-white/20" : "bg-white"}`}>{binRows.length}</span>}</Link>
           </div>
         </div>
-        {mode !== "list" && view !== "bin" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> :
+        {view === "forms" ? <FormsTable service={type} openForm={q.form} /> : mode !== "list" && view !== "bin" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> :
         <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-left text-sm">

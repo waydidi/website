@@ -1,18 +1,15 @@
 "use client";
 
-import { ArrowLeft, CalendarPlus, Car, Check, ChevronDown, Clock, Copy, FileText, LoaderCircle, Map as MapIcon, Plus, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Car, Check, ChevronDown, Clock, Copy, FileText, LoaderCircle, Map as MapIcon, Plus } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { FormRequestsButton } from "@/components/bookings-admin/form-requests";
 import { NewBookingButton } from "@/components/bookings-admin/new-booking";
 import type { FormService } from "@/lib/booking-form";
 
 // One "Create" button: a centred popup to choose between a customer form link and a booking.
-export function CreateMenu({ service, openForm }: { service: FormService; openForm?: string }) {
+export function CreateMenu({ service, waiting = 0 }: { service: FormService; waiting?: number }) {
   const [open, setOpen] = useState(false);
-  const [formSignal, setFormSignal] = useState(0);
   const [bookingSignal, setBookingSignal] = useState(0);
-  const [waiting, setWaiting] = useState(0);
   // Step 2 of "Create form" / "Create booking": pick the service in the same centred popup.
   const [step, setStep] = useState<"choose" | "form" | "booking">("choose");
   const [kind, setKind] = useState<FormService>("transfer");
@@ -65,7 +62,6 @@ export function CreateMenu({ service, openForm }: { service: FormService; openFo
                     <div className="mt-2.5 flex items-center gap-2 text-[13px]">
                       <span className={`font-semibold ${mine.copied ? "text-emerald-700" : "text-slate-500"}`}>{mine.copied ? "Link copied" : "Tap the copy button to copy"}</span>
                       <a href={`https://wa.me/?text=${encodeURIComponent(`Please fill in your ride details here: ${mine.url}`)}`} target="_blank" rel="noreferrer" className="ml-auto rounded-full bg-[#25D366] px-3 py-1.5 font-semibold text-white">WhatsApp</a>
-                      <button type="button" onClick={() => { setKind(id); setOpen(false); setFormSignal((n) => n + 1); }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:border-[#FF8A05]"><SlidersHorizontal size={13} />Options</button>
                     </div>
                   </>}
               </div>}
@@ -82,7 +78,6 @@ export function CreateMenu({ service, openForm }: { service: FormService; openFo
         </div>}
       </DialogContent>
     </Dialog>
-    <FormRequestsButton service={service} openForm={openForm} openSignal={formSignal} openKind={kind} onWaiting={setWaiting} />
     <NewBookingButton service={service} openSignal={bookingSignal} openKind={kind} />
   </>;
 }

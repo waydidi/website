@@ -199,3 +199,58 @@ export function FormRequestsButton({ openForm, openSignal, openKind, onWaiting }
     </Dialog>
   </>;
 }
+
+const STATUS_STYLE = { waiting: "bg-sky-100 text-sky-800", submitted: "bg-orange-100 text-orange-800", booked: "bg-emerald-100 text-emerald-800", expired: "bg-slate-200 text-slate-600" };
+
+// Bookings tab "Forms": every customer form link with its status. Received forms become bookings from here.
+export function FormsTable({ service, openForm }: { service: FormService; openForm?: string }) {
+  const [forms, setForms] = useState<FormRow[] | null>(null);
+  const [origin, setOrigin] = useState("");
+  const load = useCallback(async () => {
+    const res = await fetch("/api/admin/forms", { cache: "no-store" }).catch(() => null);
+    const out = res?.ok ? await res.json() as { forms: FormRow[] } : { forms: [] };
+    setForms(out.forms);
+  }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read the site origin for share links
+    setOrigin(window.location.origin);
+    void load();
+  }, [load]);
+  async function remove(token: string) {
+    if (!window.confirm("Delete this form link? The customer will no longer be able to open it.")) return;
+    setForms((list) => list?.filter((f) => f.token !== token) ?? null);
+    await fetch("/api/admin/forms", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, remove: true }) }).catch(() => null);
+    void load();
+  }
+  const rows = forms?.filter((f) => f.serviceType === service || f.token === openForm) ?? null;
+  const now = new Date().toISOString();
+  return <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[720px] text-left text-sm">
+        <thead className="bg-slate-50 text-slate-600"><tr>{["Customer name", "Route", "Status", ""].map((h) => <th key={h} className="h-14 whitespace-nowrap px-4 text-[14px] font-normal">{h}</th>)}</tr></thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows === null && <tr><td colSpan={4} className="py-14 text-center text-slate-500"><LoaderCircle className="mx-auto animate-spin" /></td></tr>}
+          {rows?.length === 0 && <tr><td colSpan={4} className="py-14 text-center text-slate-500">No forms yet. Use Create → Create form to send one.</td></tr>}
+          {rows?.map((form) => {
+            const a = form.answers, p = form.prefill;
+            const expired = form.status === "waiting" && form.expiresAt < now;
+            const state = expired ? "expired" : form.status;
+            const pickup = a?.pickup ?? p?.pickup, dropoff = a?.dropoff ?? p?.dropoff, hours = a?.hours ?? p?.hours;
+            const route = pickup ? `${pickup}${dropoff ? ` → ${dropoff}` : hours ? ` · ${hours} hours` : ""}` : null;
+            return <tr key={form.token} className="align-middle hover:bg-orange-50/40">
+              <td className="px-4 py-4"><p className={a ? "font-medium text-slate-900" : "text-slate-400"}>{a?.name ?? "Not filled in yet"}</p><p className="text-[12px] text-slate-500">{form.note || form.agencyName || `Sent ${when(form.createdAt)}`}</p></td>
+              <td className="max-w-[340px] px-4 py-4">{route ? <p className="line-clamp-2 text-slate-900">{route}</p> : <span className="text-slate-400">—</span>}{a?.date && <p className="text-[12px] text-slate-500">{dateTime(a.date, a.time)}</p>}</td>
+              <td className="whitespace-nowrap px-4 py-4"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-[13px] font-medium ${STATUS_STYLE[state]}`}>{state === "submitted" ? "Received" : state === "booked" ? "Booked" : state === "expired" ? "Expired" : "Waiting"}</span>
+                {form.status === "booked" && form.bookingReference && <Link href={`/admin/journeys/${form.bookingReference}`} className="ml-2 font-mono text-[13px] font-semibold text-[#D96F00] hover:underline">{form.bookingReference}</Link>}</td>
+              <td className="px-4 py-4"><div className="flex items-center justify-end gap-2">
+                {form.status === "waiting" && !expired && origin && <CopyButton url={`${origin}/f/${form.token}`} />}
+                {form.status === "submitted" && <NewBookingButton service={form.serviceType} prefill={prefillFrom(form)} formToken={form.token} trigger="Create booking" autoOpen={form.token === openForm} />}
+                <button type="button" onClick={() => void remove(form.token)} aria-label="Delete form" title="Delete form" className="grid size-9 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>
+              </div></td>
+            </tr>;
+          })}
+        </tbody>
+      </table>
+    </div>
+  </section>;
+}
