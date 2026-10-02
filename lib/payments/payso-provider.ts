@@ -8,5 +8,6 @@ export const paysoPaymentProvider: PaymentProviderAdapter = {
   async createPayment() { return unavailable(); },
   async retrievePayment() { return unavailable(); },
   async refundPayment() { return unavailable(); },
+  async retrieveRefund() { return unavailable(); },
   async verifyWebhook() { return unavailable(); },
 };

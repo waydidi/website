@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { reconcileRefunds } from "@/lib/refunds";
 import { getDb } from "@/db";
 import { bookings } from "@/db/schema";
 import { markProviderFailure, reconcileBooking } from "@/lib/payment-reconciliation";
@@ -30,9 +31,13 @@ async function processStripeEvent(event: StripeWebhookEvent) {
   } else if (event.type === "payment_intent.succeeded") {
     const reference = object.metadata?.booking_reference;
     if (reference) await reconcileBooking(reference, "webhook");
-  } else if (["charge.refunded", "charge.dispute.created", "charge.dispute.updated", "charge.dispute.closed"].includes(event.type) && object.payment_intent) {
+  } else if (["charge.refunded", "charge.dispute.created", "charge.dispute.updated", "charge.dispute.closed", "refund.created", "refund.updated", "refund.failed"].includes(event.type) && object.payment_intent) {
     const [b] = await getDb().select().from(bookings).where(eq(bookings.paymentIntentId,object.payment_intent)).limit(1);
-    if (b) await reconcileBooking(b.reference,"webhook");
+    if (b) {
+      await reconcileBooking(b.reference,"webhook");
+      // Refund records only become "refunded" once Stripe confirms them.
+      if (event.type.startsWith("refund.") || event.type === "charge.refunded") await reconcileRefunds(b.reference);
+    }
   }
 }
 

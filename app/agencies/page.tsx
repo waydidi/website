@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 // Facts about the service itself (no made-up partner counts or ratings).
 const FACTS = [
   { value: "Fixed", label: "Price agreed before booking" },
-  { value: "24h", label: "Free cancellation window" },
+  { value: "48h", label: "Free cancellation window" },
   { value: "60 min", label: "Free waiting at airports" },
   { value: "Meet & Greet", label: "Name sign at arrivals" },
 ];

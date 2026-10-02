@@ -14,7 +14,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   if (booking.status === "cancelled") return NextResponse.json({ status: "cancelled", refundStatus: booking.refundStatus });
   if (booking.status !== "confirmed") return NextResponse.json({ error: "This booking cannot be cancelled online." }, { status: 409 });
   const pickup = new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime();
-  if (pickup - Date.now() < 24 * 60 * 60 * 1000) return NextResponse.json({ error: "Online cancellation closes 24 hours before pickup. Contact Waydidi support." }, { status: 409 });
+  if (pickup - Date.now() < 24 * 60 * 60 * 1000) return NextResponse.json({ error: "Cancellations less than 24 hours before pickup are non-refundable. Contact Waydidi on WhatsApp +66 63 206 4884." }, { status: 409 });
 
-  return NextResponse.json({ error: "To cancel or ask about a refund, email support@waydidi.com with your booking reference." }, { status: 409 });
+  return NextResponse.json({ error: "To cancel or ask about a refund, contact Waydidi on WhatsApp +66 63 206 4884 or email support@waydidi.com with your booking reference." }, { status: 409 });
 }

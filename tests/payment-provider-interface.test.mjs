@@ -28,7 +28,11 @@ test("PaySolutions remains explicitly disabled until credentials and signed API 
   assert.match(payso, /PAYSO_NOT_CONFIGURED/);
 });
 
-test("refunds are handled by email, not by a website endpoint", async () => {
-  await assert.rejects(access(new URL("../app/api/admin/refunds/route.ts", import.meta.url)));
+test("customers can't refund themselves; only an authenticated admin can submit a refund", async () => {
   await assert.rejects(access(new URL("../app/api/bookings/manage/cancel/route.ts", import.meta.url)));
+  const route = await readFile(new URL("../app/api/admin/refunds/route.ts", import.meta.url), "utf8");
+  assert.match(route, /getWaydidiAdmin\(\)/);
+  assert.match(route, /sameOrigin\(request\)/);
+  // The amount comes from the server-side quote, never from the request body.
+  assert.doesNotMatch(route, /amountMinor:\s*z\./);
 });

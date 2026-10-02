@@ -200,12 +200,13 @@ function mapTopPadding(expanded: boolean) {
 }
 
 // Pickup time minus 24 hours, e.g. "24 September 2026, 09:00 am".
-function cancelDeadlineAt(date: string, time: string) {
-  return new Date(`${date}T${time}:00+07:00`).getTime() - 24 * 3600_000;
+// Refund policy (lib/refund-policy.ts): full refund more than 48 h before pickup, 50% at 24–48 h.
+function cancelDeadlineAt(date: string, time: string, hours = 48) {
+  return new Date(`${date}T${time}:00+07:00`).getTime() - hours * 3600_000;
 }
 
-function cancelDeadline(date: string, time: string) {
-  const value = new Date(cancelDeadlineAt(date, time));
+function cancelDeadline(date: string, time: string, hours = 48) {
+  const value = new Date(cancelDeadlineAt(date, time, hours));
   const day = value.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Bangkok" });
   const clock = value.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).toLowerCase();
   return `${day}, ${clock}`;
@@ -702,16 +703,19 @@ export function BookingResultsMap(props: Props) {
           })}
         </ul>
 
-        {/* Free cancellation up to 24 hours before pickup (Transfeero style). */}
+        {/* Free cancellation more than 48 hours before pickup; 50% at 24–48 h (Transfeero style). */}
         {ready && !props.quoteRequest && (cancelDeadlineAt(props.date, props.time) > clock ? <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
           <CancelCalendar3D size={56} className="shrink-0" />
           <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-[#17563A]">FREE Cancellation 24H</p>
-            <p className="mt-1.5 text-[14px] leading-6 text-[#2B6A4D]">Book today, lock the price. You can cancel for free until <strong className="font-semibold text-[#17563A]">{cancelDeadline(props.date, props.time)}</strong> and get a full refund.</p>
+            <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-[#17563A]">FREE Cancellation 48H</p>
+            <p className="mt-1.5 text-[14px] leading-6 text-[#2B6A4D]">Book today, lock the price. You can cancel for free until <strong className="font-semibold text-[#17563A]">{cancelDeadline(props.date, props.time)}</strong> and get a full refund. After that, 50% is refunded until 24 hours before pickup. <a href="/refund-policy" target="_blank" className="underline underline-offset-2">Policy</a></p>
           </div>
+        </div> : cancelDeadlineAt(props.date, props.time, 24) > clock ? <div className="mt-6 rounded-2xl border border-[#F5D9A8] bg-[#FFF8EC] p-4">
+          <p className="text-[17px] font-semibold text-[#7A4A00]">50% refundable</p>
+          <p className="mt-1.5 text-[14px] leading-6 text-[#6B4A16]">Pickup is 24–48 hours away. If you cancel before <strong className="font-semibold">{cancelDeadline(props.date, props.time, 24)}</strong>, 50% is refunded. <a href="/refund-policy" target="_blank" className="underline underline-offset-2">Policy</a></p>
         </div> : <div className="mt-6 rounded-2xl border border-[#E6E6E6] bg-[#F7F7F7] p-4">
           <p className="text-[17px] font-semibold text-[#1C1C1C]">Non-refundable</p>
-          <p className="mt-1.5 text-[14px] leading-6 text-[#4A4A4A]">Pickup is less than 24 hours away, so this booking can&apos;t be cancelled for free.</p>
+          <p className="mt-1.5 text-[14px] leading-6 text-[#4A4A4A]">Pickup is less than 24 hours away, so this booking can&apos;t be refunded if cancelled. <a href="/refund-policy" target="_blank" className="underline underline-offset-2">Policy</a></p>
         </div>)}
       </div>
 

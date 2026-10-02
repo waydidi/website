@@ -10,5 +10,6 @@ export const cashPaymentProvider: PaymentProviderAdapter = {
   },
   async retrievePayment() { return unsupported(); },
   async refundPayment() { return unsupported(); },
+  async retrieveRefund() { return unsupported(); },
   async verifyWebhook() { return unsupported(); },
 };

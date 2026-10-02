@@ -30,8 +30,8 @@ const TOPICS: HelpTopic[] = [
   ] },
   { id: "changes", label: "Changes & cancellations", icon: "refresh", questions: [
     { q: "How do I change my pickup date or time?", a: "Eligible bookings can request a date or time change from Check your booking until three days before pickup. Changes depend on availability, and your original ride stays in place until we confirm." },
-    { q: "How can I cancel my booking?", a: `Email ${SUPPORT_EMAIL} with your booking reference at least 24 hours before pickup to cancel free of charge with a full refund. Cancellations are handled personally by email, and your booking stays active until we confirm.` },
-    { q: "What if I cancel late or miss the pickup?", a: "Requests inside 24 hours and missed pickups are normally non-refundable because the driver and vehicle are already committed, except where the law requires otherwise or Waydidi cannot provide the service." },
+    { q: "How can I cancel my booking?", a: `Message us on WhatsApp (+66 63 206 4884) or email ${SUPPORT_EMAIL} with your booking number, name, service date and reason. Cancellations more than 48 hours before pickup get a full refund, 24–48 hours before get 50%, and less than 24 hours are non-refundable. See the Refund & Cancellation Policy for details.` },
+    { q: "What if I cancel late or miss the pickup?", a: "Cancellations less than 24 hours before pickup and no-shows are non-refundable, because the driver and vehicle are already committed. If Waydidi cannot provide your confirmed service and no suitable alternative is available, you get a full refund." },
   ] },
   { id: "payment", label: "Payment & receipts", icon: "card", questions: [
     { q: "How do refunds work?", a: "Once Waydidi confirms a refund by email, it goes back through the original payment method where supported. Bank and card processing times are outside our control. Cash bookings have no prepaid amount to refund." },
@@ -48,7 +48,7 @@ const TOPICS: HelpTopic[] = [
 const MORE = [
   { label: "All FAQs", href: "/faq" },
   { label: "Airport pickup guide", href: "/airport-pickup-instructions" },
-  { label: "Cancellation & refunds", href: "/cancellation-refund-policy" },
+  { label: "Refund & Cancellation Policy", href: "/refund-policy" },
   { label: "Luggage policy", href: "/luggage-policy" },
   { label: "Safety & driver standards", href: "/safety-driver-standards" },
   { label: "Terms", href: "/terms" },
@@ -119,7 +119,7 @@ export default async function HelpPage() {
           {[
             { icon: ShieldCheck, title: "Private and safe", text: "One vehicle for your group, with vetted local drivers and journey checks.", href: "/safety-driver-standards" },
             { icon: Wallet, title: "Price you see before you book", text: "A fixed total for your route and vehicle, with no haggling at the curb.", href: "/a-to-b-transfer" },
-            { icon: BadgeCheck, title: "Clear rules when plans change", text: "Date changes up to three days before pickup; cancellations handled personally by email.", href: "/cancellation-refund-policy" },
+            { icon: BadgeCheck, title: "Clear rules when plans change", text: "Date changes up to three days before pickup; cancellations handled personally by email.", href: "/refund-policy" },
           ].map(({ icon: Icon, title, text, href }) => <li key={title} className="flex gap-4">
             <Icon size={28} className="mt-0.5 shrink-0 text-[#FF8A05]" aria-hidden="true" />
             <div><h3 className="text-xl font-medium">{title}</h3><p className="mt-1 text-base leading-7 text-slate-600">{text} <Link href={href} className="text-[#C96100] hover:underline">Learn more</Link></p></div>

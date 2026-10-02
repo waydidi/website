@@ -86,19 +86,20 @@ export async function retrieveCheckoutSession(sessionId: string) {
 export async function refundPayment(
   paymentIntentId: string,
   reference: string,
+  options: { amountMinor?: number; idempotencyKey?: string } = {},
 ) {
   if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_NOT_CONFIGURED");
+  const body = new URLSearchParams({ payment_intent: paymentIntentId, reason: "requested_by_customer", "metadata[booking_reference]": reference });
+  if (options.amountMinor != null) body.set("amount", String(options.amountMinor));
   const response = await fetch("https://api.stripe.com/v1/refunds", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "Idempotency-Key": `refund-${reference}`,
+      // One key per refund record, so a retry never refunds twice.
+      "Idempotency-Key": options.idempotencyKey ?? `refund-${reference}`,
     },
-    body: new URLSearchParams({
-      payment_intent: paymentIntentId,
-      reason: "requested_by_customer",
-    }),
+    body,
   });
   const result = (await response.json()) as {
     id?: string;
@@ -107,5 +108,13 @@ export async function refundPayment(
   };
   if (!response.ok || !result.id)
     throw new Error(result.error?.message ?? "Refund could not be started.");
+  return result;
+}
+
+export async function retrieveRefund(refundId: string) {
+  if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_NOT_CONFIGURED");
+  const response = await fetch(`https://api.stripe.com/v1/refunds/${encodeURIComponent(refundId)}`, { headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` } });
+  const result = (await response.json()) as { id?: string; status?: string; error?: { message?: string } };
+  if (!response.ok) throw new Error(result.error?.message ?? "Refund status unavailable.");
   return result;
 }

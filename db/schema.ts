@@ -1330,3 +1330,38 @@ export const priceSeasons = sqliteTable("price_seasons", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+// Refund records. Amounts are calculated on the server from the booking, the
+// payment and the cancellation policy; the provider fee is Waydidi's cost and is
+// kept apart from what the customer gets back.
+export const bookingRefunds = sqliteTable("booking_refunds", {
+  id: text("id").primaryKey(),
+  bookingReference: text("booking_reference").notNull(),
+  paymentId: text("payment_id"),
+  provider: text("provider").notNull(), // stripe | payso | cash
+  providerTransactionId: text("provider_transaction_id"),
+  providerRefundId: text("provider_refund_id"),
+  providerStatus: text("provider_status"),
+  idempotencyKey: text("idempotency_key").notNull(),
+  reason: text("reason").notNull(), // customer_cancellation | no_show | waydidi_cancellation | goodwill
+  note: text("note"),
+  policyVersion: text("policy_version").notNull(),
+  cancellationRequestedAt: text("cancellation_requested_at").notNull(),
+  noticeHours: real("notice_hours").notNull(),
+  refundPercent: integer("refund_percent").notNull(),
+  originalMinor: integer("original_minor").notNull(),
+  customerRefundMinor: integer("customer_refund_minor").notNull(),
+  providerRefundFeeMinor: integer("provider_refund_fee_minor").notNull().default(0),
+  currency: text("currency").notNull().default("thb"),
+  status: text("status").notNull(), // requested | approved | processing | refunded | partially_refunded | failed | rejected | cancelled
+  failureMessage: text("failure_message"),
+  requestedBy: text("requested_by").notNull(),
+  approvedBy: text("approved_by"),
+  approvedAt: text("approved_at"),
+  completedAt: text("completed_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("uidx_booking_refunds_idempotency").on(table.idempotencyKey),
+  index("idx_booking_refunds_booking").on(table.bookingReference),
+]);

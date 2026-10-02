@@ -35,7 +35,7 @@ function BookingCard({ post }: { post: BlogPost }) {
     <p className="text-[13px] font-semibold uppercase tracking-wide text-[#C96100]">{hourly ? "Private driver by the hour" : "Private transfer"}</p>
     <p className="mt-1 text-[20px] font-bold">{post.route.label}</p>
     <ul className="mt-3 grid gap-1.5 text-[15px] text-[#4A4A4A]">
-      {["Fixed price, agreed before you book", "Free cancellation up to 24 hours before pickup", "Meet & Greet with your name sign"].map((line) => <li key={line} className="flex items-center gap-2"><Check size={16} className="shrink-0 text-[#0E9F6E]" aria-hidden="true" />{line}</li>)}
+      {["Fixed price, agreed before you book", "Free cancellation up to 48 hours before pickup", "Meet & Greet with your name sign"].map((line) => <li key={line} className="flex items-center gap-2"><Check size={16} className="shrink-0 text-[#0E9F6E]" aria-hidden="true" />{line}</li>)}
     </ul>
     <Link href={routeHref(post.route, post.slug)} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-[#FF8A05] text-[16px] font-semibold text-white hover:bg-[#F07A00]">See prices <ArrowRight size={18} aria-hidden="true" /></Link>
   </aside>;

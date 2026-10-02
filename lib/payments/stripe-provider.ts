@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { PaymentProviderAdapter, ProviderPaymentSession, VerifiedProviderWebhook } from "@/lib/payments/types";
 import { constantTimeEqual } from "@/lib/security";
-import { createCheckoutSession, refundPayment, retrieveCheckoutSession, type StripeCheckoutSession } from "@/lib/stripe";
+import { createCheckoutSession, refundPayment, retrieveCheckoutSession, retrieveRefund, type StripeCheckoutSession } from "@/lib/stripe";
 import { classifyCheckoutSession } from "@/lib/payment-status";
 
 export type StripeWebhookObject = StripeCheckoutSession & {
@@ -45,10 +45,14 @@ export const stripePaymentProvider: PaymentProviderAdapter = {
     return { provider: "stripe", sessionId: session.id, checkoutUrl: session.url, status: "pending", providerStatus: "open", amountMinor: input.total * 100, currency: "thb", bookingReference: input.reference };
   },
   async retrievePayment(sessionId) { return normalizeStripeSession(await retrieveCheckoutSession(sessionId)); },
-  async refundPayment(transactionId, reference) {
-    const refund = await refundPayment(transactionId, reference);
+  async refundPayment({ paymentId, reference, amountMinor, idempotencyKey }) {
+    const refund = await refundPayment(paymentId, reference, { amountMinor, idempotencyKey });
     if (!refund.id) throw new Error("STRIPE_REFUND_INVALID");
-    return { id: refund.id, status: refund.status ?? "processing" };
+    return { id: refund.id, status: refund.status ?? "pending" };
+  },
+  async retrieveRefund(refundId) {
+    const refund = await retrieveRefund(refundId);
+    return { id: refund.id ?? refundId, status: refund.status ?? "pending" };
   },
   async verifyWebhook(rawBody, signatureHeader): Promise<VerifiedProviderWebhook<StripeWebhookEvent>> {
     if (!env.STRIPE_WEBHOOK_SECRET) throw new Error("STRIPE_WEBHOOK_NOT_CONFIGURED");

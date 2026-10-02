@@ -51,7 +51,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
               title={t("footer.help")}
               links={[
                 { label: t("footer.waydidiHelp"), href: "/help" },
-                { label: t("footer.cancellationPolicy"), href: "/cancellation-refund-policy" },
+                { label: t("footer.cancellationPolicy"), href: "/refund-policy" },
                 { label: t("footer.contactUs"), href: "/contact" },
                 { label: t("footer.safety"), href: "/safety-driver-standards" },
                 { label: t("footer.travelAgencies"), href: "/agencies" },
