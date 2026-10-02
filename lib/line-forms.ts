@@ -36,6 +36,19 @@ const row = (label: string, value: string) => ({
     { type: "text", text: value || "—", size: "sm", color: "#1F1726", weight: "bold", align: "end", wrap: true },
   ],
 });
+// Same people and luggage icons as the homepage search box, shown on the right as "👥 2 / 🧳 2".
+const travellersRow = (people: number, bags: number, origin: string) => ({
+  type: "box", layout: "horizontal", spacing: "md", contents: [
+    { type: "text", text: "Travellers", size: "sm", color: "#8A8190", flex: 1, gravity: "center" },
+    { type: "box", layout: "baseline", spacing: "xs", flex: 0, contents: [
+      { type: "icon", url: `${origin}/line/users.png`, size: "sm" },
+      { type: "text", text: String(people), size: "sm", color: "#1F1726", weight: "bold", flex: 0 },
+      { type: "text", text: "/", size: "sm", color: "#8A8190", flex: 0 },
+      { type: "icon", url: `${origin}/line/luggage.png`, size: "sm" },
+      { type: "text", text: String(bags), size: "sm", color: "#1F1726", weight: "bold", flex: 0 },
+    ] },
+  ],
+});
 const sep = { type: "separator", margin: "md", color: "#EEE7DF" };
 const header = (kicker: string, title: string, color: string) => ({
   type: "box", layout: "vertical", backgroundColor: color, paddingAll: "16px", contents: [
@@ -61,7 +74,7 @@ export function formCard(input: { token: string; service: FormService; answers: 
     input.service === "hourly" ? row("Hours", `${a.hours ?? ""} hours`) : row(input.service === "tour" ? "Tour" : "To", a.dropoff),
   ];
   if (a.returnTrip && a.returnDate) body.push(sep, row("Return", when(a.returnDate, a.returnTime)), row("Route", `${a.dropoff} → ${a.pickup}`));
-  body.push(sep, row("Vehicle", vehicle?.name ?? a.vehicle), row("Travellers", `${a.passengers} people · ${a.luggage} bags`));
+  body.push(sep, row("Vehicle", vehicle?.name ?? a.vehicle), travellersRow(a.passengers, a.luggage, new URL(input.adminUrl).origin));
   if (services.length) body.push({ type: "text", text: "Additional services", size: "sm", color: "#8A8190", margin: "md" }, { type: "text", text: services.join(" · "), size: "sm", color: "#C96100", weight: "bold", wrap: true });
   if (input.agency || input.note) body.push(sep, ...(input.agency ? [row("Agency", input.agency)] : []), ...(input.note ? [row("Note", input.note)] : []));
   if (input.presetPrice != null) body.push(row("Preset price", `${input.presetPrice.toLocaleString("en-US")} THB`));
