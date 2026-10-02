@@ -12,6 +12,7 @@ import { FleetSection } from "./fleet-section";
 import { ServiceCards } from "./service-cards";
 import { Promotions } from "./promotions";
 import { TransferPartners } from "./transfer-partners";
+import { DealsSection } from "./deals-section";
 
 export function homeMetadata(locale: Locale): Metadata {
   const messages = getMessages(locale);
@@ -53,6 +54,7 @@ export function HomePage({ locale }: { locale: Locale }) {
       <DestinationCards />
       <FleetSection />
       <TransferPartners />
+      <DealsSection />
       <HomeFaq />
       <WaydidiFooter locale={locale} />
     </BookingFlow>
