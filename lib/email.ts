@@ -132,11 +132,14 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
   ] : [];
   // Koh Chang car ferry tickets are included per one-way trip, one ticket per seat of the vehicle class.
   const vehicleClass = Object.entries(VEHICLES).find(([id, v]) => id === input.vehicle || v.name === input.vehicle)?.[1];
-  const ferryLine = (from: string | null | undefined, to: string | null | undefined): [string, string][] =>
-    vehicleClass && includesKohChangFerry(from, to) ? [["Included", `Koh Chang car ferry tickets for ${vehicleClass.passengers} people (one way)`]] : [];
-  outbound.push(...ferryLine(input.pickup, input.dropoff));
-  back.push(...(roundTrip ? ferryLine(input.returnPickup ?? input.dropoff, input.returnDropoff ?? input.pickup) : []));
-  const closing: [string, string][] = [["Price", price], ["Payment method", payment]];
+  const ferryLine = (from: string | null | undefined, to: string | null | undefined, leg: string): [string, string][] =>
+    vehicleClass && includesKohChangFerry(from, to) ? [["Included", `Koh Chang car ferry tickets for ${vehicleClass.passengers} people (${leg})`]] : [];
+  // Listed under the price, one line per one-way trip that crosses to or from Koh Chang.
+  const ferry = [
+    ...ferryLine(input.pickup, input.dropoff, roundTrip ? "outbound, one way" : "one way"),
+    ...(roundTrip ? ferryLine(input.returnPickup ?? input.dropoff, input.returnDropoff ?? input.pickup, "return, one way") : []),
+  ];
+  const closing: [string, string][] = [["Price", price], ...ferry, ["Payment method", payment]];
   const blocks = roundTrip ? [outbound, [...back, ...closing]] : [[...outbound, ...closing]];
   const p = (inner: string, extra = "") => `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#211726${extra}">${inner}</p>`;
   const blockHtml = (lines: [string, string][]) => p(lines.map(([label, value]) => `${escapeHtml(label)}: <strong>${escapeHtml(value)}</strong>`).join("<br>"));
