@@ -45,7 +45,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
     returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
-    extras,
+    extras, surname: booking.customerSurname, flightNumber: booking.flightNumber,
   });
   await getDb().update(bookings).set({ emailStatus: email.status, updatedAt: new Date().toISOString() }).where(eq(bookings.reference, reference));
   if (email.status !== "sent") return NextResponse.json({ error: email.status === "pending_configuration" ? "Email isn't set up yet." : "The email could not be sent." }, { status: 502 });

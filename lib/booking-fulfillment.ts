@@ -43,7 +43,7 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
     returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
     returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
-    extras,
+    extras, surname: booking.customerSurname, flightNumber: booking.flightNumber,
   });
   // Copies for the booker or anyone the customer added. A failed copy never blocks the booking.
   for (const copyTo of await contactEmails(booking.reference)) {
@@ -57,7 +57,7 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
       returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
       returnDate: booking.returnDate, returnTime: booking.returnTime,
       outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
-      extras,
+      extras, flightNumber: booking.flightNumber,
     }).catch(() => undefined);
   }
   await sendOperationsAlert(booking);

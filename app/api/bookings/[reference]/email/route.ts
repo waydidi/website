@@ -31,7 +31,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
     returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
-    extras,
+    extras, surname: booking.customerSurname, flightNumber: booking.flightNumber,
   });
   const now = new Date().toISOString();
   await getDb().update(bookings).set({ emailStatus: email.status, updatedAt: now }).where(eq(bookings.reference, reference));

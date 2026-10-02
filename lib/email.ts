@@ -2,7 +2,6 @@ import { confirmationPdfName } from "@/lib/confirmation-pdf";
 import type { BookingExtras } from "@/lib/booking-extras";
 import { logoPng } from "@/lib/pdf-addon-images";
 import { VEHICLES } from "@/lib/vehicles";
-import { waitingLine } from "@/lib/waiting-policy";
 import { env } from "cloudflare:workers";
 
 import { SITE_URL } from "@/lib/site";
@@ -33,6 +32,8 @@ type ConfirmationEmailInput = {
   outboundTotal?: number | null;
   returnTotal?: number | null;
   extras?: BookingExtras;
+  surname?: string | null;
+  flightNumber?: string | null;
 };
 
 function toBase64(bytes: Uint8Array) {
@@ -94,79 +95,70 @@ async function resend(payload: Record<string, unknown>, idempotencyKey: string):
   }
 }
 
+// "28 December 2026 — 3:00 PM" in Bangkok time.
+function letterDate(date: string, time: string) {
+  const parsed = new Date(`${date}T${time}:00+07:00`);
+  if (!Number.isFinite(parsed.getTime())) return `${date} — ${time}`;
+  const day = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Bangkok" }).format(parsed);
+  const clock = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Bangkok" }).format(parsed);
+  return `${day} — ${clock}`;
+}
+
+const WHATSAPP = "+66 63 206 4884";
+
 export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
-  const formattedDate = displayDate(input.pickupDate, input.pickupTime);
-  const payment = input.total === 0 ? "Nothing to pay" : input.paymentMethod === "cash" ? "Cash at pickup" : input.paymentMethod === "manual" ? "Paid" : "Paid online";
-  const checkUrl = `${siteUrl()}/booking/manage`;
-  const safeName = escapeHtml(input.name);
-  const safeReference = escapeHtml(input.reference);
-  const total = `THB ${input.total.toLocaleString("en-US")}`;
-  const returnDetails = input.returnDate && input.returnTime
-    ? `${detailRow("Return pickup", input.returnPickup ?? input.dropoff)}${detailRow("Return drop-off", input.returnDropoff ?? input.pickup)}${detailRow("Return date & time", displayDate(input.returnDate, input.returnTime))}`
-    : "";
-  const fareDetails = input.returnTotal
-    ? `${detailRow("Outbound fare", `THB ${(input.outboundTotal ?? input.total - input.returnTotal).toLocaleString("en-US")}`)}${detailRow("Return fare", `THB ${input.returnTotal.toLocaleString("en-US")}`)}`
-    : "";
-  const thb = (value: number) => `THB ${value.toLocaleString("en-US")}`;
-  const extras = input.extras;
-  const extraRows = extras ? [
-    ...extras.addons.map((line) => detailRow(line.label, line.amount > 0 ? `+${thb(line.amount)}` : "Free")),
-    extras.discount ? (/^(exclusive discount|special price)$/i.test(extras.discount.code) ? detailRow("Exclusive discount", `−${thb(extras.discount.amount)}`, "#dc2626") : detailRow(`Discount (${extras.discount.code})`, `−${thb(extras.discount.amount)}`)) : "",
-    extras.memberDiscount ? detailRow(extras.memberDiscount.label, `−${thb(extras.memberDiscount.amount)}`) : "",
-    extras.taxInvoice ? detailRow("Tax invoice", `Requested for ${extras.taxInvoice.name} (Tax ID ${extras.taxInvoice.taxId}, ${extras.taxInvoice.branch})`) : "",
-  ].join("") : "";
+  const roundTrip = Boolean(input.returnDate && input.returnTime);
+  const payment = input.total === 0 ? "Nothing to pay" : input.paymentMethod === "cash" ? "Pay in cash" : input.paymentMethod === "manual" ? "Paid" : "Paid online";
+  const addons = input.extras?.addons.map((line) => line.label.toLowerCase()) ?? [];
+  const price = `${input.total.toLocaleString("en-US")} THB${addons.length ? ` (including ${addons.join(", ")}${roundTrip ? " for both ways" : ""})` : ""}`;
+  const fullName = [input.name, input.surname].filter(Boolean).join(" ");
+  const greeting = input.name === "there" ? "Hello," : `Dear ${input.name},`;
+  const flight = input.flightNumber?.trim();
+  // Each block is a list of [label, value] lines; blocks are separated by a blank line.
+  const outbound: [string, string][] = [
+    ["Booking reference", input.reference],
+    ...(input.name === "there" ? [] : [["Lead passenger name", fullName] as [string, string]]),
+    ...(input.serviceType === "hourly" && input.bookedHours ? [["Service", `${input.bookedHours}-hour private driver${input.pricingArea ? ` · ${input.pricingArea}` : ""}`] as [string, string]] : []),
+    ["Date/Time", letterDate(input.pickupDate, input.pickupTime)],
+    ...(flight ? [["Flight number", flight] as [string, string]] : []),
+    ["From", input.pickup],
+    ...(input.dropoff ? [["To", input.dropoff] as [string, string]] : []),
+  ];
+  const back: [string, string][] = roundTrip ? [
+    ["Date/Time", letterDate(input.returnDate!, input.returnTime!)],
+    ["From", input.returnPickup ?? input.dropoff],
+    ["To", input.returnDropoff ?? input.pickup],
+  ] : [];
+  const closing: [string, string][] = [["Price", price], ["Payment method", payment]];
+  const blocks = roundTrip ? [outbound, [...back, ...closing]] : [[...outbound, ...closing]];
+  const p = (inner: string, extra = "") => `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#211726${extra}">${inner}</p>`;
+  const blockHtml = (lines: [string, string][]) => p(lines.map(([label, value]) => `${escapeHtml(label)}: <strong>${escapeHtml(value)}</strong>`).join("<br>"));
   const html = `<!doctype html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"></head>
-<body style="margin:0;background:#f3f5f8;color:#211726;font-family:Arial,Helvetica,sans-serif">
-<div style="display:none;max-height:0;overflow:hidden">Your Waydidi ride is confirmed. Booking ${safeReference}.</div>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f5f8"><tr><td align="center" style="padding:28px 12px">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fff;border-radius:28px;overflow:hidden;box-shadow:0 8px 30px rgba(43,25,10,.08)">
-<tr><td style="background:#ff8a05;padding:36px 38px 40px;color:#fff">
-<img src="cid:waydidi-logo" width="176" alt="Waydidi" style="display:block;width:176px;height:auto;border:0;margin:0 0 38px">
-<div style="width:52px;height:52px;border-radius:50%;background:#ffa84d;color:#fff;font-size:30px;line-height:52px;text-align:center;font-weight:700">✓</div>
-<p style="margin:28px 0 8px;color:#ffe1c2;font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${input.paymentMethod === "cash" && input.total > 0 ? "Booking confirmed" : "Payment received"}</p>
-<h1 style="margin:0;color:#fff;font-size:38px;line-height:1.08;letter-spacing:-.03em">Your ride is booked.</h1>
-<p style="margin:15px 0 0;color:#ffe5cc;font-size:16px">Booking reference <strong style="color:#fff">${safeReference}</strong></p>
-</td></tr>
-<tr><td style="padding:34px 38px 38px">
-<p style="margin:0 0 10px;color:#211726;font-size:17px;line-height:1.6">Hi ${safeName},</p>
-<p style="margin:0 0 24px;color:#586579;font-size:16px;line-height:1.6">Your private transfer is confirmed. Keep this email and the attached PDF for your pickup.</p>
-
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-${detailRow("Service", input.serviceType === "hourly" ? `${input.bookedHours}-hour private driver${input.pricingArea ? ` · ${input.pricingArea}` : ""}` : "Private transfer")}
-${detailRow("Pickup", input.pickup)}
-${detailRow("Drop-off", input.dropoff)}
-${detailRow("Date & time", formattedDate)}
-${detailRow("Free waiting", waitingLine(input.pickup))}
-${returnDetails}
-${detailRow("Travelers", `${input.passengers} passengers - ${input.luggage} bags`)}
-${detailRow("Vehicle", input.vehicle)}
-${detailRow("Phone / WhatsApp", input.customerPhone)}
-${detailRow("Payment", payment)}
-${fareDetails}
-${extraRows}
-${detailRow("Total", total)}
-</table>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding-top:30px">
-<a href="${checkUrl}" style="display:inline-block;background:#ff8a05;color:#fff;text-decoration:none;border-radius:999px;padding:15px 28px;font-size:16px;font-weight:700">Check your booking</a>
-</td></tr></table>
-<p style="margin:28px 0 0;color:#6d7889;font-size:13px;line-height:1.6;text-align:center">Need help? Reply to this email and the Waydidi team will assist you.</p>
-</td></tr></table>
-<p style="margin:18px 0 0;color:#8a94a3;font-size:12px;line-height:1.5;text-align:center">This transactional email was sent for booking ${safeReference}.</p>
-</td></tr></table></body></html>`;
+<body style="margin:0;background:#ffffff;color:#211726;font-family:Arial,Helvetica,sans-serif">
+<div style="display:none;max-height:0;overflow:hidden">Your Waydidi booking ${escapeHtml(input.reference)} is confirmed.</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:24px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px"><tr><td>
+<img src="cid:waydidi-logo" width="140" alt="Waydidi" style="display:block;width:140px;height:auto;border:0;margin:0 0 24px">
+${p(escapeHtml(greeting))}
+${p("Warm greetings from Waydidi Travel. We are pleased to confirm your booking with the following details:")}
+${blocks.map(blockHtml).join("\n")}
+${p("Please find your official booking confirmation as a PDF file in this email.")}
+${p(`If you have any questions before your trip, feel free to contact us via WhatsApp: <a href="https://wa.me/${WHATSAPP.replace(/\D/g, "")}" style="color:#C96100">${WHATSAPP}</a>`)}
+${p("We look forward to taking care of your journey.")}
+${p("Best regards,<br>Waydidi Team")}
+</td></tr></table></td></tr></table></body></html>`;
 
   const text = [
-    "Your ride is booked.", `Booking reference: ${input.reference}`, "", `Hi ${input.name},`,
-    "Your private transfer is confirmed.", "", `Pickup: ${input.pickup}`, `Drop-off: ${input.dropoff}`,
-    `Date and time: ${formattedDate}`,
-    ...(input.returnDate && input.returnTime ? [`Return: ${input.returnPickup ?? input.dropoff} to ${input.returnDropoff ?? input.pickup}`, `Return date and time: ${displayDate(input.returnDate, input.returnTime)}`] : []),
-    `Travelers: ${input.passengers} passengers - ${input.luggage} bags`,
-    `Vehicle: ${input.vehicle}`, `Payment: ${payment}`, `Total: ${total}`, "", `Check your booking: ${checkUrl}`,
+    greeting, "", "Warm greetings from Waydidi Travel. We are pleased to confirm your booking with the following details:", "",
+    ...blocks.flatMap((lines) => [...lines.map(([label, value]) => `${label}: ${value}`), ""]),
+    "Please find your official booking confirmation as a PDF file in this email.", "",
+    `If you have any questions before your trip, feel free to contact us via WhatsApp: ${WHATSAPP}`, "",
+    "We look forward to taking care of your journey.", "Best regards,", "Waydidi Team",
   ].join("\n");
 
   return resend({
     to: [input.to],
-    subject: `Your Waydidi ride is booked · ${input.reference}`,
+    subject: `Booking confirmation · ${input.reference} · Waydidi Travel`,
     html,
     text,
     attachments: [
