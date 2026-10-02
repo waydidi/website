@@ -8,7 +8,7 @@
     "status": "machine"
   },
   "nav.ride": {
-    "text": "出行",
+    "text": "接送",
     "status": "machine"
   },
   "nav.trip": {
@@ -20,11 +20,11 @@
     "status": "machine"
   },
   "nav.aToB": {
-    "text": "点对点接送",
+    "text": "城际接送",
     "status": "machine"
   },
   "nav.longJourney": {
-    "text": "长途出行",
+    "text": "多城市接送",
     "status": "machine"
   },
   "nav.hourlyDriver": {

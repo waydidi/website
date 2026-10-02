@@ -8,7 +8,7 @@
     "status": "machine"
   },
   "nav.ride": {
-    "text": "เดินทาง",
+    "text": "รถรับส่ง",
     "status": "machine"
   },
   "nav.trip": {
@@ -20,11 +20,11 @@
     "status": "machine"
   },
   "nav.aToB": {
-    "text": "จุดต่อจุด",
+    "text": "รถรับส่งระหว่างเมือง",
     "status": "machine"
   },
   "nav.longJourney": {
-    "text": "เดินทางระยะไกล",
+    "text": "รถรับส่งหลายเมือง",
     "status": "machine"
   },
   "nav.hourlyDriver": {
