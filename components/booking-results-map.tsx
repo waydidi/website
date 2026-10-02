@@ -145,13 +145,7 @@ function grabMarker(name: string, color: string, side: "right" | "left") {
   return `<div style="position:relative;width:0;height:0">${tag}<div style="position:absolute;left:-16px;top:-39px">${teardrop(color)}</div></div>`;
 }
 export const grabPickup = (name: string) => grabMarker(name, "#E8543C", "right");
-// Drop-off pin, with a "Someone arrived here …" pill under it when a recent ride ended there.
-export const grabDropoff = (name: string, arrived?: string | null) => {
-  const pin = grabMarker(name, "#3478F6", "left");
-  if (!arrived) return pin;
-  const pill = `<div style="position:absolute;left:0;top:8px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;width:max-content;padding:6px 10px;border-radius:999px;background:#fff;color:#1C1C1C;font:600 12px/1.2 ${GRAB_FONT};white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.18)"><span style="width:8px;height:8px;border-radius:50%;background:#00B14F;box-shadow:0 0 0 3px rgba(0,177,79,.2)"></span>${arrived.replace(/[<>&]/g, "")}</div>`;
-  return `<div style="position:relative;width:0;height:0">${pin}${pill}</div>`;
-};
+export const grabDropoff = (name: string) => grabMarker(name, "#3478F6", "left");
 
 // Time/distance bubble beside the line: to the right of a mostly vertical
 // stretch, above a mostly horizontal one, never on top of the route.
@@ -407,7 +401,7 @@ export function BookingResultsMap(props: Props) {
     const middle = routeMiddle(route.map((p: any) => [p.lat(), p.lng()] as [number, number]));
     const overlays = [
       htmlOverlay(maps, map, new maps.LatLng(middle.point[0], middle.point[1]), grabBubble(travel, props.quote.distanceMeters / 1000, middle.placement), "point"),
-      htmlOverlay(maps, map, new maps.LatLng(dropoff), grabDropoff(shortPlace(props.dropoff), arrived), "point"),
+      htmlOverlay(maps, map, new maps.LatLng(dropoff), grabDropoff(shortPlace(props.dropoff)), "point"),
       htmlOverlay(maps, map, new maps.LatLng(pickup), grabPickup(shortPlace(props.pickup)), "point"),
     ];
     const bounds = new maps.LatLngBounds();
@@ -416,7 +410,7 @@ export function BookingResultsMap(props: Props) {
     fitRef.current = (bottom) => map.fitBounds(bounds, { top: mapTopPadding(expandedRef.current), right: 110, bottom, left: 70 });
     fitRef.current(mapBottomPadding(expandedRef.current));
     return () => { fitRef.current = null; overlays.forEach((overlay) => overlay.setMap(null)); lines.forEach((line) => line.setMap(null)); };
-  }, [mapReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic, arrived]);
+  }, [mapReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
 
 
   // Without a Google key: free Leaflet map with CARTO light tiles.
@@ -440,7 +434,7 @@ export function BookingResultsMap(props: Props) {
     const icon = (html: string) => L.divIcon({ className: "", html, iconSize: [0, 0] });
     const middle = routeMiddle(line);
     L.marker(middle.point, { icon: icon(grabBubble(travel, props.quote.distanceMeters / 1000, middle.placement)), interactive: false }).addTo(map);
-    L.marker(dropoff, { icon: icon(grabDropoff(shortPlace(props.dropoff), arrived)), interactive: false, zIndexOffset: 500 }).addTo(map);
+    L.marker(dropoff, { icon: icon(grabDropoff(shortPlace(props.dropoff))), interactive: false, zIndexOffset: 500 }).addTo(map);
     L.marker(pickup, { icon: icon(grabPickup(shortPlace(props.pickup))), interactive: false, zIndexOffset: 1000 }).addTo(map);
     const routeBounds = L.latLngBounds(line);
     let first = true;
@@ -452,7 +446,7 @@ export function BookingResultsMap(props: Props) {
     };
     fitRef.current(mapBottomPadding(expandedRef.current));
     return () => { fitRef.current = null; map.remove(); };
-  }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic, arrived]);
+  }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
 
   // By the hour: the chosen area's border (orange, 70% line, light tint) with the
   // pickup pin, and the drop-off pin only when it is a different place.
@@ -466,7 +460,7 @@ export function BookingResultsMap(props: Props) {
       const map = new maps.Map(mapRef.current, { disableDefaultUI: true, clickableIcons: false, gestureHandling: "greedy", styles: GREY_MAP });
       const shapes = area.polygons.map((ring) => new maps.Polygon({ map, paths: ring.map(([lat, lng]) => ({ lat, lng })), strokeColor: "#FF8A05", strokeOpacity: 0.7, strokeWeight: 3, fillColor: "#FF8A05", fillOpacity: 0.12, clickable: false }));
       const overlays = [
-        ...(dropoff ? [htmlOverlay(maps, map, new maps.LatLng(dropoff), grabDropoff(shortPlace(props.dropoff), arrived), "point")] : []),
+        ...(dropoff ? [htmlOverlay(maps, map, new maps.LatLng(dropoff), grabDropoff(shortPlace(props.dropoff)), "point")] : []),
         ...(pickup ? [htmlOverlay(maps, map, new maps.LatLng(pickup), grabPickup(shortPlace(props.pickup)), "point")] : []),
       ];
       const bounds = new maps.LatLngBounds();
@@ -486,7 +480,7 @@ export function BookingResultsMap(props: Props) {
     const shape = L.polygon(area.polygons, { color: "#FF8A05", opacity: 0.7, weight: 3, fillColor: "#FF8A05", fillOpacity: 0.12, lineJoin: "round", interactive: false }).addTo(map);
     const icon = (html: string) => L.divIcon({ className: "", html, iconSize: [0, 0] });
     const bounds = shape.getBounds();
-    if (dropoff) { L.marker([dropoff.lat, dropoff.lng], { icon: icon(grabDropoff(shortPlace(props.dropoff), arrived)), interactive: false, zIndexOffset: 500 }).addTo(map); bounds.extend([dropoff.lat, dropoff.lng]); }
+    if (dropoff) { L.marker([dropoff.lat, dropoff.lng], { icon: icon(grabDropoff(shortPlace(props.dropoff))), interactive: false, zIndexOffset: 500 }).addTo(map); bounds.extend([dropoff.lat, dropoff.lng]); }
     if (pickup) { L.marker([pickup.lat, pickup.lng], { icon: icon(grabPickup(shortPlace(props.pickup))), interactive: false, zIndexOffset: 1000 }).addTo(map); bounds.extend([pickup.lat, pickup.lng]); }
     let first = true;
     fitRef.current = (bottom) => {
@@ -495,7 +489,7 @@ export function BookingResultsMap(props: Props) {
     };
     fitRef.current(mapBottomPadding(expandedRef.current));
     return () => { fitRef.current = null; map.remove(); };
-  }, [area, mapReady, leafletReady, props.pickup, props.dropoff, arrived]);
+  }, [area, mapReady, leafletReady, props.pickup, props.dropoff]);
 
   // Bottom sheet, phone only: collapsed (map 70%) or expanded. The sheet is
   // moved with transform alone, written straight to the DOM while the finger
