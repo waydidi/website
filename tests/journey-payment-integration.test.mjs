@@ -182,3 +182,76 @@ test('scheduled recovery verifies the provider before expiring an old checkout',
  globalThis.fetch=async(url)=>new Response(JSON.stringify(String(url).includes('/checkout/sessions/')?{id:b.checkoutSessionId,payment_intent:b.paymentIntentId,status:'complete',payment_status:'paid',currency:'thb',amount_total:100000,metadata:{booking_reference:b.reference}}:String(url).includes('/disputes?')?{data:[],has_more:false}:{currency:'thb',amount_received:100000,latest_charge:{currency:'thb',amount:100000,amount_refunded:0,balance_transaction:{currency:'thb',fee:3000}}}),{headers:{'content-type':'application/json'}});result=await runPaymentRecovery(new Date(now.getTime()+10*60000));assert.equal(result.recovered,1);assert.equal((await booking(b)).paymentStatus,'paid');assert.equal((await payment(b)).amountPaid,1000);
  }finally{globalThis.fetch=originalFetch;delete globalThis.__journeyTestEnv.STRIPE_SECRET_KEY;}
 });
+
+const refundFlow=await vite.ssrLoadModule('/lib/refunds.ts');
+const accepted=await vite.ssrLoadModule('/lib/accepted-policy.ts');
+test('database-to-provider refund uses satang and caps a second refund at policy entitlement',async()=>{
+ const b=await seed({pickupDate:'2026-11-01',pickupTime:'09:00'});await accepted.saveAcceptedPolicy(b.reference,new Date().toISOString());
+ const requestedAt=new Date(Date.parse('2026-11-01T09:00:00+07:00')-30*3600000).toISOString();
+ const calls=[];const originalFetch=globalThis.fetch;globalThis.__journeyTestEnv.STRIPE_SECRET_KEY='sk_test_mock';
+ globalThis.fetch=async(url,options)=>{calls.push({url,options});return Response.json({id:'re_test_'+b.reference,status:'succeeded'});};
+ try {
+  const q=await refundFlow.quoteRefund(b.reference,'customer_cancellation',requestedAt);assert.equal(q.paidMinor,100000);assert.equal(q.amountMinor,50000);
+  const key=crypto.randomUUID();const result=await refundFlow.createRefund({reference:b.reference,reason:'customer_cancellation',requestedAt,idempotencyKey:key,admin:'staff-test'});
+  assert.equal(result.refund.status,'refunded');assert.equal(new URLSearchParams(calls[0].options.body).get('amount'),'50000');assert.equal(calls[0].options.headers['Idempotency-Key'],`waydidi-refund-${key}`);
+  const again=await refundFlow.quoteRefund(b.reference,'customer_cancellation',requestedAt);assert.equal(again.amountMinor,0);assert.equal((await payment(b)).refundedMinor,50000);
+  const duplicate=await refundFlow.createRefund({reference:b.reference,reason:'customer_cancellation',requestedAt,idempotencyKey:key,admin:'staff-test'});assert.equal(duplicate.duplicate,true);assert.equal(calls.length,1);
+ }finally{globalThis.fetch=originalFetch;}
+});
+test('a timed-out submission stays reserved and retries with the original provider key',async()=>{
+ const b=await seed();await accepted.saveAcceptedPolicy(b.reference,new Date().toISOString());
+ const originalFetch=globalThis.fetch;const key=crypto.randomUUID();let calls=0;
+ globalThis.fetch=async()=>{calls++;throw new Error('response lost');};globalThis.__journeyTestEnv.STRIPE_SECRET_KEY='sk_test_mock';
+ try{
+  const input={reference:b.reference,reason:'goodwill',requestedAt:new Date().toISOString(),idempotencyKey:key,admin:'staff-test'};
+  const result=await refundFlow.createRefund(input);assert.equal(result.refund.status,'processing');assert.equal(result.refund.providerStatus,'submission_unknown');
+  const replacement=await refundFlow.createRefund({...input,idempotencyKey:crypto.randomUUID()});assert.ok(replacement.error);assert.equal(calls,1);
+  await d1.prepare("UPDATE booking_refunds SET updated_at=? WHERE id=?").bind(new Date(Date.now()-6*60000).toISOString(),result.refund.id).run();
+  globalThis.fetch=async(url,options)=>{if(String(url).includes('refunds?'))return Response.json({data:[],has_more:false});calls++;assert.equal(options.headers['Idempotency-Key'],`waydidi-refund-${key}`);assert.equal(new URLSearchParams(options.body).get('amount'),'100000');return Response.json({id:'re_recovered',status:'succeeded'});};
+  await refundFlow.reconcileRefunds(b.reference);assert.equal((await refundFlow.refundsFor(b.reference))[0].status,'refunded');assert.equal(calls,2);
+ }finally{globalThis.fetch=originalFetch;}
+});
+test('concurrent refund requests reserve a single policy entitlement',async()=>{
+ const b=await seed();await accepted.saveAcceptedPolicy(b.reference,new Date().toISOString());const originalFetch=globalThis.fetch;
+ globalThis.fetch=async()=>Response.json({id:'re_pending_'+b.reference,status:'pending'});globalThis.__journeyTestEnv.STRIPE_SECRET_KEY='sk_test_mock';
+ try{const results=await Promise.all([1,2].map(()=>refundFlow.createRefund({reference:b.reference,reason:'goodwill',requestedAt:new Date().toISOString(),idempotencyKey:crypto.randomUUID(),admin:'staff-test'})));assert.equal(results.filter(r=>r.refund).length,1);assert.equal((await refundFlow.refundsFor(b.reference)).length,1);}finally{globalThis.fetch=originalFetch;}
+});
+test('legacy cancellation policy cannot silently inherit new terms',async()=>{const b=await seed();assert.match((await refundFlow.quoteRefund(b.reference,'customer_cancellation')).error,/original terms/);});
+test('payment creation and reconciliation preserve the exact satang amount',async()=>{
+ const b=await seed({status:'pending_payment',paymentStatus:'pending',amountPaid:0,total:1234.56});const originalFetch=globalThis.fetch;const stripe=await vite.ssrLoadModule('/lib/stripe.ts');globalThis.__journeyTestEnv.STRIPE_SECRET_KEY='sk_test_mock';
+ globalThis.fetch=async(url,options)=>{const body=new URLSearchParams(options.body);assert.equal(body.get('line_items[0][price_data][unit_amount]'),'123456');return Response.json({id:b.checkoutSessionId,client_secret:'test_only'});};
+ try{await stripe.createCheckoutSession({reference:b.reference,accessToken:'test_only',customerEmail:b.customerEmail,vehicle:'economy_sedan',total:b.total,origin:'https://example.invalid',idempotencyKey:crypto.randomUUID()});await payments.reconcilePaymentSession(b,{...session(b),amountMinor:123456},'webhook',false);assert.equal((await payment(b)).amountPaidMinor,123456);assert.equal((await payment(b)).amountExpectedMinor,123456);}finally{globalThis.fetch=originalFetch;}
+});
+
+test('payment rejects stale outbound or return quotes independently',async()=>{
+ const check=await vite.ssrLoadModule('/lib/booking-quote-check.ts');const now=new Date().toISOString(),date='2026-11-01',backDate='2026-11-03';
+ const {DEMO_PRICES}=await vite.ssrLoadModule('/lib/demo-route.ts');const {withSeason}=await vite.ssrLoadModule("/lib/seasons.ts");const prices=JSON.stringify(await withSeason(Object.fromEntries(Object.entries(DEMO_PRICES).map(([id,total])=>[id,{total,basePrice:total,distanceSurcharge:0}])),date,{service:"transfer",areaId:"sample-pattaya"}));
+ const outId=crypto.randomUUID(),backId=crypto.randomUUID();const row={areaId:'sample-pattaya',areaName:'Pattaya',distanceMeters:125000,durationSeconds:6000,vehiclePricesJson:prices,pricingVersion:1,timezone:'Asia/Bangkok',expiresAt:new Date(Date.now()+30*60000).toISOString(),createdAt:now};
+ await db.insert(schema.fareQuotes).values([{...row,id:outId,pickupPlaceId:'bkk',dropoffPlaceId:'pattaya',pickupText:'Suvarnabhumi Airport',dropoffText:'Pattaya',departureDate:date,departureTime:'09:00'},{...row,id:backId,pickupPlaceId:'pattaya',dropoffPlaceId:'bkk',pickupText:'Pattaya',dropoffText:'Suvarnabhumi Airport',departureDate:backDate,departureTime:'10:00'}]);
+ const b=await seed({fareQuoteId:outId,returnFareQuoteId:backId,returnDate:backDate,returnTime:'10:00',pickupDate:date,pickupTime:'09:00'});assert.equal(await check.validBookingQuotes(b),true);
+ await db.update(schema.fareQuotes).set({expiresAt:new Date(Date.now()-1).toISOString()}).where(eq(schema.fareQuotes.id,backId));assert.equal(await check.validBookingQuotes(b),false);
+ await db.update(schema.fareQuotes).set({expiresAt:row.expiresAt}).where(eq(schema.fareQuotes.id,backId));await db.update(schema.fareQuotes).set({createdAt:new Date(Date.now()-31*60000).toISOString(),expiresAt:'9999-12-31T23:59:59.999Z'}).where(eq(schema.fareQuotes.id,outId));assert.equal(await check.validBookingQuotes(b),false);
+});
+
+test('cash refund entitlement uses received satang and records the return separately',async()=>{
+ const b=await seed({paymentMethod:'cash',paymentStatus:'cash_due',amountPaid:0});await accepted.saveAcceptedPolicy(b.reference,new Date().toISOString());await db.insert(schema.cashReceipts).values({id:crypto.randomUUID(),bookingReference:b.reference,amountMinor:100000,collectedBy:'staff-test',createdAt:new Date().toISOString()});
+ const requestedAt=new Date(Date.parse(`${b.pickupDate}T${b.pickupTime}:00+07:00`)-30*3600000).toISOString();const q=await refundFlow.quoteRefund(b.reference,'customer_cancellation',requestedAt);assert.equal(q.paidMinor,100000);assert.equal(q.amountMinor,50000);
+ const r=await refundFlow.createRefund({reference:b.reference,reason:'customer_cancellation',requestedAt,idempotencyKey:crypto.randomUUID(),admin:'staff-test'});assert.equal(r.refund.status,'refunded');assert.equal(r.refund.providerStatus,'cash_returned');assert.equal((await refundFlow.quoteRefund(b.reference,'customer_cancellation',requestedAt)).amountMinor,0);
+});
+
+
+test('lost refund responses reconcile after idempotency retention without a replacement POST',async()=>{
+ const b=await seed();const key=crypto.randomUUID();const originalFetch=globalThis.fetch;
+ globalThis.__journeyTestEnv.STRIPE_SECRET_KEY='sk_test_mock';globalThis.fetch=async()=>{throw new Error('response lost');};
+ try {
+  const result=await refundFlow.createRefund({reference:b.reference,reason:'goodwill',requestedAt:new Date().toISOString(),idempotencyKey:key,admin:'staff-test'});
+  await d1.prepare("UPDATE booking_refunds SET created_at=?,updated_at=? WHERE id=?").bind(new Date(Date.now()-25*3600000).toISOString(),new Date(Date.now()-6*60000).toISOString(),result.refund.id).run();
+  let lookups=0;
+  globalThis.fetch=async(url,options)=>{
+   assert.notEqual(options.method,'POST');
+   if(String(url).includes('refunds?')){lookups++;assert.equal(new URL(String(url)).searchParams.get('payment_intent'),b.paymentIntentId);return Response.json({data:[{id:'re_lost',status:'succeeded',amount:100000,currency:'thb',metadata:{refund_key:`waydidi-refund-${key}`,booking_reference:b.reference}}],has_more:false});}
+   return Response.json({id:'re_lost',status:'succeeded'});
+  };
+  await refundFlow.reconcileRefunds(b.reference);assert.equal(lookups,1);const row=(await refundFlow.refundsFor(b.reference))[0];assert.equal(row.status,'refunded');assert.equal(row.providerRefundId,'re_lost');
+ }finally{globalThis.fetch=originalFetch;}
+});

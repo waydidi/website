@@ -1,4 +1,5 @@
 "use client";
+import { CheckoutSummary, CancellationTerms } from "./checkout-summary";
 
 import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
 import { TIERS, tierDiscount, tierFreeAddons, type Tier } from "@/lib/member-tier-rules";
@@ -790,22 +791,20 @@ export function BookingFlow({
     );
   const changeAdults = (value: number) => {
     const adults = Math.max(1, value);
-    fitVehicleToGroup(adults + childPassengers, adults + childPassengers + extraBagSets);
+    fitVehicleToGroup(adults + childPassengers, booking.luggage);
     setAdultPassengers(adults);
     setBooking((current) => ({
       ...current,
       passengers: adults + childPassengers,
-      luggage: adults + childPassengers + extraBagSets,
     }));
   };
   const changeChildren = (value: number) => {
     const children = Math.max(0, value);
     setChildPassengers(children);
-    fitVehicleToGroup(adultPassengers + children, adultPassengers + children + extraBagSets);
+    fitVehicleToGroup(adultPassengers + children, booking.luggage);
     setBooking((current) => ({
       ...current,
       passengers: adultPassengers + children,
-      luggage: adultPassengers + children + extraBagSets,
     }));
   };
 
@@ -909,7 +908,7 @@ export function BookingFlow({
           dropoff: trip!.dropoff,
           inclusions: demoInclusions,
           prices: ids.prices ?? Object.fromEntries(Object.entries(prices).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
-          expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+          expiresAt: new Date(Date.now() + 30*60_000).toISOString(),
         });
         // Prototype round trip: the return leg reuses the sample route and prices.
         if (returnTrip) {
@@ -924,7 +923,7 @@ export function BookingFlow({
             dropoff: DEMO_PICKUP,
             inclusions: demoInclusions,
             prices: ids.returnPrices ?? Object.fromEntries(Object.entries(prices).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
-            expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+            expiresAt: new Date(Date.now() + 30*60_000).toISOString(),
           });
           setQuoteSummary({
             currency: "THB",
@@ -1243,7 +1242,7 @@ export function BookingFlow({
     mapView ? null : stage === "vehicle"
       ? {
           label: chosenVehicle.name,
-          action: "Continue",
+          action: quoteRequest ? "Request a quote" : "Continue",
           onClick: () => goToStage("details"),
           disabled: !chosenVehicle.fits
             ? true
@@ -1258,7 +1257,7 @@ export function BookingFlow({
         : stage === "review" && quoteRequest
           ? {
               label: chosenVehicle.name,
-              action: serviceType === "hourly" ? (hourlyRequestSubmitted ? "Request received" : "Request operations quote") : "Contact us",
+              action: serviceType === "hourly" ? (hourlyRequestSubmitted ? "Request received" : "Request a quote") : "Contact us",
               onClick: () => serviceType === "hourly" ? void submitHourlyRequest() : window.location.assign("/contact"),
               disabled: serviceType === "hourly" && (loading || hourlyRequestSubmitted || !isOnline),
             }
@@ -1593,6 +1592,7 @@ export function BookingFlow({
                   {pricingMessage}
                 </div>
               )}
+              <div className="mt-3 rounded-xl bg-white p-3 text-ink"><CancellationTerms date={departureSelected ? booking.date : ""} time={booking.time}/></div>
               <p className="mt-5 hidden flex-wrap items-center gap-x-2.5 text-[17px] text-white/85 md:flex lg:mt-5 lg:text-[15px]">{[t("hero.trustArea"), t("hero.trustPrice"), t("hero.trustCancel")].map((item, i) => <span key={item} className="flex items-center gap-2.5">{i > 0 && <span aria-hidden="true">·</span>}{item}</span>)}</p>
               {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-brand"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">Unlimited kilometres within your itinerary · Tolls included · Price held for 30 minutes</span></div>}
             </form>
@@ -1718,7 +1718,7 @@ export function BookingFlow({
               description={t("pax.adultsHint")}
               value={adultPassengers}
               min={1}
-              max={Math.min(MAX_GROUP_PASSENGERS - childPassengers, MAX_GROUP_BAGS - childPassengers - extraBagSets)}
+              max={MAX_GROUP_PASSENGERS - childPassengers}
               onChange={changeAdults}
             />
             <SheetCounter
@@ -1726,22 +1726,20 @@ export function BookingFlow({
               description={t("pax.childrenHint")}
               value={childPassengers}
               min={0}
-              max={Math.min(MAX_GROUP_PASSENGERS - adultPassengers, MAX_GROUP_BAGS - adultPassengers - extraBagSets)}
+              max={MAX_GROUP_PASSENGERS - adultPassengers}
               onChange={changeChildren}
             />
+            <SheetCounter label="Checked bags" description="Choose your luggage separately from passenger count. Tell us about oversized items in the booking notes." value={booking.luggage} min={0} max={MAX_GROUP_BAGS} onChange={value=>{fitVehicleToGroup(booking.passengers,value);setBooking(current=>({...current,luggage:value}));}} />
           </div>
 
           <div className="mt-5 rounded-[24px] bg-slate-100 p-5 text-slate-600">
-            <p className="mb-4 font-semibold">{t("pax.groupCanBring")}</p>
+            <p className="mb-4 font-semibold">Your luggage selection</p>
             <div className="grid gap-4 text-base sm:grid-cols-2">
               <span className="flex items-center gap-3">
                 <Luggage size={24} aria-hidden="true" />
                 <strong>{t("pax.checkedBags", { count: booking.luggage })}</strong>
               </span>
-              <span className="flex items-center gap-3">
-                <Luggage size={21} aria-hidden="true" />
-                <strong>{t("pax.carryOn", { count: booking.luggage })}</strong>
-              </span>
+              <p className="text-sm">Tell us about additional carry-on or oversized items in the booking notes.</p>
             </div>
           </div>
 
@@ -1755,6 +1753,7 @@ export function BookingFlow({
         </SheetContent>
       </Sheet>
 
+      {["details","payment","review"].includes(stage) && <div className="bg-slate-50 px-4 py-5"><CheckoutSummary booking={booking} vehicle={chosenVehicle.name} returnTrip={returnTrip} returnDate={returnDate} returnTime={returnTime}/></div>}
       {/* Keyed by stage so each step fades in rather than swapping abruptly. */}
       <div key={stage} className="animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
       {stage === "vehicle" && (
@@ -1870,6 +1869,7 @@ export function BookingFlow({
       {stage === "details" && (
         <BookingDetailsStep
           booking={booking}
+          quoteRequired={quoteRequest}
           change={change}
           fieldErrors={fieldErrors}
           savedTravellers={savedTravellers}
@@ -1931,7 +1931,7 @@ export function BookingFlow({
                   className="mt-1 size-4 shrink-0 accent-brand"
                 />
                 <span>
-                  I agree to the <a href="/terms" target="_blank" className="font-semibold text-brand-deep underline underline-offset-2">booking terms and 24-hour cancellation policy</a>, and acknowledge the <a href="/privacy" target="_blank" className="font-semibold text-brand-deep underline underline-offset-2">privacy notice</a>.
+                  I agree to the <a href="/terms" target="_blank" className="font-semibold text-brand-deep underline underline-offset-2">booking terms</a> and <a href="/refund-policy" target="_blank" className="font-semibold text-brand-deep underline">cancellation policy</a>, and acknowledge the <a href="/privacy" target="_blank" className="font-semibold text-brand-deep underline underline-offset-2">privacy notice</a>.
                 </span>
               </label>
               {fieldErrors.termsAccepted && <p id="terms-error" role="alert" className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.termsAccepted}</p>}
@@ -2107,7 +2107,7 @@ export function BookingFlow({
             {quoteRequest && serviceType === "hourly" ? (
               <>
                 {hourlyRequestSubmitted && <p role="status" className="mt-4 rounded-xl bg-emerald-900/40 p-4">Your request is with operations. We will contact you to confirm your itinerary and price.</p>}
-                <button onClick={submitHourlyRequest} disabled={loading || hourlyRequestSubmitted || !isOnline} className="mt-6 flex h-14 w-full items-center justify-center rounded-full bg-brand font-bold text-ink disabled:opacity-60">{hourlyRequestSubmitted ? "Request received" : loading ? "Sending request…" : "Request operations quote"}</button>
+                <button onClick={submitHourlyRequest} disabled={loading || hourlyRequestSubmitted || !isOnline} className="mt-6 flex h-14 w-full items-center justify-center rounded-full bg-brand font-bold text-ink disabled:opacity-60">{hourlyRequestSubmitted ? "Request received" : loading ? "Sending request…" : "Request a quote"}</button>
               </>
             ) : quoteRequest ? (
               <Link

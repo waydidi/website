@@ -50,6 +50,8 @@ type Trip = {
   eta: { minutes: number; target: "pickup" | "dropoff" } | null;
   standbyPhoto: boolean;
   canShare: boolean;
+  freshness: {at:string;ageSeconds:number;stale:boolean}|null;
+  driver: {name:string;phone:string}|null;
   updatedAt: string;
 };
 
@@ -71,13 +73,23 @@ export function TripView({ reference }: { reference: string }) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [failure, setFailure] = useState<"not_found" | "expired" | "error" | null>(null);
   const [online, setOnline] = useState(true);
+  const [clock,setClock]=useState(()=>Date.now());
+  useEffect(()=>{const timer=setInterval(()=>setClock(Date.now()),20000);return()=>clearInterval(timer);},[]);
   // Only read in the browser; nothing that depends on it renders before the trip loads.
+  const exchanged=useRef<Promise<Response> | null>(null);
   const [query] = useState<string | null>(() => (typeof window === "undefined" ? null : authQuery()));
 
   const load = useCallback(async () => {
     if (query === null) return;
     try {
-      const response = await fetch(`/api/trip/${encodeURIComponent(reference)}${query ? `?${query}` : ""}`, { cache: "no-store" });
+      const params=new URLSearchParams(query);
+      if(["token","key","share"].some(key=>params.has(key))) {
+        exchanged.current??=fetch("/api/trip/access",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reference,query})});
+        if(!(await exchanged.current).ok) {setFailure("expired");return;}
+        const clean=new URL(window.location.href);for(const key of ["token","key","share"]) clean.searchParams.delete(key);
+        window.history.replaceState(null,"",clean.pathname+clean.search);
+      }
+      const response = await fetch(`/api/trip/${encodeURIComponent(reference)}${new URLSearchParams(query).get("leg") ? `?leg=${new URLSearchParams(query).get("leg")}` : ""}`, { cache: "no-store" });
       if (response.status === 404) { setFailure("not_found"); return; }
       if (response.status === 410) { setFailure("expired"); return; }
       if (!response.ok) throw new Error("Trip unavailable");
@@ -129,12 +141,13 @@ export function TripView({ reference }: { reference: string }) {
     );
   }
 
+  const stale=!!trip.freshness && (trip.freshness.stale||clock-Date.parse(trip.freshness.at)>90000);
   const shared = trip.access === "shared";
   // Live location and arrival time are only shared after pickup.
-  const live = trip.stage === "on_trip";
+  const live = ["on_the_way","waiting","on_trip"].includes(trip.stage);
   return (
     <main className="min-h-screen bg-surface pb-16 text-ink">
-      {trip.legs.length > 1 && <nav className="mx-auto flex max-w-3xl gap-3 p-4" aria-label="Journey direction">{trip.legs.map(j => { const params = new URLSearchParams(query ?? ""); params.set("leg",j.leg); return <a key={j.leg} href={`?${params}`} className={`rounded-full px-4 py-2 font-bold ${trip.leg === j.leg ? "bg-orange-500 text-white" : "bg-slate-100"}`}>{j.leg === "outbound" ? "Outbound" : "Return"} · {j.pickupDate}</a>; })}</nav>}
+      {trip.legs.length > 1 && <nav className="mx-auto flex max-w-3xl gap-3 p-4" aria-label="Journey direction">{trip.legs.map(j => { const params = new URLSearchParams(); params.set("leg",j.leg); return <a key={j.leg} href={`?${params}`} className={`rounded-full px-4 py-2 font-bold ${trip.leg === j.leg ? "bg-orange-500 text-white" : "bg-slate-100"}`}>{j.leg === "outbound" ? "Outbound" : "Return"} · {j.pickupDate}</a>; })}</nav>}
       <header className="bg-brand px-4 pb-10 pt-4 text-white">
         <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
           <Link href="/" aria-label={t("nav.home")} className="inline-flex text-white"><WaydidiLogo className="h-[48px] w-auto" /></Link>
@@ -142,11 +155,13 @@ export function TripView({ reference }: { reference: string }) {
         </div>
         <div className="mx-auto mt-7 max-w-xl">
           <p className="text-xs font-black uppercase tracking-[.16em] text-white/85">{shared ? t("trip.sharedTitle") : t("trip.title")} · {t("trip.reference", { reference: trip.reference })}</p>
+          {trip.driver && <p className="mt-3">Your driver: <strong>{trip.driver.name}</strong> · <a className="underline" href={`tel:${trip.driver.phone}`}>{trip.driver.phone}</a></p>}
+          {live && <p className="mt-2 text-sm" role="status">{!online ? "Offline — position and ETA may be outdated." : trip.freshness ? `${stale ? "Location stale" : "Location updated"} · ${time(trip.freshness.at)} (Thailand time)` : "Waiting for the driver's location."}</p>}
           <h1 className="mt-2 text-[2rem] font-black leading-tight tracking-[-.03em]">{t(`trip.headline.${trip.stage}` as MessageKey)}</h1>
           {live && (
             <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-sm font-black" aria-live="polite">
               <span className="relative flex size-2.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-white opacity-75 motion-reduce:animate-none" /><span className="relative inline-flex size-2.5 rounded-full bg-white" /></span>
-              {trip.eta ? t(trip.eta.target === "pickup" ? "trip.eta.pickup" : "trip.eta.dropoff", { minutes: trip.eta.minutes }) : t("trip.eta.unknown")}
+              {trip.eta && !stale && online ? t(trip.eta.target === "pickup" ? "trip.eta.pickup" : "trip.eta.dropoff", { minutes: trip.eta.minutes }) : t("trip.eta.unknown")}
             </p>
           )}
           {shared && <p className="mt-3 text-sm text-white/90">{t("trip.sharedNote")}</p>}
@@ -261,7 +276,7 @@ function MeetCard({ trip, query }: { trip: Trip; query: string }) {
       {trip.standbyPhoto && (
         <figure>
           {/* eslint-disable-next-line @next/next/no-img-element -- private, uncached evidence photo */}
-          <img src={`/api/trip/${encodeURIComponent(trip.reference)}/photo${query ? `?${query}` : ""}`} alt={t("trip.meet.photoAlt")} className="aspect-[4/3] w-full object-cover" onError={(event) => { const figure = event.currentTarget.closest("figure"); if (figure) figure.hidden = true; }} />
+          <img src={`/api/trip/${encodeURIComponent(trip.reference)}/photo${new URLSearchParams(query).get("leg") ? `?leg=${new URLSearchParams(query).get("leg")}` : ""}`} alt={t("trip.meet.photoAlt")} className="aspect-[4/3] w-full object-cover" onError={(event) => { const figure = event.currentTarget.closest("figure"); if (figure) figure.hidden = true; }} />
           <figcaption className="px-5 pt-3 text-xs font-semibold text-slate-500">{t("trip.meet.photoCaption")}</figcaption>
         </figure>
       )}
@@ -365,7 +380,7 @@ function ShareCard({ reference, query }: { reference: string; query: string }) {
   async function call(action: "create" | "revoke") {
     setBusy(true); setStatus("");
     try {
-      const response = await fetch(`/api/trip/${encodeURIComponent(reference)}/share${query ? `?${query}` : ""}`, {
+      const response = await fetch(`/api/trip/${encodeURIComponent(reference)}/share${new URLSearchParams(query).get("leg") ? `?leg=${new URLSearchParams(query).get("leg")}` : ""}`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
       });
       const result = (await response.json()) as { url?: string };

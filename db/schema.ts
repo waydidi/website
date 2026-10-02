@@ -132,6 +132,8 @@ export const bookingPayments = sqliteTable(
     feeMinor: integer("fee_minor"),
     disputeStatus: text("dispute_status"),
     amountExpected: integer("amount_expected").notNull(),
+    amountExpectedMinor: integer("amount_expected_minor"),
+    amountPaidMinor: integer("amount_paid_minor"),
     amountPaid: integer("amount_paid").notNull().default(0),
     currency: text("currency").notNull().default("thb"),
     failureCode: text("failure_code"),
@@ -1353,7 +1355,9 @@ export const bookingRefunds = sqliteTable("booking_refunds", {
   customerRefundMinor: integer("customer_refund_minor").notNull(),
   providerRefundFeeMinor: integer("provider_refund_fee_minor").notNull().default(0),
   currency: text("currency").notNull().default("thb"),
-  status: text("status").notNull(), // requested | approved | processing | refunded | partially_refunded | failed | rejected | cancelled
+  status: text("status").notNull(),
+  submissionStartedAt:text("submission_started_at"),
+  submissionAttempts:integer("submission_attempts").notNull().default(0), // requested | approved | processing | refunded | partially_refunded | failed | rejected | cancelled
   failureMessage: text("failure_message"),
   requestedBy: text("requested_by").notNull(),
   approvedBy: text("approved_by"),
@@ -1365,3 +1369,32 @@ export const bookingRefunds = sqliteTable("booking_refunds", {
   uniqueIndex("uidx_booking_refunds_idempotency").on(table.idempotencyKey),
   index("idx_booking_refunds_booking").on(table.bookingReference),
 ]);
+
+// Security and delivery state are separate from the 100-column bookings table.
+export const staffAccounts = sqliteTable("staff_accounts", {
+ id:text("id").primaryKey(), username:text("username").notNull().unique(), email:text("email").notNull(), displayName:text("display_name").notNull(), passwordHash:text("password_hash").notNull(), role:text("role").notNull(), mfaSecret:text("mfa_secret"), lastTotpStep:integer("last_totp_step").notNull().default(-1), active:integer("active").notNull().default(1), createdAt:text("created_at").notNull(),
+});
+export const staffSessions = sqliteTable("staff_sessions", {
+ tokenHash:text("token_hash").primaryKey(), staffId:text("staff_id").notNull().references(()=>staffAccounts.id), expiresAt:text("expires_at").notNull(), lastUsedAt:text("last_used_at").notNull(), revokedAt:text("revoked_at"), createdAt:text("created_at").notNull(),
+},t=>[index("staff_sessions_staff").on(t.staffId)]);
+export const staffChallenges = sqliteTable("staff_challenges", {
+ tokenHash:text("token_hash").primaryKey(), staffId:text("staff_id").notNull().references(()=>staffAccounts.id), enrollmentSecret:text("enrollment_secret"), attempts:integer("attempts").notNull().default(0), expiresAt:text("expires_at").notNull(), consumedAt:text("consumed_at"),
+});
+export const securityRateWindows = sqliteTable("security_rate_windows", {
+ fingerprint:text("fingerprint").notNull(), window:integer("window").notNull(), attempts:integer("attempts").notNull(),
+},t=>[primaryKey({columns:[t.fingerprint,t.window]})]);
+export const tripAccessSessions = sqliteTable("trip_access_sessions", {
+ tokenHash:text("token_hash").primaryKey(), bookingReference:text("booking_reference").notNull().references(()=>bookings.reference), access:text("access").notNull(), issuedAt:integer("issued_at").notNull(), expiresAt:text("expires_at").notNull(),
+});
+export const bookingPolicySnapshots = sqliteTable("booking_policy_snapshots", {
+ bookingReference:text("booking_reference").primaryKey().references(()=>bookings.reference), version:text("version").notNull(), policyJson:text("policy_json").notNull(), acceptedAt:text("accepted_at").notNull(),
+});
+export const bookingDeliveries = sqliteTable("booking_deliveries", {
+ id:text("id").primaryKey(), bookingReference:text("booking_reference").notNull().references(()=>bookings.reference), channel:text("channel").notNull(), recipient:text("recipient"), status:text("status").notNull().default("pending"), attempts:integer("attempts").notNull().default(0), attemptedAt:text("attempted_at"), nextAttemptAt:text("next_attempt_at"), sentAt:text("sent_at"), lastError:text("last_error"), createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(),
+},t=>[index("booking_delivery_pending").on(t.status,t.nextAttemptAt)]);
+export const websiteConversations = sqliteTable("website_conversations", {
+ id:text("id").primaryKey(), tokenHash:text("token_hash").notNull().unique(), expiresAt:text("expires_at").notNull(), createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(),
+});
+export const websiteChatMessages = sqliteTable("website_chat_messages", {
+ id:text("id").primaryKey(), conversationId:text("conversation_id").notNull().references(()=>websiteConversations.id), sender:text("sender").notNull(), body:text("body").notNull(), staffId:text("staff_id").references(()=>staffAccounts.id), createdAt:text("created_at").notNull(),
+},t=>[index("chat_conversation_time").on(t.conversationId,t.createdAt)]);

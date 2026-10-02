@@ -64,7 +64,7 @@ test("codes and sessions are stored only as hashes", () => {
   assert.match(schema, /codeHash: text\("code_hash"\)/);
   assert.match(schema, /tokenHash: text\("token_hash"\)/);
   assert.doesNotMatch(migration, /`code` text|`token` text/);
-  assert.match(codeRoute, /codeHash: await sha256\(`\$\{id\}:\$\{code\}`\)/);
+  assert.match(codeRoute, /await sha256\(`\$\{id\}:\$\{code\}`\)/);
   assert.match(auth, /tokenHash: await sha256\(token\)/);
 });
 
@@ -77,7 +77,8 @@ test("code verification limits guesses and consumes codes once", () => {
   const countAt = verifyRoute.indexOf("attempts: sql`");
   const compareAt = verifyRoute.indexOf("constantTimeEqual(");
   assert.ok(countAt > 0 && compareAt > countAt, "attempt is counted before the comparison");
-  assert.match(verifyRoute, /record\.attempts >= MAX_CODE_ATTEMPTS/);
+  assert.match(verifyRoute, /lt\(customerLoginCodes\.attempts, MAX_CODE_ATTEMPTS\)/);
+  assert.match(verifyRoute, /if \(!claimed\.length\) return invalid\(\)/);
   assert.match(verifyRoute, /isNull\(customerLoginCodes\.consumedAt\)\)\)\.returning/);
   assert.match(codeRoute, /MAX_CODES_PER_EMAIL_PER_HOUR/);
   assert.match(codeRoute, /overRateLimit\(request, "account-code"/);

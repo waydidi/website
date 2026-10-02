@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { bookings, customerLoginCodes, customers } from "@/db/schema";
@@ -29,9 +29,12 @@ export async function POST(request: Request) {
   const [record] = await getDb().select().from(customerLoginCodes)
     .where(and(eq(customerLoginCodes.email, email), isNull(customerLoginCodes.consumedAt), gt(customerLoginCodes.expiresAt, now.toISOString())))
     .orderBy(desc(customerLoginCodes.createdAt)).limit(1);
-  if (!record || record.attempts >= MAX_CODE_ATTEMPTS) return invalid();
+  if (!record) return invalid();
   // Count the attempt before comparing so parallel guesses cannot exceed the limit.
-  await getDb().update(customerLoginCodes).set({ attempts: sql`${customerLoginCodes.attempts} + 1` }).where(eq(customerLoginCodes.id, record.id));
+  const claimed = await getDb().update(customerLoginCodes).set({ attempts: sql`${customerLoginCodes.attempts} + 1` })
+    .where(and(eq(customerLoginCodes.id, record.id), lt(customerLoginCodes.attempts, MAX_CODE_ATTEMPTS), isNull(customerLoginCodes.consumedAt), gt(customerLoginCodes.expiresAt, new Date().toISOString())))
+    .returning({ id: customerLoginCodes.id });
+  if (!claimed.length) return invalid();
   if (!constantTimeEqual(await sha256(`${record.id}:${code}`), record.codeHash)) return invalid();
   const consumed = await getDb().update(customerLoginCodes).set({ consumedAt: now.toISOString() })
     .where(and(eq(customerLoginCodes.id, record.id), isNull(customerLoginCodes.consumedAt))).returning({ id: customerLoginCodes.id });

@@ -1,3 +1,4 @@
+import { validTransferQuote } from "@/lib/quote-validity";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
     );
   }
 
+  if(!validTransferQuote(outbound)||(returnQuote&&!validTransferQuote(returnQuote))) return NextResponse.json({error:"A journey quote expired. Calculate both routes again."},{status:409});
   if (returnQuote) {
     const directionMatches =
       returnQuote.pickupPlaceId === outbound.dropoffPlaceId &&

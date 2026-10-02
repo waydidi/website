@@ -1,4 +1,3 @@
-import { PaysoBadge } from "@/components/payso-badge";
 import { PrivacyChoices } from "@/components/privacy-choices";
 
 // Add the Thai company registration / TAT licence numbers here once issued;
@@ -25,6 +24,5 @@ export function FooterLegal() {
     <PrivacyChoices />
     <p className="mt-2 text-base leading-7">{["2026 © WAYDIDI™", "All rights reserved", ...LEGAL_IDS].join(" | ")}</p>
     <PaymentLogos />
-    <PaysoBadge className="mt-4" />
   </div>;
 }

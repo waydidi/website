@@ -354,7 +354,7 @@ export function BookingResultsMap(props: Props) {
   const total = selected ? (props.priceBreakdown?.[selected.id]?.total ?? selected.price) + addonsTotal(props.childSeats ?? 0, props.exchangeStop ?? false, freeAddonsWithGifts(tierFreeAddons(props.memberTier, props.childSeats ?? 0, props.exchangeStop ?? false), props.childSeats ?? 0, props.exchangeStop ?? false, props.giftVouchers ?? { childSeat: false, exchangeStop: false }), ferryAvailable ? ferry : 0) : 0;
   const passengers = props.passengers ?? 0;
   const { currency, money, thb } = useCurrency();
-  const fareText = (value: number) => props.quoteRequest ? "Quote on request" : money(value);
+  const fareText = (value: number) => props.quoteRequest ? "Quote on request" : !priceReady ? "Calculating…" : money(value);
   const [code, amount] = [money(0).split(" ")[0], (v: number) => money(v).split(" ")[1]];
 
   useEffect(() => {
@@ -608,7 +608,8 @@ export function BookingResultsMap(props: Props) {
   }, []);
 
   // Priced and ready to show: a route quote, or (by the hour) the area.
-  const ready = Boolean(props.quote || props.area);
+  const ready = Boolean(props.quote || (props.area && props.checkoutReady !== false));
+  const priceReady=ready&&!props.loading&&props.checkoutReady!==false;
   const disabled = !ready || props.loading || !selected || selected.fits === false || props.checkoutReady === false;
 
   return <section className="fixed inset-0 z-30 overflow-hidden overscroll-none bg-white lg:relative lg:inset-auto lg:z-auto lg:h-[100svh]" aria-live="polite">
@@ -663,7 +664,7 @@ export function BookingResultsMap(props: Props) {
           {props.vehicles.map((item) => {
             const active = item.id === selected?.id;
             const off = !ready || item.fits === false;
-            const badge = item.fits === false ? null : item.id === cheapest?.id ? "best" : item.popular ? "popular" : null;
+            const badge = !priceReady || item.fits === false ? null : item.id === cheapest?.id ? "best" : item.popular ? "popular" : null;
             return <li key={item.id}>
               <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`relative grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-[15px] text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-[#FF8A05] bg-white" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
                 <span className="grid h-14 place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className={`max-h-14 w-full object-contain ${item.id === "comfort_suv" ? "scale-110" : ""}`} /> : <CarFront size={44} className="text-[#9A9A9A]" aria-hidden="true" />}</span>
@@ -688,8 +689,8 @@ export function BookingResultsMap(props: Props) {
                     : badge === "popular" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-[#FF1F2D] bg-[#FF1F2D] px-2 py-px text-[12px] font-medium text-white"><Flame size={12} aria-hidden="true" />Most popular</span> : null}
                 </span>
                 <span className="self-start text-right">
-                  <span className="block whitespace-nowrap text-[#1C1C1C]">{!props.quoteRequest && <span className="text-[13px] text-[#4A4A4A]">{code} </span>}<strong className="text-[17px] font-semibold">{props.quoteRequest ? "On request" : amount(item.price)}</strong></span>
-                  {!props.quoteRequest && currency !== "THB" && <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">~{thb(item.price)}</span>}
+                  <span className="block whitespace-nowrap text-[#1C1C1C]">{!props.quoteRequest && <span className="text-[13px] text-[#4A4A4A]">{code} </span>}<strong className="text-[17px] font-semibold">{props.quoteRequest ? "On request" : !priceReady ? <span role="status" aria-label="Loading quote" className="inline-block h-5 w-24 animate-pulse rounded bg-slate-200" /> : amount(item.price)}</strong></span>
+                  {!props.quoteRequest && priceReady && currency !== "THB" && <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">~{thb(item.price)}</span>}
                   <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">{props.hourly ? `${props.hourly.hours} hours` : props.returnTrip ? t("results.roundTrip") : t("results.totalPrice")}</span>
                 </span>
               </button>
@@ -704,7 +705,7 @@ export function BookingResultsMap(props: Props) {
             <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-[#17563A]">FREE Cancellation 48H</p>
             <p className="mt-1.5 text-[14px] leading-6 text-[#2B6A4D]">Book today, lock the price. You can cancel for free until <strong className="font-semibold text-[#17563A]">{cancelDeadline(props.date, props.time)}</strong> and get a full refund. After that, 50% is refunded until 24 hours before pickup. <a href="/refund-policy" target="_blank" className="underline underline-offset-2">Policy</a></p>
           </div>
-        </div> : cancelDeadlineAt(props.date, props.time, 24) > clock ? <div className="mt-6 rounded-2xl border border-[#F5D9A8] bg-[#FFF8EC] p-4">
+        </div> : cancelDeadlineAt(props.date, props.time, 24) >= clock ? <div className="mt-6 rounded-2xl border border-[#F5D9A8] bg-[#FFF8EC] p-4">
           <p className="text-[17px] font-semibold text-[#7A4A00]">50% refundable</p>
           <p className="mt-1.5 text-[14px] leading-6 text-[#6B4A16]">Pickup is 24–48 hours away. If you cancel before <strong className="font-semibold">{cancelDeadline(props.date, props.time, 24)}</strong>, 50% is refunded. <a href="/refund-policy" target="_blank" className="underline underline-offset-2">Policy</a></p>
         </div> : <div className="mt-6 rounded-2xl border border-[#E6E6E6] bg-[#F7F7F7] p-4">
@@ -718,7 +719,7 @@ export function BookingResultsMap(props: Props) {
     {/* Bottom bar */}
     <div ref={barRef} className="absolute inset-x-0 bottom-0 z-20 border-t border-[#EEEEEE] bg-white px-4 lg:right-auto lg:w-[460px] pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="flex min-w-0 items-center gap-2 leading-none"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{fareText(total)}</strong>{!props.quoteRequest && currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}{extrasCount > 0 && <span className="min-w-0 touch-pan-x overflow-x-auto whitespace-nowrap text-[12px] font-medium text-[#D32F2F] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{t("addons.including", { items: [seats > 0 ? (seats > 1 ? t("addons.childSeats", { count: seats }) : t("addons.childSeat")) : null, exchange ? t("addons.exchange") : null, ferry > 0 ? `${t("addons.ferryHotel")} × ${ferry}` : null].filter(Boolean).join(", ") })}</span>}</p>
+        <p className="flex min-w-0 items-center gap-2 leading-none"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{fareText(total)}</strong>{!props.quoteRequest && priceReady && currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}{extrasCount > 0 && <span className="min-w-0 touch-pan-x overflow-x-auto whitespace-nowrap text-[12px] font-medium text-[#D32F2F] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{t("addons.including", { items: [seats > 0 ? (seats > 1 ? t("addons.childSeats", { count: seats }) : t("addons.childSeat")) : null, exchange ? t("addons.exchange") : null, ferry > 0 ? `${t("addons.ferryHotel")} × ${ferry}` : null].filter(Boolean).join(", ") })}</span>}</p>
         <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
       </div>
       <div className="mt-5 flex items-center gap-3">
@@ -727,7 +728,7 @@ export function BookingResultsMap(props: Props) {
           <span aria-hidden="true" className="addons-bubble pointer-events-none absolute -top-5 left-[5px] z-10 whitespace-nowrap rounded-full bg-[#FF1F2D] px-2 py-0.5 text-[11px] font-bold leading-[15px] text-white shadow-[0_2px_6px_rgba(0,0,0,.2)]">{t("addons.tag")}<span className="absolute -bottom-[4px] left-[15px] size-2 rotate-45 bg-[#FF1F2D]" /></span>
           {extrasCount > 0 && <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border-2 border-white bg-[#D32F2F] text-[11px] font-semibold text-white">{extrasCount}</span>}
         </button>}
-      <button disabled={disabled} onClick={props.onContinue} className="flex h-12 min-w-0 flex-1 items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">Continue</button>
+      <button disabled={disabled} onClick={props.onContinue} className="flex h-12 min-w-0 flex-1 items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">{props.quoteRequest ? "Request a quote" : "Continue"}</button>
       </div>
     </div>
 
@@ -867,7 +868,7 @@ export function BookingResultsMap(props: Props) {
               {ferryAvailable && ferry > 0 && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Ferry &amp; hotel transfer × {ferry}</span><span>{addonPrice(FERRY_HOTEL_THB * ferry)}</span></p>}
               {exchange && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Currency exchange stop</span><span>{addonPrice(freeNow.exchangeStop ? 0 : EXCHANGE_STOP_THB)}</span></p>}
               <p className="mt-4 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">{fareText(total)}</strong></p>
-              <p className="mt-1 text-right text-[14px] text-[#8A8A8A]">{!props.quoteRequest && currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
+              <p className="mt-1 text-right text-[14px] text-[#8A8A8A]">{!props.quoteRequest && priceReady && currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
             </div>
           </div>
         </DialogPrimitive.Content>

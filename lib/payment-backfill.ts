@@ -1,3 +1,4 @@
+import { toSatang } from "./money";
 import { getDb } from "@/db";
 import { bookingPayments, bookings } from "@/db/schema";
 import { unifiedPaymentValues } from "@/lib/payment-model";
@@ -11,6 +12,7 @@ export async function backfillUnifiedPaymentFields(limit = 100) {
       bookingReference: row.reference,
       ...unifiedPaymentValues(row),
       amountPaid: row.amountPaid,
+      amountPaidMinor: toSatang(row.amountPaid),
       currency: row.paymentCurrency,
       failureCode: row.paymentFailureCode,
       failureMessage: row.paymentFailureMessage,

@@ -36,3 +36,9 @@ test("refunds never exceed what is still refundable", () => {
   assert.equal(policy.customerRefundMinor(300000, 100, 300000), 0);
   assert.equal(policy.customerRefundMinor(300000, 150), 300000);
 });
+
+test("partial refunds consume the policy entitlement, not just the payment balance", () => {
+  assert.equal(policy.customerRefundMinor(300000, 50, 100000), 50000);
+  assert.equal(policy.customerRefundMinor(300000, 50, 150000), 0);
+  assert.equal(policy.customerRefundMinor(101, 50, 49), 1);
+});

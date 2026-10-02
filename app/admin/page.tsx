@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Building2, CircleAlert, ClipboardList, Gift, IdCard, UserX } from "lucide-react";
@@ -24,6 +25,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
 export default async function AdminOverviewPage() {
   const access = await requireWaydidiAdmin("/admin");
   if (!access.authorized) return <AdminKeyLogin configured={access.configured} />;
+  if(access.user.role!=="owner" && access.user.role!=="operations") redirect(access.user.role==="finance"?"/admin/payments":access.user.role==="editor"?"/admin/blog":"/admin/chat");
   const o = await adminOverview();
   const { alerts } = o;
   const ALERTS = [

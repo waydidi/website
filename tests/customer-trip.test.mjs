@@ -36,17 +36,17 @@ test("driver steps map to the customer timeline", () => {
   for (const [booking, driver, expected] of cases) assert.equal(rules.customerStage(booking, driver), expected, `${booking}/${driver}`);
 });
 
-test("the car is only visible after pickup, during the ride", () => {
+test("the car and pickup ETA are visible during the approach", () => {
   const visible = ["confirmed", "assigned", "on_the_way", "waiting", "on_trip", "arrived", "no_show", "cancelled"].filter(rules.locationVisible);
-  assert.deepEqual(visible, ["on_trip"]);
-  assert.equal(rules.etaTarget("on_the_way"), null);
+  assert.deepEqual(visible, ["on_the_way","waiting","on_trip"]);
+  assert.equal(rules.etaTarget("on_the_way"), "pickup");
   assert.equal(rules.etaTarget("on_trip"), "dropoff");
-  assert.equal(rules.etaTarget("waiting"), null);
+  assert.equal(rules.etaTarget("waiting"), "pickup");
 });
 
 test("stale driver positions are not shown as live", () => {
   const now = at("2026-10-01T05:00:00Z");
-  assert.ok(rules.freshLocation({ serverTimestamp: "2026-10-01T04:55:00Z" }, now));
+  assert.ok(rules.freshLocation({ serverTimestamp: "2026-10-01T04:59:00Z" }, now));
   assert.equal(rules.freshLocation({ serverTimestamp: "2026-10-01T04:49:00Z" }, now), null);
   assert.equal(rules.freshLocation(null, now), null);
 });

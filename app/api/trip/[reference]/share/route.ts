@@ -1,4 +1,5 @@
-import { journeyFor, journeysFor, parseLeg } from "@/lib/journey-legs";
+import { customerFromRequest, customerBooking } from "@/lib/customer-auth";
+import { journeyFor, parseLeg } from "@/lib/journey-legs";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { bookingEvents } from "@/db/schema";
@@ -12,8 +13,14 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   const reference = (await context.params).reference.toUpperCase();
   const resolved = await resolveTripAccess(request, reference);
   if (!resolved || resolved.access !== "owner") return NextResponse.json({ error: "Only the person who booked can share this trip." }, { status: 403 });
+  const verified=await customerFromRequest(request);
+  if(!verified||!await customerBooking(verified.customer,reference)) return NextResponse.json({error:"Verify your booking email before changing trip sharing."},{status:401});
   const input = (await request.json().catch(() => ({}))) as { action?: string };
   const now = new Date();
+  if (input.action === "revoke_owner") {
+    await getDb().insert(bookingEvents).values({bookingReference:reference,eventType:"trip_owner_revoked",createdAt:now.toISOString()});
+    return NextResponse.json({ok:true});
+  }
   if (input.action === "revoke") {
     await getDb().insert(bookingEvents).values({ bookingReference: reference, eventType: "trip_share_revoked", providerEventId: `trip-share-revoked:${reference}:${now.getTime()}`, createdAt: now.toISOString() });
     return NextResponse.json({ ok: true });

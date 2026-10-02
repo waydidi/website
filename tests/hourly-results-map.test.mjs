@@ -27,7 +27,7 @@ test("hourly operations review retains the map and selectable vehicles without f
   assert.match(html, /On request/);
   assert.match(html, /Quote on request/);
   assert.doesNotMatch(html, /1,800|2,900|Best value|Price held for 30 minutes|FREE Cancellation/);
-  const continueButton = html.match(/<button[^>]*>Continue<\/button>/)?.[0];
+  const continueButton = html.match(/<button[^>]*>Request a quote<\/button>/)?.[0];
   assert.ok(continueButton);
   assert.doesNotMatch(continueButton, /disabled=""/);
   assert.match(html, /disabled=""[^>]*aria-pressed="false"/);
@@ -44,3 +44,5 @@ test("an area alone cannot allow continuing without a quote or review authorizat
   const html = render({ checkoutReady: false });
   assert.match(html.match(/<button[^>]*>Continue<\/button>/)?.[0] ?? "", /disabled=""/);
 });
+
+ test("pending quotes show placeholders and never fabricated fares",()=>{const html=render({checkoutReady:false,loading:true});assert.match(html,/Loading quote/);assert.doesNotMatch(html,/1,800|2,900|Best value/);});

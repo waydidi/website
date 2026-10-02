@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { and, count, eq, gt, lt } from "drizzle-orm";
+import { lt } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { customerLoginCodes } from "@/db/schema";
@@ -21,16 +21,10 @@ export async function POST(request: Request) {
   const now = new Date();
   await getDb().delete(customerLoginCodes).where(lt(customerLoginCodes.expiresAt, new Date(now.getTime() - 86_400_000).toISOString()));
   const hourAgo = new Date(now.getTime() - 3_600_000).toISOString();
-  const [{ recent }] = await getDb().select({ recent: count() }).from(customerLoginCodes)
-    .where(and(eq(customerLoginCodes.email, email), gt(customerLoginCodes.createdAt, hourAgo)));
-  if (recent >= MAX_CODES_PER_EMAIL_PER_HOUR) return NextResponse.json({ error: "Too many codes requested for this email. Please wait an hour." }, { status: 429 });
-
   const id = crypto.randomUUID();
   const code = generateSignInCode();
-  await getDb().insert(customerLoginCodes).values({
-    id, email, codeHash: await sha256(`${id}:${code}`), attempts: 0,
-    expiresAt: new Date(now.getTime() + CODE_MINUTES * 60_000).toISOString(), createdAt: now.toISOString(),
-  });
+  const claimed=await env.DB.prepare("INSERT INTO customer_login_codes(id,email,code_hash,attempts,expires_at,created_at) SELECT ?,?,?,0,?,? WHERE (SELECT COUNT(*) FROM customer_login_codes WHERE email=? AND created_at>?)<? RETURNING id").bind(id,email,await sha256(`${id}:${code}`),new Date(now.getTime()+CODE_MINUTES*60000).toISOString(),now.toISOString(),email,hourAgo,MAX_CODES_PER_EMAIL_PER_HOUR).first();
+  if(!claimed) return NextResponse.json({error:"Too many codes requested for this email. Please wait an hour."},{status:429});
   const sent = await sendAccountSignInCode({ to: email, code, codeId: id });
   if (sent.status !== "sent") return NextResponse.json({ error: "We could not send the code right now. Please try again shortly." }, { status: 503 });
   return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });

@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { bookingEvents, bookings, journeyExceptions, journeyLocations, journeyStopDeclarations } from "@/db/schema";
+import { bookings, journeyExceptions, journeyLocations, journeyStopDeclarations } from "@/db/schema";
 import { activeAssignmentForToken, distanceMetres as pointDistanceMetres } from "@/lib/driver-operations";
 import { decodePolyline, distanceToRouteMetres } from "@/lib/route-deviation";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   const input = await request.json() as { token?: string; latitude?: number; longitude?: number; accuracyMetres?: number; clientTimestamp?: string; sequenceNumber?: number };
   const assignment = await activeAssignmentForToken(input.token ?? "");
   if (!assignment) return NextResponse.json({ error: "Driver session unavailable." }, { status: 404 });
-  if (!["trip_started", "passenger_picked_up"].includes(assignment.currentStatus)) return NextResponse.json({ error: "Live tracking is not active for this journey." }, { status: 409 });
+  if (!["going_to_standby","standby","passenger_verified","trip_started", "passenger_picked_up"].includes(assignment.currentStatus)) return NextResponse.json({ error: "Live tracking is not active for this journey." }, { status: 409 });
   const [parent] = await getDb().select().from(bookings).where(eq(bookings.reference, assignment.bookingReference)).limit(1);
   const booking = parent ? await journeyFor(parent,parseLeg(assignment.leg)) : null;
   if (!booking || booking.status !== "confirmed") return NextResponse.json({ error: "This journey is no longer active." }, { status: 409 });
@@ -48,8 +48,9 @@ export async function POST(request: Request) {
   const purgeAfter = new Date(now.getTime() + RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const quality = accuracy <= 200 ? "good" : "weak";
   const result = await env.DB.prepare(`INSERT OR IGNORE INTO journey_locations (id, booking_reference, assignment_id, driver_id, latitude, longitude, accuracy_metres, client_timestamp, server_timestamp, sequence_number, quality, purge_after) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(crypto.randomUUID(), assignment.bookingReference, assignment.id, assignment.driverId, latitude, longitude, accuracy, clientTime.toISOString(), serverTimestamp, sequence, quality, purgeAfter).run();
+  const riding=["trip_started","passenger_picked_up"].includes(assignment.currentStatus);
   let deviation: { status: string; distanceMetres: number; corridorMetres: number } | null = null;
-  if ((result.meta.changes ?? 0) > 0 && quality === "good") {
+  if (riding && (result.meta.changes ?? 0) > 0 && quality === "good") {
     const encoded = await expectedPolyline(booking).catch(() => null);
     if (encoded) {
       const route = decodePolyline(encoded);
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
     }
   }
   let abnormalStop: { status: string; durationSeconds: number; reason?: string } | null = null;
-  if ((result.meta.changes ?? 0) > 0 && quality === "good") {
+  if (riding && (result.meta.changes ?? 0) > 0 && quality === "good") {
     const stopRadiusMetres = configuredNumber(env.WAYDIDI_STOP_RADIUS_METRES, 100, 30, 500);
     const minimumPoints = configuredNumber(env.WAYDIDI_STOP_MIN_POINTS, 8, 4, 40);
     const baseMinutes = booking.serviceType === "hourly"
