@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CalendarPlus, Car, Check, ChevronDown, Clock, Copy, FileText, LoaderCircle, Map as MapIcon, Plus } from "lucide-react";
+import { ArrowLeft, Share2, CalendarPlus, Car, Check, ChevronDown, Clock, Copy, FileText, LoaderCircle, Map as MapIcon, Plus } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { NewBookingButton } from "@/components/bookings-admin/new-booking";
@@ -61,7 +61,7 @@ export function CreateMenu({ service, waiting = 0 }: { service: FormService; wai
                     </div>
                     <div className="mt-2.5 flex items-center gap-2 text-[13px]">
                       <span className={`font-semibold ${mine.copied ? "text-emerald-700" : "text-slate-500"}`}>{mine.copied ? "Link copied" : "Tap the copy button to copy"}</span>
-                      <a href={`https://wa.me/?text=${encodeURIComponent(`Please fill in your ride details here: ${mine.url}`)}`} target="_blank" rel="noreferrer" className="ml-auto rounded-full bg-[#25D366] px-3 py-1.5 font-semibold text-white">WhatsApp</a>
+                      <ShareLink url={mine.url} />
                     </div>
                   </>}
               </div>}
@@ -80,4 +80,29 @@ export function CreateMenu({ service, waiting = 0 }: { service: FormService; wai
     </Dialog>
     <NewBookingButton service={service} openSignal={bookingSignal} openKind={kind} />
   </>;
+}
+
+// One "Share" button: the phone's share sheet (WhatsApp, LINE, KakaoTalk, Messages, Messenger…),
+// or a short list of apps where the browser has no share sheet (most desktops; Messenger and
+// KakaoTalk need the phone share sheet).
+function ShareLink({ url }: { url: string }) {
+  const [menu, setMenu] = useState(false);
+  const text = "Please fill in your ride details here:";
+  const msg = encodeURIComponent(`${text} ${url}`);
+  const apps: [string, string][] = [
+    ["WhatsApp", `https://wa.me/?text=${msg}`],
+    ["LINE", `https://line.me/R/share?text=${msg}`],
+    ["Telegram", `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`],
+    ["Messages (SMS)", `sms:?&body=${msg}`],
+    ["Email", `mailto:?subject=${encodeURIComponent("Your Waydidi ride details")}&body=${msg}`],
+  ];
+  return <span className="relative ml-auto">
+    <button type="button" onClick={() => {
+      if (typeof navigator.share === "function") { void navigator.share({ title: "Waydidi ride details", text, url }).catch(() => undefined); return; }
+      setMenu((m) => !m);
+    }} className="inline-flex items-center gap-1.5 rounded-full bg-[#FF8A05] px-3 py-1.5 font-semibold text-white hover:bg-[#E67900]"><Share2 size={14} />Share</button>
+    {menu && <span className="absolute right-0 top-9 z-10 grid w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+      {apps.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" onClick={() => setMenu(false)} className="px-3 py-2 text-[13px] font-medium text-slate-800 hover:bg-orange-50">{label}</a>)}
+    </span>}
+  </span>;
 }
