@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const TABS = [["Areas", "/admin/pricing"], ["Hourly", "/admin/hourly"]] as const;
+const TABS = [["Areas", "/admin/pricing"], ["Hourly", "/admin/hourly"], ["Seasons", "/admin/seasons"]] as const;
 
 // Phone-only sub-tabs of "Fare management" (desktop uses the sidebar dropdown): area fares and hourly pricing.
 export function FareTabs({ current }: { current: (typeof TABS)[number][1] }) {

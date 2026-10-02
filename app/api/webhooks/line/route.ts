@@ -4,7 +4,9 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { bookingAssignments, bookingEvents, bookingForms, bookings, drivers, driverStatusEvents } from "@/db/schema";
 import { notifyLineDriverPayment, replyLine, verifyLineSignature } from "@/lib/line";
-import { bookedCard, getLineState, setLineState } from "@/lib/line-forms";
+import { bookedCard, getLineState, pricePrompt, setLineState } from "@/lib/line-forms";
+import { suggestFormPrice } from "@/lib/price-suggest";
+import type { FormAnswers, FormService } from "@/lib/booking-form";
 import { bookFromForm } from "@/lib/form-booking";
 import { safeOrigin } from "@/lib/security";
 
@@ -53,9 +55,17 @@ async function handleFormPricing(event: LineEvent, origin: string) {
     const token = event.postback.data.slice(6);
     const [form] = await getDb().select().from(bookingForms).where(eq(bookingForms.token, token)).limit(1);
     if (!form || form.status !== "submitted") { await reply([{ type: "text", text: form?.status === "booked" ? `Already booked as ${form.bookingReference}.` : "That form can't be priced any more." }]); return true; }
-    const name = form.answers ? (JSON.parse(form.answers) as { name?: string }).name ?? "this customer" : "this customer";
+    const answers = form.answers ? JSON.parse(form.answers) as FormAnswers : null;
     await setLineState(pendingKey, token);
-    await reply([{ type: "text", text: `Type the price for ${name} in THB.` }]);
+    const suggestion = answers ? await suggestFormPrice(form.serviceType as FormService, answers).catch(() => null) : null;
+    await reply([pricePrompt(token, answers?.name ?? "this customer", suggestion)]);
+    return true;
+  }
+  // Quick reply: book straight away at the tapped price.
+  if (event.type === "postback" && event.postback?.data?.startsWith("book:")) {
+    const [, token, amount] = event.postback.data.split(":");
+    await setLineState(pendingKey, null);
+    await book(token, Number(amount));
     return true;
   }
   if (event.type !== "message" || event.message?.type !== "text") return false;
@@ -64,13 +74,18 @@ async function handleFormPricing(event: LineEvent, origin: string) {
   const typed = (event.message.text ?? "").replace(/[฿,\s]|thb|baht/giu, "");
   if (!/^\d{1,7}$/u.test(typed)) { await reply([{ type: "text", text: "Please type the price as a number, e.g. 3400." }]); return true; }
   await setLineState(pendingKey, null);
-  try {
-    const result = await bookFromForm(token, Number(typed), origin);
-    if ("error" in result) { await reply([{ type: "text", text: result.error }]); return true; }
-    await reply([bookedCard({ reference: result.reference, name: result.name, total: result.total, emailSent: result.emailStatus === "sent", bookingUrl: `${origin}/admin/journeys/${result.reference}` })]);
-  } catch (error) {
-    console.error("LINE form booking failed", error);
-    await reply([{ type: "text", text: "The booking couldn't be saved. Please open the form in admin." }]);
-  }
+  await book(token, Number(typed));
   return true;
+
+  async function book(formToken: string, price: number) {
+    if (!Number.isInteger(price) || price < 0 || price > 1_000_000) { await reply([{ type: "text", text: "That price isn't valid." }]); return; }
+    try {
+      const result = await bookFromForm(formToken, price, origin);
+      if ("error" in result) { await reply([{ type: "text", text: result.error }]); return; }
+      await reply([bookedCard({ reference: result.reference, name: result.name, total: result.total, emailSent: result.emailStatus === "sent", bookingUrl: `${origin}/admin/journeys/${result.reference}` })]);
+    } catch (error) {
+      console.error("LINE form booking failed", error);
+      await reply([{ type: "text", text: "The booking couldn't be saved. Please open the form in admin." }]);
+    }
+  }
 }

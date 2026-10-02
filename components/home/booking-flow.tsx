@@ -893,7 +893,7 @@ export function BookingFlow({
         const prices = trip!.prices;
         const demoInclusions = resolveInclusions({ lat: DEMO_PICKUP.latitude, lng: DEMO_PICKUP.longitude }, { lat: trip!.dropoff.latitude, lng: trip!.dropoff.longitude }, ROUTE_RULES);
         // Save the sample route as a real quote so it can be booked (cash or card).
-        let ids: { quoteId?: string; returnQuoteId?: string | null } = {};
+        let ids: { quoteId?: string; returnQuoteId?: string | null; prices?: Record<string, { total: number; basePrice: number; distanceSurcharge: number }>; returnPrices?: Record<string, { total: number; basePrice: number; distanceSurcharge: number }> | null } = {};
         try {
           const res = await fetch("/api/demo-quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pickup: booking.pickup, dropoff: booking.dropoff, date: booking.date, time: booking.time, ...(returnTrip ? { returnDate, returnTime } : {}), distanceMeters: route.distanceMeters, durationSeconds: route.durationSeconds }) });
           if (res.ok) ids = await res.json();
@@ -908,7 +908,7 @@ export function BookingFlow({
           pickup: DEMO_PICKUP,
           dropoff: trip!.dropoff,
           inclusions: demoInclusions,
-          prices: Object.fromEntries(Object.entries(prices).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
+          prices: ids.prices ?? Object.fromEntries(Object.entries(prices).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
           expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
         });
         // Prototype round trip: the return leg reuses the sample route and prices.
@@ -923,14 +923,14 @@ export function BookingFlow({
             pickup: trip!.dropoff,
             dropoff: DEMO_PICKUP,
             inclusions: demoInclusions,
-            prices: Object.fromEntries(Object.entries(prices).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
+            prices: ids.returnPrices ?? Object.fromEntries(Object.entries(prices).map(([id, total]) => [id, { total, basePrice: total, distanceSurcharge: 0 }])),
             expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
           });
           setQuoteSummary({
             currency: "THB",
             outbound: journey(ids.quoteId ?? "demo", booking.pickup, booking.dropoff, booking.date, booking.time),
             return: journey(ids.returnQuoteId ?? "demo-return", booking.dropoff, booking.pickup, returnDate, returnTime),
-            prices: Object.fromEntries(Object.entries(prices).map(([id, total]) => [id, { outbound: total, return: total, total: total * 2 }])),
+            prices: Object.fromEntries(Object.entries(prices).map(([id, total]) => { const out = ids.prices?.[id]?.total ?? total, back = ids.returnPrices?.[id]?.total ?? total; return [id, { outbound: out, return: back, total: out + back }]; })),
           });
         } else {
           setReturnFareQuote(null);

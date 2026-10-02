@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { and, count, eq, gt } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { withSeason } from "@/lib/seasons";
 import { getDb } from "@/db";
 import { checkoutAttempts, fareQuotes } from "@/db/schema";
 import { BOOKING_TIMEZONE, bangkokDepartureIso } from "@/lib/booking-time";
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
     const durationSeconds = Math.round(
       Number.parseFloat(route.duration.replace("s", "")),
     );
-    const prices = await pricesForArea(area.id, route.distanceMeters);
+    const prices = await withSeason(await pricesForArea(area.id, route.distanceMeters), input.pickupDate, { service: "transfer", areaId: area.id });
     const inclusions = await loadInclusions(
       { lat: pickup.location.latitude, lng: pickup.location.longitude },
       { lat: dropoff.location.latitude, lng: dropoff.location.longitude },

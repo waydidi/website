@@ -1310,3 +1310,23 @@ export const lineState = sqliteTable("line_state", {
   value: text("value").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+// Seasonal price adjustments (holidays and travel seasons that affect driver supply).
+// The pickup date picks the season; when several match, only the highest adjustment applies.
+export const priceSeasons = sqliteTable("price_seasons", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  // YYYY-MM-DD, or MM-DD when the season repeats every year (end before start wraps over New Year).
+  startsOn: text("starts_on").notNull(),
+  endsOn: text("ends_on").notNull(),
+  repeatsYearly: integer("repeats_yearly", { mode: "boolean" }).notNull().default(false),
+  adjustmentType: text("adjustment_type").notNull().default("percent"), // "percent" | "fixed"
+  adjustment: integer("adjustment").notNull(),
+  service: text("service").notNull().default("all"), // "all" | "transfer" | "hourly"
+  areaIds: text("area_ids"), // JSON list of fare area ids; null = every area
+  vehicleIds: text("vehicle_ids"), // JSON list of vehicle ids; null = every vehicle
+  reason: text("reason"),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

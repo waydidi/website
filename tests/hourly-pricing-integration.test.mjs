@@ -11,6 +11,8 @@ for (const name of (await readdir(root + '/drizzle')).filter(n => n.endsWith('.s
   const statements = (await readFile(root + '/drizzle/' + name, 'utf8')).replace(/--[^\n]*/g, '').split(';').map(s => s.trim()).filter(Boolean);
   if (statements.length) await d1.batch(statements.map(s => d1.prepare(s)));
 }
+// Base-price tests: seasons are switched off here and checked on their own below.
+await d1.prepare('UPDATE price_seasons SET active = 0').run();
 globalThis.__hourlyTestEnv = { DB: d1, GOOGLE_MAPS_SERVER_KEY: 'mock', RATE_LIMIT_SALT: 'isolated-test-secret' };
 globalThis.__hourlyAdmin = true;
 const vite = await createServer({ root, configFile: false, appType: 'custom', resolve: { alias: { '@': root } }, plugins: [{ name: 'hourly-boundaries', enforce: 'pre', resolveId(id) {
@@ -74,6 +76,18 @@ test('local 6-hour sedan costs 1800 and has explicit unlimited distance and incl
   assert.equal(result.status, 200); assert.equal(result.body.cityToCity, false);
   assert.equal(result.body.prices.economy_sedan.total, 1800);
   assert.equal(result.body.inclusions.unlimitedKilometres, true); assert.equal(result.body.inclusions.tollsIncluded, true);
+});
+test('an active season raises the hourly price, and only the highest overlapping season applies', async () => {
+  await d1.batch([
+    d1.prepare("INSERT INTO price_seasons (id,name,starts_on,ends_on,repeats_yearly,adjustment_type,adjustment,service,active,created_at,updated_at) VALUES ('t-low','Test low',?,?,0,'percent',10,'all',1,'x','x')").bind(date, date),
+    d1.prepare("INSERT INTO price_seasons (id,name,starts_on,ends_on,repeats_yearly,adjustment_type,adjustment,service,active,created_at,updated_at) VALUES ('t-high','Test high',?,?,0,'percent',20,'hourly',1,'x','x')").bind(date, date),
+  ]);
+  try {
+    const result = await quote({ dropoffPlaceId: 'bangkok', areaSlug: 'phuket' });
+    assert.equal(result.status, 200);
+    assert.equal(result.body.prices.economy_sedan.total, 2200); // 1800 + 20% = 2160, rounded up to 50
+    assert.equal(result.body.prices.economy_sedan.seasonName, 'Test high');
+  } finally { await d1.prepare("DELETE FROM price_seasons WHERE id IN ('t-low','t-high')").run(); }
 });
 test('airport pickup belongs to Bangkok pricing', async () => {
   const result = await quote({ pickupPlaceId: 'airport' }); assert.equal(result.status, 200); assert.equal(result.body.cityPairId, 'bangkok-pattaya');

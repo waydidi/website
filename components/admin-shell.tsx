@@ -16,7 +16,7 @@ import { AvatarMenu } from "@/components/admin-settings/avatar-menu";
 import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings/settings-dialog";
 
 // "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
-const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly"))));
+const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/seasons"))));
 
 const tabs = [
   { href: "/admin/payments", label: "Payments", mobileLabel: "Payments", title: "Payments", icon: BarChart3 },
@@ -133,6 +133,7 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
     { href: "/admin/pricing", label: "Fare management", icon: MapPinned, children: [
       { href: "/admin/pricing", label: "Areas" },
       { href: "/admin/hourly", label: "Hourly" },
+      { href: "/admin/seasons", label: "Seasons" },
     ] },
   ] },
   { title: "Marketing", items: [

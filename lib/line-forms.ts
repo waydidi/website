@@ -58,7 +58,7 @@ const header = (kicker: string, title: string, color: string) => ({
 });
 
 /** The orange "needs price" card for a submitted form. */
-export function formCard(input: { token: string; service: FormService; answers: FormAnswers; adminUrl: string; note?: string | null; agency?: string | null; presetPrice?: number | null }) {
+export function formCard(input: { token: string; service: FormService; answers: FormAnswers; adminUrl: string; note?: string | null; agency?: string | null; presetPrice?: number | null; suggested?: { amount: number; detail: string } | null }) {
   const a = input.answers;
   const vehicle = VEHICLES[a.vehicle as keyof typeof VEHICLES];
   const services = [
@@ -78,6 +78,7 @@ export function formCard(input: { token: string; service: FormService; answers: 
   if (services.length) body.push({ type: "text", text: "Additional services", size: "sm", color: "#8A8190", margin: "md" }, { type: "text", text: services.join(" · "), size: "sm", color: "#C96100", weight: "bold", wrap: true });
   if (input.agency || input.note) body.push(sep, ...(input.agency ? [row("Agency", input.agency)] : []), ...(input.note ? [row("Note", input.note)] : []));
   if (input.presetPrice != null) body.push(row("Preset price", `${input.presetPrice.toLocaleString("en-US")} THB`));
+  if (input.suggested) body.push(sep, row("Suggested", `${input.suggested.amount.toLocaleString("en-US")} THB`), { type: "text", text: input.suggested.detail, size: "xxs", color: "#8A8190", align: "end", wrap: true });
   return {
     type: "flex", altText: `New form: ${a.name} — needs a price`,
     contents: {
@@ -109,5 +110,18 @@ export function bookedCard(input: { reference: string; name: string; total: numb
         { type: "button", style: "secondary", action: { type: "uri", label: "Open booking", uri: input.bookingUrl } },
       ] },
     },
+  };
+}
+
+/** "Type the price" prompt with the suggestion and one-tap quick replies (suggestion and ±10%). */
+export function pricePrompt(token: string, name: string, suggested: { amount: number; detail: string } | null) {
+  const text = suggested
+    ? `Type the price for ${name} in THB.\n💡 Suggested: ${suggested.amount.toLocaleString("en-US")} THB (${suggested.detail})\nTap a price below or type your own.`
+    : `Type the price for ${name} in THB.\nNo fare area matches this route, so there's no suggestion.`;
+  const round = (n: number) => Math.max(50, Math.round(n / 50) * 50);
+  const options = suggested ? [...new Set([round(suggested.amount), round(suggested.amount * 1.1), round(suggested.amount * 0.9)])] : [];
+  return {
+    type: "text", text,
+    ...(options.length ? { quickReply: { items: options.map((amount) => ({ type: "action", action: { type: "postback", label: `${amount.toLocaleString("en-US")} THB`, data: `book:${token}:${amount}`, displayText: `${amount}` } })) } } : {}),
   };
 }

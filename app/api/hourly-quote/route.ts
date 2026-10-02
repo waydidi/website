@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
+import { withSeason } from "@/lib/seasons";
 import { getDb } from "@/db";
 import { hourlyQuotes } from "@/db/schema";
 import { hourlyQuoteInputSchema, validationError } from "@/lib/booking-validation";
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
     } else {
       prices = await areaHourlyPrices(origin, hours);
     }
+    if (prices) prices = await withSeason(prices, input.pickupDate, { service: "hourly", areaId: origin });
     if (prices) prices = Object.fromEntries(Object.entries(prices).filter(([v]) => serviceArea.rates[v as keyof typeof serviceArea.rates]?.active && endpointAreas.every((a) => a.rates[v as keyof typeof a.rates]?.active)));
     if (!prices || !Object.keys(prices).length) return operationsQuote("Operations will confirm vehicle availability for this itinerary.");
     const id = crypto.randomUUID(), now = new Date(), expiresAt = new Date(now.getTime() + HOURLY_QUOTE_MINUTES * 60000).toISOString();
