@@ -167,7 +167,8 @@ ${p("Best regards,<br>Waydidi Team")}
 
   return resend({
     to: [input.to],
-    subject: input.subject ?? `Booking confirmation · ${input.reference} · Waydidi Travel`,
+    // City-to-city hourly bookings ("Bangkok ↔ Pattaya") are a trip; everything else is a ride.
+    subject: input.subject ?? `Reference ID: ${input.reference} (${input.pricingArea?.includes("↔") ? "Your Trip is Booked" : "Your Ride is Booked"})`,
     html,
     text,
     attachments: [

@@ -63,7 +63,6 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
   // Waydidi gets the same email and PDF as the customer; the plain alert is only a fallback.
   const office = await (env.BOOKING_ALERT_EMAIL ? sendConfirmationEmail({
     to: env.BOOKING_ALERT_EMAIL, name: booking.customerName, surname: booking.customerSurname, flightNumber: booking.flightNumber,
-    subject: `New booking ${booking.reference} · ${[booking.customerName, booking.customerSurname].filter(Boolean).join(" ")}`,
     reference: booking.reference, pdf,
     pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate,
     pickupTime: booking.pickupTime, vehicle: booking.vehicle, customerPhone: booking.customerPhone,
