@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 import { ArrowRight, BadgeCheck, CarFront, ChevronDown, Clock, Headphones, Luggage, MapPin, Plane, Route, ShieldCheck, Timer, UserRoundCheck } from "lucide-react";
 import { PublicFooter } from "@/components/public-footer";
 import { BookingFlow } from "@/components/home/booking-flow";
+import { DestinationGuides } from "@/components/destination-guides";
+import { guidesForDestination } from "@/lib/destination-guides";
+import { publishedPosts } from "@/lib/blog-store";
 import { Breadcrumbs, JsonLd, breadcrumbSchema, faqSchema } from "@/components/seo";
 import { destinations, SITE_URL, type Destination } from "@/lib/public-content";
 
@@ -67,6 +70,9 @@ export default async function DestinationPage({params}:{params:Promise<{slug:str
 
   {/* Nearby destinations: square place cards */}
   {nearby.length ? <section className="mx-auto max-w-[1180px] px-5 pb-16"><h2 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Popular destinations near {d.name}</h2><div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">{nearby.map(n=><PlaceCard key={n.slug} place={n}/>)}</div></section> : null}
+
+  {/* City travel guides from the blog */}
+  <DestinationGuides city={d.name} posts={guidesForDestination(d.slug, d.name, await publishedPosts())} fallbackImage={d.image} />
 
   {/* Why Waydidi: tinted feature panel */}
   <section className="px-3 sm:px-5"><div className="mx-auto max-w-[1440px] rounded-[30px] bg-[#FFF0DF] px-5 py-14 sm:py-16"><div className="mx-auto grid max-w-[1180px] gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">{features.map(({title,text,icon:Icon})=><div key={title}><Icon className="text-[#D96F00]"/><h3 className="mt-4 text-xl font-black">{title}</h3><p className="mt-2 leading-7 text-slate-700">{text}</p></div>)}</div></div></section>
