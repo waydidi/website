@@ -140,7 +140,7 @@ export async function POST(request: Request) {
       );
     const id = crypto.randomUUID();
     const now = new Date();
-    const expiresAt = "9999-12-31T23:59:59.999Z";
+    const expiresAt = new Date(now.getTime()+30*60*1000).toISOString();
     await getDb()
       .insert(fareQuotes)
       .values({

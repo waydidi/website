@@ -100,9 +100,10 @@ export default function BookingLookup() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reference, surname }),
     });
-    const value = (await r.json()) as { error?: string };
+    const value = (await r.json()) as { error?: string; verificationRequired?: boolean };
     setLoading(false);
     if (!r.ok) {
+      if (value.verificationRequired) { window.location.assign("/account/sign-in?next=%2Fbooking%2Fmanage"); return; }
       setError(value.error ?? "Booking could not be opened.");
       return;
     }
@@ -125,7 +126,7 @@ export default function BookingLookup() {
     }
     await load();
     setMessage(
-      path.endsWith("change-request")
+      path.endsWith("/share") ? "Previously issued owner tracking links have been revoked. The new link above expires after 24 hours." : path.endsWith("change-request")
           ? "Your journey-change request was sent to Waydidi for review. Your confirmed booking has not changed."
           : "Your pickup date and time have been updated.",
     );
@@ -321,6 +322,7 @@ export default function BookingLookup() {
                     Track your trip
                   </a>
                 )}
+                <button type="button" disabled={loading} onClick={()=>void action(`/api/trip/${encodeURIComponent(b.reference)}/share`,{action:"revoke_owner"})} className="mt-3 text-sm font-semibold underline">Revoke previously issued tracking links</button>
                 <div className="mt-7 grid gap-6 sm:grid-cols-2">
                   <Detail label="Pickup" value={b.pickup} />
                   <Detail label="Drop-off" value={b.dropoff} />

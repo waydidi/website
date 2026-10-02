@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import {
   Camera,
@@ -21,7 +22,6 @@ import {
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WaydidiLogo } from "@/components/waydidi-logo";
-import { THAI_BANKS } from "@/lib/thai-banks";
 import { clearQueuedStep, queuedStepForm, readQueuedStep, saveQueuedStep, type QueuedDriverStep } from "@/lib/driver-step-queue";
 import { distanceMetres, NO_SHOW_MIN_NOTE_LENGTH } from "@/lib/trip-rules";
 
@@ -43,7 +43,7 @@ type Trip = {
     passengerVerificationMethod: string | null;
     passengerVerificationAttemptsRemaining: number;
   };
-  driver: { fullName: string; phone: string; bankCode: string; bankAccountNumber: string; bankAccountName: string };
+  driver: { fullName: string; phone: string };
   booking: {
     reference: string;
     customerName: string;
@@ -119,7 +119,9 @@ const steps: Array<{
   },
 ];
 
-export default function DriverTripClient({ token }: { token: string }) {
+export default function DriverTripClient({ token: initialToken }: { token: string }) {
+  const token="session";
+  const exchange=useRef<Promise<Response> | null>(null);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -140,10 +142,6 @@ export default function DriverTripClient({ token }: { token: string }) {
   const [stopReason, setStopReason] = useState("");
   const [stopNote, setStopNote] = useState("");
   const [stopBusy, setStopBusy] = useState(false);
-  const [bankCode, setBankCode] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [accountName, setAccountName] = useState("");
-  const [bankBusy, setBankBusy] = useState(false);
   const [pending, setPending] = useState<QueuedDriverStep | null>(null);
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [noShowNote, setNoShowNote] = useState("");
@@ -154,6 +152,12 @@ export default function DriverTripClient({ token }: { token: string }) {
   const load = useCallback(async () => {
     setError("");
     try {
+      if(initialToken!=="session") {
+        exchange.current??=fetch("/api/driver/session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:initialToken})});
+        const session=await exchange.current;
+        if(!session.ok) throw new Error("Driver link expired or revoked.");
+        window.history.replaceState(null,"","/driver/trip/session");
+      }
       const response = await fetch(
         `/api/driver/trips/${encodeURIComponent(token)}`,
         { cache: "no-store" },
@@ -161,22 +165,18 @@ export default function DriverTripClient({ token }: { token: string }) {
       const result = (await response.json()) as Trip & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Trip unavailable.");
     setTrip(result);
-      if (result.driver) {
-        setBankCode((value) => value || result.driver.bankCode || "");
-        setAccountNumber((value) => value || result.driver.bankAccountNumber || "");
-        setAccountName((value) => value || result.driver.bankAccountName || "");
-      }
+
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Trip unavailable.");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token,initialToken]);
 
   useEffect(() => {
-    load();
+    const first=window.setTimeout(()=>void load(),0);
     const timer = window.setInterval(load, 20_000);
-    return () => window.clearInterval(timer);
+    return () => {window.clearTimeout(first);window.clearInterval(timer);};
   }, [load]);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -232,13 +232,13 @@ export default function DriverTripClient({ token }: { token: string }) {
     return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener("online", flush); };
   }, [assignmentId, sendStep]);
 
+  const trackingStatus=trip?.assignment.currentStatus;
   useEffect(() => {
-    if (!trip || !["trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus)) {
-      setTrackingState("off");
+    if (!assignmentId || !["going_to_standby","standby","passenger_verified","trip_started", "passenger_picked_up"].includes(trackingStatus??"")) {
       return;
     }
-    const queueKey = `waydidi-location-queue:${trip.assignment.id}`;
-    const sequenceKey = `waydidi-location-sequence:${trip.assignment.id}`;
+    const queueKey = `waydidi-location-queue:${assignmentId}`;
+    const sequenceKey = `waydidi-location-sequence:${assignmentId}`;
     let cancelled = false;
     const readQueue = (): LocationPing[] => {
       try { return JSON.parse(localStorage.getItem(queueKey) ?? "[]") as LocationPing[]; } catch { return []; }
@@ -272,13 +272,12 @@ export default function DriverTripClient({ token }: { token: string }) {
       }, () => setTrackingState("error"), { enableHighAccuracy: true, timeout: 20_000, maximumAge: 15_000 });
     };
     const resume = () => { if (document.visibilityState === "visible") { void flush().then(capture); } };
-    setTrackingState("active");
-    void flush().then(capture);
+    const first=window.setTimeout(()=>void flush().then(capture),0);
     const timer = window.setInterval(capture, 45_000);
     window.addEventListener("online", flush);
     document.addEventListener("visibilitychange", resume);
-    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener("online", flush); document.removeEventListener("visibilitychange", resume); };
-  }, [trip?.assignment.currentStatus, trip?.assignment.id, token, trackingRetry]);
+    return () => { cancelled = true; window.clearTimeout(first); window.clearInterval(timer); window.removeEventListener("online", flush); document.removeEventListener("visibilitychange", resume); };
+  }, [trackingStatus, assignmentId, token, trackingRetry]);
 
   const progressStatuses = ["assigned", ...steps.map((step) => step.status)];
   const currentIndex = trip
@@ -472,18 +471,6 @@ export default function DriverTripClient({ token }: { token: string }) {
     } finally { setStopBusy(false); }
   }
 
-  async function saveBankDetails() {
-    if (bankBusy) return;
-    setBankBusy(true); setError("");
-    try {
-      const response = await fetch("/api/driver/bank", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, bankCode, accountNumber, accountName }) });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "บันทึกข้อมูลบัญชีไม่สำเร็จ");
-      setMessage("บันทึกข้อมูลบัญชีสำหรับงานนี้แล้ว");
-      await load();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "บันทึกข้อมูลบัญชีไม่สำเร็จ"); }
-    finally { setBankBusy(false); }
-  }
 
   if (loading)
     return (
@@ -510,7 +497,7 @@ export default function DriverTripClient({ token }: { token: string }) {
       </main>
     );
 
-  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(["trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) ? trip.booking.dropoff : trip.booking.pickup)}`;
+  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(["going_to_standby","standby","passenger_verified","trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) ? trip.booking.dropoff : trip.booking.pickup)}`;
   const completionEvent = trip.events.find(
     (event) => event.status === "completed",
   );
@@ -520,13 +507,13 @@ export default function DriverTripClient({ token }: { token: string }) {
       <header className="bg-[#FF8A05] px-5 pb-8 pt-5 text-white">
         <div className="mx-auto max-w-xl">
           <div className="flex items-center justify-between">
-            <a
+            <Link
               href="/"
               aria-label="Waydidi home"
               className="inline-flex text-white"
             >
               <WaydidiLogo className="h-[53px] w-auto" />
-            </a>
+            </Link>
             {!online && (
               <span className="inline-flex items-center gap-2 rounded-full bg-red-700 px-3 py-2 text-xs font-bold">
                 <WifiOff size={15} /> Offline
@@ -605,14 +592,14 @@ export default function DriverTripClient({ token }: { token: string }) {
           >
             <Navigation size={18} /> เปิด Google Maps <ExternalLink size={15} />
           </a>
-          {["trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) && (
+          {["going_to_standby","standby","passenger_verified","trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) && (
             <div className={`mt-3 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-bold ${trackingState === "error" ? "bg-red-50 text-red-700" : trackingState === "queued" ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>
               <span className="flex items-center gap-2"><LocateFixed size={18}/>{trackingState === "error" ? "ต้องอนุญาตตำแหน่งสดตลอดการเดินทาง" : trackingState === "queued" ? "บันทึก GPS ไว้แล้ว รอส่งเมื่อออนไลน์" : trackingState === "sending" ? "กำลังส่งตำแหน่ง…" : "กำลังแชร์ตำแหน่งสดระหว่างเดินทาง"}</span>
               {trackingState === "error" && <button type="button" onClick={() => setTrackingRetry((value) => value + 1)} className="shrink-0 rounded-full bg-red-700 px-3 py-2 text-xs font-black text-white">อนุญาตตำแหน่ง</button>}
               {lastTrackedAt && <span className="text-xs opacity-70">{new Date(lastTrackedAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</span>}
             </div>
           )}
-          {["trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) && (
+          {["going_to_standby","standby","passenger_verified","trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) && (
             <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
               {trip.activeStop ? (
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -905,29 +892,7 @@ export default function DriverTripClient({ token }: { token: string }) {
           </section>
         )}
       </div>
-      {(trip.assignment.currentStatus === "completed" || trip.assignment.currentStatus === "no_show") && !trip.payoutDetails && (
-        <div className="fixed inset-0 z-50 flex items-end bg-[#211726]/50" role="dialog" aria-modal="true" aria-labelledby="bank-details-title">
-          <div className="bank-details-sheet max-h-[96vh] w-full overflow-y-auto rounded-t-[30px] bg-white px-5 pb-8 pt-6 shadow-2xl sm:mx-auto sm:max-w-xl sm:px-8">
-            <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-slate-200" />
-            <p className="text-xs font-black uppercase tracking-[.16em] text-[#D96F00]">Payment details</p>
-            <h2 id="bank-details-title" className="mt-2 text-2xl font-black">กรอกบัญชีรับเงิน</h2>
-            <p className="mt-2 leading-6 text-slate-600">กรุณากรอกข้อมูลบัญชีธนาคารสำหรับงาน {trip.booking.reference} ก่อนปิดงาน</p>
-            <label className="mt-6 block text-sm font-black">ธนาคารไทย</label>
-            <div className="mt-2 grid max-h-52 grid-cols-2 gap-2 overflow-y-auto pr-1">
-              {THAI_BANKS.map((bank) => (
-                <button key={bank.code} type="button" onClick={() => setBankCode(bank.code)} className={`flex items-center gap-2 rounded-xl border p-3 text-left transition ${bankCode === bank.code ? "border-[#FF8A05] bg-orange-50 ring-2 ring-orange-100" : "border-slate-200 bg-white"}`}>
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg text-[10px] font-black text-white" style={{ backgroundColor: bank.color }}>{bank.code.slice(0, 3)}</span>
-                  <span className="min-w-0"><span className="block truncate text-xs font-black">{bank.thai}</span><span className="block truncate text-[11px] text-slate-500">{bank.name}</span></span>
-                </button>
-              ))}
-            </div>
-            <label className="mt-5 block text-sm font-black">เลขที่บัญชี<input required inputMode="numeric" value={accountNumber} onChange={(event) => setAccountNumber(event.target.value.replace(/\D/g, ""))} placeholder="กรอกเลขที่บัญชี" className="mt-2 h-13 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base outline-none focus:border-[#FF8A05]" /></label>
-            <label className="mt-4 block text-sm font-black">ชื่อบัญชี<input required value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="ชื่อเจ้าของบัญชี" className="mt-2 h-13 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base outline-none focus:border-[#FF8A05]" /></label>
-            {error && <p role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
-            <button type="button" disabled={bankBusy || !bankCode || accountNumber.length < 8 || accountName.trim().length < 2 || !online} onClick={saveBankDetails} className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] text-base font-black text-white shadow-lg shadow-orange-500/20 disabled:opacity-45">{bankBusy ? <LoaderCircle className="animate-spin" size={20} /> : <Check size={20} />} {bankBusy ? "กำลังบันทึก…" : "บันทึกข้อมูลและปิดงาน"}</button>
-          </div>
-        </div>
-      )}
+
     </main>
   );
 }

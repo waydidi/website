@@ -1,3 +1,4 @@
+import { toSatang } from "./money";
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingEvents, bookingPayments, bookings, operationsAlerts } from "@/db/schema";
@@ -31,7 +32,7 @@ export async function reconcilePaymentSession(booking: Booking, session: Provide
   const attempts = booking.reconciliationAttempts + 1;
   const mismatch = !session.sessionId || session.sessionId !== booking.checkoutSessionId ||
     session.bookingReference !== booking.reference || session.currency !== "thb" ||
-    session.amountMinor !== booking.total * 100 ||
+    session.amountMinor !== toSatang(booking.total) ||
     (session.status === "paid" && session.provider === "stripe" && !session.transactionId) ||
     (Boolean(booking.paymentIntentId) && Boolean(session.transactionId) && session.transactionId !== booking.paymentIntentId);
   if (mismatch) {
@@ -51,7 +52,7 @@ export async function reconcilePaymentSession(booking: Booking, session: Provide
       paymentFailureCode: null, paymentFailureMessage: null, lastPaymentCheckedAt: now,
       reconciliationStatus: "matched", reconciliationAttempts: attempts, updatedAt: now,
     }).where(and(eq(bookings.reference, booking.reference), notInArray(bookings.paymentStatus, ["refunded", "partially_refunded", "disputed"])));
-    await getDb().update(bookingPayments).set({ status: "paid", providerSessionId: session.sessionId, providerTransactionId: session.transactionId ?? booking.paymentIntentId, providerStatus: session.providerStatus ?? "paid", amountExpected: booking.total, amountPaid: booking.total, currency: "thb", failureCode: null, failureMessage: null, lastCheckedAt: now, reconciliationStatus: "matched", reconciliationAttempts: attempts, updatedAt: now }).where(and(eq(bookingPayments.id, `primary:${booking.reference}`), notInArray(bookingPayments.status, ["refunded", "partially_refunded", "disputed"])));
+    await getDb().update(bookingPayments).set({ status: "paid", providerSessionId: session.sessionId, providerTransactionId: session.transactionId ?? booking.paymentIntentId, providerStatus: session.providerStatus ?? "paid", amountExpected: booking.total, amountExpectedMinor: toSatang(booking.total), amountPaid: booking.total, amountPaidMinor: session.amountMinor, currency: "thb", failureCode: null, failureMessage: null, lastCheckedAt: now, reconciliationStatus: "matched", reconciliationAttempts: attempts, updatedAt: now }).where(and(eq(bookingPayments.id, `primary:${booking.reference}`), notInArray(bookingPayments.status, ["refunded", "partially_refunded", "disputed"])));
     await record(booking.reference, `payment_reconciled_${source}`, `payment:${session.provider}:${session.sessionId}`);
     const [fresh] = await getDb().select().from(bookings).where(eq(bookings.reference, booking.reference)).limit(1);
     if (deliverConfirmation && fresh.paymentStatus === "paid") await fulfillBooking(fresh, session.transactionId ?? null);
@@ -64,7 +65,7 @@ export async function reconcilePaymentSession(booking: Booking, session: Provide
     reconciliationStatus: paymentStatus === "expired" ? "resolved" : "pending",
     reconciliationAttempts: attempts, updatedAt: now,
   }).where(and(eq(bookings.reference, booking.reference), notInArray(bookings.paymentStatus, protectedStatuses)));
-  await getDb().update(bookingPayments).set({ status: paymentStatus, providerSessionId: session.sessionId, providerStatus: session.providerStatus ?? paymentStatus, amountExpected: booking.total, lastCheckedAt: now, reconciliationStatus: paymentStatus === "expired" ? "resolved" : "pending", reconciliationAttempts: attempts, updatedAt: now }).where(and(eq(bookingPayments.id, `primary:${booking.reference}`), notInArray(bookingPayments.status, protectedStatuses)));
+  await getDb().update(bookingPayments).set({ status: paymentStatus, providerSessionId: session.sessionId, providerStatus: session.providerStatus ?? paymentStatus, amountExpected: booking.total, amountExpectedMinor: toSatang(booking.total), lastCheckedAt: now, reconciliationStatus: paymentStatus === "expired" ? "resolved" : "pending", reconciliationAttempts: attempts, updatedAt: now }).where(and(eq(bookingPayments.id, `primary:${booking.reference}`), notInArray(bookingPayments.status, protectedStatuses)));
   await record(booking.reference, `payment_${paymentStatus}`, `payment-status:${session.provider}:${session.sessionId}:${paymentStatus}`);
   return { status: paymentStatus, bookingStatus: booking.status };
 }

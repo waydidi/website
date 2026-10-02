@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { env } from "cloudflare:workers";
 import type { Metadata } from "next";
 import { AdminKeyLogin } from "@/components/admin-key-login";
 import { SignOutButton } from "@/components/admin-settings/sign-out";
-import { adminUsername, requireWaydidiAdmin } from "@/lib/admin";
+import { requireWaydidiAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Settings · Waydidi operations", robots: { index: false, follow: false } };
@@ -36,11 +37,11 @@ export default async function SettingsPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="grid size-11 place-items-center rounded-full bg-[#15161C] text-[14px] font-bold text-white" aria-hidden="true">WD</div>
-            <div><p className="text-[16px] font-semibold">Waydidi Admin</p><p className="text-[14px] text-slate-500">Admin ID: {adminUsername()} · stays signed in for 7 days on this device</p></div>
+            <div><p className="text-[16px] font-semibold">Waydidi Admin</p><p className="text-[14px] text-slate-500">Staff: {access.user.displayName} · MFA required · 8-hour session with 30-minute idle expiry</p></div>
           </div>
           <SignOutButton />
         </div>
-        <p className="mt-4 text-[14px] text-slate-600">To change the admin ID, set a <code className="rounded bg-slate-100 px-1">WAYDIDI_ADMIN_USERNAME</code> secret. To change the password, set a new <code className="rounded bg-slate-100 px-1">WAYDIDI_ADMIN_KEY_HASH</code> secret (the SHA-256 of the password) in Cloudflare (Workers &amp; Pages → waydidi-website → Settings → Variables and Secrets).</p>
+        <p className="mt-4 text-[14px] text-slate-600">Manage individual staff permissions and revoke sessions in <Link href="/admin/staff" className="underline">Staff access</Link>. The legacy shared password no longer works.</p>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5">

@@ -1,3 +1,4 @@
+import { toSatang } from "./money";
 import type { bookings } from "@/db/schema";
 
 export type PaymentProvider = "stripe" | "payso" | "cash";
@@ -19,5 +20,6 @@ export function unifiedPaymentValues(booking: Pick<Booking, "paymentMethod" | "c
     providerTransactionId: booking.paymentIntentId,
     providerStatus: booking.paymentStatus,
     amountExpected: booking.total,
+    amountExpectedMinor: toSatang(booking.total),
   };
 }

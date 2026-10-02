@@ -1,8 +1,9 @@
-import { and, count, desc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
-import { bookingAssignments, bookings, checkoutAttempts, customerBookingLinks, customers, customerSessions } from "@/db/schema";
+import { bookingAssignments, bookings, customerBookingLinks, customers, customerSessions } from "@/db/schema";
 import { cookieValue } from "@/lib/booking-management";
 import { ACCOUNT_COOKIE, ACCOUNT_VISIBLE_STATUSES, SESSION_DAYS } from "@/lib/customer-account";
 import { secureToken, sha256 } from "@/lib/security";
@@ -88,11 +89,8 @@ export async function overRateLimit(request: Request, scope: string, limit: numb
   const address = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-real-ip") ?? "unknown";
   const fingerprintHash = await sha256(`${scope}:${salt}:${address}`);
   const since = new Date(Date.now() - windowMinutes * 60_000).toISOString();
-  const [{ attempts }] = await getDb().select({ attempts: count() }).from(checkoutAttempts)
-    .where(and(eq(checkoutAttempts.fingerprintHash, fingerprintHash), gt(checkoutAttempts.createdAt, since)));
-  if (attempts >= limit) return true;
-  await getDb().insert(checkoutAttempts).values({ fingerprintHash, createdAt: new Date().toISOString() });
-  return false;
+  const claimed=await env.DB.prepare("INSERT INTO checkout_attempts(fingerprint_hash,created_at) SELECT ?,? WHERE (SELECT COUNT(*) FROM checkout_attempts WHERE fingerprint_hash=? AND created_at>?)<? RETURNING id").bind(fingerprintHash,new Date().toISOString(),fingerprintHash,since,limit).first();
+  return !claimed;
 }
 
 /** For account pages: the signed-in customer, or a redirect to sign in. */

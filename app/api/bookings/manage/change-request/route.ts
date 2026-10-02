@@ -1,3 +1,4 @@
+import { validTransferPrice } from "@/lib/booking-quote-check";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
   }
   const [quote] = await getDb().select().from(fareQuotes).where(eq(fareQuotes.id, input.fareQuoteId)).limit(1);
   if (!quote) return NextResponse.json({ error: "The revised route price is unavailable. Calculate it again." }, { status: 409 });
+  if(!await validTransferPrice(quote,vehicleId)) return NextResponse.json({error:"The revised route quote expired or its price changed."},{status:409});
   const requestedDate = quote.departureDate;
   const requestedTime = quote.departureTime;
   if (!requestedDate || !requestedTime) return NextResponse.json({ error: "The revised departure time is unavailable. Calculate it again." }, { status: 409 });
@@ -41,6 +43,7 @@ export async function POST(request: Request) {
     if (!returnQuote || returnQuote.pickupPlaceId !== quote.dropoffPlaceId || returnQuote.dropoffPlaceId !== quote.pickupPlaceId || returnQuote.departureDate !== booking.returnDate || returnQuote.departureTime !== booking.returnTime) {
       return NextResponse.json({ error: "The revised return journey does not match this booking." }, { status: 409 });
     }
+    if(!await validTransferPrice(returnQuote,vehicleId)) return NextResponse.json({error:"The revised return quote expired or its price changed."},{status:409});
     const returnPrices = JSON.parse(returnQuote.vehiclePricesJson) as Record<string, { total: number }>;
     const returnPrice = returnPrices[vehicleId];
     if (!returnPrice || !Number.isInteger(returnPrice.total)) return NextResponse.json({ error: "This vehicle is unavailable for the revised return route." }, { status: 409 });

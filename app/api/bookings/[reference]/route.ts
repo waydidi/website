@@ -1,3 +1,5 @@
+import { latestAccessRevoke } from "@/lib/trip-access";
+import { shareIssuedAfterRevoke } from "@/lib/customer-trip-rules";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -9,7 +11,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   const token = new URL(request.url).searchParams.get("token") ?? "";
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
   const tokenHash = token ? await sha256(token) : "";
-  if (!booking || booking.status === "binned" || !token || !constantTimeEqual(tokenHash, booking.accessTokenHash)) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+  if (!booking || booking.status === "binned" || Date.now()-Date.parse(booking.createdAt)>=24*3600000 || !shareIssuedAfterRevoke(Date.parse(booking.createdAt),await latestAccessRevoke(reference,"owner")) || !token || !constantTimeEqual(tokenHash, booking.accessTokenHash)) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
   return NextResponse.json({
     reference: booking.reference, customerName: booking.customerName, customerEmail: booking.customerEmail, customerPhone: booking.customerPhone,
     pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate, pickupTime: booking.pickupTime,

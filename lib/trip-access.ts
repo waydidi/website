@@ -1,3 +1,6 @@
+import type { SecurityDatabase } from "@/lib/worker-db";
+import { env } from "cloudflare:workers";
+import { cookieValue } from "@/lib/booking-management";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingAssignments, bookingEvents, bookings } from "@/db/schema";
@@ -13,7 +16,8 @@ const REFERENCE_PATTERN = /^(?:[A-HJ-NP-Z2-9]{6}|WD-[A-F0-9]{12})$/u;
 
 /** Signed key for the booking owner's trip link, sent in emails. */
 export async function tripOwnerKey(reference: string) {
-  return (await tripSecretHmacHex(`trip-owner:${reference}`)).slice(0, 32);
+  const issuedAt=Date.now()+1;
+  return `${issuedAt.toString(36)}.${(await tripSecretHmacHex(`trip-owner:${reference}:${issuedAt}`)).slice(0,32)}`;
 }
 
 async function shareSignature(reference: string, issuedAt: number) {
@@ -42,15 +46,21 @@ export async function resolveTripAccess(request: Request, reference: string): Pr
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
   if (!booking || ["binned","pending_payment","expired"].includes(booking.status)) return null;
 
+  const cookie=cookieValue(request,`waydidi_trip_${reference}`);
+  if(cookie) {
+    const session=await (env.DB as SecurityDatabase).prepare("SELECT access,issued_at FROM trip_access_sessions WHERE token_hash=? AND booking_reference=? AND expires_at>?").bind(await sha256(cookie),reference,new Date().toISOString()).first<{access:TripAccess;issued_at:number}>();
+    if(session&&shareIssuedAfterRevoke(session.issued_at,await latestAccessRevoke(reference,session.access))) return {booking,access:session.access};
+  }
   const token = params.get("token") ?? "";
-  if (token && token.length <= 200 && constantTimeEqual(await sha256(token), booking.accessTokenHash)) return { booking, access: "owner" };
+  if (token && token.length <= 200 && Date.now()-Date.parse(booking.createdAt)<24*3600000 && shareIssuedAfterRevoke(Date.parse(booking.createdAt),await latestAccessRevoke(reference,"owner")) && constantTimeEqual(await sha256(token), booking.accessTokenHash)) return { booking, access: "owner" };
   const key = params.get("key") ?? "";
-  if (key && constantTimeEqual(key, await tripOwnerKey(reference))) return { booking, access: "owner" };
+  const ownerKey=parseShareToken(key);
+  if(ownerKey&&ownerKey.issuedAt<=Date.now()+1000&&Date.now()-ownerKey.issuedAt<24*3600000&&shareIssuedAfterRevoke(ownerKey.issuedAt,await latestAccessRevoke(reference,"owner"))&&constantTimeEqual(ownerKey.signature,(await tripSecretHmacHex(`trip-owner:${reference}:${ownerKey.issuedAt}`)).slice(0,32))) return {booking,access:"owner"};
   const managed = await managedBooking(request);
   if (managed?.reference === reference) return { booking, access: "owner" };
 
   const share = parseShareToken(params.get("share") ?? "");
-  if (share && constantTimeEqual(share.signature, await shareSignature(reference, share.issuedAt))) {
+  if (share && share.issuedAt<=Date.now()+1000 && Date.now()-share.issuedAt<7*24*3600000 && constantTimeEqual(share.signature, await shareSignature(reference, share.issuedAt))) {
     if (shareIssuedAfterRevoke(share.issuedAt, await latestShareRevoke(reference))) return { booking, access: "shared" };
   }
   return null;
@@ -61,4 +71,10 @@ export async function activeAssignment(reference: string, leg = "outbound") {
     .where(and(eq(bookingAssignments.bookingReference, reference), eq(bookingAssignments.leg,leg), isNull(bookingAssignments.revokedAt)))
     .orderBy(desc(bookingAssignments.assignedAt)).limit(1);
   return assignment ?? null;
+}
+
+export async function latestAccessRevoke(reference:string,access:TripAccess) {
+ if(access==="shared") return latestShareRevoke(reference);
+ const [row]=await getDb().select({createdAt:bookingEvents.createdAt}).from(bookingEvents).where(and(eq(bookingEvents.bookingReference,reference),eq(bookingEvents.eventType,"trip_owner_revoked"))).orderBy(desc(bookingEvents.createdAt)).limit(1);
+ return row?.createdAt??null;
 }

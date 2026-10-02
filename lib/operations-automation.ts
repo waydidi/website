@@ -1,3 +1,6 @@
+import { env } from "cloudflare:workers";
+import { runDeliveryRecovery } from "@/lib/booking-fulfillment";
+import { runRefundRecovery } from "@/lib/refunds";
 import { runPaymentRecovery } from "@/lib/payment-recovery";
 import { runFlightAssistance } from "@/lib/flight-assistance";
 import { journeysFor, type Journey } from "@/lib/journey-legs";
@@ -148,6 +151,13 @@ async function openAlert(booking: Booking, assignment: Assignment | undefined, a
 }
 
 export async function runOperationsAutomation(at = new Date()): Promise<AutomationSummary> {
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM website_chat_messages WHERE conversation_id IN (SELECT id FROM website_conversations WHERE expires_at<=?)").bind(at.toISOString()),
+    env.DB.prepare("DELETE FROM website_conversations WHERE expires_at<=?").bind(at.toISOString()),
+    env.DB.prepare("DELETE FROM trip_access_sessions WHERE expires_at<=?").bind(at.toISOString()),
+  ]).catch((error:unknown)=>console.error("Access cleanup failed",error));
+  await runDeliveryRecovery().catch(error=>console.error("Delivery recovery failed",error));
+  await runRefundRecovery().catch(error=>console.error("Refund recovery failed",error));
   await runPaymentRecovery(at).catch(error => console.error("Payment recovery failed",error));
   await runFlightAssistance(at).catch(error => console.error("Flight assistance failed",error));
   const db = getDb();

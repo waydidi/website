@@ -33,21 +33,21 @@ export function refundPercent(reason: RefundReason, hours: number, tiers: Refund
   if (reason === "waydidi_cancellation") return 100;
   if (reason === "no_show") return 0;
   if (reason === "goodwill") return 100;
-  if (hours > 48) return tiers[0].percent;
-  if (hours >= 24) return tiers[1].percent;
+  if (hours > tiers[0].minHours) return tiers[0].percent;
+  if (hours >= tiers[1].minHours) return tiers[1].percent;
   return tiers[2].percent;
 }
 
 /** customer_refund_amount = eligible amount × percentage, in minor units, never above what is still refundable. */
 export function customerRefundMinor(eligibleMinor: number, percent: number, alreadyRefundedMinor = 0) {
   const raw = Math.floor((Math.max(0, eligibleMinor) * Math.max(0, Math.min(100, percent))) / 100);
-  return Math.max(0, Math.min(raw, eligibleMinor - Math.max(0, alreadyRefundedMinor)));
+  return Math.max(0, Math.min(raw - Math.max(0, alreadyRefundedMinor), eligibleMinor - Math.max(0, alreadyRefundedMinor)));
 }
 
-export function describeRefund(reason: RefundReason, hours: number) {
-  const percent = refundPercent(reason, hours);
+export function describeRefund(reason: RefundReason, hours: number, tiers: RefundTier[] = GENERAL_REFUND_TIERS) {
+  const percent = refundPercent(reason, hours,tiers);
   const window = reason === "waydidi_cancellation" ? "Waydidi could not provide the service"
     : reason === "no_show" ? "No-show"
-    : hours > 48 ? GENERAL_REFUND_TIERS[0].label : hours >= 24 ? GENERAL_REFUND_TIERS[1].label : GENERAL_REFUND_TIERS[2].label;
+    : hours > tiers[0].minHours ? tiers[0].label : hours >= tiers[1].minHours ? tiers[1].label : tiers[2].label;
   return { percent, window };
 }

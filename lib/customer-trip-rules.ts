@@ -31,11 +31,11 @@ export const STAGE_DRIVER_STATUSES: Partial<Record<CustomerStage, string[]>> = {
 
 /** The car is only shown after pickup, while the customer is on board. */
 export function locationVisible(stage: CustomerStage) {
-  return stage === "on_trip";
+  return ["on_the_way","waiting","on_trip"].includes(stage);
 }
 
 /** A driver position older than this is not shown as live. */
-export const LOCATION_STALE_MS = 10 * 60 * 1000;
+export const LOCATION_STALE_MS = 90 * 1000;
 
 export function freshLocation<T extends { serverTimestamp: string }>(point: T | null | undefined, now: number) {
   if (!point) return null;
@@ -45,7 +45,7 @@ export function freshLocation<T extends { serverTimestamp: string }>(point: T | 
 
 /** The arrival estimate only covers the ride itself, to the drop-off. */
 export function etaTarget(stage: CustomerStage): "pickup" | "dropoff" | null {
-  return stage === "on_trip" ? "dropoff" : null;
+  return stage === "on_trip" ? "dropoff" : ["on_the_way","waiting"].includes(stage) ? "pickup" : null;
 }
 
 export const ETA_CACHE_SECONDS = 120;

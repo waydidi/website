@@ -9,7 +9,7 @@ export const TRANSFER_PARTNERS = [
     benefits: [
       "24/7 support for you and your clients",
       "Competitive commission or net rate options",
-      "Instant quotes for routes in 130+ countries",
+      "Private transfers across Thailand; availability depends on your route",
       "Comfortable vehicles with English-speaking drivers",
     ],
     action: "Create an account",
@@ -25,7 +25,7 @@ export const TRANSFER_PARTNERS = [
     benefits: [
       "Competitive commissions or net rates",
       "Professional, English-speaking drivers",
-      "Instant quotes for routes in 130+ countries",
+      "Private transfers across Thailand; availability depends on your route",
     ],
     action: "Become a partner",
     href: "/agencies?partner=host-agency#apply",

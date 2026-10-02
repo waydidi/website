@@ -34,8 +34,9 @@ function OptionPill({ icon: Icon, label, open, onClick }: { icon: typeof Plus; l
 }
 
 // Step 1 after choosing a car: trip extras and the lead passenger (Transfeero style).
-export function BookingDetailsStep({ booking, change, fieldErrors, savedTravellers, applyTraveller, total, onBack, onContinue, signedIn = false, savedBilling = [], saveBilling = false, onSaveBillingChange }: {
+export function BookingDetailsStep({ quoteRequired = false, booking, change, fieldErrors, savedTravellers, applyTraveller, total, onBack, onContinue, signedIn = false, savedBilling = [], saveBilling = false, onSaveBillingChange }: {
   booking: Booking;
+  quoteRequired?: boolean;
   change: <K extends keyof Booking>(key: K, value: Booking[K]) => void;
   fieldErrors: ReviewFieldErrors;
   savedTravellers: Traveller[];
@@ -205,7 +206,7 @@ export function BookingDetailsStep({ booking, change, fieldErrors, savedTravelle
         <p className="flex items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="text-[20px] font-semibold text-[#1C1C1C]">{total}</strong></p>
         <div className="mt-2.5 flex gap-3">
           <button type="button" onClick={onBack} aria-label="Back to cars" className="grid h-[52px] w-16 shrink-0 place-items-center rounded-xl border-2 border-[#1C1C1C] text-[#1C1C1C]"><ArrowLeft size={20} /></button>
-          <button type="button" onClick={onContinue} className="h-[52px] flex-1 rounded-xl bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover">Continue</button>
+          <button type="button" onClick={onContinue} className="h-[52px] flex-1 rounded-xl bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover">{quoteRequired ? "Request a quote" : "Continue"}</button>
         </div>
       </div>
     </div>,

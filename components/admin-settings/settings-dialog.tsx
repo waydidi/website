@@ -65,7 +65,7 @@ export function SettingsDialog({ dark, onToggleDark }: { dark: boolean; onToggle
       </div>
       <div className="mt-5 grid gap-2.5">
         <div className={card}><p className="text-[12px] text-slate-500">Admin ID</p><p className="mt-0.5 text-[15px] font-medium">{username || "…"}</p></div>
-        <div className={card}><p className="text-[12px] text-slate-500">Session</p><p className="mt-0.5 text-[15px] font-medium">Signed in for 7 days on this device</p></div>
+        <div className={card}><p className="text-[12px] text-slate-500">Session</p><p className="mt-0.5 text-[15px] font-medium">MFA verified · expires after 8 hours or 30 minutes idle</p></div>
         <div className={`${card} flex items-center justify-between`}>
           <div><p className="text-[12px] text-slate-500">Appearance</p><p className="mt-0.5 text-[15px] font-medium">Dark mode</p></div>
           <button type="button" role="switch" aria-checked={dark} aria-label="Dark mode" onClick={onToggleDark} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${dark ? "bg-[#FF8A05]" : "bg-slate-300"}`}>

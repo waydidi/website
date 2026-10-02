@@ -36,5 +36,6 @@ export interface PaymentProviderAdapter {
   refundPayment(request: ProviderRefundRequest): Promise<ProviderRefund>;
   /** Current provider status of a refund, for webhook-driven reconciliation. */
   retrieveRefund(refundId: string): Promise<ProviderRefund>;
+  findRefund?(request: ProviderRefundRequest): Promise<ProviderRefund | null>;
   verifyWebhook(rawBody: string, signature: string): Promise<VerifiedProviderWebhook>;
 }

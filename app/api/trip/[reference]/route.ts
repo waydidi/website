@@ -2,7 +2,7 @@ import { asc, desc, eq } from "drizzle-orm";
 import { journeyFor, journeysFor, parseLeg } from "@/lib/journey-legs";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { bookingAssignments, bookings, driverStatusEvents, journeyLocations } from "@/db/schema";
+import { bookingAssignments, bookings, driverStatusEvents, journeyLocations, drivers } from "@/db/schema";
 import { CUSTOMER_STAGES, customerStage, etaTarget, freshLocation, locationVisible, shareLinkActive, STAGE_DRIVER_STATUSES, type CustomerStage } from "@/lib/customer-trip-rules";
 import { activeAssignment, resolveTripAccess } from "@/lib/trip-access";
 import { tripEta } from "@/lib/trip-eta";
@@ -37,8 +37,10 @@ export async function GET(request: Request, context: { params: Promise<{ referen
 
   let location: { latitude: number; longitude: number; accuracyMetres: number; at: string } | null = null;
   let eta = null;
+  let freshness: {at:string;ageSeconds:number;stale:boolean}|null=null;
   if (assignment && locationVisible(stage)) {
     const [latest] = await getDb().select().from(journeyLocations).where(eq(journeyLocations.assignmentId, assignment.id)).orderBy(desc(journeyLocations.serverTimestamp)).limit(1);
+    if(latest) freshness={at:latest.serverTimestamp,ageSeconds:Math.max(0,Math.floor((now-Date.parse(latest.serverTimestamp))/1000)),stale:!freshLocation(latest,now)};
     const fresh = freshLocation(latest, now);
     if (fresh) location = { latitude: fresh.latitude, longitude: fresh.longitude, accuracyMetres: fresh.accuracyMetres, at: fresh.serverTimestamp };
     const target = etaTarget(stage);
@@ -46,6 +48,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
     if (location && target && destination) eta = await tripEta({ assignmentId: assignment.id, target, from: location, to: destination }).catch(() => null);
   }
 
+  const [assignedDriver]=assignment?await getDb().select({name:drivers.fullName,phone:drivers.phone}).from(drivers).where(eq(drivers.id,assignment.driverId)).limit(1):[];
   const owner = access === "owner";
   const standby = accepted.find((event) => event.status === "standby");
   return NextResponse.json({
@@ -66,6 +69,8 @@ export async function GET(request: Request, context: { params: Promise<{ referen
     pickupSign: owner ? booking.pickupSign || booking.customerName : null,
     timeline,
     location,
+    freshness,
+    driver: owner ? assignedDriver ?? null : null,
     eta,
     standbyPhoto: stage === "waiting" && Boolean(standby?.evidenceKey),
     canShare: owner && !["cancelled", "no_show"].includes(stage) && shareLinkActive({ booking, stage, completedAt: assignment?.completedAt, now }),

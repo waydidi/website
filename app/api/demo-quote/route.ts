@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const outPrices = await withSeason(base, input!.date!, { service: "transfer", areaId: `sample-${trip.id}` });
   const meters = Number.isFinite(input?.distanceMeters) && input!.distanceMeters! > 0 ? Math.round(input!.distanceMeters!) : trip.fallbackMeters;
   const seconds = Number.isFinite(input?.durationSeconds) && input!.durationSeconds! > 0 ? Math.round(input!.durationSeconds!) : trip.fallbackSeconds;
-  const now = new Date().toISOString(), expiresAt = new Date(Date.now() + 2 * 3600_000).toISOString();
+  const now = new Date().toISOString(), expiresAt = new Date(Date.now() + 30 * 60_000).toISOString();
   const row = (id: string, from: string, to: string, fromId: string, toId: string, a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }, date: string, time: string, prices: string) => ({
     id, pickupPlaceId: fromId, dropoffPlaceId: toId, pickupText: from, dropoffText: to, areaId: `sample-${trip.id}`, areaName: `Sample route (${trip.id})`,
     distanceMeters: meters, durationSeconds: seconds, pickupLatitude: a.latitude, pickupLongitude: a.longitude, dropoffLatitude: b.latitude, dropoffLongitude: b.longitude,
@@ -35,5 +35,5 @@ export async function POST(request: Request) {
     returnPrices = await withSeason(base, input!.returnDate!, { service: "transfer", areaId: `sample-${trip.id}` });
     await getDb().insert(fareQuotes).values(row(returnQuoteId, dropoff, pickup, toId, fromId, trip.dropoff, DEMO_PICKUP, input!.returnDate!, input!.returnTime!, JSON.stringify(returnPrices)));
   }
-  return NextResponse.json({ quoteId, returnQuoteId, prices: outPrices, returnPrices });
+  return NextResponse.json({ quoteId, returnQuoteId, expiresAt, prices: outPrices, returnPrices });
 }

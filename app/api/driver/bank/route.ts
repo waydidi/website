@@ -1,14 +1,14 @@
+import { getWaydidiAdmin } from "@/lib/admin";
 import { env } from "cloudflare:workers";
-import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { getDb } from "@/db";
-import { bookingEvents, driverPayoutDetails } from "@/db/schema";
 import { activeAssignmentForToken } from "@/lib/driver-operations";
 import { sameOrigin } from "@/lib/security";
 import { THAI_BANKS } from "@/lib/thai-banks";
 
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Request blocked." }, { status: 403 });
+  const staff=await getWaydidiAdmin();
+  if(!staff||!["owner","finance"].includes(staff.role)) return NextResponse.json({error:"Authenticated finance staff access is required."},{status:403});
   const input = await request.json() as { token?: string; bankCode?: string; accountNumber?: string; accountName?: string };
   const assignment = await activeAssignmentForToken(input.token ?? "");
   if (!assignment) return NextResponse.json({ error: "Driver session unavailable." }, { status: 404 });

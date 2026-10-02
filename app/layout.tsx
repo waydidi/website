@@ -1,3 +1,4 @@
+import { WebsiteChat } from "@/components/website-chat";
 import { SITE_URL } from "@/lib/site";
 import type { Metadata, Viewport } from "next";
 import { env } from "cloudflare:workers";
@@ -58,14 +59,15 @@ export default function RootLayout({
       <body className="antialiased">
         <PwaProvider>
           <a
-            href="#booking-search"
+            href="#main-content"
             className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-white focus:px-5 focus:py-3 focus:font-bold focus:text-[#D96F00] focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#FF8A05]"
           >
-            Skip to booking
+            Skip to main content
           </a>
           <PublicPathHeader />
-          {children}
+          <div id="main-content" tabIndex={-1}>{children}</div>
           <SpinBar />
+          <WebsiteChat />
         </PwaProvider>
         {gaId && <GoogleAnalytics id={gaId} />}
         <script

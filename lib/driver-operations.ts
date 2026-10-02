@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingAssignments } from "@/db/schema";
@@ -18,6 +19,7 @@ export {
 export type { DriverStatus } from "@/lib/trip-rules";
 
 export async function activeAssignmentForToken(token: string) {
+  if(token==="session") token=(await cookies()).get("waydidi_driver")?.value??"";
   if (!/^[a-f0-9]{48}$/u.test(token)) return null;
   const [assignment] = await getDb()
     .select()

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { CircleAlert, CircleCheck, CircleSlash, Clock3, CloudRain, CreditCard, MessageCircle, RefreshCcw, ShieldCheck, Ticket, TriangleAlert } from "lucide-react";
 import { PublicFooter } from "@/components/public-footer";
-import { PaysoBadge } from "@/components/payso-badge";
 import { Breadcrumbs, JsonLd, breadcrumbSchema } from "@/components/seo";
 import { SITE_URL } from "@/lib/public-content";
 import { REFUND_POLICY_VERSION, customerRefundMinor, refundPercent } from "@/lib/refund-policy";
@@ -92,8 +91,7 @@ export default function RefundPolicyPage() {
       </Section>
 
       <Section id="payment-processing" title="Payment processing" Icon={CreditCard}>
-        <p>Waydidi uses trusted payment providers, including Payso and Stripe, to take and refund payments securely. Waydidi never stores your full card number or CVV.</p>
-        <PaysoBadge tone="dark" />
+        <p>Waydidi uses trusted payment providers, such as Stripe, to take and refund payments securely. Waydidi never stores your full card number or CVV.</p>
         <p>Refund fees charged by payment providers are covered by Waydidi. They are <strong>not</strong> deducted from your refund.</p>
       </Section>
 

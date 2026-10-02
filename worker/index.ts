@@ -1,3 +1,5 @@
+import type { SecurityDatabase } from "../lib/worker-db";
+import { allowedStaffRoute, readCookie, staffForToken, STAFF_COOKIE } from "../lib/staff-security";
 import { SITE_URL } from "../lib/site";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
@@ -6,7 +8,7 @@ import { runOperationsAutomation } from "../lib/operations-automation";
 
 interface Env {
   ASSETS?: { fetch(request: Request): Promise<Response> };
-  DB: unknown; // D1 binding; queries go through getDb() in db/index.ts
+  DB: SecurityDatabase; // D1 binding; queries go through getDb() in db/index.ts
   IMAGES?: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -30,6 +32,13 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    let accessPath:string;
+    try { accessPath=decodeURIComponent(url.pathname).replace(/\/+/g,"/"); } catch { return new Response("Invalid path",{status:400}); }
+    if ((accessPath.startsWith("/api/admin/") && accessPath !== "/api/admin/session") || accessPath.startsWith("/admin/")) {
+      const staff = await staffForToken(env.DB, readCookie(request, STAFF_COOKIE));
+      if (!staff) return withSecurityHeaders(Response.json({error:"Staff sign-in required."},{status:401}),url);
+      if (!allowedStaffRoute(staff.role,accessPath,request.method)) return withSecurityHeaders(Response.json({error:"Your staff role does not permit this action."},{status:403}),url);
+    }
 
     if (url.pathname === "/_vinext/image") {
       // Without the ASSETS binding (not set on this deployment) the optimizer can't read
@@ -79,7 +88,7 @@ function withSecurityHeaders(response: Response, url: URL) {
     secured.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     secured.headers.set("X-Content-Type-Options", "nosniff");
     secured.headers.set("X-Frame-Options", "DENY");
-    secured.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    secured.headers.set("Referrer-Policy", /^\/(trip|driver)(\/|$)/.test(url.pathname) ? "no-referrer" : "strict-origin-when-cross-origin");
     secured.headers.set("Permissions-Policy", "camera=(self), microphone=(), geolocation=(self)");
     secured.headers.set("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob: https://*.stripe.com https://*.google-analytics.com https://www.googletagmanager.com https://tile.openstreetmap.org https://maps.gstatic.com https://maps.googleapis.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdnjs.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://www.googletagmanager.com; connect-src 'self' https://api.stripe.com https://checkout.stripe.com https://merchant-ui-api.stripe.com https://router.project-osrm.org https://maps.googleapis.com https://*.googleapis.com https://maps.gstatic.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://js.stripe.com https://checkout.stripe.com https://hooks.stripe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com");
     return secured;

@@ -4,7 +4,7 @@ import { and, count, desc, eq, gt, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { deleteFile, putFile } from "@/lib/file-store";
 import { getDb } from "@/db";
-import { bookingAssignments, bookings, drivers, driverPayoutDetails, driverStatusEvents, journeyStopDeclarations, passengerVerifications } from "@/db/schema";
+import { bookings, drivers, driverPayoutDetails, driverStatusEvents, journeyStopDeclarations, passengerVerifications } from "@/db/schema";
 import { activeAssignmentForToken } from "@/lib/driver-operations";
 import { acceptedOccurredAt, adminReviewRequired, AIRPORT_FREE_WAIT_MINUTES, distanceMetres, evidenceRequired, expectedPointFor, isAirportPickup, isDriverStatus, locationRequired, NEXT_DRIVER_STATUS, NO_SHOW_MAX_DISTANCE_METRES, NO_SHOW_MIN_NOTE_LENGTH, noShowEligibleAt, STANDARD_FREE_WAIT_MINUTES, TRIP_START_WARNING_METRES, type DriverStatus } from "@/lib/trip-rules";
 import { sameOrigin, sha256Bytes } from "@/lib/security";
@@ -52,7 +52,7 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
   ]);
   return NextResponse.json({
     assignment: { id: assignment.id, currentStatus: assignment.currentStatus === "standby" && assignment.passengerVerifiedAt ? "passenger_verified" : assignment.currentStatus, tokenExpiresAt: assignment.tokenExpiresAt, passengerVerifiedAt: assignment.passengerVerifiedAt, passengerVerificationMethod: assignment.passengerVerificationMethod, passengerVerificationAttemptsRemaining: Math.max(0, 5 - failedAttempts) },
-    driver: { fullName: driver.fullName, phone: driver.phone, bankCode: payout?.bankCode ?? driver.bankCode, bankAccountNumber: payout?.accountNumber ?? driver.bankAccountNumber, bankAccountName: payout?.accountName ?? driver.bankAccountName },
+    driver: { fullName: driver.fullName, phone: driver.phone },
     booking: {
       leg: booking.leg, reference: booking.reference, customerName: booking.customerName, customerPhone: booking.customerPhone,
       pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate, pickupTime: booking.pickupTime,

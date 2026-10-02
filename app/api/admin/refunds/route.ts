@@ -5,7 +5,7 @@ import { createRefund, quoteRefund, reconcileRefunds, refundsFor } from "@/lib/r
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 const reasons = ["customer_cancellation", "no_show", "waydidi_cancellation", "goodwill"] as const;
-const ref = z.string().regex(/^[A-Z0-9]{4,12}$/);
+const ref = z.string().regex(/^(?:[A-Z0-9]{4,12}|WD-[A-F0-9]{12})$/);
 
 // Admin: refund quote (calculated on the server) and the refunds already made.
 export async function GET(request: Request) {

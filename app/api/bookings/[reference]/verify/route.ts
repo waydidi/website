@@ -1,3 +1,5 @@
+import { latestAccessRevoke } from "@/lib/trip-access";
+import { shareIssuedAfterRevoke } from "@/lib/customer-trip-rules";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -11,7 +13,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   const { reference } = await context.params;
   const input = await request.json() as { token?: string; sessionId?: string };
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
-  if (!booking || booking.status === "binned" || !input.token || !constantTimeEqual(await sha256(input.token), booking.accessTokenHash)) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+  if (!booking || booking.status === "binned" || Date.now()-Date.parse(booking.createdAt)>=24*3600000 || !shareIssuedAfterRevoke(Date.parse(booking.createdAt),await latestAccessRevoke(reference,"owner")) || !input.token || !constantTimeEqual(await sha256(input.token), booking.accessTokenHash)) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
   if (booking.status === "confirmed" && booking.paymentStatus === "paid") return NextResponse.json({ status: booking.status, paymentStatus: booking.paymentStatus });
   if (input.sessionId && input.sessionId !== booking.checkoutSessionId) return NextResponse.json({ error: "Checkout session does not match." }, { status: 400 });
   const result = await reconcileBooking(reference, "customer_return");

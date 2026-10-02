@@ -1,7 +1,8 @@
+import { toSatang } from "@/lib/money";
 import { env } from "cloudflare:workers";
 import type { PaymentProviderAdapter, ProviderPaymentSession, VerifiedProviderWebhook } from "@/lib/payments/types";
 import { constantTimeEqual } from "@/lib/security";
-import { createCheckoutSession, refundPayment, retrieveCheckoutSession, retrieveRefund, type StripeCheckoutSession } from "@/lib/stripe";
+import { createCheckoutSession, findRefund, refundPayment, retrieveCheckoutSession, retrieveRefund, type StripeCheckoutSession } from "@/lib/stripe";
 import { classifyCheckoutSession } from "@/lib/payment-status";
 
 export type StripeWebhookObject = StripeCheckoutSession & {
@@ -42,7 +43,7 @@ export const stripePaymentProvider: PaymentProviderAdapter = {
   get enabled() { return Boolean(env.STRIPE_SECRET_KEY); },
   async createPayment(input) {
     const session = await createCheckoutSession(input);
-    return { provider: "stripe", sessionId: session.id, checkoutUrl: session.url, status: "pending", providerStatus: "open", amountMinor: input.total * 100, currency: "thb", bookingReference: input.reference };
+    return { provider: "stripe", sessionId: session.id, checkoutUrl: session.url, status: "pending", providerStatus: "open", amountMinor: toSatang(input.total), currency: "thb", bookingReference: input.reference };
   },
   async retrievePayment(sessionId) { return normalizeStripeSession(await retrieveCheckoutSession(sessionId)); },
   async refundPayment({ paymentId, reference, amountMinor, idempotencyKey }) {
@@ -50,6 +51,7 @@ export const stripePaymentProvider: PaymentProviderAdapter = {
     if (!refund.id) throw new Error("STRIPE_REFUND_INVALID");
     return { id: refund.id, status: refund.status ?? "pending" };
   },
+  findRefund,
   async retrieveRefund(refundId) {
     const refund = await retrieveRefund(refundId);
     return { id: refund.id ?? refundId, status: refund.status ?? "pending" };

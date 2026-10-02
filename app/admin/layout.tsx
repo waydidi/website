@@ -7,5 +7,5 @@ export default async function AdminLayout({children}:{children:ReactNode}){
   const admin=await getWaydidiAdmin();
   if(!admin)return children;
   await purgeExpiredBookings();
-  return <AdminShell email={admin.email}>{children}</AdminShell>;
+  return <AdminShell email={admin.email} role={admin.role as import("@/lib/staff-security").StaffRole}>{children}</AdminShell>;
 }

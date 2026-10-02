@@ -1,3 +1,7 @@
+import { validBookingQuotes, validTransferPrice } from "@/lib/booking-quote-check";
+import { saveAcceptedPolicy } from "@/lib/accepted-policy";
+import { REFUND_POLICY_VERSION } from "@/lib/refund-policy";
+import { toSatang } from "@/lib/money";
 import { payPageUrl } from "@/lib/stripe";
 import { NextResponse } from "next/server";
 import { storeCommission, storeDiscount, storefrontBySlug } from "@/lib/storefront";
@@ -42,7 +46,7 @@ import { expireAbandonedCheckouts } from "@/lib/booking-expiry";
 import { validHourlyQuoteWindow } from "@/lib/hourly-policy";
 import { hourlyQuoteVehicleAvailable } from "@/lib/hourly-city-pricing";
 
-const POLICY_VERSION = "2026-09-07";
+const POLICY_VERSION = REFUND_POLICY_VERSION;
 
 type StoredBooking = typeof bookings.$inferSelect;
 
@@ -70,6 +74,7 @@ async function existingCheckoutResponse(
     await fulfillBooking(booking);
     return NextResponse.json({ checkoutUrl: confirmationUrl, reused: true });
   }
+  if(!await validBookingQuotes(booking)) return NextResponse.json({code:"QUOTE_EXPIRED",error:"Your quoted journey needs a fresh price. Search both journeys again.",retryable:true},{status:409});
   if (!booking.checkoutSessionId) {
     if (!input || !booking.checkoutAttemptHash) {
       return NextResponse.json(
@@ -267,6 +272,7 @@ export async function POST(request: Request) {
           },
           { status: 409 },
         );
+      if(!await validTransferPrice(quote,input.vehicle)) return NextResponse.json({code:"QUOTE_EXPIRED",error:"Your route quote expired. Search again for a fresh price.",retryable:true},{status:409});
       if (quote.departureDate !== input.pickupDate || quote.departureTime !== input.pickupTime || quote.timezone !== input.timezone)
         return NextResponse.json({code:"QUOTE_MISMATCH",error:"Your journey date or time changed. Please calculate the route again.",field:"fareQuoteId",retryable:true},{status:409});
       const prices = JSON.parse(quote.vehiclePricesJson) as Record<
@@ -310,6 +316,7 @@ export async function POST(request: Request) {
             { code: "RETURN_QUOTE_MISSING", error: "Your return price is unavailable. Please calculate it again.", field: "returnFareQuoteId", retryable: true },
             { status: 409 },
           );
+        if(!await validTransferPrice(returnQuote,input.vehicle)) return NextResponse.json({code:"RETURN_QUOTE_EXPIRED",error:"Your return quote expired. Search both journeys again.",retryable:true},{status:409});
         const reversed =
           returnQuote.pickupPlaceId === quote.dropoffPlaceId &&
           returnQuote.dropoffPlaceId === quote.pickupPlaceId;
@@ -507,6 +514,7 @@ export async function POST(request: Request) {
         extraHourRate: hourlyData?.extraHourRate,
         extraDistanceRate: hourlyData?.extraDistanceRate,
       });
+    await saveAcceptedPolicy(reference,now);
     // Bookings made while signed in are linked to the customer's account,
     // even when booked for someone else's email.
     if (promoApplied) await getDb().insert(promoRedemptions).values({
@@ -567,6 +575,8 @@ export async function POST(request: Request) {
       status: input.paymentMethod === "cash" ? "cash_due" : "pending",
       providerStatus: input.paymentMethod === "cash" ? "cash_due" : "pending",
       amountExpected: total,
+      amountExpectedMinor: toSatang(total),
+      amountPaidMinor: 0,
       reconciliationStatus: input.paymentMethod === "cash" ? "not_required" : "pending",
       createdAt: now,
       updatedAt: now,
@@ -599,6 +609,8 @@ export async function POST(request: Request) {
         checkoutUrl: `${safeOrigin(request)}/booking/confirmation/${reference}?token=${accessToken}`,
       });
     }
+    const [payBooking]=await getDb().select().from(bookings).where(eq(bookings.reference,reference)).limit(1);
+    if(!await validBookingQuotes(payBooking)) return NextResponse.json({code:"QUOTE_EXPIRED",error:"Your route quote expired or pricing changed. Search again.",retryable:true},{status:409});
     const session = await paymentProviderFor("stripe").createPayment({
       reference,
       accessToken,

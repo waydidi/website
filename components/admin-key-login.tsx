@@ -6,6 +6,9 @@ import { KeyRound, LoaderCircle, ShieldCheck, UserRound } from "lucide-react";
 export function AdminKeyLogin({ configured }: { configured: boolean }) {
   const [username, setUsername] = useState("");
   const [key, setKey] = useState("");
+  const [mfa, setMfa] = useState(false);
+  const [secret, setSecret] = useState<string | null>(null);
+  const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +21,7 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
       const response = await fetch("/api/admin/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password: key }),
+        body: JSON.stringify(mfa ? { code } : { username, password: key }),
       });
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -26,6 +29,8 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
         setKey("");
         return;
       }
+      const result = await response.json() as { mfaRequired?: boolean; enrollmentSecret?: string };
+      if (result.mfaRequired) { setMfa(true); setSecret(result.enrollmentSecret ?? null); setKey(""); return; }
       window.location.reload();
     } finally {
       setLoading(false);
@@ -40,10 +45,10 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
         </span>
         <h1 className="mt-6 text-3xl font-black tracking-[-.03em]">Waydidi admin</h1>
         <p className="mt-2 text-slate-600">
-          {configured ? "Sign in with your admin ID and password." : "Admin sign-in has not been set up yet."}
+          {configured ? "Sign in with your staff ID, password, and authenticator code." : "Admin sign-in has not been set up yet."}
         </p>
         <form className="mt-7" onSubmit={submit}>
-          <label className="text-sm font-bold" htmlFor="admin-id">Admin ID</label>
+          {!mfa && <><label className="text-sm font-bold" htmlFor="admin-id">Admin ID</label>
           <div className="mb-4 mt-2 flex items-center rounded-2xl border border-slate-300 bg-slate-50 px-4 focus-within:border-[#FF8A05] focus-within:ring-2 focus-within:ring-[#FF8A05]/20">
             <UserRound className="shrink-0 text-slate-400" size={20} />
             <input id="admin-id" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(event) => setUsername(event.target.value)} disabled={!configured || loading} className="min-w-0 flex-1 bg-transparent px-3 py-4 outline-none disabled:cursor-not-allowed" placeholder="Enter admin ID" required maxLength={100} />
@@ -65,6 +70,12 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
               maxLength={200}
             />
           </div>
+          </>}
+          {mfa && <div>
+            {secret && <div className="mb-4 rounded-xl bg-amber-50 p-4"><p>Add this secret to your authenticator app, then enter its six-digit code.</p><code className="mt-2 block break-all select-all">{secret}</code></div>}
+            <label htmlFor="mfa-code" className="text-sm font-bold">Authenticator code</label>
+            <input id="mfa-code" autoFocus autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={e=>setCode(e.target.value)} className="mt-2 w-full rounded-xl border p-4" />
+          </div>}
           {error && <p className="mt-3 text-sm font-semibold text-red-700" role="alert">{error}</p>}
           <button
             type="submit"
@@ -72,7 +83,7 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-4 font-black text-white transition hover:bg-[#e97800] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading && <LoaderCircle className="animate-spin" size={19} />}
-            {loading ? "Checking…" : "Access dashboard"}
+            {loading ? "Checking…" : mfa ? "Verify and sign in" : "Continue"}
           </button>
         </form>
       </section>

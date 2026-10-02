@@ -1,4 +1,5 @@
 "use client";
+import { allowedStaffRoute, type StaffRole } from "@/lib/staff-security";
 
 import {
   BookOpen,
@@ -145,6 +146,8 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
     { href: "/admin/blog", label: "Blog", icon: Newspaper },
   ] },
   { title: "People", items: [
+    { href: "/admin/staff", label: "Staff access", icon: Users },
+    { href: "/admin/chat", label: "Website chat", icon: Users },
     { href: "/admin/users", label: "Users", icon: Users },
     { href: "/admin/drivers", label: "Drivers", icon: IdCard },
     { href: "/admin/agencies", label: "Travel agencies", icon: Building2 },
@@ -238,9 +241,10 @@ function ThemeIcon({ size = 18 }: { size?: number }) {
 }
 
 export default function AdminShell({
-  children,
+  children,role="owner",
 }: {
   email?: string;
+  role?: StaffRole;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -287,7 +291,7 @@ export default function AdminShell({
         </div>
         {collapsed && <button onClick={toggleSidebar} aria-label="Expand sidebar" title="Expand sidebar" className="mx-auto mt-3 grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#15161C]"><ChevronRight size={16} /></button>}
         <nav aria-label="Admin sections" className="flex-1 overflow-y-auto px-3 py-4">
-          {SECTIONS.map((section, si) => <div key={si} className={si ? "mt-5" : ""}>
+          {SECTIONS.map(section=>({...section,items:section.items.filter(item=>allowedStaffRoute(role,item.href.split("?")[0],"GET"))})).filter(section=>section.items.length).map((section, si) => <div key={si} className={si ? "mt-5" : ""}>
             {section.title && !collapsed && <p className="mb-1.5 px-3 text-[14px] font-semibold text-slate-800">{section.title}</p>}
             {section.title && collapsed && <div className="mx-3 mb-2 border-t border-slate-200" />}
             <ul className="grid gap-0.5">
