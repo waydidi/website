@@ -155,11 +155,44 @@ const linkActive = (l: NavLink, p: string, t: string | null) => { const h = l.hr
 const groupActive = (g: NavGroup, p: string, t: string | null) => (g.children ? g.children.some((c) => linkActive(c, p, t)) : linkActive(g, p, t));
 const ALL_PAGES = SECTIONS.flatMap((s) => s.items.flatMap((g) => (g.children ? g.children.map((c) => ({ href: c.href, label: `${g.label} · ${c.label}` })) : [{ href: g.href, label: g.label }]))).concat({ href: "/admin/settings", label: "Settings" });
 
+// Shortcuts to actions that live inside pages, found by what they do.
+const FEATURES: { href: string; label: string; keywords: string }[] = [
+  { href: "/admin/bookings", label: "Create a booking (Create button)", keywords: "new booking add create manual" },
+  { href: "/admin/bookings?view=bin", label: "Bin & restore (deleted bookings)", keywords: "bin trash deleted restore recycle" },
+  { href: "/admin/bookings?mode=calendar", label: "Bookings calendar", keywords: "calendar schedule month" },
+  { href: "/admin/bookings?mode=board", label: "Bookings board", keywords: "board kanban status" },
+  { href: "/admin/drivers", label: "Add or manage drivers", keywords: "driver add new assign outsource" },
+  { href: "/admin/promotions", label: "Create a promo code", keywords: "promo coupon discount code voucher" },
+  { href: "/admin/hourly", label: "Hourly prices", keywords: "hour hourly rate price city-to-city" },
+  { href: "/admin/pricing", label: "Transfer prices & areas", keywords: "fare price area route zone toll" },
+  { href: "/admin/payments", label: "Payments & refunds", keywords: "payment refund stripe cash paid" },
+  { href: "/admin/reports?tab=payouts", label: "Driver payouts", keywords: "payout driver pay cost salary" },
+  { href: "/admin/settings", label: "Settings & admin password", keywords: "settings password account email" },
+];
+type Hit = { group: string; label: string; detail?: string; href: string };
+
 function PageSearch() {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  const results = q.trim() ? ALL_PAGES.filter((x) => x.label.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 6) : [];
+  const [active, setActive] = useState(0);
+  const [remote, setRemote] = useState<{ q: string; hits: Hit[] }>({ q: "", hits: [] });
+  const term = q.trim().toLowerCase();
+  const local: Hit[] = term ? [
+    ...ALL_PAGES.filter((x) => x.label.toLowerCase().includes(term)).map((x) => ({ group: "Pages", label: x.label, href: x.href })),
+    ...FEATURES.filter((f) => `${f.label} ${f.keywords}`.toLowerCase().includes(term)).map((f) => ({ group: "Actions", label: f.label, href: f.href })),
+  ].slice(0, 8) : [];
+  const results = [...local, ...(remote.q === term ? remote.hits : [])];
+  useEffect(() => {
+    if (term.length < 2) return;
+    const ctrl = new AbortController();
+    const t = window.setTimeout(() => {
+      fetch(`/api/admin/search?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
+        .then((r) => r.ok ? r.json() as Promise<{ hits: Hit[] }> : { hits: [] })
+        .then((d) => setRemote({ q: term, hits: d.hits })).catch(() => undefined);
+    }, 200);
+    return () => { window.clearTimeout(t); ctrl.abort(); };
+  }, [term]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "/" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement)) { e.preventDefault(); document.getElementById("admin-search")?.focus(); }
@@ -167,16 +200,29 @@ function PageSearch() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const go = (href: string) => { setQ(""); setOpen(false); router.push(href); };
+  const go = (href: string) => { setQ(""); setOpen(false); setActive(0); router.push(href); };
+  const sel = Math.min(active, Math.max(0, results.length - 1));
   return <div className="relative w-full max-w-[460px]">
     <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden="true" />
-    <input id="admin-search" type="search" value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => window.setTimeout(() => setOpen(false), 150)}
-      onKeyDown={(e) => { if (e.key === "Enter" && results[0]) go(results[0].href); if (e.key === "Escape") (e.target as HTMLInputElement).blur(); }}
-      placeholder="Search pages…" aria-label="Search admin pages" autoComplete="off"
+    <input id="admin-search" type="search" value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); setActive(0); }} onFocus={() => setOpen(true)} onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowDown") { e.preventDefault(); setActive((sel + 1) % Math.max(1, results.length)); }
+        if (e.key === "ArrowUp") { e.preventDefault(); setActive((sel - 1 + results.length) % Math.max(1, results.length)); }
+        if (e.key === "Enter" && results[sel]) go(results[sel].href);
+        if (e.key === "Escape") (e.target as HTMLInputElement).blur();
+      }}
+      placeholder="Search bookings, customers, drivers, pages…" aria-label="Search the admin panel" autoComplete="off" role="combobox" aria-expanded={open && results.length > 0} aria-controls="admin-search-results"
       className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-14 text-[15px] outline-none placeholder:text-slate-500 focus:border-[#FF8A05] focus:ring-2 focus:ring-[#FF8A05]/15" />
     <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[12px] text-slate-500">/</kbd>
-    {open && results.length > 0 && <ul className="absolute inset-x-0 top-12 z-50 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-      {results.map((r) => <li key={r.href}><button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => go(r.href)} className="w-full px-4 py-2.5 text-left text-[14px] hover:bg-slate-50">{r.label}</button></li>)}
+    {open && term && <ul id="admin-search-results" role="listbox" className="absolute inset-x-0 top-12 z-50 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+      {results.length === 0 && <li className="px-4 py-3 text-[14px] text-slate-500">{term.length < 2 ? "Keep typing…" : "No matches"}</li>}
+      {results.map((r, i) => <li key={`${r.group}-${r.href}-${r.label}`} role="option" aria-selected={i === sel}>
+        {(i === 0 || results[i - 1].group !== r.group) && <p className="px-4 pb-1 pt-2.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">{r.group}</p>}
+        <button type="button" onMouseDown={(e) => e.preventDefault()} onMouseEnter={() => setActive(i)} onClick={() => go(r.href)} className={`block w-full px-4 py-2 text-left ${i === sel ? "bg-orange-50" : ""}`}>
+          <span className="block truncate text-[14px] font-medium text-slate-900">{r.label}</span>
+          {r.detail && <span className="block truncate text-[12px] text-slate-500">{r.detail}</span>}
+        </button>
+      </li>)}
     </ul>}
   </div>;
 }

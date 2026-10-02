@@ -2,14 +2,17 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { bookingAssignments, bookings } from "@/db/schema";
-import { getWaydidiAdmin } from "@/lib/admin";
+import { getWaydidiAdmin, verifyAdminKey } from "@/lib/admin";
 import { purgeExpiredBookings } from "@/lib/booking-bin";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 export async function DELETE(request: Request, context: { params: Promise<{ reference: string }> }) {
   const admin = await getWaydidiAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!sameOrigin(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
+  if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
+  // Deleting needs the admin password again, even with a signed-in session.
+  const { password } = await request.json().catch(() => ({})) as { password?: string };
+  if (!password || !(await verifyAdminKey(password))) return NextResponse.json({ error: "Incorrect admin password." }, { status: 403 });
   await purgeExpiredBookings();
   const { reference } = await context.params;
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);

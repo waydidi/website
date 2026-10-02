@@ -1,4 +1,4 @@
-import { desc, inArray, isNull } from "drizzle-orm";
+import { desc, eq, inArray, isNull } from "drizzle-orm";
 import {
   BookOpen,
   CalendarDays,
@@ -6,10 +6,12 @@ import {
   Truck,
   List,
   Columns3,
+  Trash2,
 } from "lucide-react";
 import { getDb } from "@/db";
 import { bookingAssignments, bookingCosts, bookings, bookingStorefronts, bookingTaxInvoices, drivers } from "@/db/schema";
 import { EditDriverButton } from "@/components/bookings-admin/edit-driver";
+import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 import { isAirportPickup } from "@/lib/trip-rules";
 import { VEHICLES } from "@/lib/vehicles";
@@ -51,7 +53,8 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   // Tax invoice requests (the table may not exist yet before its migration runs).
   const taxRows = await getDb().select().from(bookingTaxInvoices).limit(500).catch(() => []);
   const taxByBooking = new Map(taxRows.map((tax) => [tax.bookingReference, tax]));
-  const binRows = allRows.filter((row) => row.status === "binned");
+  // The bin is read on its own so older binned bookings still show.
+  const binRows = await getDb().select().from(bookings).where(eq(bookings.status, "binned")).orderBy(desc(bookings.binnedAt)).limit(200);
   const activeRows = allRows.filter((row) => row.status !== "binned");
   const [driverRows, assignmentRows] = await Promise.all([
     getDb().select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, status: drivers.status }).from(drivers),
@@ -177,9 +180,10 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           <div role="tablist" aria-label="View" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
             {([["list", "List", List], ["calendar", "Calendar", CalendarDays], ["board", "Board", Columns3]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}><Icon size={16} />{label}</Link>)}
           </div>
+          <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} className={`flex h-11 items-center gap-1.5 rounded-xl px-4 text-[15px] font-semibold ${view === "bin" ? "bg-[#211726] text-white" : "bg-[#E8EAEE] text-slate-700 hover:text-slate-950"}`}><Trash2 size={16} aria-hidden="true" />Bin & restore{binRows.length > 0 && <span className={`rounded-full px-2 text-[12px] ${view === "bin" ? "bg-white/20" : "bg-white"}`}>{binRows.length}</span>}</Link>
           </div>
         </div>
-        {mode !== "list" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> :
+        {mode !== "list" && view !== "bin" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> :
         <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-left text-sm">
@@ -207,13 +211,13 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                     </td>
                     <td className="whitespace-nowrap px-4 py-4">{(() => { const d = driverOptions.find((o) => o.id === assigned.get(row.reference)); return d ? <span className="flex items-center gap-2"><span className="text-slate-900">{d.name}</span>{tripLinks.get(row.reference) && <CopyTextButton icon="link" text={tripLinks.get(row.reference)!} label={`Copy trip status link for ${row.reference}`} />}</span> : <span className="text-slate-400">Not assigned</span>; })()}</td>
                     <td className="px-4 py-4"><CopyTextButton text={jobText(row)} label={`Copy driver job for ${row.reference}`} /></td>
-                    <td className="px-4 py-4"><EditDriverButton reference={row.reference} drivers={driverOptions} current={assigned.get(row.reference) ?? null} canAssign={row.status === "confirmed"} /></td>
+                    <td className="px-4 py-4">{view === "bin" ? <BookingDeleteButton reference={row.reference} binned purgeAfter={row.purgeAfter} /> : <div className="flex items-center gap-1"><EditDriverButton reference={row.reference} drivers={driverOptions} current={assigned.get(row.reference) ?? null} canAssign={row.status === "confirmed"} /><BookingDeleteButton reference={row.reference} /></div>}</td>
                   </tr>;
                 })}
                 {rows.length === 0 && (
                   <tr>
                     <td colSpan={10} className="px-5 py-16 text-center text-slate-500">
-                      {type === "tour" ? "No tour bookings yet." : type === "hourly" ? "No hourly bookings yet." : "No bookings yet."}
+                      {view === "bin" ? "The bin is empty." : type === "tour" ? "No tour bookings yet." : type === "hourly" ? "No hourly bookings yet." : "No bookings yet."}
                     </td>
                   </tr>
                 )}
