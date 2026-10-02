@@ -1303,3 +1303,10 @@ export const journeyCosts = sqliteTable("journey_costs", {
  costMinor:integer("cost_minor").notNull(), paymentStatus:text("payment_status").notNull().default("unpaid"),
  updatedBy:text("updated_by").notNull(), createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(),
 },t=>[uniqueIndex("uidx_journey_cost_leg").on(t.bookingReference,t.leg)]);
+
+// LINE bot state: the admin's LINE user, a one-time link code, and which form is waiting for a price.
+export const lineState = sqliteTable("line_state", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

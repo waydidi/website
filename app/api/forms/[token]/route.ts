@@ -2,8 +2,10 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { agencyApplications, bookingForms } from "@/db/schema";
-import { formAnswersSchema, type FormPrefill } from "@/lib/booking-form";
+import { formAnswersSchema, type FormPrefill, type FormService } from "@/lib/booking-form";
 import { sendFormAlert } from "@/lib/email";
+import { pushLine } from "@/lib/line";
+import { formCard } from "@/lib/line-forms";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
 
 // Customer: submit the step-by-step booking form. Each link takes one submission.
@@ -27,5 +29,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     .where(and(eq(bookingForms.token, token), eq(bookingForms.status, "waiting")));
   const [agency] = form.agencyId ? await getDb().select({ name: agencyApplications.agencyName }).from(agencyApplications).where(eq(agencyApplications.id, form.agencyId)).limit(1) : [];
   await sendFormAlert({ token, answers: a, service: form.serviceType, agency: agency?.name ?? null, note: form.note, price: locked.price ?? null, origin: safeOrigin(request) }).catch(() => undefined);
+  // LINE card to the admin: tap "Set price", type the price, and the booking is made.
+  await pushLine([formCard({ token, service: form.serviceType as FormService, answers: a, note: form.note, agency: agency?.name ?? null, presetPrice: locked.price ?? null,
+    adminUrl: `${safeOrigin(request)}/admin/bookings?type=${form.serviceType}&form=${token}` })]).catch((error) => console.error("LINE form card failed", error));
   return NextResponse.json({ ok: true });
 }

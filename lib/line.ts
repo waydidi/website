@@ -16,7 +16,7 @@ type TripLineInput = {
 
 const siteUrl = () => (env.WAYDIDI_PUBLIC_URL || SITE_URL).replace(/\/$/u, "");
 
-async function pushLine(messages: unknown[]) {
+export async function pushLine(messages: unknown[]) {
   if (!env.LINE_CHANNEL_ACCESS_TOKEN || !env.LINE_ADMIN_TARGET_ID) return { status: "pending_configuration" as const };
   const response = await fetch("https://api.line.me/v2/bot/message/push", {
     method: "POST",
@@ -94,4 +94,15 @@ export async function verifyLineSignature(raw: string, signature: string) {
   if (expected.length !== signature.length) return false;
   let difference = 0; for (let index = 0; index < expected.length; index += 1) difference |= expected.charCodeAt(index) ^ signature.charCodeAt(index);
   return difference === 0;
+}
+
+/** Answer a webhook event (free, unlike push). */
+export async function replyLine(replyToken: string, messages: unknown[]) {
+  if (!env.LINE_CHANNEL_ACCESS_TOKEN || !replyToken) return;
+  const response = await fetch("https://api.line.me/v2/bot/message/reply", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ replyToken, messages }),
+  });
+  if (!response.ok) console.error("LINE reply failed", response.status, await response.text());
 }
