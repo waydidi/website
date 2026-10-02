@@ -130,10 +130,13 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
     ["From", input.returnPickup ?? input.dropoff],
     ["To", input.returnDropoff ?? input.pickup],
   ] : [];
+  // Koh Chang car ferry tickets are included per one-way trip, one ticket per seat of the vehicle class.
   const vehicleClass = Object.entries(VEHICLES).find(([id, v]) => id === input.vehicle || v.name === input.vehicle)?.[1];
-  const ferry = vehicleClass && includesKohChangFerry(input.pickup, input.dropoff, input.returnPickup, input.returnDropoff)
-    ? [["Included", `Koh Chang car ferry tickets for ${vehicleClass.passengers} people${roundTrip ? " (both ways)" : ""}`] as [string, string]] : [];
-  const closing: [string, string][] = [...ferry, ["Price", price], ["Payment method", payment]];
+  const ferryLine = (from: string | null | undefined, to: string | null | undefined): [string, string][] =>
+    vehicleClass && includesKohChangFerry(from, to) ? [["Included", `Koh Chang car ferry tickets for ${vehicleClass.passengers} people (one way)`]] : [];
+  outbound.push(...ferryLine(input.pickup, input.dropoff));
+  back.push(...(roundTrip ? ferryLine(input.returnPickup ?? input.dropoff, input.returnDropoff ?? input.pickup) : []));
+  const closing: [string, string][] = [["Price", price], ["Payment method", payment]];
   const blocks = roundTrip ? [outbound, [...back, ...closing]] : [[...outbound, ...closing]];
   const p = (inner: string, extra = "") => `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#211726${extra}">${inner}</p>`;
   const blockHtml = (lines: [string, string][]) => p(lines.map(([label, value]) => `${escapeHtml(label)}: <strong>${escapeHtml(value)}</strong>`).join("<br>"));
