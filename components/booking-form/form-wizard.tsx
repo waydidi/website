@@ -201,9 +201,8 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
                 {service === "tour"
                   ? <input className={smallInput} value={a.dropoff} onChange={(e) => set("dropoff", e.target.value)} placeholder="e.g. Floating market day trip" disabled={locked("dropoff")} />
                   : <PlaceInput className={smallInput} value={a.dropoff} onChange={(v) => set("dropoff", v)} placeholder="Hotel name or address" disabled={locked("dropoff")} />}</label>}
-            <div className="grid grid-cols-2 gap-5">
-              <div className={smallLabel}>Pickup date<DateField min={today()} className={smallInput} value={a.date} onChange={(v) => set("date", v)} time={a.time} onTimeChange={(v) => set("time", v)} disabled={locked("date")} /></div>
-              <label className={smallLabel}>Pickup time<TimeSelect className={smallInput} value={a.time} onChange={(v) => set("time", v)} disabled={locked("time")} /></label>
+            <div className="grid gap-5">
+              <div className={smallLabel}>Pickup date & time<DateField min={today()} className={smallInput} value={a.date} onChange={(v) => set("date", v)} time={a.time} onTimeChange={(v) => set("time", v)} disabled={locked("date")} /></div>
             </div>
           </div>
         </>}
@@ -217,9 +216,8 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
               {a.returnTrip === value && <Check size={20} className="ml-auto text-[#FF8A05]" />}
             </button>)}
           </div>
-          {a.returnTrip && <div className="mt-7 grid grid-cols-2 gap-5 animate-in fade-in slide-in-from-top-2">
-            <div className={smallLabel}>Return date<DateField kind="return" min={a.date || today()} className={smallInput} value={a.returnDate} onChange={(v) => set("returnDate", v)} time={a.returnTime} onTimeChange={(v) => set("returnTime", v)} /></div>
-            <label className={smallLabel}>Return time<TimeSelect className={smallInput} value={a.returnTime} onChange={(v) => set("returnTime", v)} /></label>
+          {a.returnTrip && <div className="mt-7 grid gap-5 animate-in fade-in slide-in-from-top-2">
+            <div className={smallLabel}>Return date & time<DateField kind="return" min={a.date || today()} className={smallInput} value={a.returnDate} onChange={(v) => set("returnDate", v)} time={a.returnTime} onTimeChange={(v) => set("returnTime", v)} /></div>
           </div>}
         </>}
 
