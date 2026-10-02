@@ -151,7 +151,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
               {navMenus.map((menu) => (
                 <li key={menu.labelKey} className="mb-4">
                   <p className="text-[16px] text-slate-500">{t(menu.labelKey)}</p>
-                  <ul className="mt-2 border-l border-slate-200 pl-5">
+                  <ul className="mt-2 border-l-[1.5px] border-slate-200 pl-5">
                     {menu.links.map((link) => (
                       <li key={link.href}>
                         <Link href={link.href} onClick={closeMenu} className="block py-2 text-[17px] font-semibold text-[#E57A00] hover:underline">

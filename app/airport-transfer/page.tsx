@@ -13,6 +13,8 @@ import {
   Route,
   ShieldCheck,
 } from "lucide-react";
+import { BookingFlow } from "@/components/home/booking-flow";
+import { Breadcrumbs } from "@/components/seo";
 import { PublicFooter } from "@/components/public-footer";
 import { SITE_URL } from "@/lib/public-content";
 
@@ -66,29 +68,10 @@ export default function SuvarnabhumiAirportPage() {
     url: `${SITE_URL}/airport-transfer`,
   };
 
-  return <main className="bg-white text-[#211726]">
+  return <BookingFlow hero={{title:"Private airport transfers in Thailand",subtitle:"Pre-book your airport pickup or drop-off with a fixed price, a confirmed vehicle and a driver who meets you at arrivals.",image:"/service-ride-airport.webp",top:<Breadcrumbs crumbs={[{name:"Home",path:"/"},{name:"Airport transfer",path:"/airport-transfer"}]} className="text-white"/>}}><main className="bg-white text-[#211726]">
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
 
-    <section className="mx-auto max-w-[1320px] px-5 pb-8 pt-6 lg:px-8">
-      <div className="mb-5 text-sm font-semibold text-slate-500"><a href="/" className="hover:text-[#D96F00]">Home</a><span className="mx-2">/</span>Suvarnabhumi Airport</div>
-      <div className="grid overflow-hidden rounded-[30px] bg-[#211726] text-white lg:grid-cols-[1.08fr_.92fr]">
-        <div className="flex flex-col justify-center px-7 py-12 sm:px-11 lg:px-14 lg:py-16">
-          <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-black"><Plane size={17} className="text-[#FF9A24]"/> Bangkok · BKK</span>
-          <h1 className="mt-6 text-5xl font-black tracking-[-.055em] sm:text-6xl lg:text-7xl">Suvarnabhumi Airport</h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-white/75">Start or finish your Thailand journey with a private airport transfer, a confirmed pickup plan and space for your whole group.</p>
-          <div className="mt-8 flex flex-wrap gap-3"><a href="/#booking-search" className="inline-flex items-center gap-2 rounded-full bg-[#FF8A05] px-6 py-4 font-black text-white">Search airport transfers <ArrowRight size={18}/></a><a href="#transfer-service" className="inline-flex items-center rounded-full border border-white/25 px-6 py-4 font-black">Explore services</a></div>
-        </div>
-        <div className="relative min-h-[360px] bg-[#FF8A05] lg:min-h-[510px]">
-          <Image src="/waydidi-transfer.png" alt="Private Waydidi airport transfer vehicle in Thailand" fill priority className="object-cover object-center" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#211726]/60 via-transparent to-transparent"/>
-          <div className="absolute bottom-6 left-6 right-6 rounded-2xl bg-white/95 p-5 text-[#211726] shadow-xl backdrop-blur">
-            <div className="flex items-start gap-3"><BadgeCheck className="mt-0.5 shrink-0 text-[#D96F00]"/><div><strong className="block">Private pickup, planned before arrival</strong><span className="mt-1 block text-sm text-slate-600">Clear booking details · local operations · support when plans change</span></div></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <nav aria-label="Suvarnabhumi Airport page sections" className="sticky top-[102px] z-30 border-y border-slate-200 bg-white/95 backdrop-blur">
+    <nav aria-label="Suvarnabhumi Airport page sections" className="sticky top-[69px] lg:top-[97px] z-30 border-y border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-[1260px] gap-8 overflow-x-auto px-5 py-5 text-sm font-black sm:text-base lg:px-8">
         <a href="#transfer-service" className="whitespace-nowrap text-[#D96F00]">Transfer service</a>
         <a href="#trips" className="whitespace-nowrap hover:text-[#D96F00]">Trip from Suvarnabhumi Airport</a>
@@ -112,5 +95,5 @@ export default function SuvarnabhumiAirportPage() {
     <section className="mx-auto max-w-[1260px] px-5 py-16 lg:px-8"><div className="grid gap-8 rounded-[30px] bg-[#FF8A05] p-7 text-white md:grid-cols-[1fr_auto] md:items-center md:p-11"><div><p className="text-sm font-black uppercase tracking-[.18em] text-white/70">Ready to travel?</p><h2 className="mt-3 text-4xl font-black tracking-[-.04em]">Search your Suvarnabhumi transfer.</h2><p className="mt-3 max-w-2xl text-lg text-white/85">Enter the exact airport terminal or meeting point and your destination to see available vehicle categories.</p></div><a href="/#booking-search" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-4 font-black text-[#C96100]">Search transfers <ArrowRight size={18}/></a></div></section>
 
     <PublicFooter/>
-  </main>;
+  </main></BookingFlow>;
 }
