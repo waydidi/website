@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "@/components/booking-form/date-field";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { ArrowLeft, Check, Clock3, Lock, LoaderCircle, Luggage, Minus, Pencil, Plus, UsersRound } from "lucide-react";
 import Image from "next/image";
@@ -201,7 +202,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
                   ? <input className={smallInput} value={a.dropoff} onChange={(e) => set("dropoff", e.target.value)} placeholder="e.g. Floating market day trip" disabled={locked("dropoff")} />
                   : <PlaceInput className={smallInput} value={a.dropoff} onChange={(v) => set("dropoff", v)} placeholder="Hotel name or address" disabled={locked("dropoff")} />}</label>}
             <div className="grid grid-cols-2 gap-5">
-              <label className={smallLabel}>Pickup date<input type="date" min={today()} className={smallInput} value={a.date} onChange={(e) => set("date", e.target.value)} disabled={locked("date")} /></label>
+              <div className={smallLabel}>Pickup date<DateField min={today()} className={smallInput} value={a.date} onChange={(v) => set("date", v)} time={a.time} onTimeChange={(v) => set("time", v)} disabled={locked("date")} /></div>
               <label className={smallLabel}>Pickup time<TimeSelect className={smallInput} value={a.time} onChange={(v) => set("time", v)} disabled={locked("time")} /></label>
             </div>
           </div>
@@ -217,7 +218,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
             </button>)}
           </div>
           {a.returnTrip && <div className="mt-7 grid grid-cols-2 gap-5 animate-in fade-in slide-in-from-top-2">
-            <label className={smallLabel}>Return date<input type="date" min={a.date || today()} className={smallInput} value={a.returnDate} onChange={(e) => set("returnDate", e.target.value)} /></label>
+            <div className={smallLabel}>Return date<DateField kind="return" min={a.date || today()} className={smallInput} value={a.returnDate} onChange={(v) => set("returnDate", v)} time={a.returnTime} onTimeChange={(v) => set("returnTime", v)} /></div>
             <label className={smallLabel}>Return time<TimeSelect className={smallInput} value={a.returnTime} onChange={(v) => set("returnTime", v)} /></label>
           </div>}
         </>}

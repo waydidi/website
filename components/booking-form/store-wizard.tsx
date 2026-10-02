@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "@/components/booking-form/date-field";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { ArrowLeft, Banknote, Check, CreditCard, Luggage, Store, UsersRound } from "lucide-react";
 import Image from "next/image";
@@ -166,7 +167,7 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
             {airport && <label className={`${smallLabel} animate-in fade-in`}>Flight number <span className="font-normal text-[#9A8F86]">(optional)</span><input className={smallInput} value={a.flight} onChange={(e) => set("flight", e.target.value.toUpperCase())} placeholder="TG 123" /></label>}
             <label className={smallLabel}>Destination<PlaceInput className={smallInput} value={a.dropoff} onChange={(v) => set("dropoff", v)} onPlace={(id) => set("dropoffId", id)} placeholder="Hotel name or address" /></label>
             <div className="grid grid-cols-2 gap-5">
-              <label className={smallLabel}>Pickup date<input type="date" min={today()} className={smallInput} value={a.date} onChange={(e) => set("date", e.target.value)} /></label>
+              <div className={smallLabel}>Pickup date<DateField min={today()} className={smallInput} value={a.date} onChange={(v) => set("date", v)} time={a.time} onTimeChange={(v) => set("time", v)} /></div>
               <label className={smallLabel}>Pickup time<TimeSelect className={smallInput} value={a.time} onChange={(v) => set("time", v)} /></label>
             </div>
           </div>
@@ -178,7 +179,7 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
             {([[true, "Yes, add a return"], [false, "No, one way"]] as const).map(([value, text]) => <button key={text} type="button" onClick={() => set("returnTrip", value)} className={`flex h-16 items-center gap-3 rounded-2xl border-2 px-4 text-left text-[17px] font-semibold transition ${a.returnTrip === value ? "border-[#FF8A05] bg-[#FFF0DF]" : "border-[#F0E3D4] bg-white"}`}>{text}{a.returnTrip === value && <Check size={20} className="ml-auto text-[#FF8A05]" />}</button>)}
           </div>
           {a.returnTrip && <div className="mt-7 grid grid-cols-2 gap-5 animate-in fade-in">
-            <label className={smallLabel}>Return date<input type="date" min={a.date || today()} className={smallInput} value={a.returnDate} onChange={(e) => set("returnDate", e.target.value)} /></label>
+            <div className={smallLabel}>Return date<DateField kind="return" min={a.date || today()} className={smallInput} value={a.returnDate} onChange={(v) => set("returnDate", v)} time={a.returnTime} onTimeChange={(v) => set("returnTime", v)} /></div>
             <label className={smallLabel}>Return time<TimeSelect className={smallInput} value={a.returnTime} onChange={(v) => set("returnTime", v)} /></label>
           </div>}
         </>}

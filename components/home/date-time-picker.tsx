@@ -63,10 +63,11 @@ export function DateTimePicker({
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="max-h-[96dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-ink data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 lg:left-1/2 lg:max-w-3xl lg:-translate-x-1/2"
+        className="max-h-[96dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-ink data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:max-h-[92dvh] md:w-[min(92vw,720px)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[32px] md:pb-8 md:pt-6 md:shadow-2xl md:data-[state=open]:slide-in-from-bottom-0 md:data-[state=closed]:slide-out-to-bottom-0 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:zoom-out-95 md:data-[state=open]:duration-200"
       >
-        <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" aria-hidden="true" />
-        <SheetHeader className="flex-row items-center justify-between px-0 pb-3 pt-5 text-left">
+        {/* Grab handle: the picker is a bottom sheet on phones and a centred popup from tablet up. */}
+        <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300 md:hidden" aria-hidden="true" />
+        <SheetHeader className="flex-row items-center justify-between px-0 pb-3 pt-5 text-left md:pt-0">
           <SheetTitle className="text-[28px] font-semibold tracking-[-.03em] sm:text-[34px]">
             {title}
           </SheetTitle>
