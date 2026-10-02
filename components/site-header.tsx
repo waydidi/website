@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CarFront, ChevronDown, Menu, UserRound, X } from "lucide-react";
+import { CarFront, ChevronRight, Menu, UserRound, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NavDropdown, navLinks, navMenus } from "@/components/home/nav";
@@ -56,9 +56,8 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   }, []);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const pathname = usePathname();
-  const closeMenu = () => { setMenuOpen(false); setOpenGroup(null); };
+  const closeMenu = () => setMenuOpen(false);
 
   // Close the menu after navigating.
   useEffect(() => {
@@ -134,65 +133,53 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         </button>
       </div>
       {menuOpen && (
-        // Full-screen panel that drops down under the header (no logo inside).
-        <nav
-          id="mobile-menu"
-          aria-label={t("nav.mobileNav")}
-          className="fixed inset-x-0 bottom-0 top-[59px] z-30 flex flex-col overflow-y-auto bg-white text-[#211726] animate-in fade-in slide-in-from-top-4 duration-200 motion-reduce:animate-none lg:top-[97px] xl:hidden"
-        >
-          <ul className="px-6 pt-4">
-            {navMenus.map((menu) => {
-              const open = openGroup === menu.labelKey;
-              return (
-                <li key={menu.labelKey}>
-                  <button
-                    type="button"
-                    onClick={() => setOpenGroup(open ? null : menu.labelKey)}
-                    aria-expanded={open}
-                    className="flex w-full items-center justify-between py-4 text-left text-[28px] font-bold tracking-[-.02em]"
-                  >
-                    {t(menu.labelKey)}
-                    <ChevronDown size={24} strokeWidth={2.5} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
-                  </button>
-                  {open && (
-                    <ul className="pb-3">
-                      {menu.links.map((link) => (
-                        <li key={link.href}>
-                          <Link href={link.href} onClick={closeMenu} className="block py-2.5 text-lg text-slate-600 hover:text-[#D96F00]">
-                            {t(link.labelKey)}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+        // Side drawer from the right (Daytrip-style): about 82% of the screen, max 340px.
+        <div className="fixed inset-0 z-50 xl:hidden">
+          <button type="button" aria-label={t("nav.closeMenu")} onClick={closeMenu} className="absolute inset-0 bg-black/40 animate-in fade-in duration-200 motion-reduce:animate-none" />
+          <nav
+            id="mobile-menu"
+            aria-label={t("nav.mobileNav")}
+            className="absolute inset-y-0 right-0 flex w-[82vw] max-w-[340px] flex-col overflow-y-auto bg-white text-[#211726] shadow-2xl animate-in slide-in-from-right duration-300 motion-reduce:animate-none"
+          >
+            <div className="flex justify-end px-5 pt-[calc(1rem+env(safe-area-inset-top))]">
+              <button type="button" onClick={closeMenu} className="flex items-center gap-1 rounded-full px-2 py-1 text-[17px] font-semibold text-[#E57A00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A05]">
+                Hide <ChevronRight size={22} strokeWidth={2.25} />
+              </button>
+            </div>
+            <div className="px-5 pt-3 text-[#211726]"><LocalePicker /></div>
+            <ul className="px-5 pt-5">
+              {navMenus.map((menu) => (
+                <li key={menu.labelKey} className="mb-4">
+                  <p className="text-[16px] text-slate-500">{t(menu.labelKey)}</p>
+                  <ul className="mt-2 border-l border-slate-200 pl-5">
+                    {menu.links.map((link) => (
+                      <li key={link.href}>
+                        <Link href={link.href} onClick={closeMenu} className="block py-2 text-[17px] font-semibold text-[#E57A00] hover:underline">
+                          {t(link.labelKey)}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 </li>
-              );
-            })}
-            {navLinks.map((link) => (
-              <li key={link.href}>
-                <Link href={link.href} onClick={closeMenu} className="block py-4 text-[28px] font-bold tracking-[-.02em] hover:text-[#D96F00]">
-                  {t(link.labelKey)}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-auto grid gap-3 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6">
-            <Link
-              href={accountHref}
-              onClick={closeMenu}
-              className="flex items-center justify-center gap-2 rounded-full border border-slate-300 px-5 py-4 text-base font-semibold"
-            >
-              <UserRound size={20} /> {account?.signedIn ? t("nav.myAccount") : t("nav.signInCreate")}
-            </Link>
-            <Link
-              href="/booking/manage"
-              onClick={closeMenu}
-              className="flex items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-4 text-base font-semibold text-white"
-            >
-              <CarFront size={20} /> {t("nav.checkBooking")}
-            </Link>
-          </div>
-        </nav>
+              ))}
+              {navLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} onClick={closeMenu} className="block py-2.5 text-[17px] font-semibold text-[#E57A00] hover:underline">
+                    {t(link.labelKey)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-auto grid justify-items-start gap-3 px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-8">
+              <Link href={accountHref} onClick={closeMenu} className="flex items-center gap-2 rounded-full bg-[#FFF0DF] px-5 py-3 text-[16px] font-semibold text-[#E57A00]">
+                <UserRound size={20} /> {account?.signedIn ? t("nav.myAccount") : t("nav.signIn")}
+              </Link>
+              <Link href="/booking/manage" onClick={closeMenu} className="flex items-center gap-2 rounded-full bg-[#FF8A05] px-5 py-3 text-[16px] font-semibold text-white">
+                <CarFront size={20} /> {t("nav.checkBooking")}
+              </Link>
+            </div>
+          </nav>
+        </div>
       )}
     </header>
   );
