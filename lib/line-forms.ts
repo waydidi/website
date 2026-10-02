@@ -61,12 +61,15 @@ const header = (kicker: string, title: string, color: string) => ({
 export function formCard(input: { token: string; service: FormService; answers: FormAnswers; adminUrl: string; note?: string | null; agency?: string | null; presetPrice?: number | null; suggested?: { amount: number; detail: string } | null }) {
   const a = input.answers;
   const vehicle = VEHICLES[a.vehicle as keyof typeof VEHICLES];
-  const services = [
-    a.childSeats > 0 ? `Child seat × ${a.childSeats}` : "",
-    a.exchangeStop ? "Exchange stop" : "",
-    a.ferryPeople > 0 ? `Ferry & hotel transfer × ${a.ferryPeople}` : "",
-    includesKohChangFerry(a.pickup, a.dropoff) && vehicle ? `Koh Chang ferry for ${vehicle.passengers}` : "",
-  ].filter(Boolean);
+  const origin = new URL(input.adminUrl).origin;
+  // Additional services: the add-on picture with the quantity written to its right.
+  const kohChang = includesKohChangFerry(a.pickup, a.dropoff) && vehicle;
+  const services: [string, string][] = [
+    ...(a.childSeats > 0 ? [["child-seat", `Child seat × ${a.childSeats}`] as [string, string]] : []),
+    ...(a.exchangeStop ? [["exchange", "Currency exchange stop × 1"] as [string, string]] : []),
+    ...(a.ferryPeople > 0 ? [["ferry", `Ferry & hotel transfer × ${a.ferryPeople}`] as [string, string]] : []),
+    ...(kohChang ? [["ferry", `Koh Chang car ferry × ${vehicle.passengers}`] as [string, string]] : []),
+  ];
   const body: unknown[] = [
     row("Date/Time", when(a.date, a.time)),
     ...(a.flightNumber ? [row("Flight", a.flightNumber)] : []),
@@ -74,8 +77,12 @@ export function formCard(input: { token: string; service: FormService; answers: 
     input.service === "hourly" ? row("Hours", `${a.hours ?? ""} hours`) : row(input.service === "tour" ? "Tour" : "To", a.dropoff),
   ];
   if (a.returnTrip && a.returnDate) body.push(sep, row("Return", when(a.returnDate, a.returnTime)), row("Route", `${a.dropoff} → ${a.pickup}`));
-  body.push(sep, row("Vehicle", vehicle?.name ?? a.vehicle), travellersRow(a.passengers, a.luggage, new URL(input.adminUrl).origin));
-  if (services.length) body.push({ type: "text", text: "Additional services", size: "sm", color: "#8A8190", margin: "md" }, { type: "text", text: services.join(" · "), size: "sm", color: "#C96100", weight: "bold", wrap: true });
+  body.push(sep, row("Vehicle", vehicle?.name ?? a.vehicle), travellersRow(a.passengers, a.luggage, origin));
+  if (services.length) body.push({ type: "text", text: "Additional services", size: "sm", color: "#8A8190", margin: "md" },
+    ...services.map(([icon, label]) => ({ type: "box", layout: "baseline", spacing: "md", contents: [
+      { type: "icon", url: `${origin}/line/${icon}.png`, size: "xl" },
+      { type: "text", text: label, size: "sm", color: "#1F1726", weight: "bold", wrap: true },
+    ] })));
   if (input.agency || input.note) body.push(sep, ...(input.agency ? [row("Agency", input.agency)] : []), ...(input.note ? [row("Note", input.note)] : []));
   if (input.presetPrice != null) body.push(row("Preset price", `${input.presetPrice.toLocaleString("en-US")} THB`));
   if (input.suggested) body.push(sep, row("Suggested", `${input.suggested.amount.toLocaleString("en-US")} THB`), { type: "text", text: input.suggested.detail, size: "xxs", color: "#8A8190", align: "end", wrap: true });
