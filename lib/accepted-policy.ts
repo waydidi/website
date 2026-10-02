@@ -9,5 +9,5 @@ export async function acceptedPolicy(reference:string) {
  if(!row) return null;
  const data=JSON.parse(row.policy_json) as typeof ACCEPTED_CANCELLATION_POLICY;
  if(data.version!==row.version||data.tiers.length!==3) throw new Error("INVALID_POLICY_SNAPSHOT");
- return {version:row.version,tiers:data.tiers.map(t=>({...t,minHours:t.minHours??-Infinity})) as RefundTier[]};
+ return {version:row.version,terms:data.terms,tiers:data.tiers.map(t=>({...t,minHours:t.minHours??-Infinity})) as RefundTier[]};
 }

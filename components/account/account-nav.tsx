@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Building2, CarFront, House, MapPin, ReceiptText, Settings, TicketPercent, UserRound, Users, Medal } from "lucide-react";
 
 const items = [
+  { href: "/partners", label: "Hotel & agency portal", icon: Building2, tab: false },
   { href: "/account", label: "Overview", icon: House, tab: true },
   { href: "/account/trips", label: "My trips", icon: CarFront, tab: true },
   { href: "/account/receipts", label: "Receipts", icon: ReceiptText, tab: true },

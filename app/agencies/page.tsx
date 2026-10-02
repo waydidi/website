@@ -32,7 +32,7 @@ const CARDS = [
 
 // The agency workspace is planned, not live yet: the page says so, and the mockups use example data.
 const WORKSPACE = [
-  { icon: Gauge, label: "Dashboard", Mock: DashboardMockup, title: "Your agency at a glance", text: "The home view will greet you with your agency name, your partner rate and the numbers that matter: passengers served, upcoming rides and total bookings, with quick actions one tap away.", points: ["Upcoming, completed and passenger totals.", "Quick actions to book, manage passengers and download statements.", "A direct line to your Waydidi partnerships contact."] },
+  { icon: Gauge, label: "Dashboard", Mock: DashboardMockup, title: "Your agency at a glance", text: "The partner workspace greets you with your agency name, your partner rate and the numbers that matter: passengers served, upcoming rides and total bookings, with quick actions one tap away.", points: ["Upcoming, completed and passenger totals.", "Quick actions to book, manage passengers and download statements.", "A direct line to your Waydidi partnerships contact."] },
   { icon: ListChecks, label: "Bookings", Mock: BookingsMockup, title: "Every transfer, organised and searchable", text: "Filter upcoming, completed and cancelled rides, search by pickup, destination or passenger, and see each booking's payment status with clear colour-coded labels.", points: ["Upcoming, completed and cancelled tabs.", "Search by reference, passenger, address or date range.", "Status badges: Confirmed, Awaiting payment and more."] },
   { icon: ReceiptText, label: "Booking detail", Mock: DetailMockup, title: "Full control of every ride", text: "Open any booking to review the route, vehicle, passenger details and total price. Pay securely, share the voucher with your traveller or contact support, all from one screen.", points: ["Route, vehicle and passenger info in a single view.", "Pay securely and download the voucher in one click.", "Reach our partner support whenever you need a hand."] },
 ];
@@ -121,7 +121,7 @@ export default async function AgenciesPage({ searchParams }: { searchParams: Pro
       <section className="pt-24 text-center" aria-labelledby="workspace-heading">
         <p className="text-[13px] font-semibold text-[#666] sm:text-[15px]">Agency workspace <span className="ml-1 rounded-full bg-[#FFE7C7] px-2.5 py-0.5 text-[11px] font-bold text-[#8A4B00]">Coming soon</span></p>
         <h2 id="workspace-heading" className="mx-auto mt-5 max-w-[760px] text-[34px] font-bold leading-[1.15] tracking-[-.02em] sm:text-[52px]">A dedicated dashboard for your agency</h2>
-        <p className="mx-auto mt-6 max-w-[720px] text-[16px] leading-[27px] text-[#555] sm:text-[18px] sm:leading-8">A preview of the Waydidi agency account we&apos;re building with our first partners: one clean workspace to run every booking, passenger and invoice. Until it launches, our team books and manages rides for you.</p>
+        <p className="mx-auto mt-6 max-w-[720px] text-[16px] leading-[27px] text-[#555] sm:text-[18px] sm:leading-8">Approved hotel and agency partners can use one workspace for ride requests, booking confirmations, agreed rates, invoices and commission statements. Operations reviews requests before confirming availability.</p>
         <div className="mx-auto mt-12 max-w-[900px]"><DashboardMockup /></div>
         <p className="mt-3 text-[13px] text-[#999]">Design preview with example data.</p>
       </section>

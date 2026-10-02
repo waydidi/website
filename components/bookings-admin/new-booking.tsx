@@ -62,7 +62,7 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
     setBusy(true); setError("");
     try {
       const res = await fetch("/api/admin/manual-booking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        ...f, fare, discount, sendEmail,
+        ...f, fare, discount, sendEmail, partnerFormToken:formToken,
         bookedHours: f.serviceType === "hourly" ? f.bookedHours : undefined,
         returnDate: f.returnOn ? f.returnDate : "", returnTime: f.returnOn ? f.returnTime : "",
         flightNumber: isAirportPickup({ pickup: f.pickup, flightNumber: null }) ? f.flightNumber : "",

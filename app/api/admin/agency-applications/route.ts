@@ -1,3 +1,4 @@
+import { partnerDb } from "@/lib/partner-portal";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -23,6 +24,12 @@ export async function PATCH(request: Request) {
   const id = typeof input?.id === "string" ? input.id : "";
   const status = typeof input?.status === "string" ? input.status : "";
   if (!id || !STATUSES.includes(status)) return NextResponse.json({ error: "Choose a valid status." }, { status: 400 });
+  if(status==="approved"){
+    const [candidate]=await getDb().select().from(agencyApplications).where(eq(agencyApplications.id,id)).limit(1);
+    if(!candidate)return NextResponse.json({error:"Application not found."},{status:404});
+    const collision=await partnerDb().prepare("SELECT id FROM agency_applications WHERE lower(email)=? AND status='approved' AND id<>? UNION ALL SELECT agency_id FROM partner_members WHERE lower(email)=? AND agency_id<>? LIMIT 1").bind(candidate.email.toLowerCase(),id,candidate.email.toLowerCase(),id).first();
+    if(collision)return NextResponse.json({error:"This email already belongs to another partner. Resolve the account mapping before approval."},{status:409});
+  }
   const done = await getDb().update(agencyApplications).set({ status }).where(eq(agencyApplications.id, id)).returning({ id: agencyApplications.id });
   if (!done.length) return NextResponse.json({ error: "Application not found." }, { status: 404 });
   return NextResponse.json({ ok: true });

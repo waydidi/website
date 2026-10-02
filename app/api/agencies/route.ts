@@ -15,7 +15,7 @@ const schema = z.object({
   monthlyTransfers: z.enum(["1-10", "11-50", "51-200", "200+"]),
   message: z.string().trim().max(1000).optional().or(z.literal("")),
   company: z.string().max(0).optional(), // honeypot: real people leave it empty
-  partnerType: z.enum(["travel-agent", "host-agency"]).default("travel-agent"),
+  partnerType: z.enum(["travel-agent", "host-agency", "hotel"]).default("travel-agent"),
 });
 
 // Travel agency partner application. Stored for the team to review in admin.

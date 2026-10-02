@@ -2,8 +2,8 @@ import { z } from "zod";
 import { VEHICLES } from "@/lib/vehicles";
 
 // Answers a customer gives on the step-by-step booking form (/f/[token]).
-const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const time = z.string().regex(/^\d{2}:\d{2}$/);
+const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v,"Enter a real date.");
+const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const text = (max: number) => z.string().trim().max(max);
 
 export const formAnswersSchema = z.object({
@@ -37,7 +37,7 @@ export const formPrefillSchema = z.object({
   date: date.optional(),
   time: time.optional(),
   vehicle: z.enum(Object.keys(VEHICLES) as [string, ...string[]]).optional(),
-  price: z.number().int().min(0).max(1_000_000).optional(),
+  price: z.number().min(0).max(1_000_000).refine(v=>Math.abs(v*100-Math.round(v*100))<0.000001).optional(),
 });
 export type FormPrefill = z.infer<typeof formPrefillSchema>;
 

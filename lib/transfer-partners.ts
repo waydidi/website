@@ -1,4 +1,4 @@
-export type PartnerType = "travel-agent" | "host-agency";
+export type PartnerType = "travel-agent" | "host-agency" | "hotel";
 
 export const TRANSFER_PARTNERS = [
   {
@@ -40,7 +40,7 @@ export function partnerApplicationMessage(type: PartnerType, message?: string) {
   return `[Waydidi partner type: ${type}]\n${message?.trim() ?? ""}`;
 }
 export function readPartnerApplication(message: string | null) {
-  const match = message?.match(/^\[Waydidi partner type: (travel-agent|host-agency)\]\n/);
+  const match = message?.match(/^\[Waydidi partner type: (travel-agent|host-agency|hotel)\]\n/);
   return { type: (match?.[1] ?? "travel-agent") as PartnerType, message: match ? message!.slice(match[0].length).trim() : message ?? "" };
 }
-export const partnerTypeName = (type: PartnerType) => type === "host-agency" ? "Host agency / consortium" : "Travel agent";
+export const partnerTypeName = (type: PartnerType) => type === "hotel" ? "Hotel / concierge" : type === "host-agency" ? "Host agency / consortium" : "Travel agent";

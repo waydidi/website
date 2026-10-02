@@ -1,17 +1,20 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { agencyApplications, bookingForms, bookings, bookingSources } from "@/db/schema";
 import type { Customer } from "@/lib/customer-auth";
+
+import { partnerDb, type PartnerAccess } from "./partner-portal";
 
 export type Agency = typeof agencyApplications.$inferSelect;
 
 /** The approved travel agency whose contact email the signed-in customer verified. */
 export async function agencyForCustomer(customer: Customer | null) {
   if (!customer) return null;
-  const [agency] = await getDb().select().from(agencyApplications)
-    .where(and(eq(agencyApplications.status, "approved"), sql`lower(${agencyApplications.email}) = ${customer.email.toLowerCase()}`))
-    .limit(1);
-  return agency ?? null;
+  const email=customer.email.toLowerCase();
+  const {results}=await partnerDb().prepare("SELECT a.id,CASE WHEN lower(a.email)=? THEN 'admin' ELSE m.role END portal_role FROM agency_applications a LEFT JOIN partner_members m ON m.agency_id=a.id AND lower(m.email)=? AND m.active=1 WHERE a.status='approved' AND (lower(a.email)=? OR m.email IS NOT NULL) LIMIT 2").bind(email,email,email).all<{id:string;portal_role:PartnerAccess["portalRole"]}>();
+  if(results.length!==1)return null;
+  const [agency]=await getDb().select().from(agencyApplications).where(eq(agencyApplications.id,results[0].id)).limit(1);
+  return agency ? {...agency,portalRole:results[0].portal_role} as PartnerAccess : null;
 }
 
 const agencySource = (agency: Agency) => `agency:${agency.id}`;
