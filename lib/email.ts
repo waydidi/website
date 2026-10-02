@@ -35,6 +35,7 @@ type ConfirmationEmailInput = {
   extras?: BookingExtras;
   surname?: string | null;
   flightNumber?: string | null;
+  subject?: string;
 };
 
 function toBase64(bytes: Uint8Array) {
@@ -166,14 +167,14 @@ ${p("Best regards,<br>Waydidi Team")}
 
   return resend({
     to: [input.to],
-    subject: `Booking confirmation · ${input.reference} · Waydidi Travel`,
+    subject: input.subject ?? `Booking confirmation · ${input.reference} · Waydidi Travel`,
     html,
     text,
     attachments: [
       LOGO_ATTACHMENT,
       { filename: confirmationPdfName(input.reference, input.pickupDate), content: toBase64(input.pdf), content_type: "application/pdf" },
     ],
-  }, input.retryId ? `confirmation-retry-${input.reference}-${input.retryId}` : `confirmation-${input.reference}`);
+  }, input.retryId ? `confirmation-retry-${input.reference}-${input.retryId}` : `confirmation-${input.reference}-${input.to.toLowerCase()}`);
 }
 
 export async function sendOperationsAlert(booking: {

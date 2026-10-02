@@ -60,7 +60,22 @@ export async function fulfillBooking(booking: Booking, paymentIntentId?: string 
       extras, flightNumber: booking.flightNumber,
     }).catch(() => undefined);
   }
-  await sendOperationsAlert(booking);
+  // Waydidi gets the same email and PDF as the customer; the plain alert is only a fallback.
+  const office = await (env.BOOKING_ALERT_EMAIL ? sendConfirmationEmail({
+    to: env.BOOKING_ALERT_EMAIL, name: booking.customerName, surname: booking.customerSurname, flightNumber: booking.flightNumber,
+    subject: `New booking ${booking.reference} · ${[booking.customerName, booking.customerSurname].filter(Boolean).join(" ")}`,
+    reference: booking.reference, pdf,
+    pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate,
+    pickupTime: booking.pickupTime, vehicle: booking.vehicle, customerPhone: booking.customerPhone,
+    passengers: booking.passengers, luggage: booking.luggage, total: booking.total,
+    paymentMethod: booking.paymentMethod,
+    serviceType: booking.serviceType, bookedHours: booking.bookedHours, pricingArea: booking.pricingArea,
+    returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
+    returnDate: booking.returnDate, returnTime: booking.returnTime,
+    outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
+    extras,
+  }).catch(() => ({ status: "failed" as const })) : Promise.resolve({ status: "failed" as const }));
+  if (office.status !== "sent") await sendOperationsAlert(booking).catch(() => undefined);
 
   await getDb().update(bookings).set({
     status: "confirmed", paymentIntentId: paymentIntentId ?? booking.paymentIntentId,
