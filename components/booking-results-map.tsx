@@ -662,7 +662,7 @@ export function BookingResultsMap(props: Props) {
           {props.quoteRequest && <p className="mt-2 text-xs">{props.quoteRequestNote || "We’ll confirm your itinerary and price before payment."} Choose your vehicle and continue to request a quote.</p>}
         </div>}
 
-        {arrived && <p className="mb-1 flex items-center gap-2 truncate rounded-xl bg-[#ECFDF3] px-3 py-2 text-[13px] font-semibold text-[#067647]"><span className="size-2 shrink-0 rounded-full bg-[#00B14F] shadow-[0_0_0_3px_rgba(0,177,79,.2)]" aria-hidden="true" />{arrived} with Waydidi</p>}
+        {arrived && <p className="mb-1 flex items-center gap-2 truncate rounded-xl bg-[#ECFDF3] px-3 py-2 text-[13px] font-semibold text-[#067647]"><span className="size-2 shrink-0 rounded-full bg-[#00B14F] shadow-[0_0_0_3px_rgba(0,177,79,.2)]" aria-hidden="true" />{arrived}</p>}
 
         <ul className="grid gap-3 pt-2.5">
           {props.vehicles.map((item) => {
