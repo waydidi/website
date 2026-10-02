@@ -48,6 +48,8 @@ export function cleanPrefill(p: FormPrefill): FormPrefill {
 export const FORM_LINK_DAYS = 7;
 
 // Koh Kood / Koh Mak trips can add the ferry & hotel transfer.
+// Koh Chang trips include car ferry tickets, one per seat of the booked vehicle class.
+export const includesKohChangFerry = (...places: (string | null | undefined)[]) => /ko(h)?\s*chang|เกาะช้าง/i.test(places.filter(Boolean).join(" "));
 export const offersFerry = (pickup: string, dropoff: string) => /koh\s*(kood|kut|mak)|เกาะกูด|เกาะหมาก/i.test(`${pickup} ${dropoff}`);
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

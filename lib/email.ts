@@ -2,6 +2,7 @@ import { confirmationPdfName } from "@/lib/confirmation-pdf";
 import type { BookingExtras } from "@/lib/booking-extras";
 import { logoPng } from "@/lib/pdf-addon-images";
 import { VEHICLES } from "@/lib/vehicles";
+import { includesKohChangFerry } from "@/lib/booking-form";
 import { env } from "cloudflare:workers";
 
 import { SITE_URL } from "@/lib/site";
@@ -129,7 +130,10 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
     ["From", input.returnPickup ?? input.dropoff],
     ["To", input.returnDropoff ?? input.pickup],
   ] : [];
-  const closing: [string, string][] = [["Price", price], ["Payment method", payment]];
+  const vehicleClass = Object.entries(VEHICLES).find(([id, v]) => id === input.vehicle || v.name === input.vehicle)?.[1];
+  const ferry = vehicleClass && includesKohChangFerry(input.pickup, input.dropoff, input.returnPickup, input.returnDropoff)
+    ? [["Included", `Koh Chang car ferry tickets for ${vehicleClass.passengers} people${roundTrip ? " (both ways)" : ""}`] as [string, string]] : [];
+  const closing: [string, string][] = [...ferry, ["Price", price], ["Payment method", payment]];
   const blocks = roundTrip ? [outbound, [...back, ...closing]] : [[...outbound, ...closing]];
   const p = (inner: string, extra = "") => `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#211726${extra}">${inner}</p>`;
   const blockHtml = (lines: [string, string][]) => p(lines.map(([label, value]) => `${escapeHtml(label)}: <strong>${escapeHtml(value)}</strong>`).join("<br>"));
