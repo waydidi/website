@@ -18,7 +18,7 @@ type PlanResult = {
   suggestedTransport: { total: number; city: string } | null; packing: string[];
   alternatives: { label: string; returnAt: number; fits: boolean; stops: TripStop[]; extendHours?: number }[];
 };
-type TripMeta = { id: string; ref: string; status: string; token: string; version: number; sentAt: string | null; viewedAt: string | null; acceptedAt: string | null; changeRequest: string | null; bookingReference: string | null; agencyId: string | null; commissionPercent: number; isTemplate: boolean };
+type TripMeta = { id: string; ref: string; status: string; token: string; version: number; sentAt: string | null; viewedAt: string | null; acceptedAt: string | null; changeRequest: string | null; bookingReference: string | null; agencyId: string | null; commissionPercent: number; isTemplate: boolean; thankedAt: string | null; feedbackRating: number | null; feedbackComment: string | null };
 type Version = { version: number; note: string | null; createdBy: string | null; createdAt: string };
 type Attraction = AttractionView & { usedIn: number };
 
@@ -310,6 +310,8 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
             <button type="button" onClick={() => { void navigator.clipboard.writeText(`${location.origin}/itinerary/${meta.token}`); setNotice("Link copied."); }} className="inline-flex items-center gap-1 font-semibold text-slate-600 hover:text-[#C96100]"><Copy size={14} />Copy link</button>
             <span className="text-slate-500">{meta.viewedAt ? `Opened ${new Date(meta.viewedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}` : "Not opened yet"}</span>
           </div>}
+          {meta.feedbackRating != null && <div className={`mt-2 rounded-xl p-3 text-[14px] ${meta.feedbackRating <= 3 ? "bg-red-50 text-red-900" : "bg-emerald-50 text-emerald-900"}`}><b>{"★".repeat(meta.feedbackRating)}{"☆".repeat(5 - meta.feedbackRating)}</b> customer rating{meta.feedbackComment && <p className="mt-1">“{meta.feedbackComment}”</p>}</div>}
+          {meta.thankedAt && meta.feedbackRating == null && <p className="mt-2 text-[13px] text-slate-500">Thank-you email sent {new Date(meta.thankedAt).toLocaleDateString("en-GB", { dateStyle: "medium" })}; no rating yet.</p>}
           <ul className="mt-2 grid gap-1 text-[13px] text-slate-600">{versions.map((v) => <li key={v.version}><b>Version {v.version}</b> · {v.note} · {new Date(v.createdAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}{v.createdBy ? ` · ${v.createdBy}` : ""}</li>)}{!versions.length && <li>Nothing sent yet.</li>}</ul>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={async () => { const r = await action("duplicate"); if (r?.id) router.push(`${home}/${r.id}`); }} className={btnQuiet}><Copy size={15} />Duplicate</button>

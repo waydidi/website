@@ -17,6 +17,7 @@ const acceptSchema = z.object({
   phone: z.string().trim().min(5, "Enter a phone number we can reach on the day.").max(40),
   agree: z.literal(true, { errorMap: () => ({ message: "Please accept the terms and cancellation policy." }) }),
 });
+const feedbackSchema = z.object({ action: z.literal("feedback"), rating: z.number().int().min(1, "Tap the stars to rate your day.").max(5), comment: z.string().trim().max(1500).optional().default("") });
 const changeSchema = z.object({ action: z.literal("change"), message: z.string().trim().min(3, "Tell us what to change.").max(1500) });
 
 // Customer: accept and pay, or ask for changes. The link itself is the key.
@@ -28,6 +29,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   if (!trip || !snap || trip.status === "cancelled" || trip.status === "draft" || trip.status === "pricing") return NextResponse.json({ error: "This itinerary isn't available. Please contact us." }, { status: 404 });
   const body = await request.json().catch(() => null);
   const origin = safeOrigin(request);
+
+  if ((body as { action?: string })?.action === "feedback") {
+    const parsed = feedbackSchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
+    if (trip.status !== "accepted") return NextResponse.json({ error: "Feedback opens after your trip." }, { status: 409 });
+    if (trip.feedbackAt) return NextResponse.json({ error: "Thanks, we already have your feedback." }, { status: 409 });
+    await getDb().update(smartTrips).set({ feedbackRating: parsed.data.rating, feedbackComment: parsed.data.comment || null, feedbackAt: new Date().toISOString() }).where(eq(smartTrips.id, trip.id));
+    // Staff hear about every rating; low ones need a reply.
+    const { pushLine } = await import("@/lib/line");
+    await pushLine([{ type: "text", text: `${"★".repeat(parsed.data.rating)}${"☆".repeat(5 - parsed.data.rating)} ${trip.customerName || "Guest"} rated trip ${trip.ref}${parsed.data.rating <= 3 ? " — please follow up" : ""}${parsed.data.comment ? `\n“${parsed.data.comment.slice(0, 400)}”` : ""}\n${origin}/admin/trips/${trip.id}` }]).catch(() => undefined);
+    return NextResponse.json({ ok: true });
+  }
 
   if ((body as { action?: string })?.action === "change") {
     const parsed = changeSchema.safeParse(body);

@@ -1433,6 +1433,7 @@ export const smartTrips = sqliteTable("smart_trips", {
  agencyId:text("agency_id"), commissionPercent:integer("commission_percent").notNull().default(0), createdBy:text("created_by"),
  snapshotJson:text("snapshot_json"), version:integer("version").notNull().default(0), sentAt:text("sent_at"), viewedAt:text("viewed_at"), acceptedAt:text("accepted_at"),
  changeRequest:text("change_request"), bookingReference:text("booking_reference"), thankedAt:text("thanked_at"),
+ feedbackRating:integer("feedback_rating"), feedbackComment:text("feedback_comment"), feedbackAt:text("feedback_at"),
  createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(),
 },t=>[index("smart_trips_status").on(t.isTemplate,t.status,t.tripDate),index("smart_trips_booking").on(t.bookingReference)]);
 export const smartTripVersions = sqliteTable("smart_trip_versions", {

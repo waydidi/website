@@ -7,6 +7,8 @@ import { agencyApplications, smartTrips } from "@/db/schema";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
 import { YourDay } from "@/components/itinerary/your-day";
+import { TripFeedback } from "@/components/itinerary/trip-feedback";
+import { reviewUrl } from "@/lib/trip-thanks";
 import { tripByToken, tripSnapshot } from "@/lib/smart-trips";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,11 @@ function quoteExpired(tripDate: string | null, sentAt: string | null) {
   const now = Date.now();
   const today = new Date(now + 7 * 3600_000).toISOString().slice(0, 10);
   return Boolean((tripDate && tripDate < today) || (sentAt && now - Date.parse(sentAt) > 7 * 86_400_000));
+}
+
+/** True from the trip day onwards (Bangkok time). */
+function tripStarted(tripDate: string | null) {
+  return Boolean(tripDate && tripDate <= new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10));
 }
 
 function Unavailable({ title, text }: { title: string; text: string }) {
@@ -64,6 +71,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
         <p className="mt-1 text-[15px]">Your confirmation is in your email. On the day, follow your driver and the next stop live.</p>
         {trip.bookingReference && <Link href={`/trip/${trip.bookingReference}?day=${token}`} className="mt-3 inline-flex h-11 items-center rounded-full bg-emerald-700 px-5 font-semibold text-white">Open “Your day”</Link>}</div>}
       {paid && <YourDay token={token} />}
+      {paid && tripStarted(s.tripDate) && <TripFeedback token={token} rating={trip.feedbackRating} reviewUrl={reviewUrl()} />}
       {trip.status === "changes_requested" && <div className="rounded-3xl bg-amber-50 p-5 text-amber-900 shadow-sm"><p className="font-bold">We&apos;re updating your itinerary</p><p className="mt-1 text-[15px]">Thanks for your request. You&apos;ll get a new version soon; this page will show it.</p></div>}
 
       <section className="overflow-hidden rounded-3xl bg-white shadow-sm"><ItineraryMap points={points} /></section>
