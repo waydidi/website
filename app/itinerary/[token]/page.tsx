@@ -16,6 +16,13 @@ const longDate = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleD
 const dur = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} hr${m % 60 ? ` ${m % 60} min` : ""}` : `${m} min`);
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 
+/** Past trip date, or the 7-day price hold is over. */
+function quoteExpired(tripDate: string | null, sentAt: string | null) {
+  const now = Date.now();
+  const today = new Date(now + 7 * 3600_000).toISOString().slice(0, 10);
+  return Boolean((tripDate && tripDate < today) || (sentAt && now - Date.parse(sentAt) > 7 * 86_400_000));
+}
+
 function Unavailable({ title, text }: { title: string; text: string }) {
   return <main className="grid min-h-[70vh] place-items-center bg-[#F5F6F8] px-5"><div className="max-w-md rounded-[24px] bg-white p-8 text-center"><h1 className="text-[24px] font-bold">{title}</h1><p className="mt-3 text-slate-600">{text}</p><Link href="/" className="mt-5 inline-flex h-11 items-center rounded-full bg-[#FF8A05] px-5 font-semibold text-white">Waydidi home</Link></div></main>;
 }
@@ -29,8 +36,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   if (!trip.viewedAt) await getDb().update(smartTrips).set({ viewedAt: new Date().toISOString() }).where(eq(smartTrips.id, trip.id)).catch(() => undefined);
   const [agency] = trip.agencyId ? await getDb().select({ name: agencyApplications.agencyName }).from(agencyApplications).where(eq(agencyApplications.id, trip.agencyId)).limit(1) : [];
   const paid = trip.status === "accepted";
-  const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
-  const expired = !paid && ((s.tripDate && s.tripDate < today) || (trip.sentAt && Date.now() - Date.parse(trip.sentAt) > 7 * 86_400_000));
+  const expired = !paid && quoteExpired(s.tripDate, trip.sentAt);
   const points = [
     ...(s.pickup ? [{ id: "pickup", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: `Pickup · ${s.pickupText}`, kind: "pickup" as const }] : []),
     ...s.stops.filter((x) => x.lat != null && x.lng != null).map((x, i) => ({ id: x.id, lat: x.lat!, lng: x.lng!, label: String(i + 1), title: x.name, kind: "stop" as const })),
