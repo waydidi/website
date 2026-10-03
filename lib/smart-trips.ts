@@ -232,3 +232,15 @@ export async function duplicateTrip(trip: TripRow, by: { name: string; agencyId?
   return saveTrip({ ...input, id: undefined, isTemplate: asTemplate, title: asTemplate ? (trip.templateName || trip.title) : `${trip.title} (copy)`, templateName: asTemplate ? (trip.templateName || trip.title) : null,
     ...(asTemplate ? { customerName: null, customerEmail: null, customerPhone: null, tripDate: null } : {}) }, by);
 }
+
+/** An agency's day trips: how many are out with guests, how many paid, and commission earned. */
+export async function agencyTripStats(agencyId: string) {
+  const rows = await getDb().select({ status: smartTrips.status, total: smartTrips.total, pct: smartTrips.commissionPercent, isTemplate: smartTrips.isTemplate }).from(smartTrips).where(eq(smartTrips.agencyId, agencyId));
+  const trips = rows.filter((r) => !r.isTemplate);
+  const paid = trips.filter((r) => r.status === "accepted");
+  return {
+    open: trips.filter((r) => ["draft", "pricing", "sent", "changes_requested"].includes(r.status)).length,
+    paid: paid.length,
+    commission: paid.reduce((sum, r) => sum + Math.round((r.total * r.pct) / 100), 0),
+  };
+}

@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import { NewRideRequest } from "@/components/agency/new-request";
 import { agencyBookings, agencyForCustomer, agencyRequests } from "@/lib/agency";
 import { requireCustomer } from "@/lib/customer-auth";
+import { agencyTripStats } from "@/lib/smart-trips";
 import { VEHICLES } from "@/lib/vehicles";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export default async function AgencyPortalPage() {
     </div>
   </main>;
 
-  const [rows, requests] = await Promise.all([agencyBookings(agency), agencyRequests(agency)]);
+  const [rows, requests, tripStats] = await Promise.all([agencyBookings(agency), agencyRequests(agency), agencyTripStats(agency.id)]);
   const today = bangkokToday();
   const upcoming = rows.filter((b) => b.pickupDate >= today && b.status === "confirmed");
   const month = today.slice(0, 7);
@@ -48,6 +49,14 @@ export default async function AgencyPortalPage() {
       <section className="grid gap-3 sm:grid-cols-3">
         {[["Upcoming rides", String(upcoming.length)], ["Rides this month", String(thisMonth.length)], ["Ride value this month", `THB ${spend.toLocaleString("en-US")}`]].map(([k, v]) =>
           <div key={k} className="rounded-[20px] bg-white p-5"><p className="text-[14px] text-slate-500">{k}</p><p className="mt-1 text-[28px] font-bold">{v}</p></div>)}
+      </section>
+
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-[24px] bg-white p-5">
+        <div><h2 className="text-[20px] font-semibold">Day trips</h2><p className="text-[14px] text-slate-600">Plan private day trips with Waydidi&apos;s attraction guide and earn commission when your guest pays.</p></div>
+        <div className="flex flex-wrap gap-6 text-center">
+          {[["Open", String(tripStats.open)], ["Paid", String(tripStats.paid)], ["Commission earned", `THB ${tripStats.commission.toLocaleString("en-US")}`]].map(([k, v]) => <div key={k}><p className="text-[13px] text-slate-500">{k}</p><p className="text-[22px] font-bold">{v}</p></div>)}
+        </div>
+        <Link href="/agency/trips" className="inline-flex h-11 items-center rounded-full bg-[#FF8A05] px-5 font-semibold text-white">Open trip planner</Link>
       </section>
 
       {requests.length > 0 && <section className="rounded-[24px] bg-white p-5">
