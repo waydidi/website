@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { bookings, fareQuotes, hourlyQuotes, pricingAreas } from "@/db/schema";
+import { bookings, fareQuotes, hourlyQuotes, pricingAreas, smartTrips } from "@/db/schema";
 import { validTransferQuote } from "./quote-validity";
 import { validHourlyQuoteWindow } from "./hourly-policy";
 import { pricesForArea } from "./pricing";
@@ -25,6 +25,15 @@ export async function validTransferPrice(quote:typeof fareQuotes.$inferSelect,ve
 export async function validBookingQuotes(booking:typeof bookings.$inferSelect) {
  const vehicle=Object.entries((await import("./vehicles")).VEHICLES).find(([id,v])=>id===booking.vehicle||v.name===booking.vehicle)?.[0];
  if(!vehicle) return false;
+ // Tours use the itinerary price frozen by operations, rather than a transfer quote.
+ if(booking.serviceType==="tour") {
+  const [trip]=await getDb().select().from(smartTrips).where(eq(smartTrips.bookingReference,booking.reference)).limit(1);
+  if(!trip||!["sent","accepted"].includes(trip.status)||!trip.snapshotJson) return false;
+  try {
+   const snapshot=JSON.parse(trip.snapshotJson) as {total?:number;tripDate?:string;startTime?:string};
+   return Number.isSafeInteger(snapshot.total)&&snapshot.total===booking.total&&snapshot.tripDate===booking.pickupDate&&snapshot.startTime===booking.pickupTime;
+  } catch { return false; }
+ }
  if(booking.serviceType==="hourly") {
   if(!booking.hourlyQuoteId)return false;
   const [quote]=await getDb().select().from(hourlyQuotes).where(eq(hourlyQuotes.id,booking.hourlyQuoteId)).limit(1);
