@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   AreaChart,
   BookOpen,
@@ -24,9 +25,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 
+// The Google Maps script ships without TypeScript types in this project.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type GoogleMapsObject = any;
+
 declare global {
   interface Window {
-    google?: any;
+    google?: GoogleMapsObject;
   }
 }
 type Point = { lat: number; lng: number };
@@ -85,9 +90,9 @@ export default function PricingWorkspace({ email }: { email: string }) {
   const [testResult, setTestResult] = useState("");
   const mapNode = useRef<HTMLDivElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
-  const mapInstance = useRef<any>(null);
-  const overlays = useRef<any[]>([]);
-  const testMarker = useRef<any>(null);
+  const mapInstance = useRef<GoogleMapsObject>(null);
+  const overlays = useRef<GoogleMapsObject[]>([]);
+  const testMarker = useRef<GoogleMapsObject>(null);
   const selected = useMemo(
     () => areas.find((area) => area.id === selectedId) ?? null,
     [areas, selectedId],
@@ -102,6 +107,8 @@ export default function PricingWorkspace({ email }: { email: string }) {
     }
   }, []);
   useEffect(() => {
+    // Loads data; state only changes after the fetch resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     fetch("/api/maps/config")
       .then((r) => r.json())
@@ -178,13 +185,13 @@ export default function PricingWorkspace({ email }: { email: string }) {
           polygon
             .getPath()
             .getArray()
-            .map((item: any) => ({ lat: item.lat(), lng: item.lng() })),
+            .map((item: GoogleMapsObject) => ({ lat: item.lat(), lng: item.lng() })),
         );
       polygon.getPath().addListener("set_at", sync);
       polygon.getPath().addListener("insert_at", sync);
       polygon.getPath().addListener("remove_at", sync);
     });
-    const listener = mapInstance.current.addListener("click", (event: any) => {
+    const listener = mapInstance.current.addListener("click", (event: GoogleMapsObject) => {
       if (!event.latLng) return;
       const shape = Math.max(0, selected.polygons.length - 1);
       updatePoint(shape, [
@@ -233,38 +240,38 @@ export default function PricingWorkspace({ email }: { email: string }) {
     <main className="min-h-screen bg-[#f4f6f8] text-[#1f1726]">
       <div className="grid min-h-screen lg:grid-cols-[238px_1fr]">
         <aside className="hidden border-r border-slate-200 bg-white p-5 lg:flex lg:flex-col">
-          <a href="/" className="inline-flex text-[#FF8A05]">
+          <Link href="/" className="inline-flex text-[#FF8A05]">
             <WaydidiLogo className="h-[62px] w-auto" />
-          </a>
+          </Link>
           <nav className="mt-8 space-y-1 text-sm font-semibold">
-            <a
+            <Link
               href="/admin/calendar"
               className="flex items-center gap-3 rounded-xl px-3 py-3 text-slate-600 hover:bg-orange-50"
             >
               <CalendarDays size={18} />
               Calendar
-            </a>
-            <a
+            </Link>
+            <Link
               href="/admin/bookings"
               className="flex items-center gap-3 rounded-xl px-3 py-3 text-slate-600 hover:bg-orange-50"
             >
               <BookOpen size={18} />
               Bookings
-            </a>
-            <a
+            </Link>
+            <Link
               href="/admin/operations"
               className="flex items-center gap-3 rounded-xl px-3 py-3 text-slate-600 hover:bg-orange-50"
             >
               <Truck size={18} />
               Booking operations
-            </a>
-            <a
+            </Link>
+            <Link
               href="/admin/pricing"
               className="flex items-center gap-3 rounded-xl bg-orange-50 px-3 py-3 text-[#D96F00]"
             >
               <MapPinned size={18} />
               Pricing areas
-            </a>
+            </Link>
             <span className="flex items-center gap-3 rounded-xl px-3 py-3 text-slate-400">
               <AreaChart size={18} />
               Analytics
@@ -273,6 +280,8 @@ export default function PricingWorkspace({ email }: { email: string }) {
           <div className="mt-auto rounded-2xl bg-[#21140A] p-4 text-white">
             <p className="text-xs text-white/60">Signed in as</p>
             <p className="mt-1 truncate text-sm font-bold">{email}</p>
+            {/* Handled by the worker, not a page: needs a full page load. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a
               href="/signout-with-chatgpt?return_to=/"
               className="mt-4 inline-flex text-xs font-bold text-[#FFB45F]"

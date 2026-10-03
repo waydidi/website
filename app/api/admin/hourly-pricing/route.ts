@@ -19,7 +19,7 @@ export async function POST(request:Request) {
   if (!sameOrigin(request)||!isJsonRequest(request)) return NextResponse.json({error:"Request blocked"},{status:403});
   const input=await request.json() as {areaId?:string;vehicleId?:string;minimumHours?:number;basePrice?:number;additionalHourPrice?:number;includedKmPerHour?:number;extraPricePerKm?:number};
   const numbers=[input.minimumHours,input.basePrice,input.additionalHourPrice,input.includedKmPerHour,input.extraPricePerKm];
-  if (!input.areaId || !VEHICLE_IDS.includes(input.vehicleId as any) || numbers.some((n)=>!Number.isInteger(n)||n!<0) || input.minimumHours!<2 || input.minimumHours!>12 || input.basePrice!>100000 || input.additionalHourPrice!>20000 || input.includedKmPerHour!>200 || input.extraPricePerKm!>1000) return NextResponse.json({error:"Check hourly package values"},{status:400});
+  if (!input.areaId || !VEHICLE_IDS.includes(input.vehicleId as (typeof VEHICLE_IDS)[number]) || numbers.some((n)=>!Number.isInteger(n)||n!<0) || input.minimumHours!<2 || input.minimumHours!>12 || input.basePrice!>100000 || input.additionalHourPrice!>20000 || input.includedKmPerHour!>200 || input.extraPricePerKm!>1000) return NextResponse.json({error:"Check hourly package values"},{status:400});
   const now=new Date().toISOString();
   const [old]=await getDb().select().from(hourlyPackages).where(and(eq(hourlyPackages.areaId,input.areaId),eq(hourlyPackages.vehicleId,input.vehicleId!))).limit(1);
   if (old) await getDb().delete(hourlyPackages).where(eq(hourlyPackages.id,old.id));

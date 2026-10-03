@@ -127,6 +127,8 @@ export default function JourneyDetails({ reference }: { reference: string }) {
     });
   }, [reference]);
   useEffect(() => {
+    // Loads data; state only changes after the fetch resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load().catch((e) => setError(e.message));
   }, [load]);
   async function post(payload: Record<string, unknown>) {

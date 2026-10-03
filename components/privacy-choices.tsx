@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { ChevronRight, X } from "lucide-react";
 
@@ -48,11 +48,10 @@ export function PrivacyChoices() {
   const [more, setMore] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [choices, setChoices] = useState<Choices>(NONE);
-  useEffect(() => { if (open) setChoices(readConsent()); }, [open]);
 
   const finish = (value: Choices) => { saveConsent(value); setOpen(false); };
 
-  return <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+  return <DialogPrimitive.Root open={open} onOpenChange={(next) => { if (next) setChoices(readConsent()); setOpen(next); }}>
     <DialogPrimitive.Trigger asChild>
       <button type="button" className="inline-flex items-center gap-2 text-left text-base underline decoration-1 underline-offset-4 hover:decoration-2">
         <ChoicesIcon />Your Privacy Choices

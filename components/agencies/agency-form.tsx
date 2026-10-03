@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useTurnstile } from "@/components/use-turnstile";
 import { CheckCircle2 } from "lucide-react";
 import type { PartnerType } from "@/lib/transfer-partners";
 
@@ -13,13 +14,14 @@ export function AgencyForm({ partnerType = "travel-agent", initialEmail, initial
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<{ text: string; field?: string } | null>(null);
+  const turnstile = useTurnstile("agency_apply");
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
     setBusy(true); setError(null);
     try {
-      const res = await fetch("/api/agencies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await fetch("/api/agencies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, turnstileToken: await turnstile.getToken() }) });
       const body = (await res.json().catch(() => ({}))) as { error?: string; field?: string };
       if (!res.ok) { setError({ text: body.error ?? "Something went wrong. Please try again.", field: body.field }); return; }
       setDone(true);
@@ -57,5 +59,6 @@ export function AgencyForm({ partnerType = "travel-agent", initialEmail, initial
       <button type="submit" disabled={busy} className="h-14 rounded-full bg-[#FF8A05] px-10 text-[15px] font-bold text-[#111] hover:bg-[#F07A00] disabled:opacity-60">{busy ? "Sending…" : "Send application"}</button>
       <p className="mt-3 text-[13px] text-[#8A8A8A]">We use these details only to review your application and contact you. See our <Link href="/privacy" className="underline">privacy policy</Link>.</p>
     </div>
+    {turnstile.widget}
   </form>;
 }

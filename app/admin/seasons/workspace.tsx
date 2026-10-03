@@ -54,7 +54,8 @@ export default function SeasonsWorkspace() {
     await load();
   }
 
-  const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
+  // Today in Bangkok (UTC+7), so the strip starts on the right day between midnight and 7am.
+  const [today] = useState(() => new Date(new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10) + "T00:00:00Z"));
   const monthMarks = Array.from({ length: 12 }, (_, i) => { const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + i, 1)); return { label: MONTHS[d.getUTCMonth()], at: Math.max(0, (d.getTime() - today.getTime()) / 86400000 / 365) }; });
   const input = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]";
 

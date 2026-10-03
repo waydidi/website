@@ -105,13 +105,13 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
       <div className="mx-auto max-w-[1500px]">
         <header className="flex flex-wrap items-end justify-between gap-5">
           <div>
-            <a
+            <Link
               href="/"
               className="mb-6 inline-flex text-[#FF8A05]"
               aria-label="Waydidi home"
             >
               <WaydidiLogo className="h-[88px] w-auto" />
-            </a>
+            </Link>
             <p className="text-sm font-black uppercase tracking-[.16em] text-[#D96F00]">
               Waydidi operations
             </p>
@@ -143,34 +143,34 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           </div>
         </header>
         <nav className="mt-7 flex w-fit gap-1 rounded-2xl border border-slate-200 bg-white p-1 text-sm font-bold shadow-sm">
-          <a
+          <Link
             href="/admin/calendar"
             className="flex items-center gap-2 rounded-xl px-4 py-3 text-slate-600 hover:bg-slate-50"
           >
             <CalendarDays size={17} />
             Calendar
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin/bookings"
             className="flex items-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-[#D96F00]"
           >
             <BookOpen size={17} />
             Bookings
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin/operations"
             className="flex items-center gap-2 rounded-xl px-4 py-3 text-slate-600 hover:bg-slate-50"
           >
             <Truck size={17} />
             Booking operations
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin/pricing"
             className="flex items-center gap-2 rounded-xl px-4 py-3 text-slate-600 hover:bg-slate-50"
           >
             <MapPinned size={17} />
             Pricing areas
-          </a>
+          </Link>
         </nav>
         {/* "Create" sits on the page title row. */}
         <div className="-mt-[40px] mb-1 flex justify-end"><CreateMenu service={type} waiting={formsReceived} /></div>

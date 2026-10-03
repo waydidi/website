@@ -19,9 +19,9 @@ export default async function MembershipPage() {
       <p className="font-bold text-slate-800">How it works</p>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>Your tier goes up as soon as you reach the rides <em>or</em> the spend for it. Only completed rides count.</li>
-        <li>Rides older than 12 months stop counting, so your tier can go down if you don't travel for a while.</li>
-        <li>Your member discount is applied automatically at checkout when you're signed in. It covers the fare, not add-ons.</li>
-        <li>It combines with promo codes and the 5th-ride reward: the code comes off first, then your member discount is taken from what's left.</li>
+        <li>Rides older than 12 months stop counting, so your tier can go down if you don&apos;t travel for a while.</li>
+        <li>Your member discount is applied automatically at checkout when you&apos;re signed in. It covers the fare, not add-ons.</li>
+        <li>It combines with promo codes and the 5th-ride reward: the code comes off first, then your member discount is taken from what&apos;s left.</li>
       </ul>
     </div>
   </AccountShell>;

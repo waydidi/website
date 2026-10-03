@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { driverApplications } from "@/db/schema";
+import { env } from "cloudflare:workers";
+import { overRateLimit } from "@/lib/customer-auth";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { TURNSTILE_FAILED, verifyTurnstile } from "@/lib/turnstile";
 
 const schema = z.object({
   applicantType: z.enum(["individual", "fleet"]),
@@ -21,7 +24,11 @@ const schema = z.object({
 // Driver application from /drivers, stored for the operations team to review.
 export async function POST(request: Request) {
   if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
-  const parsed = schema.safeParse(await request.json().catch(() => null));
+  if (await overRateLimit(request, "driver-apply", 5, 60, env.RATE_LIMIT_SALT ?? "waydidi"))
+    return NextResponse.json({ error: "Too many attempts. Please try again later." }, { status: 429 });
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!(await verifyTurnstile(request, body?.turnstileToken))) return NextResponse.json(TURNSTILE_FAILED, { status: 403 });
+  const parsed = schema.safeParse(body);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     return NextResponse.json({ error: issue?.message ?? "Check the form.", field: issue?.path.join(".") }, { status: 400 });

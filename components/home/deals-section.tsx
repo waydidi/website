@@ -4,6 +4,7 @@ import { BadgePercent, Check, Mail, ShieldCheck, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTurnstile } from "@/components/use-turnstile";
 
 // Trip.com-style block: newsletter sign-up, a sign-in card for member deals,
 // and "Book with confidence" reasons.
@@ -11,6 +12,7 @@ export function DealsSection() {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "busy" | "done">("idle");
   const [error, setError] = useState("");
+  const turnstile = useTurnstile("newsletter");
   const [hidden, setHidden] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   useEffect(() => {
@@ -20,7 +22,7 @@ export function DealsSection() {
   async function subscribe(event: React.FormEvent) {
     event.preventDefault();
     setState("busy"); setError("");
-    const res = await fetch("/api/newsletter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, source: "home-deals" }) }).catch(() => null);
+    const res = await fetch("/api/newsletter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, source: "home-deals", turnstileToken: await turnstile.getToken() }) }).catch(() => null);
     if (!res?.ok) { setError(((await res?.json().catch(() => ({}))) as { error?: string })?.error ?? "Couldn't subscribe. Please try again."); setState("idle"); return; }
     setState("done");
   }
@@ -31,6 +33,7 @@ export function DealsSection() {
   ];
   return <section aria-labelledby="deals-heading" className="bg-[#EEF0F4] px-4 py-10 sm:py-14">
     <div className="mx-auto grid max-w-[880px] grid-cols-[minmax(0,1fr)] gap-4">
+      {turnstile.widget}
       {!hidden && <div className={`${card} relative`}>
         <button type="button" aria-label="Hide newsletter sign-up" onClick={() => { setHidden(true); try { localStorage.setItem("waydidi-newsletter-hidden", "1"); } catch { /* storage blocked */ } }} className="absolute right-3 top-3 grid size-8 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={18} /></button>
         <p className="flex gap-3 pr-8 text-[17px] font-semibold leading-snug text-[#0F294D] sm:text-[19px]"><Mail className="mt-0.5 size-6 shrink-0 text-[#FF8A05]" aria-hidden="true" />Yes, I&apos;d like to save on my Thailand rides! Please send me exclusive deals and updates.</p>

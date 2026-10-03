@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { ArrowLeft, BadgeCheck, CarFront } from "lucide-react";
+import { useTurnstile } from "@/components/use-turnstile";
 import type { SocialProvider } from "@/lib/social-auth";
 
 // Only same-site paths are allowed as a post-sign-in destination.
@@ -57,6 +58,7 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
   const [code, setCode] = useState("");
   const [error, setError] = useState(providerError ? PROVIDER_ERRORS[providerError] ?? PROVIDER_ERRORS.failed : "");
   const [loading, setLoading] = useState(false);
+  const turnstile = useTurnstile("sign_in");
   const [notice, setNotice] = useState("");
 
   async function post(path: string, body: object) {
@@ -68,7 +70,7 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
   async function requestCode(event?: FormEvent) {
     event?.preventDefault();
     setLoading(true); setError(""); setNotice("");
-    const result = await post("/api/account/code", { email });
+    const result = await post("/api/account/code", { email, turnstileToken: await turnstile.getToken() });
     setLoading(false);
     if (!result.ok) return setError(result.error);
     setStep("code"); setCode(""); setNotice(`We sent a 6-digit code to ${email.trim()}.`);
@@ -87,6 +89,7 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
   const nextParam = encodeURIComponent(safeNext(next));
 
   return <div className="flex min-h-[calc(100dvh-59px)] flex-col lg:min-h-[calc(100dvh-97px)]">
+    {turnstile.widget}
     <div className="flex-1">
       {step === "email" ? <>
         <h1 className="text-center text-[26px] font-bold text-[#0F294D]">Sign in / register</h1>

@@ -126,7 +126,6 @@ export default function OperationsWorkspace({ email }: { email: string }) {
   const selectedLocation = data?.locations.find((location) => location.bookingReference === selected) ?? null;
   const selectedException = data?.exceptions.find((exception) => exception.bookingReference === selected && exception.status === "open") ?? null;
   const load = useCallback(async () => {
-    setError("");
     try {
       const response = await fetch(`/api/admin/operations?leg=${leg}`, {
         cache: "no-store",
@@ -135,6 +134,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
       if (!response.ok)
         throw new Error(result.error ?? "Operations data unavailable.");
       setData(result);
+      setError("");
       if (!selected && result.bookings[0])
         setSelected(result.bookings[0].reference);
     } catch (cause) {
@@ -144,6 +144,8 @@ export default function OperationsWorkspace({ email }: { email: string }) {
     }
   }, [selected, leg]);
   useEffect(() => {
+    // Loads data; state only changes after the fetch resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     const timer = window.setInterval(load, 20_000);
     return () => window.clearInterval(timer);
@@ -246,9 +248,9 @@ export default function OperationsWorkspace({ email }: { email: string }) {
       <header className="border-b border-orange-400 bg-[#FF8A05] px-5 py-5 text-white sm:px-8">
         <div className="mx-auto flex max-w-[1550px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-5">
-            <a href="/" className="inline-flex text-white">
+            <Link href="/" className="inline-flex text-white">
               <WaydidiLogo className="h-[62px] w-auto" />
-            </a>
+            </Link>
             <span className="hidden h-8 w-px bg-white/30 sm:block" />
             <div>
               <p className="text-xs font-bold uppercase tracking-[.14em] text-white/70">
@@ -265,34 +267,34 @@ export default function OperationsWorkspace({ email }: { email: string }) {
       </header>
       <div className="mx-auto max-w-[1550px] px-4 py-6 sm:px-8">
         <nav className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 text-sm font-bold shadow-sm">
-          <a
+          <Link
             href="/admin/calendar"
             className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"
           >
             <CalendarDays size={17} />
             Calendar
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin/bookings"
             className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"
           >
             <BookOpen size={17} />
             Bookings
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin/operations"
             className="flex shrink-0 items-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-[#D96F00]"
           >
             <Truck size={17} />
             Booking operations
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin/pricing"
             className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"
           >
             <MapPinned size={17} />
             Fare management
-          </a>
+          </Link>
         </nav>
         <section className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-5">
           <div className="min-w-0 space-y-5">

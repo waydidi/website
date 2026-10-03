@@ -30,7 +30,7 @@ export function TierCard({ status, link = true }: { status: ReturnType<typeof me
       {next ? <>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#FF8A05]" style={{ width: `${Math.round(status.progress * 100)}%` }} /></div>
         <p className="mt-2 text-sm text-slate-600"><strong>{status.ridesToNext}</strong> more completed ride{status.ridesToNext === 1 ? "" : "s"} or <strong>{thb(status.spendToNext)}</strong> more spend to reach <strong>{next.name}</strong> ({next.percent}% off).</p>
-      </> : <p className="mt-2 text-sm font-semibold text-slate-700">You're at our highest tier. Thank you for riding with us.</p>}
+      </> : <p className="mt-2 text-sm font-semibold text-slate-700">You&apos;re at our highest tier. Thank you for riding with us.</p>}
       {link && <Link href="/account/membership" className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[#C96100]">See all tiers and benefits <ChevronRight size={16} /></Link>}
     </div>
   </section>;

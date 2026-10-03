@@ -7,6 +7,7 @@ import { overRateLimit } from "@/lib/customer-auth";
 import { CODE_MINUTES, generateSignInCode, isValidEmail, MAX_CODES_PER_EMAIL_PER_HOUR, MAX_REQUESTS_PER_IP_PER_15_MIN, normalizeEmail } from "@/lib/customer-account";
 import { sendAccountSignInCode } from "@/lib/email";
 import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
+import { TURNSTILE_FAILED, verifyTurnstile } from "@/lib/turnstile";
 
 // Always answers the same way for a valid email so the endpoint cannot be
 // used to discover who has an account or has booked with Waydidi.
@@ -14,7 +15,8 @@ export async function POST(request: Request) {
   if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
   if (await overRateLimit(request, "account-code", MAX_REQUESTS_PER_IP_PER_15_MIN, 15, env.RATE_LIMIT_SALT ?? "waydidi"))
     return NextResponse.json({ error: "Too many attempts. Please wait 15 minutes." }, { status: 429 });
-  const input = (await request.json().catch(() => ({}))) as { email?: unknown };
+  const input = (await request.json().catch(() => ({}))) as { email?: unknown; turnstileToken?: unknown };
+  if (!(await verifyTurnstile(request, input.turnstileToken))) return NextResponse.json(TURNSTILE_FAILED, { status: 403 });
   const email = normalizeEmail(input.email);
   if (!isValidEmail(email)) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
 

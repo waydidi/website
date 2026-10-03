@@ -104,10 +104,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </div>)}</div>
         <div className="flex justify-end"><a href={`/api/admin/reports/export?${new URLSearchParams({ type: "discounts", from, to })}`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-2 text-[13px] font-bold"><Download size={15} aria-hidden="true" />Export discounts (CSV)</a></div>
         <Table head={["Discount", "Type", "Bookings", "Cost", "Avg per booking", "Revenue from these bookings", "Cost vs revenue"]} rows={discounts.lines.length ? discounts.lines.map((l) => [l.label, l.group, l.bookings, thb(l.cost), thb(Math.round(l.cost / l.bookings)), thb(l.revenue), l.revenue ? `${((l.cost / l.revenue) * 100).toFixed(1)}%` : "–"]) : [["No discounts on trips in this period", "", "", "", "", "", ""]]} />
-        <p className="text-[12px] text-slate-500">"Revenue from these bookings" is what those customers actually paid. One booking can appear in more than one row, e.g. a promo code plus a member discount.</p>
+        <p className="text-[12px] text-slate-500">&quot;Revenue from these bookings&quot; is what those customers actually paid. One booking can appear in more than one row, e.g. a promo code plus a member discount.</p>
         {discounts.partnerTickets.length > 0 && <div><p className="mb-2 text-[14px] font-bold">Partner prizes won (mystery boxes opened in this period)</p>
           <Table head={["Prize", "Won", "Sent or used"]} rows={discounts.partnerTickets.map((t) => [t.prize, t.won, t.arranged])} />
-          <p className="mt-1 text-[12px] text-slate-500">Their cost depends on your partner deal, so it isn't included above.</p></div>}
+          <p className="mt-1 text-[12px] text-slate-500">Their cost depends on your partner deal, so it isn&apos;t included above.</p></div>}
       </> : tab === "revenue" ? <>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Stat label="Trips" value={String(total.trips)} />

@@ -71,7 +71,7 @@ export default async function BlogArticle({ params, searchParams }: { params: Pr
 
   return <main className="font-home bg-white text-[#1C1C1C]">
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
-    {preview && <p className="bg-sky-600 px-5 py-2 text-center text-sm font-semibold text-white">Preview — only admins can see this until it's published.</p>}
+    {preview && <p className="bg-sky-600 px-5 py-2 text-center text-sm font-semibold text-white">Preview — only admins can see this until it&apos;s published.</p>}
     <article className="mx-auto max-w-[760px] px-5 pb-12 pt-6">
       <nav aria-label="Breadcrumb"><ol className="flex min-w-0 items-center gap-1 text-[14px] text-[#6B6B6B]">
         <li><Link href="/" className="hover:text-[#1C1C1C]">Home</Link></li>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   AlertTriangle,
   BookOpen,
@@ -201,6 +202,13 @@ export default function CalendarWorkspace({ email, serviceType, embedded = false
   const [blockReason, setBlockReason] = useState("");
   const [blockStart, setBlockStart] = useState(`${anchor}T09:00`);
   const [blockEnd, setBlockEnd] = useState(`${anchor}T17:00`);
+  // When the viewed day changes, move the default block times to it (done during render, not in an effect).
+  const [blockDay, setBlockDay] = useState(anchor);
+  if (blockDay !== anchor) {
+    setBlockDay(anchor);
+    setBlockStart(`${anchor}T09:00`);
+    setBlockEnd(`${anchor}T17:00`);
+  }
   const [latestLink, setLatestLink] = useState("");
   const [custom, setCustom] = useState({ from: anchor, to: addDays(anchor, 6) });
   const [layout, setLayout] = useState<Layout>("calendar");
@@ -214,27 +222,25 @@ export default function CalendarWorkspace({ email, serviceType, embedded = false
   }
 
   const load = useCallback(async () => {
-    setError("");
     try {
       const response = await fetch(`/api/admin/calendar?from=${range.from}&to=${range.to}&leg=${leg}`, { cache: "no-store" });
       const result = await response.json() as CalendarData & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Calendar unavailable.");
       setData(result);
+      setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Calendar unavailable.");
     }
   }, [range.from, range.to, leg]);
 
   useEffect(() => {
+    // Loads data; state only changes after the fetch resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     const timer = window.setInterval(load, 30_000);
     return () => window.clearInterval(timer);
   }, [load]);
 
-  useEffect(() => {
-    setBlockStart(`${anchor}T09:00`);
-    setBlockEnd(`${anchor}T17:00`);
-  }, [anchor]);
 
   const filteredBookings = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -325,7 +331,7 @@ export default function CalendarWorkspace({ email, serviceType, embedded = false
       {!embedded && <><header className="border-b border-orange-400 bg-[#FF8A05] px-4 py-4 text-white sm:px-8">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <a href="/" aria-label="Waydidi home"><WaydidiLogo className="h-[53px] w-auto" /></a>
+            <Link href="/" aria-label="Waydidi home"><WaydidiLogo className="h-[53px] w-auto" /></Link>
             <span className="hidden h-8 w-px bg-white/30 sm:block" />
             <div><p className="text-xs font-bold uppercase tracking-[.14em] text-white/70">Waydidi operations</p><h1 className="text-xl font-black sm:text-2xl">Operations calendar</h1></div>
           </div>
@@ -335,10 +341,10 @@ export default function CalendarWorkspace({ email, serviceType, embedded = false
 
       <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-8">
         {!embedded && <><nav className="flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 text-sm font-bold shadow-sm sm:w-fit">
-          <a href="/admin/calendar" className="flex shrink-0 items-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-[#D96F00]"><CalendarDays size={17} />Calendar</a>
-          <a href="/admin/operations" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><Truck size={17} />Booking operations</a>
-          <a href="/admin/bookings" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><BookOpen size={17} />Bookings</a>
-          <a href="/admin/pricing" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><MapPinned size={17} />Pricing areas</a>
+          <Link href="/admin/calendar" className="flex shrink-0 items-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-[#D96F00]"><CalendarDays size={17} />Calendar</Link>
+          <Link href="/admin/operations" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><Truck size={17} />Booking operations</Link>
+          <Link href="/admin/bookings" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><BookOpen size={17} />Bookings</Link>
+          <Link href="/admin/pricing" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><MapPinned size={17} />Pricing areas</Link>
         </nav></>}
 
         <section className="mt-5 rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">

@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { useTurnstile } from "@/components/use-turnstile";
 import { CheckCircle2 } from "lucide-react";
 
 const field = "mt-1.5 h-12 w-full min-w-0 rounded-xl border border-[#DCDFE6] bg-[#F4F5F8] px-4 text-[16px] text-[#111] outline-none focus:border-[#111] focus:bg-white";
@@ -12,13 +14,14 @@ export function DriverForm() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const turnstile = useTurnstile("driver_apply");
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = { ...Object.fromEntries(new FormData(event.currentTarget).entries()), applicantType: type };
     setBusy(true); setError("");
     try {
-      const res = await fetch("/api/drivers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await fetch("/api/drivers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, turnstileToken: await turnstile.getToken() }) });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) { setError(body.error ?? "Something went wrong. Please try again."); return; }
       setDone(true);
@@ -58,7 +61,8 @@ export function DriverForm() {
     {error && <p className="rounded-xl bg-red-50 p-3 text-[14px] font-semibold text-red-700 sm:col-span-2" role="alert">{error}</p>}
     <div className="sm:col-span-2">
       <button type="submit" disabled={busy} className="h-12 w-full rounded-full bg-[#FF8A05] text-[16px] font-bold text-white hover:bg-[#F07A00] disabled:opacity-60 sm:w-auto sm:px-10">{busy ? "Sending…" : "Apply to drive"}</button>
-      <p className="mt-3 text-[12px] text-[#8A8A8A]">We use these details only to review your application. See our <a href="/privacy" className="underline">privacy policy</a>.</p>
+      <p className="mt-3 text-[12px] text-[#8A8A8A]">We use these details only to review your application. See our <Link href="/privacy" className="underline">privacy policy</Link>.</p>
     </div>
+    {turnstile.widget}
   </form>;
 }
