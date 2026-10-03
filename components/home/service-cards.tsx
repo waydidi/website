@@ -39,38 +39,39 @@ export function ServiceCards({ locale = "en" }: { locale?: Locale }) {
       <h2 className="text-[28px] font-bold leading-[1.1] tracking-[-.03em]">
         {t("services.heading")}
       </h2>
-      <div className="-mx-5 mt-6 flex gap-3 overflow-x-auto overscroll-x-contain px-5 pb-2 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:pb-0 [&::-webkit-scrollbar]:hidden">
+      {/* One full card plus 15% of the next: viewport = 20px inset + 12px gap + 1.15 cards. */}
+      <div className="-mx-5 mt-6 flex gap-3 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scroll-px-5 px-5 pb-2 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:pb-0 [&::-webkit-scrollbar]:hidden">
         {cards.map((card) => { const ride = card.image.src === "/service-ride-airport.webp"; return (
           <article
             key={card.title}
-            className="group relative flex min-h-[170px] w-full shrink-0 flex-col md:w-auto md:min-w-0 md:shrink rounded-2xl bg-surface px-5 py-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            className="group relative flex min-h-[153px] w-[calc((100vw-32px)/1.15)] shrink-0 snap-start flex-col md:min-h-[170px] md:w-auto md:min-w-0 md:shrink rounded-[14.4px] md:rounded-2xl bg-surface px-[18px] py-[14.4px] md:px-5 md:py-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
-            <div className="grid flex-1 grid-cols-[minmax(0,1fr)_106px] items-start gap-2">
+            <div className="grid flex-1 grid-cols-[minmax(0,1fr)_95.4px] items-start gap-[7.2px] md:grid-cols-[minmax(0,1fr)_106px] md:gap-2">
               <div>
-                <h3 className="text-lg font-bold">{card.title}</h3>
-                <p className="mt-2 text-sm leading-5 text-ink/80">{card.text}</p>
+                <h3 className="text-[16.2px] leading-[25.2px] font-bold md:text-lg md:leading-7">{card.title}</h3>
+                <p className="mt-[7.2px] text-[12.6px] leading-[18px] text-ink/80 md:mt-2 md:text-sm md:leading-5">{card.text}</p>
               </div>
               {/* Keeps the text clear of the picture, which is centred in the card. */}
               <span aria-hidden="true" />
             </div>
             {/* Real dimensions reserve the space, so the card does not jump as it loads. */}
-            <div className={`pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 ${ride ? "w-[111px]" : "w-[106px]"}`}>
+            <div className={`pointer-events-none absolute right-[18px] top-1/2 md:right-5 -translate-y-1/2 ${ride ? "w-[99.9px] md:w-[111px]" : "w-[95.4px] md:w-[106px]"}`}>
               <Image
                 src={card.image.src}
                 width={card.image.width}
                 height={card.image.height}
                 alt={card.alt}
                 unoptimized
-                className={`${ride ? "h-[106px]" : "h-[101px]"} w-full object-contain transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100`}
+                className={`${ride ? "h-[95.4px] md:h-[106px]" : "h-[90.9px] md:h-[101px]"} w-full object-contain transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100`}
               />
             </div>
             <Link
               href={card.href}
-              className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-bold shadow-sm transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              className="mt-1 inline-flex w-fit items-center gap-[5.4px] rounded-full bg-white px-[14.4px] py-[7.2px] text-[12.6px] leading-[18px] md:leading-5 md:gap-1.5 md:px-4 md:py-2 md:text-sm font-bold shadow-sm transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               {t("services.details")}
               <span className="sr-only"> {t("services.detailsAbout", { title: card.title })}</span>
-              <ArrowRight size={15} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight size={15} aria-hidden="true" className="size-[13.5px] transition-transform group-hover:translate-x-0.5 md:size-[15px]" />
             </Link>
           </article>
         ); })}
