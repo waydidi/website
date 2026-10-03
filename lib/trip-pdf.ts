@@ -70,7 +70,7 @@ export async function createTripPdf(s: TripSnapshot, origin: string, preparedBy:
     y -= 22 + subLines.length * 12;
   };
   row(s.startTime, "Hotel pickup", s.pickupText);
-  for (const st of s.stops) {
+  for (const st of s.stops.filter((x) => !(s.liveSkipped ?? []).includes(x.id))) {
     const sub = [st.travelMin ? `${st.travelMin} min drive` : "", st.program ? `${st.program}${st.sessionTime ? ` at ${st.sessionTime}` : ""}` : "", st.checkIn != null ? `Please be ready to check in by ${hhmm(st.checkIn)}` : "", st.note ?? ""].filter(Boolean).join(" · ");
     row(`${hhmm(st.start)}-${hhmm(st.end)}`, st.name, sub || null);
   }
@@ -101,7 +101,7 @@ export async function createTripPdf(s: TripSnapshot, origin: string, preparedBy:
 
   // One page per place: photo, times, description and highlights
   let n = 0;
-  for (const st of s.stops) {
+  for (const st of s.stops.filter((x) => !(s.liveSkipped ?? []).includes(x.id))) {
     if (st.kind !== "attraction") continue;
     n++;
     // Only places with something to show get their own page.

@@ -33,7 +33,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   if ((body as { action?: string })?.action === "feedback") {
     const parsed = feedbackSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
-    if (trip.status !== "accepted") return NextResponse.json({ error: "Feedback opens after your trip." }, { status: 409 });
+    if (trip.status !== "accepted" || !snap.tripDate || snap.tripDate > new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10)) return NextResponse.json({ error: "Feedback opens after your trip." }, { status: 409 });
     if (trip.feedbackAt) return NextResponse.json({ error: "Thanks, we already have your feedback." }, { status: 409 });
     await getDb().update(smartTrips).set({ feedbackRating: parsed.data.rating, feedbackComment: parsed.data.comment || null, feedbackAt: new Date().toISOString() }).where(eq(smartTrips.id, trip.id));
     // Staff hear about every rating; low ones need a reply.

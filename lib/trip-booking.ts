@@ -54,9 +54,15 @@ export async function startTripCheckout(trip: TripRow, snap: TripSnapshot, conta
 
 /** Called when a booking is confirmed: closes the smart trip it came from, if any. */
 export async function markTripPaid(reference: string, origin?: string) {
-  const [trip] = await getDb().select().from(smartTrips).where(eq(smartTrips.bookingReference, reference)).limit(1);
+  let [trip] = await getDb().select().from(smartTrips).where(eq(smartTrips.bookingReference, reference)).limit(1);
+  if (!trip) {
+    // An older checkout attempt was paid after a newer one started: find the trip from the booking's "(trip TP-…)" label.
+    const [booking] = await getDb().select({ dropoff: bookings.dropoff, serviceType: bookings.serviceType }).from(bookings).where(eq(bookings.reference, reference)).limit(1);
+    const ref = booking?.serviceType === "tour" ? /\(trip (TP-[A-Z0-9-]+)\)$/.exec(booking.dropoff)?.[1] : undefined;
+    if (ref) [trip] = await getDb().select().from(smartTrips).where(eq(smartTrips.ref, ref)).limit(1);
+  }
   if (!trip || trip.status === "accepted") return;
   const now = new Date().toISOString();
-  await getDb().update(smartTrips).set({ status: "accepted", acceptedAt: now, changeRequest: null, updatedAt: now }).where(eq(smartTrips.id, trip.id));
+  await getDb().update(smartTrips).set({ status: "accepted", acceptedAt: now, bookingReference: reference, changeRequest: null, updatedAt: now }).where(eq(smartTrips.id, trip.id));
   if (origin) await notifyTripReply(trip, "accepted", "", origin);
 }

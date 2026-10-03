@@ -1,6 +1,6 @@
 import { and, desc, eq, gte } from "drizzle-orm";
 import { getDb } from "@/db";
-import { journeyLocations, smartTrips, smartTripVersions } from "@/db/schema";
+import { bookings, journeyLocations, smartTrips, smartTripVersions } from "@/db/schema";
 import { tripSnapshot, type TripRow, type TripSnapshot } from "@/lib/smart-trips";
 import { liveStatus } from "@/lib/trip-live";
 
@@ -44,5 +44,7 @@ export async function adjustLive(trip: TripRow, change: { kind: "skip" | "shorte
 
 export async function tripsToday() {
   const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
-  return getDb().select().from(smartTrips).where(and(eq(smartTrips.tripDate, today), eq(smartTrips.status, "accepted"), eq(smartTrips.isTemplate, false)));
+  const rows = await getDb().select({ trip: smartTrips, bookingStatus: bookings.status }).from(smartTrips).leftJoin(bookings, eq(bookings.reference, smartTrips.bookingReference))
+    .where(and(eq(smartTrips.tripDate, today), eq(smartTrips.status, "accepted"), eq(smartTrips.isTemplate, false)));
+  return rows.filter((r) => !["cancelled", "binned", "no_show"].includes(r.bookingStatus ?? "")).map((r) => r.trip);
 }

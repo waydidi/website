@@ -1,4 +1,4 @@
-import { and, eq, isNull, lte } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lte } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db";
 import { smartTrips } from "@/db/schema";
@@ -18,7 +18,7 @@ export async function sendTripThanks(at = new Date()) {
   const today = bangkok.toISOString().slice(0, 10);
   const nowMin = bangkok.getUTCHours() * 60 + bangkok.getUTCMinutes();
   const rows = await getDb().select().from(smartTrips)
-    .where(and(eq(smartTrips.status, "accepted"), isNull(smartTrips.thankedAt), lte(smartTrips.tripDate, today))).limit(25);
+    .where(and(eq(smartTrips.status, "accepted"), isNull(smartTrips.thankedAt), isNotNull(smartTrips.customerEmail), lte(smartTrips.tripDate, today))).orderBy(asc(smartTrips.tripDate)).limit(25);
   let sent = 0;
   for (const trip of rows) {
     const snap = tripSnapshot(trip);

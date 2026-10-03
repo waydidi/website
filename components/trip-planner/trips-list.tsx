@@ -68,7 +68,7 @@ export function TripsList({ mode, view }: { mode: "admin" | "agency"; view: "tri
         <tbody className="divide-y divide-slate-100">
           {rows === null && <tr><td colSpan={8} className="py-12 text-center"><LoaderCircle className="mx-auto animate-spin text-slate-400" /></td></tr>}
           {rows?.length === 0 && <tr><td colSpan={8} className="py-12 text-center text-slate-500">{view === "templates" ? "No templates yet. Save a good trip as a template to quote it again quickly." : "No trips yet."}</td></tr>}
-          {shown.map((r) => <tr key={r.id} onClick={() => router.push(`${home}/${r.id}`)} className="cursor-pointer hover:bg-orange-50/40">
+          {shown.map((r) => <tr key={r.id} onClick={() => (r.shared ? setQuoteFrom(r) : router.push(`${home}/${r.id}`))} className="cursor-pointer hover:bg-orange-50/40">
             {view === "templates" ? <>
               <td className="px-4 py-3"><p className="font-semibold">{r.templateName || r.title}</p>{r.shared && <p className="text-[12px] text-slate-500">Waydidi template</p>}</td>
               <td className="px-4 py-3">{r.area || "—"}</td><td className="px-4 py-3">{r.stopCount}</td><td className="px-4 py-3">{r.durationHours} hr</td><td className="px-4 py-3">{thb(r.total)}</td>
