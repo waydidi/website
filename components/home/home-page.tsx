@@ -1,3 +1,4 @@
+import { TransferLinks } from "./transfer-links";
 import { DestinationCards } from "./destination-cards";
 import { HowItWorks } from "@/components/home/how-it-works";
 import { HomeFaq } from "@/components/home/home-faq";
@@ -56,6 +57,7 @@ export function HomePage({ locale }: { locale: Locale }) {
       <TransferPartners />
       <DealsSection />
       <HomeFaq />
+      <TransferLinks />
       <WaydidiFooter locale={locale} />
     </BookingFlow>
   );
