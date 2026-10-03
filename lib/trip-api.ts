@@ -145,6 +145,13 @@ export async function handleAction(request: Request, id: string, actor: TripActo
       return NextResponse.json({ ok: true });
     }
     case "duplicate": return NextResponse.json({ ok: true, ...(await duplicateTrip(trip, by)) });
+    case "live_adjust": {
+      if (actor.kind !== "admin") return NextResponse.json({ error: "Only Waydidi staff change a trip on the day." }, { status: 403 });
+      const change = body.change as { kind?: string; stopId?: string; minutes?: number } | undefined;
+      if (!change?.stopId || !["skip", "shorten", "restore"].includes(change.kind ?? "")) return NextResponse.json({ error: "Choose a change." }, { status: 400 });
+      const { adjustLive } = await import("@/lib/trip-live-data");
+      return NextResponse.json({ ok: true, note: await adjustLive(trip, change as { kind: "skip" | "shorten" | "restore"; stopId: string; minutes?: number }, actor.name) });
+    }
     case "quote": {
       // Quick quote: a copy of a template for one customer, ready to send.
       if (!trip.isTemplate) return NextResponse.json({ error: "Quick quotes start from a template." }, { status: 400 });

@@ -6,6 +6,7 @@ import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
+import { YourDay } from "@/components/itinerary/your-day";
 import { tripByToken, tripSnapshot } from "@/lib/smart-trips";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
       {paid && <div className="rounded-3xl bg-emerald-50 p-5 text-emerald-900 shadow-sm"><p className="flex items-center gap-2 text-[17px] font-bold"><CheckCircle2 size={20} />Booked and paid{trip.bookingReference ? ` · ${trip.bookingReference}` : ""}</p>
         <p className="mt-1 text-[15px]">Your confirmation is in your email. On the day, follow your driver and the next stop live.</p>
         {trip.bookingReference && <Link href={`/trip/${trip.bookingReference}?day=${token}`} className="mt-3 inline-flex h-11 items-center rounded-full bg-emerald-700 px-5 font-semibold text-white">Open “Your day”</Link>}</div>}
+      {paid && <YourDay token={token} />}
       {trip.status === "changes_requested" && <div className="rounded-3xl bg-amber-50 p-5 text-amber-900 shadow-sm"><p className="font-bold">We&apos;re updating your itinerary</p><p className="mt-1 text-[15px]">Thanks for your request. You&apos;ll get a new version soon; this page will show it.</p></div>}
 
       <section className="overflow-hidden rounded-3xl bg-white shadow-sm"><ItineraryMap points={points} /></section>

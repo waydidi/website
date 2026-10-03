@@ -173,6 +173,8 @@ export type TripSnapshot = {
   pickup: Point | null; endText: string; end: Point | null; durationHours: number; adults: number; children: number; vehicle: string; vehicleName: string;
   customerName: string | null; language: string; notes: string | null; stops: SnapshotStop[]; returnAt: number; returnTravel: number; totalDrive: number;
   transportPrice: number; feesIncluded: number; feesOnSite: number; discount: number; total: number; packing: string[];
+  /** Stops dropped on the day from the live view. */
+  liveSkipped?: string[];
 };
 
 function snapshotStops(plan: Plan, views: Record<string, AttractionView>): SnapshotStop[] {
