@@ -7,7 +7,7 @@ import {
   Truck,
   Users,
   Newspaper,
-  TicketPercent, Gift, Building2, Store, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Search, Settings } from "lucide-react";
+  TicketPercent, Gift, Route, Building2, Store, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -125,6 +125,13 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
       { href: "/admin/bookings?type=tour", label: "Tour", match: (p, t) => p.startsWith("/admin/bookings") && t === "tour" },
     ] },
     { href: "/admin/operations", label: "Operations", icon: Truck },
+    { href: "/admin/trips", label: "Trip planner", icon: Route, children: [
+      { href: "/admin/trips", label: "Smart trips", match: (p, t) => (p === "/admin/trips" && t !== "templates") || (p.startsWith("/admin/trips/") && !p.startsWith("/admin/trips/live")) },
+      { href: "/admin/trips?view=templates", label: "Quick quote templates", match: (p, t) => p === "/admin/trips" && t === "templates" },
+      { href: "/admin/trips/live", label: "Live today" },
+      { href: "/admin/attractions", label: "Attractions" },
+      { href: "/admin/suppliers", label: "Supplier contacts" },
+    ] },
     { href: "/admin/payments", label: "Payments", icon: BarChart3 },
     { href: "/admin/reports", label: "Reports", icon: BarChart3, children: [
       { href: "/admin/reports", label: "Revenue", match: reportTab("revenue") },
@@ -249,7 +256,7 @@ export default function AdminShell({
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
-  const tab = params?.get("tab") ?? params?.get("type") ?? null;
+  const tab = params?.get("tab") ?? params?.get("type") ?? params?.get("view") ?? null;
   const [collapsed, setCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   useEffect(() => {

@@ -1398,3 +1398,44 @@ export const websiteConversations = sqliteTable("website_conversations", {
 export const websiteChatMessages = sqliteTable("website_chat_messages", {
  id:text("id").primaryKey(), conversationId:text("conversation_id").notNull().references(()=>websiteConversations.id), sender:text("sender").notNull(), body:text("body").notNull(), staffId:text("staff_id").references(()=>staffAccounts.id), createdAt:text("created_at").notNull(),
 },t=>[index("chat_conversation_time").on(t.conversationId,t.createdAt)]);
+
+// Smart Trip Planner: reusable attraction data, supplier contacts and planned trips.
+export const suppliers = sqliteTable("suppliers", {
+ id:text("id").primaryKey(), name:text("name").notNull(), kind:text("kind").notNull().default("attraction"),
+ contactName:text("contact_name"), phone:text("phone"), lineId:text("line_id"), whatsapp:text("whatsapp"), email:text("email"), notes:text("notes"),
+ createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(),
+});
+export const attractions = sqliteTable("attractions", {
+ id:text("id").primaryKey(), name:text("name").notNull(), customerName:text("customer_name"), area:text("area").notNull().default(""),
+ address:text("address"), latitude:real("latitude"), longitude:real("longitude"), googlePlaceId:text("google_place_id"), category:text("category").notNull().default("sight"),
+ tagsJson:text("tags_json").notNull().default("[]"), openTime:text("open_time"), closeTime:text("close_time"), lastEntry:text("last_entry"),
+ closedDaysJson:text("closed_days_json").notNull().default("[]"), durationMin:integer("duration_min").notNull().default(60),
+ arrivalBufferMin:integer("arrival_buffer_min").notNull().default(0), bookingRequired:integer("booking_required",{mode:"boolean"}).notNull().default(false),
+ weatherSensitive:integer("weather_sensitive",{mode:"boolean"}).notNull().default(false), dressCode:text("dress_code"), description:text("description"),
+ highlightsJson:text("highlights_json").notNull().default("[]"), bringJson:text("bring_json").notNull().default("[]"),
+ coverImage:text("cover_image"), galleryJson:text("gallery_json").notNull().default("[]"), imageCredit:text("image_credit"), website:text("website"), phone:text("phone"),
+ internalNotes:text("internal_notes"), supplierId:text("supplier_id").references(()=>suppliers.id),
+ programsJson:text("programs_json").notNull().default("[]"), exceptionsJson:text("exceptions_json").notNull().default("[]"),
+ status:text("status").notNull().default("active"), verifiedAt:text("verified_at"), verifiedBy:text("verified_by"),
+ createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(),
+},t=>[index("attractions_area").on(t.area,t.status)]);
+export const smartTrips = sqliteTable("smart_trips", {
+ id:text("id").primaryKey(), ref:text("ref").notNull().unique(), status:text("status").notNull().default("draft"),
+ title:text("title").notNull(), area:text("area").notNull().default(""), tripDate:text("trip_date"), startTime:text("start_time").notNull().default("08:00"),
+ pickupText:text("pickup_text").notNull().default(""), pickupLat:real("pickup_lat"), pickupLng:real("pickup_lng"),
+ endText:text("end_text"), endLat:real("end_lat"), endLng:real("end_lng"), durationHours:integer("duration_hours").notNull().default(8),
+ adults:integer("adults").notNull().default(2), children:integer("children").notNull().default(0), bags:integer("bags").notNull().default(0),
+ vehicle:text("vehicle").notNull().default("comfort_suv"), language:text("language").notNull().default("en"),
+ customerName:text("customer_name"), customerEmail:text("customer_email"), customerPhone:text("customer_phone"), notes:text("notes"),
+ stopsJson:text("stops_json").notNull().default("[]"), transportPrice:integer("transport_price").notNull().default(0),
+ feesTotal:integer("fees_total").notNull().default(0), discount:integer("discount").notNull().default(0), total:integer("total").notNull().default(0),
+ token:text("token").notNull().unique(), isTemplate:integer("is_template",{mode:"boolean"}).notNull().default(false), templateName:text("template_name"),
+ agencyId:text("agency_id"), commissionPercent:integer("commission_percent").notNull().default(0), createdBy:text("created_by"),
+ snapshotJson:text("snapshot_json"), version:integer("version").notNull().default(0), sentAt:text("sent_at"), viewedAt:text("viewed_at"), acceptedAt:text("accepted_at"),
+ changeRequest:text("change_request"), bookingReference:text("booking_reference"), thankedAt:text("thanked_at"),
+ createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(),
+},t=>[index("smart_trips_status").on(t.isTemplate,t.status,t.tripDate),index("smart_trips_booking").on(t.bookingReference)]);
+export const smartTripVersions = sqliteTable("smart_trip_versions", {
+ id:text("id").primaryKey(), tripId:text("trip_id").notNull().references(()=>smartTrips.id), version:integer("version").notNull(),
+ snapshotJson:text("snapshot_json").notNull(), note:text("note"), createdBy:text("created_by"), createdAt:text("created_at").notNull(),
+},t=>[uniqueIndex("smart_trip_version_unique").on(t.tripId,t.version)]);
