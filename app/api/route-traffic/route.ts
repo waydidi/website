@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
-import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
 import { isThailandPoint, type SpeedInterval } from "@/lib/traffic";
 
 const TTL_SECONDS = 30 * 60;
@@ -27,6 +27,11 @@ export async function POST(request: Request) {
   const cache = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
   const cached = await cache?.match(cacheKey).catch(() => undefined);
   if (cached) return cached;
+  // Each uncached lookup is a paid Google Routes call: at most 60 per visitor every 15 minutes.
+  const window = Math.floor(Date.now() / 900000);
+  const fingerprint = await sha256(`route-traffic:${env.RATE_LIMIT_SALT ?? "waydidi"}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`);
+  const allowed = await env.DB.prepare("INSERT INTO security_rate_windows(fingerprint,window,attempts) VALUES(?,?,1) ON CONFLICT(fingerprint,window) DO UPDATE SET attempts=attempts+1 WHERE attempts<60 RETURNING attempts").bind(fingerprint, window).first().catch(() => ({ attempts: 1 }));
+  if (!allowed) return NextResponse.json({ error: "Too many traffic lookups. Try again in a few minutes." }, { status: 429 });
 
   const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
     method: "POST",
