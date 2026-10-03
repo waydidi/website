@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 export const inputCls = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]";
+export const selectCls = "h-11 rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]";
 export const areaCls = "min-h-20 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[15px] outline-none focus:border-[#FF8A05]";
 export const btnPrimary = "inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900] disabled:opacity-60";
 export const btnQuiet = "inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-[14px] font-semibold text-slate-700 hover:border-[#FF8A05] hover:text-[#C96100] disabled:opacity-60";

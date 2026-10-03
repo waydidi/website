@@ -85,7 +85,7 @@ export function schedule(stops: TripStop[], input: PlanInput): Plan {
     const here = pointOf(stop);
     const own: Problem[] = [];
     const travelMin = prev && here ? input.travel(prev, here) : 0;
-    if (!here) own.push({ level: "warning", stopId: stop.id, message: `${stop.name}: no map location, so drive time is not counted.` });
+    if (!here && stop.kind !== "meal") own.push({ level: "warning", stopId: stop.id, message: `${stop.name}: no map location, so drive time is not counted.` });
     const arrival = t + travelMin;
     const attraction = stop.attractionId ? input.attractions[stop.attractionId] : undefined;
     const program = attraction?.programs.find((p) => p.id === stop.programId);
@@ -122,7 +122,7 @@ export function schedule(stops: TripStop[], input: PlanInput): Plan {
 }
 
 const errorCount = (p: Plan) => p.problems.filter((x) => x.level === "error").length;
-const score = (p: Plan) => errorCount(p) * 100_000 + p.overBy * 100 + p.totalDrive + p.totalWait * 0.5;
+const score = (p: Plan) => errorCount(p) * 100_000 + (p.problems.length - errorCount(p)) * 500 + p.overBy * 100 + p.totalDrive + p.totalWait * 0.5;
 
 /**
  * Reorders the stops: fixed sessions and locked stops keep their order, the
@@ -213,7 +213,7 @@ export function packingList(stops: TripStop[], attractions: Record<string, Attra
     const a = attractions[s.attractionId];
     if (!a) continue;
     for (const tag of a.tags) if (PACKING[tag]) items.add(PACKING[tag]);
-    if (a.dressCode) items.add(a.dressCode);
+    if (a.dressCode && !a.tags.some((t) => t === "temple" || t === "palace")) items.add(a.dressCode);
     for (const b of a.bring ?? []) if (b.trim()) items.add(b.trim());
   }
   if (cashOnSite > 0) items.add(`Cash for entrance fees (about THB ${cashOnSite.toLocaleString("en-US")})`);

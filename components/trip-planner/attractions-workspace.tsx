@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AttractionView, SupplierRow } from "@/lib/attractions";
 import { PACKING_TAGS, type Program, type ScheduleException } from "@/lib/trip-plan";
 import { PlacePicker } from "./place-picker";
-import { api, areaCls, btnPrimary, btnQuiet, DAYS, Field, inputCls, toList, uploadImage } from "./ui";
+import { api, selectCls, areaCls, btnPrimary, btnQuiet, DAYS, Field, inputCls, toList, uploadImage } from "./ui";
 
 type Item = AttractionView & { usedIn: number };
 type Draft = Omit<AttractionView, "createdAt" | "updatedAt" | "verifiedAt" | "verifiedBy" | "tagsJson" | "closedDaysJson" | "highlightsJson" | "bringJson" | "galleryJson" | "programsJson" | "exceptionsJson" | "id"> & { id?: string };
@@ -56,7 +56,7 @@ export function AttractionsWorkspace() {
 
   return <main className="mx-auto max-w-[1180px] px-4 py-6 sm:px-8">
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><h1 className="text-[28px] font-black tracking-[-.03em]">Attractions</h1>
+      <div><h1 className="sr-only">Attractions</h1>
         <p className="mt-1 max-w-2xl text-[14px] text-slate-500">Places, opening hours, programs with fixed session times, and what customers see. The trip planner uses these; approved trips keep their own copy.</p></div>
       <div className="flex gap-2"><Link href="/admin/suppliers" className={btnQuiet}>Supplier contacts</Link>
         <button type="button" onClick={() => { setError(""); setDraft({ ...blank }); }} className={btnPrimary}><Plus size={17} />Add attraction</button></div>
@@ -64,7 +64,7 @@ export function AttractionsWorkspace() {
 
     <div className="mt-5 flex flex-wrap gap-2">
       <label className="relative min-w-[240px] flex-1"><Search size={16} className="absolute left-3 top-3.5 text-slate-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search attractions, categories or tags" className={`${inputCls} pl-9`} /></label>
-      <select value={area} onChange={(e) => setArea(e.target.value)} className={`${inputCls} w-auto`} aria-label="Area"><option value="">All areas</option>{areas.map((a) => <option key={a}>{a}</option>)}</select>
+      <select value={area} onChange={(e) => setArea(e.target.value)} className={`${selectCls}`} aria-label="Area"><option value="">All areas</option>{areas.map((a) => <option key={a}>{a}</option>)}</select>
     </div>
 
     <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">

@@ -106,6 +106,9 @@ const tabs = [
     title: "Blog",
     icon: Newspaper,
   },
+  { href: "/admin/trips", label: "Trip planner", mobileLabel: "Trips", title: "Trip planner", icon: Route },
+  { href: "/admin/attractions", label: "Attractions", mobileLabel: "Places", title: "Attractions", icon: Route },
+  { href: "/admin/suppliers", label: "Supplier contacts", mobileLabel: "Suppliers", title: "Supplier contacts", icon: Route },
 
 
 ];

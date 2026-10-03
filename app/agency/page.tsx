@@ -42,7 +42,7 @@ export default async function AgencyPortalPage() {
     <div className="mx-auto grid max-w-[1180px] gap-6 px-5 pb-24 pt-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div><p className="text-[13px] font-semibold uppercase tracking-[.14em] text-[#D96F00]">Agency portal</p><h1 className="text-[32px] font-bold leading-tight">{agency.agencyName}</h1><p className="text-slate-600">Signed in as {customer.email}</p></div>
-        <NewRideRequest />
+        <div className="flex flex-wrap gap-2"><Link href="/agency/trips" className="inline-flex h-11 items-center rounded-full border border-slate-300 bg-white px-5 font-semibold text-[#211726] hover:border-[#FF8A05]">Plan a day trip</Link><NewRideRequest /></div>
       </header>
 
       <section className="grid gap-3 sm:grid-cols-3">

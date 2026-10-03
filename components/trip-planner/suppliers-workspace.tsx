@@ -36,7 +36,7 @@ export function SuppliersWorkspace() {
 
   return <main className="mx-auto max-w-[1180px] px-4 py-6 sm:px-8">
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><h1 className="text-[28px] font-black tracking-[-.03em]">Supplier contacts</h1>
+      <div><h1 className="sr-only">Supplier contacts</h1>
         <p className="mt-1 max-w-2xl text-[14px] text-slate-500">Who to call for tickets, reservations and changes. Link a supplier to an attraction and it shows in the trip planner.</p></div>
       <div className="flex gap-2"><Link href="/admin/attractions" className={btnQuiet}>Attractions</Link><button type="button" onClick={() => { setError(""); setDraft({ ...blank }); }} className={btnPrimary}><Plus size={17} />Add supplier</button></div>
     </div>
