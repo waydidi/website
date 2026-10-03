@@ -1,7 +1,10 @@
+import { partnerDb, partnerRate, rateProblem } from "./partner-portal";
+import { toSatang } from "./money";
+import { ACCEPTED_CANCELLATION_POLICY } from "./accepted-policy";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
-import { bookingSources, bookings, promoRedemptions } from "@/db/schema";
+import { bookings, promoRedemptions } from "@/db/schema";
 import { addonsTotal } from "@/lib/addons";
 import { uniqueBookingReference } from "@/lib/booking-reference-server";
 import { fulfillBooking } from "@/lib/booking-fulfillment";
@@ -9,7 +12,6 @@ import { secureToken, sha256 } from "@/lib/security";
 import { VEHICLES } from "@/lib/vehicles";
 import { OVERTIME_RATES, type HourlyVehicle } from "@/lib/hourly-policy";
 
-const POLICY_VERSION = "2026-09-07";
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const time = z.string().regex(/^\d{2}:\d{2}$/);
 const text = (max: number) => z.string().trim().max(max);
@@ -27,7 +29,7 @@ export const manualBookingSchema = z.object({
   customerPhone: text(40).min(5),
   passengers: z.number().int().min(1).max(20), luggage: z.number().int().min(0).max(30),
   vehicle: z.enum(Object.keys(VEHICLES) as [string, ...string[]]),
-  fare: z.number().int().min(0).max(1_000_000),
+  fare: z.number().min(0).max(1_000_000).refine(v=>Math.abs(v*100-Math.round(v*100))<0.000001),
   childSeats: z.number().int().min(0).max(4).default(0),
   exchangeStop: z.boolean().default(false),
   ferryPeople: z.number().int().min(0).max(20).default(0),
@@ -36,6 +38,8 @@ export const manualBookingSchema = z.object({
   pickupSign: text(80).optional().default(""),
   specialRequests: text(400).optional().default(""),
   sendEmail: z.boolean().default(false),
+  partnerRateId:z.string().max(80).optional(),
+  partnerFormToken:z.string().max(30).optional(),
   agencyId: z.string().max(60).optional().default(""),
 });
 
@@ -52,11 +56,19 @@ export function manualBookingProblem(b: ManualBookingInput) {
 // Saves a booking taken by phone, LINE or an agency as a normal confirmed booking
 // (source "manual"), so it shows everywhere and gets the same PDF and email.
 export async function createManualBooking(b: ManualBookingInput, origin: string) {
+  const agency=b.agencyId?await partnerDb().prepare("SELECT id FROM agency_applications WHERE id=? AND status='approved'").bind(b.agencyId).first():null;
+  if(b.agencyId&&!agency)throw new Error("An approved partner account is required.");
+  const terms=b.partnerFormToken?await partnerDb().prepare("SELECT * FROM partner_request_terms WHERE form_token=? AND agency_id=?").bind(b.partnerFormToken,b.agencyId).first<{rate_id:string|null;commission_bps:number}>():null;
+  const rateId=terms?.rate_id??b.partnerRateId;
+  const rate=rateId?await partnerRate(rateId,b.agencyId):null;
+  if(rateId&&!rate)throw new Error("Partner rate not found.");
+  if(rate){const problem=rateProblem(rate,b);if(problem)throw new Error(problem);if(toSatang(b.fare)!==rate.price_minor||b.discount)throw new Error("Use the exact negotiated fare without an additional discount.");}
   const hasReturn = Boolean(b.returnDate && b.returnTime) && b.serviceType === "transfer";
 
   const addons = addonsTotal(b.childSeats, b.exchangeStop, undefined, b.ferryPeople);
   const discount = Math.min(b.discount, b.fare);
-  const total = Math.max(0, b.fare - discount) + addons;
+  const baseMinor=Math.max(0,toSatang(b.fare)-toSatang(discount));
+  const total = (baseMinor+toSatang(addons))/100;
   const reference = await uniqueBookingReference();
   const now = new Date().toISOString();
   const requests = [
@@ -69,7 +81,7 @@ export async function createManualBooking(b: ManualBookingInput, origin: string)
   const accessToken = secureToken();
   const confirmationUrl = `${origin}/booking/confirmation/${reference}?token=${accessToken}`;
 
-  await getDb().insert(bookings).values({
+  const bookingInsert=getDb().insert(bookings).values({
     reference,
     customerName: `${b.customerName} ${b.customerSurname}`.trim(),
     customerSurname: b.customerSurname || null,
@@ -91,7 +103,7 @@ export async function createManualBooking(b: ManualBookingInput, origin: string)
     paymentStatusUpdatedAt: now,
     reconciliationStatus: "not_required",
     termsAcceptedAt: now,
-    policyVersion: POLICY_VERSION,
+    policyVersion: ACCEPTED_CANCELLATION_POLICY.version,
     accessTokenHash: await sha256(accessToken),
     emailStatus: "pending",
     fulfillmentStatus: "pending",
@@ -106,8 +118,14 @@ export async function createManualBooking(b: ManualBookingInput, origin: string)
     returnDropoff: hasReturn ? b.pickup : null,
     returnDate: hasReturn ? b.returnDate : null,
     returnTime: hasReturn ? b.returnTime : null,
-  });
-  await getDb().insert(bookingSources).values({ bookingReference: reference, source: b.agencyId ? `agency:${b.agencyId}` : "manual", createdAt: now }).catch(() => undefined);
+  }).toSQL();
+  const profile=b.agencyId?await partnerDb().prepare("SELECT commission_bps FROM partner_profiles WHERE agency_id=?").bind(b.agencyId).first<{commission_bps:number}>():null;
+  const writes=[partnerDb().prepare(bookingInsert.sql).bind(...bookingInsert.params),
+    partnerDb().prepare("INSERT INTO booking_sources(booking_reference,source,created_at) VALUES(?,?,?)").bind(reference,b.agencyId?`agency:${b.agencyId}`:"manual",now),
+    partnerDb().prepare("INSERT INTO booking_policy_snapshots(booking_reference,version,policy_json,accepted_at) VALUES(?,?,?,?)").bind(reference,ACCEPTED_CANCELLATION_POLICY.version,JSON.stringify(ACCEPTED_CANCELLATION_POLICY),now)];
+  if(b.agencyId)writes.push(partnerDb().prepare("INSERT INTO partner_booking_terms(booking_reference,agency_id,commission_base_minor,commission_bps,rate_snapshot,created_at) VALUES(?,?,?,?,?,?)").bind(reference,b.agencyId,baseMinor,terms?.commission_bps??profile?.commission_bps??0,rate?JSON.stringify(rate):null,now));
+  if(b.partnerFormToken)writes.push(partnerDb().prepare("UPDATE booking_forms SET status='booked',booking_reference=? WHERE token=? AND agency_id IS ? AND booking_reference IS NULL").bind(reference,b.partnerFormToken,b.agencyId||null));
+  await partnerDb().batch(writes);
   if (discount > 0) await getDb().insert(promoRedemptions).values({
     id: crypto.randomUUID(), promoId: "manual", code: "Exclusive discount", bookingReference: reference,
     customerEmail: b.customerEmail, customerPhone: b.customerPhone,

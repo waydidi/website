@@ -1,3 +1,4 @@
+import { partnerDb } from "@/lib/partner-portal";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { createManualBooking, manualBookingProblem, manualBookingSchema } from "@/lib/manual-booking";
@@ -26,5 +27,14 @@ async function saveManualBooking(request: Request) {
   }
   const problem = manualBookingProblem(parsed.data);
   if (problem) return NextResponse.json({ error: problem }, { status: 400 });
-  return NextResponse.json({ ok: true, ...(await createManualBooking(parsed.data, safeOrigin(request))) });
+  const token=parsed.data.partnerFormToken;
+  if(token){
+    const form=await partnerDb().prepare("SELECT agency_id FROM booking_forms WHERE token=? AND status='submitted' AND booking_reference IS NULL").bind(token).first<{agency_id:string|null}>();
+    if(!form)return NextResponse.json({error:"This request is unavailable or already booked."},{status:409});
+    parsed.data.agencyId=form.agency_id??"";
+    const claim=await partnerDb().prepare("UPDATE booking_forms SET status='booking' WHERE token=? AND status='submitted' AND booking_reference IS NULL RETURNING token").bind(token).first();
+    if(!claim)return NextResponse.json({error:"This request is being booked."},{status:409});
+  }
+  try{return NextResponse.json({ ok: true, ...(await createManualBooking(parsed.data, safeOrigin(request))) });}
+  catch(error){if(token)await partnerDb().prepare("UPDATE booking_forms SET status='submitted' WHERE token=? AND status='booking' AND booking_reference IS NULL").bind(token).run();throw error;}
 }

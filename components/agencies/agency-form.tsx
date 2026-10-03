@@ -37,8 +37,8 @@ export function AgencyForm({ partnerType = "travel-agent", initialEmail, initial
   </div>;
 
   return <form onSubmit={submit} className="grid gap-5 rounded-[28px] border border-[#E4E1DA] bg-white p-6 sm:grid-cols-2 sm:p-8" noValidate>
-    <label className={`${label} sm:col-span-2`}>Partnership type<select name="partnerType" defaultValue={partnerType} className={field}><option value="travel-agent">Travel agent</option><option value="host-agency">Host agency / consortium</option></select></label>
-    <label className={label}>Agency name<input name="agencyName" required autoComplete="organization" className={field} /></label>
+    <label className={`${label} sm:col-span-2`}>Partnership type<select name="partnerType" defaultValue={partnerType} className={field}><option value="travel-agent">Travel agent</option><option value="host-agency">Host agency / consortium</option><option value="hotel">Hotel / concierge</option></select></label>
+    <label className={label}>Hotel or agency name<input name="agencyName" required autoComplete="organization" className={field} /></label>
     <label className={label}>Your name<input name="contactName" required defaultValue={initialName} autoComplete="name" className={field} /></label>
     <label className={label}>Work email<input name="email" type="email" required defaultValue={initialEmail} readOnly={Boolean(initialEmail)} autoComplete="email" className={field} /></label>
     <label className={label}>Phone / WhatsApp<input name="phone" type="tel" required autoComplete="tel" className={field} /></label>

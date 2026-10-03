@@ -9,7 +9,7 @@ import { getDb } from "@/db";
 import { agencyApplications } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Create your agency account · Waydidi", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Create your hotel or agency account · Waydidi", robots: { index: false, follow: false } };
 
 export default async function AgencyRegistrationPage() {
   const customer = await requireCustomer("/agencies/register");
@@ -20,8 +20,8 @@ export default async function AgencyRegistrationPage() {
   const pending = application && ["new", "contacted"].includes(application.status);
   return <main className="font-home min-h-[70vh] bg-[#F7F8FA] px-5 py-12 text-[#171D21] sm:py-16">
     <div className="mx-auto max-w-[800px]">
-      <h1 className="text-[30px] font-semibold leading-[1.1] tracking-[-.02em] sm:text-[40px]">{pending ? "Your application is being reviewed" : "Create your agency account"}</h1>
-      <p className="mb-8 mt-4 text-[16px] leading-7 text-slate-600">{pending ? "Your email is verified and your application has been received. Our partnerships team will contact you within 2 working days." : "Your email is verified. Tell us about your agency to apply for partner access. Our team reviews your application before activating your agency portal."}</p>
+      <h1 className="text-[30px] font-semibold leading-[1.1] tracking-[-.02em] sm:text-[40px]">{pending ? "Your application is being reviewed" : "Create your hotel or agency account"}</h1>
+      <p className="mb-8 mt-4 text-[16px] leading-7 text-slate-600">{pending ? "Your email is verified and your application has been received. Our partnerships team will contact you within 2 working days." : "Your email is verified. Tell us about your hotel or agency to apply for partner access. Our team reviews your application before activating your agency portal."}</p>
       {pending ? <div className="rounded-[28px] bg-white p-8">
         <p className="font-semibold">{application.agencyName}</p>
         <p className="mt-2 text-slate-600">{customer.email}</p>

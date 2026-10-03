@@ -1,3 +1,4 @@
+import { partnerDb,partnerRate,rateProblem } from "@/lib/partner-portal";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -26,8 +27,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const locked = (form.prefill ? JSON.parse(form.prefill) : {}) as FormPrefill;
   const a = { ...parsed.data, ...Object.fromEntries(Object.entries(locked).filter(([k]) => k !== "price")) };
   if (form.serviceType !== "hourly" && a.dropoff.length < 2) return NextResponse.json({ error: "Please tell us where you're going." }, { status: 400 });
-  await getDb().update(bookingForms).set({ status: "submitted", answers: JSON.stringify(a), submittedAt: new Date().toISOString() })
-    .where(and(eq(bookingForms.token, token), eq(bookingForms.status, "waiting")));
+  if(Date.parse(`${a.date}T${a.time}:00+07:00`)<=Date.now())return NextResponse.json({error:"Choose a future pickup time."},{status:400});
+  if(a.returnTrip&&(!a.returnDate||!a.returnTime||Date.parse(`${a.returnDate}T${a.returnTime}:00+07:00`)<=Date.parse(`${a.date}T${a.time}:00+07:00`)))return NextResponse.json({error:"The return must be after the outbound pickup."},{status:400});
+  if(form.agencyId){
+   const agency=await partnerDb().prepare("SELECT id FROM agency_applications WHERE id=? AND status='approved'").bind(form.agencyId).first();
+   if(!agency)return NextResponse.json({error:"Partner access is unavailable. Contact Waydidi."},{status:403});
+   const terms=await partnerDb().prepare("SELECT rate_id FROM partner_request_terms WHERE form_token=? AND agency_id=?").bind(token,form.agencyId).first<{rate_id:string|null}>();
+   if(terms?.rate_id){const rate=await partnerRate(terms.rate_id,form.agencyId);const problem=rate?rateProblem(rate,{serviceType:form.serviceType,pickup:a.pickup,dropoff:a.dropoff,vehicle:a.vehicle,pickupDate:a.date,bookedHours:a.hours,returnDate:a.returnTrip?a.returnDate:undefined}):"This rate is unavailable.";if(problem)return NextResponse.json({error:problem},{status:400});}
+  }
+  const submitted=await getDb().update(bookingForms).set({ status: "submitted", answers: JSON.stringify(a), submittedAt: new Date().toISOString() })
+    .where(and(eq(bookingForms.token, token), eq(bookingForms.status, "waiting"))).returning({token:bookingForms.token});
+  if(!submitted.length)return NextResponse.json({error:"This form was just submitted."},{status:409});
   const [agency] = form.agencyId ? await getDb().select({ name: agencyApplications.agencyName }).from(agencyApplications).where(eq(agencyApplications.id, form.agencyId)).limit(1) : [];
   await sendFormAlert({ token, answers: a, service: form.serviceType, agency: agency?.name ?? null, note: form.note, price: locked.price ?? null, origin: safeOrigin(request) }).catch(() => undefined);
   // LINE card to the admin: tap "Set price", type the price, and the booking is made.

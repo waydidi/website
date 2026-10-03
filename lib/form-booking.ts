@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingForms } from "@/db/schema";
 import type { FormAnswers, FormService } from "@/lib/booking-form";
@@ -24,7 +24,7 @@ export async function bookFromForm(token: string, price: number, origin: string)
     customerEmail: a.email, customerPhone: a.phone,
     passengers: a.passengers, luggage: a.luggage, vehicle: a.vehicle,
     fare: price, childSeats: a.childSeats, exchangeStop: a.exchangeStop, ferryPeople: a.ferryPeople,
-    paid: false, specialRequests: form.note ?? "", sendEmail: true, agencyId: form.agencyId ?? "",
+    paid: false, specialRequests: form.note ?? "", sendEmail: true, agencyId: form.agencyId ?? "", partnerFormToken:form.token,
   });
   if (!parsed.success) return { error: `The form answers can't be booked (${parsed.error.issues[0]?.path?.[0] ?? "details"}). Open it in admin instead.` } as const;
   const problem = manualBookingProblem(parsed.data);
@@ -37,7 +37,7 @@ export async function bookFromForm(token: string, price: number, origin: string)
     await getDb().update(bookingForms).set({ bookingReference: result.reference }).where(eq(bookingForms.token, token));
     return { ...result, name: a.name } as const;
   } catch (error) {
-    await getDb().update(bookingForms).set({ status: "submitted" }).where(eq(bookingForms.token, token));
+    await getDb().update(bookingForms).set({ status: "submitted" }).where(and(eq(bookingForms.token, token),sql`${bookingForms.bookingReference} IS NULL`));
     throw error;
   }
 }

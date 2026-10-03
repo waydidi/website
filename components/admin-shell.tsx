@@ -118,6 +118,7 @@ const reportTab = (tab: string) => (p: string, t: string | null) => p.startsWith
 // Sidebar: groups with sub-pages open as dropdowns (ShopZen-style).
 const SECTIONS: { title?: string; items: NavGroup[] }[] = [
   { items: [
+    { href: "/admin/partners", label: "Partner contracts", icon: Building2 },
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/bookings", label: "Bookings", icon: BookOpen, children: [
       { href: "/admin/bookings?type=transfer", label: "Transfer", match: (p, t) => p.startsWith("/admin/bookings") && t !== "hourly" && t !== "tour" },
