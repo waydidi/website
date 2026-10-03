@@ -20,7 +20,7 @@ const vite = await createServer({ root, configFile: false, appType: 'custom', es
   if (id.endsWith('/components/account/sign-in-form')) return '\0partner-signin';
 }, load(id) {
   if (id === '\0partner-env') return 'export const env=globalThis.__partnerEnv';
-  if (id === '\0partner-auth') return 'export async function currentCustomer(){return globalThis.__partnerCustomer}; export async function requireCustomer(){if(!globalThis.__partnerCustomer)throw new Error("AUTH_REQUIRED");return globalThis.__partnerCustomer}';
+  if (id === '\0partner-auth') return 'export async function overRateLimit(){return false}; export async function currentCustomer(){return globalThis.__partnerCustomer}; export async function requireCustomer(){if(!globalThis.__partnerCustomer)throw new Error("AUTH_REQUIRED");return globalThis.__partnerCustomer}';
   if (id === '\0partner-form') return 'import {createElement} from "react"; export function AgencyForm(props){return createElement("div",{"data-testid":"agency-form"},JSON.stringify(props))}';
   if (id === '\0partner-signin') return 'export function SignInForm(){return null}';
 } }], server: { middlewareMode: true } });
