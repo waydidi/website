@@ -17,6 +17,7 @@ export async function fulfillBooking(booking:Booking,paymentIntentId?:string|nul
  const [confirmed]=await getDb().update(bookings).set({status:"confirmed",paymentIntentId:paymentIntentId??booking.paymentIntentId,updatedAt:now}).where(and(eq(bookings.reference,booking.reference),inArray(bookings.status,["pending_payment","expired","confirmed"]),or(inArray(bookings.paymentStatus,["paid","partially_refunded"]),and(eq(bookings.paymentMethod,"cash"),eq(bookings.paymentStatus,"cash_due"))))).returning();
  if(!confirmed) return {emailStatus:booking.emailStatus,pdfKey:booking.pdfKey};
  booking=confirmed;
+ await import("@/lib/trip-booking").then((m)=>m.markTripPaid(booking.reference,(env.WAYDIDI_PUBLIC_URL||"https://waydidi.com").replace(/\/$/,""))).catch((error)=>console.error("smart trip close failed",error));
  const legacy=booking.fulfillmentStatus==="complete";
  const channels=[{channel:"confirmation",recipient:null},{channel:"pdf",recipient:null},{channel:"customer_email",recipient:booking.customerEmail},{channel:"office_email",recipient:env.BOOKING_ALERT_EMAIL??null},...(await contactEmails(booking.reference)).filter(to=>to.toLowerCase()!==booking.customerEmail.toLowerCase()).map(recipient=>({channel:"copy_email",recipient}))];
  for(const job of channels) {
