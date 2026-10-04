@@ -8,6 +8,9 @@ export type AttractionRow = typeof attractions.$inferSelect;
 export type SupplierRow = typeof suppliers.$inferSelect;
 
 const json = <T,>(value: string | null | undefined, fallback: T): T => { try { return value ? JSON.parse(value) as T : fallback; } catch { return fallback; } };
+import { BEST_TIMES, MEAL_SLOTS, VIBES } from "@/lib/place-taxonomy";
+export { BEST_TIMES, MEAL_SLOTS, PLACE_TYPES, VIBES, type PlaceI18n } from "@/lib/place-taxonomy";
+import type { PlaceI18n } from "@/lib/place-taxonomy";
 const time = z.string().regex(/^\d{2}:\d{2}$/);
 const optTime = time.nullable().or(z.literal("").transform(() => null));
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -62,6 +65,17 @@ export const attractionSchema = z.object({
   programs: z.array(programSchema).max(20).default([]),
   exceptions: z.array(exceptionSchema).max(60).default([]),
   status: z.enum(["active", "hidden"]).default("active"),
+  mealSlots: z.array(z.enum(MEAL_SLOTS)).max(6).default([]),
+  priceLevel: z.number().int().min(1).max(4).nullable().default(null),
+  avgSpend: z.number().int().min(0).max(100_000).nullable().default(null),
+  neighbourhood: optText(60),
+  bestTime: z.enum(BEST_TIMES).nullable().optional().transform((v) => v ?? null),
+  vibes: z.array(z.enum(VIBES)).max(12).default([]),
+  dropoffNote: optText(300),
+  reservationNote: optText(300),
+  shortLine: optText(160),
+  published: z.boolean().default(false),
+  i18n: z.record(z.enum(["th", "zh"]), z.object({ name: text(120).optional(), shortLine: text(160).optional(), description: text(1500).optional() })).default({}),
 });
 export type AttractionInput = z.infer<typeof attractionSchema>;
 
@@ -83,6 +97,7 @@ export function attractionView(row: AttractionRow) {
     tags: json<string[]>(row.tagsJson, []), closedDays: json<number[]>(row.closedDaysJson, []),
     highlights: json<string[]>(row.highlightsJson, []), bring: json<string[]>(row.bringJson, []), gallery: json<string[]>(row.galleryJson, []),
     programs: json<Program[]>(row.programsJson, []), exceptions: json<ScheduleException[]>(row.exceptionsJson, []),
+    mealSlots: json<string[]>(row.mealSlotsJson, []), vibes: json<string[]>(row.vibesJson, []), i18n: json<PlaceI18n>(row.i18nJson, {}),
   };
 }
 export type AttractionView = ReturnType<typeof attractionView>;
@@ -120,6 +135,9 @@ export async function saveAttraction(input: AttractionInput) {
     galleryJson: JSON.stringify(input.gallery), imageCredit: input.imageCredit, website: input.website, phone: input.phone,
     internalNotes: input.internalNotes, supplierId: input.supplierId, programsJson: JSON.stringify(input.programs),
     exceptionsJson: JSON.stringify(input.exceptions), status: input.status, updatedAt: now,
+    mealSlotsJson: JSON.stringify(input.mealSlots), priceLevel: input.priceLevel, avgSpend: input.avgSpend, neighbourhood: input.neighbourhood,
+    bestTime: input.bestTime, vibesJson: JSON.stringify(input.vibes), dropoffNote: input.dropoffNote, reservationNote: input.reservationNote,
+    shortLine: input.shortLine, published: input.published, i18nJson: JSON.stringify(input.i18n),
   };
   if (input.id) {
     await getDb().update(attractions).set(values).where(eq(attractions.id, input.id));
@@ -150,3 +168,18 @@ export async function saveSupplier(input: z.infer<typeof supplierSchema>) {
 /** Days since the attraction's details were last checked, or null if never. */
 export const daysSinceVerified = (verifiedAt: string | null) => verifiedAt ? Math.floor((Date.now() - Date.parse(verifiedAt)) / 86_400_000) : null;
 export const STALE_AFTER_DAYS = 180;
+
+/** Adds starter places that aren't in the library yet (matched by their seed key). Never changes existing rows. */
+export async function importStarterPlaces(city: "bangkok") {
+  const { BANGKOK_PLACES, seedToInput } = await import("@/lib/seeds/bangkok-places");
+  const list = city === "bangkok" ? BANGKOK_PLACES : [];
+  const existing = new Set((await getDb().select({ key: attractions.seedKey }).from(attractions)).map((r) => r.key));
+  let added = 0;
+  for (const place of list) {
+    if (existing.has(place.key)) continue;
+    const id = await saveAttraction(attractionSchema.parse(seedToInput(place)));
+    await getDb().update(attractions).set({ seedKey: place.key }).where(eq(attractions.id, id));
+    added++;
+  }
+  return { added, skipped: list.length - added };
+}

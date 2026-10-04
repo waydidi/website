@@ -1417,8 +1417,11 @@ export const attractions = sqliteTable("attractions", {
  internalNotes:text("internal_notes"), supplierId:text("supplier_id").references(()=>suppliers.id),
  programsJson:text("programs_json").notNull().default("[]"), exceptionsJson:text("exceptions_json").notNull().default("[]"),
  status:text("status").notNull().default("active"), verifiedAt:text("verified_at"), verifiedBy:text("verified_by"),
+ mealSlotsJson:text("meal_slots_json").notNull().default("[]"), priceLevel:integer("price_level"), avgSpend:integer("avg_spend"), neighbourhood:text("neighbourhood"),
+ bestTime:text("best_time"), vibesJson:text("vibes_json").notNull().default("[]"), dropoffNote:text("dropoff_note"), reservationNote:text("reservation_note"),
+ shortLine:text("short_line"), published:integer("published",{mode:"boolean"}).notNull().default(false), i18nJson:text("i18n_json").notNull().default("{}"), seedKey:text("seed_key"),
  createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(),
-},t=>[index("attractions_area").on(t.area,t.status)]);
+},t=>[index("attractions_area").on(t.area,t.status),uniqueIndex("attractions_seed_key").on(t.seedKey)]);
 export const smartTrips = sqliteTable("smart_trips", {
  id:text("id").primaryKey(), ref:text("ref").notNull().unique(), status:text("status").notNull().default("draft"),
  title:text("title").notNull(), area:text("area").notNull().default(""), tripDate:text("trip_date"), startTime:text("start_time").notNull().default("08:00"),

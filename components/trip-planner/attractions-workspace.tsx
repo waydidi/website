@@ -4,20 +4,22 @@ import Link from "next/link";
 import { BadgeCheck, CalendarX2, Clock, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AttractionView, SupplierRow } from "@/lib/attractions";
+import { BEST_TIMES, MEAL_SLOTS, PLACE_TYPE_LABEL, PLACE_TYPES, PRICE_LEVEL, VIBES } from "@/lib/place-taxonomy";
 import { PACKING_TAGS, type Program, type ScheduleException } from "@/lib/trip-plan";
 import { PlacePicker } from "./place-picker";
 import { api, selectCls, areaCls, btnPrimary, btnQuiet, DAYS, Field, inputCls, toList, uploadImage } from "./ui";
 
 type Item = AttractionView & { usedIn: number };
-type Draft = Omit<AttractionView, "createdAt" | "updatedAt" | "verifiedAt" | "verifiedBy" | "tagsJson" | "closedDaysJson" | "highlightsJson" | "bringJson" | "galleryJson" | "programsJson" | "exceptionsJson" | "id"> & { id?: string };
+type Draft = Omit<AttractionView, "createdAt" | "updatedAt" | "verifiedAt" | "verifiedBy" | "tagsJson" | "closedDaysJson" | "highlightsJson" | "bringJson" | "galleryJson" | "programsJson" | "exceptionsJson" | "mealSlotsJson" | "vibesJson" | "i18nJson" | "seedKey" | "id"> & { id?: string };
 
-const CATEGORIES = ["sight", "temple", "nature", "beach", "island", "animal", "activity", "museum", "market", "shopping", "restaurant", "viewpoint", "show"];
+const CATEGORIES = PLACE_TYPES;
 const blank: Draft = {
   name: "", customerName: null, area: "", address: null, latitude: null, longitude: null, googlePlaceId: null, category: "sight",
   tags: [], openTime: "09:00", closeTime: "17:00", lastEntry: null, closedDays: [], durationMin: 60, arrivalBufferMin: 0,
   bookingRequired: false, weatherSensitive: false, dressCode: null, description: null, highlights: [], bring: [],
   coverImage: null, gallery: [], imageCredit: null, website: null, phone: null, internalNotes: null, supplierId: null,
   programs: [], exceptions: [], status: "active",
+  mealSlots: [], priceLevel: null, avgSpend: null, neighbourhood: null, bestTime: null, vibes: [], dropoffNote: null, reservationNote: null, shortLine: null, published: false, i18n: {},
 };
 const STALE = 180;
 const age = (iso: string | null) => (iso ? Math.floor((Date.now() - Date.parse(iso)) / 86_400_000) : null);
@@ -28,6 +30,9 @@ export function AttractionsWorkspace() {
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [query, setQuery] = useState("");
   const [area, setArea] = useState("");
+  const [type, setType] = useState("");
+  const [hood, setHood] = useState("");
+  const [state, setState] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -40,7 +45,9 @@ export function AttractionsWorkspace() {
   useEffect(() => { void load().catch((e: Error) => setError(e.message)); }, [load]);
 
   const areas = useMemo(() => [...new Set((items ?? []).map((i) => i.area).filter(Boolean))].sort(), [items]);
-  const shown = (items ?? []).filter((i) => (!area || i.area === area) && `${i.name} ${i.customerName ?? ""} ${i.category} ${i.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase()));
+  const hoods = useMemo(() => [...new Set((items ?? []).filter((i) => !area || i.area === area).map((i) => i.neighbourhood).filter((x): x is string => Boolean(x)))].sort(), [items, area]);
+  const shown = (items ?? []).filter((i) => (!area || i.area === area) && (!type || i.category === type) && (!hood || i.neighbourhood === hood)
+    && (!state || (state === "unverified" ? !i.verifiedAt : state === "published" ? i.published : !i.published)) && `${i.name} ${i.customerName ?? ""} ${i.category} ${i.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase()));
 
   async function save(d: Draft) {
     setBusy(true); setError("");
@@ -58,13 +65,17 @@ export function AttractionsWorkspace() {
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div><h1 className="sr-only">Attractions</h1>
         <p className="mt-1 max-w-2xl text-[14px] text-slate-500">Places, opening hours, programs with fixed session times, and what customers see. The trip planner uses these; approved trips keep their own copy.</p></div>
-      <div className="flex gap-2"><Link href="/admin/suppliers" className={btnQuiet}>Supplier contacts</Link>
+      <div className="flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={async () => { if (!confirm("Add the Bangkok starter list (about 55 places) as unverified drafts? Places already added are skipped.")) return; setBusy(true); try { const r = await api<{ added: number; skipped: number }>("/api/admin/attractions", "POST", { importStarter: "bangkok" }); alert(`Added ${r.added} places${r.skipped ? `, skipped ${r.skipped} already in the library` : ""}.`); await load(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }} className={btnQuiet}>Bangkok starter list</button><Link href="/admin/suppliers" className={btnQuiet}>Supplier contacts</Link>
         <button type="button" onClick={() => { setError(""); setDraft({ ...blank }); }} className={btnPrimary}><Plus size={17} />Add attraction</button></div>
     </div>
 
     <div className="mt-5 flex flex-wrap gap-2">
       <label className="relative min-w-[240px] flex-1"><Search size={16} className="absolute left-3 top-3.5 text-slate-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search attractions, categories or tags" className={`${inputCls} pl-9`} /></label>
       <select value={area} onChange={(e) => setArea(e.target.value)} className={`${selectCls}`} aria-label="Area"><option value="">All areas</option>{areas.map((a) => <option key={a}>{a}</option>)}</select>
+      <select value={type} onChange={(e) => setType(e.target.value)} className={selectCls} aria-label="Type"><option value="">All types</option>{PLACE_TYPES.map((t) => <option key={t} value={t}>{PLACE_TYPE_LABEL[t]}</option>)}</select>
+      {hoods.length > 0 && <select value={hood} onChange={(e) => setHood(e.target.value)} className={selectCls} aria-label="Neighbourhood"><option value="">All neighbourhoods</option>{hoods.map((h) => <option key={h}>{h}</option>)}</select>}
+      <select value={state} onChange={(e) => setState(e.target.value)} className={selectCls} aria-label="Status"><option value="">Any status</option><option value="unverified">Not verified</option><option value="draft">Not on website</option><option value="published">On website</option></select>
+      <p className="w-full text-[13px] text-slate-500">{shown.length} of {items?.length ?? 0} places</p>
     </div>
 
     <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -76,7 +87,7 @@ export function AttractionsWorkspace() {
           {shown.map((i) => { const days = age(i.verifiedAt); const stale = days === null || days > STALE; return <tr key={i.id} className={i.status === "hidden" ? "opacity-50" : ""}>
             <td className="px-4 py-3"><div className="flex items-center gap-3">
               {i.coverImage ? <img src={i.coverImage} alt="" className="size-11 rounded-lg object-cover" /> : <span className="grid size-11 place-items-center rounded-lg bg-orange-50 text-[#D96F00]"><MapPin size={18} /></span>}
-              <div><p className="font-semibold text-slate-900">{i.name}{i.status === "hidden" && " (hidden)"}</p><p className="text-[12px] text-slate-500">{i.category}{i.latitude == null && " · no map location"}</p></div></div></td>
+              <div><p className="font-semibold text-slate-900">{i.name}{i.status === "hidden" && " (hidden)"}</p><p className="text-[12px] text-slate-500">{PLACE_TYPE_LABEL[i.category as keyof typeof PLACE_TYPE_LABEL] ?? i.category}{i.neighbourhood ? ` · ${i.neighbourhood}` : ""}{i.priceLevel ? ` · ${PRICE_LEVEL[i.priceLevel]}` : ""}{i.published ? " · on website" : ""}{i.latitude == null && " · no map location"}</p></div></div></td>
             <td className="px-4 py-3">{i.area || "—"}</td>
             <td className="whitespace-nowrap px-4 py-3">{i.openTime && i.closeTime ? `${i.openTime}–${i.closeTime}` : "Any time"}{i.closedDays.length > 0 && <p className="text-[12px] text-slate-500">Closed {i.closedDays.map((d) => DAYS[d]).join(", ")}</p>}</td>
             <td className="px-4 py-3">{i.programs.length ? i.programs.map((p) => <p key={p.id} className="text-[13px]">{p.name} <span className="text-slate-500">{p.sessions.length ? p.sessions.map((s) => s.time).join(", ") : "any time"}</span></p>) : <span className="text-slate-400">—</span>}</td>
@@ -92,12 +103,12 @@ export function AttractionsWorkspace() {
       </table></div>
     </section>
     {error && !draft && <p role="alert" className="mt-3 text-[13px] font-semibold text-red-600">{error}</p>}
-    {draft && <Editor draft={draft} setDraft={setDraft} suppliers={suppliers} areas={areas} busy={busy} error={error} onSave={save} />}
+    {draft && <Editor draft={draft} setDraft={setDraft} suppliers={suppliers} areas={areas} hoods={[...new Set((items ?? []).map((i) => i.neighbourhood).filter((x): x is string => Boolean(x)))].sort()} verified={Boolean(items?.find((i) => i.id === draft.id)?.verifiedAt)} busy={busy} error={error} onSave={save} />}
   </main>;
 }
 
 function toDraft(i: Item): Draft {
-  const { usedIn: _u, createdAt: _c, updatedAt: _up, verifiedAt: _v, verifiedBy: _vb, tagsJson: _t, closedDaysJson: _cd, highlightsJson: _h, bringJson: _b, galleryJson: _g, programsJson: _p, exceptionsJson: _e, ...rest } = i;
+  const { usedIn: _u, createdAt: _c, updatedAt: _up, verifiedAt: _v, verifiedBy: _vb, tagsJson: _t, closedDaysJson: _cd, highlightsJson: _h, bringJson: _b, galleryJson: _g, programsJson: _p, exceptionsJson: _e, mealSlotsJson: _m, vibesJson: _vb2, i18nJson: _i, seedKey: _sk, ...rest } = i;
   return rest;
 }
 
@@ -105,8 +116,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return <fieldset className="grid gap-3 border-t border-slate-100 pt-4"><legend className="pr-2 text-[15px] font-bold text-slate-900">{title}</legend>{children}</fieldset>;
 }
 
-function Editor({ draft, setDraft, suppliers, areas, busy, error, onSave }: { draft: Draft; setDraft: (d: Draft | null) => void; suppliers: SupplierRow[]; areas: string[]; busy: boolean; error: string; onSave: (d: Draft) => void }) {
+function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, error, onSave }: { draft: Draft; setDraft: (d: Draft | null) => void; suppliers: SupplierRow[]; areas: string[]; hoods: string[]; verified: boolean; busy: boolean; error: string; onSave: (d: Draft) => void }) {
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch });
+  const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
   const [uploading, setUploading] = useState(false);
   const setProgram = (i: number, patch: Partial<Program>) => set({ programs: draft.programs.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
   const setException = (i: number, patch: Partial<ScheduleException>) => set({ exceptions: draft.exceptions.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
@@ -130,7 +142,7 @@ function Editor({ draft, setDraft, suppliers, areas, busy, error, onSave }: { dr
             <Field label="Internal name"><input required value={draft.name} onChange={(e) => set({ name: e.target.value })} className={inputCls} placeholder="Phuket Elephant Sanctuary" /></Field>
             <Field label="Name customers see" hint="Leave empty to use the internal name"><input value={draft.customerName ?? ""} onChange={(e) => set({ customerName: e.target.value })} className={inputCls} /></Field>
             <Field label="Area"><input list="attraction-areas" value={draft.area} onChange={(e) => set({ area: e.target.value })} className={inputCls} placeholder="Phuket" /><datalist id="attraction-areas">{areas.map((a) => <option key={a} value={a} />)}</datalist></Field>
-            <Field label="Category"><select value={draft.category} onChange={(e) => set({ category: e.target.value })} className={inputCls}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
+            <Field label="Category"><select value={draft.category} onChange={(e) => set({ category: e.target.value })} className={inputCls}>{CATEGORIES.map((c) => <option key={c} value={c}>{PLACE_TYPE_LABEL[c]}</option>)}</select></Field>
           </div>
           <Field label="Location" hint={draft.latitude != null ? `Map position saved (${draft.latitude.toFixed(4)}, ${draft.longitude?.toFixed(4)})` : "Pick a suggestion so the planner can work out drive times"}>
             <PlacePicker value={draft.address ?? ""} onChange={(p) => set({ address: p.text, ...(p.lat != null ? { latitude: p.lat, longitude: p.lng, googlePlaceId: p.placeId } : {}) })} className={inputCls} placeholder="Search Google Maps" /></Field>
@@ -216,6 +228,29 @@ function Editor({ draft, setDraft, suppliers, areas, busy, error, onSave }: { dr
             </div>
             <Field label="Photo credit / licence" hint="Where the photos come from, e.g. own photos or supplier permission"><input value={draft.imageCredit ?? ""} onChange={(e) => set({ imageCredit: e.target.value })} className={inputCls} /></Field>
           </div>
+        </Section>
+
+        <Section title="For packages and the website">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Neighbourhood"><input list="place-hoods" value={draft.neighbourhood ?? ""} onChange={(e) => set({ neighbourhood: e.target.value })} className={inputCls} placeholder="Rattanakosin, Silom, Thonglor…" /><datalist id="place-hoods">{hoods.map((h) => <option key={h} value={h} />)}</datalist></Field>
+            <Field label="Best time"><select value={draft.bestTime ?? ""} onChange={(e) => set({ bestTime: e.target.value || null })} className={inputCls}><option value="">—</option>{BEST_TIMES.map((t) => <option key={t}>{t}</option>)}</select></Field>
+            <Field label="Price level"><select value={draft.priceLevel ?? ""} onChange={(e) => set({ priceLevel: e.target.value ? Number(e.target.value) : null })} className={inputCls}><option value="">—</option>{[1, 2, 3, 4].map((n) => <option key={n} value={n}>{PRICE_LEVEL[n]}</option>)}</select></Field>
+            <Field label="Average spend per person (THB)"><input type="number" min={0} value={draft.avgSpend ?? ""} onChange={(e) => set({ avgSpend: e.target.value ? Math.max(0, Math.round(Number(e.target.value))) : null })} className={inputCls} /></Field>
+          </div>
+          <div><p className="text-[13px] font-semibold">Meal slots <span className="font-normal text-slate-500">(cafés and restaurants)</span></p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">{MEAL_SLOTS.map((m) => { const on = draft.mealSlots.includes(m); return <button key={m} type="button" onClick={() => set({ mealSlots: toggle(draft.mealSlots, m) as Draft["mealSlots"] })} className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-[#FF8A05] bg-orange-50 font-semibold text-[#C96100]" : "border-slate-200 text-slate-600"}`}>{m}</button>; })}</div></div>
+          <div><p className="text-[13px] font-semibold">Good for</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">{VIBES.map((v) => { const on = draft.vibes.includes(v); return <button key={v} type="button" onClick={() => set({ vibes: toggle(draft.vibes, v) as Draft["vibes"] })} className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-[#FF8A05] bg-orange-50 font-semibold text-[#C96100]" : "border-slate-200 text-slate-600"}`}>{v}</button>; })}</div></div>
+          <Field label="One-line pitch" hint="Shown on package cards, e.g. “Riverside coffee facing Wat Arun”"><input maxLength={160} value={draft.shortLine ?? ""} onChange={(e) => set({ shortLine: e.target.value })} className={inputCls} /></Field>
+          <Field label="Drop-off note for the driver" hint="Where the car stops and how far to walk"><input value={draft.dropoffNote ?? ""} onChange={(e) => set({ dropoffNote: e.target.value })} className={inputCls} /></Field>
+          <Field label="Reservation or queue warning"><input value={draft.reservationNote ?? ""} onChange={(e) => set({ reservationNote: e.target.value })} className={inputCls} placeholder="Book 2 days ahead; queues after 11:00" /></Field>
+          <details className="rounded-2xl border border-slate-200 p-3"><summary className="cursor-pointer text-[14px] font-semibold">Thai and Chinese text</summary>
+            {(["th", "zh"] as const).map((l) => <div key={l} className="mt-3 grid gap-2"><p className="text-[13px] font-bold">{l === "th" ? "Thai" : "Chinese"}</p>
+              <input value={draft.i18n[l]?.name ?? ""} onChange={(e) => set({ i18n: { ...draft.i18n, [l]: { ...draft.i18n[l], name: e.target.value } } })} placeholder="Name" className={inputCls} aria-label={`${l} name`} />
+              <input value={draft.i18n[l]?.shortLine ?? ""} onChange={(e) => set({ i18n: { ...draft.i18n, [l]: { ...draft.i18n[l], shortLine: e.target.value } } })} placeholder="One-line pitch" className={inputCls} aria-label={`${l} pitch`} />
+              <textarea value={draft.i18n[l]?.description ?? ""} onChange={(e) => set({ i18n: { ...draft.i18n, [l]: { ...draft.i18n[l], description: e.target.value } } })} placeholder="Description" className={areaCls} aria-label={`${l} description`} /></div>)}
+          </details>
+          <label className="flex items-start gap-2 text-[14px]"><input type="checkbox" checked={draft.published} onChange={(e) => set({ published: e.target.checked })} className="mt-1 size-4 accent-[#FF8A05]" /><span>Show on the website and in sellable packages{!verified && <span className="block text-[12px] font-semibold text-amber-700">Check hours, prices, location and photos and press “Mark as verified” first.</span>}</span></label>
         </Section>
 
         <Section title="Supplier and internal notes">

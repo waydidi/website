@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { attractions, smartTrips } from "@/db/schema";
 import { getWaydidiAdmin } from "@/lib/admin";
-import { attractionSchema, listAttractions, listSuppliers, markVerified, saveAttraction } from "@/lib/attractions";
+import { attractionSchema, importStarterPlaces, listAttractions, listSuppliers, markVerified, saveAttraction } from "@/lib/attractions";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 const noStore = { "Cache-Control": "no-store" };
@@ -27,6 +27,7 @@ export async function POST(request: Request) {
   const admin = await getWaydidiAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (body?.importStarter === "bangkok") return NextResponse.json({ ok: true, ...(await importStarterPlaces("bangkok")) });
   if (typeof body?.verify === "string") {
     await markVerified(body.verify, admin.displayName || admin.email);
     return NextResponse.json({ ok: true });
