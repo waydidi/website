@@ -18,7 +18,8 @@ type PlanResult = {
   suggestedTransport: { total: number; city: string } | null; packing: string[];
   alternatives: { label: string; returnAt: number; fits: boolean; stops: TripStop[]; extendHours?: number }[];
 };
-type TripMeta = { id: string; ref: string; status: string; token: string; version: number; sentAt: string | null; viewedAt: string | null; acceptedAt: string | null; changeRequest: string | null; bookingReference: string | null; agencyId: string | null; commissionPercent: number; isTemplate: boolean; thankedAt: string | null; feedbackRating: number | null; feedbackComment: string | null };
+type TripMeta = { id: string; ref: string; status: string; token: string; version: number; sentAt: string | null; viewedAt: string | null; acceptedAt: string | null; changeRequest: string | null; bookingReference: string | null; agencyId: string | null; commissionPercent: number; isTemplate: boolean; dayNumber: number; groupId: string | null; thankedAt: string | null; feedbackRating: number | null; feedbackComment: string | null };
+type GroupDay = { id: string; dayNumber: number; tripDate: string | null; total: number; status: string; stops: number };
 type Version = { version: number; note: string | null; createdBy: string | null; createdAt: string };
 type Attraction = AttractionView & { usedIn: number };
 
@@ -44,6 +45,7 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
   const [draft, setDraft] = useState<TripInput | null>(tripId ? null : { ...blankTrip(), isTemplate: initialTemplate });
   const [meta, setMeta] = useState<TripMeta | null>(null);
   const [versions, setVersions] = useState<Version[]>([]);
+  const [group, setGroup] = useState<GroupDay[]>([]);
   const [contacts, setContacts] = useState<Record<string, SupplierRow>>({});
   const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [result, setResult] = useState<PlanResult | null>(null);
@@ -61,10 +63,10 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
   const load = useCallback(async () => {
     const [a, t] = await Promise.all([
       api<{ attractions: Attraction[] }>(`${base}/attractions`, "GET"),
-      tripId ? api<{ trip: TripMeta; input: TripInput; versions: Version[]; supplierContacts: Record<string, SupplierRow> }>(`${base}/trips/${tripId}`, "GET") : null,
+      tripId ? api<{ trip: TripMeta; input: TripInput; versions: Version[]; supplierContacts: Record<string, SupplierRow>; group: GroupDay[] }>(`${base}/trips/${tripId}`, "GET") : null,
     ]);
     setAttractions(a.attractions.filter((x) => x.status === "active"));
-    if (t) { setDraft(t.input); setMeta(t.trip); setVersions(t.versions); setContacts(t.supplierContacts ?? {}); setSameEnd(t.input.endLat == null); setDirty(false); }
+    if (t) { setDraft(t.input); setMeta(t.trip); setVersions(t.versions); setGroup(t.group ?? []); setContacts(t.supplierContacts ?? {}); setSameEnd(t.input.endLat == null); setDirty(false); }
   }, [base, tripId]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load().catch((e: Error) => setError(e.message)); }, [load]);
@@ -172,6 +174,11 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
         {!draft.isTemplate && <button type="button" onClick={() => setSendOpen(true)} disabled={locked} className={btnPrimary}><Send size={16} />{meta?.sentAt ? "Send update" : "Send to customer"}</button>}
       </div>
     </div>
+    {meta && !meta.isTemplate && <nav aria-label="Trip days" className="mt-3 flex flex-wrap items-center gap-2">
+      {group.length > 1 && group.map((d) => <Link key={d.id} href={`${home}/${d.id}`} className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold ${d.id === meta.id ? "border-[#FF8A05] bg-orange-50 text-[#C96100]" : "border-slate-200 bg-white text-slate-700 hover:border-[#FF8A05]"}`}>Day {d.dayNumber}{d.tripDate ? ` · ${new Date(`${d.tripDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })}` : ""} · {d.stops} stop{d.stops === 1 ? "" : "s"}</Link>)}
+      {!locked && <button type="button" onClick={async () => { const r = await action("add_day"); if (r?.id) router.push(`${home}/${r.id}`); }} className="rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-[13px] font-semibold text-slate-600 hover:border-[#FF8A05] hover:text-[#C96100]">+ Add day</button>}
+      {group.length > 1 && <span className="text-[13px] text-slate-500">Multi-day trip · total THB {group.reduce((n, d) => n + d.total, 0).toLocaleString("en-US")} · sent and paid together</span>}
+    </nav>}
     {(error || notice) && <p role={error ? "alert" : "status"} className={`mt-2 text-[14px] font-semibold ${error ? "text-red-600" : "text-emerald-700"}`}>{error || notice}</p>}
     {meta?.changeRequest && meta.status === "changes_requested" && <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[14px]"><p className="font-bold text-amber-900">The customer asked for changes</p><p className="mt-1 whitespace-pre-line text-amber-900">“{meta.changeRequest}”</p></div>}
     {locked && <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-[14px] text-emerald-900">Paid{meta?.bookingReference ? <> as booking <Link className="font-bold underline" href={`/admin/bookings?q=${meta.bookingReference}`}>{meta.bookingReference}</Link></> : ""}. The plan is locked; duplicate it to make another.</div>}
@@ -318,6 +325,7 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
             <button type="button" onClick={async () => { const r = await action("duplicate"); if (r?.id) router.push(`${home}/${r.id}`); }} className={btnQuiet}><Copy size={15} />Duplicate</button>
             {!meta.isTemplate && <button type="button" onClick={async () => { const r = await action("template"); if (r?.id) router.push(`${home}/${r.id}`); }} className={btnQuiet}>Save as template</button>}
             {mode === "agency" && draft.transportPrice === 0 && meta.status !== "pricing" && <button type="button" onClick={async () => { if (await action("ask_price")) { setNotice("Waydidi has been asked for a price."); await load(); } }} className={btnQuiet}>Ask Waydidi for a price</button>}
+            {meta.dayNumber > 1 && !locked && <button type="button" onClick={async () => { if (confirm(`Remove day ${meta.dayNumber} from this trip?`)) { const r = await action("remove_day"); if (r) router.push(`${home}/${r.leadId as string}`); } }} className={`${btnQuiet} text-red-600`}>Remove this day</button>}
             {meta.isTemplate ? <button type="button" onClick={async () => { if (confirm("Delete this template?") && await action("delete")) router.push(`${home}?view=templates`); }} className={`${btnQuiet} text-red-600`}>Delete template</button>
               : meta.status !== "cancelled" && meta.status !== "accepted" ? <button type="button" onClick={async () => { if (confirm("Cancel this trip? The customer link will stop working.") && await action("cancel")) await load(); }} className={`${btnQuiet} text-red-600`}>Cancel trip</button>
               : meta.status === "cancelled" ? <button type="button" onClick={async () => { if (await action("reopen")) await load(); }} className={btnQuiet}>Reopen</button> : null}

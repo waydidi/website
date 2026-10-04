@@ -7,7 +7,7 @@ import { agencyForCustomer } from "@/lib/agency";
 import { listAttractions } from "@/lib/attractions";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
-import { arrange, duplicateTrip, getTrip, inputFromRow, listTrips, planFor, saveTrip, snapshotTrip, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
+import { addDay, arrange, duplicateTrip, groupDays, removeDay, getTrip, inputFromRow, listTrips, planFor, saveTrip, snapshotTrip, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
 import { notifyAgencyPriced, notifyTripSent } from "@/lib/trip-notify";
 import { z } from "zod";
 import { VEHICLES } from "@/lib/vehicles";
@@ -108,13 +108,14 @@ export async function handleGet(id: string, actor: TripActor | null) {
   const trip = await getTrip(id, agencyIdOf(actor));
   if (!trip) return NextResponse.json({ error: "Trip not found." }, { status: 404 });
   const versions = await tripVersions(trip.id);
+  const group = (await groupDays(trip)).map((d) => ({ id: d.id, dayNumber: d.dayNumber, tripDate: d.tripDate, total: d.total, status: d.status, stops: (JSON.parse(d.stopsJson) as unknown[]).length }));
   let supplierContacts: Record<string, typeof suppliers.$inferSelect> = {};
   if (actor.kind === "admin") {
     const ids = [...new Set((await listAttractions({ includeHidden: true })).filter((a) => a.supplierId && inputFromRow(trip).stops.some((s) => s.attractionId === a.id)).map((a) => [a.id, a.supplierId!] as const))];
     const rows = ids.length ? await getDb().select().from(suppliers).where(inArray(suppliers.id, ids.map(([, s]) => s))) : [];
     supplierContacts = Object.fromEntries(ids.map(([aid, sid]) => [aid, rows.find((r) => r.id === sid)!]).filter(([, r]) => r));
   }
-  return NextResponse.json({ trip: publicRow(trip, actor), input: inputFromRow(trip), versions, supplierContacts }, { headers: noStore });
+  return NextResponse.json({ trip: publicRow(trip, actor), input: inputFromRow(trip), versions, supplierContacts, group }, { headers: noStore });
 }
 
 export async function handleAction(request: Request, id: string, actor: TripActor | null) {
@@ -136,14 +137,25 @@ export async function handleAction(request: Request, id: string, actor: TripActo
     case "send": {
       if (trip.isTemplate) return NextResponse.json({ error: "Templates can't be sent. Use the template to make a trip first." }, { status: 400 });
       if (trip.status === "accepted" || trip.status === "cancelled") return NextResponse.json({ error: "This trip can no longer be sent." }, { status: 409 });
-      if (!trip.tripDate) return NextResponse.json({ error: "Set the trip date first." }, { status: 400 });
-      if (trip.total <= 0 && trip.transportPrice <= 0) return NextResponse.json({ error: actor.kind === "agency" ? "This trip needs a price from Waydidi first. Use “Ask Waydidi for a price”." : "Set the transport price first." }, { status: 400 });
-      const { snapshot, problems } = await snapshotTrip(trip, actor.name, note?.slice(0, 200) || (trip.version ? "Updated itinerary" : "First itinerary"));
-      const errors = problems.filter((p) => p.level === "error");
-      await getDb().update(smartTrips).set({ status: "sent", sentAt: now, changeRequest: null, updatedAt: now }).where(eq(smartTrips.id, trip.id));
-      const link = `${origin}/itinerary/${trip.token}`;
-      const delivery = notify && trip.customerEmail ? await notifyTripSent({ ...trip, total: snapshot.total }, link, actor.kind === "agency" ? actor.agencyName : null).catch(() => "failed") : "not_sent";
-      return NextResponse.json({ ok: true, link, version: snapshot.version, warnings: errors.map((e) => e.message), delivery });
+      // A multi-day trip is always sent as a whole: every day frozen, one link (the first day's).
+      const days = await groupDays(trip);
+      for (const d of days) {
+        const label = days.length > 1 ? `Day ${d.dayNumber}: ` : "";
+        if (!d.tripDate) return NextResponse.json({ error: `${label}set the trip date first.` }, { status: 400 });
+        if (d.total <= 0 && d.transportPrice <= 0) return NextResponse.json({ error: `${label}${actor.kind === "agency" ? "this trip needs a price from Waydidi first. Use “Ask Waydidi for a price”." : "set the transport price first."}` }, { status: 400 });
+      }
+      let total = 0, version = 0;
+      const warnings: string[] = [];
+      for (const d of days) {
+        const { snapshot, problems } = await snapshotTrip(d, actor.name, note?.slice(0, 200) || (d.version ? "Updated itinerary" : "First itinerary"));
+        total += snapshot.total; version = Math.max(version, snapshot.version);
+        warnings.push(...problems.filter((p) => p.level === "error").map((e) => (days.length > 1 ? `Day ${d.dayNumber}: ${e.message}` : e.message)));
+        await getDb().update(smartTrips).set({ status: "sent", sentAt: now, changeRequest: null, updatedAt: now }).where(eq(smartTrips.id, d.id));
+      }
+      const lead = days[0];
+      const link = `${origin}/itinerary/${lead.token}`;
+      const delivery = notify && lead.customerEmail ? await notifyTripSent({ ...lead, total, holdDays: lead.holdDays }, link, actor.kind === "agency" ? actor.agencyName : null, days.length).catch(() => "failed") : "not_sent";
+      return NextResponse.json({ ok: true, link, version, warnings, delivery });
     }
     case "ask_price": {
       if (actor.kind !== "agency") return NextResponse.json({ error: "Only agencies ask for a price." }, { status: 400 });
@@ -175,8 +187,19 @@ export async function handleAction(request: Request, id: string, actor: TripActo
     case "template": return NextResponse.json({ ok: true, ...(await duplicateTrip(trip, by, true)) });
     case "cancel": {
       if (trip.status === "accepted") return NextResponse.json({ error: "This trip is paid. Cancel its booking from Bookings instead." }, { status: 409 });
-      await getDb().update(smartTrips).set({ status: "cancelled", updatedAt: now }).where(eq(smartTrips.id, trip.id));
+      for (const d of await groupDays(trip)) await getDb().update(smartTrips).set({ status: "cancelled", updatedAt: now }).where(eq(smartTrips.id, d.id));
       return NextResponse.json({ ok: true });
+    }
+    case "add_day": {
+      if (trip.isTemplate) return NextResponse.json({ error: "Templates are single days." }, { status: 400 });
+      const days = await groupDays(trip);
+      if (days.some((d) => d.status === "accepted")) return NextResponse.json({ error: "This trip is paid. Plan the extra day as a new trip." }, { status: 409 });
+      if (days.length >= 14) return NextResponse.json({ error: "A trip can have up to 14 days." }, { status: 400 });
+      return NextResponse.json({ ok: true, ...(await addDay(trip, by)) });
+    }
+    case "remove_day": {
+      try { await removeDay(trip); return NextResponse.json({ ok: true, leadId: trip.groupId }); }
+      catch (e) { return NextResponse.json({ error: (e as Error).message === "LOCKED" ? "This trip is paid." : "The first day can't be removed; cancel the trip instead." }, { status: 409 }); }
     }
     case "reopen": {
       if (trip.status !== "cancelled" && trip.status !== "changes_requested") return NextResponse.json({ error: "Nothing to reopen." }, { status: 400 });

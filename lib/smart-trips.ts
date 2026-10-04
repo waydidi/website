@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { smartTrips, smartTripVersions } from "@/db/schema";
@@ -247,4 +247,38 @@ export async function agencyTripStats(agencyId: string) {
     commission: paid.reduce((sum, r) => sum + Math.round((r.total * r.pct) / 100), 0),
     commissionPaid: paid.filter((r) => r.paidAt).reduce((sum, r) => sum + Math.round((r.total * r.pct) / 100), 0),
   };
+}
+
+// ---- Multi-day trips ---------------------------------------------------------------
+// Each day is its own smart trip (so planning, checks, live view and driver plans work
+// per day). Days share group_id = the first day's id, numbered by day_number.
+
+/** All days of the trip's group in order (just the trip itself when it is a single day). */
+export async function groupDays(trip: TripRow) {
+  if (!trip.groupId) return [trip];
+  return getDb().select().from(smartTrips).where(eq(smartTrips.groupId, trip.groupId)).orderBy(asc(smartTrips.dayNumber));
+}
+
+/** Adds the next day after the group's last day: same guests and car, starting where the last day ends. */
+export async function addDay(trip: TripRow, by: { name: string; agencyId?: string | null; commissionPercent?: number }) {
+  const days = await groupDays(trip);
+  const lead = days[0], last = days.at(-1)!;
+  if (!lead.groupId) await getDb().update(smartTrips).set({ groupId: lead.id }).where(eq(smartTrips.id, lead.id));
+  const next = last.tripDate ? new Date(Date.parse(`${last.tripDate}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10) : null;
+  const base = inputFromRow(last);
+  const saved = await saveTrip({ ...base, id: undefined, title: lead.title, tripDate: next, stops: [], transportPrice: 0, discount: 0,
+    pickupText: last.endText || last.pickupText, pickupLat: last.endLat ?? last.pickupLat, pickupLng: last.endLng ?? last.pickupLng, endText: null, endLat: null, endLng: null }, { ...by, agencyId: lead.agencyId, commissionPercent: lead.commissionPercent });
+  await getDb().update(smartTrips).set({ groupId: lead.id, dayNumber: last.dayNumber + 1, status: "draft" }).where(eq(smartTrips.id, saved.id));
+  return saved;
+}
+
+/** Removes a day (never the first) and renumbers the rest. */
+export async function removeDay(trip: TripRow) {
+  if (!trip.groupId || trip.dayNumber === 1) throw new Error("FIRST_DAY");
+  if (trip.status === "accepted") throw new Error("LOCKED");
+  await getDb().delete(smartTripVersions).where(eq(smartTripVersions.tripId, trip.id));
+  await getDb().delete(smartTrips).where(eq(smartTrips.id, trip.id));
+  const rest = await getDb().select().from(smartTrips).where(eq(smartTrips.groupId, trip.groupId)).orderBy(asc(smartTrips.dayNumber));
+  for (const [i, d] of rest.entries()) if (d.dayNumber !== i + 1) await getDb().update(smartTrips).set({ dayNumber: i + 1 }).where(eq(smartTrips.id, d.id));
+  if (rest.length === 1) await getDb().update(smartTrips).set({ groupId: null }).where(eq(smartTrips.id, rest[0].id));
 }

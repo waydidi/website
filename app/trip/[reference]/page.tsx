@@ -3,6 +3,7 @@ import { I18nProvider } from "@/components/i18n-provider";
 import { TripView } from "@/components/trip/trip-view";
 import { YourDay } from "@/components/itinerary/your-day";
 import { tripByToken } from "@/lib/smart-trips";
+import { tripWords } from "@/lib/trip-i18n";
 import { getMessages, locales, type Locale } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
   const locale: Locale = locales.includes(lang as Locale) ? (lang as Locale) : "en";
   return (
     <I18nProvider locale={locale} messages={getMessages(locale)}>
-      {showDay && <div className="mx-auto max-w-[880px] px-4 pt-4"><YourDay token={day!} /></div>}
+      {showDay && <div className="mx-auto max-w-[880px] px-4 pt-4"><YourDay token={day!} words={tripWords(smartTrip?.language)} /></div>}
       <TripView reference={reference.toUpperCase()} />
     </I18nProvider>
   );

@@ -6,7 +6,7 @@ import { getDb } from "@/db";
 import { smartTrips } from "@/db/schema";
 import { overRateLimit } from "@/lib/customer-auth";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
-import { tripByToken, tripSnapshot } from "@/lib/smart-trips";
+import { groupDays, tripByToken, tripSnapshot } from "@/lib/smart-trips";
 import { startTripCheckout } from "@/lib/trip-booking";
 import { notifyTripReply } from "@/lib/trip-notify";
 
@@ -47,7 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
     if (trip.status === "accepted") return NextResponse.json({ error: "Your trip is paid. Chat with us to change it." }, { status: 409 });
     const now = new Date().toISOString();
-    await getDb().update(smartTrips).set({ status: "changes_requested", changeRequest: parsed.data.message, updatedAt: now }).where(eq(smartTrips.id, trip.id));
+    for (const d of await groupDays(trip)) await getDb().update(smartTrips).set({ status: "changes_requested", changeRequest: parsed.data.message, updatedAt: now }).where(eq(smartTrips.id, d.id));
     await notifyTripReply(trip, "change", parsed.data.message, origin);
     return NextResponse.json({ ok: true });
   }
@@ -58,7 +58,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   if (!snap.tripDate || snap.tripDate < new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10)) return NextResponse.json({ error: "This date has passed. Please ask us for a new itinerary." }, { status: 410 });
   if (trip.sentAt && Date.now() - Date.parse(trip.sentAt) > trip.holdDays * 86_400_000) return NextResponse.json({ error: `This price was held for ${trip.holdDays} days and has expired. Ask us to confirm it again.` }, { status: 410 });
   try {
-    const result = await startTripCheckout(trip, snap, parsed.data, origin);
+    const days = (await groupDays(trip)).map((d) => ({ trip: d, snap: tripSnapshot(d) }));
+    if (days.some((d) => !d.snap || d.trip.status === "draft" || d.trip.status === "pricing")) return NextResponse.json({ error: "Part of this trip is still being updated. Please try again shortly." }, { status: 409 });
+    const result = await startTripCheckout(days as { trip: typeof trip; snap: NonNullable<typeof snap> }[], parsed.data, origin);
     if (result.alreadyPaid) return NextResponse.json({ error: "This trip is already paid." }, { status: 409 });
     return NextResponse.json({ checkoutUrl: result.checkoutUrl });
   } catch (error) {

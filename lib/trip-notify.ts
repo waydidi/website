@@ -1,19 +1,22 @@
 import { sendTripEmail } from "@/lib/email";
 import { pushLine } from "@/lib/line";
 import type { TripRow } from "@/lib/smart-trips";
+import { dateLocale, fill, tripWords } from "@/lib/trip-i18n";
 
 const niceDate = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : "Date to be confirmed");
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 
-/** Emails the customer their itinerary link. */
-export async function notifyTripSent(trip: TripRow, link: string, agencyName: string | null) {
+/** Emails the customer their itinerary link, in the trip's language. */
+export async function notifyTripSent(trip: TripRow, link: string, agencyName: string | null, dayCount = 1) {
   if (!trip.customerEmail) return "not_sent";
+  const w = tripWords(trip.language);
+  const date = trip.tripDate ? new Date(`${trip.tripDate}T12:00:00Z`).toLocaleDateString(dateLocale(trip.language), { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : "—";
   const result = await sendTripEmail({
-    to: trip.customerEmail, kicker: agencyName ? `Prepared by ${agencyName}` : "Your private day trip",
-    title: `Your itinerary: ${trip.title}`,
-    intro: `Hi ${trip.customerName || "there"}, here is your day planned stop by stop, with times, a map and what to bring. Have a look, ask for any change, or accept and pay when you're happy.`,
-    rows: [["Date", niceDate(trip.tripDate)], ["Pickup", `${trip.startTime} · ${trip.pickupText}`], ["Total", thb(trip.total)]],
-    cta: "View my itinerary", link, footer: `Times are estimates and may change with traffic. This price is held for ${trip.holdDays} days.`,
+    to: trip.customerEmail, kicker: agencyName ? fill(w.preparedBy, { agency: agencyName }) : dayCount > 1 ? fill(w.multiDay, { n: dayCount }) : w.emailSentKicker,
+    title: fill(w.emailSentTitle, { title: trip.title }),
+    intro: fill(w.emailSentIntro, { name: trip.customerName || "" }),
+    rows: [[w.emailDate, dayCount > 1 ? `${date} (${fill(w.multiDay, { n: dayCount })})` : date], [w.emailPickup, `${trip.startTime} · ${trip.pickupText}`], [w.emailTotal, thb(trip.total)]],
+    cta: w.emailView, link, footer: fill(w.emailHold, { n: trip.holdDays }),
     tag: `trip-sent-${trip.id}-v${trip.version + 1}`,
   });
   return result.status;

@@ -3,7 +3,8 @@ import { env } from "cloudflare:workers";
 import { getDb } from "@/db";
 import { smartTrips } from "@/db/schema";
 import { sendTripEmail } from "@/lib/email";
-import { tripSnapshot } from "@/lib/smart-trips";
+import { groupDays, tripSnapshot } from "@/lib/smart-trips";
+import { fill, tripWords } from "@/lib/trip-i18n";
 
 const siteUrl = () => ((env as unknown as Record<string, string | undefined>).WAYDIDI_PUBLIC_URL || "https://waydidi.com").replace(/\/$/, "");
 /** Public review page (e.g. Google Business "write a review" link). Optional. */
@@ -24,18 +25,23 @@ export async function sendTripThanks(at = new Date()) {
     const snap = tripSnapshot(trip);
     if (!snap || !trip.customerEmail) continue;
     if (trip.tripDate === today && nowMin < snap.returnAt + 60) continue;
+    const days = await groupDays(trip);
+    // Multi-day trip: thank once, after the last day; earlier days are marked handled.
+    if (days.at(-1)!.id !== trip.id) { await getDb().update(smartTrips).set({ thankedAt: at.toISOString() }).where(eq(smartTrips.id, trip.id)); continue; }
+    const lead = days[0];
     // Claim it first so two runs never send twice.
     const [claimed] = await getDb().update(smartTrips).set({ thankedAt: at.toISOString() })
       .where(and(eq(smartTrips.id, trip.id), isNull(smartTrips.thankedAt))).returning({ id: smartTrips.id });
     if (!claimed) continue;
-    const places = snap.stops.filter((s) => s.kind === "attraction" && !(snap.liveSkipped ?? []).includes(s.id)).map((s) => s.name);
+    const places = days.flatMap((d) => { const x = tripSnapshot(d); return x ? x.stops.filter((s) => s.kind === "attraction" && !(x.liveSkipped ?? []).includes(s.id)).map((s) => s.name) : []; });
+    const w = tripWords(trip.language);
     await sendTripEmail({
-      to: trip.customerEmail, kicker: "Thank you for travelling with Waydidi",
-      title: `How was your day, ${trip.customerName?.split(" ")[0] || "traveller"}?`,
-      intro: `We hope you loved ${places.slice(0, 3).join(", ")}${places.length > 3 ? " and more" : ""}. It takes 20 seconds to tell us how the day went, and it helps us and your driver a lot.`,
-      rows: [["Trip", snap.title], ["Reference", trip.bookingReference ?? snap.ref]],
-      cta: "Rate your day", link: `${siteUrl()}/itinerary/${trip.token}#feedback`,
-      footer: "You're getting this one-time email because you booked this day trip with Waydidi.",
+      to: trip.customerEmail, kicker: w.thanksKicker,
+      title: fill(w.thanksTitle, { name: trip.customerName?.split(" ")[0] || w.traveller2 }),
+      intro: fill(w.thanksIntro, { places: `${places.slice(0, 3).join(", ")}${places.length > 3 ? w.andMore : ""}` }),
+      rows: [[w.thanksTrip, snap.title], [w.thanksRef, trip.bookingReference ?? snap.ref]],
+      cta: w.thanksCta, link: `${siteUrl()}/itinerary/${lead.token}#feedback`,
+      footer: w.thanksFooter,
       tag: `trip-thanks-${trip.id}`,
     }).catch((error) => console.error("trip thank-you failed", error));
     sent++;

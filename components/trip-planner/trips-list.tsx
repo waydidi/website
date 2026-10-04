@@ -74,7 +74,7 @@ export function TripsList({ mode, view }: { mode: "admin" | "agency"; view: "tri
               <td className="px-4 py-3">{r.area || "—"}</td><td className="px-4 py-3">{r.stopCount}</td><td className="px-4 py-3">{r.durationHours} hr</td><td className="px-4 py-3">{thb(r.total)}</td>
               <td className="px-4 py-3 text-right"><button type="button" onClick={(e) => { e.stopPropagation(); setQuoteFrom(r); }} className="inline-flex items-center gap-1 font-semibold text-[#C96100] hover:underline"><Zap size={14} />Quote</button></td>
             </> : <>
-              <td className="px-4 py-3"><p className="font-semibold">{r.title}</p><p className="text-[12px] text-slate-500">{r.ref}{r.agencyName ? ` · ${r.agencyName}` : ""}</p></td>
+              <td className="px-4 py-3"><p className="font-semibold">{r.title}</p><p className="text-[12px] text-slate-500">{r.ref}{r.groupId ? ` · Day ${r.dayNumber}` : ""}{r.agencyName ? ` · ${r.agencyName}` : ""}</p></td>
               <td className="px-4 py-3">{r.customerName || "—"}{r.customerEmail && <p className="text-[12px] text-slate-500">{r.customerEmail}</p>}</td>
               <td className="whitespace-nowrap px-4 py-3">{niceDate(r.tripDate)}<p className="text-[12px] text-slate-500">{r.startTime} · {r.durationHours} hr</p></td>
               <td className="max-w-[220px] px-4 py-3"><p className="truncate">{r.area || r.pickupText || "—"}</p></td>

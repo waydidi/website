@@ -33,7 +33,7 @@ async function image(pdf: PDFDocument, url: string | null, origin: string): Prom
   } catch { return null; }
 }
 
-export async function createTripPdf(s: TripSnapshot, origin: string, preparedBy: string | null) {
+export async function createTripPdf(s: TripSnapshot, origin: string, preparedBy: string | null, dayNumber?: number) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${latin(s.title)} - ${s.ref}`);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
@@ -51,7 +51,7 @@ export async function createTripPdf(s: TripSnapshot, origin: string, preparedBy:
   page.drawImage(logo, { x: M, y: H - 30 - lh, width: lw, height: lh });
   text(preparedBy ? `Prepared by ${preparedBy} with Waydidi` : "Private day trip", M, H - 92, 11, bold, rgb(1, 1, 1));
   text(s.title.toUpperCase(), M, H - 116, 20, bold, rgb(1, 1, 1));
-  text(`${longDate(s.tripDate)}  ·  ${s.ref}  ·  version ${s.version}`, M, H - 136, 10, regular, rgb(1, 1, 1));
+  text(`${dayNumber ? `Day ${dayNumber}  ·  ` : ""}${longDate(s.tripDate)}  ·  ${s.ref}  ·  version ${s.version}`, M, H - 136, 10, regular, rgb(1, 1, 1));
   y = H - 180;
 
   // Trip facts
