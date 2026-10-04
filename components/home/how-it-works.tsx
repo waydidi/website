@@ -7,7 +7,7 @@ import type { MessageKey } from "@/lib/i18n";
 // "How it works": three illustrated steps in a free horizontal scroll (no snapping).
 function BookVisual() {
   // Screenshot of Waydidi's choose-car screen, shown as a phone screen.
-  return <Image src="/how-it-works-book.webp" alt="Waydidi car choice screen: Suvarnabhumi Airport to Hilton Pattaya with Economy sedan THB 1,500 selected" width={600} height={1101} unoptimized className="absolute left-1/2 top-[4%] h-[92%] w-auto max-w-none -translate-x-1/2 rounded-[22px] border-4 border-white shadow-[0_14px_30px_rgba(0,0,0,.14)]" />;
+  return <Image src="/how-it-works-book.webp" alt="Waydidi car choice screen: Suvarnabhumi Airport to Hilton Pattaya with Economy sedan THB 1,400 selected" width={600} height={1105} unoptimized className="absolute left-1/2 top-[4%] h-[92%] w-auto max-w-none -translate-x-1/2 rounded-[22px] border-4 border-white shadow-[0_14px_30px_rgba(0,0,0,.14)]" />;
 }
 
 const BOARD = [
