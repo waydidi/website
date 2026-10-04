@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Building2, CircleAlert, ClipboardList, Gift, IdCard, UserX } from "lucide-react";
 import { AdminKeyLogin } from "@/components/admin-key-login";
 import { UpcomingRides } from "@/components/admin-overview/upcoming-rides";
 import { requireWaydidiAdmin } from "@/lib/admin";
@@ -10,7 +9,6 @@ import { adminOverview } from "@/lib/admin-overview";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Overview · Waydidi operations", robots: { index: false, follow: false } };
 
-const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -27,30 +25,10 @@ export default async function AdminOverviewPage() {
   if (!access.authorized) return <AdminKeyLogin configured={access.configured} />;
   if(access.user.role!=="owner" && access.user.role!=="operations") redirect(access.user.role==="finance"?"/admin/payments":access.user.role==="editor"?"/admin/blog":"/admin/chat");
   const o = await adminOverview();
-  const { alerts } = o;
-  const ALERTS = [
-    { n: alerts.unassignedSoon, label: plural(alerts.unassignedSoon, "ride", "rides") + " in the next 24h with no driver", href: "/admin/operations", icon: UserX, urgent: true },
-    { n: alerts.attention, label: plural(alerts.attention, "booking", "bookings") + " flagged as needing attention", href: "/admin/operations", icon: AlertTriangle, urgent: true },
-    { n: alerts.operationsAlerts, label: "open operations " + plural(alerts.operationsAlerts, "alert", "alerts"), href: "/admin/operations", icon: CircleAlert, urgent: true },
-    { n: alerts.changeRequests, label: plural(alerts.changeRequests, "change request", "change requests") + " waiting", href: "/admin/bookings", icon: ClipboardList, urgent: false },
-    { n: alerts.ticketsToArrange, label: "partner " + plural(alerts.ticketsToArrange, "ticket", "tickets") + " to arrange", href: "/admin/gifts/mystery", icon: Gift, urgent: false },
-    { n: alerts.agencyApplications, label: "new agency " + plural(alerts.agencyApplications, "application", "applications"), href: "/admin/agencies", icon: Building2, urgent: false },
-    { n: alerts.driverApplications, label: "new driver " + plural(alerts.driverApplications, "application", "applications"), href: "/admin/drivers?tab=applications", icon: IdCard, urgent: false },
-  ].filter((a) => a.n > 0);
 
   return <main className="min-h-screen bg-[#F6F7F9] px-4 py-6 text-[#1f1726] sm:px-8">
     <div className="mx-auto grid max-w-[1200px] gap-6">
 
-      {/* Alerts: only shown when something is waiting. */}
-      {ALERTS.length > 0 && <section aria-label="Needs attention" className="pt-2">
-        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{ALERTS.map(({ n, label, href, icon: Icon, urgent }) => <li key={label}>
-          <Link href={href} className={`flex items-center gap-3 rounded-2xl border p-4 ${urgent ? "border-red-200 bg-red-50 text-red-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
-            <Icon size={20} className="shrink-0" aria-hidden="true" />
-            <span className="min-w-0 flex-1 text-[14px]"><strong className="text-[18px]">{n}</strong> {label}</span>
-            <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-        </li>)}</ul>
-      </section>}
 
       {/* Key numbers */}
       <section aria-labelledby="numbers-heading">
