@@ -11,8 +11,9 @@ const reply = (error: string, status: number) => NextResponse.json({ error }, { 
 const allowed = (role: string) => ["owner", "support", "operations"].includes(role);
 
 // "Unread" = customer messages after the last staff reply.
+// "Unread" = customer messages after the last staff reply and after the last time any admin opened the chat.
 const UNREAD = `(SELECT COUNT(*) FROM website_chat_messages m WHERE m.conversation_id=c.id AND m.sender='visitor'
-  AND m.rowid>COALESCE((SELECT MAX(rowid) FROM website_chat_messages WHERE conversation_id=c.id AND sender='staff' AND is_bot=0),0))`;
+  AND m.rowid>MAX(c.read_seq,COALESCE((SELECT MAX(rowid) FROM website_chat_messages WHERE conversation_id=c.id AND sender='staff' AND is_bot=0),0)))`;
 
 export async function GET(request: Request) {
   const staff = await getWaydidiAdmin();
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
     filters.push(`(c.public_id LIKE ?1q OR c.customer_name LIKE ?1q OR c.customer_email LIKE ?1q OR c.customer_phone LIKE ?1q OR EXISTS(SELECT 1 FROM website_chat_messages s WHERE s.conversation_id=c.id AND s.body LIKE ?1q))`.replace(/\?1q/g, "?"));
     for (let i = 0; i < 5; i++) binds.push(`%${q}%`);
   }
-  const conversations = (await env.DB.prepare(`SELECT c.id,c.public_id,c.status,c.channel,c.customer_name,c.customer_email,c.source_title,c.source_url,c.assigned_name,c.assigned_staff_id,c.last_message_at,c.updated_at,${UNREAD} unread,
+  const conversations = (await env.DB.prepare(`SELECT c.id,c.public_id,c.status,c.channel,c.customer_name,c.customer_email,c.source_title,c.source_url,c.assigned_name,c.assigned_staff_id,c.last_message_at,c.updated_at,c.read_by,c.read_at,${UNREAD} unread,
     (SELECT body FROM website_chat_messages WHERE conversation_id=c.id ORDER BY rowid DESC LIMIT 1) preview,
     (SELECT sender FROM website_chat_messages WHERE conversation_id=c.id ORDER BY rowid DESC LIMIT 1) last_sender
     FROM website_conversations c WHERE ${filters.join(" AND ")} ORDER BY COALESCE(c.last_message_at,c.updated_at) DESC LIMIT 100`).bind(...binds).all()).results;
@@ -52,6 +53,12 @@ export async function GET(request: Request) {
         customer_id: c.customer_id, customer_country: c.customer_country ?? null, source_url: c.source_url, source_title: c.source_title, topic: c.topic, assigned_name: c.assigned_name, assigned_staff_id: c.assigned_staff_id,
         created_at: c.created_at, on_telegram: Boolean(c.telegram_message_id), bot_paused: Boolean((c as { bot_paused?: number }).bot_paused) };
       messages = await messagesFor(c.id);
+      // Opening a chat marks it read for the whole team (badge and bell clear on every device).
+      const latest = (messages as { seq: number; sender: string }[]).filter((m) => m.sender === "visitor").at(-1)?.seq ?? 0;
+      if (latest > ((c as { read_seq?: number }).read_seq ?? 0)) {
+        await env.DB.prepare("UPDATE website_conversations SET read_seq=MAX(read_seq,?),read_by=?,read_at=? WHERE id=?").bind(latest, staff.displayName, now, c.id).run();
+        Object.assign(conversation!, { read_by: staff.displayName, read_at: now, read_seq: latest });
+      } else Object.assign(conversation!, { read_by: (c as { read_by?: string | null }).read_by ?? null, read_at: (c as { read_at?: string | null }).read_at ?? null, read_seq: (c as { read_seq?: number }).read_seq ?? 0 });
     }
   }
   const team = (await env.DB.prepare("SELECT id,display_name name FROM staff_accounts WHERE active=1 AND role IN ('owner','support','operations') ORDER BY display_name").all().catch(() => ({ results: [] }))).results;

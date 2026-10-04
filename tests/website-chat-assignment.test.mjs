@@ -9,7 +9,7 @@ const mf=new Miniflare({modules:true,script:'export default {fetch(){return new 
 const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -55,9 +55,10 @@ test('new public website messages reach the inbox, notification and assigned rep
  const cookie=created.headers.get('set-cookie').split(';')[0];
  const inbox=await (await admin.GET(new Request('https://example.invalid/api/admin/chat'))).json();
  const chat=inbox.conversations.find(c=>c.preview==='New website customer message');assert.ok(chat);
- const detail=await (await admin.GET(new Request(`https://example.invalid/api/admin/chat?id=${chat.id}`))).json();assert.equal(detail.messages[0].body,'New website customer message');
  const summary=()=>admin.GET(new Request('https://example.invalid/api/admin/chat?summary=1')).then(r=>r.json());
  const alert=(await summary()).items.find(i=>i.href.endsWith(chat.id));assert.equal(alert.n,1);assert.match(alert.key,/^chat:/);
+ const detail=await (await admin.GET(new Request(`https://example.invalid/api/admin/chat?id=${chat.id}`))).json();assert.equal(detail.messages[0].body,'New website customer message');
+ assert.equal((await summary()).items.some(i=>i.href.endsWith(chat.id)),false); // opened = read
  assert.equal((await admin.POST(post({id:chat.id,action:'reply',message:'Hello customer'}))).status,200);
  const history=await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie}}))).json();assert.ok(history.messages.some(m=>m.body==='Hello customer'&&m.name==='Alice'));
  assert.equal((await summary()).items.some(i=>i.href.endsWith(chat.id)),false);
@@ -142,4 +143,21 @@ test('the visitor country from Cloudflare is saved with a new chat; unknown code
  assert.equal((await row('From DE')).customer_country,'DE');assert.equal((await row('From XX')).customer_country,null);
  const {conversationCard}=await vite.ssrLoadModule('/lib/telegram/cards.ts');
  assert.match(conversationCard({id:'x',public_id:'WD-1',status:'open',customer_name:null,customer_email:null,customer_phone:null,source_title:null,source_url:null,topic:null,assigned_name:null,created_at:now,customer_country:'DE'},null,true),/Germany/);
+});
+test('opening a chat marks it read for every admin and shows who read it',async()=>{
+ const t=new Date().toISOString();
+ await db.prepare('INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id) VALUES(?,?,?,?,?,?)').bind('chat-read','read-hash',expires,t,t,'WD-55555').run();
+ await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('read-1','chat-read','visitor','Hello',?)").bind(t).run();
+ globalThis.__chatTest.user={id:'bob',displayName:'Bob',role:'support'};
+ const list=async()=>(await (await admin.GET(new Request('https://example.invalid/api/admin/chat'))).json()).conversations.find((c)=>c.id==='chat-read');
+ const bell=async()=>(await (await admin.GET(new Request('https://example.invalid/api/admin/chat?summary=1'))).json()).items.some((i)=>i.href.includes('chat-read'));
+ assert.equal((await list()).unread,1);assert.equal(await bell(),true);
+ globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'support'};
+ const opened=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?id=chat-read'))).json();
+ assert.equal(opened.conversation.read_by,'Alice');
+ globalThis.__chatTest.user={id:'bob',displayName:'Bob',role:'support'};
+ const row=await list();assert.equal(row.unread,0);assert.equal(row.read_by,'Alice');assert.equal(await bell(),false);
+ await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('read-2','chat-read','visitor','Are you there?',?)").bind(t).run();
+ assert.equal((await list()).unread,1);
+ globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'support'};
 });

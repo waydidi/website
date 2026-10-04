@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { countryLabel } from "@/lib/country";
 
-type Row = { id: string; public_id: string; status: string; customer_name: string | null; customer_email: string | null; source_title: string | null; source_url: string | null; assigned_name: string | null; assigned_staff_id: string | null; last_message_at: string | null; unread: number; preview: string | null; last_sender: string | null; channel?: string };
-type Detail = Row & { customer_country: string | null; customer_phone: string | null; customer_id: string | null; topic: string | null; created_at: string; on_telegram: boolean; bot_paused: boolean };
+type Row = { id: string; public_id: string; status: string; customer_name: string | null; customer_email: string | null; source_title: string | null; source_url: string | null; assigned_name: string | null; assigned_staff_id: string | null; last_message_at: string | null; unread: number; preview: string | null; last_sender: string | null; channel?: string; read_by?: string | null; read_at?: string | null };
+type Detail = Row & { customer_country: string | null; customer_phone: string | null; customer_id: string | null; topic: string | null; created_at: string; on_telegram: boolean; bot_paused: boolean; read_seq?: number };
 type Msg = { seq: number; id: string; sender: "visitor" | "staff"; sender_name: string | null; is_bot?: number; body: string; created_at: string; telegram_status: string | null };
 type Data = { conversations: Row[]; conversation: Detail | null; messages: Msg[]; selectionError: string | null; team: { id: string; name: string }[]; me: { id: string; name: string }; cee?: { enabled: boolean; keySet: boolean } };
 
@@ -87,7 +87,7 @@ export function ChatInbox() {
           {data?.conversations.map((r) => <li key={r.id}><button type="button" onClick={() => select(r.id)} aria-current={id === r.id} className={`block w-full border-b border-slate-100 px-4 py-3 text-left ${id === r.id ? "bg-orange-50" : "hover:bg-slate-50"}`}>
             <span className="flex items-center gap-2"><span className={`min-w-0 flex-1 truncate text-[14px] ${r.unread ? "font-bold" : "font-semibold"}`}>{who(r)}</span>{r.channel && r.channel !== "web" && <span className={`shrink-0 rounded-full px-1.5 text-[10.5px] font-bold text-white ${r.channel === "whatsapp" ? "bg-[#25D366]" : "bg-[#06C755]"}`}>{r.channel === "whatsapp" ? "WhatsApp" : "LINE"}</span>}<span className="shrink-0 text-[11.5px] text-slate-500">{when(r.last_message_at)}</span></span>
             <span className="mt-0.5 flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-[13px] text-slate-600">{r.last_sender === "staff" ? "Staff: " : ""}{r.preview ?? "New conversation"}</span>{r.unread > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-[#FE8B05] px-1.5 text-[11px] font-bold text-white">{r.unread}</span>}</span>
-            <span className="mt-1 flex items-center gap-2 text-[11.5px] text-slate-500"><span className={`rounded-full px-1.5 py-0.5 font-semibold ${STATUS[r.status]?.[1] ?? ""}`}>{STATUS[r.status]?.[0] ?? r.status}</span><span className="truncate">{r.assigned_name ?? "Unassigned"}{r.source_title ? ` · ${r.source_title}` : ""}</span></span>
+            <span className="mt-1 flex items-center gap-2 text-[11.5px] text-slate-500"><span className={`rounded-full px-1.5 py-0.5 font-semibold ${STATUS[r.status]?.[1] ?? ""}`}>{STATUS[r.status]?.[0] ?? r.status}</span><span className="truncate">{r.assigned_name ?? "Unassigned"}{r.source_title ? ` · ${r.source_title}` : ""}</span>{!r.unread && r.last_sender === "visitor" && r.read_by && <span className="ml-auto shrink-0 font-semibold text-sky-700">✓ Read by {r.read_by}</span>}</span>
           </button></li>)}
         </ul>
       </aside>
@@ -104,6 +104,7 @@ export function ChatInbox() {
             {data?.messages.map((m) => <div key={m.id} className={`mb-3 flex flex-col ${m.sender === "staff" ? "items-end" : "items-start"}`}>
               <span className="mb-1 text-[11.5px] font-semibold text-slate-500">{m.sender === "staff" ? (m.is_bot ? "🤖 Non (bot)" : m.sender_name ?? "Waydidi team") : "Customer"} · {when(m.created_at)}</span>
               <p className={`max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-[14px] ${m.sender === "staff" ? (m.is_bot ? "rounded-br-md bg-slate-700 text-white" : "rounded-br-md bg-[#FE8B05] text-white") : "rounded-bl-md border border-slate-200 bg-white"}`}>{m.body}</p>
+              {m.sender === "visitor" && c?.read_by && m.seq === c.read_seq && <span className="mt-1 text-[11.5px] font-semibold text-sky-700">✓ Read by {c.read_by}{c.read_at ? ` · ${when(c.read_at)}` : ""}</span>}
               {m.sender === "staff" && !m.is_bot && <button type="button" onClick={() => void saveAsKnowledge(m.id)} className="mt-1 text-[11.5px] font-semibold text-slate-500 underline">Save as Non knowledge</button>}
               {m.sender === "visitor" && m.telegram_status === "failed" && <button type="button" onClick={() => void act({ action: "retry_telegram", messageId: m.id })} className="mt-1 text-[11.5px] font-semibold text-red-600 underline">Not on Telegram yet · retry</button>}
             </div>)}
