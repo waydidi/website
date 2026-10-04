@@ -33,6 +33,7 @@ export default async function SettingsPage() {
   ];
   return <div className="px-4 pb-10 pt-4 sm:px-8">
     <div className="grid max-w-[900px] gap-6">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 text-[14px]"><h2 className="text-[16px] font-bold">Telegram · Website chat</h2><p className="mt-1 text-slate-600">Bot connection, webhook and the approved Telegram team are managed in Website chat.</p><Link href="/admin/chat?tab=telegram" className="mt-2 inline-block font-semibold text-[#C96100] hover:underline">Open Telegram settings →</Link></section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">

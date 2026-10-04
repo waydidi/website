@@ -13,6 +13,19 @@ Waydidi’s only live site is [https://waydidi-website.contact-waydidi.workers.d
 
 Canonical URLs, structured data, sitemap and robots metadata use `lib/site.ts`. The historical `.openai/hosting.json` is retained for build compatibility and logical bindings; it is not a deployment target.
 
+## Telegram website chat
+
+Website chat is one conversation stored in D1 and shown in three places: the customer's chat window, **Admin → Website chat**, and a Telegram staff group. Customer messages are saved first and then posted to Telegram as a card (customer, page, status, latest message) with buttons (Assign to me, Reply, Pending, Close, Open in Admin). Staff answer by replying to the card, a mirrored message or a "Reply" prompt. Status and assignment changes edit the original card instead of posting new ones. New bookings also get a Telegram card.
+
+Owner setup:
+
+1. Create a bot with `@BotFather` (`/newbot`), add it to your private staff group, and get the group's numeric chat ID (negative for groups).
+2. In the Cloudflare Worker `waydidi-website`, add secrets `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` and `TELEGRAM_WEBHOOK_SECRET` (16–256 letters, numbers, `_` or `-`). Never commit them.
+3. Open **Admin → Website chat → Telegram team**, press **Connect webhook** (registers `/api/integrations/telegram/webhook` with the secret header; `/api/webhooks/telegram` is an alias), then **Send test message**.
+4. Each staff member sends `/id` in the group; add their numeric ID and the name customers should see. Only these approved, enabled people can reply, assign or close from Telegram.
+
+Updates are de-duplicated by `update_id`, the webhook secret is checked on every call, callbacks are re-validated server side, and replies are routed only by stored Telegram message ids, never by name. Failed Telegram deliveries keep the customer's message and are retried by the five-minute cron. The schema is in `drizzle/0069_chat_telegram.sql`.
+
 ## Starter build tooling
 
 Install locked dependencies with `npm run install:ci`, then build with `npm run build`. Cloudflare deploys the built Worker using the configuration generated from `vite.config.ts`.
