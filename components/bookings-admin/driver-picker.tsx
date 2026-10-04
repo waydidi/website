@@ -1,12 +1,14 @@
 "use client";
 
-import { Check, ChevronDown, LoaderCircle, Search } from "lucide-react";
+import { Check, ChevronDown, LoaderCircle, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export type PickerDriver = { id: string; name: string; phone: string; email: string | null; area: string; vehicle: string };
+export type PickerDriver = { id: string; name: string; phone: string; email: string | null; area: string; vehicle: string; plate?: string | null };
 
-// Driver column: shows the assigned driver; opens a searchable list to assign or change.
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "?";
+
+// Driver column: shows the assigned driver; opens a bottom sheet with a searchable list to assign or change.
 export function DriverPicker({ reference, leg = "outbound", drivers, current, canAssign, onAssigned, wide, onAddDriver }: { reference: string; leg?: "outbound" | "return"; drivers: PickerDriver[]; current: string | null; canAssign: boolean; wide?: boolean; onAddDriver?: () => void; onAssigned?: (driverUrl?: string) => void }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -18,14 +20,14 @@ export function DriverPicker({ reference, leg = "outbound", drivers, current, ca
 
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", close); document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+    document.addEventListener("keydown", esc);
+    const overflow = document.body.style.overflow; document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", esc); document.body.style.overflow = overflow; };
   }, [open]);
 
   const q = query.trim().toLowerCase();
-  const list = q ? drivers.filter((d) => [d.name, d.phone, d.email ?? "", d.area, d.vehicle].some((v) => v.toLowerCase().includes(q))) : drivers;
+  const list = q ? drivers.filter((d) => [d.name, d.phone, d.email ?? "", d.area, d.vehicle, d.plate ?? ""].some((v) => v.toLowerCase().includes(q))) : drivers;
 
   async function assign(driverId: string) {
     if (driverId === current) { setOpen(false); return; }
@@ -46,22 +48,32 @@ export function DriverPicker({ reference, leg = "outbound", drivers, current, ca
       <span className="truncate">{busy ? "Saving…" : chosen?.name ?? "Choose driver"}</span>
       {busy ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronDown size={14} className="shrink-0 text-slate-400" />}
     </button>
-    {open && <div className={`absolute top-10 z-30 ${wide ? "inset-x-0" : "left-0 w-72 max-w-[calc(100vw-4rem)]"} rounded-xl border border-slate-200 bg-white p-2 shadow-xl`}>
-      <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 focus-within:border-[#FF8A05]">
-        <Search size={14} className="shrink-0 text-slate-400" />
-        <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, phone, email, area, car" aria-label="Search drivers" className="h-9 min-w-0 flex-1 bg-transparent text-[13px] outline-none" />
-      </label>
-      <ul role="listbox" className="mt-1.5 max-h-64 overflow-y-auto">
-        {list.length === 0 && <li className="px-2.5 py-3 text-center text-[13px] text-slate-500">{drivers.length ? "No driver matches." : "No active drivers yet."}</li>}
-        {list.map((d) => <li key={d.id}>
-          <button type="button" role="option" aria-selected={d.id === current} disabled={busy} onClick={() => assign(d.id)} className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-slate-50 disabled:opacity-50">
-            <span className="min-w-0 flex-1"><span className="block truncate text-[13.5px] font-medium text-slate-900">{d.name}</span><span className="block truncate text-[12px] text-slate-500">{[d.phone, d.area, d.vehicle].filter(Boolean).join(" · ")}</span></span>
-            {d.id === current && <Check size={15} className="mt-0.5 shrink-0 text-[#FF8A05]" />}
-          </button>
-        </li>)}
-      </ul>
-      {onAddDriver && <button type="button" onClick={() => { setOpen(false); onAddDriver(); }} className="mt-1 flex w-full items-center gap-1.5 border-t border-slate-100 px-2.5 pb-1 pt-2.5 text-left text-[13.5px] font-bold text-[#C96100] hover:underline">+ Add driver</button>}
-      {error && <p role="alert" className="px-2.5 pt-1 text-[12px] font-semibold text-red-600">{error}</p>}
+    {open && <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
+      <div role="dialog" aria-modal="true" aria-label="Choose driver" className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-[24px] bg-white pb-[max(12px,env(safe-area-inset-bottom))] shadow-2xl">
+        <div className="mx-auto mt-2.5 h-1.5 w-10 rounded-full bg-slate-200" aria-hidden="true" />
+        <div className="flex items-center justify-between px-5 pb-2 pt-3"><h2 className="text-[17px] font-black">Choose driver</h2>
+          <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="grid size-9 place-items-center rounded-full hover:bg-slate-100"><X size={18} /></button></div>
+        <label className="mx-5 flex items-center gap-2 rounded-xl border border-slate-200 px-3 focus-within:border-[#FF8A05]">
+          <Search size={16} className="shrink-0 text-slate-400" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, plate or phone" aria-label="Search drivers" className="h-11 min-w-0 flex-1 bg-transparent text-[15px] outline-none" />
+        </label>
+        <ul role="listbox" className="mt-2 min-h-0 flex-1 overflow-y-auto px-3">
+          {list.length === 0 && <li className="px-2.5 py-6 text-center text-[14px] text-slate-500">{drivers.length ? "No driver matches." : "No active drivers yet."}</li>}
+          {list.map((d) => <li key={d.id}>
+            <button type="button" role="option" aria-selected={d.id === current} disabled={busy} onClick={() => assign(d.id)} className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left hover:bg-slate-50 disabled:opacity-50 ${d.id === current ? "bg-orange-50" : ""}`}>
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[13px] font-bold text-[#C96100]" aria-hidden="true">{initials(d.name)}</span>
+              <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="truncate text-[15px] font-semibold text-slate-900">{d.name}</span>
+                {d.vehicle && <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11.5px] font-semibold text-slate-700">{d.vehicle}</span>}
+              </span>
+              <span className="shrink-0 text-[13px] font-semibold text-slate-600">{d.plate || "No plate"}</span>
+              {d.id === current && <Check size={16} className="shrink-0 text-[#FF8A05]" aria-label="Assigned" />}
+            </button>
+          </li>)}
+        </ul>
+        {onAddDriver && <button type="button" onClick={() => { setOpen(false); onAddDriver(); }} className="mx-5 mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-3 text-left text-[14px] font-bold text-[#C96100] hover:underline">+ Add driver</button>}
+        {error && <p role="alert" className="px-5 pt-2 text-[13px] font-semibold text-red-600">{error}</p>}
+      </div>
     </div>}
   </div>;
 }

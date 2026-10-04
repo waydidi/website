@@ -88,7 +88,7 @@ export async function adminOverview(at = new Date()) {
 
   return {
     today, tomorrow, rides,
-    drivers: driverList.map((d) => ({ ...d, vehicle: [d.vehicle, d.carPlate].filter(Boolean).join(" · "), area: d.driverType === "outsource" ? "Outsource" : d.area })),
+    drivers: driverList.map((d) => ({ ...d, plate: d.carPlate ?? null, area: d.driverType === "outsource" ? "Outsource" : d.area })),
     stats: { today: period(29, null), week: period(23, cancelled7), month: period(0, cancelled30) },
     cashDue: { count: cashDue[0]?.n ?? 0, amount: Number(cashDue[0]?.sum ?? 0) },
     trend,
