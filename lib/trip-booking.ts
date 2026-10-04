@@ -21,7 +21,7 @@ export async function startTripCheckout(trip: TripRow, snap: TripSnapshot, conta
   if (trip.bookingReference) {
     const [existing] = await getDb().select().from(bookings).where(eq(bookings.reference, trip.bookingReference)).limit(1);
     if (existing?.status === "confirmed") return { alreadyPaid: true as const, reference: existing.reference };
-    if (existing && existing.status === "pending_payment" && existing.total === snap.total) await getDb().update(bookings).set({ status: "expired", updatedAt: new Date().toISOString() }).where(eq(bookings.reference, existing.reference));
+    if (existing && existing.status === "pending_payment") await getDb().update(bookings).set({ status: "expired", updatedAt: new Date().toISOString() }).where(eq(bookings.reference, existing.reference));
   }
   const reference = await uniqueBookingReference();
   const accessToken = secureToken();

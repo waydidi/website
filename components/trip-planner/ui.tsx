@@ -24,7 +24,25 @@ export async function api<T = { ok: boolean }>(url: string, method: string, body
   return data;
 }
 
-export async function uploadImage(file: File) {
+/** Re-encodes a photo as JPEG (max 1600 px) so it shows everywhere, including the itinerary PDF. */
+export async function toJpeg(file: File, max = 1600): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    if (file.type === "image/jpeg" && scale === 1 && file.size < 1_500_000) return file;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    return blob ? new File([blob], file.name.replace(/\.[a-z0-9]+$/i, "") + ".jpg", { type: "image/jpeg" }) : file;
+  } catch { return file; }
+}
+
+export async function uploadImage(original: File) {
+  const file = await toJpeg(original);
   const form = new FormData();
   form.append("file", file);
   const res = await fetch("/api/admin/blog/images", { method: "POST", body: form });

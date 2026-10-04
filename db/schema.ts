@@ -1434,8 +1434,9 @@ export const smartTrips = sqliteTable("smart_trips", {
  snapshotJson:text("snapshot_json"), version:integer("version").notNull().default(0), sentAt:text("sent_at"), viewedAt:text("viewed_at"), acceptedAt:text("accepted_at"),
  changeRequest:text("change_request"), bookingReference:text("booking_reference"), thankedAt:text("thanked_at"),
  feedbackRating:integer("feedback_rating"), feedbackComment:text("feedback_comment"), feedbackAt:text("feedback_at"),
+ commissionPaidAt:text("commission_paid_at"), holdDays:integer("hold_days").notNull().default(7), groupId:text("group_id"), dayNumber:integer("day_number").notNull().default(1), dayCheckedAt:text("day_checked_at"),
  createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(),
-},t=>[index("smart_trips_status").on(t.isTemplate,t.status,t.tripDate),index("smart_trips_booking").on(t.bookingReference)]);
+},t=>[index("smart_trips_status").on(t.isTemplate,t.status,t.tripDate),index("smart_trips_booking").on(t.bookingReference),index("smart_trips_group").on(t.groupId,t.dayNumber)]);
 export const smartTripVersions = sqliteTable("smart_trip_versions", {
  id:text("id").primaryKey(), tripId:text("trip_id").notNull().references(()=>smartTrips.id), version:integer("version").notNull(),
  snapshotJson:text("snapshot_json").notNull(), note:text("note"), createdBy:text("created_by"), createdAt:text("created_at").notNull(),

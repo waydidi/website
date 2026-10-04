@@ -52,6 +52,7 @@ export const tripSchema = z.object({
   stops: z.array(stopSchema).max(30),
   transportPrice: z.number().int().min(0).max(1_000_000),
   discount: z.number().int().min(0).max(1_000_000).default(0),
+  holdDays: z.number().int().min(1).max(60).default(7),
   isTemplate: z.boolean().default(false),
   templateName: optText(120),
 });
@@ -124,7 +125,7 @@ export async function saveTrip(input: TripInput, by: { name: string; agencyId?: 
     adults: input.adults, children: input.children, bags: input.bags, vehicle: input.vehicle, language: input.language,
     customerName: input.customerName, customerEmail: input.customerEmail ?? null, customerPhone: input.customerPhone, notes: input.notes,
     stopsJson: JSON.stringify(input.stops), transportPrice: input.transportPrice, feesTotal: planned.fees.included,
-    discount: input.discount, total: planned.total, isTemplate: input.isTemplate, templateName: input.templateName, updatedAt: now,
+    discount: input.discount, holdDays: input.holdDays, total: planned.total, isTemplate: input.isTemplate, templateName: input.templateName, updatedAt: now,
   };
   if (input.id) {
     const scope = by.agencyId ? and(eq(smartTrips.id, input.id), eq(smartTrips.agencyId, by.agencyId)) : eq(smartTrips.id, input.id);
@@ -156,7 +157,7 @@ export function inputFromRow(t: TripRow): TripInput {
     id: t.id, title: t.title, area: t.area, tripDate: t.tripDate, startTime: t.startTime, pickupText: t.pickupText, pickupLat: t.pickupLat, pickupLng: t.pickupLng,
     endText: t.endText, endLat: t.endLat, endLng: t.endLng, durationHours: t.durationHours, adults: t.adults, children: t.children, bags: t.bags,
     vehicle: t.vehicle, language: t.language as TripInput["language"], customerName: t.customerName, customerEmail: t.customerEmail, customerPhone: t.customerPhone,
-    notes: t.notes, stops: tripStops(t) as TripInput["stops"], transportPrice: t.transportPrice, discount: t.discount, isTemplate: t.isTemplate, templateName: t.templateName,
+    notes: t.notes, stops: tripStops(t) as TripInput["stops"], transportPrice: t.transportPrice, discount: t.discount, holdDays: t.holdDays, isTemplate: t.isTemplate, templateName: t.templateName,
   };
 }
 

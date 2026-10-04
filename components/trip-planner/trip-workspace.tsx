@@ -34,7 +34,7 @@ const bangkokToday = () => new Date(Date.now() + 7 * 3600_000).toISOString().sli
 export const blankTrip = (): TripInput => ({
   title: "", area: "", tripDate: null, startTime: "08:00", pickupText: "", pickupLat: null, pickupLng: null, endText: null, endLat: null, endLng: null,
   durationHours: 8, adults: 2, children: 0, bags: 2, vehicle: "comfort_suv", language: "en", customerName: null, customerEmail: null, customerPhone: null,
-  notes: null, stops: [], transportPrice: 0, discount: 0, isTemplate: false, templateName: null,
+  notes: null, stops: [], transportPrice: 0, discount: 0, holdDays: 7, isTemplate: false, templateName: null,
 });
 
 export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode: Mode; tripId?: string; initialTemplate?: boolean }) {
@@ -294,6 +294,7 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
               {result?.suggestedTransport && mode === "admin" && draft.transportPrice !== result.suggestedTransport.total && <button type="button" onClick={() => update({ transportPrice: result.suggestedTransport!.total })} className={`${btnQuiet} mb-5`}>Use</button>}
             </div>
             <div className="flex justify-between"><span className="text-slate-600">Tickets included</span><span>{thb(result?.fees.included ?? 0)}</span></div>
+            {mode === "admin" && <Field label="Hold this price for (days)"><input type="number" min={1} max={60} value={draft.holdDays} onChange={(e) => update({ holdDays: Math.min(60, Math.max(1, Math.round(Number(e.target.value) || 7))) })} className={inputCls} /></Field>}
             {mode === "admin" && <Field label="Discount"><input type="number" min={0} value={draft.discount} onChange={(e) => update({ discount: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={inputCls} /></Field>}
             <div className="flex justify-between border-t border-slate-100 pt-2 text-[17px] font-bold"><span>Total</span><span>{thb(result?.total ?? draft.transportPrice)}</span></div>
             {(result?.fees.onSite ?? 0) > 0 && <p className="text-[13px] text-slate-500">Paid on the day by the customer: {thb(result!.fees.onSite)} in entrance fees.</p>}

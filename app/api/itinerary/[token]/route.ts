@@ -56,7 +56,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Check your details." }, { status: 400 });
   if (trip.status === "accepted") return NextResponse.json({ error: "This trip is already paid." }, { status: 409 });
   if (!snap.tripDate || snap.tripDate < new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10)) return NextResponse.json({ error: "This date has passed. Please ask us for a new itinerary." }, { status: 410 });
-  if (trip.sentAt && Date.now() - Date.parse(trip.sentAt) > 7 * 86_400_000) return NextResponse.json({ error: "This price was held for 7 days and has expired. Ask us to confirm it again." }, { status: 410 });
+  if (trip.sentAt && Date.now() - Date.parse(trip.sentAt) > trip.holdDays * 86_400_000) return NextResponse.json({ error: `This price was held for ${trip.holdDays} days and has expired. Ask us to confirm it again.` }, { status: 410 });
   try {
     const result = await startTripCheckout(trip, snap, parsed.data, origin);
     if (result.alreadyPaid) return NextResponse.json({ error: "This trip is already paid." }, { status: 409 });

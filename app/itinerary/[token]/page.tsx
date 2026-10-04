@@ -10,6 +10,7 @@ import { YourDay } from "@/components/itinerary/your-day";
 import { TripFeedback } from "@/components/itinerary/trip-feedback";
 import { reviewUrl } from "@/lib/trip-thanks";
 import { tripByToken, tripSnapshot } from "@/lib/smart-trips";
+import { getWaydidiAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Your itinerary · Waydidi", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -20,10 +21,10 @@ const dur = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} hr${m % 60 ? ` ${m 
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 
 /** Past trip date, or the 7-day price hold is over. */
-function quoteExpired(tripDate: string | null, sentAt: string | null) {
+function quoteExpired(tripDate: string | null, sentAt: string | null, holdDays: number) {
   const now = Date.now();
   const today = new Date(now + 7 * 3600_000).toISOString().slice(0, 10);
-  return Boolean((tripDate && tripDate < today) || (sentAt && now - Date.parse(sentAt) > 7 * 86_400_000));
+  return Boolean((tripDate && tripDate < today) || (sentAt && now - Date.parse(sentAt) > holdDays * 86_400_000));
 }
 
 /** True from the trip day onwards (Bangkok time). */
@@ -41,10 +42,11 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const s = trip ? tripSnapshot(trip) : null;
   if (!trip || !s) return <Unavailable title="Itinerary not found" text="This link isn't valid or the itinerary isn't ready yet. Please check the link or contact us." />;
   if (trip.status === "cancelled") return <Unavailable title="This itinerary was withdrawn" text="Please contact us if you'd still like to travel; we'll gladly plan a new one." />;
-  if (!trip.viewedAt) await getDb().update(smartTrips).set({ viewedAt: new Date().toISOString() }).where(eq(smartTrips.id, trip.id)).catch(() => undefined);
+  // Staff previews don't count as the customer opening it.
+  if (!trip.viewedAt && !(await getWaydidiAdmin())) await getDb().update(smartTrips).set({ viewedAt: new Date().toISOString() }).where(eq(smartTrips.id, trip.id)).catch(() => undefined);
   const [agency] = trip.agencyId ? await getDb().select({ name: agencyApplications.agencyName }).from(agencyApplications).where(eq(agencyApplications.id, trip.agencyId)).limit(1) : [];
   const paid = trip.status === "accepted";
-  const expired = !paid && quoteExpired(s.tripDate, trip.sentAt);
+  const expired = !paid && quoteExpired(s.tripDate, trip.sentAt, trip.holdDays);
   const points = [
     ...(s.pickup ? [{ id: "pickup", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: `Pickup · ${s.pickupText}`, kind: "pickup" as const }] : []),
     ...s.stops.filter((x) => x.lat != null && x.lng != null).map((x, i) => ({ id: x.id, lat: x.lat!, lng: x.lng!, label: String(i + 1), title: x.name, kind: "stop" as const })),

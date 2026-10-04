@@ -8,7 +8,7 @@ import { listAttractions } from "@/lib/attractions";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
 import { arrange, duplicateTrip, getTrip, inputFromRow, listTrips, planFor, saveTrip, snapshotTrip, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
-import { notifyTripSent } from "@/lib/trip-notify";
+import { notifyAgencyPriced, notifyTripSent } from "@/lib/trip-notify";
 import { z } from "zod";
 import { VEHICLES } from "@/lib/vehicles";
 
@@ -70,7 +70,14 @@ export async function handleSave(request: Request, actor: TripActor | null) {
     input.discount = existing?.discount ?? 0;
   }
   try {
+    const before = actor.kind === "admin" && input.id ? await getTrip(input.id) : null;
     const saved = await saveTrip(input, { name: actor.name, agencyId: agencyIdOf(actor), commissionPercent: actor.kind === "agency" ? AGENCY_COMMISSION_PERCENT : 0 });
+    // Staff priced a trip an agency was waiting on: back to draft, and tell the agency.
+    if (before?.status === "pricing" && before.agencyId && input.transportPrice > 0) {
+      await getDb().update(smartTrips).set({ status: "draft", updatedAt: new Date().toISOString() }).where(eq(smartTrips.id, before.id));
+      const [agency] = await getDb().select().from(agencyApplications).where(eq(agencyApplications.id, before.agencyId)).limit(1);
+      if (agency) await notifyAgencyPriced(agency.email, agency.contactName, { ...before, transportPrice: input.transportPrice }, safeOrigin(request)).catch(() => undefined);
+    }
     return NextResponse.json({ ok: true, ...saved });
   } catch (error) {
     const code = (error as Error).message;
