@@ -1,5 +1,5 @@
 "use client";
-import { CheckoutSummary, CancellationTerms } from "./checkout-summary";
+import { CheckoutSummary } from "./checkout-summary";
 
 import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
 import { TIERS, tierDiscount, tierFreeAddons, type Tier } from "@/lib/member-tier-rules";
@@ -1592,7 +1592,6 @@ export function BookingFlow({
                   {pricingMessage}
                 </div>
               )}
-              <div className="mt-3 rounded-xl bg-white p-3 text-ink"><CancellationTerms date={departureSelected ? booking.date : ""} time={booking.time}/></div>
               <p className="mt-5 hidden flex-wrap items-center gap-x-2.5 text-[17px] text-white/85 md:flex lg:mt-5 lg:text-[15px]">{[t("hero.trustArea"), t("hero.trustPrice"), t("hero.trustCancel")].map((item, i) => <span key={item} className="flex items-center gap-2.5">{i > 0 && <span aria-hidden="true">·</span>}{item}</span>)}</p>
               {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-brand"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">Unlimited kilometres within your itinerary · Tolls included · Price held for 30 minutes</span></div>}
             </form>
