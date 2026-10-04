@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/driver-picker";
 
-export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null };
+export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null };
 
 // The badge follows the driver's trip status once a driver is assigned.
 const STATUS: Record<string, [string, string]> = {
@@ -28,6 +28,8 @@ const day = (d: string) => { const [y, m, n] = d.split("-").map(Number); const w
 
 // "27/09/2026 — 01:15 am", same as the form answers panel.
 const dateTime = (date: string, time: string) => { const [y, m, d] = date.split("-"); const [h = 0, min = 0] = time.split(":").map(Number); return `${d}/${m}/${y} — ${String(h % 12 || 12).padStart(2, "0")}:${String(min).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`; };
+// Paid online or by hand → green; cash to take on the day → red; anything else → amber with its status.
+const payment = (s?: string): [string, string] => s === "paid" || s === "partially_refunded" ? ["Paid", "bg-emerald-50 text-emerald-700"] : s === "cash_due" ? ["Collect cash", "bg-red-50 text-red-700"] : [s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ") : "Unpaid", "bg-amber-50 text-amber-800"];
 const vehicleName = (v: string) => { const t = v.replace(/_/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); };
 
 // Upcoming rides: journey details above, driver picker left and assignment status right.
@@ -59,6 +61,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
               ["From", r.pickup],
               ["To", r.dropoff],
               ["Price", r.total ? `THB ${r.total.toLocaleString("en-US")}` : "Not set"],
+              ["Payment", <span key="pay" className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold ${payment(r.paymentStatus)[1]}`}>{payment(r.paymentStatus)[0]}</span>],
             ] as [string, React.ReactNode][]).map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
             <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="mt-1 justify-self-end text-[13px] font-semibold text-[#C96100] hover:underline">Open booking →</Link>
           </dl>}
