@@ -17,7 +17,10 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [newBelow, setNewBelow] = useState(false);
-  const [details, setDetails] = useState({ name: "", email: "", open: false, saved: false });
+  const [email, setEmail] = useState("");
+  // Before the first message the customer gives an email so the team can always reply.
+  const needsEmail = !info && messages.length === 0;
+  const emailOk = /^\S+@\S+\.\S+$/.test(email.trim());
   const list = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const atBottom = useRef(true);
@@ -32,7 +35,7 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
     fit(); vv.addEventListener("resize", fit);
     return () => vv.removeEventListener("resize", fit);
   }, []);
-  useEffect(() => { input.current?.focus(); const esc = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", esc); return () => document.removeEventListener("keydown", esc); }, [onClose]);
+  useEffect(() => { if (window.matchMedia("(hover: hover)").matches) input.current?.focus(); const esc = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", esc); return () => document.removeEventListener("keydown", esc); }, [onClose]);
 
   // New messages: follow along when the reader is at the bottom; otherwise offer "New message".
   useLayoutEffect(() => {
@@ -48,21 +51,16 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
   async function submit(body = text) {
     const value = body.trim();
     if (!value || busy) return;
+    if (needsEmail && !emailOk) { setError("Enter your email address to start the chat."); return; }
     setBusy(true); setError("");
     if (body === text) setText("");
-    const failed = await onSend(value, { topic });
+    const failed = await onSend(value, { topic, email: needsEmail ? email.trim() : undefined });
     if (failed) setError(failed);
-    else if (!details.saved && !info?.name) setDetails((d) => ({ ...d, open: true }));
     setBusy(false);
   }
   function key(e: KeyboardEvent<HTMLTextAreaElement>) {
     // Desktop: Enter sends, Shift+Enter adds a line. Touch keyboards keep Enter for new lines.
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && window.matchMedia("(hover: hover)").matches) { e.preventDefault(); void submit(); }
-  }
-  async function saveDetails() {
-    const res = await fetch("/api/chat", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: details.name, email: details.email }) });
-    if (res.ok) setDetails((d) => ({ ...d, open: false, saved: true }));
-    else setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Details couldn't be saved.");
   }
 
   const subtitle = info?.agent ? `${info.agent} is helping you` : "We're here to help";
@@ -82,6 +80,10 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
     {/* Conversation */}
     <div ref={list} onScroll={onScroll} aria-live="polite" aria-label="Conversation" className="relative min-h-0 flex-1 overflow-y-auto bg-[#F7F8FA] px-4 py-4">
       <Bubble side="left" who="Waydidi">Hi 👋 How can we help with your Thailand journey?</Bubble>
+      {needsEmail && <label className="mt-3 block rounded-2xl border border-slate-200 bg-white p-3.5 text-[13.5px] font-semibold">Your email address
+        <span className="block text-[12px] font-normal text-slate-500">So we can reply if you leave the page.</span>
+        <input id="ask-waydidi-email" type="email" required autoComplete="email" inputMode="email" value={email} onChange={(e) => { setEmail(e.target.value); setError(""); }} placeholder="you@example.com"
+          className="mt-2 h-10 w-full rounded-xl border border-slate-200 px-3 text-[15px] font-normal outline-none focus:border-[#FE8B05]" /></label>}
       {!started && <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Quick topics">
         {QUICK.map((q) => <button key={q} type="button" aria-pressed={topic === q} onClick={() => { setTopic(q); setText((t) => t || `${q}: `); input.current?.focus(); }}
           className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold transition ${topic === q ? "border-[#FE8B05] bg-[#FFF3E6] text-[#B85D00]" : "border-slate-200 bg-white text-slate-700 hover:border-[#FE8B05]"}`}>{q}</button>)}
@@ -99,15 +101,6 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
             </div>
           : <Bubble key={m.id} side="left" who={grouped ? null : `${m.name ?? "Waydidi team"} — Waydidi`} at={time(m.createdAt)} tight={Boolean(grouped)}>{m.body}</Bubble>;
       })}
-      {details.open && <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3.5 text-[13.5px]">
-        <p className="font-semibold">Want a reply by email too? <span className="font-normal text-slate-500">(optional)</span></p>
-        <div className="mt-2 grid gap-2">
-          <input aria-label="Your name" placeholder="Your name" autoComplete="name" value={details.name} onChange={(e) => setDetails({ ...details, name: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:border-[#FE8B05]" />
-          <input aria-label="Your email" type="email" placeholder="Email" autoComplete="email" value={details.email} onChange={(e) => setDetails({ ...details, email: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:border-[#FE8B05]" />
-        </div>
-        <div className="mt-2 flex gap-3"><button type="button" disabled={!details.name && !details.email} onClick={() => void saveDetails()} className="h-9 rounded-full bg-[#FE8B05] px-4 font-semibold text-white disabled:opacity-50">Save</button>
-          <button type="button" onClick={() => setDetails({ ...details, open: false, saved: true })} className="font-semibold text-slate-500">No thanks</button></div>
-      </div>}
     </div>
     {newBelow && <button type="button" onClick={() => { list.current!.scrollTop = list.current!.scrollHeight; setNewBelow(false); }} className="absolute bottom-[86px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-[#15161C] px-3 py-1.5 text-[12.5px] font-semibold text-white shadow-lg"><ArrowDown size={14} />New message</button>}
 
@@ -119,7 +112,7 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
         <textarea id="ask-waydidi-input" ref={input} rows={1} maxLength={2000} value={text} onKeyDown={key}
           onChange={(e) => { setText(e.target.value); e.target.style.height = "auto"; e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`; }}
           placeholder="Type your message..." className="max-h-[120px] min-h-[36px] flex-1 resize-none bg-transparent py-2 text-[15px] outline-none" />
-        <button type="submit" disabled={busy || !text.trim()} aria-label="Send message" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FE8B05] text-white transition hover:bg-[#E67900] disabled:bg-slate-300"><SendHorizontal size={17} /></button>
+        <button type="submit" disabled={busy || !text.trim() || (needsEmail && !emailOk)} aria-label="Send message" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FE8B05] text-white transition hover:bg-[#E67900] disabled:bg-slate-300"><SendHorizontal size={17} /></button>
       </div>
       <p className="mt-2 text-center text-[11px] text-slate-400">Please don&apos;t share card numbers or passwords in chat.</p>
     </form>

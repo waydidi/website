@@ -70,7 +70,7 @@ test('owner trip keys expire and exchanged cookies obey revocation',async()=>{
 
 test('website chat isolates visitor sessions and rejects cross-site posting',async()=>{
  const chat=await vite.ssrLoadModule('/app/api/chat/route.ts');
- const response=await chat.POST(new Request('https://example.invalid/api/chat',{method:'POST',headers:{'content-type':'application/json',origin:'https://example.invalid'},body:JSON.stringify({message:'Where is pickup?'})}));assert.equal(response.status,200);const cookie=response.headers.get('set-cookie').split(';')[0];
+ const response=await chat.POST(new Request('https://example.invalid/api/chat',{method:'POST',headers:{'content-type':'application/json',origin:'https://example.invalid'},body:JSON.stringify({message:'Where is pickup?',email:'guest@example.com'})}));assert.equal(response.status,200);const cookie=response.headers.get('set-cookie').split(';')[0];
  assert.equal((await (await chat.GET(new Request('https://example.invalid/api/chat',{headers:{cookie}}))).json()).messages.length,1);assert.equal((await (await chat.GET(new Request('https://example.invalid/api/chat'))).json()).messages.length,0);
  const blocked=await chat.POST(new Request('https://example.invalid/api/chat',{method:'POST',headers:{'content-type':'application/json',origin:'https://attacker.invalid'},body:JSON.stringify({message:'bad'})}));assert.equal(blocked.status,403);
 });

@@ -93,7 +93,7 @@ export function WebsiteChat() {
     const optimistic: ChatMsg = { id: `local-${clientId}`, sender: "visitor", name: null, body, createdAt: new Date().toISOString(), clientId, state: "sending" };
     setMessages((list) => (retryOf ? list.map((m) => (m.clientId === clientId ? optimistic : m)) : [...list, optimistic]));
     try {
-      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: body, clientId, topic: ctx.topic ?? null, sourceUrl: window.location.pathname, sourceTitle: document.title.replace(/\s*[|·–-]\s*Waydidi.*$/i, "").slice(0, 160) }) });
+      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: body, clientId, topic: ctx.topic ?? null, email: ctx.email ?? null, sourceUrl: window.location.pathname, sourceTitle: document.title.replace(/\s*[|·–-]\s*Waydidi.*$/i, "").slice(0, 160) }) });
       const data = await res.json().catch(() => ({})) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Message couldn't be sent.");
       store.set(ACTIVE_KEY, "1"); setActive(true);

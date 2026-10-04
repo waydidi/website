@@ -50,7 +50,7 @@ test('assignment rejects expired conversations, unauthorized roles and cross-sit
 });
 test('new public website messages reach the inbox, notification and assigned reply flow',async()=>{
  globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'support'};
- const send=(message,cookie='')=>customer.POST(new Request('https://example.invalid/api/chat',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json',cookie,'cf-connecting-ip':'chat-delivery-test'},body:JSON.stringify({message})}));
+ const send=(message,cookie='')=>customer.POST(new Request('https://example.invalid/api/chat',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json',cookie,'cf-connecting-ip':'chat-delivery-test'},body:JSON.stringify({message,email:'guest@example.com'})}));
  const created=await send('New website customer message');assert.equal(created.status,200);
  const cookie=created.headers.get('set-cookie').split(';')[0];
  const inbox=await (await admin.GET(new Request('https://example.invalid/api/admin/chat'))).json();
@@ -97,4 +97,12 @@ test('telegram replies reach only the mapped conversation, once, and only from a
  assert.equal((await db.prepare("SELECT status FROM website_conversations WHERE id='chat-2'").first()).status,'open');
  await call({update_id:6,callback_query:{id:'q',from:{id:777},data:'chat_close:chat-2',message:{message_id:900,chat:{id:-100}}}});
  assert.equal((await db.prepare("SELECT status FROM website_conversations WHERE id='chat-2'").first()).status,'closed');
+});
+
+test('a new chat cannot start without a valid email address',async()=>{
+ const start=(body)=>customer.POST(new Request('https://example.invalid/api/chat',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json','cf-connecting-ip':'email-check'},body:JSON.stringify(body)}));
+ assert.equal((await start({message:'Hello'})).status,400);
+ assert.equal((await start({message:'Hello',email:'not-an-email'})).status,400);
+ const ok=await start({message:'Hello',email:'guest@example.com'});assert.equal(ok.status,200);
+ assert.equal((await db.prepare("SELECT customer_email FROM website_conversations ORDER BY created_at DESC,rowid DESC LIMIT 1").first()).customer_email,'guest@example.com');
 });

@@ -44,10 +44,13 @@ export async function POST(request: Request) {
     const signedIn = await customerFromRequest(request).catch(() => null);
     const account = signedIn?.customer;
     const source = text(input.sourceUrl, 300);
+    // An email is required to start a chat, so staff can always follow up.
+    const email = text(input.email, 254) ?? account?.email ?? null;
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) return fail("Enter your email address to start the chat.", 400);
     c = await createConversation(await sha256(token), {
       customerId: account?.id ?? null,
       name: text(input.name, 100) ?? (account ? `${account.name ?? ""} ${account.surname ?? ""}`.trim() || null : null),
-      email: text(input.email, 254) ?? account?.email ?? null,
+      email,
       phone: text(input.phone, 40) ?? account?.phone ?? null,
       sourceUrl: source && source.startsWith("/") ? source : null,
       sourceTitle: text(input.sourceTitle, 160), topic: text(input.topic, 60),
