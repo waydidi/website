@@ -16,7 +16,7 @@ export function bangkokDate(offset = 0, at = new Date()) {
 
 export type OverviewRide = {
   reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string;
-  vehicle: string; status: string; paymentMethod: string; total: number; flightNumber: string | null; flightStatus: string | null;
+  vehicle: string; passengers: number; luggage: number; status: string; paymentMethod: string; total: number; flightNumber: string | null; flightStatus: string | null;
   driver: string | null; driverId: string | null; driverStatus: string | null; attention: boolean;
 };
 
@@ -36,7 +36,7 @@ export async function adminOverview(at = new Date()) {
     db.select({
       b: {
         reference: bookings.reference, pickupDate: bookings.pickupDate, pickupTime: bookings.pickupTime, pickup: bookings.pickup, dropoff: bookings.dropoff,
-        customerName: bookings.customerName, customerSurname: bookings.customerSurname, vehicle: bookings.vehicle, status: bookings.status,
+        customerName: bookings.customerName, customerSurname: bookings.customerSurname, vehicle: bookings.vehicle, passengers: bookings.passengers, luggage: bookings.luggage, status: bookings.status,
         paymentMethod: bookings.paymentMethod, total: bookings.total, flightNumber: bookings.flightNumber, flightStatus: bookings.flightStatus, attentionStatus: bookings.attentionStatus,
       },
       driver: drivers.fullName, driverId: drivers.id, driverStatus: bookingAssignments.currentStatus,
@@ -59,7 +59,7 @@ export async function adminOverview(at = new Date()) {
 
   const rides: OverviewRide[] = upcoming.map(({ b, driver, driverId, driverStatus }) => ({
     reference: b.reference, pickupDate: b.pickupDate, pickupTime: b.pickupTime, pickup: b.pickup, dropoff: b.dropoff,
-    name: `${b.customerName} ${b.customerSurname ?? ""}`.trim(), vehicle: b.vehicle, status: b.status, paymentMethod: b.paymentMethod,
+    name: `${b.customerName} ${b.customerSurname ?? ""}`.trim(), vehicle: b.vehicle, passengers: b.passengers, luggage: b.luggage, status: b.status, paymentMethod: b.paymentMethod,
     total: b.total, flightNumber: b.flightNumber, flightStatus: b.flightStatus, driver: driver ?? null, driverId: driverId ?? null, driverStatus: driverStatus ?? null,
     attention: b.attentionStatus === "attention",
   }));

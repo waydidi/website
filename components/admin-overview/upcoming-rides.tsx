@@ -1,12 +1,12 @@
 "use client";
 
-import { ArrowRight, ImagePlus, LoaderCircle, X } from "lucide-react";
+import { ArrowRight, ImagePlus, LoaderCircle, Luggage, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/driver-picker";
 
-export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null };
+export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null };
 
 // The badge follows the driver's trip status once a driver is assigned.
 const STATUS: Record<string, [string, string]> = {
@@ -38,8 +38,14 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
       {rides.map((r) => <li key={r.reference} className="grid gap-3 px-4 py-3">
         <div className="min-w-0">
           <p className="text-[12px] font-semibold text-slate-500">{day(r.pickupDate)} · {r.pickupTime} · <span className="font-mono">{r.reference}</span>{r.status === "pending_payment" && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">Awaiting payment</span>}</p>
-          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[14px] font-bold"><span className="truncate">{r.pickup}</span><ArrowRight size={14} className="shrink-0 text-slate-400" aria-hidden="true" /><span className="truncate">{r.dropoff}</span></p>
-          <p className="mt-0.5 truncate text-[12.5px] text-slate-500">{r.name} · {r.vehicle.replace(/_/g, " ")}</p>
+          <p className="mt-1 truncate text-[15px] font-black">{r.name}</p>
+          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[14px] font-semibold text-slate-700"><span className="truncate">{r.pickup}</span><ArrowRight size={14} className="shrink-0 text-slate-400" aria-hidden="true" /><span className="truncate">{r.dropoff}</span></p>
+          <div className="mt-1.5 flex items-center gap-4 text-[13px] text-slate-600">
+            <span className="inline-flex items-center gap-1.5" aria-label={`${r.passengers} passengers`}><Users size={16} className="shrink-0 text-slate-500" aria-hidden="true" />{r.passengers}</span>
+            <span className="inline-flex items-center gap-1.5" aria-label={`${r.luggage} bags`}><Luggage size={16} className="shrink-0 text-slate-500" aria-hidden="true" />{r.luggage}</span>
+            <span className="truncate">{r.vehicle.replace(/_/g, " ")}</span>
+            <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="ml-auto shrink-0 font-semibold text-[#C96100] underline underline-offset-4">See details</Link>
+          </div>
         </div>
         <div className="flex min-w-0 items-center justify-between gap-2">
           <DriverPicker reference={r.reference} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} onAddDriver={() => setAdding(r.reference)} />
