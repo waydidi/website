@@ -1,4 +1,4 @@
-// Runs Cee's 100 planned questions against the real model, with fake price tools, and writes a
+// Runs Non's 100 planned questions against the real model, with fake price tools, and writes a
 // report to read through by hand. Costs real API money (~100 short requests).
 //   ANTHROPIC_API_KEY=... node scripts/cee-eval.mjs [first-n]
 import { createServer } from 'vite';
@@ -25,12 +25,12 @@ let md = '', totalUsd = 0, totalMs = 0;
 for (const q of questions) {
   log.length = 0;
   const t0 = Date.now();
-  let out; try { out = await ceeTurn([{ sender: 'visitor', body: q.message }], client, { tools, mode: process.env.CEE_MODE || 'auto' }); } catch (e) { out = { reply: `ERROR ${e.message}`, handover: null }; }
+  let out; try { out = await ceeTurn([{ sender: 'visitor', body: q.message }], client, { tools, mode: process.env.CEE_MODE || 'fast' }); } catch (e) { out = { reply: `ERROR ${e.message}`, handover: null }; }
   const ms = Date.now() - t0; totalMs += ms; totalUsd += out.usd ?? 0;
   md += `## ${q.n}. ${q.group}: ${q.message}\nExpected: ${q.expect}\n\n${out.model ?? ''} · ${(ms / 1000).toFixed(1)} s · $${(out.usd ?? 0).toFixed(4)}\nTools: ${log.map(([n, i]) => `${n}(${JSON.stringify(i)})`).join(', ') || 'none'}${out.handover ? `\nHandover: ${out.handover.reason}` : ''}\n\n> ${(out.reply ?? '(no reply)').replace(/\n/g, '\n> ')}\n\n`;
   process.stdout.write('.');
 }
-md = `# Cee eval\n\n${questions.length} questions · average ${(totalMs / questions.length / 1000).toFixed(1)} s · total $${totalUsd.toFixed(3)} (about ${totalUsd ? Math.round(questions.length / totalUsd) : '∞'} replies per $1)\n\n` + md;
+md = `# Non eval\n\n${questions.length} questions · average ${(totalMs / questions.length / 1000).toFixed(1)} s · total $${totalUsd.toFixed(3)} (about ${totalUsd ? Math.round(questions.length / totalUsd) : '∞'} replies per $1)\n\n` + md;
 await writeFile(root + 'cee-eval-report.md', md);
 console.log('\nWrote cee-eval-report.md');
 await vite.close();

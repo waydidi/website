@@ -64,9 +64,9 @@ export async function POST(request: Request) {
   const staff = await getWaydidiAdmin();
   if (!staff || !allowed(staff.role)) return reply("Support staff access required.", 403);
   const input = await request.json().catch(() => null) as { action?: unknown; id?: unknown; message?: unknown; status?: unknown; staffId?: unknown; messageId?: unknown; on?: unknown } | null;
-  // Global Cee switch: owner only.
+  // Global Non switch: owner only.
   if (input?.action === "cee_enabled") {
-    if (staff.role !== "owner") return reply("Only the owner can switch Cee on or off.", 403);
+    if (staff.role !== "owner") return reply("Only the owner can switch Non on or off.", 403);
     await setCeeEnabled(input.on === true);
     return NextResponse.json({ ok: true }, { headers });
   }

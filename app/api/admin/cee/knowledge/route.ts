@@ -6,7 +6,7 @@ import { MODELS, ceeEnabled, modelMode, setModelMode, usageFor, type ModelMode }
 import { deleteNote, listNotes, parseMarkdown, saveNote, validNote } from "@/lib/cee/knowledge";
 import { lineConfigured, whatsappConfigured } from "@/lib/channels";
 
-// Cee's knowledge notes, model choice and monthly cost. Support staff edit notes; the owner picks the model.
+// Non's knowledge notes, model choice and monthly cost. Support staff edit notes; the owner picks the model.
 const headers = { "Cache-Control": "no-store" };
 const reply = (error: string, status: number) => NextResponse.json({ error }, { status, headers });
 const allowed = (role: string) => ["owner", "support", "operations"].includes(role);
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, id }, { headers });
     }
     case "mode": {
-      if (staff.role !== "owner") return reply("Only the owner can change Cee's model.", 403);
+      if (staff.role !== "owner") return reply("Only the owner can change Non's model.", 403);
       if (!["auto", "fast", "smart"].includes(input.mode as string)) return reply("Unknown mode.", 400);
       await setModelMode(input.mode as ModelMode);
       return NextResponse.json({ ok: true }, { headers });

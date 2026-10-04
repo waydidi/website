@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-// WhatsApp (Meta Cloud API) and LINE (Messaging API): the same chat, Cee and inbox as the website;
+// WhatsApp (Meta Cloud API) and LINE (Messaging API): the same chat, Non and inbox as the website;
 // these are only the doors in and out. Keys live in Cloudflare secrets, never in the code.
 
 export type Channel = "web" | "whatsapp" | "line";
@@ -29,7 +29,7 @@ async function line(path: string, body: Record<string, unknown>) {
   if (!res.ok) throw new Error(`LINE: ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`);
 }
 
-/** Sends a staff or Cee message to the customer's WhatsApp/LINE. Website chats need nothing. */
+/** Sends a staff or Non message to the customer's WhatsApp/LINE. Website chats need nothing. */
 export async function deliverToChannel(channel: string | null | undefined, userId: string | null | undefined, text: string) {
   if (!userId) return null;
   if (channel === "whatsapp" && whatsappConfigured())
@@ -39,7 +39,7 @@ export async function deliverToChannel(channel: string | null | undefined, userI
   return null;
 }
 
-/** "Typing…" on the customer's phone while Cee works (and marks their message read on WhatsApp). */
+/** "Typing…" on the customer's phone while Non works (and marks their message read on WhatsApp). */
 export async function showTyping(channel: string, userId: string, messageId: string | null) {
   if (channel === "whatsapp" && whatsappConfigured() && messageId) await whatsapp({ status: "read", message_id: messageId, typing_indicator: { type: "text" } });
   if (channel === "line" && lineConfigured()) await line("chat/loading/start", { chatId: userId, loadingSeconds: 20 });

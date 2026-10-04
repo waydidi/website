@@ -99,7 +99,7 @@ export async function addStaffMessage(conversationId: string, body: string, who:
   const c = await conversationById(conversationId);
   if (!c) return { error: "Conversation not found." };
   if (!c.assigned_name) await assign(c.id, who, false);
-  await pauseBot(c.id, true); // a person is talking now; Cee stays quiet
+  await pauseBot(c.id, true); // a person is talking now; Non stays quiet
   const now = nowIso(), id = crypto.randomUUID();
   await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,staff_id,created_at,sender_name,telegram_message_id,telegram_status)
     VALUES(?,?,'staff',?,?,?,?,?,?)`).bind(id, c.id, body, who.staffId ?? null, now, who.name, telegramMessageId ?? null, origin === "telegram" ? "sent" : null).run();
@@ -115,17 +115,17 @@ export async function addStaffMessage(conversationId: string, body: string, who:
   return { id };
 }
 
-/** Cee's reply: shown as "Cee", never assigns the conversation, mirrored to Telegram. */
+/** Non's reply: shown as "Non", never assigns the conversation, mirrored to Telegram. */
 export async function addBotMessage(conversationId: string, body: string) {
   const c = await conversationById(conversationId);
   if (!c) return null;
   const now = nowIso(), id = crypto.randomUUID();
-  await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot) VALUES(?,?,'staff',?,?,'Cee',1)`).bind(id, c.id, body, now).run();
+  await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot) VALUES(?,?,'staff',?,?,'Non',1)`).bind(id, c.id, body, now).run();
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();
   await toChannel(c, id, body);
   if (telegramConfigured() && c.telegram_message_id) {
     try {
-      const sent = await sendCard(staffEcho(c.public_id, "Cee (bot)", body), undefined, c.telegram_message_id);
+      const sent = await sendCard(staffEcho(c.public_id, "Non (bot)", body), undefined, c.telegram_message_id);
       await db().prepare("UPDATE website_chat_messages SET telegram_status='sent',telegram_message_id=? WHERE id=?").bind(sent.message_id, id).run();
     } catch { /* the website copy is what matters */ }
   }
@@ -144,7 +144,7 @@ async function toChannel(c: Conversation, messageId: string, body: string) {
   }
 }
 
-/** Marks Cee as working on a reply, so the website can show "Cee is typing…". */
+/** Marks Non as working on a reply, so the website can show "Non is typing…". */
 export const setBotThinking = (conversationId: string, on: boolean) =>
   db().prepare("UPDATE website_conversations SET bot_thinking_at=? WHERE id=?").bind(on ? nowIso() : null, conversationId).run();
 
@@ -152,7 +152,7 @@ export const setBotThinking = (conversationId: string, on: boolean) =>
 export const conversationForChannelUser = (channel: string, userId: string) =>
   db().prepare("SELECT * FROM website_conversations WHERE channel=? AND channel_user_id=? AND expires_at>? ORDER BY created_at DESC LIMIT 1").bind(channel, userId, nowIso()).first<Conversation>();
 
-/** Stops (or resumes) Cee in one conversation. */
+/** Stops (or resumes) Non in one conversation. */
 export async function pauseBot(conversationId: string, paused: boolean, state?: string) {
   await db().prepare("UPDATE website_conversations SET bot_paused=?,bot_state=COALESCE(?,bot_state) WHERE id=?").bind(paused ? 1 : 0, state ?? null, conversationId).run();
 }

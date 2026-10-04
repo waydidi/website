@@ -19,7 +19,7 @@ async function current(request: Request) {
   const token = readCookie(request, COOKIE);
   return /^[a-f0-9]{48}$/.test(token) ? conversationByTokenHash(await sha256(token)) : null;
 }
-// "Cee is typing…" while a reply is being written (ignored after 90 s in case a run died).
+// "Non is typing…" while a reply is being written (ignored after 90 s in case a run died).
 const view = (c: Conversation) => ({ publicId: c.public_id, status: c.status, agent: c.assigned_name, name: c.customer_name,
   typing: Boolean(c.bot_thinking_at && Date.now() - Date.parse(c.bot_thinking_at) < 90000) });
 /** Review state for a closed chat: whether it's been rated, and the Google link (shown to everyone). */
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     });
   }
   const result = await addVisitorMessage(c, message, clientId);
-  // Cee answers in the background so sending never waits on it.
+  // Non answers in the background so sending never waits on it.
   if (!result.duplicate) { const job = runCee(c.id); const ctx = getRequestExecutionContext(); if (ctx) ctx.waitUntil(job); }
   const response = NextResponse.json({ ok: true, duplicate: result.duplicate, conversation: view(c) }, { headers });
   if (token) response.cookies.set(COOKIE, token, { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 30 * 86400 });

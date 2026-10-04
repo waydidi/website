@@ -74,7 +74,7 @@ export function WebsiteChat() {
     }
   }, []);
 
-  // Right after the visitor sends (and while Cee is typing) check every second, so replies appear at once.
+  // Right after the visitor sends (and while Non is typing) check every second, so replies appear at once.
   const fastUntil = useRef(0);
   const typing = Boolean(info?.typing);
   useEffect(() => { if (typing) fastUntil.current = Math.max(fastUntil.current, Date.now() + 5000); }, [typing]);

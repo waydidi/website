@@ -4,7 +4,7 @@ import { createServer } from 'vite';
 import { Miniflare } from 'miniflare';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
-// Cee (chat quote bot): the tool loop with a scripted model, and the rules for when Cee speaks.
+// Non (chat quote bot): the tool loop with a scripted model, and the rules for when Non speaks.
 const root=fileURLToPath(new URL('..',import.meta.url));
 const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("test")}}',compatibilityDate:'2026-05-22',d1Databases:['DB']});
 const db=await mf.getD1Database('DB');
@@ -39,7 +39,7 @@ test('history alternates roles, merges repeats and drops a leading staff greetin
  await bot.ceeTurn([{sender:'staff',body:'Welcome'},{sender:'visitor',body:'a'},{sender:'visitor',body:'b'},{sender:'staff',body:'c'},{sender:'visitor',body:'d'}],c,{tools});
  assert.deepEqual(c.calls[0].messages.map((m)=>[m.role,m.content]),[['user','a\n\nb'],['assistant','c'],['user','d']]);
 });
-test('Cee stays quiet when the last message is not from the customer',async()=>{
+test('Non stays quiet when the last message is not from the customer',async()=>{
  const c=scripted();assert.equal((await bot.ceeTurn([{sender:'visitor',body:'hi'},{sender:'staff',body:'hello'}],c,{tools})).reply,null);assert.equal(c.calls.length,0);
 });
 test('prices come only from the quote tool result',async()=>{
@@ -72,13 +72,13 @@ async function conversation(text){const id=`cee-${++n}`;await db.prepare('INSERT
 const row=(id)=>db.prepare('SELECT assigned_name,bot_paused,bot_state FROM website_conversations WHERE id=?').bind(id).first();
 const replies=(id)=>db.prepare("SELECT sender_name,is_bot,body FROM website_chat_messages WHERE conversation_id=? AND sender='staff' ORDER BY rowid").bind(id).all().then((r)=>r.results);
 
-test('Cee replies as "Cee", marked as a bot, without taking the chat',async()=>{
+test('Non replies as "Non", marked as a bot, without taking the chat',async()=>{
  const id=await conversation('How much from BKK to Pattaya?');
  await bot.runCee(id,scripted(say('Sure! What date and time?')));
- assert.deepEqual(await replies(id),[{sender_name:'Cee',is_bot:1,body:'Sure! What date and time?'}]);
+ assert.deepEqual(await replies(id),[{sender_name:'Non',is_bot:1,body:'Sure! What date and time?'}]);
  assert.equal((await row(id)).assigned_name,null);
 });
-test('a staff reply or assignment silences Cee in that chat',async()=>{
+test('a staff reply or assignment silences Non in that chat',async()=>{
  const id=await conversation('hello');
  await chat.addStaffMessage(id,'Hi, Anna here',{name:'Anna'},'dashboard');
  assert.equal((await row(id)).bot_paused,1);
@@ -88,14 +88,14 @@ test('a staff reply or assignment silences Cee in that chat',async()=>{
 test('asking for a person hands over without calling the model (English, Thai, Chinese)',async()=>{
  for(const text of ['Can I talk to a real person?','ขอคุยกับเจ้าหน้าที่','我要人工客服']){
   const id=await conversation(text);const c=scripted();await bot.runCee(id,c);
-  assert.equal(c.calls.length,0);assert.equal((await row(id)).bot_paused,1);assert.equal((await replies(id))[0].sender_name,'Cee');
+  assert.equal(c.calls.length,0);assert.equal((await row(id)).bot_paused,1);assert.equal((await replies(id))[0].sender_name,'Non');
  }
 });
 test('a model error hands the chat to staff and says nothing wrong to the customer',async()=>{
  const id=await conversation('BKK to Pattaya');await bot.runCee(id,scripted());
  assert.equal((await row(id)).bot_paused,1);assert.equal((await replies(id)).length,0);
 });
-test('Cee is off without an API key or when switched off',async()=>{
+test('Non is off without an API key or when switched off',async()=>{
  globalThis.__ceeTest.env.ANTHROPIC_API_KEY=undefined;assert.equal(await bot.ceeEnabled(),false);globalThis.__ceeTest.env.ANTHROPIC_API_KEY='test-key';
  await bot.setCeeEnabled(false);const id=await conversation('hi');const c=scripted(say('x'));await bot.runCee(id,c);assert.equal(c.calls.length,0);
  await bot.setCeeEnabled(true);assert.equal(await bot.ceeEnabled(),true);
@@ -103,14 +103,14 @@ test('Cee is off without an API key or when switched off',async()=>{
 
 test('auto mode answers simple messages with the fast model, without Opus-only options',async()=>{
  const c=scripted({...say('Hello! Where are you going?'),usage:{input_tokens:3000,output_tokens:100}});
- const out=await bot.ceeTurn([{sender:'visitor',body:'hi'}],c,{tools});
+ const out=await bot.ceeTurn([{sender:'visitor',body:'hi'}],c,{tools,mode:'auto'});
  assert.equal(c.calls[0].model,'claude-haiku-4-5');assert.equal(c.calls[0].fallbacks,undefined);assert.equal(c.calls[0].output_config,undefined);
  assert.ok(c.calls[0].tools.some((t)=>t.name==='escalate'));assert.equal(c.calls[0].system[0].cache_control.type,'ephemeral');
  assert.equal(out.model,'claude-haiku-4-5');assert.ok(Math.abs(out.usd-0.0035)<1e-9);
 });
 test('the fast model escalates trip planning to Opus, which starts the turn fresh',async()=>{
  const c=scripted(use('escalate',{why:'multi-day plan'}),say('Here is a plan…'));
- const out=await bot.ceeTurn([{sender:'visitor',body:questions.find((q)=>q.group==='Undecided').message}],c,{tools});
+ const out=await bot.ceeTurn([{sender:'visitor',body:questions.find((q)=>q.group==='Undecided').message}],c,{tools,mode:'auto'});
  assert.equal(c.calls[1].model,'claude-opus-5-5');assert.ok(!c.calls[1].tools.some((t)=>t.name==='escalate'));assert.equal(c.calls[1].messages.length,1);
  assert.equal(out.reply,'Here is a plan…');assert.equal(out.model,'claude-opus-5-5');
 });
@@ -137,19 +137,19 @@ test('search_knowledge finds live notes and attractions, never drafts',async()=>
  assert.deepEqual(await know.searchKnowledge('zzzz'),{notes:[],places:[]});
 });
 
-test('the website shows "Cee is typing…" while Cee works',async()=>{
+test('the website shows "Non is typing…" while Non works',async()=>{
  const customer=await vite.ssrLoadModule('/app/api/chat/route.ts');const {sha256}=await vite.ssrLoadModule('/lib/security.ts');
  const token='c'.repeat(48);await db.prepare('INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status) VALUES(?,?,?,?,?,?,?)').bind('typing-1',await sha256(token),later,now,now,'WD-77777','open').run();
  const get=async()=>(await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie:`waydidi_chat=${token}`}}))).json()).conversation.typing;
  assert.equal(await get(),false);await chat.setBotThinking('typing-1',true);assert.equal(await get(),true);await chat.setBotThinking('typing-1',false);assert.equal(await get(),false);
 });
 
-// WhatsApp and LINE: signed webhooks in, replies out through the same conversation and Cee.
+// WhatsApp and LINE: signed webhooks in, replies out through the same conversation and Non.
 const sent=[];const realFetch=globalThis.fetch;
 globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://graph.facebook.com')||u.startsWith('https://api.line.me')){sent.push({url:u,body:init?.body?JSON.parse(init.body):null});return new Response(JSON.stringify(u.includes('/profile/')?{displayName:'Nok'}:{messages:[{id:'wamid.out'}]}),{status:200});}return realFetch(url,init);};
 after(()=>{globalThis.fetch=realFetch;});
 const sign=async(secret,body,enc)=>{const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const mac=new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(body)));return enc==='hex'?[...mac].map((b)=>b.toString(16).padStart(2,'0')).join(''):btoa(String.fromCharCode(...mac));};
-test('WhatsApp: verification, signature check, one conversation per number, Cee replies on WhatsApp',async()=>{
+test('WhatsApp: verification, signature check, one conversation per number, Non replies on WhatsApp',async()=>{
  Object.assign(globalThis.__ceeTest.env,{WHATSAPP_TOKEN:'t',WHATSAPP_PHONE_NUMBER_ID:'123',WHATSAPP_APP_SECRET:'shh',WHATSAPP_VERIFY_TOKEN:'verify-me'});
  const wa=await vite.ssrLoadModule('/app/api/integrations/whatsapp/webhook/route.ts');
  assert.equal(await (await wa.GET(new Request('https://x/api/integrations/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=42'))).text(),'42');
@@ -180,4 +180,9 @@ test('LINE: signature check, display name, staff replies pushed to LINE',async()
  await chat.addStaffMessage(c.id,'สวัสดีค่ะ Anna here',{name:'Anna'},'dashboard');
  const push=sent.filter((x)=>x.url.endsWith('/message/push')).at(-1);assert.deepEqual([push.body.to,push.body.messages[0].text],['U1','สวัสดีค่ะ Anna here']);
  await bot.setCeeEnabled(true);
+});
+test('by default every message uses Haiku 4.5, with no escalation',async()=>{
+ const c=scripted(say('Hi, I am Non!'));await bot.ceeTurn([{sender:'visitor',body:'hello'}],c,{tools});
+ assert.equal(c.calls[0].model,'claude-haiku-4-5');assert.ok(!c.calls[0].tools.some((t)=>t.name==='escalate'));assert.match(c.calls[0].system[0].text,/^You are Non,/);
+ assert.equal(await bot.modelMode(),'fast');
 });

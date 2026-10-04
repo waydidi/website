@@ -492,7 +492,7 @@ export function BookingFlow({
       passengers,
       luggage,
       bookedHours: hourly ? count("hours", current.bookedHours) : current.bookedHours,
-      // Links from Cee (chat) also carry the date and time the customer gave.
+      // Links from Non (chat) also carry the date and time the customer gave.
       ...(mode === "chat" && /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? { date: params.get("date")! } : {}),
       ...(mode === "chat" && /^([01]\d|2[0-3]):[0-5]\d$/.test(params.get("time") ?? "") ? { time: params.get("time")! } : {}),
     }));

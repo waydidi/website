@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     for (const msg of v?.messages ?? []) {
       const name = v?.contacts?.find((c) => c.wa_id === msg.from)?.profile?.name ?? null;
       const text = msg.text?.body ?? msg.button?.text ?? msg.interactive?.button_reply?.title ?? msg.interactive?.list_reply?.title
-        ?? `[${msg.type} message. Photos, voice notes and files aren't read by Cee yet; please type your question.]`;
+        ?? `[${msg.type} message. Photos, voice notes and files aren't read by Non yet; please type your question.]`;
       await receiveChannelMessage({ channel: "whatsapp", userId: msg.from, messageId: msg.id, text, name, phone: `+${msg.from}` }).catch((e) => console.error("whatsapp inbound failed", e instanceof Error ? e.message : "unknown"));
     }
   }

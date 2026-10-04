@@ -102,7 +102,7 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
           : <Bubble key={m.id} side="left" who={grouped ? null : `${m.name ?? "Waydidi team"} — Waydidi`} at={time(m.createdAt)} tight={Boolean(grouped)}>{m.body}</Bubble>;
       })}
       {info?.typing && <p role="status" className="mt-4 inline-flex items-center gap-2 rounded-[18px] rounded-bl-md bg-white px-3.5 py-2.5 text-[13.5px] text-slate-500 shadow-sm">
-        <span className="inline-flex gap-1" aria-hidden="true">{[0, 150, 300].map((d) => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: `${d}ms` }} />)}</span>Cee is typing…</p>}
+        <span className="inline-flex gap-1" aria-hidden="true">{[0, 150, 300].map((d) => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: `${d}ms` }} />)}</span>Non is typing…</p>}
     </div>
     </>}
     {newBelow && <button type="button" onClick={() => { list.current!.scrollTop = list.current!.scrollHeight; setNewBelow(false); }} className="absolute bottom-[86px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-[#15161C] px-3 py-1.5 text-[12.5px] font-semibold text-white shadow-lg"><ArrowDown size={14} />New message</button>}

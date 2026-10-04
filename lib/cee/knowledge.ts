@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 
-// Cee's knowledge: short notes staff write (rules, places, tips, FAQs), plus the trip planner's
-// attraction database. Cee searches it with a tool; it never reads everything at once.
+// Non's knowledge: short notes staff write (rules, places, tips, FAQs), plus the trip planner's
+// attraction database. Non searches it with a tool; it never reads everything at once.
 
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<{ meta: { changes: number } }> };
 const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
@@ -81,7 +81,7 @@ const terms = (query: string) => {
 };
 const STOP = new Set(["the", "and", "for", "to", "in", "of", "a", "is", "are", "do", "you", "have", "what", "how", "much", "near", "with", "at", "on", "can", "i", "we", "my", "our", "any", "there"]);
 
-/** Best matching notes and attractions for a question, for Cee's search_knowledge tool. */
+/** Best matching notes and attractions for a question, for Non's search_knowledge tool. */
 export async function searchKnowledge(query: string, city?: string | null, limit = 8) {
   const t = terms(query);
   if (!t.length) return { notes: [], places: [] };

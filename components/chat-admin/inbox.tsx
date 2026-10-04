@@ -63,7 +63,7 @@ export function ChatInbox() {
   async function saveAsKnowledge(messageId: string) {
     const res = await fetch("/api/admin/cee/knowledge", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "from_chat", messageId }) });
     setError(res.ok ? "" : ((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't save.");
-    if (res.ok) window.alert("Saved as a draft note. Check it under Cee knowledge and make it live.");
+    if (res.ok) window.alert("Saved as a draft note. Check it under Non knowledge and make it live.");
   }
   async function send(e: FormEvent) { e.preventDefault(); if (text.trim() && await act({ action: "reply", message: text.trim() })) setText(""); }
 
@@ -102,9 +102,9 @@ export function ChatInbox() {
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto bg-[#F7F8FA] p-4" aria-live="polite">
             {data?.messages.map((m) => <div key={m.id} className={`mb-3 flex flex-col ${m.sender === "staff" ? "items-end" : "items-start"}`}>
-              <span className="mb-1 text-[11.5px] font-semibold text-slate-500">{m.sender === "staff" ? (m.is_bot ? "🤖 Cee (bot)" : m.sender_name ?? "Waydidi team") : "Customer"} · {when(m.created_at)}</span>
+              <span className="mb-1 text-[11.5px] font-semibold text-slate-500">{m.sender === "staff" ? (m.is_bot ? "🤖 Non (bot)" : m.sender_name ?? "Waydidi team") : "Customer"} · {when(m.created_at)}</span>
               <p className={`max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-[14px] ${m.sender === "staff" ? (m.is_bot ? "rounded-br-md bg-slate-700 text-white" : "rounded-br-md bg-[#FE8B05] text-white") : "rounded-bl-md border border-slate-200 bg-white"}`}>{m.body}</p>
-              {m.sender === "staff" && !m.is_bot && <button type="button" onClick={() => void saveAsKnowledge(m.id)} className="mt-1 text-[11.5px] font-semibold text-slate-500 underline">Save as Cee knowledge</button>}
+              {m.sender === "staff" && !m.is_bot && <button type="button" onClick={() => void saveAsKnowledge(m.id)} className="mt-1 text-[11.5px] font-semibold text-slate-500 underline">Save as Non knowledge</button>}
               {m.sender === "visitor" && m.telegram_status === "failed" && <button type="button" onClick={() => void act({ action: "retry_telegram", messageId: m.id })} className="mt-1 text-[11.5px] font-semibold text-red-600 underline">Not on Telegram yet · retry</button>}
             </div>)}
             <div ref={bottom} />
@@ -136,11 +136,11 @@ export function ChatInbox() {
           <option value="">{c.assigned_name && !c.assigned_staff_id ? `${c.assigned_name} (Telegram)` : "Unassigned"}</option>
           {data?.team.map((t) => <option key={t.id} value={t.id}>{t.name}{t.id === me?.id ? " (me)" : ""}</option>)}
         </select>
-        <h3 className="mt-5 text-[12px] font-bold uppercase tracking-wide text-slate-500">Cee (quote bot)</h3>
-        {!data?.cee?.keySet ? <p className="mt-2 text-slate-600">Off: add ANTHROPIC_API_KEY in Cloudflare to turn Cee on.</p> : <>
-          <p className="mt-2 text-slate-600">{!data.cee.enabled ? "Cee is off for all chats." : c.assigned_name || c.bot_paused ? "Cee is quiet in this chat (a person has it)." : "Cee is answering this chat."}</p>
-          {data.cee.enabled && !c.assigned_name && <button type="button" disabled={busy} onClick={() => void act({ action: c.bot_paused ? "cee_resume" : "cee_pause" })} className="mt-2 h-9 rounded-full border border-slate-200 bg-white px-3 font-semibold">{c.bot_paused ? "Let Cee answer again" : "Stop Cee in this chat"}</button>}
-          <label className="mt-2 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={data.cee.enabled} disabled={busy} onChange={(e) => void act({ action: "cee_enabled", on: e.target.checked })} className="accent-[#FE8B05]" />Cee on for all chats (owner)</label>
+        <h3 className="mt-5 text-[12px] font-bold uppercase tracking-wide text-slate-500">Non (quote bot)</h3>
+        {!data?.cee?.keySet ? <p className="mt-2 text-slate-600">Off: add ANTHROPIC_API_KEY in Cloudflare to turn Non on.</p> : <>
+          <p className="mt-2 text-slate-600">{!data.cee.enabled ? "Non is off for all chats." : c.assigned_name || c.bot_paused ? "Non is quiet in this chat (a person has it)." : "Non is answering this chat."}</p>
+          {data.cee.enabled && !c.assigned_name && <button type="button" disabled={busy} onClick={() => void act({ action: c.bot_paused ? "cee_resume" : "cee_pause" })} className="mt-2 h-9 rounded-full border border-slate-200 bg-white px-3 font-semibold">{c.bot_paused ? "Let Non answer again" : "Stop Non in this chat"}</button>}
+          <label className="mt-2 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={data.cee.enabled} disabled={busy} onChange={(e) => void act({ action: "cee_enabled", on: e.target.checked })} className="accent-[#FE8B05]" />Non on for all chats (owner)</label>
         </>}
         <h3 className="mt-5 text-[12px] font-bold uppercase tracking-wide text-slate-500">Telegram</h3>
         <p className="mt-2 text-slate-600">{c.on_telegram ? "Posted to the staff group." : "Not on Telegram (not connected, or still sending)."}</p>

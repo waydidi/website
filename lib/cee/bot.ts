@@ -7,11 +7,11 @@ import { addBotMessage, conversationById, messagesFor, pauseBot, setBotThinking 
 import { searchKnowledge } from "./knowledge";
 import { HOURLY_CITIES, findPackages, quoteHourly, quoteTransfer, type QuoteResult } from "./quotes";
 
-// Cee: Waydidi's chat assistant on the website, WhatsApp and LINE. It answers instantly, quotes only
+// Non: Waydidi's chat assistant on the website, WhatsApp and LINE. It answers instantly, quotes only
 // from the site's own price tables (via tools), looks up staff-written knowledge, and hands the chat
-// to a person whenever it can't help or the customer asks. Once a person replies, Cee stays quiet.
+// to a person whenever it can't help or the customer asks. Once a person replies, Non stays quiet.
 
-export const CEE_NAME = "Cee";
+export const CEE_NAME = "Non";
 // A fast, cheap model handles most messages; it passes harder ones (trip planning, undecided
 // customers, multi-stop days) to the stronger model by calling the "escalate" tool.
 export const MODELS = { fast: "claude-haiku-4-5", smart: "claude-opus-5-5" } as const;
@@ -28,7 +28,8 @@ const putSetting = (key: string, value: string) => db().prepare("INSERT INTO app
 /** Global on/off switch (admin). On by default once an API key exists. */
 export async function ceeEnabled() { return Boolean(apiKey()) && (await setting("cee_enabled")) !== "0"; }
 export const setCeeEnabled = (on: boolean) => putSetting("cee_enabled", on ? "1" : "0");
-export async function modelMode(): Promise<ModelMode> { const v = await setting("cee_model_mode"); return v === "fast" || v === "smart" ? v : "auto"; }
+// Default: Haiku 4.5 for every message. The owner can still opt into Auto/Smart on the knowledge tab.
+export async function modelMode(): Promise<ModelMode> { const v = await setting("cee_model_mode"); return v === "auto" || v === "smart" ? v : "fast"; }
 export const setModelMode = (mode: ModelMode) => putSetting("cee_model_mode", mode);
 
 type Usage = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null } | undefined;
@@ -44,7 +45,7 @@ const cost = (model: string, u: Usage) => {
 
 const bangkokNow = () => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", dateStyle: "full", timeStyle: "short" }).format(new Date());
 
-export const systemPrompt = (now: string, channel = "web") => `You are Cee, the chat assistant for Waydidi, a private car and driver service in Thailand (airport transfers, city-to-city transfers, hourly car with driver, and day-trip packages).
+export const systemPrompt = (now: string, channel = "web") => `You are Non, the chat assistant for Waydidi, a private car and driver service in Thailand (airport transfers, city-to-city transfers, hourly car with driver, and day-trip packages).
 Current date and time in Thailand: ${now}. The customer is writing on ${channel === "whatsapp" ? "WhatsApp" : channel === "line" ? "LINE" : "the Waydidi website chat"}.
 
 How you work:
@@ -104,9 +105,9 @@ function toMessages(history: { sender: "visitor" | "staff"; body: string }[]) {
   return messages;
 }
 
-/** One Cee turn over the chat history. Pure apart from the client and tools, so it's testable. */
+/** One Non turn over the chat history. Pure apart from the client and tools, so it's testable. */
 export async function ceeTurn(history: { sender: "visitor" | "staff"; body: string }[], client: Client, options: TurnOptions = {}): Promise<CeeTurn> {
-  const mode = options.mode ?? "auto";
+  const mode = options.mode ?? "fast";
   const first = mode === "smart" ? MODELS.smart : MODELS.fast;
   const result = await runLoop(history, client, options, first, mode === "auto");
   if (result !== "escalate") return result;
@@ -129,7 +130,7 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
       ...(smart ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default", output_config: { effort: "low" } } : {}),
     });
     out.requests++; out.usd += cost(model, res.usage);
-    if (res.stop_reason === "refusal") return { ...out, reply: null, handover: { reason: "Assistant declined to answer", summary: "Cee could not answer this message." } };
+    if (res.stop_reason === "refusal") return { ...out, reply: null, handover: { reason: "Assistant declined to answer", summary: "Non could not answer this message." } };
     const uses = res.content.filter((b) => b.type === "tool_use") as Array<{ type: "tool_use"; id: string; name: string; input: Record<string, unknown> }>;
     const text = res.content.filter((b) => b.type === "text").map((b) => b.text as string).join("\n").trim();
     if (uses.some((u) => u.name === "escalate")) return "escalate";
@@ -153,7 +154,7 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
     }
     messages.push({ role: "user", content: results });
   }
-  return { ...out, handover: out.handover ?? { reason: "Too many steps", summary: "Cee couldn't finish this request." } };
+  return { ...out, handover: out.handover ?? { reason: "Too many steps", summary: "Non couldn't finish this request." } };
 }
 const json = (q: QuoteResult) => JSON.stringify(q);
 
@@ -178,7 +179,7 @@ export async function runCee(conversationId: string, client?: Client) {
       return;
     }
     await setBotThinking(c.id, true);
-    // A person may join while Cee is thinking; never talk over them.
+    // A person may join while Non is thinking; never talk over them.
     const stillMine = async () => { const f = await conversationById(c.id); return Boolean(f && !f.assigned_name && !f.bot_paused); };
     const turn = await ceeTurn(history, client ?? (new Anthropic({ apiKey: apiKey() }) as unknown as Client), {
       mode: await modelMode(), channel: c.channel ?? "web",
@@ -193,7 +194,7 @@ export async function runCee(conversationId: string, client?: Client) {
     }
   } catch (error) {
     console.error("cee failed", error instanceof Error ? error.message : "unknown");
-    await handOver(conversationId, "Cee error", "Cee couldn't answer; please reply to the customer.").catch(() => undefined);
+    await handOver(conversationId, "Non error", "Non couldn't answer; please reply to the customer.").catch(() => undefined);
   } finally {
     await setBotThinking(conversationId, false).catch(() => undefined);
   }
@@ -203,5 +204,5 @@ async function handOver(conversationId: string, reason: string, summary: string)
   await pauseBot(conversationId, true, JSON.stringify({ handover: reason, summary, at: new Date().toISOString() }));
   const c = await conversationById(conversationId);
   if (c?.telegram_message_id && telegramConfigured())
-    await sendCard(`🙋 <b>Cee handed over ${esc(c.public_id)}</b>\n${esc(reason)}\n<blockquote>${esc(summary)}</blockquote>\nReply to the card to answer the customer.`, undefined, c.telegram_message_id).catch(() => undefined);
+    await sendCard(`🙋 <b>Non handed over ${esc(c.public_id)}</b>\n${esc(reason)}\n<blockquote>${esc(summary)}</blockquote>\nReply to the card to answer the customer.`, undefined, c.telegram_message_id).catch(() => undefined);
 }
