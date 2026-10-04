@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       SELECT id,?,?,? FROM website_conversations WHERE id=? AND expires_at>?
       ON CONFLICT(conversation_id) DO NOTHING`).bind(staff.id, name, now, input.id, now).run();
     if (!result.meta.changes) {
-      const current = await env.DB.prepare("SELECT staff_id FROM website_chat_assignments WHERE conversation_id=?").bind(input.id).first<{ staff_id: string }>();
+      const current = await env.DB.prepare("SELECT staff_id FROM website_chat_assignments WHERE conversation_id=?").bind(input.id).first() as { staff_id: string } | null;
       if (!current) return reply("Conversation expired or unavailable.", 404);
       if (current.staff_id !== staff.id) return reply("Another admin is already assigned to this chat.", 409);
     }
