@@ -4,6 +4,8 @@ import { customerFromRequest } from "@/lib/customer-auth";
 import { readCookie } from "@/lib/staff-security";
 import { isJsonRequest, sameOrigin, secureToken, sha256 } from "@/lib/security";
 import { googleReviewUrl, reviewForConversation } from "@/lib/support-reviews";
+import { getRequestExecutionContext } from "vinext/shims/request-context";
+import { runCee } from "@/lib/cee/bot";
 import { addVisitorMessage, conversationByTokenHash, createConversation, messagesFor, type Conversation } from "@/lib/website-chat";
 
 // Customer side of the chat. The httpOnly cookie token is the only key to a conversation;
@@ -69,6 +71,8 @@ export async function POST(request: Request) {
     });
   }
   const result = await addVisitorMessage(c, message, clientId);
+  // Cee answers in the background so sending never waits on it.
+  if (!result.duplicate) { const job = runCee(c.id); const ctx = getRequestExecutionContext(); if (ctx) ctx.waitUntil(job); }
   const response = NextResponse.json({ ok: true, duplicate: result.duplicate, conversation: view(c) }, { headers });
   if (token) response.cookies.set(COOKIE, token, { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 30 * 86400 });
   return response;

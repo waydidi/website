@@ -13,11 +13,11 @@ export type Conversation = CardConversation & {
   token_hash: string; expires_at: string; customer_id: string | null; telegram_message_id: number | null;
   assigned_staff_id: string | null; assigned_telegram_user_id: string | null; last_message_at: string | null; updated_at: string;
 };
-export type ChatMessage = { id: string; sender: "visitor" | "staff"; sender_name: string | null; body: string; created_at: string; client_id: string | null; telegram_status: string | null };
+export type ChatMessage = { id: string; sender: "visitor" | "staff"; sender_name: string | null; is_bot?: number; body: string; created_at: string; client_id: string | null; telegram_status: string | null };
 export type Staffer = { name: string; staffId?: string | null; telegramUserId?: string | null };
 
 export const STATUSES: ChatStatus[] = ["open", "pending", "closed"];
-export const MESSAGE_COLUMNS = "id,sender,COALESCE(sender_name,CASE WHEN sender='staff' THEN 'Waydidi team' END) sender_name,body,created_at,client_id,telegram_status";
+export const MESSAGE_COLUMNS = "id,sender,is_bot,COALESCE(sender_name,CASE WHEN sender='staff' THEN 'Waydidi team' END) sender_name,body,created_at,client_id,telegram_status";
 const adminUrl = (id: string) => `${SITE_URL}/admin/chat?id=${encodeURIComponent(id)}`;
 const nowIso = () => new Date().toISOString();
 
@@ -97,6 +97,7 @@ export async function addStaffMessage(conversationId: string, body: string, who:
   const c = await conversationById(conversationId);
   if (!c) return { error: "Conversation not found." };
   if (!c.assigned_name) await assign(c.id, who, false);
+  await pauseBot(c.id, true); // a person is talking now; Cee stays quiet
   const now = nowIso(), id = crypto.randomUUID();
   await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,staff_id,created_at,sender_name,telegram_message_id,telegram_status)
     VALUES(?,?,'staff',?,?,?,?,?,?)`).bind(id, c.id, body, who.staffId ?? null, now, who.name, telegramMessageId ?? null, origin === "telegram" ? "sent" : null).run();
@@ -111,12 +112,33 @@ export async function addStaffMessage(conversationId: string, body: string, who:
   return { id };
 }
 
+/** Cee's reply: shown as "Cee", never assigns the conversation, mirrored to Telegram. */
+export async function addBotMessage(conversationId: string, body: string) {
+  const c = await conversationById(conversationId);
+  if (!c) return null;
+  const now = nowIso(), id = crypto.randomUUID();
+  await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot) VALUES(?,?,'staff',?,?,'Cee',1)`).bind(id, c.id, body, now).run();
+  await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();
+  if (telegramConfigured() && c.telegram_message_id) {
+    try {
+      const sent = await sendCard(staffEcho(c.public_id, "Cee (bot)", body), undefined, c.telegram_message_id);
+      await db().prepare("UPDATE website_chat_messages SET telegram_status='sent',telegram_message_id=? WHERE id=?").bind(sent.message_id, id).run();
+    } catch { /* the website copy is what matters */ }
+  }
+  return id;
+}
+
+/** Stops (or resumes) Cee in one conversation. */
+export async function pauseBot(conversationId: string, paused: boolean, state?: string) {
+  await db().prepare("UPDATE website_conversations SET bot_paused=?,bot_state=COALESCE(?,bot_state) WHERE id=?").bind(paused ? 1 : 0, state ?? null, conversationId).run();
+}
+
 /** Assigns a conversation. With force=false it only claims an unassigned one. */
 export async function assign(conversationId: string, who: Staffer, force: boolean) {
   const now = nowIso();
   const result = await db().prepare(`UPDATE website_conversations SET assigned_staff_id=?,assigned_telegram_user_id=?,assigned_name=?,assigned_at=?,updated_at=?
     WHERE id=? ${force ? "" : "AND assigned_name IS NULL"}`).bind(who.staffId ?? null, who.telegramUserId ?? null, who.name, now, now, conversationId).run();
-  if (result.meta.changes) await refreshCard(conversationId).catch(() => undefined);
+  if (result.meta.changes) { await pauseBot(conversationId, true); await refreshCard(conversationId).catch(() => undefined); }
   return result.meta.changes > 0;
 }
 

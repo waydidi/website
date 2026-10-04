@@ -2,7 +2,8 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
-import { addStaffMessage, assign, conversationById, deliverVisitorMessage, messagesFor, setStatus, STATUSES } from "@/lib/website-chat";
+import { ceeEnabled, setCeeEnabled } from "@/lib/cee/bot";
+import { addStaffMessage, assign, pauseBot, conversationById, deliverVisitorMessage, messagesFor, setStatus, STATUSES } from "@/lib/website-chat";
 import type { ChatStatus } from "@/lib/telegram/cards";
 
 const headers = { "Cache-Control": "no-store" };
@@ -11,7 +12,7 @@ const allowed = (role: string) => ["owner", "support", "operations"].includes(ro
 
 // "Unread" = customer messages after the last staff reply.
 const UNREAD = `(SELECT COUNT(*) FROM website_chat_messages m WHERE m.conversation_id=c.id AND m.sender='visitor'
-  AND m.rowid>COALESCE((SELECT MAX(rowid) FROM website_chat_messages WHERE conversation_id=c.id AND sender='staff'),0))`;
+  AND m.rowid>COALESCE((SELECT MAX(rowid) FROM website_chat_messages WHERE conversation_id=c.id AND sender='staff' AND is_bot=0),0))`;
 
 export async function GET(request: Request) {
   const staff = await getWaydidiAdmin();
@@ -49,19 +50,26 @@ export async function GET(request: Request) {
     else {
       conversation = { id: c.id, public_id: c.public_id, status: c.status, customer_name: c.customer_name, customer_email: c.customer_email, customer_phone: c.customer_phone,
         customer_id: c.customer_id, customer_country: c.customer_country ?? null, source_url: c.source_url, source_title: c.source_title, topic: c.topic, assigned_name: c.assigned_name, assigned_staff_id: c.assigned_staff_id,
-        created_at: c.created_at, on_telegram: Boolean(c.telegram_message_id) };
+        created_at: c.created_at, on_telegram: Boolean(c.telegram_message_id), bot_paused: Boolean((c as { bot_paused?: number }).bot_paused) };
       messages = await messagesFor(c.id);
     }
   }
   const team = (await env.DB.prepare("SELECT id,display_name name FROM staff_accounts WHERE active=1 AND role IN ('owner','support','operations') ORDER BY display_name").all().catch(() => ({ results: [] }))).results;
-  return NextResponse.json({ conversations, conversation, messages, selectionError, team, me: { id: staff.id, name: staff.displayName } }, { headers });
+  return NextResponse.json({ conversations, conversation, messages, selectionError, team, me: { id: staff.id, name: staff.displayName },
+    cee: { enabled: await ceeEnabled(), keySet: Boolean((env as unknown as Record<string, unknown>).ANTHROPIC_API_KEY) } }, { headers });
 }
 
 export async function POST(request: Request) {
   if (!sameOrigin(request) || !isJsonRequest(request)) return reply("Request blocked.", 403);
   const staff = await getWaydidiAdmin();
   if (!staff || !allowed(staff.role)) return reply("Support staff access required.", 403);
-  const input = await request.json().catch(() => null) as { action?: unknown; id?: unknown; message?: unknown; status?: unknown; staffId?: unknown; messageId?: unknown } | null;
+  const input = await request.json().catch(() => null) as { action?: unknown; id?: unknown; message?: unknown; status?: unknown; staffId?: unknown; messageId?: unknown; on?: unknown } | null;
+  // Global Cee switch: owner only.
+  if (input?.action === "cee_enabled") {
+    if (staff.role !== "owner") return reply("Only the owner can switch Cee on or off.", 403);
+    await setCeeEnabled(input.on === true);
+    return NextResponse.json({ ok: true }, { headers });
+  }
   if (typeof input?.id !== "string" || !input.id || input.id.length > 100) return reply("Choose a conversation.", 400);
   const c = await conversationById(input.id);
   if (!c || c.expires_at <= new Date().toISOString()) return reply("Conversation expired or unavailable.", 404);
@@ -98,6 +106,8 @@ export async function POST(request: Request) {
       if (typeof input.messageId !== "string") return reply("Choose a message.", 400);
       try { await deliverVisitorMessage(c.id, input.messageId); } catch { return reply("Telegram is still unavailable. It will retry automatically.", 502); }
       break;
+    case "cee_pause": await pauseBot(c.id, true); break;
+    case "cee_resume": await pauseBot(c.id, false); break;
     default: return reply("Unknown chat action.", 400);
   }
   return NextResponse.json({ ok: true }, { headers });

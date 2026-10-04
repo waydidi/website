@@ -471,7 +471,7 @@ export function BookingFlow({
     const ref = params.get("ref");
     if (ref && /^blog:[a-z0-9-]{1,90}$/.test(ref)) { try { sessionStorage.setItem("waydidi_source", ref); } catch { /* storage blocked */ } }
     const mode = params.get("rebook");
-    if (mode !== "again" && mode !== "return") return;
+    if (mode !== "again" && mode !== "return" && mode !== "chat") return;
     const count = (key: string, fallback: number) => {
       const value = Number(params.get(key));
       return Number.isInteger(value) && value > 0 && value <= 20 ? value : fallback;
@@ -492,6 +492,9 @@ export function BookingFlow({
       passengers,
       luggage,
       bookedHours: hourly ? count("hours", current.bookedHours) : current.bookedHours,
+      // Links from Cee (chat) also carry the date and time the customer gave.
+      ...(mode === "chat" && /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? { date: params.get("date")! } : {}),
+      ...(mode === "chat" && /^([01]\d|2[0-3]):[0-5]\d$/.test(params.get("time") ?? "") ? { time: params.get("time")! } : {}),
     }));
     const vehicle = params.get("vehicle");
     if (vehicle && vehicle in VEHICLES) setVehicle(vehicle);

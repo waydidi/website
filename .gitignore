@@ -45,3 +45,4 @@ next-env.d.ts
 
 # Local Worker secrets (wrangler / Cloudflare Vite plugin)
 .dev.vars*
+cee-eval-report.md

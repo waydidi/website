@@ -6,9 +6,9 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { countryLabel } from "@/lib/country";
 
 type Row = { id: string; public_id: string; status: string; customer_name: string | null; customer_email: string | null; source_title: string | null; source_url: string | null; assigned_name: string | null; assigned_staff_id: string | null; last_message_at: string | null; unread: number; preview: string | null; last_sender: string | null };
-type Detail = Row & { customer_country: string | null; customer_phone: string | null; customer_id: string | null; topic: string | null; created_at: string; on_telegram: boolean };
-type Msg = { seq: number; id: string; sender: "visitor" | "staff"; sender_name: string | null; body: string; created_at: string; telegram_status: string | null };
-type Data = { conversations: Row[]; conversation: Detail | null; messages: Msg[]; selectionError: string | null; team: { id: string; name: string }[]; me: { id: string; name: string } };
+type Detail = Row & { customer_country: string | null; customer_phone: string | null; customer_id: string | null; topic: string | null; created_at: string; on_telegram: boolean; bot_paused: boolean };
+type Msg = { seq: number; id: string; sender: "visitor" | "staff"; sender_name: string | null; is_bot?: number; body: string; created_at: string; telegram_status: string | null };
+type Data = { conversations: Row[]; conversation: Detail | null; messages: Msg[]; selectionError: string | null; team: { id: string; name: string }[]; me: { id: string; name: string }; cee?: { enabled: boolean; keySet: boolean } };
 
 const FILTERS: [string, string][] = [["active", "Active"], ["open", "Open"], ["pending", "Pending"], ["closed", "Closed"], ["mine", "Mine"], ["unassigned", "Unassigned"]];
 const STATUS: Record<string, [string, string]> = { open: ["Open", "bg-emerald-50 text-emerald-700"], pending: ["Pending", "bg-amber-50 text-amber-800"], closed: ["Closed", "bg-slate-100 text-slate-600"] };
@@ -97,8 +97,8 @@ export function ChatInbox() {
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto bg-[#F7F8FA] p-4" aria-live="polite">
             {data?.messages.map((m) => <div key={m.id} className={`mb-3 flex flex-col ${m.sender === "staff" ? "items-end" : "items-start"}`}>
-              <span className="mb-1 text-[11.5px] font-semibold text-slate-500">{m.sender === "staff" ? m.sender_name ?? "Waydidi team" : "Customer"} · {when(m.created_at)}</span>
-              <p className={`max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-[14px] ${m.sender === "staff" ? "rounded-br-md bg-[#FE8B05] text-white" : "rounded-bl-md border border-slate-200 bg-white"}`}>{m.body}</p>
+              <span className="mb-1 text-[11.5px] font-semibold text-slate-500">{m.sender === "staff" ? (m.is_bot ? "🤖 Cee (bot)" : m.sender_name ?? "Waydidi team") : "Customer"} · {when(m.created_at)}</span>
+              <p className={`max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-[14px] ${m.sender === "staff" ? (m.is_bot ? "rounded-br-md bg-slate-700 text-white" : "rounded-br-md bg-[#FE8B05] text-white") : "rounded-bl-md border border-slate-200 bg-white"}`}>{m.body}</p>
               {m.sender === "visitor" && m.telegram_status === "failed" && <button type="button" onClick={() => void act({ action: "retry_telegram", messageId: m.id })} className="mt-1 text-[11.5px] font-semibold text-red-600 underline">Not on Telegram yet · retry</button>}
             </div>)}
             <div ref={bottom} />
@@ -130,6 +130,12 @@ export function ChatInbox() {
           <option value="">{c.assigned_name && !c.assigned_staff_id ? `${c.assigned_name} (Telegram)` : "Unassigned"}</option>
           {data?.team.map((t) => <option key={t.id} value={t.id}>{t.name}{t.id === me?.id ? " (me)" : ""}</option>)}
         </select>
+        <h3 className="mt-5 text-[12px] font-bold uppercase tracking-wide text-slate-500">Cee (quote bot)</h3>
+        {!data?.cee?.keySet ? <p className="mt-2 text-slate-600">Off: add ANTHROPIC_API_KEY in Cloudflare to turn Cee on.</p> : <>
+          <p className="mt-2 text-slate-600">{!data.cee.enabled ? "Cee is off for all chats." : c.assigned_name || c.bot_paused ? "Cee is quiet in this chat (a person has it)." : "Cee is answering this chat."}</p>
+          {data.cee.enabled && !c.assigned_name && <button type="button" disabled={busy} onClick={() => void act({ action: c.bot_paused ? "cee_resume" : "cee_pause" })} className="mt-2 h-9 rounded-full border border-slate-200 bg-white px-3 font-semibold">{c.bot_paused ? "Let Cee answer again" : "Stop Cee in this chat"}</button>}
+          <label className="mt-2 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={data.cee.enabled} disabled={busy} onChange={(e) => void act({ action: "cee_enabled", on: e.target.checked })} className="accent-[#FE8B05]" />Cee on for all chats (owner)</label>
+        </>}
         <h3 className="mt-5 text-[12px] font-bold uppercase tracking-wide text-slate-500">Telegram</h3>
         <p className="mt-2 text-slate-600">{c.on_telegram ? "Posted to the staff group." : "Not on Telegram (not connected, or still sending)."}</p>
         <p className="mt-5 text-[12px] text-slate-500">{c.public_id} · started {new Date(c.created_at).toLocaleString()}</p>
