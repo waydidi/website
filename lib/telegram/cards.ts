@@ -1,7 +1,13 @@
 import type { InlineKeyboard } from "./client";
-import { countryLabel } from "../country";
 
 // Rich-card presentation for Telegram (HTML parse mode). Business logic never builds Telegram text itself.
+
+// Country flag + name ("DE" → "🇩🇪 Germany"); kept here so this file has no imports beyond types.
+const countryLabel = (code: string | null | undefined) => {
+  if (!code || !/^[A-Za-z]{2}$/.test(code)) return null;
+  let name = code; try { name = new Intl.DisplayNames(["en"], { type: "region" }).of(code.toUpperCase()) ?? code; } catch { /* keep code */ }
+  return `${code.toUpperCase().replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)))} ${name}`;
+};
 
 export const esc = (value: unknown) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const clip = (value: string, max = 600) => (value.length > max ? `${value.slice(0, max - 1)}…` : value);
