@@ -106,6 +106,7 @@ const tabs = [
     title: "Blog",
     icon: Newspaper,
   },
+  { href: "/admin/trips/commissions", label: "Agency commissions", mobileLabel: "Commissions", title: "Agency commissions", icon: Route },
   { href: "/admin/trips/live", label: "Live today", mobileLabel: "Live", title: "Live today", icon: Route },
   { href: "/admin/trips", label: "Trip planner", mobileLabel: "Trips", title: "Trip planner", icon: Route },
   { href: "/admin/attractions", label: "Attractions", mobileLabel: "Places", title: "Attractions", icon: Route },
@@ -130,11 +131,12 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
     ] },
     { href: "/admin/operations", label: "Operations", icon: Truck },
     { href: "/admin/trips", label: "Trip planner", icon: Route, children: [
-      { href: "/admin/trips", label: "Smart trips", match: (p, t) => (p === "/admin/trips" && t !== "templates") || (p.startsWith("/admin/trips/") && !p.startsWith("/admin/trips/live")) },
+      { href: "/admin/trips", label: "Smart trips", match: (p, t) => (p === "/admin/trips" && t !== "templates") || (p.startsWith("/admin/trips/") && !p.startsWith("/admin/trips/live") && !p.startsWith("/admin/trips/commissions")) },
       { href: "/admin/trips?view=templates", label: "Quick quote templates", match: (p, t) => p === "/admin/trips" && t === "templates" },
       { href: "/admin/trips/live", label: "Live today" },
       { href: "/admin/attractions", label: "Attractions" },
       { href: "/admin/suppliers", label: "Supplier contacts" },
+      { href: "/admin/trips/commissions", label: "Agency commissions" },
     ] },
     { href: "/admin/payments", label: "Payments", icon: BarChart3 },
     { href: "/admin/reports", label: "Reports", icon: BarChart3, children: [

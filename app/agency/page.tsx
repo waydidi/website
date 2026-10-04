@@ -54,7 +54,7 @@ export default async function AgencyPortalPage() {
       <section className="flex flex-wrap items-center justify-between gap-4 rounded-[24px] bg-white p-5">
         <div><h2 className="text-[20px] font-semibold">Day trips</h2><p className="text-[14px] text-slate-600">Plan private day trips with Waydidi&apos;s attraction guide and earn commission when your guest pays.</p></div>
         <div className="flex flex-wrap gap-6 text-center">
-          {[["Open", String(tripStats.open)], ["Paid", String(tripStats.paid)], ["Commission earned", `THB ${tripStats.commission.toLocaleString("en-US")}`]].map(([k, v]) => <div key={k}><p className="text-[13px] text-slate-500">{k}</p><p className="text-[22px] font-bold">{v}</p></div>)}
+          {[["Open", String(tripStats.open)], ["Paid", String(tripStats.paid)], ["Commission earned", `THB ${tripStats.commission.toLocaleString("en-US")}`], ["Paid to you", `THB ${tripStats.commissionPaid.toLocaleString("en-US")}`]].map(([k, v]) => <div key={k}><p className="text-[13px] text-slate-500">{k}</p><p className="text-[22px] font-bold">{v}</p></div>)}
         </div>
         <Link href="/agency/trips" className="inline-flex h-11 items-center rounded-full bg-[#FF8A05] px-5 font-semibold text-white">Open trip planner</Link>
       </section>

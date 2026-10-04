@@ -160,6 +160,7 @@ export async function runOperationsAutomation(at = new Date()): Promise<Automati
   await runRefundRecovery().catch(error=>console.error("Refund recovery failed",error));
   await runPaymentRecovery(at).catch(error => console.error("Payment recovery failed",error));
   await runFlightAssistance(at).catch(error => console.error("Flight assistance failed",error));
+  await import("@/lib/trip-day-check").then((m) => m.checkTomorrowsTrips(at)).catch(error => console.error("Trip day-before check failed",error));
   await import("@/lib/trip-thanks").then((m) => m.sendTripThanks(at)).catch(error => console.error("Trip thank-you failed",error));
   const db = getDb();
   const nowMs = at.getTime();

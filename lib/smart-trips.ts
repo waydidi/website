@@ -238,12 +238,13 @@ export async function duplicateTrip(trip: TripRow, by: { name: string; agencyId?
 
 /** An agency's day trips: how many are out with guests, how many paid, and commission earned. */
 export async function agencyTripStats(agencyId: string) {
-  const rows = await getDb().select({ status: smartTrips.status, total: smartTrips.total, pct: smartTrips.commissionPercent, isTemplate: smartTrips.isTemplate }).from(smartTrips).where(eq(smartTrips.agencyId, agencyId));
+  const rows = await getDb().select({ status: smartTrips.status, total: smartTrips.total, pct: smartTrips.commissionPercent, isTemplate: smartTrips.isTemplate, paidAt: smartTrips.commissionPaidAt }).from(smartTrips).where(eq(smartTrips.agencyId, agencyId));
   const trips = rows.filter((r) => !r.isTemplate);
   const paid = trips.filter((r) => r.status === "accepted");
   return {
     open: trips.filter((r) => ["draft", "pricing", "sent", "changes_requested"].includes(r.status)).length,
     paid: paid.length,
     commission: paid.reduce((sum, r) => sum + Math.round((r.total * r.pct) / 100), 0),
+    commissionPaid: paid.filter((r) => r.paidAt).reduce((sum, r) => sum + Math.round((r.total * r.pct) / 100), 0),
   };
 }
