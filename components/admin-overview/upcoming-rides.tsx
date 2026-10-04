@@ -6,7 +6,20 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/driver-picker";
 
-export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; status: string; driver: string | null; driverId: string | null };
+export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null };
+
+// The badge follows the driver's trip status once a driver is assigned.
+const STATUS: Record<string, [string, string]> = {
+  assigned: ["Assigned", "bg-emerald-50 text-emerald-700"],
+  going_to_standby: ["On the way", "bg-blue-50 text-blue-700"],
+  standby: ["Standing by", "bg-amber-50 text-amber-800"],
+  passenger_verified: ["Passenger verified", "bg-cyan-50 text-cyan-800"],
+  trip_started: ["Customer on the way", "bg-purple-50 text-purple-700"],
+  passenger_picked_up: ["Customer on the way", "bg-purple-50 text-purple-700"],
+  completed: ["Completed", "bg-emerald-100 text-emerald-800"],
+  no_show: ["No-show", "bg-red-50 text-red-700"],
+};
+const badge = (r: UpcomingRide): [string, string] => !r.driverId ? ["Not assigned", "bg-red-50 text-red-700"] : STATUS[r.driverStatus ?? "assigned"] ?? STATUS.assigned;
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -30,7 +43,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
         </div>
         <div className="flex min-w-0 items-center justify-between gap-2">
           <DriverPicker reference={r.reference} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} onAddDriver={() => setAdding(r.reference)} />
-          <span className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-bold ${r.driverId ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{r.driverId ? "Assigned" : "Not assigned"}</span>
+          <span className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-bold ${badge(r)[1]}`}>{badge(r)[0]}</span>
         </div>
       </li>)}
     </ul>}
