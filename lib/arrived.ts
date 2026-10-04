@@ -20,11 +20,11 @@ function metres(a: { lat: number; lng: number }, b: { lat: number; lng: number }
 /** Wording for how long ago the ride arrived, or null when older than 7 days. */
 export function arrivedPhrase(hoursAgo: number) {
   if (hoursAgo < 0 || hoursAgo > 7 * 24) return null;
-  if (hoursAgo < 20) { const h = Math.max(1, Math.floor(hoursAgo)); return `Someone arrived here ${h} hour${h === 1 ? "" : "s"} ago`; }
-  if (hoursAgo < 30) return "Someone arrived here 24 hours ago";
-  if (hoursAgo < 48) return "Someone arrived here a day ago";
-  if (hoursAgo <= 72) return "Someone arrived here 3 days ago";
-  return "Someone arrived here 7 days ago";
+  if (hoursAgo < 20) { const h = Math.max(1, Math.floor(hoursAgo)); return `Someone arrived here with Waydidi ${h} hour${h === 1 ? "" : "s"} ago`; }
+  if (hoursAgo < 30) return "Someone arrived here with Waydidi 24 hours ago";
+  if (hoursAgo < 48) return "Someone arrived here with Waydidi a day ago";
+  if (hoursAgo <= 72) return "Someone arrived here with Waydidi 3 days ago";
+  return "Someone arrived here with Waydidi 7 days ago";
 }
 
 export async function arrivedHere(place: string, point: { lat: number; lng: number } | null, now = Date.now()) {
