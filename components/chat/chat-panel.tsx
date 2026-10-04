@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, ExternalLink, Minus, RotateCw, SendHorizontal, Star, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, CircleHelp, ExternalLink, Minus, RotateCw, SendHorizontal, Star, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { WaydidiMark } from "@/components/waydidi-logo";
 import type { ChatInfo, ChatMsg, ChatReview, Context } from "@/components/website-chat";
@@ -78,13 +78,12 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
       <button type="button" onClick={onClose} aria-label="Close chat" className="hidden size-9 place-items-center rounded-full hover:bg-white/15 sm:grid"><X size={18} /></button>
     </header>
 
+    {/* Step 1: question + email (required). Step 2 (after sending) is the conversation. */}
+    {needsEmail ? <StartForm question={text} setQuestion={setText} email={email} setEmail={(v) => { setEmail(v); setError(""); }} topic={topic} setTopic={setTopic}
+      busy={busy} error={error} onStart={() => void submit()} /> : <>
     {/* Conversation */}
     <div ref={list} onScroll={onScroll} aria-live="polite" aria-label="Conversation" className="relative min-h-0 flex-1 overflow-y-auto bg-[#F7F8FA] px-4 py-4">
       <Bubble side="left" who="Waydidi">Hi 👋 How can we help with your Thailand journey?</Bubble>
-      {needsEmail && <label className="mt-3 block rounded-2xl border border-slate-200 bg-white p-3.5 text-[13.5px] font-semibold">Your email address
-        <span className="block text-[12px] font-normal text-slate-500">So we can reply if you leave the page.</span>
-        <input id="ask-waydidi-email" type="email" required autoComplete="email" inputMode="email" value={email} onChange={(e) => { setEmail(e.target.value); setError(""); }} placeholder="you@example.com"
-          className="mt-2 h-10 w-full rounded-xl border border-slate-200 px-3 text-[15px] font-normal outline-none focus:border-[#FE8B05]" /></label>}
       {!started && <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Quick topics">
         {QUICK.map((q) => <button key={q} type="button" aria-pressed={topic === q} onClick={() => { setTopic(q); setText((t) => t || `${q}: `); input.current?.focus(); }}
           className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold transition ${topic === q ? "border-[#FE8B05] bg-[#FFF3E6] text-[#B85D00]" : "border-slate-200 bg-white text-slate-700 hover:border-[#FE8B05]"}`}>{q}</button>)}
@@ -103,10 +102,11 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
           : <Bubble key={m.id} side="left" who={grouped ? null : `${m.name ?? "Waydidi team"} — Waydidi`} at={time(m.createdAt)} tight={Boolean(grouped)}>{m.body}</Bubble>;
       })}
     </div>
+    </>}
     {newBelow && <button type="button" onClick={() => { list.current!.scrollTop = list.current!.scrollHeight; setNewBelow(false); }} className="absolute bottom-[86px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-[#15161C] px-3 py-1.5 text-[12.5px] font-semibold text-white shadow-lg"><ArrowDown size={14} />New message</button>}
 
     {/* Finished chat: support rating, then the Google link (offered after every rating), or the composer */}
-    {info?.status === "closed" ? <ClosedChat key={info.publicId} review={info.review ?? null} onReviewed={onReviewed} onNewConversation={onNewConversation} onClose={onClose} /> : <>
+    {needsEmail ? null : info?.status === "closed" ? <ClosedChat key={info.publicId} review={info.review ?? null} onReviewed={onReviewed} onNewConversation={onNewConversation} onClose={onClose} /> : <>
     {/* Composer */}
     <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="border-t border-slate-200 bg-white px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
       {error && <p role="alert" className="mb-2 flex items-center gap-2 text-[12.5px] text-red-600">{error}{loadError && <button type="button" onClick={onRetryLoad} aria-label="Retry"><RotateCw size={13} /></button>}</p>}
@@ -194,4 +194,41 @@ function ClosedChat({ review, onReviewed, onNewConversation, onClose }: { review
       <button type="button" onClick={onNewConversation} className="mt-2 w-full text-[13px] font-semibold text-slate-500 underline">Need more help? Start a new conversation</button>
     </div>}
   </div>;
+}
+
+/** First screen: what they need and their email. Sending it opens the live chat. */
+function StartForm({ question, setQuestion, email, setEmail, topic, setTopic, busy, error, onStart }: {
+  question: string; setQuestion: (v: string) => void; email: string; setEmail: (v: string) => void; topic: string | null; setTopic: (v: string) => void;
+  busy: boolean; error: string; onStart: () => void;
+}) {
+  const [why, setWhy] = useState(false);
+  const ready = question.trim().length > 0 && /^\S+@\S+\.\S+$/.test(email.trim());
+  return <form onSubmit={(e) => { e.preventDefault(); if (ready) onStart(); }} className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#F7F8FA] px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-4">
+    <label htmlFor="ask-waydidi-input" className="text-[15px] font-bold">How can we help with your Thailand journey?</label>
+    <textarea id="ask-waydidi-input" required rows={4} maxLength={2000} value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="e.g. A car from Suvarnabhumi Airport to Pattaya tomorrow for 3 people"
+      className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-white p-3 text-[15px] outline-none focus:border-[#FE8B05]" />
+    <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Quick topics">
+      {QUICK.map((q) => <button key={q} type="button" aria-pressed={topic === q} onClick={() => { setTopic(q); if (!question.trim()) setQuestion(`${q}: `); }}
+        className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold transition ${topic === q ? "border-[#FE8B05] bg-[#FFF3E6] text-[#B85D00]" : "border-slate-200 bg-white text-slate-700 hover:border-[#FE8B05]"}`}>{q}</button>)}
+    </div>
+
+    <div className="relative mt-5">
+      <div className="flex items-center gap-1.5">
+        <label htmlFor="ask-waydidi-email" className="text-[15px] font-bold">Your email address <span className="text-red-600" aria-hidden="true">*</span></label>
+        <button type="button" onClick={() => setWhy((v) => !v)} aria-expanded={why} aria-controls="ask-waydidi-why" aria-label="Why do we need your email?" className="grid size-7 place-items-center rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-800"><CircleHelp size={17} /></button>
+      </div>
+      {why && <div id="ask-waydidi-why" role="dialog" aria-label="Why we ask for your email" className="absolute left-0 right-0 top-9 z-10 rounded-2xl border border-slate-200 bg-white p-3.5 text-[13.5px] text-slate-700 shadow-xl">
+        <div className="flex items-start gap-2"><p className="flex-1">We need your email so we can follow up on your chat and keep helping with your Thailand journey, even if you leave the page. We won&apos;t use it for anything else without asking.</p>
+          <button type="button" onClick={() => setWhy(false)} aria-label="Close" className="-mr-1 -mt-1 grid size-7 place-items-center rounded-full hover:bg-slate-100"><X size={15} /></button></div>
+      </div>}
+      <input id="ask-waydidi-email" type="email" required autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
+        className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FE8B05]" />
+    </div>
+
+    {error && <p role="alert" className="mt-3 text-[13px] text-red-600">{error}</p>}
+    <div className="mt-auto pt-5">
+      <button type="submit" disabled={!ready || busy} className="min-h-12 w-full rounded-full bg-[#FE8B05] font-semibold text-white transition hover:bg-[#E67900] disabled:bg-slate-300">{busy ? "Starting…" : "Start chat"}</button>
+      <p className="mt-2 text-center text-[11px] text-slate-400">Please don&apos;t share card numbers or passwords in chat.</p>
+    </div>
+  </form>;
 }
