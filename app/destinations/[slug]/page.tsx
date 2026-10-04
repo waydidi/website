@@ -9,6 +9,7 @@ import { guidesForDestination } from "@/lib/destination-guides";
 import { publishedPosts } from "@/lib/blog-store";
 import { Breadcrumbs, JsonLd, breadcrumbSchema, faqSchema } from "@/components/seo";
 import { destinations, SITE_URL, type Destination } from "@/lib/public-content";
+import { fromPrice, KIND_LABEL, listPackages } from "@/lib/packages";
 
 export function generateStaticParams(){return destinations.map(({slug})=>({slug}))}
 
@@ -49,6 +50,7 @@ export default async function DestinationPage({params}:{params:Promise<{slug:str
   const nearby=(d.nearby??[]).map(s=>destinations.find(x=>x.slug===s)).filter(x=>x!==undefined);
   const schemas:object[]=[breadcrumbSchema(crumbs),{"@context":"https://schema.org","@type":"TaxiService",name:`Waydidi private transfers in ${d.name}`,description:d.seoDescription??d.intro,url:`${SITE_URL}/destinations/${d.slug}`,provider:{"@type":"Organization",name:"Waydidi",url:SITE_URL},areaServed:{"@type":"City",name:d.name,containedInPlace:{"@type":"Country",name:"Thailand"}}}];
   if(d.faq?.length)schemas.push(faqSchema(d.faq));
+  const packages=await listPackages({city:d.slug,publishedOnly:true}).catch(()=>[]);
 
   return <BookingFlow hero={{title:d.h1??`Private transfers in ${d.name}`,subtitle:d.intro,image:d.image,top:<Breadcrumbs crumbs={crumbs} className="text-white"/>}}><main className="bg-white text-[#211726]">
   <JsonLd data={schemas}/>
@@ -60,6 +62,9 @@ export default async function DestinationPage({params}:{params:Promise<{slug:str
 
   {/* Popular journeys: white cards on a light panel */}
   {d.journeys?.length ? <section className="bg-[#F5F6F8] py-16"><div className="mx-auto max-w-[1180px] px-5"><h2 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Popular private transfers in {d.name}</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Drive times are typical estimates. Your exact time and price appear when you search your pickup and drop-off.</p><div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{d.journeys.map(j=><Link key={j.title} href="#booking-search" className="group flex flex-col rounded-[20px] bg-white p-5 transition hover:shadow-lg hover:shadow-slate-900/5"><h3 className="text-lg font-black">{j.title}</h3><p className="mt-1 inline-flex items-center gap-1.5 text-sm font-bold text-[#D96F00] underline-offset-4 group-hover:underline"><Timer size={15}/>{j.time}</p><p className="mt-3 text-sm leading-6 text-slate-600">{j.text}</p></Link>)}</div></div></section> : null}
+
+  {/* Day trip packages built from the trip planner */}
+  {packages.length ? <section id="day-trips" className="py-16"><div className="mx-auto max-w-[1180px] px-5"><h2 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Day trips from {d.name}</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Private car and driver with hotel pickup. Check your date to see the exact timing and total.</p><div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{packages.map(p=>{const from=fromPrice(p);return <Link key={p.id} href={`/trips/${p.slug}`} className="group overflow-hidden rounded-[22px] border border-slate-200 bg-white transition hover:shadow-lg hover:shadow-slate-900/5"><div className="aspect-[16/10] overflow-hidden bg-[#F5F6F8]">{p.coverImage?<img src={p.coverImage} alt={p.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/>:null}</div><div className="p-5"><p className="text-sm font-bold text-[#D96F00]">{KIND_LABEL[p.kind as keyof typeof KIND_LABEL]}</p><h3 className="mt-1 text-lg font-black">{p.name}</h3>{p.summary?<p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{p.summary}</p>:null}{from?<p className="mt-3 font-black">From THB {from.toLocaleString("en-US")} <span className="text-sm font-bold text-slate-500">per car</span></p>:null}</div></Link>})}</div></div></section> : null}
 
   {/* Areas + services */}
   <section className="mx-auto max-w-[1180px] px-5 py-16">
