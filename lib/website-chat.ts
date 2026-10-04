@@ -43,7 +43,7 @@ export async function createConversation(tokenHash: string, context: { customerI
 }
 
 export const messagesFor = (conversationId: string, afterRowid = 0, limit = 200) =>
-  db().prepare(`SELECT rowid AS seq,${MESSAGE_COLUMNS} FROM website_chat_messages WHERE conversation_id=? AND rowid>? ORDER BY rowid DESC LIMIT ?`).bind(conversationId, afterRowid, limit).all<ChatMessage & { seq: number }>().then((r) => r.results.reverse());
+  db().prepare(`SELECT rowid AS seq,${MESSAGE_COLUMNS} FROM website_chat_messages WHERE conversation_id=? AND rowid>? ORDER BY rowid ${afterRowid > 0 ? "ASC" : "DESC"} LIMIT ?`).bind(conversationId, afterRowid, limit).all<ChatMessage & { seq: number }>().then((r) => afterRowid > 0 ? r.results : r.results.reverse());
 
 /** Customer message. Saved first; Telegram delivery is attempted afterwards and never loses the message. */
 export async function addVisitorMessage(c: Conversation, body: string, clientId: string | null) {
@@ -98,12 +98,27 @@ export async function retryFailedTelegram(limit = 20) {
  */
 export async function addStaffMessage(conversationId: string, body: string, who: Staffer, origin: "dashboard" | "telegram", telegramMessageId?: number) {
   const c = await conversationById(conversationId);
-  if (!c) return { error: "Conversation not found." };
+  if (!c || c.expires_at <= nowIso()) return { error: "Conversation expired or unavailable." };
+  const clientId = origin === "telegram" && telegramMessageId != null ? `telegram:${telegramMessageId}` : null;
+  if (clientId) {
+    const existing = await db().prepare("SELECT id FROM website_chat_messages WHERE conversation_id=? AND client_id=?").bind(c.id, clientId).first<{ id: string }>();
+    if (existing) return { id: existing.id };
+  }
   if (!c.assigned_name) await assign(c.id, who, false);
-  await pauseBot(c.id, true); // a person is talking now; Non stays quiet
   const now = nowIso(), id = crypto.randomUUID();
-  await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,staff_id,created_at,sender_name,telegram_message_id,telegram_status)
-    VALUES(?,?,'staff',?,?,?,?,?,?)`).bind(id, c.id, body, who.staffId ?? null, now, who.name, telegramMessageId ?? null, origin === "telegram" ? "sent" : null).run();
+  // Check ownership in the insert itself: assignment can change between requests.
+  const inserted = await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,staff_id,created_at,sender_name,telegram_message_id,telegram_status,client_id)
+    SELECT ?,?,'staff',?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM website_conversations WHERE id=? AND expires_at>? AND ((? IS NOT NULL AND assigned_staff_id=?) OR (? IS NOT NULL AND assigned_telegram_user_id=?)))
+    ON CONFLICT(conversation_id,client_id) DO NOTHING`).bind(id, c.id, body, who.staffId ?? null, now, who.name, telegramMessageId ?? null, origin === "telegram" ? "sent" : null, clientId,
+      c.id, now, who.staffId ?? null, who.staffId ?? null, who.telegramUserId ?? null, who.telegramUserId ?? null).run();
+  if (!inserted.meta.changes) {
+    if (clientId) {
+      const duplicate = await db().prepare("SELECT id FROM website_chat_messages WHERE conversation_id=? AND client_id=?").bind(c.id, clientId).first<{ id: string }>();
+      if (duplicate) return { id: duplicate.id };
+    }
+    return { error: "Another admin is handling this chat. Assign it to yourself before replying." };
+  }
+  await pauseBot(c.id, true); // a person is talking now; Non stays quiet
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=?,status=CASE WHEN status='closed' THEN 'open' ELSE status END WHERE id=?").bind(now, now, c.id).run();
   await toChannel(c, id, body);
   if (origin === "dashboard" && telegramConfigured() && c.telegram_message_id) {

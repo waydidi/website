@@ -1,4 +1,5 @@
 import { validBookingQuotes, validTransferPrice } from "@/lib/booking-quote-check";
+import { bookingAddonRequests } from "@/lib/booking-addon-requests";
 import { saveAcceptedPolicy } from "@/lib/accepted-policy";
 import { REFUND_POLICY_VERSION } from "@/lib/refund-policy";
 import { toSatang } from "@/lib/money";
@@ -468,7 +469,7 @@ export async function POST(request: Request) {
         pickupInstructions: input.pickupInstructions?.trim() || null,
         childSeats: input.childSeats,
         oversizedLuggage: input.oversizedLuggage,
-        specialRequests: input.specialRequests?.trim() || null,
+        specialRequests: bookingAddonRequests(input.exchangeStop, ferryPeople, input.specialRequests),
         vehicle: selected.name,
         paymentMethod: input.paymentMethod === "cash" ? "cash" : "stripe",
         total,
