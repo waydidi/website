@@ -13,7 +13,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 // Formatted by hand so the server and browser render the same text.
 const day = (d: string) => { const [y, m, n] = d.split("-").map(Number); const w = new Date(Date.UTC(y, m - 1, n)).getUTCDay(); return `${DAYS[w]} ${n} ${MONTHS[m - 1]}`; };
 
-// Upcoming rides: route on the left (70%), driver assignment on the right (30%).
+// Upcoming rides: journey details above, driver picker left and assignment status right.
 export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drivers: PickerDriver[] }) {
   const [adding, setAdding] = useState<string | null>(null);
   return <section aria-labelledby="upcoming-heading" className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -21,17 +21,16 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
       <h2 id="upcoming-heading" className="text-[15px] font-black">Upcoming rides</h2>
       <Link href="/admin/bookings" className="text-[13px] font-bold text-[#C96100] hover:underline">See all →</Link>
     </div>
-    <div className="hidden grid-cols-[7fr_3fr] gap-3 bg-slate-50 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 sm:grid"><span>Booking route</span><span>Driver</span></div>
     {rides.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No upcoming rides.</p> : <ul className="divide-y divide-slate-100">
-      {rides.map((r) => <li key={r.reference} className="grid gap-3 px-4 py-3 sm:grid-cols-[7fr_3fr] sm:items-center">
+      {rides.map((r) => <li key={r.reference} className="grid gap-3 px-4 py-3">
         <div className="min-w-0">
           <p className="text-[12px] font-semibold text-slate-500">{day(r.pickupDate)} · {r.pickupTime} · <span className="font-mono">{r.reference}</span>{r.status === "pending_payment" && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">Awaiting payment</span>}</p>
           <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[14px] font-bold"><span className="truncate">{r.pickup}</span><ArrowRight size={14} className="shrink-0 text-slate-400" aria-hidden="true" /><span className="truncate">{r.dropoff}</span></p>
           <p className="mt-0.5 truncate text-[12.5px] text-slate-500">{r.name} · {r.vehicle.replace(/_/g, " ")}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`rounded-full px-2.5 py-1 text-[11.5px] font-bold ${r.driverId ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{r.driverId ? "Assigned" : "Not assigned"}</span>
+        <div className="flex min-w-0 items-center justify-between gap-2">
           <DriverPicker reference={r.reference} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} onAddDriver={() => setAdding(r.reference)} />
+          <span className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-bold ${r.driverId ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{r.driverId ? "Assigned" : "Not assigned"}</span>
         </div>
       </li>)}
     </ul>}

@@ -41,12 +41,12 @@ export function DriverPicker({ reference, leg = "outbound", drivers, current, ca
   }
 
   if (!canAssign) return <span className="text-slate-400">{chosen?.name ?? "N/A"}</span>;
-  return <div ref={box} className={`relative ${wide ? "w-full" : "w-40"}`}>
-    <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="listbox" aria-expanded={open} className={`flex h-9 w-full items-center justify-between gap-2 rounded-lg border px-2.5 text-left text-[13px] ${chosen ? "border-slate-200 bg-white text-slate-900" : "border-dashed border-red-300 bg-red-50/60 text-red-700"}`}>
+  return <div ref={box} className={`relative min-w-0 max-w-full ${wide ? "w-full" : "w-40"}`}>
+    <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="listbox" aria-expanded={open} className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-left text-[13px] text-slate-900">
       <span className="truncate">{busy ? "Saving…" : chosen?.name ?? "Choose driver"}</span>
       {busy ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronDown size={14} className="shrink-0 text-slate-400" />}
     </button>
-    {open && <div className={`absolute top-10 z-30 ${wide ? "inset-x-0" : "right-0 w-72"} rounded-xl border border-slate-200 bg-white p-2 shadow-xl`}>
+    {open && <div className={`absolute top-10 z-30 ${wide ? "inset-x-0" : "left-0 w-72 max-w-[calc(100vw-4rem)]"} rounded-xl border border-slate-200 bg-white p-2 shadow-xl`}>
       <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 focus-within:border-[#FF8A05]">
         <Search size={14} className="shrink-0 text-slate-400" />
         <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, phone, email, area, car" aria-label="Search drivers" className="h-9 min-w-0 flex-1 bg-transparent text-[13px] outline-none" />
