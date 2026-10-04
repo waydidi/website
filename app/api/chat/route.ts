@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { readCookie } from "@/lib/staff-security";
 import { isJsonRequest, sameOrigin, secureToken, sha256 } from "@/lib/security";
 import { CHAT_MESSAGE_SELECT, ensureChatAssignments } from "@/lib/website-chat";
+import { ensureTelegramChat, telegramChatConfig } from "@/lib/telegram-chat";
 const cookie="waydidi_chat";
 async function conversation(request:Request) {
  const token=readCookie(request,cookie);if(!/^[a-f0-9]{48}$/.test(token))return null;
@@ -24,7 +25,11 @@ export async function POST(request:Request) {
  if(!attempt)return NextResponse.json({error:"Please wait a few minutes before sending more messages."},{status:429});
  let chat=await conversation(request),token:string|null=null;const now=new Date().toISOString();
  if(!chat){token=secureToken();chat={id:crypto.randomUUID()};await env.DB.prepare("INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at) VALUES(?,?,?,?,?)").bind(chat.id,await sha256(token),new Date(Date.now()+7*86400000).toISOString(),now,now).run();}
- await env.DB.batch([env.DB.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES(?,?,'visitor',?,?)").bind(crypto.randomUUID(),chat.id,input.message.trim(),now),env.DB.prepare("UPDATE website_conversations SET updated_at=? WHERE id=?").bind(now,chat.id)]);
+ const messageId=crypto.randomUUID(),telegram=telegramChatConfig();
+ if(telegram.configured)await ensureTelegramChat();
+ const statements=[env.DB.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES(?,?,'visitor',?,?)").bind(messageId,chat.id,input.message.trim(),now),env.DB.prepare("UPDATE website_conversations SET updated_at=? WHERE id=?").bind(now,chat.id)];
+ if(telegram.configured)statements.push(env.DB.prepare("INSERT INTO website_telegram_deliveries(website_message_id,conversation_id,chat_id,retry_at) VALUES(?,?,?,?)").bind(messageId,chat.id,telegram.chatId,now));
+ await env.DB.batch(statements);
  const response=NextResponse.json({ok:true},{headers:{"Cache-Control":"no-store"}});
  if(token)response.cookies.set(cookie,token,{httpOnly:true,secure:true,sameSite:"strict",path:"/",maxAge:7*86400});return response;
 }

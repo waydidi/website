@@ -13,6 +13,22 @@ Waydidi’s only live site is [https://waydidi-website.contact-waydidi.workers.d
 
 Canonical URLs, structured data, sitemap and robots metadata use `lib/site.ts`. The historical `.openai/hosting.json` is retained for build compatibility and logical bindings; it is not a deployment target.
 
+## Telegram website chat
+
+Customer chat messages are stored on the website and queued for delivery to one Telegram private chat or team group. Staff use Telegram's **Reply** action on the bot notification; the bridge routes the answer to that customer and shows the linked staff display name. The first authorized reply claims an unassigned conversation. Existing assignments are respected, and duplicate Telegram updates cannot duplicate website replies.
+
+Owner setup:
+
+1. Create a bot with Telegram's official `@BotFather`. Start the bot in the intended private chat, or add it to your private team group. Group privacy mode can remain enabled because staff reply directly to the bot's messages.
+2. In the production Cloudflare Worker `waydidi-website`, set server secrets `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (the numeric target chat ID, including a negative sign for groups) and `TELEGRAM_WEBHOOK_SECRET` (a new random 32–256 character value containing letters, numbers, `_` or `-`). Never commit tokens or send them in customer chat.
+3. Open **Admin → Settings → Telegram · Website chat** and link each trusted numeric Telegram **user ID** to an active owner, operations or support staff profile. Chat IDs and user IDs are different; group membership alone does not authorize replies.
+4. Click **Connect Telegram webhook**. The canonical webhook is `https://waydidi-website.contact-waydidi.workers.dev/api/webhooks/telegram`. This registers the secret header and replaces that bot's previous webhook, so use a dedicated Waydidi support bot.
+5. Send a test message from website chat. In Telegram, reply to that specific notification and verify the answer and admin name appear in the customer's website chat.
+
+Delivery runs immediately in the Worker's background after a customer POST, with recovery on the existing five-minute cron. Provider failures do not erase customer messages. Delivery retries up to eight times; ambiguous provider timeouts may repeat a Telegram notification, but replayed inbound updates cannot repeat a website reply. Only text replies up to 2,000 characters are supported. Expired conversations, disabled staff, other Telegram chats, unlinked senders and replies from a different assigned admin are rejected. Conversations stay available in Admin → Website Chat.
+
+Tables are created safely on first use for existing deployments; `drizzle/0069_telegram_chat.sql` is the corresponding idempotent migration. Automated integration tests use local D1 and a mocked Telegram provider; live activation requires the Worker secrets, webhook registration and linked staff accounts.
+
 ## Starter build tooling
 
 Install locked dependencies with `npm run install:ci`, then build with `npm run build`. Cloudflare deploys the built Worker using the configuration generated from `vite.config.ts`.

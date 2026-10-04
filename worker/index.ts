@@ -5,6 +5,7 @@ import { SITE_URL } from "../lib/site";
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { runOperationsAutomation } from "../lib/operations-automation";
+import { flushTelegramChatDelivery } from "../lib/telegram-chat";
 
 interface Env {
   ASSETS?: { fetch(request: Request): Promise<Response> };
@@ -69,6 +70,9 @@ const worker = {
       if (hit) return withSecurityHeaders(hit, url);
     }
     const response = await handler.fetch(request, env, ctx);
+    if (url.pathname === "/api/chat" && request.method === "POST" && response.ok) {
+      ctx.waitUntil(flushTelegramChatDelivery().catch(()=>console.error("Telegram chat delivery recovery required.")));
+    }
     if (ttl && edgeCache && response.status === 200 && !response.headers.has("Set-Cookie")) {
       const copy = new Response(response.clone().body, response);
       copy.headers.set("Cache-Control", `public, max-age=0, s-maxage=${ttl}`);
@@ -78,6 +82,7 @@ const worker = {
   },
   async scheduled(controller: { scheduledTime: number }, _env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(runOperationsAutomation(new Date(controller.scheduledTime)));
+    ctx.waitUntil(flushTelegramChatDelivery().catch(()=>console.error("Telegram chat retry failed.")));
   },
 };
 

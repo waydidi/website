@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { AdminKeyLogin } from "@/components/admin-key-login";
 import { SignOutButton } from "@/components/admin-settings/sign-out";
 import { requireWaydidiAdmin } from "@/lib/admin";
+import { TelegramChatSettings } from "@/components/admin-settings/telegram-chat";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Settings · Waydidi operations", robots: { index: false, follow: false } };
@@ -33,6 +34,7 @@ export default async function SettingsPage() {
   ];
   return <div className="px-4 pb-10 pt-4 sm:px-8">
     <div className="grid max-w-[900px] gap-6">
+      <TelegramChatSettings />
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">

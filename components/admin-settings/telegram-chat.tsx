@@ -1,0 +1,23 @@
+"use client";
+import { useCallback, useEffect, useState } from "react";
+type Account={id:string;display_name:string;username:string};
+type Linked={telegram_user_id:string;id:string;display_name:string;active:number};
+type Data={configured:boolean;tokenSet:boolean;chatSet:boolean;secretSet:boolean;accounts:Account[];linked:Linked[];pending:number;webhookUrl:string};
+export function TelegramChatSettings(){
+ const [data,setData]=useState<Data|null>(null),[telegramId,setTelegramId]=useState(""),[staffId,setStaffId]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
+ const load=useCallback(async()=>{const response=await fetch("/api/admin/telegram-chat",{cache:"no-store"});const out=await response.json();if(!response.ok)throw new Error(out.error??"Telegram settings unavailable.");setData(out);},[]);
+ useEffect(()=>{void load().catch(e=>setError(e instanceof Error?e.message:"Settings unavailable."));},[load]);
+ async function act(action:string,id?:string){setBusy(true);setError("");setMessage("");try{const response=await fetch("/api/admin/telegram-chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,telegramId:id??telegramId,staffId})});const result=await response.json();if(!response.ok)throw new Error(result.error??"Action failed.");setMessage(action==="register"?"Telegram webhook registered. Reply to a bot notification to answer its customer.":action==="unlink"?"Telegram account removed.":"Telegram account linked.");await load();}catch(e){setError(e instanceof Error?e.message:"Action failed.");}finally{setBusy(false);}}
+ return <section className="rounded-2xl border border-slate-200 bg-white p-5"><h2 className="text-[18px] font-semibold">Telegram · Website chat</h2><p className="mt-2 text-sm text-slate-600">Receive customer messages in your Telegram chat or team group. Use Telegram’s Reply action on the bot notification to answer that customer. Your linked staff name appears on the website.</p>
+  {!data&&!error&&<p className="mt-3 text-sm text-slate-500">Loading configuration…</p>}
+  {data&&<><p className="mt-3 text-sm font-semibold">{data.configured?"Configuration ready":"Setup required"} · {data.pending} notifications pending</p>
+   <p className="mt-2 text-sm text-slate-600">In the Cloudflare Worker settings, add these server secrets:</p><ul className="mt-2 grid gap-1 text-sm"><li><code>TELEGRAM_BOT_TOKEN</code> — BotFather token {data.tokenSet?"✓":""}</li><li><code>TELEGRAM_CHAT_ID</code> — private chat or team group ID {data.chatSet?"✓":""}</li><li><code>TELEGRAM_WEBHOOK_SECRET</code> — 32–256 letters, numbers, underscores or hyphens {data.secretSet?"✓":""}</li></ul>
+   <p className="mt-3 break-all text-xs text-slate-500">Webhook: {data.webhookUrl}</p>
+   <button disabled={busy||!data.configured} type="button" onClick={()=>void act("register")} className="mt-3 rounded-xl bg-[#FE8B05] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Connect Telegram webhook</button>
+   <h3 className="mt-5 font-semibold">Authorized Telegram accounts</h3><p className="mt-1 text-xs text-slate-500">Link trusted numeric Telegram user IDs to staff profiles. Only linked active staff can reply. Staff roles and existing chat assignments still apply.</p>
+   <form onSubmit={e=>{e.preventDefault();void act("link");}} className="mt-3 flex flex-wrap gap-2"><select required aria-label="Staff profile" value={staffId} onChange={e=>setStaffId(e.target.value)} className="h-10 min-w-0 rounded-lg border border-slate-200 px-3 text-sm"><option value="">Choose staff profile</option>{data.accounts.map(a=><option key={a.id} value={a.id}>{a.display_name} · {a.username}</option>)}</select><input required aria-label="Telegram user ID" inputMode="numeric" pattern="[0-9]{1,16}" value={telegramId} onChange={e=>setTelegramId(e.target.value)} placeholder="Telegram user ID" className="h-10 min-w-0 rounded-lg border border-slate-200 px-3 text-sm"/><button disabled={busy} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold disabled:opacity-50">Link account</button></form>
+   <ul className="mt-3 grid gap-2">{data.linked.map(a=><li key={a.telegram_user_id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm"><span>{a.display_name} · {a.telegram_user_id}{!a.active&&" · Disabled"}</span><button disabled={busy} type="button" onClick={()=>void act("unlink",a.telegram_user_id)} className="text-red-600">Remove</button></li>)}</ul>
+  </>}
+  {error&&<p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}{message&&<p role="status" className="mt-3 text-sm text-emerald-700">{message}</p>}
+ </section>;
+}
