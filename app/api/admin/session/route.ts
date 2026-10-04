@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { isJsonRequest, sameOrigin, secureToken, sha256 } from "@/lib/security";
-import { acceptedTotpStep, CHALLENGE_COOKIE, decryptMfa, encryptMfa, newStaffSession, newTotpSecret, readCookie, STAFF_COOKIE, STAFF_SESSION_SECONDS, verifyStaffPassword, type StaffAccount } from "@/lib/staff-security";
+import { acceptedTotpStep, CHALLENGE_COOKIE, decryptMfa, encryptMfa, newStaffSession, newTotpSecret, readCookie, STAFF_COOKIE, STAFF_REMEMBER_SECONDS, STAFF_SESSION_SECONDS, verifyStaffPassword, type StaffAccount } from "@/lib/staff-security";
 const cookieOptions={httpOnly:true,secure:true,sameSite:"strict" as const,path:"/"};
 const reply=(error:string,status=401)=>NextResponse.json({error},{status,headers:{"Cache-Control":"no-store"}});
 
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   const claimed=await (env.DB as SecurityDatabase).prepare(`INSERT INTO security_rate_windows(fingerprint,window,attempts) VALUES(?,?,1) ON CONFLICT(fingerprint,window) DO UPDATE SET attempts=attempts+1 WHERE attempts<30 RETURNING attempts`).bind(fingerprint,window).first();
   if(!claimed) return reply("Too many attempts. Try again in 15 minutes.",429);
   await (env.DB as SecurityDatabase).prepare("DELETE FROM security_rate_windows WHERE window<?").bind(window-96).run();
-  const input=await request.json().catch(()=>null) as {username?:unknown;password?:unknown;code?:unknown}|null;
+  const input=await request.json().catch(()=>null) as {username?:unknown;password?:unknown;code?:unknown;remember?:unknown}|null;
   const now=new Date().toISOString();
   if(typeof input?.code==="string") {
     const hash=await sha256(readCookie(request,CHALLENGE_COOKIE));
@@ -35,7 +35,8 @@ export async function POST(request: Request) {
     ]);
     if(!result[0].meta.changes||!result[1].meta.changes) return reply("Code already used. Sign in again.");
     const response=NextResponse.json({ok:true},{headers:{"Cache-Control":"no-store"}});
-    response.cookies.set(STAFF_COOKIE,await newStaffSession(env.DB,account.id),{...cookieOptions,maxAge:STAFF_SESSION_SECONDS});
+    const remember=input.remember===true;
+    response.cookies.set(STAFF_COOKIE,await newStaffSession(env.DB,account.id,remember),{...cookieOptions,maxAge:remember?STAFF_REMEMBER_SECONDS:STAFF_SESSION_SECONDS});
     response.cookies.set(CHALLENGE_COOKIE,"",{...cookieOptions,maxAge:0});
     return response;
   }

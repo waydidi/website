@@ -67,13 +67,15 @@ export async function staffForToken(db: SecurityDatabase, token: string) {
   if(!/^[a-f0-9]{48,128}$/.test(token)) return null;
   const now=new Date().toISOString(), idle=new Date(Date.now()-30*60000).toISOString();
   const hash=await sha256(token);
-  const account=await db.prepare(`SELECT a.* FROM staff_accounts a JOIN staff_sessions s ON s.staff_id=a.id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND s.last_used_at>? AND a.active=1 AND a.mfa_secret IS NOT NULL`).bind(hash,now,idle).first<StaffAccount>();
+  const account=await db.prepare(`SELECT a.* FROM staff_accounts a JOIN staff_sessions s ON s.staff_id=a.id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND (s.last_used_at>? OR julianday(s.expires_at)-julianday(s.created_at)>1) AND a.active=1 AND a.mfa_secret IS NOT NULL`).bind(hash,now,idle).first<StaffAccount>();
   if(account) await db.prepare("UPDATE staff_sessions SET last_used_at=? WHERE token_hash=? AND revoked_at IS NULL").bind(now,hash).run();
   return account;
 }
-export async function newStaffSession(db: SecurityDatabase, staffId: string) {
+// "Stay signed in" sessions last 30 days without the 30-minute idle sign-out (recognised by their length).
+export const STAFF_REMEMBER_SECONDS = 30 * 24 * 60 * 60;
+export async function newStaffSession(db: SecurityDatabase, staffId: string, remember = false) {
   const token=secureToken(), now=new Date();
-  await db.prepare("INSERT INTO staff_sessions(token_hash,staff_id,expires_at,last_used_at,created_at) VALUES(?,?,?,?,?)").bind(await sha256(token),staffId,new Date(now.getTime()+STAFF_SESSION_SECONDS*1000).toISOString(),now.toISOString(),now.toISOString()).run();
+  await db.prepare("INSERT INTO staff_sessions(token_hash,staff_id,expires_at,last_used_at,created_at) VALUES(?,?,?,?,?)").bind(await sha256(token),staffId,new Date(now.getTime()+(remember?STAFF_REMEMBER_SECONDS:STAFF_SESSION_SECONDS)*1000).toISOString(),now.toISOString(),now.toISOString()).run();
   return token;
 }
 export function allowedStaffRoute(role: StaffRole, path: string, method: string) {

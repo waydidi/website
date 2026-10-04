@@ -10,6 +10,7 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
   const [mfa, setMfa] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +23,7 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
       const response = await fetch("/api/admin/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mfa ? { code } : { username, password: key }),
+        body: JSON.stringify(mfa ? { code, remember } : { username, password: key }),
       });
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -77,6 +78,10 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
             <label htmlFor="mfa-code" className="text-sm font-bold">Authenticator code</label>
             <input id="mfa-code" autoFocus autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={e=>setCode(e.target.value)} className="mt-2 w-full rounded-xl border p-4" />
           </div>}
+          <label className="mt-4 flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="size-4 accent-[#FF8A05]" />
+            Stay signed in for 30 days
+          </label>
           {error && <p className="mt-3 text-sm font-semibold text-red-700" role="alert">{error}</p>}
           <button
             type="submit"
