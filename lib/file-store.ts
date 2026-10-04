@@ -23,7 +23,8 @@ export async function putFile(key: string, bytes: ArrayBuffer | Uint8Array, cont
 export async function getFile(key: string): Promise<Stored | null> {
   if (env.BUCKET) {
     const object = await env.BUCKET.get(key);
-    return object ? { body: object.body, contentType: object.httpMetadata?.contentType ?? null } : null;
+    if (object) return { body: object.body, contentType: object.httpMetadata?.contentType ?? null };
+    // Files written straight to the database (for example seeded data) are still found.
   }
   const { results } = await db().prepare("SELECT content_type, data FROM stored_file_parts WHERE key = ? ORDER BY part").bind(key).all<Row>();
   if (!results.length) return null;

@@ -8,6 +8,8 @@ export type PickerDriver = { id: string; name: string; phone: string; email: str
 
 const TYPE: Record<string, string> = { sedan: "Sedan", suv: "SUV", minivan: "Minivan", van: "Minivan" };
 
+// "Narubordee Naowarat" → "Narubordee N."
+export const shortName = (name: string) => { const [first, ...rest] = name.trim().split(/\s+/); const last = rest.at(-1); return last ? `${first} ${last[0].toUpperCase()}.` : first ?? ""; };
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "?";
 
 // Driver column: shows the assigned driver; opens a bottom sheet with a searchable list to assign or change.
@@ -44,10 +46,10 @@ export function DriverPicker({ reference, leg = "outbound", drivers, current, ca
     finally { setBusy(false); }
   }
 
-  if (!canAssign) return <span className="text-slate-400">{chosen?.name ?? "N/A"}</span>;
+  if (!canAssign) return <span className="text-slate-400">{chosen ? shortName(chosen.name) : "N/A"}</span>;
   return <div ref={box} className={`relative min-w-0 max-w-full ${wide ? "w-full" : "w-40"}`}>
     <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="listbox" aria-expanded={open} className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-left text-[13px] text-slate-900">
-      <span className="truncate">{busy ? "Saving…" : chosen?.name ?? "Choose driver"}</span>
+      <span className="truncate">{busy ? "Saving…" : chosen ? shortName(chosen.name) : "Choose driver"}</span>
       {busy ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronDown size={14} className="shrink-0 text-slate-400" />}
     </button>
     {open && <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
@@ -68,7 +70,7 @@ export function DriverPicker({ reference, leg = "outbound", drivers, current, ca
                 ? <img src={`/api/admin/driver-images/${encodeURIComponent(d.id)}/profile`} alt="" loading="lazy" className="size-10 shrink-0 rounded-full object-cover" />
                 : <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[13px] font-bold text-[#C96100]" aria-hidden="true">{initials(d.name)}</span>}
               <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="truncate text-[15px] font-semibold text-slate-900">{d.name}</span>
+                <span className="truncate text-[15px] font-semibold text-slate-900" title={d.name}>{shortName(d.name)}</span>
                 {d.vehicleType && TYPE[d.vehicleType] && <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11.5px] font-semibold text-slate-700">{TYPE[d.vehicleType]}</span>}
               </span>
               <span className="shrink-0 text-[13px] font-semibold text-slate-600">{d.plate || "No plate"}</span>
