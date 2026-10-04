@@ -4,8 +4,7 @@ import { customerFromRequest } from "@/lib/customer-auth";
 import { readCookie } from "@/lib/staff-security";
 import { isJsonRequest, sameOrigin, secureToken, sha256 } from "@/lib/security";
 import { googleReviewUrl, reviewForConversation } from "@/lib/support-reviews";
-import { getRequestExecutionContext } from "vinext/shims/request-context";
-import { runCee } from "@/lib/cee/bot";
+import { scheduleNon } from "@/lib/cee/schedule";
 import { addVisitorMessage, conversationByTokenHash, createConversation, messagesFor, type Conversation } from "@/lib/website-chat";
 
 // Customer side of the chat. The httpOnly cookie token is the only key to a conversation;
@@ -46,7 +45,7 @@ export async function POST(request: Request) {
   const clientId = typeof input.clientId === "string" && /^[a-zA-Z0-9-]{8,64}$/.test(input.clientId) ? input.clientId : null;
 
   const window = Math.floor(Date.now() / 900000), fingerprint = await sha256(`chat:${env.RATE_LIMIT_SALT ?? "waydidi"}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`);
-  const attempt = await env.DB.prepare("INSERT INTO security_rate_windows(fingerprint,window,attempts) VALUES(?,?,1) ON CONFLICT(fingerprint,window) DO UPDATE SET attempts=attempts+1 WHERE attempts<20 RETURNING attempts").bind(fingerprint, window).first();
+  const attempt = await env.DB.prepare("INSERT INTO security_rate_windows(fingerprint,window,attempts) VALUES(?,?,1) ON CONFLICT(fingerprint,window) DO UPDATE SET attempts=attempts+1 WHERE attempts<60 RETURNING attempts").bind(fingerprint, window).first();
   if (!attempt) return fail("Please wait a few minutes before sending more messages.", 429);
 
   let c = await current(request), token: string | null = null;
@@ -73,8 +72,8 @@ export async function POST(request: Request) {
     });
   }
   const result = await addVisitorMessage(c, message, clientId);
-  // Non answers in the background so sending never waits on it.
-  if (!result.duplicate) { const job = runCee(c.id); const ctx = getRequestExecutionContext(); if (ctx) ctx.waitUntil(job); }
+  // Non answers in the background (after a 5 s pause for more messages), so sending never waits on it.
+  if (!result.duplicate) await scheduleNon(c.id).catch(() => undefined);
   const response = NextResponse.json({ ok: true, duplicate: result.duplicate, conversation: view(c) }, { headers });
   if (token) response.cookies.set(COOKIE, token, { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 30 * 86400 });
   return response;
@@ -90,6 +89,6 @@ export async function PATCH(request: Request) {
   if (email && !/^\S+@\S+\.\S+$/.test(email)) return fail("Enter a valid email.", 400);
   await env.DB.prepare("UPDATE website_conversations SET customer_name=COALESCE(?,customer_name),customer_email=COALESCE(?,customer_email),customer_phone=COALESCE(?,customer_phone),updated_at=? WHERE id=?")
     .bind(text(input.name, 100), email, text(input.phone, 40), new Date().toISOString(), c.id).run();
-  await import("@/lib/website-chat").then((m) => m.refreshCard(c.id)).catch(() => undefined);
+  await import("@/lib/website-chat").then((m) => m.refreshCard(c.id, true)).catch(() => undefined);
   return NextResponse.json({ ok: true }, { headers });
 }

@@ -14,6 +14,7 @@ export type Conversation = CardConversation & {
   token_hash: string; expires_at: string; customer_id: string | null; telegram_message_id: number | null;
   assigned_staff_id: string | null; assigned_telegram_user_id: string | null; last_message_at: string | null; updated_at: string;
   bot_paused?: number; bot_thinking_at?: string | null; channel?: string; channel_user_id?: string | null;
+  bot_lock_until?: string | null; telegram_card_at?: string | null; line_reply_token?: string | null; line_reply_token_at?: string | null;
 };
 export type ChatMessage = { id: string; sender: "visitor" | "staff"; sender_name: string | null; is_bot?: number; body: string; created_at: string; client_id: string | null; telegram_status: string | null };
 export type Staffer = { name: string; staffId?: string | null; telegramUserId?: string | null };
@@ -123,12 +124,7 @@ export async function addBotMessage(conversationId: string, body: string) {
   await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot) VALUES(?,?,'staff',?,?,'Non',1)`).bind(id, c.id, body, now).run();
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();
   await toChannel(c, id, body);
-  if (telegramConfigured() && c.telegram_message_id) {
-    try {
-      const sent = await sendCard(staffEcho(c.public_id, "Non (bot)", body), undefined, c.telegram_message_id);
-      await db().prepare("UPDATE website_chat_messages SET telegram_status='sent',telegram_message_id=? WHERE id=?").bind(sent.message_id, id).run();
-    } catch { /* the website copy is what matters */ }
-  }
+  // Not copied to Telegram: the staff group gets customer messages and handovers only (Telegram's group limit).
   return id;
 }
 
@@ -136,7 +132,14 @@ export async function addBotMessage(conversationId: string, body: string) {
 async function toChannel(c: Conversation, messageId: string, body: string) {
   if (!c.channel || c.channel === "web") return;
   try {
-    const sentId = await deliverToChannel(c.channel, c.channel_user_id, body);
+    let token: string | null = null;
+    if (c.channel === "line") {
+      // Claim the customer's latest reply token once (atomic), if it is still fresh.
+      const fresh = new Date(Date.now() - 50000).toISOString();
+      const row = await db().prepare("SELECT line_reply_token t FROM website_conversations WHERE id=? AND line_reply_token IS NOT NULL AND line_reply_token_at>?").bind(c.id, fresh).first<{ t: string }>();
+      if (row && (await db().prepare("UPDATE website_conversations SET line_reply_token=NULL WHERE id=? AND line_reply_token=?").bind(c.id, row.t).run()).meta.changes) token = row.t;
+    }
+    const sentId = await deliverToChannel(c.channel, c.channel_user_id, body, token);
     await db().prepare("UPDATE website_chat_messages SET channel_message_id=COALESCE(?,'sent') WHERE id=?").bind(sentId, messageId).run();
   } catch (error) {
     await db().prepare("UPDATE website_chat_messages SET channel_message_id='failed' WHERE id=?").bind(messageId).run();
@@ -147,6 +150,10 @@ async function toChannel(c: Conversation, messageId: string, body: string) {
 /** Marks Non as working on a reply, so the website can show "Non is typing…". */
 export const setBotThinking = (conversationId: string, on: boolean) =>
   db().prepare("UPDATE website_conversations SET bot_thinking_at=? WHERE id=?").bind(on ? nowIso() : null, conversationId).run();
+
+/** Keeps LINE's free reply token for the customer's newest message. */
+export const saveLineReplyToken = (conversationId: string, token: string) =>
+  db().prepare("UPDATE website_conversations SET line_reply_token=?,line_reply_token_at=? WHERE id=?").bind(token, nowIso(), conversationId).run();
 
 /** Latest WhatsApp/LINE conversation for this customer (reopened by a new message). */
 export const conversationForChannelUser = (channel: string, userId: string) =>
@@ -162,22 +169,27 @@ export async function assign(conversationId: string, who: Staffer, force: boolea
   const now = nowIso();
   const result = await db().prepare(`UPDATE website_conversations SET assigned_staff_id=?,assigned_telegram_user_id=?,assigned_name=?,assigned_at=?,updated_at=?
     WHERE id=? ${force ? "" : "AND assigned_name IS NULL"}`).bind(who.staffId ?? null, who.telegramUserId ?? null, who.name, now, now, conversationId).run();
-  if (result.meta.changes) { await pauseBot(conversationId, true); await refreshCard(conversationId).catch(() => undefined); }
+  if (result.meta.changes) { await pauseBot(conversationId, true); await refreshCard(conversationId, true).catch(() => undefined); }
   return result.meta.changes > 0;
 }
 
 export async function setStatus(conversationId: string, status: ChatStatus) {
   const now = nowIso();
   const result = await db().prepare("UPDATE website_conversations SET status=?,updated_at=?,closed_at=CASE WHEN ?='closed' THEN ? ELSE closed_at END WHERE id=?").bind(status, now, status, now, conversationId).run();
-  if (result.meta.changes) await refreshCard(conversationId).catch(() => undefined);
+  if (result.meta.changes) await refreshCard(conversationId, true).catch(() => undefined);
   return result.meta.changes > 0;
 }
 
 /** Re-renders the Telegram card so status and assignment stay in sync instead of posting duplicates. */
-export async function refreshCard(conversationId: string) {
+export async function refreshCard(conversationId: string, force = false) {
   if (!telegramConfigured()) return;
   const c = await conversationById(conversationId);
   if (!c?.telegram_message_id) return;
+  // New messages already arrive as replies under the card, so the card itself is refreshed at most
+  // every 30 s for them; status and assignment changes (force) update it straight away.
+  const now = Date.now();
+  if (!force && c.telegram_card_at && now - Date.parse(c.telegram_card_at) < 30000) return;
+  await db().prepare("UPDATE website_conversations SET telegram_card_at=? WHERE id=?").bind(new Date(now).toISOString(), c.id).run();
   const last = await db().prepare("SELECT sender,COALESCE(sender_name,'Waydidi team') name,body,created_at FROM website_chat_messages WHERE conversation_id=? ORDER BY rowid DESC LIMIT 1").bind(c.id).first<{ sender: string; name: string; body: string; created_at: string }>();
   await editCard(c.telegram_message_id, conversationCard(c, last ? { body: last.body, created_at: last.created_at, from: last.sender === "visitor" ? "visitor" : last.name } : null, false), conversationKeyboard(c, adminUrl(c.id)));
 }

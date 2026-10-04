@@ -5,6 +5,25 @@ import { SITE_URL } from "../lib/site";
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { runOperationsAutomation } from "../lib/operations-automation";
+import { DurableObject } from "cloudflare:workers";
+import { runCee } from "../lib/cee/bot";
+import { WAIT_MS } from "../lib/cee/schedule";
+
+/**
+ * One per chat. Each new customer message pushes the alarm 5 s later; the alarm runs Non with no
+ * 30 s request limit, and Cloudflare runs one alarm at a time per chat.
+ */
+export class NonChat extends DurableObject {
+  async fetch(request: Request) {
+    await this.ctx.storage.put("conversationId", await request.text());
+    await this.ctx.storage.setAlarm(Date.now() + WAIT_MS);
+    return new Response("scheduled");
+  }
+  async alarm() {
+    const id = await this.ctx.storage.get("conversationId") as string | undefined;
+    if (id) await runCee(id);
+  }
+}
 
 interface Env {
   ASSETS?: { fetch(request: Request): Promise<Response> };

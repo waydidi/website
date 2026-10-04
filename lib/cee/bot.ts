@@ -165,38 +165,73 @@ async function recordUsage(turn: CeeTurn) {
   await putSetting(`cee_usage:${month()}`, JSON.stringify({ replies: u.replies + 1, requests: u.requests + turn.requests, smart: u.smart + (turn.model === MODELS.smart ? 1 : 0), usd: Math.round((u.usd + turn.usd) * 1e5) / 1e5 }));
 }
 
-/** Runs after a customer message is saved (any channel). Never throws; failures fall back to the team. */
-export async function runCee(conversationId: string, client?: Client) {
+export const latestVisitorSeq = async (conversationId: string) =>
+  (await db().prepare("SELECT COALESCE(MAX(rowid),0) seq FROM website_chat_messages WHERE conversation_id=? AND sender='visitor'").bind(conversationId).first<{ seq: number }>())?.seq ?? 0;
+// One Non run per chat at a time: a 2-minute lease in the database (a crashed run frees itself).
+const takeLock = async (id: string) => {
+  const now = new Date();
+  const res = await db().prepare("UPDATE website_conversations SET bot_lock_until=? WHERE id=? AND (bot_lock_until IS NULL OR bot_lock_until<?)").bind(new Date(now.getTime() + 120000).toISOString(), id, now.toISOString()).run() as { meta?: { changes?: number } };
+  return Boolean(res.meta?.changes);
+};
+const dropLock = (id: string) => db().prepare("UPDATE website_conversations SET bot_lock_until=NULL WHERE id=?").bind(id).run();
+
+/**
+ * Answers a chat (any channel). Never throws; failures hand the chat to the team.
+ * expectSeq: only answer if that is still the customer's latest message (a newer one has its own run).
+ */
+export async function runCee(conversationId: string, options: { client?: Client; expectSeq?: number } = {}) {
+  const c0 = await conversationById(conversationId);
+  if (!c0) return;
+  if (options.expectSeq !== undefined && (await latestVisitorSeq(c0.id)) !== options.expectSeq) return;
+  if (!(await takeLock(c0.id))) return; // another run is answering; it picks up this message too
   try {
-    if (!(await ceeEnabled())) return;
-    const c = await conversationById(conversationId);
-    if (!c || c.status === "closed" || c.assigned_name || c.bot_paused) return;
-    const history = (await messagesFor(c.id, 0, 40)).map((m) => ({ sender: m.sender, body: m.body }));
-    const lastVisitor = [...history].reverse().find((m) => m.sender === "visitor");
-    if (lastVisitor && ASKS_FOR_HUMAN.test(lastVisitor.body)) {
-      await addBotMessage(c.id, "Sure, I'll pass you to the Waydidi team now. Someone will reply here soon.");
-      await handOver(c.id, "Customer asked for a person", lastVisitor.body);
-      return;
-    }
-    await setBotThinking(c.id, true);
-    // A person may join while Non is thinking; never talk over them.
-    const stillMine = async () => { const f = await conversationById(c.id); return Boolean(f && !f.assigned_name && !f.bot_paused); };
-    const turn = await ceeTurn(history, client ?? (new Anthropic({ apiKey: apiKey() }) as unknown as Client), {
-      mode: await modelMode(), channel: c.channel ?? "web",
-      onProgress: async (text) => { if (await stillMine()) await addBotMessage(c.id, text); },
-    });
-    await recordUsage(turn).catch(() => undefined);
-    if (!(await stillMine())) return;
-    if (turn.reply) await addBotMessage(c.id, turn.reply);
-    if (turn.handover) {
-      if (!turn.reply) await addBotMessage(c.id, "I'll pass this to the Waydidi team. Someone will reply here soon.");
-      await handOver(c.id, turn.handover.reason, turn.handover.summary);
+    let before = 0;
+    for (let round = 0; round < 3; round++) {
+      const handled = await latestVisitorSeq(c0.id);
+      await answerOnce(c0.id, options.client, before);
+      before = handled;
+      // A message that arrived while Non was answering gets its own answer now.
+      if ((await latestVisitorSeq(c0.id)) === handled) break;
     }
   } catch (error) {
-    console.error("cee failed", error instanceof Error ? error.message : "unknown");
+    console.error("non failed", error instanceof Error ? error.message : "unknown");
     await handOver(conversationId, "Non error", "Non couldn't answer; please reply to the customer.").catch(() => undefined);
   } finally {
+    await dropLock(conversationId).catch(() => undefined);
     await setBotThinking(conversationId, false).catch(() => undefined);
+  }
+}
+
+/** answeredUpTo: customer messages after this one arrived while Non was replying; they go last, after that reply. */
+async function answerOnce(conversationId: string, client?: Client, answeredUpTo = 0) {
+  if (!(await ceeEnabled())) return;
+  const c = await conversationById(conversationId);
+  if (!c || c.status === "closed" || c.assigned_name || c.bot_paused) return;
+  const all = await messagesFor(c.id, 0, 40);
+  const late = answeredUpTo ? all.filter((m) => m.sender === "visitor" && m.seq > answeredUpTo) : [];
+  const history = [...all.filter((m) => !late.includes(m)), ...late].map((m) => ({ sender: m.sender, body: m.body }));
+  if (history[history.length - 1]?.sender !== "visitor") return;
+  const lastVisitor = history[history.length - 1];
+  if (ASKS_FOR_HUMAN.test(lastVisitor.body)) {
+    await addBotMessage(c.id, "Sure, I'll pass you to the Waydidi team now. Someone will reply here soon.");
+    await handOver(c.id, "Customer asked for a person", lastVisitor.body);
+    return;
+  }
+  await setBotThinking(c.id, true);
+  // A person may join while Non is thinking; never talk over them.
+  const stillMine = async () => { const f = await conversationById(c.id); return Boolean(f && !f.assigned_name && !f.bot_paused); };
+  const channel = c.channel ?? "web";
+  const turn = await ceeTurn(history, client ?? (new Anthropic({ apiKey: apiKey() }) as unknown as Client), {
+    mode: await modelMode(), channel,
+    // LINE: one free reply per customer message, so the whole answer goes in one message (LINE shows its own loading dots).
+    onProgress: channel === "line" ? undefined : async (text) => { if (await stillMine()) await addBotMessage(c.id, text); },
+  });
+  await recordUsage(turn).catch(() => undefined);
+  if (!(await stillMine())) return;
+  if (turn.reply) await addBotMessage(c.id, turn.reply);
+  if (turn.handover) {
+    if (!turn.reply) await addBotMessage(c.id, "I'll pass this to the Waydidi team. Someone will reply here soon.");
+    await handOver(c.id, turn.handover.reason, turn.handover.summary);
   }
 }
 

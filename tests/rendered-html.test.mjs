@@ -8,6 +8,8 @@ test("emits the Cloudflare worker deployment contract", async () => {
     "utf8",
   );
 
-  assert.match(worker, /export \{ worker_entry_default as default \}/);
+  assert.match(worker, /export \{[^}]*\bworker_entry_default as default\b[^}]*\}/);
+  // Non's per-chat Durable Object class must be exported for its binding.
+  assert.match(worker, /export \{[^}]*\bNonChat\b[^}]*\}/);
   assert.match(worker, /async fetch\(request, env, ctx\)/);
 });

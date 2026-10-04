@@ -10,7 +10,7 @@ const mf=new Miniflare({modules:true,script:'export default {fetch(){return new 
 const db=await mf.getD1Database('DB');
 await db.exec("CREATE TABLE attractions(id TEXT PRIMARY KEY,name TEXT,customer_name TEXT,area TEXT DEFAULT '',category TEXT DEFAULT 'sight',tags_json TEXT DEFAULT '[]',open_time TEXT,close_time TEXT,closed_days_json TEXT DEFAULT '[]',duration_min INTEGER DEFAULT 60,dress_code TEXT,description TEXT,status TEXT DEFAULT 'active');");
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 globalThis.__ceeTest={env:{DB:db,ANTHROPIC_API_KEY:'test-key'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'cee-env',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0cee-env';},load(id){if(id==='\0cee-env')return 'export const env=globalThis.__ceeTest.env';}}],server:{middlewareMode:true}});
 after(async()=>{await vite.close();await mf.dispose();delete globalThis.__ceeTest;});
@@ -74,7 +74,7 @@ const replies=(id)=>db.prepare("SELECT sender_name,is_bot,body FROM website_chat
 
 test('Non replies as "Non", marked as a bot, without taking the chat',async()=>{
  const id=await conversation('How much from BKK to Pattaya?');
- await bot.runCee(id,scripted(say('Sure! What date and time?')));
+ await bot.runCee(id,{client:scripted(say('Sure! What date and time?'))});
  assert.deepEqual(await replies(id),[{sender_name:'Non',is_bot:1,body:'Sure! What date and time?'}]);
  assert.equal((await row(id)).assigned_name,null);
 });
@@ -82,22 +82,22 @@ test('a staff reply or assignment silences Non in that chat',async()=>{
  const id=await conversation('hello');
  await chat.addStaffMessage(id,'Hi, Anna here',{name:'Anna'},'dashboard');
  assert.equal((await row(id)).bot_paused,1);
- const c=scripted(say('should not send'));await bot.runCee(id,c);assert.equal(c.calls.length,0);
+ const c=scripted(say('should not send'));await bot.runCee(id,{client:c});assert.equal(c.calls.length,0);
  const id2=await conversation('hello');await chat.assign(id2,{name:'Ben'},true);assert.equal((await row(id2)).bot_paused,1);
 });
 test('asking for a person hands over without calling the model (English, Thai, Chinese)',async()=>{
  for(const text of ['Can I talk to a real person?','ขอคุยกับเจ้าหน้าที่','我要人工客服']){
-  const id=await conversation(text);const c=scripted();await bot.runCee(id,c);
+  const id=await conversation(text);const c=scripted();await bot.runCee(id,{client:c});
   assert.equal(c.calls.length,0);assert.equal((await row(id)).bot_paused,1);assert.equal((await replies(id))[0].sender_name,'Non');
  }
 });
 test('a model error hands the chat to staff and says nothing wrong to the customer',async()=>{
- const id=await conversation('BKK to Pattaya');await bot.runCee(id,scripted());
+ const id=await conversation('BKK to Pattaya');await bot.runCee(id,{client:scripted()});
  assert.equal((await row(id)).bot_paused,1);assert.equal((await replies(id)).length,0);
 });
 test('Non is off without an API key or when switched off',async()=>{
  globalThis.__ceeTest.env.ANTHROPIC_API_KEY=undefined;assert.equal(await bot.ceeEnabled(),false);globalThis.__ceeTest.env.ANTHROPIC_API_KEY='test-key';
- await bot.setCeeEnabled(false);const id=await conversation('hi');const c=scripted(say('x'));await bot.runCee(id,c);assert.equal(c.calls.length,0);
+ await bot.setCeeEnabled(false);const id=await conversation('hi');const c=scripted(say('x'));await bot.runCee(id,{client:c});assert.equal(c.calls.length,0);
  await bot.setCeeEnabled(true);assert.equal(await bot.ceeEnabled(),true);
 });
 
@@ -146,7 +146,8 @@ test('the website shows "Non is typing…" while Non works',async()=>{
 
 // WhatsApp and LINE: signed webhooks in, replies out through the same conversation and Non.
 const sent=[];const realFetch=globalThis.fetch;
-globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://graph.facebook.com')||u.startsWith('https://api.line.me')){sent.push({url:u,body:init?.body?JSON.parse(init.body):null});return new Response(JSON.stringify(u.includes('/profile/')?{displayName:'Nok'}:{messages:[{id:'wamid.out'}]}),{status:200});}return realFetch(url,init);};
+const tgCalls=[];let tg429=0;
+globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://api.telegram.org')){const m=u.split('/').pop();if(tg429>0){tg429--;return new Response(JSON.stringify({ok:false,description:'Too Many Requests',parameters:{retry_after:1}}),{status:429});}tgCalls.push({method:m,body:JSON.parse(init.body)});return new Response(JSON.stringify({ok:true,result:{message_id:900+tgCalls.length,chat:{id:1}}}));}if(u.startsWith('https://graph.facebook.com')||u.startsWith('https://api.line.me')){sent.push({url:u,body:init?.body?JSON.parse(init.body):null});return new Response(JSON.stringify(u.includes('/profile/')?{displayName:'Nok'}:{messages:[{id:'wamid.out'}]}),{status:200});}return realFetch(url,init);};
 after(()=>{globalThis.fetch=realFetch;});
 const sign=async(secret,body,enc)=>{const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const mac=new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(body)));return enc==='hex'?[...mac].map((b)=>b.toString(16).padStart(2,'0')).join(''):btoa(String.fromCharCode(...mac));};
 test('WhatsApp: verification, signature check, one conversation per number, Non replies on WhatsApp',async()=>{
@@ -185,4 +186,73 @@ test('by default every message uses Haiku 4.5, with no escalation',async()=>{
  const c=scripted(say('Hi, I am Non!'));await bot.ceeTurn([{sender:'visitor',body:'hello'}],c,{tools});
  assert.equal(c.calls[0].model,'claude-haiku-4-5');assert.ok(!c.calls[0].tools.some((t)=>t.name==='escalate'));assert.match(c.calls[0].system[0].text,/^You are Non,/);
  assert.equal(await bot.modelMode(),'fast');
+});
+
+// ---- Scaling: 5 s wait, one run per chat, Telegram volume, LINE free replies ----
+const visitor=async(id,body)=>{await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES(?,?,'visitor',?,?)").bind(crypto.randomUUID(),id,body,new Date().toISOString()).run();return bot.latestVisitorSeq(id);};
+const slow=(ms,...responses)=>{const c=scripted(...responses);const create=c.beta.messages.create;c.beta.messages.create=async(b)=>{await new Promise((r)=>setTimeout(r,ms));return create(b);};return c;};
+
+test('quick messages in a row get one reply: older scheduled runs stand down',async()=>{
+ const id=await conversation('hi');const s1=await bot.latestVisitorSeq(id);const s2=await visitor(id,'to Pattaya');const s3=await visitor(id,'tomorrow 10am');
+ const c=scripted(say('Got it: Pattaya tomorrow at 10:00. How many people?'));
+ await Promise.all([bot.runCee(id,{client:c,expectSeq:s1}),bot.runCee(id,{client:c,expectSeq:s2}),bot.runCee(id,{client:c,expectSeq:s3})]);
+ assert.equal(c.calls.length,1);assert.equal(c.calls[0].messages.at(-1).content,'hi\n\nto Pattaya\n\ntomorrow 10am');assert.equal((await replies(id)).length,1);
+});
+test('only one Non run per chat at a time',async()=>{
+ const id=await conversation('BKK to Pattaya');const c=slow(150,say('When?'),say('second'));
+ await Promise.all([bot.runCee(id,{client:c}),bot.runCee(id,{client:c})]);
+ assert.equal(c.calls.length,1);assert.equal((await replies(id)).length,1);
+ assert.equal((await db.prepare('SELECT bot_lock_until,bot_thinking_at FROM website_conversations WHERE id=?').bind(id).first()).bot_lock_until,null);
+});
+test('a message that arrives while Non is answering is answered next',async()=>{
+ const id=await conversation('BKK to Pattaya');const c=scripted(say('When are you travelling?'),say('Thanks! How many bags?'));
+ const create=c.beta.messages.create;let first=true;c.beta.messages.create=async(b)=>{if(first){first=false;await visitor(id,'tomorrow 9am, 3 people');}return create(b);};
+ await bot.runCee(id,{client:c});
+ assert.deepEqual((await replies(id)).map((r)=>r.body),['When are you travelling?','Thanks! How many bags?']);
+});
+test('scheduling hands the chat to its Durable Object and shows typing at once',async()=>{
+ const schedule=await vite.ssrLoadModule('/lib/cee/schedule.ts');const seen=[];
+ globalThis.__ceeTest.env.NON_AGENT={idFromName:(n)=>n,get:(n)=>({fetch:async(u,init)=>{seen.push([n,init.body]);return new Response('scheduled');}})};
+ const id=await conversation('hello');await schedule.scheduleNon(id);
+ assert.deepEqual(seen,[[id,id]]);assert.ok((await db.prepare('SELECT bot_thinking_at t FROM website_conversations WHERE id=?').bind(id).first()).t);
+ delete globalThis.__ceeTest.env.NON_AGENT;assert.equal(schedule.WAIT_MS,5000);
+});
+test('Telegram gets customer messages and staff replies, not Non replies; waits out a short 429',async()=>{
+ Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
+ const id=await conversation('hi');await db.prepare('UPDATE website_conversations SET telegram_message_id=500 WHERE id=?').bind(id).run();
+ tgCalls.length=0;await chat.addBotMessage(id,'Hello from Non');assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,0);
+ tg429=1;await chat.addStaffMessage(id,'Anna here',{name:'Anna'},'dashboard');
+ assert.ok(tgCalls.some((c)=>c.method==='sendMessage'&&/Anna here/.test(c.body.text)));
+ delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
+});
+test('the Telegram card is refreshed at most every 30 s, except for status and assignment changes',async()=>{
+ Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
+ const id=await conversation('hi');await db.prepare('UPDATE website_conversations SET telegram_message_id=501 WHERE id=?').bind(id).run();
+ tgCalls.length=0;await chat.refreshCard(id);await chat.refreshCard(id);await chat.refreshCard(id);
+ assert.equal(tgCalls.filter((c)=>c.method==='editMessageText').length,1);
+ await chat.setStatus(id,'pending');assert.equal(tgCalls.filter((c)=>c.method==='editMessageText').length,2);
+ delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
+});
+test('LINE: the free reply token is used once, then push',async()=>{
+ Object.assign(globalThis.__ceeTest.env,{LINE_CHANNEL_ACCESS_TOKEN:'lt',LINE_CHANNEL_SECRET:'ls'});await bot.setCeeEnabled(false);
+ const ln=await vite.ssrLoadModule('/app/api/integrations/line/webhook/route.ts');
+ const body=JSON.stringify({events:[{type:'message',replyToken:'rt-1',source:{type:'user',userId:'U9'},message:{id:'m9',type:'text',text:'hi'}}]});
+ await ln.POST(new Request('https://x/api/integrations/line/webhook',{method:'POST',headers:{'x-line-signature':await sign('ls',body,'b64')},body}));
+ const c=await db.prepare("SELECT id FROM website_conversations WHERE channel_user_id='U9'").first();
+ sent.length=0;await chat.addBotMessage(c.id,'Hello! Where to?');await chat.addBotMessage(c.id,'Second message');
+ assert.deepEqual(sent.filter((x)=>x.url.includes('/message/')).map((x)=>[x.url.split('/').pop(),x.body.replyToken??x.body.to]),[['reply','rt-1'],['push','U9']]);
+ await bot.setCeeEnabled(true);
+});
+test('website send limit is 60 messages per 15 minutes per connection',async()=>{
+ const src=await readFile(root+'/app/api/chat/route.ts','utf8');assert.match(src,/attempts<60/);
+});
+test('load: 60 chats (20 each on website, WhatsApp, LINE), 3 quick messages each, one reply per chat',async()=>{
+ const chats=[];for(let i=0;i<60;i++)chats.push(await conversation(`chat ${i}: hi`));
+ const channels=['web','whatsapp','line'];for(let i=0;i<60;i++)await db.prepare('UPDATE website_conversations SET channel=? WHERE id=?').bind(channels[i%3],chats[i]).run();
+ let calls=0;const client={beta:{messages:{create:async(b)=>{calls++;await new Promise((r)=>setTimeout(r,20+Math.random()*80));return say(`Answer to: ${b.messages.at(-1).content.split('\n\n').length} messages`);}}}};
+ const jobs=[];const t0=Date.now();
+ for(const id of chats){const s1=await bot.latestVisitorSeq(id);jobs.push(bot.runCee(id,{client,expectSeq:s1}));const s2=await visitor(id,'to Pattaya');jobs.push(bot.runCee(id,{client,expectSeq:s2}));const s3=await visitor(id,'tomorrow');jobs.push(bot.runCee(id,{client,expectSeq:s3}));}
+ await Promise.all(jobs);const ms=Date.now()-t0;
+ for(const id of chats){const r=await replies(id);assert.equal(r.length,1,`chat ${id}`);assert.equal(r[0].body,'Answer to: 3 messages');}
+ assert.equal(calls,60);console.log(`# load: 60 chats × 3 messages → 60 replies, ${calls} model calls, ${ms} ms total (model simulated at 20–100 ms)`);
 });

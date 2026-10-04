@@ -96,7 +96,7 @@ export async function POST(request: Request) {
     }
     case "unassign":
       await env.DB.prepare("UPDATE website_conversations SET assigned_staff_id=NULL,assigned_telegram_user_id=NULL,assigned_name=NULL,assigned_at=NULL,updated_at=? WHERE id=?").bind(new Date().toISOString(), c.id).run();
-      await import("@/lib/website-chat").then((m) => m.refreshCard(c.id)).catch(() => undefined);
+      await import("@/lib/website-chat").then((m) => m.refreshCard(c.id, true)).catch(() => undefined);
       break;
     case "status":
       if (!(STATUSES as unknown[]).includes(input.status)) return reply("Unknown status.", 400);

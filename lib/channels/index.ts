@@ -30,12 +30,16 @@ async function line(path: string, body: Record<string, unknown>) {
 }
 
 /** Sends a staff or Non message to the customer's WhatsApp/LINE. Website chats need nothing. */
-export async function deliverToChannel(channel: string | null | undefined, userId: string | null | undefined, text: string) {
+export async function deliverToChannel(channel: string | null | undefined, userId: string | null | undefined, text: string, lineReplyToken?: string | null) {
   if (!userId) return null;
   if (channel === "whatsapp" && whatsappConfigured())
     // WhatsApp allows free-form replies within 24 hours of the customer's last message.
     return whatsapp({ to: userId, type: "text", text: { body: text.slice(0, 4096), preview_url: true } });
-  if (channel === "line" && lineConfigured()) { await line("message/push", { to: userId, messages: [{ type: "text", text: text.slice(0, 5000) }] }); return null; }
+  if (channel === "line" && lineConfigured()) {
+    // A reply token (free, single use, about a minute old at most) is tried first; push counts against the plan's quota.
+    if (lineReplyToken) { try { await line("message/reply", { replyToken: lineReplyToken, messages: [{ type: "text", text: text.slice(0, 5000) }] }); return "line-reply"; } catch { /* expired: push instead */ } }
+    await line("message/push", { to: userId, messages: [{ type: "text", text: text.slice(0, 5000) }] }); return "line-push";
+  }
   return null;
 }
 

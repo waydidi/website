@@ -45,6 +45,9 @@ function bindingConfig(command: "build" | "serve") {
           },
         ]
       : [],
+    // Non (chat assistant): one Durable Object per chat for the 5 s wait and long-running replies.
+    durable_objects: { bindings: [{ name: "NON_AGENT", class_name: "NonChat" }] },
+    migrations: [{ tag: "non-chat-v1", new_sqlite_classes: ["NonChat"] }],
     r2_buckets:
       r2 && r2BucketName ? [{ binding: r2, bucket_name: r2BucketName }] : [],
   };
