@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { readCookie } from "@/lib/staff-security";
 import { isJsonRequest, sameOrigin, secureToken, sha256 } from "@/lib/security";
+import { CHAT_MESSAGE_SELECT, ensureChatAssignments } from "@/lib/website-chat";
 const cookie="waydidi_chat";
 async function conversation(request:Request) {
  const token=readCookie(request,cookie);if(!/^[a-f0-9]{48}$/.test(token))return null;
@@ -9,8 +10,10 @@ async function conversation(request:Request) {
 }
 export async function GET(request:Request) {
  const chat=await conversation(request);
- const messages=chat?(await env.DB.prepare("SELECT sender,body,created_at FROM website_chat_messages WHERE conversation_id=? ORDER BY created_at DESC,id DESC LIMIT 100").bind(chat.id).all()).results.reverse():[];
- return NextResponse.json({messages},{headers:{"Cache-Control":"no-store"}});
+ if(chat)await ensureChatAssignments(env.DB);
+ const messages=chat?(await env.DB.prepare(`${CHAT_MESSAGE_SELECT} WHERE m.conversation_id=? ORDER BY m.created_at DESC,m.id DESC LIMIT 100`).bind(chat.id).all()).results.reverse():[];
+ const assignment=chat?await env.DB.prepare("SELECT staff_name FROM website_chat_assignments WHERE conversation_id=?").bind(chat.id).first():null;
+ return NextResponse.json({messages,assignment},{headers:{"Cache-Control":"no-store"}});
 }
 export async function POST(request:Request) {
  if(!sameOrigin(request)||!isJsonRequest(request))return NextResponse.json({error:"Request blocked"},{status:403});

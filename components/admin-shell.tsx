@@ -18,10 +18,13 @@ import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings
 // "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
 const PARTNER_TABS = [{ href: "/admin/drivers", label: "Drivers" }, { href: "/admin/storefronts", label: "Stores" }, { href: "/admin/agencies", label: "Agencies" }];
 const isPartnersPath = (pathname: string) => pathname === "/admin/partners" || PARTNER_TABS.some(t => pathname === t.href || pathname.startsWith(`${t.href}/`));
-const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : (href === "/admin/partners" && isPartnersPath(pathname)) || pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/seasons"))));
+const FINANCIAL_TABS = [{ href: "/admin/payments", label: "Payments" }, { href: "/admin/reports", label: "Reports" }, { href: "/admin/trips/commissions", label: "Commissions" }];
+const isFinancialsPath = (pathname: string) => pathname === "/admin/financials" || FINANCIAL_TABS.some(t => pathname === t.href || pathname.startsWith(`${t.href}/`));
+const isActive = (pathname: string, href: string) => href === "/admin/trips" && isFinancialsPath(pathname) ? false : (href === "/admin" ? pathname === "/admin" : (href === "/admin/partners" && isPartnersPath(pathname)) || (href === "/admin/financials" && isFinancialsPath(pathname)) || pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/seasons"))));
 
 const tabs = [
-  { href: "/admin/payments", label: "Payments", mobileLabel: "Payments", title: "Payments", icon: BarChart3 },
+  { href: "/admin/financials", label: "Financials", mobileLabel: "Financials", title: "Financials", icon: BarChart3 },
+  { href: "/admin/chat", label: "Website chat", mobileLabel: "Chat", title: "Website chat", icon: Users },
   { href: "/admin/profile", label: "Profile", mobileLabel: "Profile", title: "Profile", icon: UserRound },
   {
     href: "/admin",
@@ -29,13 +32,6 @@ const tabs = [
     mobileLabel: "Overview",
     title: "Overview",
     icon: LayoutDashboard,
-  },
-  {
-    href: "/admin/reports",
-    label: "Reports",
-    mobileLabel: "Reports",
-    title: "Reports",
-    icon: BarChart3,
   },
   {
     href: "/admin/bookings",
@@ -94,7 +90,6 @@ const tabs = [
     title: "Blog",
     icon: Newspaper,
   },
-  { href: "/admin/trips/commissions", label: "Agency commissions", mobileLabel: "Commissions", title: "Agency commissions", icon: Route },
   { href: "/admin/trips/packages", label: "Trip packages", mobileLabel: "Packages", title: "Trip packages", icon: Route },
   { href: "/admin/trips/live", label: "Live today", mobileLabel: "Live", title: "Live today", icon: Route },
   { href: "/admin/trips", label: "Trip planner", mobileLabel: "Trips", title: "Trip planner", icon: Route },
@@ -107,7 +102,6 @@ const tabs = [
 type NavLink = { href: string; label: string; icon?: typeof BookOpen; match?: (pathname: string, tab: string | null) => boolean };
 type NavGroup = NavLink & { children?: NavLink[] };
 
-const reportTab = (tab: string) => (p: string, t: string | null) => p.startsWith("/admin/reports") && (t ?? "revenue") === tab;
 
 // Sidebar: groups with sub-pages open as dropdowns (ShopZen-style).
 const SECTIONS: { title?: string; items: NavGroup[] }[] = [
@@ -126,14 +120,8 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
       { href: "/admin/trips/live", label: "Live today" },
       { href: "/admin/attractions", label: "Attractions" },
       { href: "/admin/suppliers", label: "Supplier contacts" },
-      { href: "/admin/trips/commissions", label: "Agency commissions" },
     ] },
-    { href: "/admin/payments", label: "Payments", icon: BarChart3 },
-    { href: "/admin/reports", label: "Reports", icon: BarChart3, children: [
-      { href: "/admin/reports", label: "Revenue", match: reportTab("revenue") },
-      { href: "/admin/reports?tab=payouts", label: "Driver payouts", match: reportTab("payouts") },
-      { href: "/admin/reports?tab=discounts", label: "Discounts", match: reportTab("discounts") },
-    ] },
+    { href: "/admin/financials", label: "Financials", icon: BarChart3 },
     { href: "/admin/pricing", label: "Fare management", icon: MapPinned, children: [
       { href: "/admin/pricing", label: "Areas" },
       { href: "/admin/hourly", label: "Hourly" },
@@ -157,7 +145,7 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
   ] },
 ];
 
-const linkActive = (l: NavLink, p: string, t: string | null) => { const h = l.href.split("?")[0]; return l.match ? l.match(p, t) : h === "/admin" ? p === h : h === "/admin/partners" ? isPartnersPath(p) : p.startsWith(h); };
+const linkActive = (l: NavLink, p: string, t: string | null) => { const h = l.href.split("?")[0]; return l.match ? l.match(p, t) : h === "/admin" ? p === h : h === "/admin/partners" ? isPartnersPath(p) : h === "/admin/financials" ? isFinancialsPath(p) : p.startsWith(h); };
 const groupActive = (g: NavGroup, p: string, t: string | null) => (g.children ? g.children.some((c) => linkActive(c, p, t)) : linkActive(g, p, t));
 const ALL_PAGES = SECTIONS.flatMap((s) => s.items.flatMap((g) => (g.children ? g.children.map((c) => ({ href: c.href, label: `${g.label} · ${c.label}` })) : [{ href: g.href, label: g.label }]))).concat({ href: "/admin/settings", label: "Settings" });
 
@@ -174,6 +162,8 @@ const FEATURES: { href: string; label: string; keywords: string }[] = [
   { href: "/admin/hourly", label: "Hourly prices", keywords: "hour hourly rate price city-to-city" },
   { href: "/admin/pricing", label: "Transfer prices & areas", keywords: "fare price area route zone toll" },
   { href: "/admin/payments", label: "Payments & refunds", keywords: "payment refund stripe cash paid" },
+  { href: "/admin/trips/commissions", label: "Financials · Commissions", keywords: "financials commission agency payout" },
+  { href: "/admin/reports", label: "Financials · Reports", keywords: "financials revenue report discounts" },
   { href: "/admin/reports?tab=payouts", label: "Driver payouts", keywords: "payout driver pay cost salary" },
   { href: "/admin/settings", label: "Settings & admin password", keywords: "settings password account email" },
 ];
@@ -285,7 +275,7 @@ export default function AdminShell({
   }
   const isOpen = (g: NavGroup) => openGroups[g.href] ?? groupActive(g, pathname, tab);
   const active = tabs.find((t) => isActive(pathname, t.href)) ?? tabs[0];
-  const title = pathname.startsWith("/admin/settings") ? "Settings" : pathname === "/admin/gifts" ? "Tier gifts" : pathname.startsWith("/admin/gifts/mystery") ? "Mystery gifts" : pathname.startsWith("/admin/journeys") ? "Journey details" : pathname.startsWith("/admin/calendar") ? "Calendar" : active.title;
+  const title = isFinancialsPath(pathname) ? "Financials" : pathname.startsWith("/admin/settings") ? "Settings" : pathname === "/admin/gifts" ? "Tier gifts" : pathname.startsWith("/admin/gifts/mystery") ? "Mystery gifts" : pathname.startsWith("/admin/journeys") ? "Journey details" : pathname.startsWith("/admin/calendar") ? "Calendar" : active.title;
   return (
     <div className="flex min-h-screen bg-[#F4F5F7] text-[#15161C] admin-root">
       <aside className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-slate-200/80 bg-[#FBFBFC] transition-[width] duration-300 md:flex ${collapsed ? "w-[76px]" : "w-[272px]"}`}>
@@ -339,6 +329,12 @@ export default function AdminShell({
           <h1 className="text-[26px] font-semibold tracking-[-.02em] md:text-[28px]">{title}</h1>
           {isPartnersPath(pathname) && <nav aria-label="Partner categories" className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
             {PARTNER_TABS.filter(t => allowedStaffRoute(role, t.href, "GET")).map(t => {
+              const selected = pathname === t.href || pathname.startsWith(`${t.href}/`);
+              return <Link key={t.href} href={t.href} aria-current={selected ? "page" : undefined} className={`rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors sm:px-4 ${selected ? "bg-[#FFF0DF] text-[#C96100]" : "text-slate-600 hover:bg-slate-50"}`}>{t.label}</Link>;
+            })}
+          </nav>}
+          {isFinancialsPath(pathname) && <nav aria-label="Financial categories" className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
+            {FINANCIAL_TABS.filter(t => allowedStaffRoute(role, t.href, "GET")).map(t => {
               const selected = pathname === t.href || pathname.startsWith(`${t.href}/`);
               return <Link key={t.href} href={t.href} aria-current={selected ? "page" : undefined} className={`rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors sm:px-4 ${selected ? "bg-[#FFF0DF] text-[#C96100]" : "text-slate-600 hover:bg-slate-50"}`}>{t.label}</Link>;
             })}

@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import test, { after } from 'node:test';
+import { createServer } from 'vite';
+import { Miniflare } from 'miniflare';
+import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
+const root=fileURLToPath(new URL('..',import.meta.url));
+const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("test")}}',compatibilityDate:'2026-05-22',d1Databases:['DB']});
+const db=await mf.getD1Database('DB');
+await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER);');
+for(const sql of (await readFile(root+'/drizzle/0061_website_chat.sql','utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1),('bob','Bob',1)").run();
+globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
+const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
+after(async()=>{await vite.close();await mf.dispose();delete globalThis.__chatTest;});
+const admin=await vite.ssrLoadModule('/app/api/admin/chat/route.ts');
+const customer=await vite.ssrLoadModule('/app/api/chat/route.ts');
+const {sha256}=await vite.ssrLoadModule('/lib/security.ts');
+const now=new Date().toISOString(),expires=new Date(Date.now()+86400000).toISOString(),token='a'.repeat(48);
+await db.prepare('INSERT INTO website_conversations VALUES(?,?,?,?,?)').bind('chat-1',await sha256(token),expires,now,now).run();
+await db.prepare('INSERT INTO website_conversations VALUES(?,?,?,?,?)').bind('chat-2',await sha256('b'.repeat(48)),expires,now,now).run();
+await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('visitor-1','chat-1','visitor','Can you help?',?)").bind(now).run();
+const post=(body,origin='https://example.invalid')=>new Request('https://example.invalid/api/admin/chat',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(body)});
+test('inbox shows customer messages and rejects replying before assignment',async()=>{
+ const data=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?id=chat-1'))).json();
+ assert.equal(data.conversations.find(c=>c.id==='chat-1').preview,'Can you help?');assert.equal(data.messages[0].body,'Can you help?');
+ assert.equal((await admin.POST(post({id:'chat-1',message:'Hello'}))).status,409);
+ assert.equal((await admin.POST(post({id:'chat-1',action:'assign',name:''}))).status,400);
+});
+test('parallel claims select one admin and a different admin cannot reply or overwrite assignment',async()=>{
+ const responses=await Promise.all([admin.POST(post({id:'chat-1',action:'assign',name:'Alice from Waydidi'})),admin.POST(post({id:'chat-1',action:'assign',name:'Alice from Waydidi'}))]);
+ assert.ok(responses.every(r=>r.status===200));assert.equal((await db.prepare('SELECT COUNT(*) n FROM website_chat_assignments').first()).n,1);
+ globalThis.__chatTest.user={id:'bob',displayName:'Bob',role:'support'};
+ assert.equal((await admin.POST(post({id:'chat-1',action:'assign',name:'Bob'}))).status,409);
+ assert.equal((await admin.POST(post({id:'chat-1',message:'Hi'}))).status,409);
+ globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'support'};
+});
+test('assigned reply reaches the customer with the admin name and visitor isolation',async()=>{
+ assert.equal((await admin.POST(post({id:'chat-1',action:'reply',message:'Hello, how can I help?'}))).status,200);
+ const data=await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie:`waydidi_chat=${token}`}}))).json();
+ assert.equal(data.assignment.staff_name,'Alice from Waydidi');assert.equal(data.messages.find(m=>m.sender==='staff').staff_name,'Alice from Waydidi');assert.ok(data.messages.some(m=>m.body==='Hello, how can I help?'));
+ const other=await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie:`waydidi_chat=${'b'.repeat(48)}`}}))).json();assert.equal(other.messages.length,0);assert.equal(other.assignment,null);
+});
+test('assignment rejects expired conversations, unauthorized roles and cross-site requests',async()=>{
+ await db.prepare("UPDATE website_conversations SET expires_at=? WHERE id='chat-2'").bind('2020-01-01T00:00:00.000Z').run();
+ assert.equal((await admin.POST(post({id:'chat-2',action:'assign',name:'Alice'}))).status,404);
+ assert.equal((await admin.POST(post({id:'chat-1',message:'Blocked'},'https://other.invalid'))).status,403);
+ globalThis.__chatTest.user={id:'bob',displayName:'Bob',role:'finance'};assert.equal((await admin.GET(new Request('https://example.invalid/api/admin/chat'))).status,403);
+ globalThis.__chatTest.user=null;assert.equal((await admin.POST(post({id:'chat-1',action:'assign',name:'Fake'}))).status,403);
+});
