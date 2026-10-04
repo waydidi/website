@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { readCookie } from "@/lib/staff-security";
 import { isJsonRequest, sameOrigin, secureToken, sha256 } from "@/lib/security";
+import { googleReviewUrl, reviewForConversation } from "@/lib/support-reviews";
 import { addVisitorMessage, conversationByTokenHash, createConversation, messagesFor, type Conversation } from "@/lib/website-chat";
 
 // Customer side of the chat. The httpOnly cookie token is the only key to a conversation;
@@ -17,6 +18,12 @@ async function current(request: Request) {
   return /^[a-f0-9]{48}$/.test(token) ? conversationByTokenHash(await sha256(token)) : null;
 }
 const view = (c: Conversation) => ({ publicId: c.public_id, status: c.status, agent: c.assigned_name, name: c.customer_name });
+/** Review state for a closed chat: whether it's been rated, and the Google link (shown to everyone). */
+async function reviewState(c: Conversation) {
+  if (c.status !== "closed") return null;
+  const r = await reviewForConversation(c.id);
+  return { submitted: Boolean(r), rating: r?.rating ?? null, googleUrl: googleReviewUrl() };
+}
 
 export async function GET(request: Request) {
   const c = await current(request);
@@ -24,7 +31,7 @@ export async function GET(request: Request) {
   const after = Math.max(0, Number(new URL(request.url).searchParams.get("after")) || 0);
   // Visitors see staff by their display name only, never staff ids or Telegram details.
   const messages = (await messagesFor(c.id, after)).map((m) => ({ seq: m.seq, id: m.id, sender: m.sender, name: m.sender === "staff" ? m.sender_name : null, body: m.body, createdAt: m.created_at, clientId: m.client_id }));
-  return NextResponse.json({ conversation: view(c), messages }, { headers });
+  return NextResponse.json({ conversation: { ...view(c), review: await reviewState(c) }, messages }, { headers });
 }
 
 export async function POST(request: Request) {
@@ -39,19 +46,22 @@ export async function POST(request: Request) {
   if (!attempt) return fail("Please wait a few minutes before sending more messages.", 429);
 
   let c = await current(request), token: string | null = null;
+  // A finished (closed) chat stays as it was rated; a new message starts a fresh conversation.
+  const previous = c?.status === "closed" ? c : null;
+  if (previous) c = null;
   if (!c) {
     token = secureToken();
     const signedIn = await customerFromRequest(request).catch(() => null);
     const account = signedIn?.customer;
     const source = text(input.sourceUrl, 300);
     // An email is required to start a chat, so staff can always follow up.
-    const email = text(input.email, 254) ?? account?.email ?? null;
+    const email = text(input.email, 254) ?? previous?.customer_email ?? account?.email ?? null;
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) return fail("Enter your email address to start the chat.", 400);
     c = await createConversation(await sha256(token), {
-      customerId: account?.id ?? null,
-      name: text(input.name, 100) ?? (account ? `${account.name ?? ""} ${account.surname ?? ""}`.trim() || null : null),
+      customerId: account?.id ?? previous?.customer_id ?? null,
+      phone: text(input.phone, 40) ?? previous?.customer_phone ?? account?.phone ?? null,
+      name: text(input.name, 100) ?? previous?.customer_name ?? (account ? `${account.name ?? ""} ${account.surname ?? ""}`.trim() || null : null),
       email,
-      phone: text(input.phone, 40) ?? account?.phone ?? null,
       sourceUrl: source && source.startsWith("/") ? source : null,
       sourceTitle: text(input.sourceTitle, 160), topic: text(input.topic, 60),
     });

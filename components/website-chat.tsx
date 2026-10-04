@@ -8,7 +8,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // Ask Waydidi: a small always-loaded launcher. The full messenger panel is loaded only when opened.
 
 export type ChatMsg = { seq?: number; id: string; sender: "visitor" | "staff"; name: string | null; body: string; createdAt: string; clientId: string | null; state?: "sending" | "failed" };
-export type ChatInfo = { publicId: string; status: string; agent: string | null; name: string | null } | null;
+export type ChatReview = { submitted: boolean; rating: number | null; googleUrl: string | null } | null;
+export type ChatInfo = { publicId: string; status: string; agent: string | null; name: string | null; review?: ChatReview } | null;
 export type Context = { topic?: string | null; name?: string; email?: string; phone?: string };
 
 const ChatPanel = dynamic(() => import("@/components/chat/chat-panel").then((m) => m.ChatPanel), { ssr: false, loading: () => null });
@@ -36,6 +37,7 @@ export function WebsiteChat() {
   const [loadError, setLoadError] = useState(false);
   const [seen, setSeen] = useState(0);
   const cursor = useRef(0);
+  const fresh = useRef(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => { setActive(store.get(ACTIVE_KEY) === "1"); setSeen(Number(store.get(SEEN_KEY)) || 0); }, 0);
@@ -50,7 +52,11 @@ export function WebsiteChat() {
     const res = await fetch(`/api/chat?after=${cursor.current}`, { cache: "no-store" });
     if (!res.ok) throw new Error("load");
     const data = await res.json() as { conversation: ChatInfo; messages: ChatMsg[] };
-    setInfo(data.conversation); setLoadError(false);
+    setLoadError(false);
+    // After "Start a new conversation" the finished chat stays hidden until the first new message creates the next one.
+    if (fresh.current && data.conversation?.status === "closed") return;
+    fresh.current = false;
+    setInfo(data.conversation);
     if (!data.conversation) return;
     if (data.messages.length) {
       cursor.current = Math.max(cursor.current, ...data.messages.map((m) => m.seq ?? 0));
@@ -109,7 +115,8 @@ export function WebsiteChat() {
   if (HIDDEN.test(path ?? "") || booking) return null;
   return <>
     {mounted && open && <ChatPanel info={info} messages={messages} loadError={loadError} onRetryLoad={() => void sync().catch(() => setLoadError(true))}
-      onSend={send} onClose={() => setOpen(false)} />}
+      onSend={send} onClose={() => setOpen(false)} onReviewed={() => void sync().catch(() => undefined)}
+      onNewConversation={() => { fresh.current = true; setMessages([]); setInfo((i) => (i ? { ...i, status: "new", agent: null, review: null } : i)); }} />}
     <button type="button" onClick={() => { setMounted(true); setOpen((v) => !v); }} aria-label={open ? "Close chat" : unread ? `Ask Waydidi, ${unread} new ${unread === 1 ? "message" : "messages"}` : "Ask Waydidi"} aria-expanded={open}
       className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 z-[85] grid size-14 place-items-center rounded-full bg-[#FE8B05] text-white shadow-[0_8px_24px_rgba(254,139,5,.35)] transition hover:bg-[#E67900] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FE8B05] sm:right-6 ${open ? "max-sm:hidden" : ""}`}>
       {open ? <X size={24} aria-hidden="true" /> : <MessageCircle size={26} aria-hidden="true" />}

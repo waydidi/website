@@ -1,16 +1,17 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, Minus, RotateCw, SendHorizontal, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ExternalLink, Minus, RotateCw, SendHorizontal, Star, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { WaydidiMark } from "@/components/waydidi-logo";
-import type { ChatInfo, ChatMsg, Context } from "@/components/website-chat";
+import type { ChatInfo, ChatMsg, ChatReview, Context } from "@/components/website-chat";
 
 const QUICK = ["Airport transfer", "Private driver", "Day trip", "Existing booking", "Something else"];
 const time = (iso: string) => new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
-export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onClose }: {
+export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onClose, onReviewed, onNewConversation }: {
   info: ChatInfo; messages: ChatMsg[]; loadError: boolean; onRetryLoad: () => void;
   onSend: (body: string, ctx: Context, retryOf?: ChatMsg) => Promise<string | null>; onClose: () => void;
+  onReviewed: () => void; onNewConversation: () => void;
 }) {
   const [text, setText] = useState("");
   const [topic, setTopic] = useState<string | null>(null);
@@ -104,6 +105,8 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
     </div>
     {newBelow && <button type="button" onClick={() => { list.current!.scrollTop = list.current!.scrollHeight; setNewBelow(false); }} className="absolute bottom-[86px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-[#15161C] px-3 py-1.5 text-[12.5px] font-semibold text-white shadow-lg"><ArrowDown size={14} />New message</button>}
 
+    {/* Finished chat: support rating, then the Google link (offered after every rating), or the composer */}
+    {info?.status === "closed" ? <ClosedChat key={info.publicId} review={info.review ?? null} onReviewed={onReviewed} onNewConversation={onNewConversation} onClose={onClose} /> : <>
     {/* Composer */}
     <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="border-t border-slate-200 bg-white px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
       {error && <p role="alert" className="mb-2 flex items-center gap-2 text-[12.5px] text-red-600">{error}{loadError && <button type="button" onClick={onRetryLoad} aria-label="Retry"><RotateCw size={13} /></button>}</p>}
@@ -116,6 +119,7 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
       </div>
       <p className="mt-2 text-center text-[11px] text-slate-400">Please don&apos;t share card numbers or passwords in chat.</p>
     </form>
+    </>}
   </section>;
 }
 
@@ -125,5 +129,69 @@ function Bubble({ side, who, at, tight, children }: { side: "left"; who: string 
     {who && <span className="mb-1 ml-1 text-[12px] font-semibold text-slate-600">{who}</span>}
     <p className="max-w-[82%] whitespace-pre-wrap break-words rounded-[18px] rounded-bl-md border border-slate-200 bg-white px-3.5 py-2.5 text-[14.5px] leading-snug text-[#15161C]">{children}</p>
     {at && <span className="ml-1 mt-1 text-[11.5px] text-slate-500">{at}</span>}
+  </div>;
+}
+
+const LABEL = ["", "Very poor", "Poor", "Okay", "Good", "Excellent"];
+const event = (name: string) => fetch("/api/chat/review", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "event", event: name }) }).catch(() => undefined);
+
+/** Waydidi's own support rating. It is never sent to Google; the Google link is a separate, optional step for everyone. */
+function ClosedChat({ review, onReviewed, onNewConversation, onClose }: { review: ChatReview; onReviewed: () => void; onNewConversation: () => void; onClose: () => void }) {
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [feedback, setFeedback] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<{ rating: number; googleUrl: string | null } | null>(null);
+  const done = result ?? (review?.submitted ? { rating: review.rating ?? 0, googleUrl: review.googleUrl } : null);
+  const picked = useRef(false);
+
+  useEffect(() => { if (!done) void event("prompt_viewed"); else if (done.googleUrl) void event("google_cta_viewed"); }, [Boolean(done)]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function submit() {
+    if (!rating || busy) return;
+    setBusy(true); setError("");
+    try {
+      const res = await fetch("/api/chat/review", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rating, feedback: feedback.trim() || null, consentToPublish: consent }) });
+      const out = await res.json().catch(() => ({})) as { error?: string; rating?: number; googleUrl?: string | null };
+      if (!res.ok) throw new Error(out.error ?? "Your feedback couldn't be sent. Please try again.");
+      setResult({ rating: out.rating ?? rating, googleUrl: out.googleUrl ?? null }); onReviewed();
+    } catch (e) { setError(e instanceof Error ? e.message : "Your feedback couldn't be sent."); }
+    finally { setBusy(false); }
+  }
+
+  const shown = hover || rating;
+  return <div className="max-h-[60%] overflow-y-auto border-t border-slate-200 bg-white px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-4">
+    <p className="text-center text-[12px] font-semibold uppercase tracking-wide text-slate-500">Conversation completed</p>
+    {done ? <div className="mt-2 text-center">
+      <h3 className="text-[17px] font-bold">Thank you for your feedback!</h3>
+      <p className="mt-1 text-[14px] text-slate-600">{done.rating && done.rating <= 2 ? "We're sorry the experience didn't meet your expectations. Your feedback has been shared with our team." : "Your feedback helps us improve the Waydidi experience."}</p>
+      {done.googleUrl && <>
+        <p className="mt-3 text-[14px] text-slate-600">Would you also like to share your experience with other travelers?</p>
+        <a href={done.googleUrl} target="_blank" rel="noopener noreferrer" onClick={() => void event("google_cta_clicked")}
+          className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#FE8B05] px-5 font-semibold text-white hover:bg-[#E67900]">Review Waydidi on Google Maps <ExternalLink size={16} aria-hidden="true" /><span className="sr-only">(opens Google)</span></a>
+      </>}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button type="button" onClick={onClose} className="min-h-11 rounded-full border border-slate-200 font-semibold">Done</button>
+        <button type="button" onClick={onNewConversation} className="min-h-11 rounded-full border border-slate-200 font-semibold">New conversation</button>
+      </div>
+    </div> : <div className="mt-2">
+      <h3 className="text-center text-[17px] font-bold">How was your experience with Waydidi?</h3>
+      <div role="radiogroup" aria-label="Support rating" className="mt-2 flex justify-center gap-1" onMouseLeave={() => setHover(0)}>
+        {[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} star${n > 1 ? "s" : ""}, ${LABEL[n]}`}
+          onMouseEnter={() => setHover(n)} onClick={() => { setRating(n); if (!picked.current) { picked.current = true; void event("rating_selected"); } }}
+          className="grid size-12 place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FE8B05]">
+          <Star size={32} className={n <= shown ? "fill-[#FE8B05] text-[#FE8B05]" : "text-slate-300"} aria-hidden="true" /></button>)}
+      </div>
+      <p className="h-5 text-center text-[13px] font-semibold text-slate-600" aria-live="polite">{shown ? LABEL[shown] : ""}</p>
+      <label className="mt-2 block text-[13px] font-semibold">Tell us more <span className="font-normal text-slate-500">(optional)</span>
+        <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} maxLength={1000} rows={2} placeholder="Tell us about your experience..."
+          className="mt-1 w-full resize-none rounded-xl border border-slate-200 p-3 text-[14.5px] font-normal outline-none focus:border-[#FE8B05]" /></label>
+      <label className="mt-2 flex items-start gap-2 text-[12.5px] text-slate-600"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-4 accent-[#FE8B05]" />You may publish my feedback as a Waydidi customer testimonial.</label>
+      {error && <p role="alert" className="mt-2 text-[13px] text-red-600">{error}</p>}
+      <button type="button" disabled={!rating || busy} onClick={() => void submit()} className="mt-3 min-h-12 w-full rounded-full bg-[#FE8B05] font-semibold text-white disabled:bg-slate-300">{busy ? "Sending…" : "Submit feedback"}</button>
+      <button type="button" onClick={onNewConversation} className="mt-2 w-full text-[13px] font-semibold text-slate-500 underline">Need more help? Start a new conversation</button>
+    </div>}
   </div>;
 }

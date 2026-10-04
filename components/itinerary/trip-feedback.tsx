@@ -25,7 +25,7 @@ export function TripFeedback({ token, rating: savedRating, reviewUrl, words }: {
     <h2 className="text-[20px] font-bold">{done ? w.thanksFeedback : w.howWasDay}</h2>
     {done ? <>
       <p className="mt-2 text-[15px] text-slate-700">{rating >= 4 ? w.happy : w.unhappy}</p>
-      {rating >= 4 && reviewUrl && <a href={reviewUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex h-12 items-center gap-2 rounded-full bg-[#FF8A05] px-6 font-bold text-white"><ExternalLink size={17} />{w.shareGoogle}</a>}
+      {reviewUrl && <a href={reviewUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex h-12 items-center gap-2 rounded-full bg-[#FF8A05] px-6 font-bold text-white"><ExternalLink size={17} />{w.shareGoogle}</a>}
     </> : <form onSubmit={send} className="mt-3 grid gap-3">
       <div className="flex gap-1" role="radiogroup" aria-label="Rating">
         {[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} star${n > 1 ? "s" : ""}`} onClick={() => setRating(n)} className="p-1"><Star size={34} className={n <= rating ? "fill-[#FF8A05] text-[#FF8A05]" : "text-slate-300"} /></button>)}

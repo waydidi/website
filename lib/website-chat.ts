@@ -121,7 +121,8 @@ export async function assign(conversationId: string, who: Staffer, force: boolea
 }
 
 export async function setStatus(conversationId: string, status: ChatStatus) {
-  const result = await db().prepare("UPDATE website_conversations SET status=?,updated_at=? WHERE id=?").bind(status, nowIso(), conversationId).run();
+  const now = nowIso();
+  const result = await db().prepare("UPDATE website_conversations SET status=?,updated_at=?,closed_at=CASE WHEN ?='closed' THEN ? ELSE closed_at END WHERE id=?").bind(status, now, status, now, conversationId).run();
   if (result.meta.changes) await refreshCard(conversationId).catch(() => undefined);
   return result.meta.changes > 0;
 }

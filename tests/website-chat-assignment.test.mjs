@@ -9,7 +9,7 @@ const mf=new Miniflare({modules:true,script:'export default {fetch(){return new 
 const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -105,4 +105,32 @@ test('a new chat cannot start without a valid email address',async()=>{
  assert.equal((await start({message:'Hello',email:'not-an-email'})).status,400);
  const ok=await start({message:'Hello',email:'guest@example.com'});assert.equal(ok.status,200);
  assert.equal((await db.prepare("SELECT customer_email FROM website_conversations ORDER BY created_at DESC,rowid DESC LIMIT 1").first()).customer_email,'guest@example.com');
+});
+
+test('support rating: only the owner of a closed chat can rate it, once, and every rating gets the Google link',async()=>{
+ const review=await vite.ssrLoadModule('/app/api/chat/review/route.ts');
+ Object.assign(globalThis.__chatTest.env,{GOOGLE_BUSINESS_REVIEW_URL:'https://g.page/r/waydidi/review'});
+ const owner='d'.repeat(48);
+ await db.prepare("INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status,customer_email,assigned_name) VALUES('rate-1',?,?,?,?,'WD-90001','open','r@example.com','Alice')").bind(await sha256(owner),expires,now,now).run();
+ const rate=(body,cookie=`waydidi_chat=${owner}`)=>review.POST(new Request('https://example.invalid/api/chat/review',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json',cookie,'cf-connecting-ip':'rate-test'},body:JSON.stringify(body)}));
+ assert.equal((await rate({rating:5})).status,409); // still open
+ await db.prepare("UPDATE website_conversations SET status='closed' WHERE id='rate-1'").run();
+ assert.equal((await rate({rating:5},'')).status,404); // no chat cookie
+ assert.equal((await rate({rating:5},`waydidi_chat=${'e'.repeat(48)}`)).status,404); // made-up chat token
+ for(const bad of [0,6,2.5,'5'])assert.equal((await rate({rating:bad})).status,400);
+ assert.equal((await rate({rating:3,feedback:'x'.repeat(1001)})).status,400);
+ const first=await rate({rating:1,feedback:'<script>alert(1)</script> slow reply'});assert.equal(first.status,200);
+ const body=await first.json();assert.equal(body.googleUrl,'https://g.page/r/waydidi/review');assert.equal(body.duplicate,false);
+ const again=await (await rate({rating:5})).json();assert.equal(again.duplicate,true);assert.equal(again.rating,1);
+ const rows=(await db.prepare("SELECT rating,feedback,needs_attention,admin_name,publication_status FROM support_reviews WHERE conversation_id='rate-1'").all()).results;
+ assert.equal(rows.length,1);assert.equal(rows[0].needs_attention,1);assert.equal(rows[0].admin_name,'Alice');assert.equal(rows[0].publication_status,'private');
+ const state=await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie:`waydidi_chat=${owner}`}}))).json();
+ assert.equal(state.conversation.review.submitted,true);assert.equal(state.conversation.review.googleUrl,'https://g.page/r/waydidi/review');
+ await rate({action:'event',event:'google_cta_clicked'});assert.ok((await db.prepare("SELECT google_cta_clicked_at FROM support_reviews WHERE conversation_id='rate-1'").first()).google_cta_clicked_at);
+ // A new message after closing starts a fresh conversation (email carried over) and leaves the rated one untouched.
+ const res=await customer.POST(new Request('https://example.invalid/api/chat',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json',cookie:`waydidi_chat=${owner}`,'cf-connecting-ip':'rate-new'},body:JSON.stringify({message:'One more question'})}));
+ assert.equal(res.status,200);assert.ok(res.headers.get('set-cookie'));
+ assert.equal((await db.prepare("SELECT status FROM website_conversations WHERE id='rate-1'").first()).status,'closed');
+ assert.equal((await db.prepare("SELECT COUNT(*) n FROM website_chat_messages WHERE conversation_id='rate-1' AND body='One more question'").first()).n,0);
+ assert.equal((await db.prepare("SELECT customer_email FROM website_conversations c JOIN website_chat_messages m ON m.conversation_id=c.id WHERE m.body='One more question'").first()).customer_email,'r@example.com');
 });
