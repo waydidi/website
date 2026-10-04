@@ -13,7 +13,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
 import { NotificationBell } from "@/components/admin-settings/notification-bell";
-import { AvatarMenu } from "@/components/admin-settings/avatar-menu";
 import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings/settings-dialog";
 
 // "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
@@ -344,7 +343,6 @@ export default function AdminShell({
           <Link href="/admin" aria-label="Waydidi admin home" className="shrink-0 md:hidden"><WaydidiLogo className="admin-logo h-[46px] w-auto text-[#FF8A05]" /></Link>
           <div className="hidden flex-1 md:block"><PageSearch /></div>
           <NotificationBell />
-          <AvatarMenu />
           <SettingsDialog dark={dark} onToggleDark={toggleDark} />
         </header>
         <div className="mx-auto max-w-[1600px] px-4 pt-5 sm:px-8 md:pt-6">

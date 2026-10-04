@@ -7,11 +7,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type Item = { n: number; text: string; href: string; urgent: boolean };
 
+// A notification is cleared once opened, until its count goes up again (kept on this device).
+const SEEN_KEY = "waydidi:admin-seen-notifications";
+const readSeen = (): Record<string, number> => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) ?? "{}") as Record<string, number>; } catch { return {}; } };
+const writeSeen = (seen: Record<string, number>) => { try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch { /* storage unavailable */ } };
+
 // Top-bar bell: a count of things waiting, and a list of them when tapped.
 export function NotificationBell() {
   const pathname = usePathname();
   const [items, setItems] = useState<Item[] | null>(null);
   const [open, setOpen] = useState(false);
+  const [seen, setSeen] = useState<Record<string, number>>({});
+  useEffect(() => { const t = window.setTimeout(() => setSeen(readSeen()), 0); return () => window.clearTimeout(t); }, []);
+  const markSeen = (i: Item) => { const next = { ...seen, [i.text]: i.n }; setSeen(next); writeSeen(next); };
   const box = useRef<HTMLDivElement>(null);
   const load = useCallback(() => {
     fetch("/api/admin/notifications", { cache: "no-store" }).then((r) => r.ok ? r.json() : { items: [] }).then((o: { items: Item[] }) => setItems(o.items)).catch(() => setItems([]));
@@ -24,7 +32,8 @@ export function NotificationBell() {
     document.addEventListener("mousedown", close); document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
   }, [open]);
-  const total = (items ?? []).reduce((sum, i) => sum + i.n, 0);
+  const unread = (items ?? []).filter((i) => (seen[i.text] ?? 0) < i.n);
+  const total = unread.reduce((sum, i) => sum + i.n, 0);
 
   return <div ref={box} className="relative ml-auto shrink-0">
     <button type="button" onClick={() => { setOpen((v) => !v); if (!open) load(); }} aria-haspopup="menu" aria-expanded={open} aria-label={total ? `${total} notifications` : "Notifications"} className="relative grid size-10 place-items-center rounded-full border border-slate-200 bg-white hover:bg-slate-50">
@@ -36,8 +45,8 @@ export function NotificationBell() {
       {items === null ? <p className="px-4 py-6 text-center text-slate-500">Loading…</p>
         : items.length === 0 ? <p className="px-4 py-6 text-center text-slate-500">You&apos;re all caught up.</p>
         : <ul className="max-h-80 overflow-y-auto">{items.map((i) => <li key={i.text}>
-          <Link href={i.href} role="menuitem" onClick={() => setOpen(false)} className="flex items-start gap-3 border-b border-slate-100 px-4 py-3 last:border-0 hover:bg-slate-50">
-            <span className={`mt-1.5 size-2 shrink-0 rounded-full ${i.urgent ? "bg-[#D32F2F]" : "bg-amber-500"}`} aria-hidden="true" />
+          <Link href={i.href} role="menuitem" onClick={() => { markSeen(i); setOpen(false); }} className={`flex items-start gap-3 border-b border-slate-100 px-4 py-3 last:border-0 hover:bg-slate-50 ${unread.includes(i) ? "" : "opacity-60"}`}>
+            <span className={`mt-1.5 size-2 shrink-0 rounded-full ${!unread.includes(i) ? "bg-slate-300" : i.urgent ? "bg-[#D32F2F]" : "bg-amber-500"}`} aria-hidden="true" />
             <span className="text-slate-700"><strong className="text-slate-900">{i.n}</strong> {i.text}</span>
           </Link>
         </li>)}</ul>}
