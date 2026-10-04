@@ -8,6 +8,7 @@ const root=fileURLToPath(new URL('..',import.meta.url));
 const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("test")}}',compatibilityDate:'2026-05-22',d1Databases:['DB']});
 const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER);');
+await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
 for(const sql of (await readFile(root+'/drizzle/0061_website_chat.sql','utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1),('bob','Bob',1)").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
@@ -47,4 +48,35 @@ test('assignment rejects expired conversations, unauthorized roles and cross-sit
  assert.equal((await admin.POST(post({id:'chat-1',message:'Blocked'},'https://other.invalid'))).status,403);
  globalThis.__chatTest.user={id:'bob',displayName:'Bob',role:'finance'};assert.equal((await admin.GET(new Request('https://example.invalid/api/admin/chat'))).status,403);
  globalThis.__chatTest.user=null;assert.equal((await admin.POST(post({id:'chat-1',action:'assign',name:'Fake'}))).status,403);
+});
+test('new public website messages reach the inbox, notification and assigned reply flow',async()=>{
+ globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'support'};
+ const send=(message,cookie='')=>customer.POST(new Request('https://example.invalid/api/chat',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json',cookie,'cf-connecting-ip':'chat-delivery-test'},body:JSON.stringify({message})}));
+ const created=await send('New website customer message');assert.equal(created.status,200);
+ const cookie=created.headers.get('set-cookie').split(';')[0];
+ const inbox=await (await admin.GET(new Request('https://example.invalid/api/admin/chat'))).json();
+ const chat=inbox.conversations.find(c=>c.preview==='New website customer message');assert.ok(chat);
+ const detail=await (await admin.GET(new Request(`https://example.invalid/api/admin/chat?id=${chat.id}`))).json();assert.equal(detail.messages[0].body,'New website customer message');
+ const summary=()=>admin.GET(new Request('https://example.invalid/api/admin/chat?summary=1')).then(r=>r.json());
+ const alert=(await summary()).items.find(i=>i.href.endsWith(chat.id));assert.equal(alert.n,1);assert.match(alert.key,/^chat:/);
+ assert.equal((await admin.POST(post({id:chat.id,action:'assign',name:'Alice'}))).status,200);
+ assert.equal((await admin.POST(post({id:chat.id,action:'reply',message:'Hello customer'}))).status,200);
+ const history=await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie}}))).json();assert.ok(history.messages.some(m=>m.body==='Hello customer'&&m.staff_name==='Alice'));
+ assert.equal((await summary()).items.some(i=>i.href.endsWith(chat.id)),false);
+ assert.equal((await send('Another customer question',cookie)).status,200);
+ const next=(await summary()).items.find(i=>i.href.endsWith(chat.id));assert.equal(next.n,1);assert.notEqual(next.key,alert.key);
+});
+
+test('an expired or missing selected chat does not hide the active inbox',async()=>{
+ globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'support'};
+ const response=await admin.GET(new Request('https://example.invalid/api/admin/chat?id=missing-chat'));
+ assert.equal(response.status,200);const data=await response.json();assert.ok(data.conversations.length>0);assert.equal(data.conversation,null);assert.deepEqual(data.messages,[]);assert.ok(data.selectionError);
+});
+test('customer messages sent in the same millisecond as a reply remain visible and notify admins',async()=>{
+ const stamp='2026-10-04T00:00:00.000Z';
+ await db.prepare('INSERT INTO website_conversations VALUES(?,?,?,?,?)').bind('same-time-chat',await sha256('c'.repeat(48)),expires,stamp,stamp).run();
+ await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,staff_id,created_at) VALUES('z-staff','same-time-chat','staff','Staff reply','alice',?)").bind(stamp).run();
+ await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('a-visitor','same-time-chat','visitor','Customer follow-up',?)").bind(stamp).run();
+ const summary=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?summary=1'))).json();assert.equal(summary.items.find(i=>i.href.endsWith('same-time-chat'))?.n,1);
+ const inbox=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?id=same-time-chat'))).json();assert.equal(inbox.conversations.find(c=>c.id==='same-time-chat').preview,'Customer follow-up');assert.deepEqual(inbox.messages.map(m=>m.body),['Staff reply','Customer follow-up']);
 });

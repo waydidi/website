@@ -1,47 +1,58 @@
 "use client";
 import { useEffect, useState, useCallback, useRef, type FormEvent } from "react";
 import { MessageCircle, Send, UserRound, ArrowLeft } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 type Conversation = { id: string; preview: string; updated_at: string; staff_id: string | null; staff_name: string | null; last_sender: string };
 type Message = { id: string; sender: string; staff_name: string | null; body: string; created_at: string };
-type ChatData = { conversations: Conversation[]; conversation: Conversation | null; messages: Message[]; me: { id: string; name: string }; error?: string };
+type ChatData = { conversations: Conversation[]; conversation: Conversation | null; messages: Message[]; me: { id: string; name: string }; error?: string; selectionError?: string | null };
 export default function ChatInbox() {
-  const [conversations, setConversations] = useState<Conversation[]>([]), [id, setId] = useState(""), [messages, setMessages] = useState<Message[]>([]);
+  const searchParams = useSearchParams();
+  const requestedId = searchParams.get("id") ?? "";
+  const [conversations, setConversations] = useState<Conversation[]>([]), [id, setId] = useState(requestedId), [messages, setMessages] = useState<Message[]>([]);
   const [current, setCurrent] = useState<Conversation | null>(null), [me, setMe] = useState({ id: "", name: "" });
-  const [name, setName] = useState(""), [text, setText] = useState(""), [error, setError] = useState(""), [busy, setBusy] = useState(false), [loading, setLoading] = useState(false);
+  const [name, setName] = useState(""), [text, setText] = useState(""), [error, setError] = useState(""), [busy, setBusy] = useState(false), [loading, setLoading] = useState(false), [selectionError, setSelectionError] = useState("");
   const activeId = useRef(id); activeId.current = id;
   const bottom = useRef<HTMLDivElement>(null);
+  const requests = useRef(0), sequence = useRef(0);
+  useEffect(()=>{setId(requestedId);setMessages([]);setCurrent(null);setText("");setLoading(true);},[requestedId]);
   const load = useCallback(async (signal?: AbortSignal) => {
-    const response = await fetch(`/api/admin/chat${id ? `?id=${encodeURIComponent(id)}` : ""}`, { cache: "no-store", signal });
-    const data = await response.json() as ChatData;
-    if (signal?.aborted || activeId.current !== id) return;
-    if (!response.ok) throw new Error(data.error ?? "Chat could not be loaded.");
-    setConversations(data.conversations); setMessages(data.messages); setCurrent(data.conversation); setMe(data.me);
-    setName(value => value || data.me.name); setLoading(false);
+    requests.current++; const revision = ++sequence.current;
+    try {
+      const timeout = AbortSignal.timeout(15000);
+      const response = await fetch(`/api/admin/chat${id ? `?id=${encodeURIComponent(id)}` : ""}`, { cache: "no-store", signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+      const data = await response.json().catch(()=>({error:"Chat service is unavailable. Refresh the inbox to retry."})) as ChatData;
+      if (signal?.aborted || activeId.current !== id || revision !== sequence.current) return;
+      if (!response.ok) throw new Error(data.error ?? "Chat could not be loaded.");
+      setConversations(data.conversations); setMessages(data.messages); setCurrent(data.conversation); setMe(data.me);
+      if(data.selectionError){setSelectionError(data.selectionError);setId("");}
+      setName(value => value || data.me.name); setLoading(false); setError("");
+    } finally {requests.current--;}
   }, [id]);
   useEffect(() => {
     const controller = new AbortController();
-    const refresh = () => void load(controller.signal).catch(e => { if (!controller.signal.aborted) { setError(e instanceof Error ? e.message : "Chat unavailable."); setLoading(false); } });
-    refresh(); const timer = setInterval(refresh, 5000);
+    const refresh = (force = false) => {if (!force && requests.current) return; void load(controller.signal).catch(e => { if (!controller.signal.aborted) { setError(e instanceof Error ? e.message : "Chat unavailable."); setLoading(false); } });};
+    refresh(true); const timer = setInterval(()=>refresh(), 5000);
     return () => { controller.abort(); clearInterval(timer); };
   }, [load]);
   useEffect(() => { bottom.current?.scrollIntoView({ block: "nearest" }); }, [messages.length, id]);
   const mine = Boolean(current?.staff_id && current.staff_id === me.id);
-  function select(value: string) { setId(value); setMessages([]); setCurrent(null); setText(""); setError(""); setLoading(true); }
+  function select(value: string) { setSelectionError(""); setId(value); setMessages([]); setCurrent(null); setText(""); setError(""); setLoading(true); }
   async function act(event: FormEvent, action: "assign" | "reply") {
     event.preventDefault(); if (busy || !id) return; setBusy(true); setError("");
     try {
       const response = await fetch("/api/admin/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, id, name, message: text }) });
-      const data = await response.json() as { error?: string };
+      const data = await response.json() as { error?: string; selectionError?: string | null };
       if (!response.ok) throw new Error(data.error ?? "Chat action failed.");
       if (action === "reply") setText(""); await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Chat action failed."); }
     finally { setBusy(false); }
   }
   return <main className="px-4 py-5 sm:px-8">
+    {selectionError && <p role="status" className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{selectionError}</p>}
     {error && <p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     <div className="grid min-h-[560px] overflow-hidden rounded-2xl border border-slate-200 bg-white md:grid-cols-[280px_minmax(0,1fr)] lg:grid-cols-[320px_minmax(0,1fr)]">
       <aside aria-label="Customer conversations" className={`border-slate-200 md:border-r ${id ? "hidden md:block" : ""}`}>
-        <div className="border-b border-slate-100 p-4"><h2 className="font-semibold">Conversations</h2><p className="mt-1 text-xs text-slate-500">{conversations.length} active chats · updates every 5 seconds</p></div>
+        <div className="border-b border-slate-100 p-4"><div className="flex items-center justify-between gap-2"><h2 className="font-semibold">Conversations</h2><button type="button" disabled={busy} onClick={()=>void load().catch(e=>setError(e instanceof Error?e.message:"Chat unavailable."))} className="text-xs font-semibold text-[#C96100]">Refresh inbox</button></div><p className="mt-1 text-xs text-slate-500">{loading?"Loading…":`${conversations.length} active chats · updates every 5 seconds`}</p></div>
         <div className="max-h-[65dvh] overflow-y-auto">{!conversations.length && <p className="p-5 text-sm text-slate-500">Customer messages will appear here.</p>}
           {conversations.map(c => <button key={c.id} type="button" disabled={busy} onClick={() => select(c.id)} aria-pressed={id === c.id} className={`block w-full border-b border-slate-100 p-4 text-left disabled:opacity-60 ${id === c.id ? "bg-orange-50" : "hover:bg-slate-50"}`}>
             <div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">Customer · {c.id.slice(0, 8)}</span>{c.last_sender === "visitor" && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-[#C96100]">Customer message</span>}</div>
