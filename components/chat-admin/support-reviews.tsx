@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { countryLabel } from "@/lib/country";
 
-type Review = { id: string; rating: number; feedback: string | null; admin_name: string | null; consent_to_publish: number; publication_status: string; needs_attention: number; submitted_at: string; google_cta_clicked_at: string | null; conversation_id: string; public_id: string; customer_name: string | null; source_title: string | null; source_url: string | null };
+type Review = { id: string; rating: number; feedback: string | null; admin_name: string | null; consent_to_publish: number; publication_status: string; needs_attention: number; submitted_at: string; google_cta_clicked_at: string | null; conversation_id: string; public_id: string; customer_name: string | null; customer_country: string | null; source_title: string | null; source_url: string | null };
 type Data = {
   summary: { count: number; average: number | null; attention: number | null };
   distribution: { rating: number; n: number }[]; perAdmin: { admin: string; reviews: number; average: number }[]; reviews: Review[];
@@ -78,7 +79,7 @@ export function SupportReviews() {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {stars(r.rating)}
           {r.needs_attention ? <span className="rounded-full bg-red-50 px-2 py-0.5 text-[12px] font-semibold text-red-700">Needs attention</span> : null}
-          <span className="text-slate-600">{r.customer_name ?? "Guest"} · {r.admin_name ?? "Unassigned"}</span>
+          <span className="text-slate-600">{r.customer_name ?? "Guest"}{countryLabel(r.customer_country) ? ` · ${countryLabel(r.customer_country)}` : ""} · {r.admin_name ?? "Unassigned"}</span>
           <span className="ml-auto text-[12.5px] text-slate-500">{new Date(r.submitted_at).toLocaleString()}</span>
         </div>
         {r.feedback && <p className="mt-2 whitespace-pre-wrap break-words">{r.feedback}</p>}

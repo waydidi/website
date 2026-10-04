@@ -9,7 +9,7 @@ const mf=new Miniflare({modules:true,script:'export default {fetch(){return new 
 const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -133,4 +133,13 @@ test('support rating: only the owner of a closed chat can rate it, once, and eve
  assert.equal((await db.prepare("SELECT status FROM website_conversations WHERE id='rate-1'").first()).status,'closed');
  assert.equal((await db.prepare("SELECT COUNT(*) n FROM website_chat_messages WHERE conversation_id='rate-1' AND body='One more question'").first()).n,0);
  assert.equal((await db.prepare("SELECT customer_email FROM website_conversations c JOIN website_chat_messages m ON m.conversation_id=c.id WHERE m.body='One more question'").first()).customer_email,'r@example.com');
+});
+
+test('the visitor country from Cloudflare is saved with a new chat; unknown codes are not',async()=>{
+ const start=(country,ip)=>customer.POST(new Request('https://example.invalid/api/chat',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json','cf-connecting-ip':ip,'cf-ipcountry':country},body:JSON.stringify({message:`From ${country}`,email:'c@example.com'})}));
+ assert.equal((await start('DE','country-1')).status,200);assert.equal((await start('XX','country-2')).status,200);
+ const row=(body)=>db.prepare("SELECT c.customer_country FROM website_conversations c JOIN website_chat_messages m ON m.conversation_id=c.id WHERE m.body=?").bind(body).first();
+ assert.equal((await row('From DE')).customer_country,'DE');assert.equal((await row('From XX')).customer_country,null);
+ const {conversationCard}=await vite.ssrLoadModule('/lib/telegram/cards.ts');
+ assert.match(conversationCard({id:'x',public_id:'WD-1',status:'open',customer_name:null,customer_email:null,customer_phone:null,source_title:null,source_url:null,topic:null,assigned_name:null,created_at:now,customer_country:'DE'},null,true),/Germany/);
 });

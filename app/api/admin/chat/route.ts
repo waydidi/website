@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     if (!c || c.expires_at <= now) selectionError = "That chat has expired or is unavailable. Choose another conversation.";
     else {
       conversation = { id: c.id, public_id: c.public_id, status: c.status, customer_name: c.customer_name, customer_email: c.customer_email, customer_phone: c.customer_phone,
-        customer_id: c.customer_id, source_url: c.source_url, source_title: c.source_title, topic: c.topic, assigned_name: c.assigned_name, assigned_staff_id: c.assigned_staff_id,
+        customer_id: c.customer_id, customer_country: c.customer_country ?? null, source_url: c.source_url, source_title: c.source_title, topic: c.topic, assigned_name: c.assigned_name, assigned_staff_id: c.assigned_staff_id,
         created_at: c.created_at, on_telegram: Boolean(c.telegram_message_id) };
       messages = await messagesFor(c.id);
     }

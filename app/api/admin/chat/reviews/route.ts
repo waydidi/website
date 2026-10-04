@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     env.DB.prepare(`SELECT rating, COUNT(*) n FROM support_reviews r WHERE ${filter} GROUP BY rating`).bind(...binds).all(),
     env.DB.prepare(`SELECT COALESCE(admin_name,'Unassigned') admin, COUNT(*) reviews, ROUND(AVG(rating),2) average FROM support_reviews r WHERE ${filter} GROUP BY 1 ORDER BY reviews DESC`).bind(...binds).all(),
     env.DB.prepare(`SELECT r.id,r.rating,r.feedback,r.admin_name,r.consent_to_publish,r.publication_status,r.needs_attention,r.submitted_at,r.google_cta_clicked_at,
-      c.id conversation_id,c.public_id,c.customer_name,c.source_title,c.source_url FROM support_reviews r JOIN website_conversations c ON c.id=r.conversation_id
+      c.id conversation_id,c.public_id,c.customer_name,c.customer_country,c.source_title,c.source_url FROM support_reviews r JOIN website_conversations c ON c.id=r.conversation_id
       WHERE ${filter} ORDER BY r.submitted_at DESC LIMIT 200`).bind(...binds).all(),
     // Funnel: only events we can observe. A Google click is a click, not a Google review.
     env.DB.prepare(`SELECT (SELECT COUNT(*) FROM website_conversations WHERE closed_at IS NOT NULL) closed,

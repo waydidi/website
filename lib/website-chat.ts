@@ -24,15 +24,15 @@ const nowIso = () => new Date().toISOString();
 export const conversationById = (id: string) => db().prepare("SELECT * FROM website_conversations WHERE id=?").bind(id).first<Conversation>();
 export const conversationByTokenHash = (hash: string) => db().prepare("SELECT * FROM website_conversations WHERE token_hash=? AND expires_at>?").bind(hash, nowIso()).first<Conversation>();
 
-export async function createConversation(tokenHash: string, context: { customerId?: string | null; name?: string | null; email?: string | null; phone?: string | null; sourceUrl?: string | null; sourceTitle?: string | null; topic?: string | null }) {
+export async function createConversation(tokenHash: string, context: { customerId?: string | null; name?: string | null; email?: string | null; phone?: string | null; sourceUrl?: string | null; sourceTitle?: string | null; topic?: string | null; country?: string | null }) {
   const id = crypto.randomUUID(), now = nowIso();
   for (let attempt = 0; attempt < 4; attempt++) {
     // Display id only (e.g. WD-48213); it never grants access — the cookie token does.
     const publicId = `WD-${String(crypto.getRandomValues(new Uint32Array(1))[0] % 90000 + 10000)}`;
     try {
-      await db().prepare(`INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status,customer_id,customer_name,customer_email,customer_phone,source_url,source_title,topic,last_message_at)
-        VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,?,?,?)`).bind(id, tokenHash, new Date(Date.now() + 30 * 86400000).toISOString(), now, now, publicId,
-        context.customerId ?? null, context.name ?? null, context.email ?? null, context.phone ?? null, context.sourceUrl ?? null, context.sourceTitle ?? null, context.topic ?? null, now).run();
+      await db().prepare(`INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status,customer_id,customer_name,customer_email,customer_phone,source_url,source_title,topic,last_message_at,customer_country)
+        VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,?,?,?,?)`).bind(id, tokenHash, new Date(Date.now() + 30 * 86400000).toISOString(), now, now, publicId,
+        context.customerId ?? null, context.name ?? null, context.email ?? null, context.phone ?? null, context.sourceUrl ?? null, context.sourceTitle ?? null, context.topic ?? null, now, context.country ?? null).run();
       return (await conversationById(id))!;
     } catch (error) { if (!/UNIQUE/i.test(String(error)) || attempt === 3) throw error; }
   }

@@ -3,9 +3,10 @@
 import { ArrowLeft, Globe, Mail, MessageCircle, Phone, Search, SendHorizontal, Tag, UserRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { countryLabel } from "@/lib/country";
 
 type Row = { id: string; public_id: string; status: string; customer_name: string | null; customer_email: string | null; source_title: string | null; source_url: string | null; assigned_name: string | null; assigned_staff_id: string | null; last_message_at: string | null; unread: number; preview: string | null; last_sender: string | null };
-type Detail = Row & { customer_phone: string | null; customer_id: string | null; topic: string | null; created_at: string; on_telegram: boolean };
+type Detail = Row & { customer_country: string | null; customer_phone: string | null; customer_id: string | null; topic: string | null; created_at: string; on_telegram: boolean };
 type Msg = { seq: number; id: string; sender: "visitor" | "staff"; sender_name: string | null; body: string; created_at: string; telegram_status: string | null };
 type Data = { conversations: Row[]; conversation: Detail | null; messages: Msg[]; selectionError: string | null; team: { id: string; name: string }[]; me: { id: string; name: string } };
 
@@ -119,6 +120,7 @@ export function ChatInbox() {
         <h3 className="text-[12px] font-bold uppercase tracking-wide text-slate-500">Customer</h3>
         <p className="mt-2 flex items-center gap-2 font-semibold"><UserRound size={15} className="text-slate-400" />{c.customer_name ?? "Not given"}{c.customer_id && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Member</span>}</p>
         {c.customer_email && <p className="mt-1.5 flex items-center gap-2"><Mail size={15} className="text-slate-400" /><a className="truncate underline" href={`mailto:${c.customer_email}`}>{c.customer_email}</a></p>}
+        {countryLabel(c.customer_country) && <p className="mt-1.5 flex items-center gap-2"><Globe size={15} className="text-slate-400" />{countryLabel(c.customer_country)} <span className="text-[12px] text-slate-500">(where they chatted from)</span></p>}
         {c.customer_phone && <p className="mt-1.5 flex items-center gap-2"><Phone size={15} className="text-slate-400" /><a className="underline" href={`tel:${c.customer_phone}`}>{c.customer_phone}</a></p>}
         <h3 className="mt-5 text-[12px] font-bold uppercase tracking-wide text-slate-500">Started from</h3>
         <p className="mt-2 flex items-start gap-2"><Globe size={15} className="mt-0.5 shrink-0 text-slate-400" />{c.source_url ? <a href={c.source_url} target="_blank" rel="noreferrer" className="underline">{c.source_title || c.source_url}</a> : "Unknown page"}</p>

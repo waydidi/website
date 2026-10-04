@@ -64,6 +64,8 @@ export async function POST(request: Request) {
       email,
       sourceUrl: source && source.startsWith("/") ? source : null,
       sourceTitle: text(input.sourceTitle, 160), topic: text(input.topic, 60),
+      // Set by Cloudflare from the visitor's IP; "XX"/"T1" mean unknown or Tor.
+      country: /^[A-Z]{2}$/.test(request.headers.get("cf-ipcountry") ?? "") && !["XX", "T1"].includes(request.headers.get("cf-ipcountry")!) ? request.headers.get("cf-ipcountry") : null,
     });
   }
   const result = await addVisitorMessage(c, message, clientId);

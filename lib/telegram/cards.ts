@@ -1,4 +1,5 @@
 import type { InlineKeyboard } from "./client";
+import { countryLabel } from "../country";
 
 // Rich-card presentation for Telegram (HTML parse mode). Business logic never builds Telegram text itself.
 
@@ -10,6 +11,7 @@ export type ChatStatus = "open" | "pending" | "closed";
 export const STATUS_LABEL: Record<ChatStatus, string> = { open: "🟢 Open", pending: "🟡 Pending", closed: "⚪ Closed" };
 
 export type CardConversation = {
+  customer_country?: string | null;
   id: string; public_id: string; status: ChatStatus; customer_name: string | null; customer_email: string | null; customer_phone: string | null;
   source_title: string | null; source_url: string | null; topic: string | null; assigned_name: string | null; created_at: string;
 };
@@ -20,6 +22,7 @@ export function conversationCard(c: CardConversation, latest: { body: string; cr
     fresh ? "💬 <b>NEW WEBSITE CHAT</b>" : `💬 <b>Conversation ${esc(c.public_id)}</b>`,
     "",
     `👤 <b>${esc(c.customer_name || "Website visitor")}</b>`,
+    ...(countryLabel(c.customer_country) ? [`📍 ${esc(countryLabel(c.customer_country))}`] : []),
     ...(c.customer_phone ? [`📞 ${esc(c.customer_phone)}`] : []),
     ...(c.customer_email ? [`✉️ ${esc(c.customer_email)}`] : []),
     ...(fresh ? [`🆔 ${esc(c.public_id)}`] : []),
