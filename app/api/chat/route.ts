@@ -11,7 +11,7 @@ async function conversation(request:Request) {
 export async function GET(request:Request) {
  const chat=await conversation(request);
  if(chat)await ensureChatAssignments(env.DB);
- const messages=chat?(await env.DB.prepare(`${CHAT_MESSAGE_SELECT} WHERE m.conversation_id=? ORDER BY m.created_at DESC,m.id DESC LIMIT 100`).bind(chat.id).all()).results.reverse():[];
+ const messages=chat?(await env.DB.prepare(`${CHAT_MESSAGE_SELECT} WHERE m.conversation_id=? ORDER BY m.rowid DESC LIMIT 100`).bind(chat.id).all()).results.reverse():[];
  const assignment=chat?await env.DB.prepare("SELECT staff_name FROM website_chat_assignments WHERE conversation_id=?").bind(chat.id).first():null;
  return NextResponse.json({messages,assignment},{headers:{"Cache-Control":"no-store"}});
 }
