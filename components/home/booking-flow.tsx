@@ -227,6 +227,12 @@ export function BookingFlow({
 }) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) => translate(messages, key, vars);
   const [stage, setStage] = useState<Stage>("search");
+  // Lets the chat widget hide itself during the booking steps.
+  useEffect(() => {
+    document.documentElement.dataset.bookingStage = stage;
+    window.dispatchEvent(new Event("waydidi:booking-stage"));
+    return () => { delete document.documentElement.dataset.bookingStage; window.dispatchEvent(new Event("waydidi:booking-stage")); };
+  }, [stage]);
   // Lets page-wide bottom bars (e.g. "Spin the wheel") step aside during booking.
   useEffect(() => {
     document.documentElement.dataset.bookingStage = stage;

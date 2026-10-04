@@ -7,10 +7,10 @@ import { readFile } from 'node:fs/promises';
 const root=fileURLToPath(new URL('..',import.meta.url));
 const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("test")}}',compatibilityDate:'2026-05-22',d1Databases:['DB']});
 const db=await mf.getD1Database('DB');
-await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER);');
+await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const sql of (await readFile(root+'/drizzle/0061_website_chat.sql','utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
-await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1),('bob','Bob',1)").run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
 after(async()=>{await vite.close();await mf.dispose();delete globalThis.__chatTest;});
@@ -18,36 +18,35 @@ const admin=await vite.ssrLoadModule('/app/api/admin/chat/route.ts');
 const customer=await vite.ssrLoadModule('/app/api/chat/route.ts');
 const {sha256}=await vite.ssrLoadModule('/lib/security.ts');
 const now=new Date().toISOString(),expires=new Date(Date.now()+86400000).toISOString(),token='a'.repeat(48);
-await db.prepare('INSERT INTO website_conversations VALUES(?,?,?,?,?)').bind('chat-1',await sha256(token),expires,now,now).run();
-await db.prepare('INSERT INTO website_conversations VALUES(?,?,?,?,?)').bind('chat-2',await sha256('b'.repeat(48)),expires,now,now).run();
+await db.prepare('INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at) VALUES(?,?,?,?,?)').bind('chat-1',await sha256(token),expires,now,now).run();
+await db.prepare('INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at) VALUES(?,?,?,?,?)').bind('chat-2',await sha256('b'.repeat(48)),expires,now,now).run();
 await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('visitor-1','chat-1','visitor','Can you help?',?)").bind(now).run();
 const post=(body,origin='https://example.invalid')=>new Request('https://example.invalid/api/admin/chat',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(body)});
-test('inbox shows customer messages and rejects replying before assignment',async()=>{
+test('inbox shows customer messages and the first reply assigns the replying admin',async()=>{
  const data=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?id=chat-1'))).json();
  assert.equal(data.conversations.find(c=>c.id==='chat-1').preview,'Can you help?');assert.equal(data.messages[0].body,'Can you help?');
- assert.equal((await admin.POST(post({id:'chat-1',message:'Hello'}))).status,409);
- assert.equal((await admin.POST(post({id:'chat-1',action:'assign',name:''}))).status,400);
+ assert.equal((await admin.POST(post({id:'chat-1',message:''}))).status,400);
+ assert.equal((await admin.POST(post({id:'chat-1',message:'Hello'}))).status,200);
+ const row=await db.prepare("SELECT assigned_staff_id,assigned_name FROM website_conversations WHERE id='chat-1'").first();assert.equal(row.assigned_staff_id,'alice');assert.equal(row.assigned_name,'Alice');
 });
-test('parallel claims select one admin and a different admin cannot reply or overwrite assignment',async()=>{
- const responses=await Promise.all([admin.POST(post({id:'chat-1',action:'assign',name:'Alice from Waydidi'})),admin.POST(post({id:'chat-1',action:'assign',name:'Alice from Waydidi'}))]);
- assert.ok(responses.every(r=>r.status===200));assert.equal((await db.prepare('SELECT COUNT(*) n FROM website_chat_assignments').first()).n,1);
+test('another admin cannot reply to an assigned chat without an explicit takeover',async()=>{
  globalThis.__chatTest.user={id:'bob',displayName:'Bob',role:'support'};
- assert.equal((await admin.POST(post({id:'chat-1',action:'assign',name:'Bob'}))).status,409);
  assert.equal((await admin.POST(post({id:'chat-1',message:'Hi'}))).status,409);
+ assert.equal((await db.prepare("SELECT COUNT(*) n FROM website_chat_messages WHERE body='Hi'").first()).n,0);
  globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'support'};
 });
 test('assigned reply reaches the customer with the admin name and visitor isolation',async()=>{
  assert.equal((await admin.POST(post({id:'chat-1',action:'reply',message:'Hello, how can I help?'}))).status,200);
  const data=await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie:`waydidi_chat=${token}`}}))).json();
- assert.equal(data.assignment.staff_name,'Alice from Waydidi');assert.equal(data.messages.find(m=>m.sender==='staff').staff_name,'Alice from Waydidi');assert.ok(data.messages.some(m=>m.body==='Hello, how can I help?'));
- const other=await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie:`waydidi_chat=${'b'.repeat(48)}`}}))).json();assert.equal(other.messages.length,0);assert.equal(other.assignment,null);
+ assert.equal(data.conversation.agent,'Alice');assert.equal(data.messages.find(m=>m.sender==='staff').name,'Alice');assert.ok(!('staff_id' in data.messages[0]));assert.ok(data.messages.some(m=>m.body==='Hello, how can I help?'));
+ const other=await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie:`waydidi_chat=${'b'.repeat(48)}`}}))).json();assert.equal(other.messages.length,0);assert.equal(other.conversation.agent,null);
 });
 test('assignment rejects expired conversations, unauthorized roles and cross-site requests',async()=>{
  await db.prepare("UPDATE website_conversations SET expires_at=? WHERE id='chat-2'").bind('2020-01-01T00:00:00.000Z').run();
- assert.equal((await admin.POST(post({id:'chat-2',action:'assign',name:'Alice'}))).status,404);
+ const expired=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?id=chat-2'))).json();assert.ok(expired.selectionError);assert.equal((await admin.POST(post({id:'chat-2',message:'Too late'}))).status,404);
  assert.equal((await admin.POST(post({id:'chat-1',message:'Blocked'},'https://other.invalid'))).status,403);
  globalThis.__chatTest.user={id:'bob',displayName:'Bob',role:'finance'};assert.equal((await admin.GET(new Request('https://example.invalid/api/admin/chat'))).status,403);
- globalThis.__chatTest.user=null;assert.equal((await admin.POST(post({id:'chat-1',action:'assign',name:'Fake'}))).status,403);
+ globalThis.__chatTest.user=null;assert.equal((await admin.POST(post({id:'chat-1',action:'assign'}))).status,403);
 });
 test('new public website messages reach the inbox, notification and assigned reply flow',async()=>{
  globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'support'};
@@ -59,9 +58,8 @@ test('new public website messages reach the inbox, notification and assigned rep
  const detail=await (await admin.GET(new Request(`https://example.invalid/api/admin/chat?id=${chat.id}`))).json();assert.equal(detail.messages[0].body,'New website customer message');
  const summary=()=>admin.GET(new Request('https://example.invalid/api/admin/chat?summary=1')).then(r=>r.json());
  const alert=(await summary()).items.find(i=>i.href.endsWith(chat.id));assert.equal(alert.n,1);assert.match(alert.key,/^chat:/);
- assert.equal((await admin.POST(post({id:chat.id,action:'assign',name:'Alice'}))).status,200);
  assert.equal((await admin.POST(post({id:chat.id,action:'reply',message:'Hello customer'}))).status,200);
- const history=await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie}}))).json();assert.ok(history.messages.some(m=>m.body==='Hello customer'&&m.staff_name==='Alice'));
+ const history=await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie}}))).json();assert.ok(history.messages.some(m=>m.body==='Hello customer'&&m.name==='Alice'));
  assert.equal((await summary()).items.some(i=>i.href.endsWith(chat.id)),false);
  assert.equal((await send('Another customer question',cookie)).status,200);
  const next=(await summary()).items.find(i=>i.href.endsWith(chat.id));assert.equal(next.n,1);assert.notEqual(next.key,alert.key);
@@ -74,9 +72,29 @@ test('an expired or missing selected chat does not hide the active inbox',async(
 });
 test('customer messages sent in the same millisecond as a reply remain visible and notify admins',async()=>{
  const stamp='2026-10-04T00:00:00.000Z';
- await db.prepare('INSERT INTO website_conversations VALUES(?,?,?,?,?)').bind('same-time-chat',await sha256('c'.repeat(48)),expires,stamp,stamp).run();
+ await db.prepare('INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at) VALUES(?,?,?,?,?)').bind('same-time-chat',await sha256('c'.repeat(48)),expires,stamp,stamp).run();
  await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,staff_id,created_at) VALUES('z-staff','same-time-chat','staff','Staff reply','alice',?)").bind(stamp).run();
  await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('a-visitor','same-time-chat','visitor','Customer follow-up',?)").bind(stamp).run();
  const summary=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?summary=1'))).json();assert.equal(summary.items.find(i=>i.href.endsWith('same-time-chat'))?.n,1);
  const inbox=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?id=same-time-chat'))).json();assert.equal(inbox.conversations.find(c=>c.id==='same-time-chat').preview,'Customer follow-up');assert.deepEqual(inbox.messages.map(m=>m.body),['Staff reply','Customer follow-up']);
+});
+
+test('telegram replies reach only the mapped conversation, once, and only from approved admins',async()=>{
+ const hook=await vite.ssrLoadModule('/app/api/integrations/telegram/webhook/route.ts');
+ Object.assign(globalThis.__chatTest.env,{TELEGRAM_WEBHOOK_SECRET:'s'.repeat(24),TELEGRAM_CHAT_ID:'-100'});
+ await db.prepare("UPDATE website_conversations SET telegram_message_id=900,expires_at=? WHERE id='chat-2'").bind(expires).run();
+ await db.prepare("INSERT INTO telegram_admins(id,telegram_user_id,display_name,enabled,created_at,updated_at) VALUES('t1','777','Alex',1,?,?)").bind(now,now).run();
+ const call=(update,secret='s'.repeat(24))=>hook.POST(new Request('https://example.invalid/api/integrations/telegram/webhook',{method:'POST',headers:{'content-type':'application/json','x-telegram-bot-api-secret-token':secret},body:JSON.stringify(update)}));
+ const reply=(update_id,from,text,chat=-100)=>({update_id,message:{message_id:update_id,chat:{id:chat},from:{id:from},text,reply_to_message:{message_id:900,chat:{id:chat}}}});
+ assert.equal((await call(reply(1,777,'x'),'wrong-secret-wrong-secret')).status,403);
+ await call(reply(2,777,'From Telegram'));await call(reply(2,777,'From Telegram'));
+ await call(reply(3,999,'Not approved'));await call(reply(4,777,'Wrong group',-555));
+ const bodies=(await db.prepare("SELECT body,sender_name FROM website_chat_messages WHERE conversation_id='chat-2' AND sender='staff'").all()).results;
+ assert.deepEqual(bodies,[{body:'From Telegram',sender_name:'Alex'}]);
+ assert.equal((await db.prepare("SELECT COUNT(*) n FROM website_chat_messages WHERE conversation_id='chat-1' AND body='From Telegram'").first()).n,0);
+ assert.equal((await db.prepare("SELECT assigned_name FROM website_conversations WHERE id='chat-2'").first()).assigned_name,'Alex');
+ await call({update_id:5,callback_query:{id:'q',from:{id:999},data:'chat_close:chat-2',message:{message_id:900,chat:{id:-100}}}});
+ assert.equal((await db.prepare("SELECT status FROM website_conversations WHERE id='chat-2'").first()).status,'open');
+ await call({update_id:6,callback_query:{id:'q',from:{id:777},data:'chat_close:chat-2',message:{message_id:900,chat:{id:-100}}}});
+ assert.equal((await db.prepare("SELECT status FROM website_conversations WHERE id='chat-2'").first()).status,'closed');
 });

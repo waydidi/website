@@ -78,6 +78,8 @@ const worker = {
   },
   async scheduled(controller: { scheduledTime: number }, _env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(runOperationsAutomation(new Date(controller.scheduledTime)));
+    // Customer chat messages that could not reach Telegram are retried every run.
+    ctx.waitUntil(import("../lib/website-chat").then((m) => m.retryFailedTelegram()).catch(() => undefined));
   },
 };
 

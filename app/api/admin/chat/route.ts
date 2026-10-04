@@ -2,69 +2,103 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
-import { CHAT_MESSAGE_SELECT, ensureChatAssignments } from "@/lib/website-chat";
+import { addStaffMessage, assign, conversationById, deliverVisitorMessage, messagesFor, setStatus, STATUSES } from "@/lib/website-chat";
+import type { ChatStatus } from "@/lib/telegram/cards";
 
 const headers = { "Cache-Control": "no-store" };
 const reply = (error: string, status: number) => NextResponse.json({ error }, { status, headers });
+const allowed = (role: string) => ["owner", "support", "operations"].includes(role);
+
+// "Unread" = customer messages after the last staff reply.
+const UNREAD = `(SELECT COUNT(*) FROM website_chat_messages m WHERE m.conversation_id=c.id AND m.sender='visitor'
+  AND m.rowid>COALESCE((SELECT MAX(rowid) FROM website_chat_messages WHERE conversation_id=c.id AND sender='staff'),0))`;
+
 export async function GET(request: Request) {
   const staff = await getWaydidiAdmin();
-  if (!staff || !["owner", "support", "operations"].includes(staff.role)) return reply("Support staff access required.", 403);
-  await ensureChatAssignments(env.DB);
-  const id = new URL(request.url).searchParams.get("id");
-  const now = new Date().toISOString();
-  if (new URL(request.url).searchParams.get("summary") === "1") {
-    const pending = (await env.DB.prepare(`SELECT c.id,
-      (SELECT id FROM website_chat_messages WHERE conversation_id=c.id AND sender='visitor' ORDER BY rowid DESC LIMIT 1) message_id,
-      COUNT(m.id) count FROM website_conversations c
-      JOIN website_chat_messages m ON m.conversation_id=c.id AND m.sender='visitor'
-      WHERE c.expires_at>? AND m.rowid>COALESCE(
-        (SELECT MAX(rowid) FROM website_chat_messages WHERE conversation_id=c.id AND sender='staff'),0)
-      GROUP BY c.id ORDER BY c.updated_at DESC LIMIT 100`).bind(now).all()).results as {id:string;message_id:string;count:number}[];
-    return NextResponse.json({items:pending.map(c=>({key:`chat:${c.message_id}`,n:c.count,text:`customer ${c.count===1?"message":"messages"} waiting for a reply`,href:`/admin/chat?id=${encodeURIComponent(c.id)}`,urgent:true}))},{headers});
+  if (!staff || !allowed(staff.role)) return reply("Support staff access required.", 403);
+  const url = new URL(request.url), now = new Date().toISOString();
+
+  if (url.searchParams.get("summary") === "1") {
+    const rows = (await env.DB.prepare(`SELECT c.id,c.public_id,${UNREAD} unread,
+      (SELECT id FROM website_chat_messages WHERE conversation_id=c.id AND sender='visitor' ORDER BY rowid DESC LIMIT 1) message_id
+      FROM website_conversations c WHERE c.expires_at>? AND c.status<>'closed' GROUP BY c.id HAVING unread>0 ORDER BY c.last_message_at DESC LIMIT 100`).bind(now).all()).results as { id: string; public_id: string; unread: number; message_id: string }[];
+    return NextResponse.json({ items: rows.map((c) => ({ key: `chat:${c.message_id}`, n: c.unread, text: `customer ${c.unread === 1 ? "message" : "messages"} waiting · ${c.public_id}`, href: `/admin/chat?id=${encodeURIComponent(c.id)}`, urgent: true })) }, { headers });
   }
-  const conversations = (await env.DB.prepare(`SELECT c.id,c.updated_at,a.staff_id,a.staff_name,
+
+  const status = url.searchParams.get("status") ?? "active";
+  const q = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+  const filters: string[] = ["c.expires_at>?"], binds: unknown[] = [now];
+  if (status === "active") filters.push("c.status<>'closed'");
+  else if ((STATUSES as string[]).includes(status)) { filters.push("c.status=?"); binds.push(status); }
+  if (url.searchParams.get("mine") === "1") { filters.push("c.assigned_staff_id=?"); binds.push(staff.id); }
+  if (url.searchParams.get("unassigned") === "1") filters.push("c.assigned_name IS NULL");
+  if (q) {
+    filters.push(`(c.public_id LIKE ?1q OR c.customer_name LIKE ?1q OR c.customer_email LIKE ?1q OR c.customer_phone LIKE ?1q OR EXISTS(SELECT 1 FROM website_chat_messages s WHERE s.conversation_id=c.id AND s.body LIKE ?1q))`.replace(/\?1q/g, "?"));
+    for (let i = 0; i < 5; i++) binds.push(`%${q}%`);
+  }
+  const conversations = (await env.DB.prepare(`SELECT c.id,c.public_id,c.status,c.customer_name,c.customer_email,c.source_title,c.source_url,c.assigned_name,c.assigned_staff_id,c.last_message_at,c.updated_at,${UNREAD} unread,
     (SELECT body FROM website_chat_messages WHERE conversation_id=c.id ORDER BY rowid DESC LIMIT 1) preview,
     (SELECT sender FROM website_chat_messages WHERE conversation_id=c.id ORDER BY rowid DESC LIMIT 1) last_sender
-    FROM website_conversations c LEFT JOIN website_chat_assignments a ON a.conversation_id=c.id
-    WHERE c.expires_at>? ORDER BY c.updated_at DESC,c.id LIMIT 100`).bind(now).all()).results;
-  let messages: unknown[] = [], conversation = null, selectionError: string | null = null;
+    FROM website_conversations c WHERE ${filters.join(" AND ")} ORDER BY COALESCE(c.last_message_at,c.updated_at) DESC LIMIT 100`).bind(...binds).all()).results;
+
+  const id = url.searchParams.get("id");
+  let conversation = null, messages: unknown[] = [], selectionError: string | null = null;
   if (id) {
-    conversation = await env.DB.prepare(`SELECT c.id,a.staff_id,a.staff_name FROM website_conversations c
-      LEFT JOIN website_chat_assignments a ON a.conversation_id=c.id WHERE c.id=? AND c.expires_at>?`).bind(id, now).first();
-    if (!conversation) selectionError = "That chat has expired or is unavailable. Choose another conversation.";
-    else messages = (await env.DB.prepare(`${CHAT_MESSAGE_SELECT} WHERE m.conversation_id=? ORDER BY m.rowid DESC LIMIT 200`).bind(id).all()).results.reverse();
+    const c = await conversationById(id);
+    if (!c || c.expires_at <= now) selectionError = "That chat has expired or is unavailable. Choose another conversation.";
+    else {
+      conversation = { id: c.id, public_id: c.public_id, status: c.status, customer_name: c.customer_name, customer_email: c.customer_email, customer_phone: c.customer_phone,
+        customer_id: c.customer_id, source_url: c.source_url, source_title: c.source_title, topic: c.topic, assigned_name: c.assigned_name, assigned_staff_id: c.assigned_staff_id,
+        created_at: c.created_at, on_telegram: Boolean(c.telegram_message_id) };
+      messages = await messagesFor(c.id);
+    }
   }
-  return NextResponse.json({ conversations, conversation, messages, selectionError, me: { id: staff.id, name: staff.displayName } }, { headers });
+  const team = (await env.DB.prepare("SELECT id,display_name name FROM staff_accounts WHERE active=1 AND role IN ('owner','support','operations') ORDER BY display_name").all().catch(() => ({ results: [] }))).results;
+  return NextResponse.json({ conversations, conversation, messages, selectionError, team, me: { id: staff.id, name: staff.displayName } }, { headers });
 }
+
 export async function POST(request: Request) {
   if (!sameOrigin(request) || !isJsonRequest(request)) return reply("Request blocked.", 403);
   const staff = await getWaydidiAdmin();
-  if (!staff || !["owner", "support", "operations"].includes(staff.role)) return reply("Support staff access required.", 403);
-  const input = await request.json().catch(() => null) as { action?: unknown; id?: unknown; message?: unknown; name?: unknown } | null;
+  if (!staff || !allowed(staff.role)) return reply("Support staff access required.", 403);
+  const input = await request.json().catch(() => null) as { action?: unknown; id?: unknown; message?: unknown; status?: unknown; staffId?: unknown; messageId?: unknown } | null;
   if (typeof input?.id !== "string" || !input.id || input.id.length > 100) return reply("Choose a conversation.", 400);
-  await ensureChatAssignments(env.DB);
-  const now = new Date().toISOString();
-  if (input.action === "assign") {
-    const name = typeof input.name === "string" ? input.name.trim() : "";
-    if (name.length < 2 || name.length > 100) return reply("Enter your name (2–100 characters) before joining the chat.", 400);
-    const result = await env.DB.prepare(`INSERT INTO website_chat_assignments(conversation_id,staff_id,staff_name,assigned_at)
-      SELECT id,?,?,? FROM website_conversations WHERE id=? AND expires_at>?
-      ON CONFLICT(conversation_id) DO NOTHING`).bind(staff.id, name, now, input.id, now).run();
-    if (!result.meta.changes) {
-      const current = await env.DB.prepare("SELECT staff_id FROM website_chat_assignments WHERE conversation_id=?").bind(input.id).first() as { staff_id: string } | null;
-      if (!current) return reply("Conversation expired or unavailable.", 404);
-      if (current.staff_id !== staff.id) return reply("Another admin is already assigned to this chat.", 409);
+  const c = await conversationById(input.id);
+  if (!c || c.expires_at <= new Date().toISOString()) return reply("Conversation expired or unavailable.", 404);
+  const me = { name: staff.displayName, staffId: staff.id };
+
+  switch (input.action ?? "reply") {
+    case "reply": {
+      if (typeof input.message !== "string" || !input.message.trim() || input.message.length > 2000) return reply("Write a reply of up to 2,000 characters.", 400);
+      // Replying is open to the assignee; anyone else must take the chat over explicitly first.
+      if (c.assigned_name && c.assigned_staff_id !== staff.id) return reply(`${c.assigned_name} is handling this chat. Use “Assign to me” to take it over.`, 409);
+      await addStaffMessage(c.id, input.message.trim(), me, "dashboard");
+      break;
     }
-    return NextResponse.json({ ok: true }, { headers });
+    case "assign": {
+      // Explicit reassignment from the dashboard (to yourself or another support admin).
+      let target = me;
+      if (typeof input.staffId === "string" && input.staffId !== staff.id) {
+        const other = await env.DB.prepare("SELECT id,display_name FROM staff_accounts WHERE id=? AND active=1 AND role IN ('owner','support','operations')").bind(input.staffId).first() as { id: string; display_name: string } | null;
+        if (!other) return reply("Choose an active support admin.", 400);
+        target = { name: other.display_name, staffId: other.id };
+      }
+      await assign(c.id, target, true);
+      break;
+    }
+    case "unassign":
+      await env.DB.prepare("UPDATE website_conversations SET assigned_staff_id=NULL,assigned_telegram_user_id=NULL,assigned_name=NULL,assigned_at=NULL,updated_at=? WHERE id=?").bind(new Date().toISOString(), c.id).run();
+      await import("@/lib/website-chat").then((m) => m.refreshCard(c.id)).catch(() => undefined);
+      break;
+    case "status":
+      if (!(STATUSES as unknown[]).includes(input.status)) return reply("Unknown status.", 400);
+      await setStatus(c.id, input.status as ChatStatus);
+      break;
+    case "retry_telegram":
+      if (typeof input.messageId !== "string") return reply("Choose a message.", 400);
+      try { await deliverVisitorMessage(c.id, input.messageId); } catch { return reply("Telegram is still unavailable. It will retry automatically.", 502); }
+      break;
+    default: return reply("Unknown chat action.", 400);
   }
-  if (input.action !== undefined && input.action !== "reply") return reply("Unknown chat action.", 400);
-  if (typeof input.message !== "string" || !input.message.trim() || input.message.length > 2000) return reply("Write a reply of up to 2,000 characters.", 400);
-  const result = await env.DB.prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,staff_id,created_at)
-    SELECT ?,c.id,'staff',?,?,? FROM website_conversations c
-    JOIN website_chat_assignments a ON a.conversation_id=c.id
-    JOIN staff_accounts s ON s.id=a.staff_id AND s.active=1
-    WHERE c.id=? AND c.expires_at>? AND a.staff_id=?`).bind(crypto.randomUUID(), input.message.trim(), staff.id, now, input.id, now, staff.id).run();
-  if (!result.meta.changes) return reply("Assign yourself to this chat before replying. Only the assigned admin can send replies.", 409);
-  await env.DB.prepare("UPDATE website_conversations SET updated_at=? WHERE id=?").bind(now, input.id).run();
   return NextResponse.json({ ok: true }, { headers });
 }

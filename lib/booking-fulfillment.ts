@@ -18,6 +18,7 @@ export async function fulfillBooking(booking:Booking,paymentIntentId?:string|nul
  if(!confirmed) return {emailStatus:booking.emailStatus,pdfKey:booking.pdfKey};
  booking=confirmed;
  await import("@/lib/trip-booking").then((m)=>m.markTripPaid(booking.reference,(env.WAYDIDI_PUBLIC_URL||"https://waydidi.com").replace(/\/$/,""))).catch((error)=>console.error("smart trip close failed",error));
+ await import("@/lib/telegram/bookings").then((m)=>m.notifyBookingTelegram(booking.reference)).catch((error)=>console.error("telegram booking card failed",error instanceof Error?error.message:"unknown"));
  const legacy=booking.fulfillmentStatus==="complete";
  const channels=[{channel:"confirmation",recipient:null},{channel:"pdf",recipient:null},{channel:"customer_email",recipient:booking.customerEmail},{channel:"office_email",recipient:env.BOOKING_ALERT_EMAIL??null},...(await contactEmails(booking.reference)).filter(to=>to.toLowerCase()!==booking.customerEmail.toLowerCase()).map(recipient=>({channel:"copy_email",recipient}))];
  for(const job of channels) {

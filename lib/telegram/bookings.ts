@@ -1,0 +1,46 @@
+import { env } from "cloudflare:workers";
+import { SITE_URL } from "@/lib/site";
+import { VEHICLES } from "@/lib/vehicles";
+import { bookingCard, bookingKeyboard, type CardBooking } from "./cards";
+import { editCard, sendCard, telegramConfigured } from "./client";
+
+// Booking events on Telegram: one card per booking, edited in place when someone takes it.
+
+type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
+const db = () => env.DB as { prepare: (sql: string) => Stmt };
+const adminUrl = (ref: string) => `${SITE_URL}/admin/journeys/${encodeURIComponent(ref)}`;
+
+type Row = { reference: string; customer_name: string; customer_surname: string | null; pickup: string; dropoff: string; pickup_date: string; pickup_time: string; vehicle: string; passengers: number; luggage: number; total: number; payment_method: string };
+async function card(reference: string, acknowledgedBy: string | null): Promise<CardBooking | null> {
+  const b = await db().prepare("SELECT reference,customer_name,customer_surname,pickup,dropoff,pickup_date,pickup_time,vehicle,passengers,luggage,total,payment_method FROM bookings WHERE reference=?").bind(reference).first<Row>();
+  if (!b) return null;
+  return { reference: b.reference, customerName: `${b.customer_name} ${b.customer_surname ?? ""}`.trim(), pickup: b.pickup, dropoff: b.dropoff, pickupDate: b.pickup_date, pickupTime: b.pickup_time,
+    vehicle: VEHICLES[b.vehicle as keyof typeof VEHICLES]?.name ?? b.vehicle, passengers: b.passengers, luggage: b.luggage, total: b.total,
+    payment: b.payment_method === "cash" ? "cash on the day" : "paid online", acknowledgedBy };
+}
+
+/** Posts the new-booking card once per booking (safe to call repeatedly). */
+export async function notifyBookingTelegram(reference: string) {
+  if (!telegramConfigured()) return;
+  const claimed = await db().prepare("INSERT INTO telegram_booking_cards(booking_reference,telegram_message_id,created_at) VALUES(?,0,?) ON CONFLICT(booking_reference) DO NOTHING").bind(reference, new Date().toISOString()).run();
+  if (!claimed.meta.changes) return;
+  try {
+    const c = await card(reference, null);
+    if (!c) return;
+    const sent = await sendCard(bookingCard(c), bookingKeyboard(c, adminUrl(reference)));
+    await db().prepare("UPDATE telegram_booking_cards SET telegram_message_id=? WHERE booking_reference=?").bind(sent.message_id, reference).run();
+  } catch (error) {
+    // Release the claim so a later confirmation retry can post it.
+    await db().prepare("DELETE FROM telegram_booking_cards WHERE booking_reference=? AND telegram_message_id=0").bind(reference).run();
+    throw error;
+  }
+}
+
+export async function acknowledgeBooking(reference: string, name: string) {
+  const done = await db().prepare("UPDATE telegram_booking_cards SET acknowledged_by=? WHERE booking_reference=? AND acknowledged_by IS NULL").bind(name, reference).run();
+  if (!done.meta.changes) return false;
+  const row = await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>();
+  const c = await card(reference, name);
+  if (row?.telegram_message_id && c) await editCard(row.telegram_message_id, bookingCard(c), bookingKeyboard(c, adminUrl(reference))).catch(() => undefined);
+  return true;
+}

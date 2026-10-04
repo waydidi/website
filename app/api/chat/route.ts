@@ -1,30 +1,74 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
+import { customerFromRequest } from "@/lib/customer-auth";
 import { readCookie } from "@/lib/staff-security";
 import { isJsonRequest, sameOrigin, secureToken, sha256 } from "@/lib/security";
-import { CHAT_MESSAGE_SELECT, ensureChatAssignments } from "@/lib/website-chat";
-const cookie="waydidi_chat";
-async function conversation(request:Request) {
- const token=readCookie(request,cookie);if(!/^[a-f0-9]{48}$/.test(token))return null;
- return await env.DB.prepare("SELECT id FROM website_conversations WHERE token_hash=? AND expires_at>?").bind(await sha256(token),new Date().toISOString()).first() as {id:string}|null;
+import { addVisitorMessage, conversationByTokenHash, createConversation, messagesFor, type Conversation } from "@/lib/website-chat";
+
+// Customer side of the chat. The httpOnly cookie token is the only key to a conversation;
+// the WD-number shown to staff never grants access.
+const COOKIE = "waydidi_chat";
+const headers = { "Cache-Control": "no-store" };
+const fail = (error: string, status: number) => NextResponse.json({ error }, { status, headers });
+const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) || null : null);
+
+async function current(request: Request) {
+  const token = readCookie(request, COOKIE);
+  return /^[a-f0-9]{48}$/.test(token) ? conversationByTokenHash(await sha256(token)) : null;
 }
-export async function GET(request:Request) {
- const chat=await conversation(request);
- if(chat)await ensureChatAssignments(env.DB);
- const messages=chat?(await env.DB.prepare(`${CHAT_MESSAGE_SELECT} WHERE m.conversation_id=? ORDER BY m.rowid DESC LIMIT 100`).bind(chat.id).all()).results.reverse():[];
- const assignment=chat?await env.DB.prepare("SELECT staff_name FROM website_chat_assignments WHERE conversation_id=?").bind(chat.id).first():null;
- return NextResponse.json({messages,assignment},{headers:{"Cache-Control":"no-store"}});
+const view = (c: Conversation) => ({ publicId: c.public_id, status: c.status, agent: c.assigned_name, name: c.customer_name });
+
+export async function GET(request: Request) {
+  const c = await current(request);
+  if (!c) return NextResponse.json({ conversation: null, messages: [] }, { headers });
+  const after = Math.max(0, Number(new URL(request.url).searchParams.get("after")) || 0);
+  // Visitors see staff by their display name only, never staff ids or Telegram details.
+  const messages = (await messagesFor(c.id, after)).map((m) => ({ seq: m.seq, id: m.id, sender: m.sender, name: m.sender === "staff" ? m.sender_name : null, body: m.body, createdAt: m.created_at, clientId: m.client_id }));
+  return NextResponse.json({ conversation: view(c), messages }, { headers });
 }
-export async function POST(request:Request) {
- if(!sameOrigin(request)||!isJsonRequest(request))return NextResponse.json({error:"Request blocked"},{status:403});
- const input=await request.json().catch(()=>({})) as {message?:unknown};
- if(typeof input.message!=="string"||!input.message.trim()||input.message.length>2000)return NextResponse.json({error:"Write a message of up to 2,000 characters."},{status:400});
- const window=Math.floor(Date.now()/900000),fingerprint=await sha256(`chat:${env.RATE_LIMIT_SALT??"waydidi"}:${request.headers.get("cf-connecting-ip")??"unknown"}`);
- const attempt=await env.DB.prepare("INSERT INTO security_rate_windows(fingerprint,window,attempts) VALUES(?,?,1) ON CONFLICT(fingerprint,window) DO UPDATE SET attempts=attempts+1 WHERE attempts<10 RETURNING attempts").bind(fingerprint,window).first();
- if(!attempt)return NextResponse.json({error:"Please wait a few minutes before sending more messages."},{status:429});
- let chat=await conversation(request),token:string|null=null;const now=new Date().toISOString();
- if(!chat){token=secureToken();chat={id:crypto.randomUUID()};await env.DB.prepare("INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at) VALUES(?,?,?,?,?)").bind(chat.id,await sha256(token),new Date(Date.now()+7*86400000).toISOString(),now,now).run();}
- await env.DB.batch([env.DB.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES(?,?,'visitor',?,?)").bind(crypto.randomUUID(),chat.id,input.message.trim(),now),env.DB.prepare("UPDATE website_conversations SET updated_at=? WHERE id=?").bind(now,chat.id)]);
- const response=NextResponse.json({ok:true},{headers:{"Cache-Control":"no-store"}});
- if(token)response.cookies.set(cookie,token,{httpOnly:true,secure:true,sameSite:"strict",path:"/",maxAge:7*86400});return response;
+
+export async function POST(request: Request) {
+  if (!sameOrigin(request) || !isJsonRequest(request)) return fail("Request blocked", 403);
+  const input = await request.json().catch(() => ({})) as Record<string, unknown>;
+  const message = typeof input.message === "string" ? input.message.trim() : "";
+  if (!message || message.length > 2000) return fail("Write a message of up to 2,000 characters.", 400);
+  const clientId = typeof input.clientId === "string" && /^[a-zA-Z0-9-]{8,64}$/.test(input.clientId) ? input.clientId : null;
+
+  const window = Math.floor(Date.now() / 900000), fingerprint = await sha256(`chat:${env.RATE_LIMIT_SALT ?? "waydidi"}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`);
+  const attempt = await env.DB.prepare("INSERT INTO security_rate_windows(fingerprint,window,attempts) VALUES(?,?,1) ON CONFLICT(fingerprint,window) DO UPDATE SET attempts=attempts+1 WHERE attempts<20 RETURNING attempts").bind(fingerprint, window).first();
+  if (!attempt) return fail("Please wait a few minutes before sending more messages.", 429);
+
+  let c = await current(request), token: string | null = null;
+  if (!c) {
+    token = secureToken();
+    const signedIn = await customerFromRequest(request).catch(() => null);
+    const account = signedIn?.customer;
+    const source = text(input.sourceUrl, 300);
+    c = await createConversation(await sha256(token), {
+      customerId: account?.id ?? null,
+      name: text(input.name, 100) ?? (account ? `${account.name ?? ""} ${account.surname ?? ""}`.trim() || null : null),
+      email: text(input.email, 254) ?? account?.email ?? null,
+      phone: text(input.phone, 40) ?? account?.phone ?? null,
+      sourceUrl: source && source.startsWith("/") ? source : null,
+      sourceTitle: text(input.sourceTitle, 160), topic: text(input.topic, 60),
+    });
+  }
+  const result = await addVisitorMessage(c, message, clientId);
+  const response = NextResponse.json({ ok: true, duplicate: result.duplicate, conversation: view(c) }, { headers });
+  if (token) response.cookies.set(COOKIE, token, { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 30 * 86400 });
+  return response;
+}
+
+/** Optional contact details, added after the first message. */
+export async function PATCH(request: Request) {
+  if (!sameOrigin(request) || !isJsonRequest(request)) return fail("Request blocked", 403);
+  const c = await current(request);
+  if (!c) return fail("Start the chat first.", 404);
+  const input = await request.json().catch(() => ({})) as Record<string, unknown>;
+  const email = text(input.email, 254);
+  if (email && !/^\S+@\S+\.\S+$/.test(email)) return fail("Enter a valid email.", 400);
+  await env.DB.prepare("UPDATE website_conversations SET customer_name=COALESCE(?,customer_name),customer_email=COALESCE(?,customer_email),customer_phone=COALESCE(?,customer_phone),updated_at=? WHERE id=?")
+    .bind(text(input.name, 100), email, text(input.phone, 40), new Date().toISOString(), c.id).run();
+  await import("@/lib/website-chat").then((m) => m.refreshCard(c.id)).catch(() => undefined);
+  return NextResponse.json({ ok: true }, { headers });
 }

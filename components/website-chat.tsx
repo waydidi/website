@@ -1,18 +1,119 @@
 "use client";
-import Link from "next/link";
-import { MessageCircle } from "lucide-react";
-import { useEffect, useState, useCallback, type FormEvent } from "react";
+
+import dynamic from "next/dynamic";
+import { MessageCircle, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-type Message={sender:string;staff_name?:string|null;body:string;created_at:string};
-export function OpenWebsiteChat({className,children}:{className?:string;children:React.ReactNode}) {
- return <button type="button" className={className} onClick={()=>window.dispatchEvent(new Event("waydidi:open-chat"))}>{children}</button>;
+import { useCallback, useEffect, useRef, useState } from "react";
+
+// Ask Waydidi: a small always-loaded launcher. The full messenger panel is loaded only when opened.
+
+export type ChatMsg = { seq?: number; id: string; sender: "visitor" | "staff"; name: string | null; body: string; createdAt: string; clientId: string | null; state?: "sending" | "failed" };
+export type ChatInfo = { publicId: string; status: string; agent: string | null; name: string | null } | null;
+export type Context = { topic?: string | null; name?: string; email?: string; phone?: string };
+
+const ChatPanel = dynamic(() => import("@/components/chat/chat-panel").then((m) => m.ChatPanel), { ssr: false, loading: () => null });
+
+const ACTIVE_KEY = "waydidi:chat-active", SEEN_KEY = "waydidi:chat-seen";
+const store = {
+  get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
+};
+// Hidden where the chat would get in the way: staff/driver tools, payment and the booking steps.
+const HIDDEN = /^\/(admin|admin-setup|driver|trip|pay|checkout|s)(\/|$)/;
+
+export function OpenWebsiteChat({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <button type="button" className={className} onClick={() => window.dispatchEvent(new Event("waydidi:open-chat"))}>{children}</button>;
 }
+
 export function WebsiteChat() {
- const path=usePathname(),[open,setOpen]=useState(false),[messages,setMessages]=useState<Message[]>([]),[text,setText]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[adminName,setAdminName]=useState("");
- useEffect(()=>{const show=()=>setOpen(true);window.addEventListener("waydidi:open-chat",show);return()=>window.removeEventListener("waydidi:open-chat",show);},[]);
- const load=useCallback(async()=>{const response=await fetch("/api/chat",{cache:"no-store"});if(response.ok){const data=await response.json();setMessages(data.messages);setAdminName(data.assignment?.staff_name??"");}},[]);
- useEffect(()=>{if(!open)return;const first=setTimeout(()=>void load().catch(()=>setError("Chat unavailable. Please use our contact page.")),0);const timer=setInterval(()=>void load().catch(()=>undefined),10000);return()=>{clearTimeout(first);clearInterval(timer);};},[open,load]);
- async function send(e:FormEvent){e.preventDefault();if(busy||!text.trim())return;setBusy(true);setError("");try{const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:text})});const data=await r.json();if(!r.ok)throw new Error(data.error);setText("");await load();}catch(cause){setError(cause instanceof Error?cause.message:"Message could not be sent.");}finally{setBusy(false);}}
- if(/^\/(admin|driver|trip|pay)(\/|$)/.test(path??""))return null;
- return <div className="fixed bottom-24 right-4 z-[85] sm:bottom-6">{open?<section aria-label="Chat with Waydidi" className="w-[min(360px,calc(100vw-32px))] rounded-2xl border bg-white p-4 text-ink shadow-xl"><div className="flex justify-between"><h2 className="font-bold">Ask Waydidi</h2><button aria-label="Close chat" onClick={()=>setOpen(false)}>✕</button></div><p className="mt-2 text-sm text-slate-600">Send a message to our team. Replies appear here when a staff member is available. For urgent help, <Link href="/contact" className="underline">contact us</Link>.</p>{adminName&&<p className="mt-2 rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-[#C96100]">You’re chatting with {adminName}</p>}<p className="mt-2 text-xs text-slate-500">Please keep passwords, payment details, and sensitive documents out of chat.</p><div className="my-3 max-h-64 space-y-3 overflow-y-auto" aria-live="polite">{messages.map((m,i)=><div key={`${m.created_at}:${i}`} className={`rounded-lg p-3 ${m.sender==="staff"?"bg-orange-50":"bg-slate-100"}`}><strong className="text-xs">{m.sender==="staff"?m.staff_name||"Waydidi team":"You"}</strong><p className="whitespace-pre-wrap break-words text-sm">{m.body}</p></div>)}</div><form onSubmit={send}><label className="sr-only" htmlFor="website-chat-message">Your message</label><textarea id="website-chat-message" rows={2} maxLength={2000} value={text} onChange={e=>setText(e.target.value)} className="w-full resize-none rounded-lg border p-2" placeholder="How can we help?" required/><p role="alert" className="text-sm text-red-700">{error}</p><button disabled={busy||!text.trim()} className="mt-2 w-full rounded-full bg-orange-500 p-3 font-bold text-white disabled:opacity-50">{busy?"Sending…":"Send message"}</button></form></section>:<button onClick={()=>setOpen(true)} aria-label="Ask Waydidi" title="Ask Waydidi" className="grid size-14 place-items-center rounded-full bg-[#FF8A05] text-white shadow-lg hover:bg-[#E67900] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF8A05]"><MessageCircle size={26} aria-hidden="true"/></button>}</div>;
+  const path = usePathname();
+  const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [booking, setBooking] = useState(false);
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [info, setInfo] = useState<ChatInfo>(null);
+  const [active, setActive] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [seen, setSeen] = useState(0);
+  const cursor = useRef(0);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => { setActive(store.get(ACTIVE_KEY) === "1"); setSeen(Number(store.get(SEEN_KEY)) || 0); }, 0);
+    const show = () => { setMounted(true); setOpen(true); };
+    const stage = () => setBooking(Boolean(document.documentElement.dataset.bookingStage && document.documentElement.dataset.bookingStage !== "search"));
+    window.addEventListener("waydidi:open-chat", show); window.addEventListener("waydidi:booking-stage", stage); stage();
+    return () => { window.clearTimeout(t); window.removeEventListener("waydidi:open-chat", show); window.removeEventListener("waydidi:booking-stage", stage); };
+  }, []);
+
+  // Fetches only what's new since the last message we have (cursor), so missed replies are always recovered.
+  const sync = useCallback(async () => {
+    const res = await fetch(`/api/chat?after=${cursor.current}`, { cache: "no-store" });
+    if (!res.ok) throw new Error("load");
+    const data = await res.json() as { conversation: ChatInfo; messages: ChatMsg[] };
+    setInfo(data.conversation); setLoadError(false);
+    if (!data.conversation) return;
+    if (data.messages.length) {
+      cursor.current = Math.max(cursor.current, ...data.messages.map((m) => m.seq ?? 0));
+      setMessages((list) => {
+        const known = new Set(list.map((m) => m.id)), byClient = new Map(list.filter((m) => m.clientId).map((m) => [m.clientId, m]));
+        let next = list;
+        for (const m of data.messages) {
+          if (known.has(m.id)) continue;
+          // Replace the optimistic copy of a message we sent ourselves.
+          if (m.clientId && byClient.has(m.clientId)) next = next.map((x) => (x.clientId === m.clientId ? m : x));
+          else next = [...next, m];
+        }
+        return next;
+      });
+    }
+  }, []);
+
+  // Open: check every 4 s. Closed but chatting: every 20 s for the unread badge. Never polls for visitors who never chatted.
+  useEffect(() => {
+    if (!open && !active) return;
+    let stopped = false;
+    const run = () => { if (!document.hidden) void sync().catch(() => { if (!stopped) setLoadError(true); }); };
+    run();
+    const timer = window.setInterval(run, open ? 4000 : 20000);
+    const wake = () => { if (!document.hidden) run(); };
+    document.addEventListener("visibilitychange", wake); window.addEventListener("online", wake);
+    return () => { stopped = true; window.clearInterval(timer); document.removeEventListener("visibilitychange", wake); window.removeEventListener("online", wake); };
+  }, [open, active, sync]);
+
+  const lastStaffSeq = messages.reduce((n, m) => (m.sender === "staff" && (m.seq ?? 0) > n ? m.seq ?? 0 : n), 0);
+  const unread = open ? 0 : messages.filter((m) => m.sender === "staff" && (m.seq ?? 0) > seen).length;
+  useEffect(() => {
+    if (!open || lastStaffSeq <= seen) return;
+    const t = window.setTimeout(() => { setSeen(lastStaffSeq); store.set(SEEN_KEY, String(lastStaffSeq)); }, 0);
+    return () => window.clearTimeout(t);
+  }, [open, lastStaffSeq, seen]);
+
+  async function send(body: string, ctx: Context, retryOf?: ChatMsg) {
+    const clientId = retryOf?.clientId ?? crypto.randomUUID();
+    const optimistic: ChatMsg = { id: `local-${clientId}`, sender: "visitor", name: null, body, createdAt: new Date().toISOString(), clientId, state: "sending" };
+    setMessages((list) => (retryOf ? list.map((m) => (m.clientId === clientId ? optimistic : m)) : [...list, optimistic]));
+    try {
+      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: body, clientId, topic: ctx.topic ?? null, sourceUrl: window.location.pathname, sourceTitle: document.title.replace(/\s*[|·–-]\s*Waydidi.*$/i, "").slice(0, 160) }) });
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Message couldn't be sent.");
+      store.set(ACTIVE_KEY, "1"); setActive(true);
+      await sync().catch(() => undefined);
+      return null;
+    } catch (error) {
+      // The same clientId is reused on retry, so a message the server already has is never duplicated.
+      setMessages((list) => list.map((m) => (m.clientId === clientId && m.state ? { ...m, state: "failed" } : m)));
+      return error instanceof Error ? error.message : "Message couldn't be sent.";
+    }
+  }
+
+  if (HIDDEN.test(path ?? "") || booking) return null;
+  return <>
+    {mounted && open && <ChatPanel info={info} messages={messages} loadError={loadError} onRetryLoad={() => void sync().catch(() => setLoadError(true))}
+      onSend={send} onClose={() => setOpen(false)} />}
+    <button type="button" onClick={() => { setMounted(true); setOpen((v) => !v); }} aria-label={open ? "Close chat" : unread ? `Ask Waydidi, ${unread} new ${unread === 1 ? "message" : "messages"}` : "Ask Waydidi"} aria-expanded={open}
+      className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 z-[85] grid size-14 place-items-center rounded-full bg-[#FE8B05] text-white shadow-[0_8px_24px_rgba(254,139,5,.35)] transition hover:bg-[#E67900] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FE8B05] sm:right-6 ${open ? "max-sm:hidden" : ""}`}>
+      {open ? <X size={24} aria-hidden="true" /> : <MessageCircle size={26} aria-hidden="true" />}
+      {!open && unread > 0 && <span className="absolute -right-1 -top-1 grid min-w-6 place-items-center rounded-full border-2 border-white bg-[#D32F2F] px-1 text-[12px] font-bold">{unread > 9 ? "9+" : unread}</span>}
+    </button>
+  </>;
 }
