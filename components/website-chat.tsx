@@ -123,9 +123,9 @@ export function WebsiteChat() {
       onSend={send} onClose={() => setOpen(false)} onReviewed={() => void sync().catch(() => undefined)}
       onNewConversation={() => { fresh.current = true; setMessages([]); setInfo((i) => (i ? { ...i, status: "new", agent: null, review: null } : i)); }} />}
     <button type="button" onClick={() => { setMounted(true); setOpen((v) => !v); }} aria-label={open ? "Close chat" : unread ? `Ask Waydidi, ${unread} new ${unread === 1 ? "message" : "messages"}` : "Ask Waydidi"} aria-expanded={open}
-      className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 z-[85] grid place-items-center rounded-full text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FE8B05] sm:right-6 ${open ? "size-14 bg-[#FE8B05] shadow-[0_8px_24px_rgba(254,139,5,.35)] hover:bg-[#E67900] max-sm:hidden" : "size-[68px] hover:scale-105"}`}>
+      className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 z-[85] grid place-items-center rounded-full text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FE8B05] sm:right-6 ${open ? "size-14 bg-[#FE8B05] shadow-[0_8px_24px_rgba(254,139,5,.35)] hover:bg-[#E67900] max-sm:hidden" : "h-24 w-[141px] rounded-2xl hover:scale-105"}`}>
       {open ? <X size={24} aria-hidden="true" /> : /* eslint-disable-next-line @next/next/no-img-element */
-        <img src="/chat-driver.webp" alt="" width={68} height={68} className="size-[68px] drop-shadow-[0_6px_14px_rgba(0,0,0,.22)]" />}
+        <img src="/chat-driver.webp" alt="" width={141} height={96} className="h-24 w-[141px] drop-shadow-[0_6px_14px_rgba(0,0,0,.22)]" />}
       {!open && unread > 0 && <span className="absolute -right-1 -top-1 grid min-w-6 place-items-center rounded-full border-2 border-white bg-[#D32F2F] px-1 text-[12px] font-bold">{unread > 9 ? "9+" : unread}</span>}
     </button>
   </>;
