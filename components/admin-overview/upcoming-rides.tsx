@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/driver-picker";
 
-export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null };
+export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null };
 
 // The badge follows the driver's trip status once a driver is assigned.
 const STATUS: Record<string, [string, string]> = {
@@ -26,9 +26,14 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 // Formatted by hand so the server and browser render the same text.
 const day = (d: string) => { const [y, m, n] = d.split("-").map(Number); const w = new Date(Date.UTC(y, m - 1, n)).getUTCDay(); return `${DAYS[w]} ${n} ${MONTHS[m - 1]}`; };
 
+// "27/09/2026 — 01:15 am", same as the form answers panel.
+const dateTime = (date: string, time: string) => { const [y, m, d] = date.split("-"); const [h = 0, min = 0] = time.split(":").map(Number); return `${d}/${m}/${y} — ${String(h % 12 || 12).padStart(2, "0")}:${String(min).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`; };
+const vehicleName = (v: string) => { const t = v.replace(/_/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); };
+
 // Upcoming rides: journey details above, driver picker left and assignment status right.
 export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drivers: PickerDriver[] }) {
   const [adding, setAdding] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
   return <section aria-labelledby="upcoming-heading" className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
     <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
       <h2 id="upcoming-heading" className="text-[15px] font-black">Upcoming rides</h2>
@@ -44,8 +49,19 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
             <span className="inline-flex items-center gap-1.5" aria-label={`${r.passengers} passengers`}><Users size={16} className="shrink-0 text-slate-500" aria-hidden="true" />{r.passengers}</span>
             <span className="inline-flex items-center gap-1.5" aria-label={`${r.luggage} bags`}><Luggage size={16} className="shrink-0 text-slate-500" aria-hidden="true" />{r.luggage}</span>
             <span className="truncate">{r.vehicle.replace(/_/g, " ")}</span>
-            <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="ml-auto shrink-0 font-semibold text-[#C96100] underline underline-offset-4">See details</Link>
+            <button type="button" aria-expanded={open === r.reference} onClick={() => setOpen(open === r.reference ? null : r.reference)} className="ml-auto shrink-0 font-semibold text-[#C96100] underline underline-offset-4">{open === r.reference ? "Hide details" : "See details"}</button>
           </div>
+          {open === r.reference && <dl className="mt-3 grid gap-2 rounded-2xl bg-slate-50 p-4 text-[13.5px]">
+            {([
+              ["Passengers & luggage", <span key="pl" className="inline-flex items-center gap-3"><span className="inline-flex items-center gap-1"><Users size={15} aria-hidden="true" />{r.passengers}</span><span className="inline-flex items-center gap-1"><Luggage size={15} aria-hidden="true" />{r.luggage}</span></span>],
+              ["Vehicle", vehicleName(r.vehicle)],
+              ["Date & time", dateTime(r.pickupDate, r.pickupTime)],
+              ["From", r.pickup],
+              ["To", r.dropoff],
+              ["Price", r.total ? `THB ${r.total.toLocaleString("en-US")}` : "Not set"],
+            ] as [string, React.ReactNode][]).map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
+            <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="mt-1 justify-self-end text-[13px] font-semibold text-[#C96100] hover:underline">Open booking →</Link>
+          </dl>}
         </div>
         <div className="flex min-w-0 items-center justify-between gap-2">
           <DriverPicker reference={r.reference} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} onAddDriver={() => setAdding(r.reference)} />
