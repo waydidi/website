@@ -398,3 +398,13 @@ export async function sendTripEmail(input: { to: string; kicker: string; title: 
   );
   return resend({ to: [input.to], subject: input.title, html, text: `${input.title}\n${input.intro}\n${input.rows.map(([k, v]) => `${k}: ${v}`).join("\n")}\n${input.cta}: ${input.link}` }, input.tag);
 }
+
+// First-time admin setup: a one-time link to the business inbox, used only while no staff account exists.
+export async function sendOwnerSetupLink(input: { url: string; expires: number }) {
+  const to = (env.BOOKING_ALERT_EMAIL ?? "").split(",").map((x: string) => x.trim()).filter(Boolean);
+  if (!to.length) return { status: "pending_configuration" } as EmailDelivery;
+  const html = reminderShell("Waydidi admin", "Set up your admin account",
+    "Open this link to choose your admin ID and password. It works for 30 minutes and only until the first owner account exists. If you did not ask for it, you can ignore this email.",
+    `<tr><td colspan="2" align="center" style="padding-top:20px"><a href="${escapeHtml(input.url)}" style="display:inline-block;background:#ff8a05;color:#21140a;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:15px;font-weight:700">Set up admin account</a></td></tr>`);
+  return resend({ to, subject: "Set up your Waydidi admin account", html, text: `Set up your Waydidi admin account (works for 30 minutes): ${input.url}` }, `owner-setup-${input.expires}`);
+}

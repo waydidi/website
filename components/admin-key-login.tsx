@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { KeyRound, LoaderCircle, ShieldCheck, UserRound } from "lucide-react";
+import { AdminOwnerSetup } from "@/components/admin-owner-setup";
 
 export function AdminKeyLogin({ configured }: { configured: boolean }) {
   const [username, setUsername] = useState("");
@@ -86,6 +87,7 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
             {loading ? "Checking…" : mfa ? "Verify and sign in" : "Continue"}
           </button>
         </form>
+        {configured && !mfa && <AdminOwnerSetup mode="request" />}
       </section>
     </main>
   );
