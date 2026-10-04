@@ -35,6 +35,9 @@ export async function POST(request: Request) {
   const phone = String(form.get("phone") ?? "").trim();
   const baseLocation = String(form.get("baseLocation") ?? "").trim() || (outsource ? "Outsource" : "");
   const vehicle = String(form.get("vehicle") ?? "").trim();
+  const vehicleType = String(form.get("vehicleType") ?? "");
+  if (!["sedan", "suv", "minivan"].includes(vehicleType))
+    return NextResponse.json({ error: "Choose the vehicle type: sedan, SUV or minivan." }, { status: 400 });
   const bankCode = String(form.get("bankCode") ?? "").trim().toUpperCase();
   const bankAccountNumber = String(form.get("bankAccountNumber") ?? "").replace(/[^0-9]/gu, "");
   const email = String(form.get("email") ?? "")
@@ -67,11 +70,14 @@ export async function POST(request: Request) {
 
   let idImage;
   let carImage;
+  let photo;
   try {
     [idImage, carImage] = await Promise.all([
       prepareDriverImage(form.get("idImage"), "driving licence image"),
       prepareDriverImage(form.get("carImage"), "car image"),
     ]);
+    const photoFile = form.get("profilePhoto");
+    if (photoFile instanceof File && photoFile.size > 0) photo = await prepareDriverImage(photoFile, "profile photo");
   } catch (cause) {
     return NextResponse.json(
       {
@@ -87,10 +93,12 @@ export async function POST(request: Request) {
   const id = crypto.randomUUID();
   const idImageKey = `driver-verification/${id}/identity.${idImage.extension}`;
   const carImageKey = `driver-verification/${id}/vehicle.${carImage.extension}`;
+  const photoKey = photo ? `driver-verification/${id}/profile.${photo.extension}` : null;
   try {
     await Promise.all([
       putFile(idImageKey, idImage.bytes, idImage.mime),
       putFile(carImageKey, carImage.bytes, carImage.mime),
+      ...(photo && photoKey ? [putFile(photoKey, photo.bytes, photo.mime)] : []),
     ]);
     const now = new Date().toISOString();
     const driver = {
@@ -114,17 +122,21 @@ export async function POST(request: Request) {
       status: "active",
       carPlate: carPlate || null,
       driverType: outsource ? "outsource" : "staff",
+      vehicleType,
+      photoKey,
+      photoMime: photo?.mime ?? null,
       createdAt: now,
       updatedAt: now,
     };
     await getDb().insert(drivers).values(driver);
     return NextResponse.json({
-      driver: { ...driver, idImageKey: "available", carImageKey: "available" },
+      driver: { ...driver, idImageKey: "available", carImageKey: "available", photoKey: photoKey ? "available" : null },
     });
   } catch {
     await Promise.all([
       deleteFile(idImageKey),
       deleteFile(carImageKey),
+      ...(photoKey ? [deleteFile(photoKey)] : []),
     ]).catch(() => undefined);
     return NextResponse.json(
       { error: "The driver could not be saved. Please try again." },

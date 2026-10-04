@@ -29,7 +29,7 @@ export async function adminOverview(at = new Date()) {
 
   // Everything below is independent, so it runs at the same time.
   const [driverList, upcoming, recent, cashDue, changeRequests, openAlerts, tickets, agencyNew, driverNew, attention] = await Promise.all([
-    db.select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, carPlate: drivers.carPlate, driverType: drivers.driverType })
+    db.select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, carPlate: drivers.carPlate, driverType: drivers.driverType, vehicleType: drivers.vehicleType, photoKey: drivers.photoKey })
       .from(drivers).where(eq(drivers.status, "active")).orderBy(drivers.fullName).catch(() => []),
     // Only the columns shown: the bookings table is at D1's 100-column limit, so
     // selecting all of it plus the joined columns would fail.
@@ -88,7 +88,7 @@ export async function adminOverview(at = new Date()) {
 
   return {
     today, tomorrow, rides,
-    drivers: driverList.map((d) => ({ ...d, plate: d.carPlate ?? null, area: d.driverType === "outsource" ? "Outsource" : d.area })),
+    drivers: driverList.map(({ photoKey, ...d }) => ({ ...d, hasPhoto: Boolean(photoKey), plate: d.carPlate ?? null, area: d.driverType === "outsource" ? "Outsource" : d.area })),
     stats: { today: period(29, null), week: period(23, cancelled7), month: period(0, cancelled30) },
     cashDue: { count: cashDue[0]?.n ?? 0, amount: Number(cashDue[0]?.sum ?? 0) },
     trend,

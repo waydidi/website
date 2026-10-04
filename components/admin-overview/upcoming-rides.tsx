@@ -73,13 +73,13 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
   </section>;
 }
 
-function ImageField({ name, label }: { name: string; label: string }) {
+function ImageField({ name, label, optional }: { name: string; label: string; optional?: boolean }) {
   const [preview, setPreview] = useState("");
   return <label className="grid gap-1 text-[13px] font-semibold">{label}
     <span className="relative flex h-28 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-[#FF8A05]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {preview ? <img src={preview} alt="" className="h-full w-full object-cover" /> : <span className="flex flex-col items-center gap-1 text-[12px] font-medium"><ImagePlus size={20} />Upload image</span>}
-      <input type="file" name={name} accept="image/jpeg,image/png,image/webp" required className="absolute inset-0 opacity-0" onChange={(e) => { const f = e.target.files?.[0]; setPreview(f ? URL.createObjectURL(f) : ""); }} />
+      <input type="file" name={name} accept="image/jpeg,image/png,image/webp" required={!optional} className="absolute inset-0 opacity-0" onChange={(e) => { const f = e.target.files?.[0]; setPreview(f ? URL.createObjectURL(f) : ""); }} />
     </span>
   </label>;
 }
@@ -120,6 +120,8 @@ export function AddDriverDialog({ reference, leg = "outbound", onClose, onDone }
         <label className="grid gap-1 text-[13px] font-semibold">Phone number<input name="phone" type="tel" required pattern="[+0-9() .\-]{7,30}" className={input} /></label>
         <label className="grid gap-1 text-[13px] font-semibold">Car plate<input name="carPlate" required minLength={2} maxLength={30} className={`${input} uppercase`} /></label>
         <label className="grid gap-1 text-[13px] font-semibold">Vehicle<input name="vehicle" required minLength={2} maxLength={150} placeholder="e.g. Toyota Fortuner, white" className={input} /></label>
+        <label className="grid gap-1 text-[13px] font-semibold">Vehicle type<select name="vehicleType" required defaultValue="" className={input}><option value="" disabled>Choose</option><option value="sedan">Sedan</option><option value="suv">SUV</option><option value="minivan">Minivan</option></select></label>
+        <ImageField name="profilePhoto" label="Profile photo (optional)" optional />
         <ImageField name="idImage" label="Driving License/Thai ID" />
         <ImageField name="carImage" label="Car picture" />
       </div>

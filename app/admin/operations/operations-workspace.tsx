@@ -56,6 +56,8 @@ type Driver = {
   vehicle?: string;
   baseLocation?: string;
   carPlate?: string | null;
+  vehicleType?: string | null;
+  hasPhoto?: boolean;
   driverType?: string;
 };
 type Assignment = {
@@ -372,7 +374,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex flex-col items-start gap-1.5">
-                              <DriverPicker leg={leg} reference={booking.reference} drivers={(data?.drivers ?? []).filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.fullName, phone: d.phone, email: d.email, area: d.driverType === "outsource" ? "Outsource" : d.baseLocation ?? "", vehicle: d.vehicle ?? "", plate: d.carPlate ?? null }))} current={driver?.id ?? null} canAssign={booking.status === "confirmed"} onAssigned={(url) => assigned(booking.reference, url)} onAddDriver={() => setAddingFor(booking.reference)} />
+                              <DriverPicker leg={leg} reference={booking.reference} drivers={(data?.drivers ?? []).filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.fullName, phone: d.phone, email: d.email, area: d.driverType === "outsource" ? "Outsource" : d.baseLocation ?? "", vehicle: d.vehicle ?? "", plate: d.carPlate ?? null, vehicleType: d.vehicleType ?? null, hasPhoto: d.hasPhoto }))} current={driver?.id ?? null} canAssign={booking.status === "confirmed"} onAssigned={(url) => assigned(booking.reference, url)} onAddDriver={() => setAddingFor(booking.reference)} />
                               {driver && <span className="text-xs text-slate-500">{driver.phone}</span>}
                             </div>
                           </td>

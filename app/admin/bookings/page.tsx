@@ -60,10 +60,10 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const binRows = await getDb().select().from(bookings).where(eq(bookings.status, "binned")).orderBy(desc(bookings.binnedAt)).limit(200);
   const activeRows = allRows.filter((row) => row.status !== "binned");
   const [driverRows, assignmentRows] = await Promise.all([
-    getDb().select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, plate: drivers.carPlate, status: drivers.status }).from(drivers),
+    getDb().select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, plate: drivers.carPlate, vehicleType: drivers.vehicleType, photoKey: drivers.photoKey, status: drivers.status }).from(drivers),
     getDb().select({ ref: bookingAssignments.bookingReference, driverId: bookingAssignments.driverId }).from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)),
   ]);
-  const driverOptions = driverRows.filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.name, phone: d.phone, email: d.email, area: d.area ?? "", vehicle: d.vehicle, plate: d.plate }));
+  const driverOptions = driverRows.filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.name, phone: d.phone, email: d.email, area: d.area ?? "", vehicle: d.vehicle, plate: d.plate, vehicleType: d.vehicleType, hasPhoto: Boolean(d.photoKey) }));
   const assigned = new Map(assignmentRows.map((a) => [a.ref, a.driverId]));
   const rows = (view === "bin" ? binRows : activeRows).filter((row) => (row.serviceType ?? "transfer") === type);
   // Bookings where the storefront collects cash at the counter.

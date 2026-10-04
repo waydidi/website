@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, IdCard, LoaderCircle, Plus } from "lucide-react";
+import { Camera, IdCard, LoaderCircle, Plus, UserRound } from "lucide-react";
 import { FormEvent, useRef, useState } from "react";
 import { THAI_BANKS } from "@/lib/thai-banks";
 
@@ -80,6 +80,18 @@ export function DriverCreateForm({
           placeholder="Car / vehicle"
           className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-[#FF8A05]"
         />
+        <select
+          required
+          name="vehicleType"
+          defaultValue=""
+          aria-label="Vehicle type"
+          className="col-span-2 h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-[#FF8A05]"
+        >
+          <option value="" disabled>Vehicle type</option>
+          <option value="sedan">Sedan</option>
+          <option value="suv">SUV</option>
+          <option value="minivan">Minivan</option>
+        </select>
         <input
           type="email"
           name="email"
@@ -129,6 +141,11 @@ export function DriverCreateForm({
         </p>
       )}
     </section>
+      <label className="flex min-h-16 cursor-pointer flex-col justify-center rounded-xl border border-dashed border-orange-200 bg-orange-50 px-3 text-xs font-bold text-[#B85D00] hover:bg-orange-100">
+        <span className="flex items-center gap-2"><UserRound size={17} />Profile photo (optional)</span>
+        <span className="mt-1 font-normal text-slate-500">Face clearly visible · JPG, PNG or WebP</span>
+        <input name="profilePhoto" type="file" accept="image/jpeg,image/png,image/webp" className="mt-2 block w-full text-[11px] text-slate-600 file:mr-2 file:rounded-full file:border-0 file:bg-white file:px-2 file:py-1 file:font-bold" />
+      </label>
       <div className="grid grid-cols-2 gap-2">
         <label className="flex min-h-20 cursor-pointer flex-col justify-center rounded-xl border border-dashed border-orange-200 bg-orange-50 px-3 text-xs font-bold text-[#B85D00] hover:bg-orange-100">
           <span className="flex items-center gap-2">

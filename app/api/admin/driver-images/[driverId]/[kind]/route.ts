@@ -9,10 +9,10 @@ export async function GET(_request: Request, context: { params: Promise<{ driver
   const admin = await getWaydidiAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { driverId, kind } = await context.params;
-  if (kind !== "identity" && kind !== "vehicle") return NextResponse.json({ error: "Image not found." }, { status: 404 });
+  if (kind !== "identity" && kind !== "vehicle" && kind !== "profile") return NextResponse.json({ error: "Image not found." }, { status: 404 });
   const [driver] = await getDb().select().from(drivers).where(eq(drivers.id, driverId)).limit(1);
-  const key = kind === "identity" ? driver?.idImageKey : driver?.carImageKey;
-  const mime = kind === "identity" ? driver?.idImageMime : driver?.carImageMime;
+  const key = kind === "identity" ? driver?.idImageKey : kind === "profile" ? driver?.photoKey : driver?.carImageKey;
+  const mime = kind === "identity" ? driver?.idImageMime : kind === "profile" ? driver?.photoMime : driver?.carImageMime;
   if (!key) return NextResponse.json({ error: "Image not found." }, { status: 404 });
   const object = await getFile(key);
   if (!object) return NextResponse.json({ error: "Image not found." }, { status: 404 });

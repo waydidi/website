@@ -5,7 +5,7 @@ import { bangkokDate } from "@/lib/admin-overview";
 
 export type DriverRow = {
   kind: "driver"; id: string; name: string; phone: string; email: string | null; area: string; vehicle: string;
-  joined: string; status: string; trips: number; hasId: boolean; hasCar: boolean;
+  joined: string; status: string; trips: number; hasId: boolean; hasCar: boolean; hasPhoto: boolean; vehicleType: string | null;
 };
 export type ApplicationRow = {
   kind: "application"; id: string; name: string; phone: string; email: string; area: string; vehicle: string;
@@ -19,7 +19,7 @@ export async function driverManagement(at = new Date()) {
   const in7 = bangkokDate(7, at);
   const monthStart = `${today.slice(0, 7)}-01`;
   const [driverRows, appRows, assignRows, upcoming] = await Promise.all([
-    db.select({ id: drivers.id, fullName: drivers.fullName, phone: drivers.phone, email: drivers.email, baseLocation: drivers.baseLocation, vehicle: drivers.vehicle, status: drivers.status, createdAt: drivers.createdAt, idImageKey: drivers.idImageKey, carImageKey: drivers.carImageKey }).from(drivers).orderBy(desc(drivers.createdAt)),
+    db.select({ id: drivers.id, fullName: drivers.fullName, phone: drivers.phone, email: drivers.email, baseLocation: drivers.baseLocation, vehicle: drivers.vehicle, status: drivers.status, createdAt: drivers.createdAt, idImageKey: drivers.idImageKey, carImageKey: drivers.carImageKey, photoKey: drivers.photoKey, vehicleType: drivers.vehicleType }).from(drivers).orderBy(desc(drivers.createdAt)),
     db.select().from(driverApplications).orderBy(desc(driverApplications.createdAt)).limit(500).catch(() => []),
     db.select({ driverId: bookingAssignments.driverId, bookingReference: bookingAssignments.bookingReference }).from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)),
     db.select({ reference: bookings.reference, pickupDate: bookings.pickupDate }).from(bookings)
@@ -33,7 +33,7 @@ export async function driverManagement(at = new Date()) {
 
   const driverList: DriverRow[] = driverRows.map((d) => ({
     kind: "driver", id: d.id, name: d.fullName, phone: d.phone, email: d.email, area: d.baseLocation, vehicle: d.vehicle,
-    joined: d.createdAt, status: d.status, trips: trips.get(d.id) ?? 0, hasId: Boolean(d.idImageKey), hasCar: Boolean(d.carImageKey),
+    joined: d.createdAt, status: d.status, trips: trips.get(d.id) ?? 0, hasId: Boolean(d.idImageKey), hasCar: Boolean(d.carImageKey), hasPhoto: Boolean(d.photoKey), vehicleType: d.vehicleType,
   }));
   const applications: ApplicationRow[] = appRows.map((r) => ({
     kind: "application", id: r.id, name: r.fullName, phone: r.phone, email: r.email, area: r.city, vehicle: r.vehicle,

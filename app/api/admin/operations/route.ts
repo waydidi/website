@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       pickupDate: row.pickupDate, pickupTime: row.pickupTime, passengers: row.passengers,
       luggage: row.luggage, vehicle: row.vehicle, total: row.total, status: row.status,
     })),
-    drivers: driverRows.map((row) => ({ id: row.id, fullName: row.fullName, phone: row.phone, email: row.email, vehicle: row.vehicle, baseLocation: row.baseLocation, carPlate: row.carPlate, driverType: row.driverType, remindersEnabled: row.remindersEnabled, status: row.status, createdAt: row.createdAt, updatedAt: row.updatedAt, idImageKey: row.idImageKey ? "available" : null, carImageKey: row.carImageKey ? "available" : null })),
+    drivers: driverRows.map((row) => ({ id: row.id, fullName: row.fullName, phone: row.phone, email: row.email, vehicle: row.vehicle, baseLocation: row.baseLocation, carPlate: row.carPlate, driverType: row.driverType, vehicleType: row.vehicleType, hasPhoto: Boolean(row.photoKey), remindersEnabled: row.remindersEnabled, status: row.status, createdAt: row.createdAt, updatedAt: row.updatedAt, idImageKey: row.idImageKey ? "available" : null, carImageKey: row.carImageKey ? "available" : null })),
     assignments: assignmentRows.filter(row => row.leg === leg).map((row) => ({
       id: row.id, bookingReference: row.bookingReference, driverId: row.driverId,
       currentStatus: row.currentStatus, assignedBy: row.assignedBy, assignedAt: row.assignedAt,

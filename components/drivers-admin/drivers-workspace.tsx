@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { DriverCreateForm } from "@/components/driver-create-form";
 import { DriverDeleteButton } from "@/components/driver-delete-button";
+import { DriverProfileButton } from "@/components/drivers-admin/driver-profile-button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { ApplicationRow, DriverManagement, DriverRow } from "@/lib/driver-management";
 
@@ -12,6 +13,7 @@ type Row = DriverRow | ApplicationRow;
 type Tab = "all" | "active" | "inactive" | "applications";
 const TABS: [Tab, string][] = [["all", "All"], ["active", "Active"], ["inactive", "Inactive"], ["applications", "Applications"]];
 const SORTS = [["newest", "Newest first"], ["oldest", "Oldest first"], ["name", "Name A–Z"]] as const;
+const TYPE_LABEL: Record<string, string> = { sedan: "Sedan", suv: "SUV", minivan: "Minivan" };
 const VEHICLE: Record<string, string> = { sedan: "Sedan", suv: "SUV", van: "Van / minivan", none: "No vehicle yet" };
 
 // Pill with a dot, like the reference table's Payment / Fulfilment chips.
@@ -121,11 +123,15 @@ export function DriversWorkspace({ data, initialTab }: { data: DriverManagement;
         <tbody>
           {rows.length === 0 && <tr><td colSpan={9} className="px-5 py-14 text-center text-slate-500">{query ? "No drivers match your search." : tab === "applications" ? "No applications yet." : "No drivers yet. Tap Add driver to create one."}</td></tr>}
           {rows.map((r) => <tr key={`${r.kind}-${r.id}`} className="border-t border-slate-100">
-            <td className="h-[72px] px-5"><p className="font-medium text-[#15161C]">{r.name}</p>{r.email && <p className="text-[13px] text-slate-500">{r.email}</p>}</td>
+            <td className="h-[72px] px-5"><div className="flex items-center gap-3">{r.kind === "driver" && (r.hasPhoto
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={`/api/admin/driver-images/${r.id}/profile`} alt="" loading="lazy" className="size-10 shrink-0 rounded-full object-cover" />
+              : <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[13px] font-bold text-[#C96100]" aria-hidden="true">{r.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}</span>)}
+              <div className="min-w-0"><p className="font-medium text-[#15161C]">{r.name}</p>{r.email && <p className="text-[13px] text-slate-500">{r.email}</p>}</div></div></td>
             <td className="px-5 whitespace-nowrap">{day(r.joined)}</td>
             <td className="px-5 whitespace-nowrap tabular-nums">{r.phone}</td>
             <td className="px-5">{r.area || "N/A"}</td>
-            <td className="px-5">{VEHICLE[r.vehicle] ?? (r.vehicle || "N/A")}</td>
+            <td className="px-5">{VEHICLE[r.vehicle] ?? (r.vehicle || "N/A")}{r.kind === "driver" && r.vehicleType && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-700">{TYPE_LABEL[r.vehicleType] ?? r.vehicleType}</span>}</td>
             <td className="px-5 whitespace-nowrap">{r.kind === "driver" ? "Driver" : r.applicantType === "fleet" ? `Fleet${r.fleetSize ? ` · ${r.fleetSize}` : ""}` : "Applicant"}</td>
             <td className="px-5 tabular-nums">{r.kind === "driver" ? `${r.trips} ${r.trips === 1 ? "trip" : "trips"}` : "N/A"}</td>
             <td className="px-5"><Pill status={r.status} /></td>
@@ -134,6 +140,7 @@ export function DriversWorkspace({ data, initialTab }: { data: DriverManagement;
                 ? <div className="flex items-center gap-3 text-slate-500">
                     <a href={`/api/admin/driver-images/${r.id}/identity`} target="_blank" rel="noreferrer" aria-label={`ID card of ${r.name}`} title="ID card" className={r.hasId ? "hover:text-[#C96100]" : "pointer-events-none opacity-30"}><IdCard size={19} /></a>
                     <a href={`/api/admin/driver-images/${r.id}/vehicle`} target="_blank" rel="noreferrer" aria-label={`Car photo of ${r.name}`} title="Car photo" className={r.hasCar ? "hover:text-[#C96100]" : "pointer-events-none opacity-30"}><Car size={19} /></a>
+                    <DriverProfileButton driverId={r.id} driverName={r.name} vehicleType={r.vehicleType} onSaved={() => router.refresh()} />
                     <DriverDeleteButton driverId={r.id} driverName={r.name} onDeleted={() => router.refresh()} />
                   </div>
                 : <button type="button" onClick={() => setViewing(r)} aria-label={`Review ${r.name}`} title="Review application" className="text-slate-500 hover:text-[#C96100]"><Eye size={19} /></button>}
