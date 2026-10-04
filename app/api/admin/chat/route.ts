@@ -12,6 +12,16 @@ export async function GET(request: Request) {
   await ensureChatAssignments(env.DB);
   const id = new URL(request.url).searchParams.get("id");
   const now = new Date().toISOString();
+  if (new URL(request.url).searchParams.get("summary") === "1") {
+    const pending = (await env.DB.prepare(`SELECT c.id,
+      (SELECT id FROM website_chat_messages WHERE conversation_id=c.id AND sender='visitor' ORDER BY created_at DESC,id DESC LIMIT 1) message_id,
+      COUNT(m.id) count FROM website_conversations c
+      JOIN website_chat_messages m ON m.conversation_id=c.id AND m.sender='visitor'
+      WHERE c.expires_at>? AND m.created_at>COALESCE(
+        (SELECT MAX(created_at) FROM website_chat_messages WHERE conversation_id=c.id AND sender='staff'),'')
+      GROUP BY c.id ORDER BY c.updated_at DESC LIMIT 100`).bind(now).all()).results as {id:string;message_id:string;count:number}[];
+    return NextResponse.json({items:pending.map(c=>({key:`chat:${c.message_id}`,n:c.count,text:`customer ${c.count===1?"message":"messages"} waiting for a reply`,href:`/admin/chat?id=${encodeURIComponent(c.id)}`,urgent:true}))},{headers});
+  }
   const conversations = (await env.DB.prepare(`SELECT c.id,c.updated_at,a.staff_id,a.staff_name,
     (SELECT body FROM website_chat_messages WHERE conversation_id=c.id ORDER BY created_at DESC,id DESC LIMIT 1) preview,
     (SELECT sender FROM website_chat_messages WHERE conversation_id=c.id ORDER BY created_at DESC,id DESC LIMIT 1) last_sender

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type Item = { n: number; text: string; href: string; urgent: boolean };
+type Item = { n: number; text: string; href: string; urgent: boolean; key?: string };
+const itemKey = (item: Item) => item.key ?? item.text;
 
 // A notification is cleared once opened, until its count goes up again (kept on this device).
 const SEEN_KEY = "waydidi:admin-seen-notifications";
@@ -19,12 +20,15 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [seen, setSeen] = useState<Record<string, number>>({});
   useEffect(() => { const t = window.setTimeout(() => setSeen(readSeen()), 0); return () => window.clearTimeout(t); }, []);
-  const markSeen = (i: Item) => { const next = { ...seen, [i.text]: i.n }; setSeen(next); writeSeen(next); };
+  const markSeen = (i: Item) => { const next = { ...seen, [itemKey(i)]: i.n }; setSeen(next); writeSeen(next); };
   const box = useRef<HTMLDivElement>(null);
   const load = useCallback(() => {
-    fetch("/api/admin/notifications", { cache: "no-store" }).then((r) => r.ok ? r.json() : { items: [] }).then((o: { items: Item[] }) => setItems(o.items)).catch(() => setItems([]));
+    Promise.all(["/api/admin/notifications", "/api/admin/chat?summary=1"].map(url=>fetch(url,{cache:"no-store"}).then(r=>r.ok?r.json():{items:[]}).catch(()=>({items:[]})))).then((results:{items:Item[]}[])=>setItems(results.flatMap(result=>result.items)));
   }, []);
-  useEffect(() => { load(); const t = window.setInterval(load, 60_000); return () => window.clearInterval(t); }, [load, pathname]);
+  const loadChat = useCallback(()=>{
+    fetch("/api/admin/chat?summary=1",{cache:"no-store"}).then(r=>r.ok?r.json():null).then((result:{items:Item[]}|null)=>{if(result)setItems(current=>[...(current??[]).filter(i=>!i.key?.startsWith("chat:")),...result.items]);}).catch(()=>undefined);
+  },[]);
+  useEffect(() => { load(); const t = window.setInterval(load, 60_000); const chatTimer=window.setInterval(loadChat,5000); return () => {window.clearInterval(t);window.clearInterval(chatTimer);}; }, [load, loadChat, pathname]);
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
@@ -32,7 +36,7 @@ export function NotificationBell() {
     document.addEventListener("mousedown", close); document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
   }, [open]);
-  const unread = (items ?? []).filter((i) => (seen[i.text] ?? 0) < i.n);
+  const unread = (items ?? []).filter((i) => (seen[itemKey(i)] ?? 0) < i.n);
   const total = unread.reduce((sum, i) => sum + i.n, 0);
 
   return <div ref={box} className="relative ml-auto shrink-0">
@@ -44,7 +48,7 @@ export function NotificationBell() {
       <p className="border-b border-slate-100 px-4 py-3 font-semibold text-[#15161C]">Notifications</p>
       {items === null ? <p className="px-4 py-6 text-center text-slate-500">Loading…</p>
         : items.length === 0 ? <p className="px-4 py-6 text-center text-slate-500">You&apos;re all caught up.</p>
-        : <ul className="max-h-80 overflow-y-auto">{items.map((i) => <li key={i.text}>
+        : <ul className="max-h-80 overflow-y-auto">{items.map((i) => <li key={itemKey(i)}>
           <Link href={i.href} role="menuitem" onClick={() => { markSeen(i); setOpen(false); }} className={`flex items-start gap-3 border-b border-slate-100 px-4 py-3 last:border-0 hover:bg-slate-50 ${unread.includes(i) ? "" : "opacity-60"}`}>
             <span className={`mt-1.5 size-2 shrink-0 rounded-full ${!unread.includes(i) ? "bg-slate-300" : i.urgent ? "bg-[#D32F2F]" : "bg-amber-500"}`} aria-hidden="true" />
             <span className="text-slate-700"><strong className="text-slate-900">{i.n}</strong> {i.text}</span>
