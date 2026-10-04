@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { SITE_URL } from "@/lib/site";
+import { deliverToChannel } from "@/lib/channels";
 import { editCard, sendCard, telegramConfigured } from "@/lib/telegram/client";
 import { conversationCard, conversationKeyboard, customerMessage, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
 
@@ -12,6 +13,7 @@ const db = () => env.DB as { prepare: (sql: string) => Stmt; batch: (s: Stmt[]) 
 export type Conversation = CardConversation & {
   token_hash: string; expires_at: string; customer_id: string | null; telegram_message_id: number | null;
   assigned_staff_id: string | null; assigned_telegram_user_id: string | null; last_message_at: string | null; updated_at: string;
+  bot_paused?: number; bot_thinking_at?: string | null; channel?: string; channel_user_id?: string | null;
 };
 export type ChatMessage = { id: string; sender: "visitor" | "staff"; sender_name: string | null; is_bot?: number; body: string; created_at: string; client_id: string | null; telegram_status: string | null };
 export type Staffer = { name: string; staffId?: string | null; telegramUserId?: string | null };
@@ -24,15 +26,15 @@ const nowIso = () => new Date().toISOString();
 export const conversationById = (id: string) => db().prepare("SELECT * FROM website_conversations WHERE id=?").bind(id).first<Conversation>();
 export const conversationByTokenHash = (hash: string) => db().prepare("SELECT * FROM website_conversations WHERE token_hash=? AND expires_at>?").bind(hash, nowIso()).first<Conversation>();
 
-export async function createConversation(tokenHash: string, context: { customerId?: string | null; name?: string | null; email?: string | null; phone?: string | null; sourceUrl?: string | null; sourceTitle?: string | null; topic?: string | null; country?: string | null }) {
+export async function createConversation(tokenHash: string, context: { customerId?: string | null; name?: string | null; email?: string | null; phone?: string | null; sourceUrl?: string | null; sourceTitle?: string | null; topic?: string | null; country?: string | null; channel?: string; channelUserId?: string | null }) {
   const id = crypto.randomUUID(), now = nowIso();
   for (let attempt = 0; attempt < 4; attempt++) {
     // Display id only (e.g. WD-48213); it never grants access — the cookie token does.
     const publicId = `WD-${String(crypto.getRandomValues(new Uint32Array(1))[0] % 90000 + 10000)}`;
     try {
-      await db().prepare(`INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status,customer_id,customer_name,customer_email,customer_phone,source_url,source_title,topic,last_message_at,customer_country)
-        VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,?,?,?,?)`).bind(id, tokenHash, new Date(Date.now() + 30 * 86400000).toISOString(), now, now, publicId,
-        context.customerId ?? null, context.name ?? null, context.email ?? null, context.phone ?? null, context.sourceUrl ?? null, context.sourceTitle ?? null, context.topic ?? null, now, context.country ?? null).run();
+      await db().prepare(`INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status,customer_id,customer_name,customer_email,customer_phone,source_url,source_title,topic,last_message_at,customer_country,channel,channel_user_id)
+        VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,?,?,?,?,?,?)`).bind(id, tokenHash, new Date(Date.now() + 30 * 86400000).toISOString(), now, now, publicId,
+        context.customerId ?? null, context.name ?? null, context.email ?? null, context.phone ?? null, context.sourceUrl ?? null, context.sourceTitle ?? null, context.topic ?? null, now, context.country ?? null, context.channel ?? "web", context.channelUserId ?? null).run();
       return (await conversationById(id))!;
     } catch (error) { if (!/UNIQUE/i.test(String(error)) || attempt === 3) throw error; }
   }
@@ -102,6 +104,7 @@ export async function addStaffMessage(conversationId: string, body: string, who:
   await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,staff_id,created_at,sender_name,telegram_message_id,telegram_status)
     VALUES(?,?,'staff',?,?,?,?,?,?)`).bind(id, c.id, body, who.staffId ?? null, now, who.name, telegramMessageId ?? null, origin === "telegram" ? "sent" : null).run();
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=?,status=CASE WHEN status='closed' THEN 'open' ELSE status END WHERE id=?").bind(now, now, c.id).run();
+  await toChannel(c, id, body);
   if (origin === "dashboard" && telegramConfigured() && c.telegram_message_id) {
     try {
       const sent = await sendCard(staffEcho(c.public_id, who.name, body), undefined, c.telegram_message_id);
@@ -119,6 +122,7 @@ export async function addBotMessage(conversationId: string, body: string) {
   const now = nowIso(), id = crypto.randomUUID();
   await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot) VALUES(?,?,'staff',?,?,'Cee',1)`).bind(id, c.id, body, now).run();
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();
+  await toChannel(c, id, body);
   if (telegramConfigured() && c.telegram_message_id) {
     try {
       const sent = await sendCard(staffEcho(c.public_id, "Cee (bot)", body), undefined, c.telegram_message_id);
@@ -127,6 +131,26 @@ export async function addBotMessage(conversationId: string, body: string) {
   }
   return id;
 }
+
+/** WhatsApp/LINE copy of a reply. A failure is noted on the message, never lost on the website. */
+async function toChannel(c: Conversation, messageId: string, body: string) {
+  if (!c.channel || c.channel === "web") return;
+  try {
+    const sentId = await deliverToChannel(c.channel, c.channel_user_id, body);
+    await db().prepare("UPDATE website_chat_messages SET channel_message_id=COALESCE(?,'sent') WHERE id=?").bind(sentId, messageId).run();
+  } catch (error) {
+    await db().prepare("UPDATE website_chat_messages SET channel_message_id='failed' WHERE id=?").bind(messageId).run();
+    console.error("channel delivery failed", error instanceof Error ? error.message : "unknown");
+  }
+}
+
+/** Marks Cee as working on a reply, so the website can show "Cee is typing…". */
+export const setBotThinking = (conversationId: string, on: boolean) =>
+  db().prepare("UPDATE website_conversations SET bot_thinking_at=? WHERE id=?").bind(on ? nowIso() : null, conversationId).run();
+
+/** Latest WhatsApp/LINE conversation for this customer (reopened by a new message). */
+export const conversationForChannelUser = (channel: string, userId: string) =>
+  db().prepare("SELECT * FROM website_conversations WHERE channel=? AND channel_user_id=? AND expires_at>? ORDER BY created_at DESC LIMIT 1").bind(channel, userId, nowIso()).first<Conversation>();
 
 /** Stops (or resumes) Cee in one conversation. */
 export async function pauseBot(conversationId: string, paused: boolean, state?: string) {

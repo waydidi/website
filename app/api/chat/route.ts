@@ -19,7 +19,9 @@ async function current(request: Request) {
   const token = readCookie(request, COOKIE);
   return /^[a-f0-9]{48}$/.test(token) ? conversationByTokenHash(await sha256(token)) : null;
 }
-const view = (c: Conversation) => ({ publicId: c.public_id, status: c.status, agent: c.assigned_name, name: c.customer_name });
+// "Cee is typing…" while a reply is being written (ignored after 90 s in case a run died).
+const view = (c: Conversation) => ({ publicId: c.public_id, status: c.status, agent: c.assigned_name, name: c.customer_name,
+  typing: Boolean(c.bot_thinking_at && Date.now() - Date.parse(c.bot_thinking_at) < 90000) });
 /** Review state for a closed chat: whether it's been rated, and the Google link (shown to everyone). */
 async function reviewState(c: Conversation) {
   if (c.status !== "closed") return null;

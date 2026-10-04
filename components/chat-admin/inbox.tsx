@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { countryLabel } from "@/lib/country";
 
-type Row = { id: string; public_id: string; status: string; customer_name: string | null; customer_email: string | null; source_title: string | null; source_url: string | null; assigned_name: string | null; assigned_staff_id: string | null; last_message_at: string | null; unread: number; preview: string | null; last_sender: string | null };
+type Row = { id: string; public_id: string; status: string; customer_name: string | null; customer_email: string | null; source_title: string | null; source_url: string | null; assigned_name: string | null; assigned_staff_id: string | null; last_message_at: string | null; unread: number; preview: string | null; last_sender: string | null; channel?: string };
 type Detail = Row & { customer_country: string | null; customer_phone: string | null; customer_id: string | null; topic: string | null; created_at: string; on_telegram: boolean; bot_paused: boolean };
 type Msg = { seq: number; id: string; sender: "visitor" | "staff"; sender_name: string | null; is_bot?: number; body: string; created_at: string; telegram_status: string | null };
 type Data = { conversations: Row[]; conversation: Detail | null; messages: Msg[]; selectionError: string | null; team: { id: string; name: string }[]; me: { id: string; name: string }; cee?: { enabled: boolean; keySet: boolean } };
@@ -60,6 +60,11 @@ export function ChatInbox() {
     } catch (e) { setError(e instanceof Error ? e.message : "Chat action failed."); return false; }
     finally { setBusy(false); }
   }
+  async function saveAsKnowledge(messageId: string) {
+    const res = await fetch("/api/admin/cee/knowledge", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "from_chat", messageId }) });
+    setError(res.ok ? "" : ((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't save.");
+    if (res.ok) window.alert("Saved as a draft note. Check it under Cee knowledge and make it live.");
+  }
   async function send(e: FormEvent) { e.preventDefault(); if (text.trim() && await act({ action: "reply", message: text.trim() })) setText(""); }
 
   const c = data?.conversation ?? null;
@@ -80,7 +85,7 @@ export function ChatInbox() {
           {data && !data.conversations.length && <li className="p-6 text-center text-[14px] text-slate-500">No conversations need your attention.</li>}
           {!data && Array.from({ length: 4 }, (_, i) => <li key={i} className="m-3 h-16 animate-pulse rounded-xl bg-slate-100" />)}
           {data?.conversations.map((r) => <li key={r.id}><button type="button" onClick={() => select(r.id)} aria-current={id === r.id} className={`block w-full border-b border-slate-100 px-4 py-3 text-left ${id === r.id ? "bg-orange-50" : "hover:bg-slate-50"}`}>
-            <span className="flex items-center gap-2"><span className={`min-w-0 flex-1 truncate text-[14px] ${r.unread ? "font-bold" : "font-semibold"}`}>{who(r)}</span><span className="shrink-0 text-[11.5px] text-slate-500">{when(r.last_message_at)}</span></span>
+            <span className="flex items-center gap-2"><span className={`min-w-0 flex-1 truncate text-[14px] ${r.unread ? "font-bold" : "font-semibold"}`}>{who(r)}</span>{r.channel && r.channel !== "web" && <span className={`shrink-0 rounded-full px-1.5 text-[10.5px] font-bold text-white ${r.channel === "whatsapp" ? "bg-[#25D366]" : "bg-[#06C755]"}`}>{r.channel === "whatsapp" ? "WhatsApp" : "LINE"}</span>}<span className="shrink-0 text-[11.5px] text-slate-500">{when(r.last_message_at)}</span></span>
             <span className="mt-0.5 flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-[13px] text-slate-600">{r.last_sender === "staff" ? "Staff: " : ""}{r.preview ?? "New conversation"}</span>{r.unread > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-[#FE8B05] px-1.5 text-[11px] font-bold text-white">{r.unread}</span>}</span>
             <span className="mt-1 flex items-center gap-2 text-[11.5px] text-slate-500"><span className={`rounded-full px-1.5 py-0.5 font-semibold ${STATUS[r.status]?.[1] ?? ""}`}>{STATUS[r.status]?.[0] ?? r.status}</span><span className="truncate">{r.assigned_name ?? "Unassigned"}{r.source_title ? ` · ${r.source_title}` : ""}</span></span>
           </button></li>)}
@@ -99,6 +104,7 @@ export function ChatInbox() {
             {data?.messages.map((m) => <div key={m.id} className={`mb-3 flex flex-col ${m.sender === "staff" ? "items-end" : "items-start"}`}>
               <span className="mb-1 text-[11.5px] font-semibold text-slate-500">{m.sender === "staff" ? (m.is_bot ? "🤖 Cee (bot)" : m.sender_name ?? "Waydidi team") : "Customer"} · {when(m.created_at)}</span>
               <p className={`max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-[14px] ${m.sender === "staff" ? (m.is_bot ? "rounded-br-md bg-slate-700 text-white" : "rounded-br-md bg-[#FE8B05] text-white") : "rounded-bl-md border border-slate-200 bg-white"}`}>{m.body}</p>
+              {m.sender === "staff" && !m.is_bot && <button type="button" onClick={() => void saveAsKnowledge(m.id)} className="mt-1 text-[11.5px] font-semibold text-slate-500 underline">Save as Cee knowledge</button>}
               {m.sender === "visitor" && m.telegram_status === "failed" && <button type="button" onClick={() => void act({ action: "retry_telegram", messageId: m.id })} className="mt-1 text-[11.5px] font-semibold text-red-600 underline">Not on Telegram yet · retry</button>}
             </div>)}
             <div ref={bottom} />

@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     filters.push(`(c.public_id LIKE ?1q OR c.customer_name LIKE ?1q OR c.customer_email LIKE ?1q OR c.customer_phone LIKE ?1q OR EXISTS(SELECT 1 FROM website_chat_messages s WHERE s.conversation_id=c.id AND s.body LIKE ?1q))`.replace(/\?1q/g, "?"));
     for (let i = 0; i < 5; i++) binds.push(`%${q}%`);
   }
-  const conversations = (await env.DB.prepare(`SELECT c.id,c.public_id,c.status,c.customer_name,c.customer_email,c.source_title,c.source_url,c.assigned_name,c.assigned_staff_id,c.last_message_at,c.updated_at,${UNREAD} unread,
+  const conversations = (await env.DB.prepare(`SELECT c.id,c.public_id,c.status,c.channel,c.customer_name,c.customer_email,c.source_title,c.source_url,c.assigned_name,c.assigned_staff_id,c.last_message_at,c.updated_at,${UNREAD} unread,
     (SELECT body FROM website_chat_messages WHERE conversation_id=c.id ORDER BY rowid DESC LIMIT 1) preview,
     (SELECT sender FROM website_chat_messages WHERE conversation_id=c.id ORDER BY rowid DESC LIMIT 1) last_sender
     FROM website_conversations c WHERE ${filters.join(" AND ")} ORDER BY COALESCE(c.last_message_at,c.updated_at) DESC LIMIT 100`).bind(...binds).all()).results;

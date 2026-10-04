@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ChatMsg = { seq?: number; id: string; sender: "visitor" | "staff"; name: string | null; body: string; createdAt: string; clientId: string | null; state?: "sending" | "failed" };
 export type ChatReview = { submitted: boolean; rating: number | null; googleUrl: string | null } | null;
-export type ChatInfo = { publicId: string; status: string; agent: string | null; name: string | null; review?: ChatReview } | null;
+export type ChatInfo = { publicId: string; status: string; agent: string | null; name: string | null; review?: ChatReview; typing?: boolean } | null;
 export type Context = { topic?: string | null; name?: string; email?: string; phone?: string };
 
 const ChatPanel = dynamic(() => import("@/components/chat/chat-panel").then((m) => m.ChatPanel), { ssr: false, loading: () => null });
@@ -74,13 +74,17 @@ export function WebsiteChat() {
     }
   }, []);
 
-  // Open: check every 4 s. Closed but chatting: every 20 s for the unread badge. Never polls for visitors who never chatted.
+  // Right after the visitor sends (and while Cee is typing) check every second, so replies appear at once.
+  const fastUntil = useRef(0);
+  const typing = Boolean(info?.typing);
+  useEffect(() => { if (typing) fastUntil.current = Math.max(fastUntil.current, Date.now() + 5000); }, [typing]);
+  // Open: check every 4 s (every 1 s while a reply is expected). Closed but chatting: every 20 s for the unread badge. Never polls for visitors who never chatted.
   useEffect(() => {
     if (!open && !active) return;
-    let stopped = false;
-    const run = () => { if (!document.hidden) void sync().catch(() => { if (!stopped) setLoadError(true); }); };
+    let stopped = false, last = 0;
+    const run = () => { last = Date.now(); if (!document.hidden) void sync().catch(() => { if (!stopped) setLoadError(true); }); };
     run();
-    const timer = window.setInterval(run, open ? 4000 : 20000);
+    const timer = window.setInterval(() => { if (Date.now() - last >= (open ? (Date.now() < fastUntil.current ? 1000 : 4000) : 20000) - 50) run(); }, 1000);
     const wake = () => { if (!document.hidden) run(); };
     document.addEventListener("visibilitychange", wake); window.addEventListener("online", wake);
     return () => { stopped = true; window.clearInterval(timer); document.removeEventListener("visibilitychange", wake); window.removeEventListener("online", wake); };
@@ -103,6 +107,7 @@ export function WebsiteChat() {
       const data = await res.json().catch(() => ({})) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Message couldn't be sent.");
       store.set(ACTIVE_KEY, "1"); setActive(true);
+      fastUntil.current = Date.now() + 20000;
       await sync().catch(() => undefined);
       return null;
     } catch (error) {

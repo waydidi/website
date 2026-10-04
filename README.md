@@ -26,6 +26,15 @@ Owner setup:
 
 Updates are de-duplicated by `update_id`, the webhook secret is checked on every call, callbacks are re-validated server side, and replies are routed only by stored Telegram message ids, never by name. Failed Telegram deliveries keep the customer's message and are retried by the five-minute cron. The schema is in `drizzle/0069_chat_telegram.sql`.
 
+## Cee (chat assistant) on website, WhatsApp and LINE
+
+Cee answers customer chats instantly, quoting only from the site's price tables and searching the notes under **Admin → Chat → Cee knowledge** (plus the attraction database). It hands over to staff (with a Telegram alert) when it can't help. Secrets go in Cloudflare (Workers → Settings → Variables and secrets), never in the code:
+
+- `ANTHROPIC_API_KEY` turns Cee on. `GOOGLE_MAPS_SERVER_KEY` is needed for route prices.
+- **WhatsApp** (Meta WhatsApp Cloud API): `WHATSAPP_TOKEN` (permanent system-user token), `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, and `WHATSAPP_VERIFY_TOKEN` (any long random text). In the Meta app's WhatsApp → Configuration, set the callback URL to `https://<your domain>/api/integrations/whatsapp/webhook` with the same verify token and subscribe to `messages`. Staff can reply free-form only within 24 hours of the customer's last message (WhatsApp's rule).
+- **LINE** (LINE Official Account → Messaging API): `LINE_CHANNEL_ACCESS_TOKEN` and `LINE_CHANNEL_SECRET`. Set the webhook URL to `https://<your domain>/api/integrations/line/webhook`, turn "Use webhook" on and LINE's own auto-reply off. Replies use push messages, which count against the LINE plan's monthly message quota.
+- Model and monthly cost are on the Cee knowledge tab. `ANTHROPIC_API_KEY=... node scripts/cee-eval.mjs` runs the 100 test questions against the real model (costs real money) and writes `cee-eval-report.md` with answers, timings and cost.
+
 ## Starter build tooling
 
 Install locked dependencies with `npm run install:ci`, then build with `npm run build`. Cloudflare deploys the built Worker using the configuration generated from `vite.config.ts`.
