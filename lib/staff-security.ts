@@ -81,6 +81,8 @@ export async function newStaffSession(db: SecurityDatabase, staffId: string, rem
 export function allowedStaffRoute(role: StaffRole, path: string, method: string) {
   if(role==="owner") return true;
   if(path==="/api/admin/session") return true;
+  if(path==="/admin/profile" || path==="/api/admin/profile" || path==="/api/admin/avatar") return true;
+  if(path==="/admin/partners") return role==="operations";
   if(path==="/admin" || path==="/api/admin/overview") return role==="operations";
   const section=path.replace(/^\/(?:api\/)?admin\/?/,"").split("/")[0];
   if(section==="chat") return ["operations","support"].includes(role);

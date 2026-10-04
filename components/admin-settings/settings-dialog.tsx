@@ -62,6 +62,7 @@ export function SettingsDialog({ dark, onToggleDark }: { dark: boolean; onToggle
         <span className="mt-2 rounded-lg bg-emerald-50 px-3 py-1 text-[12.5px] font-semibold text-emerald-700">Administrator</span>
         {error && <p role="alert" className="mt-2 text-[12px] font-semibold text-red-600">{error}</p>}
         <Link href="/admin/settings" onClick={() => setOpen(false)} className="mt-5 inline-flex h-12 items-center rounded-2xl bg-[#FF8A05] px-8 text-[15px] font-bold text-white shadow-sm hover:bg-[#E67900]">All settings</Link>
+        <Link href="/admin/profile" onClick={() => setOpen(false)} className="mt-3 text-[14px] font-semibold text-[#C96100] hover:underline">Manage profile</Link>
       </div>
       <div className="mt-5 grid gap-2.5">
         <div className={card}><p className="text-[12px] text-slate-500">Admin ID</p><p className="mt-0.5 text-[15px] font-medium">{username || "…"}</p></div>
