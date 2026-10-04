@@ -5,9 +5,9 @@ import {
   BookOpen,
   MapPinned,
   Truck,
-  Users,
+  Users, UserRound,
   Newspaper,
-  TicketPercent, Gift, Route, Building2, Store, IdCard, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Search, Settings } from "lucide-react";
+  TicketPercent, Gift, Route, Building2, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -16,10 +16,13 @@ import { NotificationBell } from "@/components/admin-settings/notification-bell"
 import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings/settings-dialog";
 
 // "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
-const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/seasons"))));
+const PARTNER_TABS = [{ href: "/admin/drivers", label: "Drivers" }, { href: "/admin/storefronts", label: "Stores" }, { href: "/admin/agencies", label: "Agencies" }];
+const isPartnersPath = (pathname: string) => pathname === "/admin/partners" || PARTNER_TABS.some(t => pathname === t.href || pathname.startsWith(`${t.href}/`));
+const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : (href === "/admin/partners" && isPartnersPath(pathname)) || pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/seasons"))));
 
 const tabs = [
   { href: "/admin/payments", label: "Payments", mobileLabel: "Payments", title: "Payments", icon: BarChart3 },
+  { href: "/admin/profile", label: "Profile", mobileLabel: "Profile", title: "Profile", icon: UserRound },
   {
     href: "/admin",
     label: "Overview",
@@ -71,24 +74,10 @@ const tabs = [
     icon: TicketPercent,
   },
   {
-    href: "/admin/drivers",
-    label: "Drivers",
-    mobileLabel: "Drivers",
-    title: "Drivers",
-    icon: IdCard,
-  },
-  {
-    href: "/admin/storefronts",
-    label: "Storefronts",
-    mobileLabel: "Stores",
-    title: "Storefronts",
-    icon: Store,
-  },
-  {
-    href: "/admin/agencies",
-    label: "Travel agencies",
-    mobileLabel: "Agencies",
-    title: "Travel agencies",
+    href: "/admin/partners",
+    label: "Partners",
+    mobileLabel: "Partners",
+    title: "Partners",
     icon: Building2,
   },
   {
@@ -160,16 +149,15 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
     { href: "/admin/blog", label: "Blog", icon: Newspaper },
   ] },
   { title: "People", items: [
+    { href: "/admin/profile", label: "Profile", icon: UserRound },
     { href: "/admin/staff", label: "Staff access", icon: Users },
     { href: "/admin/chat", label: "Website chat", icon: Users },
     { href: "/admin/users", label: "Users", icon: Users },
-    { href: "/admin/drivers", label: "Drivers", icon: IdCard },
-    { href: "/admin/agencies", label: "Travel agencies", icon: Building2 },
-    { href: "/admin/storefronts", label: "Storefronts", icon: Store },
+    { href: "/admin/partners", label: "Partners", icon: Building2 },
   ] },
 ];
 
-const linkActive = (l: NavLink, p: string, t: string | null) => { const h = l.href.split("?")[0]; return l.match ? l.match(p, t) : h === "/admin" ? p === h : p.startsWith(h); };
+const linkActive = (l: NavLink, p: string, t: string | null) => { const h = l.href.split("?")[0]; return l.match ? l.match(p, t) : h === "/admin" ? p === h : h === "/admin/partners" ? isPartnersPath(p) : p.startsWith(h); };
 const groupActive = (g: NavGroup, p: string, t: string | null) => (g.children ? g.children.some((c) => linkActive(c, p, t)) : linkActive(g, p, t));
 const ALL_PAGES = SECTIONS.flatMap((s) => s.items.flatMap((g) => (g.children ? g.children.map((c) => ({ href: c.href, label: `${g.label} · ${c.label}` })) : [{ href: g.href, label: g.label }]))).concat({ href: "/admin/settings", label: "Settings" });
 
@@ -180,6 +168,8 @@ const FEATURES: { href: string; label: string; keywords: string }[] = [
   { href: "/admin/bookings?mode=calendar", label: "Bookings calendar", keywords: "calendar schedule month" },
   { href: "/admin/bookings?mode=board", label: "Bookings board", keywords: "board kanban status" },
   { href: "/admin/drivers", label: "Add or manage drivers", keywords: "driver add new assign outsource" },
+  { href: "/admin/storefronts", label: "Partners · Stores", keywords: "partners stores storefront commission" },
+  { href: "/admin/agencies", label: "Partners · Agencies", keywords: "partners agency agencies hotels" },
   { href: "/admin/promotions", label: "Create a promo code", keywords: "promo coupon discount code voucher" },
   { href: "/admin/hourly", label: "Hourly prices", keywords: "hour hourly rate price city-to-city" },
   { href: "/admin/pricing", label: "Transfer prices & areas", keywords: "fare price area route zone toll" },
@@ -345,8 +335,14 @@ export default function AdminShell({
           <NotificationBell />
           <SettingsDialog dark={dark} onToggleDark={toggleDark} />
         </header>
-        <div className="mx-auto max-w-[1600px] px-4 pt-5 sm:px-8 md:pt-6">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 pt-5 sm:px-8 md:pt-6">
           <h1 className="text-[26px] font-semibold tracking-[-.02em] md:text-[28px]">{title}</h1>
+          {isPartnersPath(pathname) && <nav aria-label="Partner categories" className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
+            {PARTNER_TABS.filter(t => allowedStaffRoute(role, t.href, "GET")).map(t => {
+              const selected = pathname === t.href || pathname.startsWith(`${t.href}/`);
+              return <Link key={t.href} href={t.href} aria-current={selected ? "page" : undefined} className={`rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors sm:px-4 ${selected ? "bg-[#FFF0DF] text-[#C96100]" : "text-slate-600 hover:bg-slate-50"}`}>{t.label}</Link>;
+            })}
+          </nav>}
         </div>
         <section className="admin-page-slot mx-auto min-h-[calc(100vh-72px)] max-w-[1600px] px-0 pb-32 md:pb-8">
           {children}
