@@ -11,7 +11,6 @@ const SHOW_MAP: boolean = false;
 import { WaydidiFooter } from "./footer";
 import { FleetSection } from "./fleet-section";
 import { ServiceCards } from "./service-cards";
-import { Promotions } from "./promotions";
 import { TransferPartners } from "./transfer-partners";
 import { DealsSection } from "./deals-section";
 
@@ -47,7 +46,6 @@ export function homeMetadata(locale: Locale): Metadata {
 export function HomePage({ locale }: { locale: Locale }) {
   return (
     <BookingFlow locale={locale} messages={getMessages(locale)}>
-      <Promotions />
       <ServiceCards locale={locale} />
       <HowItWorks />
       {/* Hidden for now: "Where Waydidi takes you" map. */}
