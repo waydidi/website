@@ -10,6 +10,7 @@ const mf=new Miniflare({modules:true,script:'export default {fetch(){return new 
 const db=await mf.getD1Database('DB');
 await db.exec("CREATE TABLE attractions(id TEXT PRIMARY KEY,name TEXT,customer_name TEXT,area TEXT DEFAULT '',category TEXT DEFAULT 'sight',tags_json TEXT DEFAULT '[]',open_time TEXT,close_time TEXT,closed_days_json TEXT DEFAULT '[]',duration_min INTEGER DEFAULT 60,dress_code TEXT,description TEXT,status TEXT DEFAULT 'active');");
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
+await db.prepare("INSERT INTO staff_accounts VALUES('anna','Anna',1,'support')").run();
 for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 globalThis.__ceeTest={env:{DB:db,ANTHROPIC_API_KEY:'test-key'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'cee-env',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0cee-env';},load(id){if(id==='\0cee-env')return 'export const env=globalThis.__ceeTest.env';}}],server:{middlewareMode:true}});
@@ -80,7 +81,7 @@ test('Non replies as "Non", marked as a bot, without taking the chat',async()=>{
 });
 test('a staff reply or assignment silences Non in that chat',async()=>{
  const id=await conversation('hello');
- await chat.addStaffMessage(id,'Hi, Anna here',{name:'Anna'},'dashboard');
+ await chat.addStaffMessage(id,'Hi, Anna here',{name:'Anna',staffId:'anna'},'dashboard');
  assert.equal((await row(id)).bot_paused,1);
  const c=scripted(say('should not send'));await bot.runCee(id,{client:c});assert.equal(c.calls.length,0);
  const id2=await conversation('hello');await chat.assign(id2,{name:'Ben'},true);assert.equal((await row(id2)).bot_paused,1);
@@ -178,7 +179,7 @@ test('LINE: signature check, display name, staff replies pushed to LINE',async()
  assert.equal((await ln.POST(new Request('https://x/api/integrations/line/webhook',{method:'POST',headers:{'x-line-signature':await sign('ls',body,'b64')},body}))).status,200);
  const c=await db.prepare("SELECT id,customer_name FROM website_conversations WHERE channel='line' AND channel_user_id='U1'").first();assert.equal(c.customer_name,'Nok');
  assert.equal((await db.prepare("SELECT COUNT(*) n FROM website_conversations WHERE channel_user_id='U2'").first()).n,0);
- await chat.addStaffMessage(c.id,'สวัสดีค่ะ Anna here',{name:'Anna'},'dashboard');
+ await chat.addStaffMessage(c.id,'สวัสดีค่ะ Anna here',{name:'Anna',staffId:'anna'},'dashboard');
  const push=sent.filter((x)=>x.url.endsWith('/message/push')).at(-1);assert.deepEqual([push.body.to,push.body.messages[0].text],['U1','สวัสดีค่ะ Anna here']);
  await bot.setCeeEnabled(true);
 });
@@ -221,7 +222,7 @@ test('Telegram gets customer messages and staff replies, not Non replies; waits 
  Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
  const id=await conversation('hi');await db.prepare('UPDATE website_conversations SET telegram_message_id=500 WHERE id=?').bind(id).run();
  tgCalls.length=0;await chat.addBotMessage(id,'Hello from Non');assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,0);
- tg429=1;await chat.addStaffMessage(id,'Anna here',{name:'Anna'},'dashboard');
+ tg429=1;await chat.addStaffMessage(id,'Anna here',{name:'Anna',staffId:'anna'},'dashboard');
  assert.ok(tgCalls.some((c)=>c.method==='sendMessage'&&/Anna here/.test(c.body.text)));
  delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
 });

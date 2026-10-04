@@ -26,10 +26,15 @@ export async function POST(request: Request) {
   const update = await request.json().catch(() => null) as Update | null;
   if (!update || typeof update.update_id !== "number") return ok();
 
-  // Telegram retries deliveries; the first insert wins and repeats are acknowledged without side effects.
-  const fresh = await db().prepare("INSERT INTO telegram_events(update_id,event_type,processing_status,processed_at) VALUES(?,?,'received',?) ON CONFLICT(update_id) DO NOTHING")
-    .bind(update.update_id, update.callback_query ? "callback" : update.message ? "message" : "other", new Date().toISOString()).run();
-  if (!fresh.meta.changes) return ok();
+  // Claim failed deliveries again; an in-flight delivery has a five-minute lease.
+  const fresh = await db().prepare(`INSERT INTO telegram_events(update_id,event_type,processing_status,processed_at) VALUES(?,?,'received',?)
+    ON CONFLICT(update_id) DO UPDATE SET processing_status='received',processed_at=excluded.processed_at
+    WHERE telegram_events.processing_status='failed' OR (telegram_events.processing_status='received' AND telegram_events.processed_at<?)`)
+    .bind(update.update_id, update.callback_query ? "callback" : update.message ? "message" : "other", new Date().toISOString(), new Date(Date.now()-5*60000).toISOString()).run();
+  if (!fresh.meta.changes) {
+    const existing = await db().prepare("SELECT processing_status FROM telegram_events WHERE update_id=?").bind(update.update_id).first<{processing_status:string}>();
+    return existing?.processing_status === "done" ? ok() : NextResponse.json({error:"Delivery is still processing."},{status:503});
+  }
 
   try {
     if (update.callback_query) await handleCallback(update.callback_query);
@@ -38,6 +43,7 @@ export async function POST(request: Request) {
   } catch (error) {
     await db().prepare("UPDATE telegram_events SET processing_status='failed' WHERE update_id=?").bind(update.update_id).run();
     console.error("telegram webhook failed", error instanceof Error ? error.message : "unknown");
+    return NextResponse.json({error:"Delivery failed. Please retry."},{status:503});
   }
   return ok();
 }

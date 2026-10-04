@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { bangkokDepartureIso } from "@/lib/booking-time";
+import { bangkokDepartureIso, validBangkokPickup } from "@/lib/booking-time";
 import { HOURLY_MAX_HOURS, HOURLY_MIN_HOURS, areaHourlyPrices, hourlyAreaSettings } from "@/lib/hourly-area-pricing";
 import { HOURLY_AREAS } from "@/lib/hourly-areas-data";
 import { fromPrice, listPackages } from "@/lib/packages";
@@ -26,6 +26,7 @@ function checkWhen(date: string, time: string): string | null {
   if (!validDate(date)) return "Ask the customer for the travel date.";
   if (!validTime(time)) return "Ask the customer for the pickup time (24-hour, e.g. 14:30).";
   if (date < today()) return "That date has passed. Ask for a future date.";
+  if (!validBangkokPickup(date, time)) return "Choose a pickup at least 3 hours from now, within the next two years, on a 15-minute time slot.";
   return null;
 }
 
