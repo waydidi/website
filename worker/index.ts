@@ -96,9 +96,9 @@ const worker = {
     return withSecurityHeaders(response, url);
   },
   async scheduled(controller: { scheduledTime: number; cron?: string }, _env: Env, ctx: ExecutionContext): Promise<void> {
-    // Every minute: chat check-ins ("Are you still with us?") only.
+    // Every minute: chat check-ins ("Are you still with us?") and ending website chats idle for 30 minutes.
     if (controller.cron === "* * * * *") {
-      ctx.waitUntil(import("../lib/chat-idle").then((m) => m.sendIdleNudges(new Date(controller.scheduledTime))).catch((e) => console.error("chat check-in failed", e)));
+      ctx.waitUntil(import("../lib/chat-idle").then(async (m) => { const at = new Date(controller.scheduledTime); await m.sendIdleNudges(at); await m.closeIdleChats(at); }).catch((e) => console.error("chat check-in failed", e)));
       return;
     }
     ctx.waitUntil(runOperationsAutomation(new Date(controller.scheduledTime)));

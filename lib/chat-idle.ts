@@ -7,6 +7,10 @@ export const NUDGE_AFTER_MS = 10 * 60 * 1000;
 /** After this long with no messages at all, the inbox offers "Completed" / "Follow up". */
 export const IDLE_ACTIONS_AFTER_MS = 15 * 60 * 1000;
 
+/** Website chats with no activity this long are ended automatically (the conversation is kept). */
+export const AUTO_CLOSE_AFTER_MS = 30 * 60 * 1000;
+export const CLOSE_TEXT = "This chat has been closed after 30 minutes without activity. Thank you for contacting Waydidi. If you need anything else, just send a new message and we'll be happy to help.";
+
 export const NUDGE_TEXT = "Hi, just checking in. Are you still with us? If you have any other questions or would like help with your booking, simply reply here and we'll be happy to help.";
 
 type Row = { id: string; last_id: string; last_sender: string; last_at: string; idle_nudge_msg_id: string | null };
@@ -31,4 +35,22 @@ export async function sendIdleNudges(now = new Date(), limit = 50) {
     }
   }
   return sent;
+}
+
+/**
+ * Ends open website chats after 30 minutes with no messages from anyone. The status becomes
+ * "closed" (the customer then sees the rating); messages stay in the admin inbox under Closed.
+ * Chats marked "Follow up" (pending) are left alone.
+ */
+export async function closeIdleChats(now = new Date(), limit = 50) {
+  const db = env.DB as { prepare: (s: string) => { bind: (...v: unknown[]) => { all: <T>() => Promise<{ results: T[] }> } } };
+  const before = new Date(now.getTime() - AUTO_CLOSE_AFTER_MS).toISOString();
+  const rows = (await db.prepare(`SELECT id FROM website_conversations WHERE status='open' AND COALESCE(channel,'web')='web' AND expires_at>? AND COALESCE(last_message_at,created_at)<=? LIMIT ?`)
+    .bind(now.toISOString(), before, limit).all<{ id: string }>()).results;
+  const { setStatus } = await import("@/lib/website-chat");
+  for (const r of rows) {
+    await addBotMessage(r.id, CLOSE_TEXT);
+    await setStatus(r.id, "closed");
+  }
+  return rows.length;
 }

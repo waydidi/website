@@ -176,3 +176,15 @@ test('a quiet customer gets one polite check-in after 10 minutes; quiet chats ca
  assert.equal((await admin.POST(post({id:'idle-1',action:'complete'}))).status,200);
  row=await db.prepare("SELECT status,follow_up_at FROM website_conversations WHERE id='idle-1'").first();assert.equal(row.status,'closed');assert.equal(row.follow_up_at,null);
 });
+test('website chats idle for 30 minutes end automatically and stay in the inbox; follow-ups are kept open',async()=>{
+ const idle=await vite.ssrLoadModule('/lib/chat-idle.ts');const t0=Date.now();const iso=(m)=>new Date(t0-m*60000).toISOString();
+ for(const [id,status,mins] of [['auto-1','open',31],['auto-2','open',20],['auto-3','pending',45]]){
+  await db.prepare("INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status,last_message_at) VALUES(?,?,?,?,?,?,?,?)").bind(id,id+'-h',expires,iso(mins),iso(mins),'WD-'+id,status,iso(mins)).run();
+  await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES(?,?,'visitor','hi',?)").bind(id+'-m',id,iso(mins)).run();
+ }
+ assert.ok(await idle.closeIdleChats(new Date(t0))>=1);
+ const st=async(id)=>(await db.prepare('SELECT status FROM website_conversations WHERE id=?').bind(id).first()).status;
+ assert.equal(await st('auto-1'),'closed');assert.equal(await st('auto-2'),'open');assert.equal(await st('auto-3'),'pending');
+ assert.equal((await db.prepare("SELECT COUNT(*) n FROM website_chat_messages WHERE conversation_id='auto-1'").first()).n,2); // history kept + closing note
+ const closed=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?status=closed'))).json();assert.ok(closed.conversations.some((c)=>c.id==='auto-1'));
+});
