@@ -29,7 +29,6 @@ const { eq } = await import('drizzle-orm');
 const payments = await vite.ssrLoadModule('/lib/payment-reconciliation.ts');
 const legs = await vite.ssrLoadModule('/lib/journey-legs.ts');
 const { bookingWindow, rangesOverlap } = await vite.ssrLoadModule('/lib/operations-calendar.ts');
-const { flightAdjustment } = await vite.ssrLoadModule('/lib/flight-assistance.ts');
 let sequence = 0;
 async function seed(overrides = {}) {
     const reference = `TEST${++sequence}`;
@@ -118,16 +117,6 @@ test('concurrent cash receipts cannot overcollect', async () => {
     assert.deepEqual(responses.map(r => r.status).sort(), [200, 409]);
     assert.equal((await booking(b)).amountPaid, 700);
 });
-test('flight delays suggest a pickup without changing the booking', async () => {
-    const b = await seed({ pickupTime: '10:00', flightScheduledArrival: '2026-11-01T09:00:00+07:00' });
-    const flight = { status: 'active', scheduledArrival: b.flightScheduledArrival, estimatedArrival: '2026-11-01T10:00:00+07:00', actualArrival: null };
-    const adjustment = flightAdjustment(b, flight);
-    assert.equal(adjustment.needsReview, true);
-    assert.equal(adjustment.differenceMinutes, 60);
-    assert.equal(adjustment.proposedPickupAt, '2026-11-01T04:00:00.000Z');
-    assert.equal((await booking(b)).pickupTime, '10:00');
-    assert.equal(flightAdjustment(b, { ...flight, status: 'cancelled' }).proposedPickupAt, null);
-});
 
 test('confirmation payment labels describe actual cash, refund and expired states', async () => {
  const {confirmationPaymentLabel}=await vite.ssrLoadModule('/lib/confirmation-payment.ts');
@@ -169,10 +158,6 @@ test('payout reports use each leg driver and never pay the combined cost twice',
  for(const [leg,driverId] of [['outbound',outDriver],['return',returnDriver]])assert.equal((await POST(adminRequest('/api/admin/operations',{action:'assign',bookingReference:b.reference,driverId,leg}))).status,200);
  const {POST:setCost}=await vite.ssrLoadModule('/app/api/admin/payments/route.ts');for(const [leg,costMinor] of [['outbound',20000],['return',30000]])await setCost(adminRequest('/api/admin/payments',{action:'update_leg_cost',reference:b.reference,leg,costMinor,paymentStatus:'unpaid'}));
  const {driverPayouts,markWeekPaid}=await vite.ssrLoadModule('/lib/reports.ts');let groups=await driverPayouts({from:'2026-11-01',to:'2026-11-04'});assert.equal(groups.find(g=>g.driverId===outDriver).owed,200);assert.equal(groups.find(g=>g.driverId===returnDriver).owed,300);const returned=groups.find(g=>g.driverId===returnDriver);assert.equal(returned.trips[0].pickupDate,'2026-11-03');await markWeekPaid(returnDriver,returned.week,'test-payout','operations@example.invalid');const costs=await db.select().from(schema.journeyCosts).where(eq(schema.journeyCosts.bookingReference,b.reference));assert.equal(costs.find(c=>c.leg==='return').paymentStatus,'paid');assert.equal(costs.find(c=>c.leg==='outbound').paymentStatus,'unpaid');
-});
-test('flight assistance retains the original pickup offset through later changes',async()=>{
- const b=await seed({flightNumber:'TG123',pickupTime:'10:00',flightScheduledArrival:'2026-11-01T09:00:00+07:00'});const {refreshBookingFlight}=await vite.ssrLoadModule('/lib/flight-assistance.ts');const now=new Date().toISOString();const cache={cacheKey:'2026-11-01:TG123',flightNumber:'TG123',flightDate:'2026-11-01',status:'active',scheduledArrival:b.flightScheduledArrival,estimatedArrival:'2026-11-01T10:00:00+07:00',fetchedAt:now,expiresAt:new Date(Date.now()+3600000).toISOString()};await db.insert(schema.flightStatusCache).values(cache);await refreshBookingFlight(b.reference);
- const alert=(await db.select().from(schema.operationsAlerts).where(eq(schema.operationsAlerts.dedupeKey,`flight-change:${b.reference}:outbound`)))[0];await db.update(schema.operationsAlerts).set({status:'resolved',resolvedAt:now}).where(eq(schema.operationsAlerts.id,alert.id));await db.update(schema.bookings).set({pickupTime:'11:00'}).where(eq(schema.bookings.reference,b.reference));await refreshBookingFlight(b.reference);let fresh=(await db.select().from(schema.operationsAlerts).where(eq(schema.operationsAlerts.id,alert.id)))[0];assert.equal(fresh.status,'resolved');await db.update(schema.flightStatusCache).set({estimatedArrival:'2026-11-01T11:00:00+07:00'}).where(eq(schema.flightStatusCache.cacheKey,cache.cacheKey));await refreshBookingFlight(b.reference);fresh=(await db.select().from(schema.operationsAlerts).where(eq(schema.operationsAlerts.id,alert.id)))[0];assert.equal(fresh.status,'open');assert.equal(JSON.parse(fresh.details).proposedPickupAt,'2026-11-01T05:00:00.000Z');assert.equal((await booking(b)).pickupTime,'11:00');
 });
 
 test('scheduled recovery verifies the provider before expiring an old checkout',async()=>{

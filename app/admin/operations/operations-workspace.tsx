@@ -23,14 +23,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AddDriverDialog } from "@/components/admin-overview/upcoming-rides";
-import { FlightAssistancePanel } from "@/components/flight-assistance-panel";
 import { DriverPicker } from "@/components/bookings-admin/driver-picker";
 
 // The side panel with journey details is switched off for now (bookings open on their
 // own page). Typed as boolean so the hidden code is still type-checked.
 const SHOW_DETAIL_PANEL: boolean = false;
 
+type Leg = "outbound" | "return";
 type Booking = {
+  key: string; // reference, or "reference:return" for the return journey
+  leg: Leg;
   reference: string;
   customerName: string;
   customerEmail: string;
@@ -63,6 +65,7 @@ type Driver = {
 type Assignment = {
   id: string;
   bookingReference: string;
+  bookingKey: string;
   driverId: string;
   currentStatus: string;
   assignedAt: string;
@@ -73,6 +76,7 @@ type DriverEvent = {
   id: string;
   assignmentId: string;
   bookingReference: string;
+  bookingKey: string;
   status: string;
   latitude: number | null;
   longitude: number | null;
@@ -84,8 +88,8 @@ type DriverEvent = {
   rejectionReason: string | null;
   createdAt: string;
 };
-type JourneyLocation = { id: string; bookingReference: string; assignmentId: string; latitude: number; longitude: number; accuracyMetres: number; serverTimestamp: string; quality: string };
-type JourneyException = { id: string; bookingReference: string; assignmentId: string; exceptionType: string; status: string; severity: string; distanceMetres: number; corridorMetres: number; consecutivePoints: number; stopDurationSeconds: number | null; stopReason: string | null; startedAt: string; lastSeenAt: string; resolvedAt: string | null };
+type JourneyLocation = { id: string; bookingReference: string; bookingKey: string; assignmentId: string; latitude: number; longitude: number; accuracyMetres: number; serverTimestamp: string; quality: string };
+type JourneyException = { id: string; bookingReference: string; bookingKey: string; assignmentId: string; exceptionType: string; status: string; severity: string; distanceMetres: number; corridorMetres: number; consecutivePoints: number; stopDurationSeconds: number | null; stopReason: string | null; startedAt: string; lastSeenAt: string; resolvedAt: string | null };
 type Data = {
   bookings: Booking[];
   drivers: Driver[];
@@ -116,8 +120,16 @@ const statusStyle: Record<string, string> = {
   no_show: "bg-red-100 text-red-800",
 };
 
+// Outbound and return journeys are shown together in one table; each row knows its leg.
+const keyFor = (reference: string, leg: Leg) => (leg === "return" ? `${reference}:return` : reference);
+const tagLeg = (raw: Omit<Data, "bookings"> & { bookings: Omit<Booking, "key" | "leg">[] }, leg: Leg): Data => {
+  const k = <T extends { bookingReference: string }>(rows: T[]) => rows.map((row) => ({ ...row, bookingKey: keyFor(row.bookingReference, leg) }));
+  return { ...raw, bookings: raw.bookings.map((b) => ({ ...b, leg, key: keyFor(b.reference, leg) })), assignments: k(raw.assignments as Assignment[]), events: k(raw.events as DriverEvent[]), locations: k(raw.locations as JourneyLocation[]), exceptions: k(raw.exceptions as JourneyException[]) };
+};
+const legOf = (key: string): Leg => (key.endsWith(":return") ? "return" : "outbound");
+const refOf = (key: string) => key.replace(/:return$/, "");
+
 export default function OperationsWorkspace({ email }: { email: string }) {
-  const [leg, setLeg] = useState<"outbound" | "return">("outbound");
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState("");
@@ -125,26 +137,34 @@ export default function OperationsWorkspace({ email }: { email: string }) {
     reference: string;
     url: string;
   } | null>(null);
-  const selectedLocation = data?.locations.find((location) => location.bookingReference === selected) ?? null;
-  const selectedException = data?.exceptions.find((exception) => exception.bookingReference === selected && exception.status === "open") ?? null;
+  const selectedLocation = data?.locations.find((location) => location.bookingKey === selected) ?? null;
+  const selectedException = data?.exceptions.find((exception) => exception.bookingKey === selected && exception.status === "open") ?? null;
   const load = useCallback(async () => {
     try {
-      const response = await fetch(`/api/admin/operations?leg=${leg}`, {
-        cache: "no-store",
-      });
-      const result = (await response.json()) as Data & { error?: string };
-      if (!response.ok)
-        throw new Error(result.error ?? "Operations data unavailable.");
+      const [outbound, back] = await Promise.all((["outbound", "return"] as const).map(async (leg) => {
+        const response = await fetch(`/api/admin/operations?leg=${leg}`, { cache: "no-store" });
+        const result = (await response.json()) as Parameters<typeof tagLeg>[0] & { error?: string };
+        if (!response.ok) throw new Error(result.error ?? "Operations data unavailable.");
+        return tagLeg(result, leg);
+      }));
+      const result: Data = {
+        bookings: [...outbound.bookings, ...back.bookings].sort((a, b) => `${a.pickupDate} ${a.pickupTime}`.localeCompare(`${b.pickupDate} ${b.pickupTime}`)),
+        drivers: outbound.drivers,
+        assignments: [...outbound.assignments, ...back.assignments],
+        events: [...outbound.events, ...back.events],
+        locations: [...outbound.locations, ...back.locations],
+        exceptions: [...outbound.exceptions, ...back.exceptions],
+      };
       setData(result);
       setError("");
       if (!selected && result.bookings[0])
-        setSelected(result.bookings[0].reference);
+        setSelected(result.bookings[0].key);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Operations data unavailable.",
       );
     }
-  }, [selected, leg]);
+  }, [selected]);
   useEffect(() => {
     // Loads data; state only changes after the fetch resolves.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -159,7 +179,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
       const response = await fetch("/api/admin/operations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, leg }),
+        body: JSON.stringify({ ...payload, leg: legOf(selected) }),
       });
       const result = (await response.json()) as {
         error?: string;
@@ -217,7 +237,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
       new Map(
         (data?.assignments ?? [])
           .filter((item) => !item.revokedAt)
-          .map((item) => [item.bookingReference, item]),
+          .map((item) => [item.bookingKey, item]),
       ),
     [data],
   );
@@ -228,25 +248,23 @@ export default function OperationsWorkspace({ email }: { email: string }) {
     )
     // Journeys still to run (finished and no-show journeys are left out).
     .filter((booking) => {
-      const status = activeAssignments.get(booking.reference)?.currentStatus;
+      const status = activeAssignments.get(booking.key)?.currentStatus;
       return status !== "completed" && status !== "no_show";
     });
   const selectedBooking = data?.bookings.find(
-    (item) => item.reference === selected,
+    (item) => item.key === selected,
   );
   const selectedAssignment = selectedBooking
-    ? activeAssignments.get(selectedBooking.reference)
+    ? activeAssignments.get(selectedBooking.key)
     : undefined;
   const selectedDriver = data?.drivers.find(
     (item) => item.id === selectedAssignment?.driverId,
   );
   const selectedEvents = (data?.events ?? [])
-    .filter((item) => item.bookingReference === selected)
+    .filter((item) => item.bookingKey === selected)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return (
     <main className="min-h-screen bg-[#f3f5f8] text-[#211726]">
-      <div className="mb-4 flex gap-2" aria-label="Journey direction">{(["outbound", "return"] as const).map(value => <button key={value} onClick={() => { setLeg(value); setSelected(""); setLinks({}); setLatestLink(null); }} className={`rounded-full px-5 py-2 font-bold ${leg === value ? "bg-orange-500 text-white" : "bg-slate-100"}`}>{value === "outbound" ? "Outbound journeys" : "Return journeys"}</button>)}</div>
-      <FlightAssistancePanel/>
       <header className="border-b border-orange-400 bg-[#FF8A05] px-5 py-5 text-white sm:px-8">
         <div className="mx-auto flex max-w-[1550px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-5">
@@ -300,12 +318,12 @@ export default function OperationsWorkspace({ email }: { email: string }) {
         </nav>
         <section className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-5">
           <div className="min-w-0 space-y-5">
-            {evidenceFor && <EvidenceSheet reference={evidenceFor} events={(data?.events ?? []).filter((e) => e.bookingReference === evidenceFor && e.assignmentId === activeAssignments.get(evidenceFor)?.id)} onClose={() => setEvidenceFor("")} />}
-            {addingFor && <AddDriverDialog leg={leg} reference={addingFor} onClose={() => setAddingFor("")} onDone={(url) => assigned(addingFor, url)} />}
+            {evidenceFor && <EvidenceSheet reference={evidenceFor.replace(/:return$/, " (return)")} events={(data?.events ?? []).filter((e) => e.bookingKey === evidenceFor && e.assignmentId === activeAssignments.get(evidenceFor)?.id)} onClose={() => setEvidenceFor("")} />}
+            {addingFor && <AddDriverDialog leg={legOf(addingFor)} reference={refOf(addingFor)} onClose={() => setAddingFor("")} onDone={(url) => assigned(addingFor, url)} />}
             {latestLink && (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
                 <CheckCircle2 size={20} />
-                <strong>Driver link ready for {latestLink.reference}</strong>
+                <strong>Driver link ready for {latestLink.reference.replace(/:return$/, " (return)")}</strong>
                 <button
                   onClick={() => navigator.clipboard.writeText(latestLink.url)}
                   className="ml-auto flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-2 font-bold text-white"
@@ -343,23 +361,21 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((booking) => {
-                      const assignment = activeAssignments.get(
-                        booking.reference,
-                      );
+                      const assignment = activeAssignments.get(booking.key);
                       const driver = data?.drivers.find(
                         (item) => item.id === assignment?.driverId,
                       );
                       const pending = (data?.events ?? []).filter(
                         (item) =>
-                          item.bookingReference === booking.reference &&
+                          item.bookingKey === booking.key &&
                           item.verificationStatus === "pending_review",
-                      ).length + (data?.exceptions ?? []).filter((item) => item.bookingReference === booking.reference && item.status === "open").length;
+                      ).length + (data?.exceptions ?? []).filter((item) => item.bookingKey === booking.key && item.status === "open").length;
                       return (
                         <tr
-                          key={booking.reference}
+                          key={booking.key}
                           className="align-top hover:bg-orange-50/40"
                         >
-                          <td className="px-5 py-4"><strong>{booking.reference}</strong></td>
+                          <td className="px-5 py-4"><strong>{booking.reference}</strong>{booking.leg === "return" && <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-black text-sky-800">Return</span>}</td>
                           <td className="px-5 py-4">{booking.customerName}</td>
                           <td className="px-5 py-4">
                             <p className="max-w-[260px] text-slate-500">
@@ -374,7 +390,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex flex-col items-start gap-1.5">
-                              <DriverPicker leg={leg} reference={booking.reference} drivers={(data?.drivers ?? []).filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.fullName, phone: d.phone, email: d.email, area: d.driverType === "outsource" ? "Outsource" : d.baseLocation ?? "", vehicle: d.vehicle ?? "", plate: d.carPlate ?? null, vehicleType: d.vehicleType ?? null, hasPhoto: d.hasPhoto }))} current={driver?.id ?? null} canAssign={booking.status === "confirmed"} onAssigned={(url) => assigned(booking.reference, url)} onAddDriver={() => setAddingFor(booking.reference)} />
+                              <DriverPicker leg={booking.leg} reference={booking.reference} drivers={(data?.drivers ?? []).filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.fullName, phone: d.phone, email: d.email, area: d.driverType === "outsource" ? "Outsource" : d.baseLocation ?? "", vehicle: d.vehicle ?? "", plate: d.carPlate ?? null, vehicleType: d.vehicleType ?? null, hasPhoto: d.hasPhoto }))} current={driver?.id ?? null} canAssign={booking.status === "confirmed"} onAssigned={(url) => assigned(booking.key, url)} onAddDriver={() => setAddingFor(booking.key)} />
                               {driver && <span className="text-xs text-slate-500">{driver.phone}</span>}
                             </div>
                           </td>
@@ -392,14 +408,14 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex flex-col items-start gap-1">
-                              <button type="button" onClick={() => setEvidenceFor(booking.reference)} className="text-sm font-bold text-[#C96100] hover:underline">See</button>
+                              <button type="button" onClick={() => setEvidenceFor(booking.key)} className="text-sm font-bold text-[#C96100] hover:underline">See</button>
                               {pending > 0 && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">{pending} to review</span>}
                             </div>
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-2">
-                              <button type="button" disabled={!assignment} onClick={() => assignment && void copyLink(booking.reference, assignment.id)} title={assignment ? "Copy the driver's trip link" : "Assign a driver first"} aria-label={copied === booking.reference ? "Link copied" : "Copy driver link"} className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FF8A05] text-white disabled:bg-slate-200 disabled:text-slate-400">
-                                {copied === booking.reference ? <Check size={16} /> : <Clipboard size={16} />}
+                              <button type="button" disabled={!assignment} onClick={() => assignment && void copyLink(booking.key, assignment.id)} title={assignment ? "Copy the driver's trip link" : "Assign a driver first"} aria-label={copied === booking.key ? "Link copied" : "Copy driver link"} className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FF8A05] text-white disabled:bg-slate-200 disabled:text-slate-400">
+                                {copied === booking.key ? <Check size={16} /> : <Clipboard size={16} />}
                               </button>
                               <Link
                                 href={`/admin/journeys/${encodeURIComponent(booking.reference)}`}

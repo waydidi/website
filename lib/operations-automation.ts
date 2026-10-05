@@ -2,7 +2,6 @@ import { env } from "cloudflare:workers";
 import { runDeliveryRecovery } from "@/lib/booking-fulfillment";
 import { runRefundRecovery } from "@/lib/refunds";
 import { runPaymentRecovery } from "@/lib/payment-recovery";
-import { runFlightAssistance } from "@/lib/flight-assistance";
 import { journeysFor, type Journey } from "@/lib/journey-legs";
 import { sendUnfinishedBookingReminders } from "@/lib/unfinished-bookings";
 import { sendRewardEmails } from "@/lib/reward-emails";
@@ -159,7 +158,6 @@ export async function runOperationsAutomation(at = new Date()): Promise<Automati
   await runDeliveryRecovery().catch(error=>console.error("Delivery recovery failed",error));
   await runRefundRecovery().catch(error=>console.error("Refund recovery failed",error));
   await runPaymentRecovery(at).catch(error => console.error("Payment recovery failed",error));
-  await runFlightAssistance(at).catch(error => console.error("Flight assistance failed",error));
   await import("@/lib/trip-day-check").then((m) => m.checkTomorrowsTrips(at)).catch(error => console.error("Trip day-before check failed",error));
   await import("@/lib/trip-thanks").then((m) => m.sendTripThanks(at)).catch(error => console.error("Trip thank-you failed",error));
   const db = getDb();
