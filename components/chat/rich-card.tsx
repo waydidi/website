@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, Users, Briefcase } from "lucide-react";
+import { CheckCircle2, Clock, Luggage, Users } from "lucide-react";
 import type { ChatCard } from "@/lib/chat-cards";
 
 // LINE-style cards inside the website chat: car options with Book buttons, a booking summary with
@@ -17,7 +17,7 @@ export function RichCard({ card }: { card: ChatCard }) {
       {card.cars.map((c) => <li key={c.name} className="flex items-center gap-3 px-4 py-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14.5px] font-semibold">{c.name}</p>
-          <p className="mt-0.5 flex items-center gap-2.5 text-[12px] text-slate-500"><span className="inline-flex items-center gap-1"><Users size={12} aria-hidden="true" />{c.seats}</span><span className="inline-flex items-center gap-1"><Briefcase size={12} aria-hidden="true" />{c.bags}</span></p>
+          <p className="mt-1 flex items-center gap-[3px] text-[13px] text-[#6B6B6B]"><span>{c.seats}</span><Users size={16} className="text-[#1C1C1C]" aria-label="passengers" /><span className="ml-[5px]">{c.bags}</span><Luggage size={16} className="text-[#1C1C1C]" aria-label="bags" /></p>
         </div>
         <div className="text-right">
           <p className="text-[14.5px] font-bold">{thb(c.price)}</p>
