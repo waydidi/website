@@ -72,8 +72,13 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
     case "chat_close": await setStatus(c.id, "closed"); return answerCallback(q.id, "Closed.");
     case "chat_reopen": await setStatus(c.id, "open"); return answerCallback(q.id, "Reopened.");
     case "chat_reply": {
-      const prompt = await sendCard(`✍️ Reply to <b>${esc(c.public_id)}</b> · ${esc(c.customer_name || "Website visitor")}\n<i>Write your answer as a reply to this message.</i>`, undefined, c.telegram_message_id ?? undefined);
-      await db().prepare("INSERT OR IGNORE INTO telegram_reply_prompts(telegram_message_id,conversation_id,created_at) VALUES(?,?,?)").bind(prompt.message_id, c.id, new Date().toISOString()).run();
+      // force_reply opens Telegram's reply box on the tapper's phone, so the answer is linked to this chat.
+      const hi = q.from?.first_name ? ` ${esc(q.from.first_name)},` : "";
+      const prompt = await tg<TelegramMessage>("sendMessage", { chat_id: telegramChatId(), parse_mode: "HTML",
+        text: `✍️${hi} type your answer to <b>${esc(c.public_id)}</b> · ${esc(c.customer_name || "Website visitor")} and send it.`,
+        reply_markup: { force_reply: true, selective: true, input_field_placeholder: `Answer ${c.public_id}` },
+        ...(c.telegram_message_id ? { reply_parameters: { message_id: c.telegram_message_id, allow_sending_without_reply: true } } : {}) });
+      await db().prepare("INSERT OR IGNORE INTO telegram_reply_prompts(telegram_message_id,conversation_id,created_at,telegram_user_id) VALUES(?,?,?,?)").bind(prompt.message_id, c.id, new Date().toISOString(), q.from ? String(q.from.id) : null).run();
       return answerCallback(q.id);
     }
     default: return answerCallback(q.id, "Unknown action.");
@@ -94,9 +99,17 @@ async function handleMessage(m: TelegramMessage) {
     await sendCard(`Your Telegram ID is <code>${m.from?.id ?? "unknown"}</code>. Ask the Waydidi owner to add it under Admin → Chat → Telegram team.`, undefined, m.message_id);
     return;
   }
-  // Only replies to a Waydidi card or prompt are customer answers; normal group talk is ignored.
-  if (!m.reply_to_message || !text) return;
-  const conversationId = await conversationForTelegramMessage(m.reply_to_message.message_id);
+  // Customer answers: replies to a Waydidi card or prompt, or the next plain message from someone
+  // who tapped "Reply" in the last 10 minutes. Other group talk is ignored.
+  if (!text || text.startsWith("/")) return;
+  let conversationId = m.reply_to_message ? await conversationForTelegramMessage(m.reply_to_message.message_id) : null;
+  if (!conversationId && !m.reply_to_message && m.from) {
+    const recent = await db().prepare("SELECT conversation_id FROM telegram_reply_prompts WHERE telegram_user_id=? AND created_at>? ORDER BY created_at DESC LIMIT 1")
+      .bind(String(m.from.id), new Date(Date.now() - 10 * 60 * 1000).toISOString()).first<{ conversation_id: string }>();
+    conversationId = recent?.conversation_id ?? null;
+    // Used once: a second plain message isn't sent to the customer by accident.
+    if (conversationId) await db().prepare("UPDATE telegram_reply_prompts SET telegram_user_id=NULL WHERE telegram_user_id=?").bind(String(m.from.id)).run();
+  }
   if (!conversationId) return;
   const admin = await approved(m.from);
   if (!admin) {

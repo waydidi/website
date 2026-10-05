@@ -9,7 +9,7 @@ const mf=new Miniflare({modules:true,script:'export default {fetch(){return new 
 const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -187,4 +187,17 @@ test('website chats idle for 30 minutes end automatically and stay in the inbox;
  assert.equal(await st('auto-1'),'closed');assert.equal(await st('auto-2'),'open');assert.equal(await st('auto-3'),'pending');
  assert.equal((await db.prepare("SELECT COUNT(*) n FROM website_chat_messages WHERE conversation_id='auto-1'").first()).n,2); // history kept + closing note
  const closed=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?status=closed'))).json();assert.ok(closed.conversations.some((c)=>c.id==='auto-1'));
+});
+test('after tapping Reply in Telegram, the next plain message (not a swipe-reply) reaches the customer, once',async()=>{
+ const hook=await vite.ssrLoadModule('/app/api/integrations/telegram/webhook/route.ts');
+ Object.assign(globalThis.__chatTest.env,{TELEGRAM_WEBHOOK_SECRET:'s'.repeat(24),TELEGRAM_CHAT_ID:'-100'});
+ await db.prepare("UPDATE website_conversations SET status='open' WHERE id='chat-2'").run();
+ await db.prepare("INSERT INTO telegram_reply_prompts(telegram_message_id,conversation_id,created_at,telegram_user_id) VALUES(950,'chat-2',?,'777')").bind(new Date().toISOString()).run();
+ const call=(update)=>hook.POST(new Request('https://example.invalid/api/integrations/telegram/webhook',{method:'POST',headers:{'content-type':'application/json','x-telegram-bot-api-secret-token':'s'.repeat(24)},body:JSON.stringify(update)}));
+ const plain=(update_id,from,text)=>({update_id,message:{message_id:update_id,chat:{id:-100},from:{id:from},text}});
+ await call(plain(20,999,'Someone else chatting'));
+ await call(plain(21,777,'Our price is 800 THB'));
+ await call(plain(22,777,'Team talk, not for the customer'));
+ const bodies=(await db.prepare("SELECT body FROM website_chat_messages WHERE conversation_id='chat-2' AND sender='staff' AND body IN ('Our price is 800 THB','Team talk, not for the customer','Someone else chatting')").all()).results.map((r)=>r.body);
+ assert.deepEqual(bodies,['Our price is 800 THB']);
 });
