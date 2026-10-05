@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     }
     case "test":
       if (!telegramConfigured()) return reply("Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in Cloudflare first.", 400);
-      try { await sendCard(`🟠 <b>WAYDIDI</b>\n✅ Telegram is connected. Sent by ${esc(staff.displayName)} from the admin dashboard.`); }
+      try { await sendCard(`<b>WAYDIDI</b>\nTelegram is connected. Sent by ${esc(staff.displayName)} from the admin dashboard.`); }
       catch (error) { return reply(error instanceof Error ? error.message : "Telegram could not be reached.", 502); }
       break;
     default: return reply("Unknown action.", 400);

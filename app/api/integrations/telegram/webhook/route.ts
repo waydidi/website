@@ -89,7 +89,7 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
       // force_reply opens Telegram's reply box on the tapper's phone, so the answer is linked to this chat.
       const hi = q.from?.first_name ? ` ${esc(q.from.first_name)},` : "";
       const prompt = await tg<TelegramMessage>("sendMessage", { chat_id: telegramChatId(), parse_mode: "HTML",
-        text: `✍️${hi} type your answer to <b>${esc(c.public_id)}</b> · ${esc(c.customer_name || "Website visitor")} and send it.`,
+        text: `${hi} type your answer to <b>${esc(c.public_id)}</b> · ${esc(c.customer_name || "Website visitor")} and send it.`,
         reply_markup: { force_reply: true, selective: true, input_field_placeholder: `Answer ${c.public_id}` },
         ...(c.telegram_message_id ? { reply_parameters: { message_id: c.telegram_message_id, allow_sending_without_reply: true } } : {}) });
       await db().prepare("INSERT OR IGNORE INTO telegram_reply_prompts(telegram_message_id,conversation_id,created_at,telegram_user_id) VALUES(?,?,?,?)").bind(prompt.message_id, c.id, new Date().toISOString(), q.from ? String(q.from.id) : null).run();
@@ -103,16 +103,16 @@ async function handlePrivate(m: TelegramMessage) {
   const text = (m.text ?? "").trim(), chatId = String(m.chat.id);
   const admin = await approved(m.from);
   if (text === "/start" || text.startsWith("/start ")) {
-    await sendPrivate(chatId, admin ? `Hi ${esc(admin.display_name)} 👋 Chats assigned to you will arrive here. Just type to answer the customer.` : `Hi! Your Telegram ID is <code>${m.from?.id ?? "unknown"}</code>. Ask the Waydidi owner to add you to the Telegram team.`).catch(() => undefined);
+    await sendPrivate(chatId, admin ? `Hi ${esc(admin.display_name)}. Chats assigned to you will arrive here. Just type to answer the customer.` : `Hi! Your Telegram ID is <code>${m.from?.id ?? "unknown"}</code>. Ask the Waydidi owner to add you to the Telegram team.`).catch(() => undefined);
     return;
   }
   if (!admin || !text || text.startsWith("/")) return;
   const conversationId = await conversationForPrivateMessage(chatId, m.reply_to_message?.message_id ?? null);
   if (!conversationId) { await sendPrivate(chatId, "No chat to answer yet. Chats assigned to you will appear here.").catch(() => undefined); return; }
-  if (text.length > 2000) { await sendPrivate(chatId, "⚠️ Not sent: replies can be up to 2,000 characters.", m.message_id).catch(() => undefined); return; }
+  if (text.length > 2000) { await sendPrivate(chatId, "Not sent: replies can be up to 2,000 characters.", m.message_id).catch(() => undefined); return; }
   const result = await addStaffMessage(conversationId, text, { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(m.from!.id) }, "telegram");
   const c = await conversationById(conversationId);
-  await sendPrivate(chatId, "error" in result ? `⚠️ ${esc(result.error ?? "")}` : `✓ Sent to ${esc(c?.public_id ?? "the customer")}`, m.message_id).catch(() => undefined);
+  await sendPrivate(chatId, "error" in result ? `${esc(result.error ?? "")}` : `Sent to ${esc(c?.public_id ?? "the customer")}`, m.message_id).catch(() => undefined);
 }
 
 async function handleMessage(m: TelegramMessage) {
@@ -145,10 +145,10 @@ async function handleMessage(m: TelegramMessage) {
   if (!conversationId) return;
   const admin = await approved(m.from);
   if (!admin) {
-    await sendCard(`⚠️ Not sent to the customer: you're not on the Waydidi Telegram team. Your Telegram ID is <code>${m.from?.id ?? "unknown"}</code>.`, undefined, m.message_id);
+    await sendCard(`Not sent to the customer: you're not on the Waydidi Telegram team. Your Telegram ID is <code>${m.from?.id ?? "unknown"}</code>.`, undefined, m.message_id);
     return;
   }
-  if (text.length > 2000) { await sendCard("⚠️ Not sent: replies can be up to 2,000 characters.", undefined, m.message_id); return; }
+  if (text.length > 2000) { await sendCard("Not sent: replies can be up to 2,000 characters.", undefined, m.message_id); return; }
   const result = await addStaffMessage(conversationId, text, { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(m.from!.id) }, "telegram", m.message_id);
-  if ("error" in result) await sendCard(`⚠️ ${esc(result.error)}`, undefined, m.message_id);
+  if ("error" in result) await sendCard(`${esc(result.error)}`, undefined, m.message_id);
 }

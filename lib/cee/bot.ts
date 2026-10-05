@@ -239,5 +239,5 @@ async function handOver(conversationId: string, reason: string, summary: string)
   await pauseBot(conversationId, true, JSON.stringify({ handover: reason, summary, at: new Date().toISOString() }));
   const c = await conversationById(conversationId);
   if (c?.telegram_message_id && telegramConfigured())
-    await sendCard(`🙋 <b>Non handed over ${esc(c.public_id)}</b>\n${esc(reason)}\n<blockquote>${esc(summary)}</blockquote>\nReply to the card to answer the customer.`, undefined, c.telegram_message_id).catch(() => undefined);
+    await sendCard(`<b>Non handed over ${esc(c.public_id)}</b>\n${esc(reason)}\n<blockquote>${esc(summary)}</blockquote>\nReply to the card to answer the customer.`, undefined, c.telegram_message_id).catch(() => undefined);
 }

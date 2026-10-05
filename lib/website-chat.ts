@@ -222,15 +222,15 @@ async function announceAssignment(conversationId: string) {
   const c = await conversationById(conversationId);
   if (!c?.assigned_name) return;
   const name = c.assigned_name.replace(/[<>&]/g, "");
-  await sendCard(`📌 Chat <b>${c.public_id}</b> has been assigned to <b>${name}</b>.`, undefined, c.telegram_message_id ?? undefined).catch(() => undefined);
+  await sendCard(`Chat <b>${c.public_id}</b> has been assigned to <b>${name}</b>.`, undefined, c.telegram_message_id ?? undefined).catch(() => undefined);
   const dm = await assigneeTelegramId(c);
   if (!dm) return;
   const recent = (await messagesFor(c.id, 0, 6)).map((m) => `${m.sender === "visitor" ? "Customer" : (m.sender_name ?? "Waydidi").replace(/[<>&]/g, "")}: ${m.body.replace(/[<>&]/g, "").slice(0, 300)}`).join("\n");
   try {
-    const sent = await sendPrivate(dm, `📌 <b>${c.public_id}</b> is yours · ${(c.customer_name ?? "Website visitor").replace(/[<>&]/g, "")}\n\n${recent}\n\n<i>New messages from this customer will come here. Just type to answer.</i>`);
+    const sent = await sendPrivate(dm, `<b>${c.public_id}</b> is yours · ${(c.customer_name ?? "Website visitor").replace(/[<>&]/g, "")}\n\n${recent}\n\n<i>New messages from this customer will come here. Just type to answer.</i>`);
     await rememberPrivate(dm, sent.message_id, c.id);
   } catch {
-    await sendCard(`⚠️ Couldn't message <b>${name}</b> privately. Open the Waydidi bot and tap <b>Start</b> once; until then this chat's messages stay in the group.`, undefined, c.telegram_message_id ?? undefined).catch(() => undefined);
+    await sendCard(`Couldn't message <b>${name}</b> privately. Open the Waydidi bot and tap <b>Start</b> once; until then this chat's messages stay in the group.`, undefined, c.telegram_message_id ?? undefined).catch(() => undefined);
   }
 }
 
