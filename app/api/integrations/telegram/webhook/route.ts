@@ -2,15 +2,15 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { constantTimeEqual } from "@/lib/security";
 import { answerCallback, sendCard, sendPrivate, telegramChatId, tg, type TelegramMessage, type TelegramUser } from "@/lib/telegram/client";
-import { esc } from "@/lib/telegram/cards";
+import { esc, pickKeyboard } from "@/lib/telegram/cards";
 import { acknowledgeBooking } from "@/lib/telegram/bookings";
-import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, setStatus } from "@/lib/website-chat";
+import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus } from "@/lib/website-chat";
 
 // Telegram → Waydidi. Verified by the secret-token header, de-duplicated by update_id, and every action
 // is checked against the approved Telegram admin list. Callback data is only a hint; it is re-validated here.
 
 type Update = { update_id: number; message?: TelegramMessage; callback_query?: { id: string; from: TelegramUser; data?: string; message?: TelegramMessage } };
-type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
+type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<{ meta: { changes: number } }> };
 const db = () => env.DB as { prepare: (sql: string) => Stmt };
 const ok = () => NextResponse.json({ ok: true });
 
@@ -52,7 +52,7 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   if (String(q.message?.chat.id ?? "") !== telegramChatId()) return answerCallback(q.id, "This chat isn't connected to Waydidi.", true);
   const admin = await approved(q.from);
   if (!admin) return answerCallback(q.id, `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: ${q.from.id}`, true);
-  const [action, target] = (q.data ?? "").split(":");
+  const [action, target, extra] = (q.data ?? "").split(":");
   if (!target || target.length > 60) return answerCallback(q.id, "Unknown action.");
   const who = { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(q.from.id) };
 
@@ -71,6 +71,20 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
     case "chat_open": await setStatus(c.id, "open"); return answerCallback(q.id, "Marked open.");
     case "chat_close": await setStatus(c.id, "closed"); return answerCallback(q.id, "Closed.");
     case "chat_reopen": await setStatus(c.id, "open"); return answerCallback(q.id, "Reopened.");
+    // "Let other assign": show the team as buttons on this card; "ct" assigns the one picked.
+    case "chat_pick": {
+      const team = (await db().prepare("SELECT telegram_user_id,display_name FROM telegram_admins WHERE enabled=1 ORDER BY display_name LIMIT 20").all<{ telegram_user_id: string; display_name: string }>()).results;
+      if (!team.length) return answerCallback(q.id, "Add people under Admin → Website chat → Telegram team first.", true);
+      if (q.message) await tg("editMessageReplyMarkup", { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: pickKeyboard(c.id, team) } }).catch(() => undefined);
+      return answerCallback(q.id, "Choose who should take this chat.");
+    }
+    case "ct": {
+      const member = await db().prepare("SELECT telegram_user_id,display_name,staff_id FROM telegram_admins WHERE telegram_user_id=? AND enabled=1").bind(extra ?? "").first<{ telegram_user_id: string; display_name: string; staff_id: string | null }>();
+      if (!member) return answerCallback(q.id, "That person isn't on the team any more.", true);
+      await assign(c.id, { name: member.display_name, staffId: member.staff_id, telegramUserId: member.telegram_user_id }, true);
+      return answerCallback(q.id, `Assigned to ${member.display_name}.`);
+    }
+    case "chat_cancel": await refreshCard(c.id, true).catch(() => undefined); return answerCallback(q.id);
     case "chat_reply": {
       // force_reply opens Telegram's reply box on the tapper's phone, so the answer is linked to this chat.
       const hi = q.from?.first_name ? ` ${esc(q.from.first_name)},` : "";

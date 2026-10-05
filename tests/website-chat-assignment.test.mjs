@@ -227,3 +227,28 @@ test('assigning in Telegram announces it in the group, then the chat continues i
   assert.equal((await db.prepare("SELECT COUNT(*) n FROM website_chat_messages WHERE body='hack'").first()).n,0);
  }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
 });
+test('"Let other assign" in Telegram lists the team and assigns the person picked',async()=>{
+ const hook=await vite.ssrLoadModule('/app/api/integrations/telegram/webhook/route.ts');
+ Object.assign(globalThis.__chatTest.env,{TELEGRAM_WEBHOOK_SECRET:'s'.repeat(24),TELEGRAM_CHAT_ID:'-100',TELEGRAM_BOT_TOKEN:'t'});
+ const sent=[];const real=globalThis.fetch;
+ globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://api.telegram.org')){sent.push({method:u.split('/').pop(),...JSON.parse(init.body)});return new Response(JSON.stringify({ok:true,result:{message_id:6000,chat:{id:-100}}}));}return real(url,init);};
+ try{
+  const t=new Date().toISOString();
+  await db.prepare("INSERT INTO telegram_admins(id,telegram_user_id,display_name,enabled,created_at,updated_at) VALUES('t2','888','Bea',1,?,?)").bind(t,t).run();
+  await db.prepare("INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status,telegram_message_id) VALUES('pick-1','pick-h',?,?,?,'WD-33333','open',4100)").bind(expires,t,t).run();
+  const call=(data,from=777)=>hook.POST(new Request('https://example.invalid/api/integrations/telegram/webhook',{method:'POST',headers:{'content-type':'application/json','x-telegram-bot-api-secret-token':'s'.repeat(24)},body:JSON.stringify({update_id:Math.floor(Math.random()*1e9),callback_query:{id:'q',from:{id:from},data,message:{message_id:4100,chat:{id:-100}}}})}));
+  await call('chat_pick:pick-1');
+  const kb=sent.find((m)=>m.method==='editMessageReplyMarkup').reply_markup.inline_keyboard.flat().map((b)=>b.callback_data);
+  assert.ok(kb.includes('ct:pick-1:888')&&kb.includes('ct:pick-1:777'));
+  await call('ct:pick-1:888');
+  const row=await db.prepare("SELECT assigned_name,assigned_telegram_user_id FROM website_conversations WHERE id='pick-1'").first();
+  assert.deepEqual([row.assigned_name,row.assigned_telegram_user_id],['Bea','888']);
+  assert.ok(sent.some((m)=>m.method==='sendMessage'&&/assigned to <b>Bea<\/b>/.test(m.text)));
+ }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
+});
+test('conversation ids read as WD_chat_DDMMYYYYHHMM in Bangkok time, with _2 for a second chat in the same minute',async()=>{
+ const chat=await vite.ssrLoadModule('/lib/website-chat.ts');
+ assert.equal(chat.chatIdFor('2026-08-18T03:24:00.000Z'),'WD_chat_180820261024');
+ const a=await chat.createConversation('id-a',{email:'a@b.co'});const b=await chat.createConversation('id-b',{email:'a@b.co'});
+ assert.match(a.public_id,/^WD_chat_\d{12}(_\d+)?$/);assert.match(b.public_id,/^WD_chat_\d{12}(_\d+)?$/);assert.notEqual(a.public_id,b.public_id);
+});

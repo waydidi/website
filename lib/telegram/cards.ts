@@ -22,24 +22,30 @@ export type CardConversation = {
   source_title: string | null; source_url: string | null; topic: string | null; assigned_name: string | null; created_at: string;
 };
 
+const RULE = "============================";
+
+/**
+ * Group card for a website chat:
+ *   Website chat / Conversation id / Message (between rules) / Email / Origin country / Date-time,
+ * with Assign / Let other assign buttons underneath.
+ */
 export function conversationCard(c: CardConversation, latest: { body: string; created_at: string; from: string } | null, fresh: boolean) {
   const lines = [
-    "🟠 <b>WAYDIDI</b>",
-    fresh ? "💬 <b>NEW WEBSITE CHAT</b>" : `💬 <b>Conversation ${esc(c.public_id)}</b>`,
+    `<b>Website chat</b>${fresh ? " 🆕" : ""}`,
+    `Conversation <b>${esc(c.public_id)}</b>`,
+    ...(c.customer_name ? [`👤 ${esc(c.customer_name)}`] : []),
     "",
-    `👤 <b>${esc(c.customer_name || "Website visitor")}</b>`,
-    ...(countryLabel(c.customer_country) ? [`📍 ${esc(countryLabel(c.customer_country))}`] : []),
-    ...(c.customer_phone ? [`📞 ${esc(c.customer_phone)}`] : []),
-    ...(c.customer_email ? [`✉️ ${esc(c.customer_email)}`] : []),
-    ...(fresh ? [`🆔 ${esc(c.public_id)}`] : []),
-    ...(c.source_title || c.source_url ? [`🌐 ${esc(c.source_title || c.source_url)}`] : []),
-    ...(c.topic ? [`🏷 ${esc(c.topic)}`] : []),
-    `🕒 ${esc(time(c.created_at))}`,
-    c.assigned_name ? `🔵 Assigned to <b>${esc(c.assigned_name)}</b>` : "👨‍💼 Unassigned",
-    STATUS_LABEL[c.status],
-    ...(latest ? ["", `${latest.from === "visitor" ? "Customer" : esc(latest.from)}:`, `<blockquote>${esc(clip(latest.body))}</blockquote>`] : []),
+    latest && latest.from !== "visitor" ? `Message (${esc(latest.from)}):` : "Message:",
+    RULE,
+    latest ? esc(clip(latest.body)) : "<i>No message yet</i>",
+    RULE,
     "",
-    "<i>Reply to this card (swipe ←) to answer the customer.</i>",
+    `Email: ${c.customer_email ? esc(c.customer_email) : "Not given"}`,
+    `Origin country: ${countryLabel(c.customer_country) ? esc(countryLabel(c.customer_country)) : "Unknown"}`,
+    `Date/Time: ${esc(time(c.created_at))}`,
+    ...(c.customer_phone ? [`Phone: ${esc(c.customer_phone)}`] : []),
+    "",
+    c.assigned_name ? `🔵 Assigned to <b>${esc(c.assigned_name)}</b> · ${STATUS_LABEL[c.status]}` : `👨‍💼 Not assigned yet · ${STATUS_LABEL[c.status]}`,
   ];
   return lines.join("\n");
 }
@@ -47,11 +53,21 @@ export function conversationCard(c: CardConversation, latest: { body: string; cr
 export function conversationKeyboard(c: CardConversation, adminUrl: string): InlineKeyboard {
   const id = c.id;
   if (c.status === "closed") return [[{ text: "↩️ Reopen", callback_data: `chat_reopen:${id}` }, { text: "Open in Admin", url: adminUrl }]];
+  if (!c.assigned_name) return [
+    [{ text: "🙋 Assign", callback_data: `chat_assign:${id}` }],
+    [{ text: "👥 Let other assign", callback_data: `chat_pick:${id}` }],
+  ];
   return [
-    [...(c.assigned_name ? [] : [{ text: "🙋 Assign to me", callback_data: `chat_assign:${id}` }]), { text: "✍️ Reply", callback_data: `chat_reply:${id}` }],
-    [{ text: c.status === "pending" ? "🟢 Open" : "🟡 Pending", callback_data: `${c.status === "pending" ? "chat_open" : "chat_pending"}:${id}` }, { text: "⚪ Close", callback_data: `chat_close:${id}` }, { text: "Open in Admin", url: adminUrl }],
+    [{ text: "✍️ Reply", callback_data: `chat_reply:${id}` }, { text: "⚪ Close", callback_data: `chat_close:${id}` }],
+    [{ text: "👥 Reassign", callback_data: `chat_pick:${id}` }, { text: "Open in Admin", url: adminUrl }],
   ];
 }
+
+/** "Let other assign": one button per team member (callback data stays under Telegram's 64 bytes). */
+export const pickKeyboard = (conversationId: string, team: { telegram_user_id: string; display_name: string }[]): InlineKeyboard => [
+  ...team.map((t) => [{ text: `👤 ${t.display_name}`, callback_data: `ct:${conversationId}:${t.telegram_user_id}` }]),
+  [{ text: "✖️ Cancel", callback_data: `chat_cancel:${conversationId}` }],
+];
 
 /** Follow-up customer message, posted as a reply under the conversation card. */
 export const customerMessage = (publicId: string, name: string | null, body: string) =>

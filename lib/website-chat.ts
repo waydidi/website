@@ -27,17 +27,24 @@ const nowIso = () => new Date().toISOString();
 export const conversationById = (id: string) => db().prepare("SELECT * FROM website_conversations WHERE id=?").bind(id).first<Conversation>();
 export const conversationByTokenHash = (hash: string) => db().prepare("SELECT * FROM website_conversations WHERE token_hash=? AND expires_at>?").bind(hash, nowIso()).first<Conversation>();
 
+/** WD_chat_DDMMYYYYHHMM in Bangkok time. */
+export function chatIdFor(iso: string) {
+  const d = new Date(Date.parse(iso) + 7 * 3600_000), p = (n: number) => String(n).padStart(2, "0");
+  return `WD_chat_${p(d.getUTCDate())}${p(d.getUTCMonth() + 1)}${d.getUTCFullYear()}${p(d.getUTCHours())}${p(d.getUTCMinutes())}`;
+}
+
 export async function createConversation(tokenHash: string, context: { customerId?: string | null; name?: string | null; email?: string | null; phone?: string | null; sourceUrl?: string | null; sourceTitle?: string | null; topic?: string | null; country?: string | null; channel?: string; channelUserId?: string | null }) {
   const id = crypto.randomUUID(), now = nowIso();
-  for (let attempt = 0; attempt < 4; attempt++) {
-    // Display id only (e.g. WD-48213); it never grants access — the cookie token does.
-    const publicId = `WD-${String(crypto.getRandomValues(new Uint32Array(1))[0] % 90000 + 10000)}`;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    // Display id from the Bangkok start time, e.g. WD_chat_180820261024 = 18 Aug 2026, 10:24.
+    // A second chat in the same minute gets _2, _3… It never grants access — the cookie token does.
+    const publicId = `${chatIdFor(now)}${attempt ? `_${attempt + 1}` : ""}`;
     try {
       await db().prepare(`INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status,customer_id,customer_name,customer_email,customer_phone,source_url,source_title,topic,last_message_at,customer_country,channel,channel_user_id)
         VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,?,?,?,?,?,?)`).bind(id, tokenHash, new Date(Date.now() + 30 * 86400000).toISOString(), now, now, publicId,
         context.customerId ?? null, context.name ?? null, context.email ?? null, context.phone ?? null, context.sourceUrl ?? null, context.sourceTitle ?? null, context.topic ?? null, now, context.country ?? null, context.channel ?? "web", context.channelUserId ?? null).run();
       return (await conversationById(id))!;
-    } catch (error) { if (!/UNIQUE/i.test(String(error)) || attempt === 3) throw error; }
+    } catch (error) { if (!/UNIQUE/i.test(String(error)) || attempt === 19) throw error; }
   }
   throw new Error("CHAT_CREATE_FAILED");
 }
