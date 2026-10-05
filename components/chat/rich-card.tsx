@@ -10,8 +10,7 @@ const shell = "w-[88%] max-w-[320px] overflow-hidden rounded-[18px] border borde
 export function RichCard({ card }: { card: ChatCard }) {
   if (card.type === "quote") return <div className={shell}>
     <div className="bg-[#FFF3E6] px-4 py-3">
-      <p className="text-[12px] font-semibold uppercase tracking-wide text-[#B85D00]">Your options</p>
-      <p className="mt-0.5 text-[15px] font-bold leading-snug">{card.title}</p>
+      <p className="text-[15px] font-bold leading-snug">{card.title}</p>
       {card.subtitle && <p className="mt-0.5 text-[12.5px] text-slate-600">{card.subtitle}</p>}
     </div>
     <ul className="divide-y divide-slate-100">
