@@ -1,7 +1,7 @@
 // Rich cards shown in the website chat (like LINE's cards). Each card message also keeps a plain
 // text body, which is what Telegram, WhatsApp, LINE and the admin inbox show.
 
-export type QuoteCard = { type: "quote"; title: string; subtitle: string; cars: { name: string; seats: number; bags: number; price: number; url: string }[]; notes: string[] };
+export type QuoteCard = { type: "quote"; title: string; subtitle: string; cars: { vehicle?: string; name: string; seats: number; bags: number; price: number; url: string }[]; notes: string[] };
 export type PaymentCard = { type: "payment"; title: string; rows: [string, string][]; amount: number; url: string; expiresAt: string };
 export type ConfirmedCard = { type: "confirmed"; reference: string; rows: [string, string][]; amount: number; test?: boolean };
 export type ChatCard = QuoteCard | PaymentCard | ConfirmedCard;
@@ -23,10 +23,10 @@ export function parseCard(json: string | null | undefined): ChatCard | null {
 
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 
-export function quoteCard(q: { summary: string; cars: { name: string; seats: number; bags: number; price: number; bookUrl: string }[]; notes: string[] }): QuoteCard {
+export function quoteCard(q: { summary: string; cars: { vehicle: string; name: string; seats: number; bags: number; price: number; bookUrl: string }[]; notes: string[] }): QuoteCard {
   const [title, ...rest] = q.summary.split(", ");
   return { type: "quote", title, subtitle: rest.join(" · "), notes: q.notes.slice(0, 3),
-    cars: q.cars.slice(0, 6).map((c) => ({ name: c.name, seats: c.seats, bags: c.bags, price: c.price, url: c.bookUrl })) };
+    cars: q.cars.slice(0, 6).map((c) => ({ vehicle: c.vehicle, name: c.name, seats: c.seats, bags: c.bags, price: c.price, url: c.bookUrl })) };
 }
 
 /** Plain-text version of a card, for Telegram, WhatsApp, LINE and the admin inbox. */

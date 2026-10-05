@@ -4,8 +4,15 @@ import type { ChatCard } from "@/lib/chat-cards";
 // LINE-style cards inside the website chat: car options with Book buttons, a booking summary with
 // a Pay button, and the confirmation after payment.
 
+// Same photos and class names as the homepage fleet.
+const FLEET: Record<string, { label: string; models: string; image: string }> = {
+  economy_sedan: { label: "Economy", models: "Toyota Corolla Altis or similar", image: "/vehicle-economy-sedan.webp" },
+  comfort_bmw: { label: "Comfort BMW", models: "BMW 3 Series or similar", image: "/vehicle-comfort-bmw.webp" },
+  comfort_suv: { label: "Comfort SUV", models: "Toyota Fortuner or similar", image: "/vehicle-comfort-suv.webp" },
+  premium_minivan: { label: "Premium Minivan", models: "Toyota Commuter or similar", image: "/vehicle-premium-minivan.webp" },
+};
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
-const shell = "w-[88%] max-w-[320px] overflow-hidden rounded-[18px] border border-slate-200 bg-white text-[#15161C] shadow-sm";
+const shell = "w-[94%] max-w-[350px] overflow-hidden rounded-[18px] border border-slate-200 bg-white text-[#15161C] shadow-sm";
 
 export function RichCard({ card }: { card: ChatCard }) {
   if (card.type === "quote") return <div className={shell}>
@@ -14,16 +21,25 @@ export function RichCard({ card }: { card: ChatCard }) {
       {card.subtitle && <p className="mt-0.5 text-[12.5px] text-slate-600">{card.subtitle}</p>}
     </div>
     <ul className="divide-y divide-slate-100">
-      {card.cars.map((c) => <li key={c.name} className="flex items-center gap-3 px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[14.5px] font-semibold">{c.name}</p>
-          <p className="mt-1 flex items-center gap-[3px] text-[13px] text-[#6B6B6B]"><span>{c.seats}</span><Users size={16} className="text-[#1C1C1C]" aria-label="passengers" /><span className="ml-[5px]">{c.bags}</span><Luggage size={16} className="text-[#1C1C1C]" aria-label="bags" /></p>
-        </div>
-        <div className="text-right">
-          <p className="text-[14.5px] font-bold">{thb(c.price)}</p>
-          <a href={c.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex h-8 items-center rounded-full bg-[#FE8B05] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#E67900]">Book</a>
-        </div>
-      </li>)}
+      {card.cars.map((c, i) => {
+        const v = c.vehicle && FLEET[c.vehicle];
+        const cheapest = i === 0 && card.cars.length > 1 && card.cars.every((x) => x.price >= c.price);
+        return <li key={c.name} className="flex items-center gap-3 px-3.5 py-3">
+          {v && <span className="grid h-[54px] w-[78px] shrink-0 place-items-center overflow-hidden rounded-xl bg-[#F6F7F9]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={v.image} alt="" width={78} height={54} loading="lazy" className="h-full w-full object-contain" />
+          </span>}
+          <div className="min-w-0 flex-1">
+            <p className="text-[14.5px] font-bold leading-tight">{v ? v.label : c.name}{cheapest && <span className="ml-1.5 inline-block rounded-full bg-emerald-50 px-1.5 py-px align-[1px] text-[10.5px] font-bold text-emerald-700">Best price</span>}</p>
+            {v && <p className="mt-0.5 truncate text-[12px] text-slate-500">{v.models}</p>}
+            <p className="mt-1 flex items-center gap-[3px] text-[13px] text-[#6B6B6B]"><span>{c.seats}</span><Users size={16} className="text-[#1C1C1C]" aria-label="passengers" /><span className="ml-[5px]">{c.bags}</span><Luggage size={16} className="text-[#1C1C1C]" aria-label="bags" /></p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-[14.5px] font-bold">{thb(c.price)}</p>
+            <a href={c.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex h-8 items-center rounded-full bg-[#FE8B05] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#E67900]">Book</a>
+          </div>
+        </li>;
+      })}
     </ul>
     {card.notes.length > 0 && <p className="border-t border-slate-100 px-4 py-2.5 text-[12px] leading-snug text-slate-500">{card.notes.join(" ")}</p>}
   </div>;
