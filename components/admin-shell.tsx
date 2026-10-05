@@ -316,7 +316,7 @@ export default function AdminShell({
         </div>
       </aside>
       <div className="min-w-0 flex-1 overflow-x-clip">
-        <header className="sticky top-0 z-30 flex h-[72px] items-center gap-4 border-b border-slate-200/70 bg-white/95 px-4 backdrop-blur sm:px-8">
+        <header className="relative z-30 flex h-[72px] items-center gap-4 border-b border-slate-200/70 bg-white/95 px-4 backdrop-blur sm:px-8">
           {/* Phones: the logo sits where desktop has the sidebar; the title is shown large below, like desktop. */}
           <Link href="/admin" aria-label="Waydidi admin home" className="shrink-0 md:hidden"><WaydidiLogo className="admin-logo h-[46px] w-auto text-[#FF8A05]" /></Link>
           <div className="hidden flex-1 md:block"><PageSearch /></div>
