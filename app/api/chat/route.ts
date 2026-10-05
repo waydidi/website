@@ -93,3 +93,16 @@ export async function PATCH(request: Request) {
   await import("@/lib/website-chat").then((m) => m.refreshCard(c.id, true)).catch(() => undefined);
   return NextResponse.json({ ok: true }, { headers });
 }
+
+/** The visitor leaves the chat: it's closed (kept for staff) and the panel shows the rating step. */
+export async function DELETE(request: Request) {
+  if (!sameOrigin(request)) return fail("Request blocked", 403);
+  const c = await current(request);
+  if (!c) return fail("No chat to leave.", 404);
+  if (c.status !== "closed") {
+    const chat = await import("@/lib/website-chat");
+    await chat.addBotMessage(c.id, "You left the chat. Send a new message any time to start again.").catch(() => undefined);
+    await chat.setStatus(c.id, "closed");
+  }
+  return NextResponse.json({ ok: true }, { headers });
+}

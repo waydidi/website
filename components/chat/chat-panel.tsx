@@ -136,7 +136,8 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
           placeholder="Type your message..." className="max-h-[120px] min-h-[36px] flex-1 resize-none bg-transparent py-2 text-[15px] outline-none" />
         <button type="submit" disabled={busy || !text.trim() || (needsEmail && !emailOk)} aria-label="Send message" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FE8B05] text-white transition hover:bg-[#E67900] disabled:bg-slate-300"><SendHorizontal size={17} /></button>
       </div>
-      <p className="mt-2 text-center text-[11px] text-slate-400">Please don&apos;t share card numbers or passwords in chat.</p>
+      {info && <p className="mt-2 text-center"><button type="button" disabled={busy} onClick={() => { if (window.confirm("Leave this chat? It will be closed and you can rate it.")) void fetch("/api/chat", { method: "DELETE" }).then(() => onReviewed()).catch(() => undefined); }} className="text-[12.5px] font-semibold text-slate-500 underline-offset-2 hover:text-[#C96100] hover:underline">Leave this chat</button></p>}
+      <p className="mt-1 text-center text-[11px] text-slate-400">Please don&apos;t share card numbers or passwords in chat.</p>
     </form>
     </>}
   </section>;
