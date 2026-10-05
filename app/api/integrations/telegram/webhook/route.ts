@@ -111,8 +111,8 @@ async function handlePrivate(m: TelegramMessage) {
   if (!conversationId) { await sendPrivate(chatId, "No chat to answer yet. Chats assigned to you will appear here.").catch(() => undefined); return; }
   if (text.length > 2000) { await sendPrivate(chatId, "Not sent: replies can be up to 2,000 characters.", m.message_id).catch(() => undefined); return; }
   const result = await addStaffMessage(conversationId, text, { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(m.from!.id) }, "telegram");
-  const c = await conversationById(conversationId);
-  await sendPrivate(chatId, "error" in result ? `${esc(result.error ?? "")}` : `Sent to ${esc(c?.public_id ?? "the customer")}`, m.message_id).catch(() => undefined);
+  // Normal one-to-one feel: no "sent" receipts, only a note if something went wrong.
+  if ("error" in result) await sendPrivate(chatId, `Not sent: ${esc(result.error ?? "")}`, m.message_id).catch(() => undefined);
 }
 
 async function handleMessage(m: TelegramMessage) {

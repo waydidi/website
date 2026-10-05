@@ -11,7 +11,7 @@ const db=await mf.getD1Database('DB');
 await db.exec("CREATE TABLE attractions(id TEXT PRIMARY KEY,name TEXT,customer_name TEXT,area TEXT DEFAULT '',category TEXT DEFAULT 'sight',tags_json TEXT DEFAULT '[]',open_time TEXT,close_time TEXT,closed_days_json TEXT DEFAULT '[]',duration_min INTEGER DEFAULT 60,dress_code TEXT,description TEXT,status TEXT DEFAULT 'active');");
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.prepare("INSERT INTO staff_accounts VALUES('anna','Anna',1,'support')").run();
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 globalThis.__ceeTest={env:{DB:db,ANTHROPIC_API_KEY:'test-key'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'cee-env',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0cee-env';},load(id){if(id==='\0cee-env')return 'export const env=globalThis.__ceeTest.env';}}],server:{middlewareMode:true}});
 after(async()=>{await vite.close();await mf.dispose();delete globalThis.__ceeTest;});
@@ -256,4 +256,45 @@ test('load: 60 chats (20 each on website, WhatsApp, LINE), 3 quick messages each
  await Promise.all(jobs);const ms=Date.now()-t0;
  for(const id of chats){const r=await replies(id);assert.equal(r.length,1,`chat ${id}`);assert.equal(r[0].body,'Answer to: 3 messages');}
  assert.equal(calls,60);console.log(`# load: 60 chats × 3 messages → 60 replies, ${calls} model calls, ${ms} ms total (model simulated at 20–100 ms)`);
+});
+
+// ---- Booking in the chat: payment link with the server's price, then a confirmed booking ----
+test('website chat booking: summary → yes → payment link at the server price → test payment → confirmed booking in chat',async()=>{
+ await db.exec("CREATE TABLE IF NOT EXISTS bookings(reference TEXT PRIMARY KEY,customer_name TEXT,customer_email TEXT,customer_phone TEXT,pickup TEXT,dropoff TEXT,pickup_date TEXT,pickup_time TEXT,passengers INTEGER,luggage INTEGER,vehicle TEXT,payment_method TEXT,total INTEGER,status TEXT,payment_status TEXT,amount_paid INTEGER,access_token_hash TEXT,service_type TEXT,booked_hours INTEGER,created_at TEXT,updated_at TEXT);");
+ await db.exec("CREATE TABLE IF NOT EXISTS booking_sources(booking_reference TEXT PRIMARY KEY,source TEXT,created_at TEXT);");
+ const pay=await vite.ssrLoadModule('/lib/chat-pay.ts');const route=await vite.ssrLoadModule('/app/api/chat-pay/[id]/route.ts');
+ const id=await conversation('Hello, how much for BKK airport to Sheraton Grande Asok tomorrow 10am, 2 people 2 bags?');
+ await db.prepare("UPDATE website_conversations SET customer_email='guest@example.com' WHERE id=?").bind(id).run();
+ // Payments off: Non doesn't get the booking tool at all
+ delete globalThis.__ceeTest.env.PAYSO_TEST_MODE;assert.equal(pay.chatPaymentsEnabled(),false);
+ const off=scripted(say('ok'));await bot.ceeTurn([{sender:'visitor',body:'book it'}],off,{tools});assert.ok(!off.calls[0].tools.some((t)=>t.name==='send_payment_link'));
+ globalThis.__ceeTest.env.PAYSO_TEST_MODE='1';
+ const quotes={quoteTransfer:async()=>({ok:true,kind:'transfer',summary:'Suvarnabhumi → Sheraton Grande Asok',cars:[{vehicle:'economy_sedan',name:'Economy sedan',seats:2,bags:2,price:1100,bookUrl:'x'},{vehicle:'comfort_suv',name:'Comfort SUV',seats:4,bags:4,price:1700,bookUrl:'y'}],notes:[]}),quoteHourly:async()=>({ok:false,reason:'n/a',handover:true})};
+ const history=[{sender:'visitor',body:'Hello, how much for BKK airport to Sheraton Grande Asok tomorrow 10am, 2 people 2 bags?'},{sender:'staff',body:'Economy sedan ฿1,100 · Comfort SUV ฿1,700'},
+  {sender:'visitor',body:'I want to book the Comfort SUV. Anna Lee, +66 81 234 5678'},{sender:'staff',body:'Summary: BKK → Sheraton Grande Asok, 2026-10-06 10:00, 2 people, 2 bags, Comfort SUV ฿1,700. Shall I send the payment link?'},{sender:'visitor',body:'Yes please'}];
+ // The model even claims a lower price; the link uses the server's quote.
+ const c=scripted(use('send_payment_link',{kind:'transfer',pickup:'Suvarnabhumi Airport',dropoff:'Sheraton Grande Sukhumvit Asok',city:'',hours:0,date:'2026-10-06',time:'10:00',passengers:2,bags:2,vehicle:'comfort_suv',lead_name:'Anna Lee',lead_phone:'+66 81 234 5678',price:500}),say('Here is your payment link'));
+ const turn=await bot.ceeTurn(history,c,{tools,payLink:(i)=>pay.createChatPaymentLink(id,i,quotes)});
+ assert.match(c.calls[0].system[0].text,/send_payment_link/);assert.ok(c.calls[0].tools.some((t)=>t.name==='send_payment_link'));
+ const result=JSON.parse(c.calls[1].messages.at(-1).content[0].content);
+ assert.equal(result.ok,true);assert.equal(result.amount,1700);assert.match(result.url,/\/chat-pay\/[a-f0-9]{32}$/);assert.equal(turn.reply,'Here is your payment link');
+ const linkId=result.url.split('/').pop();
+ const post=(action)=>route.POST(new Request(`https://example.invalid/api/chat-pay/${linkId}`,{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json'},body:JSON.stringify({action})}),{params:Promise.resolve({id:linkId})});
+ // Customer pays (test mode)
+ const paid=await post('test_pay');assert.equal(paid.status,200);const {reference}=await paid.json();
+ const b=await db.prepare('SELECT * FROM bookings WHERE reference=?').bind(reference).first();
+ assert.deepEqual([b.status,b.payment_status,b.total,b.amount_paid,b.vehicle,b.customer_name,b.customer_email],['confirmed','paid',1700,1700,'comfort_suv','Anna Lee','guest@example.com']);
+ assert.equal((await db.prepare('SELECT source FROM booking_sources WHERE booking_reference=?').bind(reference).first()).source,'chat');
+ const last=(await replies(id)).at(-1);assert.equal(last.sender_name,'Non');assert.match(last.body,new RegExp(`booking ${reference} is confirmed`));
+ // Paying twice doesn't book twice
+ assert.equal((await post('test_pay')).status,410);assert.equal((await db.prepare('SELECT COUNT(*) n FROM bookings').first()).n,1);
+ // Missing details are asked for, not guessed
+ const bad=await pay.createChatPaymentLink(id,{kind:'transfer',pickup:'a',dropoff:'b',city:'',hours:0,date:'2026-10-06',time:'10:00',passengers:2,bags:2,vehicle:'comfort_suv',leadName:'Anna',leadPhone:''},quotes);
+ assert.equal(bad.ok,false);assert.match(bad.reason,/phone/);
+ // Test payments are refused once test mode is off
+ const again=await pay.createChatPaymentLink(id,{kind:'transfer',pickup:'a',dropoff:'b',city:'',hours:0,date:'2026-10-06',time:'10:00',passengers:2,bags:2,vehicle:'economy_sedan',leadName:'Anna Lee',leadPhone:'+66 81 234 5678'},quotes);
+ delete globalThis.__ceeTest.env.PAYSO_TEST_MODE;
+ const id2=again.url.split('/').pop();
+ const r2=await route.POST(new Request(`https://example.invalid/api/chat-pay/${id2}`,{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json'},body:JSON.stringify({action:'test_pay'})}),{params:Promise.resolve({id:id2})});
+ assert.equal(r2.status,403);
 });

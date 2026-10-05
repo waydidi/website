@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { SITE_URL } from "@/lib/site";
 import { deliverToChannel } from "@/lib/channels";
 import { editCard, sendCard, sendPrivate, telegramConfigured } from "@/lib/telegram/client";
-import { conversationCard, conversationKeyboard, customerMessage, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
+import { conversationCard, conversationKeyboard, customerMessage, esc, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
 
 // One canonical support conversation, stored in D1. The website widget, the admin inbox and Telegram
 // are three views of the same rows; nothing is routed by name, only by conversation id.
@@ -74,7 +74,8 @@ export async function deliverVisitorMessage(conversationId: string, messageId: s
   const dm = c.assigned_name ? await assigneeTelegramId(c) : null;
   if (dm) {
     try {
-      const sent = await sendPrivate(dm, customerMessage(c.public_id, c.customer_name, m.body) + "\n<i>Reply here to answer.</i>");
+      // Private chat reads like a normal one-to-one conversation: just the customer's words.
+      const sent = await sendPrivate(dm, esc(m.body.slice(0, 4000)));
       await rememberPrivate(dm, sent.message_id, c.id);
       await db().prepare("UPDATE website_chat_messages SET telegram_status='sent' WHERE id=?").bind(messageId).run();
       return;

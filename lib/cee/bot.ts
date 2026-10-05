@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import { sendCard, telegramConfigured } from "@/lib/telegram/client";
 import { esc } from "@/lib/telegram/cards";
 import { addBotMessage, conversationById, messagesFor, pauseBot, setBotThinking } from "@/lib/website-chat";
+import { chatPaymentsEnabled, createChatPaymentLink } from "@/lib/chat-pay";
 import { searchKnowledge } from "./knowledge";
 import { HOURLY_CITIES, findPackages, quoteHourly, quoteTransfer, type QuoteResult } from "./quotes";
 
@@ -90,7 +91,26 @@ type Block = { type: string; [k: string]: unknown };
 type Client = { beta: { messages: { create: (body: Record<string, unknown>) => Promise<{ content: Block[]; stop_reason: string | null; usage?: Usage }> } } };
 
 export type CeeTurn = { reply: string | null; handover: { reason: string; summary: string } | null; model: string; usd: number; requests: number };
-export type TurnOptions = { tools?: CeeTools; now?: string; mode?: ModelMode; channel?: string; onProgress?: (text: string) => Promise<unknown> };
+export type PayLinkInput = { kind: "transfer" | "hourly"; pickup: string; dropoff: string; city: string; hours: number; date: string; time: string; passengers: number; bags: number; vehicle: string; leadName: string; leadPhone: string };
+export type PayLinkFn = (input: PayLinkInput) => Promise<{ ok: true; url: string; amount: number; car: string; summary: string; expiresInMinutes: number } | { ok: false; reason: string }>;
+
+export const PAY_TOOL: BetaTool = { name: "send_payment_link", strict: true,
+  description: "Book the trip: creates a secure payment link for the chosen car at the price from our tables. Use ONLY after the customer has seen a summary (route, date, time, passengers, bags, car, price) and clearly said yes. Use empty strings / 0 for fields that don't apply.",
+  input_schema: { type: "object", additionalProperties: false, required: ["kind", "pickup", "dropoff", "city", "hours", "date", "time", "passengers", "bags", "vehicle", "lead_name", "lead_phone"],
+    properties: { kind: { type: "string", enum: ["transfer", "hourly"] }, pickup: str, dropoff: { ...str, description: "Transfer drop-off; empty for hourly" }, city: { ...str, description: "Hourly city slug; empty for transfers" },
+      hours: { ...int, description: "Hourly only; 0 for transfers" }, date: { ...str, description: "YYYY-MM-DD" }, time: { ...str, description: "HH:MM 24-hour" }, passengers: int, bags: int,
+      vehicle: { ...str, description: "The car id from the quote, e.g. comfort_suv" }, lead_name: { ...str, description: "Lead passenger full name" }, lead_phone: { ...str, description: "Phone with country code, e.g. +66 81 234 5678" } } } };
+
+export const BOOKING_NOTE = `
+Booking in the chat (you can take bookings):
+- When the customer wants to book, make sure you have: the car they chose from your quote, the lead passenger's full name and a phone number with country code (for airport pickups also ask the flight number and include it in your summary).
+- Then show a short summary: route, date, time, passengers, bags, car and price, and ask "Shall I send the payment link?".
+- Only after a clear yes, call send_payment_link. Send the link it returns with the amount, and say it is valid for 30 minutes and that the booking is confirmed once paid. Never type card details or ask for them.
+- If the tool says something is missing, ask for it. If payment in chat is not available, hand over to staff.`;
+
+export type TurnOptions = {
+  /** When set, Non may take bookings and send payment links. */
+  payLink?: PayLinkFn; tools?: CeeTools; now?: string; mode?: ModelMode; channel?: string; onProgress?: (text: string) => Promise<unknown> };
 
 function toMessages(history: { sender: "visitor" | "staff"; body: string }[]) {
   // Merge consecutive same-role messages; the API wants alternating turns starting with the user.
@@ -122,11 +142,11 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
   if (!messages.length || messages[messages.length - 1].role !== "user") return out;
   const smart = model === MODELS.smart;
   // Tools + system are identical on every call, so they're cached (cheaper and faster).
-  const system = [{ type: "text", text: systemPrompt(options.now ?? bangkokNow(), options.channel) + (canEscalate ? ESCALATE_NOTE : ""), cache_control: { type: "ephemeral" } }];
+  const system = [{ type: "text", text: systemPrompt(options.now ?? bangkokNow(), options.channel) + (options.payLink ? BOOKING_NOTE : "") + (canEscalate ? ESCALATE_NOTE : ""), cache_control: { type: "ephemeral" } }];
   let progressSent = false;
   for (let step = 0; step < 6; step++) {
     const res = await client.beta.messages.create({
-      model, max_tokens: 2000, system, tools: canEscalate ? [...TOOLS, ESCALATE] : TOOLS, tool_choice: { type: "auto" }, messages,
+      model, max_tokens: 2000, system, tools: [...TOOLS, ...(options.payLink ? [PAY_TOOL] : []), ...(canEscalate ? [ESCALATE] : [])], tool_choice: { type: "auto" }, messages,
       ...(smart ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default", output_config: { effort: "low" } } : {}),
     });
     out.requests++; out.usd += cost(model, res.usage);
@@ -147,6 +167,11 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
         else if (u.name === "quote_hourly") content = json(await tools.quoteHourly({ city: i.city, pickup: i.pickup, hours: i.hours, date: i.date, time: i.time, passengers: i.passengers, bags: i.bags }));
         else if (u.name === "find_packages") { const list = await tools.findPackages(i.city); content = JSON.stringify(list.length ? list : { none: "No packages in this city; offer hourly or hand over." }); }
         else if (u.name === "search_knowledge") { const found = await tools.searchKnowledge(i.query, i.city || null); content = JSON.stringify(found.notes.length || found.places.length ? found : { none: "Nothing in Waydidi's notes. Don't guess; offer to check with the team (handover)." }); }
+        else if (u.name === "send_payment_link" && options.payLink) {
+          const r = await options.payLink({ kind: i.kind === "hourly" ? "hourly" : "transfer", pickup: i.pickup, dropoff: i.dropoff, city: i.city, hours: Number(i.hours) || 0, date: i.date, time: i.time,
+            passengers: Number(i.passengers) || 0, bags: Number(i.bags) || 0, vehicle: i.vehicle, leadName: (u.input as Record<string, string>).lead_name ?? "", leadPhone: (u.input as Record<string, string>).lead_phone ?? "" });
+          content = JSON.stringify(r);
+        }
         else if (u.name === "handover") { out.handover = { reason: String(i.reason), summary: String(i.summary) }; content = "Handed over. Tell the customer a team member will reply here soon."; }
         else content = "Unknown tool.";
       } catch { content = JSON.stringify({ ok: false, reason: "This lookup is temporarily unavailable; hand over to staff.", handover: true }); }
@@ -223,6 +248,7 @@ async function answerOnce(conversationId: string, client?: Client, answeredUpTo 
   const channel = c.channel ?? "web";
   const turn = await ceeTurn(history, client ?? (new Anthropic({ apiKey: apiKey() }) as unknown as Client), {
     mode: await modelMode(), channel,
+    payLink: chatPaymentsEnabled() ? (input) => createChatPaymentLink(c.id, input) : undefined,
     // LINE: one free reply per customer message, so the whole answer goes in one message (LINE shows its own loading dots).
     onProgress: channel === "line" ? undefined : async (text) => { if (await stillMine()) await addBotMessage(c.id, text); },
   });
