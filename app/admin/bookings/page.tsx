@@ -15,6 +15,7 @@ import { EditDriverButton } from "@/components/bookings-admin/edit-driver";
 import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 import { isAirportPickup } from "@/lib/trip-rules";
+import { bookingAddonLabels } from "@/lib/booking-addon-requests";
 import { VEHICLES } from "@/lib/vehicles";
 import { CreateMenu } from "@/components/bookings-admin/create-menu";
 import { FormsTable } from "@/components/bookings-admin/form-requests";
@@ -205,7 +206,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                     <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${row.pickupDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{row.pickupTime}{row.returnDate && row.returnTime ? ` · return ${row.returnDate} ${row.returnTime}` : ""}</p></td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.pickup}</p></td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.serviceType === "hourly" ? `${row.bookedHours ?? ""} hours${row.pricingArea ? ` · ${row.pricingArea}` : ""}` : row.dropoff}</p></td>
-                    <td className="px-4 py-4"><p className="text-slate-900">{row.vehicle.replaceAll("_", " ")}</p><p className="text-[12px] text-slate-500">{row.passengers} people · {row.luggage} bags</p></td>
+                    <td className="px-4 py-4"><p className="text-slate-900">{row.vehicle.replaceAll("_", " ")}</p><p className="text-[12px] text-slate-500">{row.passengers} people · {row.luggage} bags</p>{bookingAddonLabels(row).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{bookingAddonLabels(row).map((l) => <span key={l} className="whitespace-nowrap rounded-full bg-[#FFF0DF] px-2 py-0.5 text-[11px] font-semibold text-[#B85D00]">+ {l}</span>)}</div>}</td>
                     <td className="whitespace-nowrap px-4 py-4">
                       {paid ? <span className="inline-flex rounded-full bg-[#06C755] px-2.5 py-0.5 text-[13px] font-medium text-white">Paid</span>
                         : cash && cashAtStore.has(row.reference) ? <span className="inline-flex rounded-full bg-[#F59E0B] px-2.5 py-0.5 text-[13px] font-medium text-white">Cash at store</span>
