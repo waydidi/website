@@ -15,7 +15,7 @@ const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 const niceDate = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "—");
 const bangkokToday = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 
-export function TripsList({ mode, view }: { mode: "admin" | "agency"; view: "trips" | "templates" }) {
+export function TripsList({ mode, view, quoteId }: { mode: "admin" | "agency"; view: "trips" | "templates"; quoteId?: string }) {
   const base = mode === "admin" ? "/api/admin" : "/api/agency";
   const home = mode === "admin" ? "/admin/trips" : "/agency/trips";
   const router = useRouter();
@@ -24,7 +24,7 @@ export function TripsList({ mode, view }: { mode: "admin" | "agency"; view: "tri
   const [status, setStatus] = useState("");
   const [when, setWhen] = useState("upcoming");
   const [area, setArea] = useState("");
-  const [quoteFrom, setQuoteFrom] = useState<Row | null | "pick">(null);
+  const [quoteFrom, setQuoteFrom] = useState<Row | null | "pick">(quoteId ? "pick" : null);
   const [error, setError] = useState("");
   const load = useCallback(async () => setRows((await api<{ trips: Row[] }>(`${base}/trips${view === "templates" ? "?view=templates" : ""}`, "GET")).trips), [base, view]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -48,8 +48,8 @@ export function TripsList({ mode, view }: { mode: "admin" | "agency"; view: "tri
       <div><h1 className={mode === "admin" ? "sr-only" : "text-[28px] font-black tracking-[-.03em]"}>{view === "templates" ? "Quick quote templates" : mode === "agency" ? "Trip planner" : "Trip planner"}</h1>
         <p className="mt-1 max-w-2xl text-[14px] text-slate-500">{view === "templates" ? "Ready-made days. Pick one, set the date, hotel and guest, and send a quote in about two minutes." : "Plan, check and send private day trips. Fixed sessions are anchors; everything else fits around them."}</p></div>
       <div className="flex flex-wrap gap-2">
-        <Link href={view === "templates" ? home : `${home}?view=templates`} className={btnQuiet}>{view === "templates" ? "All trips" : "Templates"}</Link>
-        <button type="button" onClick={() => setQuoteFrom("pick")} className={btnQuiet}><Zap size={16} />Quick quote</button>
+        {mode === "agency" && <Link href={view === "templates" ? home : `${home}?view=templates`} className={btnQuiet}>{view === "templates" ? "All trips" : "Templates"}</Link>}
+        <button type="button" onClick={() => setQuoteFrom("pick")} className={btnQuiet}><Zap size={16} />{mode === "admin" ? "Start from a package" : "Quick quote"}</button>
         <Link href={`${home}/new${view === "templates" ? "?template=1" : ""}`} className={btnPrimary}><Plus size={17} />{view === "templates" ? "New template" : "Create trip"}</Link>
       </div>
     </div>
@@ -87,18 +87,23 @@ export function TripsList({ mode, view }: { mode: "admin" | "agency"; view: "tri
         </tbody>
       </table></div>
     </section>
-    {quoteFrom && <QuickQuote base={base} home={home} preset={quoteFrom === "pick" ? null : quoteFrom} templates={templates} onClose={() => setQuoteFrom(null)} />}
+    {quoteFrom && <QuickQuote base={base} home={home} preset={quoteFrom === "pick" ? null : quoteFrom} presetId={quoteId} label={mode === "admin" ? "Package" : "Template"} templates={templates} onClose={() => setQuoteFrom(null)} />}
   </main>;
 }
 
-function QuickQuote({ base, home, preset, templates: known, onClose }: { base: string; home: string; preset: Row | null; templates: Row[] | null; onClose: () => void }) {
+function QuickQuote({ base, home, preset, presetId, label, templates: known, onClose }: { base: string; home: string; preset: Row | null; presetId?: string; label: string; templates: Row[] | null; onClose: () => void }) {
   const router = useRouter();
   const [templates, setTemplates] = useState<Row[] | null>(known);
   const [template, setTemplate] = useState<Row | null>(preset);
   const [f, setF] = useState({ tripDate: "", startTime: preset?.startTime ?? "08:00", pickupText: "", pickupLat: null as number | null, pickupLng: null as number | null, adults: 2, children: 0, vehicle: "", customerName: "", customerEmail: "", customerPhone: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => { if (!templates) void api<{ trips: Row[] }>(`${base}/trips?view=templates`, "GET").then((r) => setTemplates(r.trips)); }, [base, templates]);
+  useEffect(() => { if (!templates) void api<{ trips: Row[] }>(`${base}/trips?view=templates`, "GET").then((r) => {
+    setTemplates(r.trips);
+    // Opened from a package ("Quick quote" on the Packages page): pre-select its trip plan.
+    const t = presetId ? r.trips.find((x) => x.id === presetId) : null;
+    if (t) { setTemplate(t); setF((v) => ({ ...v, startTime: t.startTime })); }
+  }); }, [base, templates, presetId]);
   async function create(send: boolean) {
     if (!template) return;
     setBusy(true); setError("");
@@ -112,7 +117,7 @@ function QuickQuote({ base, home, preset, templates: known, onClose }: { base: s
     <form onSubmit={(e) => { e.preventDefault(); void create(true); }} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl">
       <div className="flex items-center justify-between"><h2 id="qq-title" className="flex items-center gap-2 text-[20px] font-bold"><Zap size={19} className="text-[#D96F00]" />Quick quote</h2><button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
       <div className="mt-4 grid gap-3">
-        <Field label="Template"><select required value={template?.id ?? ""} onChange={(e) => { const t = templates?.find((x) => x.id === e.target.value) ?? null; setTemplate(t); if (t) setF((v) => ({ ...v, startTime: t.startTime })); }} className={inputCls}><option value="">{templates ? "Choose a ready-made day" : "Loading…"}</option>{templates?.map((t) => <option key={t.id} value={t.id}>{t.templateName || t.title} · {t.durationHours} hr · THB {t.total.toLocaleString("en-US")}</option>)}</select></Field>
+        <Field label={label}><select required value={template?.id ?? ""} onChange={(e) => { const t = templates?.find((x) => x.id === e.target.value) ?? null; setTemplate(t); if (t) setF((v) => ({ ...v, startTime: t.startTime })); }} className={inputCls}><option value="">{templates ? "Choose a ready-made day" : "Loading…"}</option>{templates?.map((t) => <option key={t.id} value={t.id}>{t.templateName || t.title} · {t.durationHours} hr · THB {t.total.toLocaleString("en-US")}</option>)}</select></Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Date"><input type="date" required min={bangkokToday()} value={f.tripDate} onChange={(e) => setF({ ...f, tripDate: e.target.value })} className={inputCls} /></Field>
           <Field label="Pickup time"><input type="time" required value={f.startTime} onChange={(e) => setF({ ...f, startTime: e.target.value })} className={inputCls} /></Field>

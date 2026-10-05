@@ -114,8 +114,7 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
     ] },
     { href: "/admin/operations", label: "Operations", icon: Truck },
     { href: "/admin/trips", label: "Trip planner", icon: Route, children: [
-      { href: "/admin/trips", label: "Smart trips", match: (p, t) => (p === "/admin/trips" && t !== "templates") || (p.startsWith("/admin/trips/") && !p.startsWith("/admin/trips/live") && !p.startsWith("/admin/trips/commissions") && !p.startsWith("/admin/trips/packages")) },
-      { href: "/admin/trips?view=templates", label: "Quick quote templates", match: (p, t) => p === "/admin/trips" && t === "templates" },
+      { href: "/admin/trips", label: "Smart trips", match: (p) => p === "/admin/trips" || (p.startsWith("/admin/trips/") && !p.startsWith("/admin/trips/live") && !p.startsWith("/admin/trips/commissions") && !p.startsWith("/admin/trips/packages")) },
       { href: "/admin/trips/packages", label: "Packages" },
       { href: "/admin/trips/live", label: "Live today" },
       { href: "/admin/attractions", label: "Attractions" },

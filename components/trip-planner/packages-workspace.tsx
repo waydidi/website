@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, areaCls, btnPrimary, btnQuiet, Field, inputCls, selectCls, toList, uploadImage } from "@/components/trip-planner/ui";
 import { VEHICLES } from "@/lib/vehicles";
@@ -29,22 +30,37 @@ export function PackagesWorkspace() {
   return <section className="grid gap-4 p-4 sm:p-6">
     <h1 className="sr-only">Trip packages</h1>
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="max-w-2xl text-[14px] text-slate-600">Packages are ready-made day trips sold on each city page. Each one is built from a Quick quote template, so the stops, opening hours and timing come from the template.</p>
-      <button className={btnPrimary} onClick={() => setEdit(blank(data.cities[0]?.slug ?? "bangkok"))} disabled={!data.templates.length}>New package</button>
+      <p className="max-w-2xl text-[14px] text-slate-600">Your saved trips. Tick <b>Show on website</b> to sell one on its city page; the others are staff-only shortcuts. Use <b>Quick quote</b> to turn any of them into a trip for one customer.</p>
+      <div className="flex flex-wrap gap-2">
+        <Link className={btnQuiet} href="/admin/trips/new?template=1">New trip plan</Link>
+        <button className={btnPrimary} onClick={() => setEdit(blank(data.cities[0]?.slug ?? "bangkok"))} disabled={!data.templates.length}>New package</button>
+      </div>
     </div>
-    {!data.templates.length && <p className="rounded-xl bg-amber-50 p-3 text-[14px] text-amber-900">Save a trip as a Quick quote template first. Packages are built from templates.</p>}
+    {!data.templates.length && <p className="rounded-xl bg-amber-50 p-3 text-[14px] text-amber-900">Make a trip plan first (its stops and timing): <b>New trip plan</b>, or open a Smart trip and save it as a plan.</p>}
     {!data.packages.length ? <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-slate-500">No packages yet.</p> :
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{data.packages.map((p) => {
         const from = Object.values(p.prices).filter((n) => n > 0);
-        return <button key={p.id} onClick={() => setEdit(p)} className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left hover:border-[#FF8A05]">
+        return <div key={p.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white hover:border-[#FF8A05]"><button onClick={() => setEdit(p)} className="block w-full text-left">
           <div className="aspect-[16/9] bg-slate-100">{p.coverImage && <img src={p.coverImage} alt="" className="h-full w-full object-cover" />}</div>
           <div className="grid gap-1 p-4">
-            <div className="flex items-center gap-2 text-[12px] font-semibold"><span className={p.published ? "rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700" : "rounded-full bg-slate-100 px-2 py-0.5 text-slate-600"}>{p.published ? "Published" : "Draft"}</span><span className="text-slate-500">{cityName(p.city)} · {KINDS.find((k) => k[0] === p.kind)?.[1]}</span></div>
+            <div className="flex items-center gap-2 text-[12px] font-semibold"><span className={p.published ? "rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700" : "rounded-full bg-slate-100 px-2 py-0.5 text-slate-600"}>{p.published ? "On website" : "Staff only"}</span><span className="text-slate-500">{cityName(p.city)} · {KINDS.find((k) => k[0] === p.kind)?.[1]}</span></div>
             <p className="text-[16px] font-bold">{p.name}</p>
             <p className="text-[13px] text-slate-600">{from.length ? `From ${thb(Math.min(...from))}` : "No price yet"} · {p.startTimes.join(", ")}</p>
           </div>
-        </button>;
+        </button>
+          <div className="flex gap-4 border-t border-slate-100 px-4 py-2.5 text-[13px] font-semibold"><a href={`/admin/trips?quote=${encodeURIComponent(p.templateId)}`} className="text-[#C96100] hover:underline">Quick quote</a><a href={`/admin/trips/${encodeURIComponent(p.templateId)}`} className="text-slate-600 hover:underline">Edit stops</a></div>
+        </div>;
       })}</section>}
+    {/* Trip plans not yet made into a package (the old Quick quote templates) */}
+    {(() => { const loose = data.templates.filter((t) => !data.packages.some((p) => p.templateId === t.id)); if (!loose.length) return null; return <section className="grid gap-2">
+      <h2 className="mt-2 text-[15px] font-bold">Trip plans not yet packaged <span className="font-normal text-slate-500">(staff only)</span></h2>
+      <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">{loose.map((t) => <li key={t.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-[14px]">
+        <span className="min-w-0 flex-1"><b>{t.name || "Untitled plan"}</b> <span className="text-slate-500">· {t.stops} stops · {t.hours} hr</span></span>
+        <a href={`/admin/trips?quote=${encodeURIComponent(t.id)}`} className="font-semibold text-[#C96100] hover:underline">Quick quote</a>
+        <a href={`/admin/trips/${encodeURIComponent(t.id)}`} className="font-semibold text-slate-600 hover:underline">Edit stops</a>
+        <button type="button" onClick={() => setEdit({ ...blank(data.cities[0]?.slug ?? "bangkok"), templateId: t.id, name: t.name ?? "", startTimes: t.startTime ? [t.startTime] : ["08:00"] })} className="font-semibold text-emerald-700 hover:underline">Make a package</button>
+      </li>)}</ul>
+    </section>; })()}
   </section>;
 }
 
@@ -72,9 +88,9 @@ function Editor({ initial, data, onClose }: { initial: Pkg; data: Data; onClose:
       {p.id && p.published && <a className={btnQuiet} href={`/trips/${p.slug}`} target="_blank" rel="noreferrer">View on website</a>}</div>
 
     <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
-      <Field label="Template" hint={tpl ? `${tpl.stops} stops · ${tpl.hours} hours · entry fees THB ${tpl.feesTotal} per group` : "The stops and timing come from this template."} className="sm:col-span-2">
+      <Field label="Trip plan" hint={tpl ? `${tpl.stops} stops · ${tpl.hours} hours · entry fees THB ${tpl.feesTotal} per group` : "The stops and timing come from this plan."} className="sm:col-span-2">
         <select className={selectCls} value={p.templateId} onChange={(e) => { const t = data.templates.find((x) => x.id === e.target.value); setP((x) => ({ ...x, templateId: e.target.value, name: x.name || t?.name || "", startTimes: x.startTimes })); if (t?.startTime && !p.id) setLists((l) => ({ ...l, times: t.startTime! })); }}>
-          <option value="">Choose a template…</option>{data.templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          <option value="">Choose a trip plan…</option>{data.templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </Field>
       <Field label="Name"><input className={inputCls} value={p.name} onChange={(e) => set("name", e.target.value)} placeholder="Bangkok temples and rooftop half day" /></Field>
@@ -107,7 +123,7 @@ function Editor({ initial, data, onClose }: { initial: Pkg; data: Data; onClose:
     </section>
 
     <section className="flex flex-wrap items-center gap-4">
-      <label className="flex items-center gap-2 text-[14px] font-semibold"><input type="checkbox" checked={p.published} onChange={(e) => set("published", e.target.checked)} /> Published on the city page</label>
+      <label className="flex items-center gap-2 text-[14px] font-semibold"><input type="checkbox" checked={p.published} onChange={(e) => set("published", e.target.checked)} /> Show on website (customers can book it on the city page). Untick to keep it staff-only.</label>
       <label className="flex items-center gap-2 text-[14px]">Order <input type="number" className={`${inputCls} w-20`} value={p.sortOrder} onChange={(e) => set("sortOrder", Number(e.target.value) || 0)} /></label>
       <button className={btnPrimary} onClick={save} disabled={busy || !p.templateId || !p.name}>{busy ? "Saving…" : "Save package"}</button>
       {error && <p className="text-[14px] text-red-600">{error}</p>}
