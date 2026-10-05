@@ -9,7 +9,7 @@ const mf=new Miniflare({modules:true,script:'export default {fetch(){return new 
 const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -160,4 +160,19 @@ test('opening a chat marks it read for every admin and shows who read it',async(
  await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('read-2','chat-read','visitor','Are you there?',?)").bind(t).run();
  assert.equal((await list()).unread,1);
  globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'support'};
+});
+test('a quiet customer gets one polite check-in after 10 minutes; quiet chats can be completed or kept for follow-up',async()=>{
+ const idle=await vite.ssrLoadModule('/lib/chat-idle.ts');const t0=Date.now();const iso=(m)=>new Date(t0-m*60000).toISOString();
+ await db.prepare("INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status) VALUES('idle-1','idle-hash',?,?,?,'WD-11111','open')").bind(expires,iso(30),iso(30)).run();
+ await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('i1','idle-1','visitor','How much to Pattaya?',?)").bind(iso(14)).run();
+ await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name) VALUES('i2','idle-1','staff','When are you travelling?',?,'Alice')").bind(iso(12)).run();
+ const count=async()=>(await db.prepare("SELECT COUNT(*) n FROM website_chat_messages WHERE conversation_id='idle-1' AND body=?").bind(idle.NUDGE_TEXT).first()).n;
+ await idle.sendIdleNudges(new Date(t0));assert.equal(await count(),1);
+ await idle.sendIdleNudges(new Date(t0+11*60000));assert.equal(await count(),1); // never twice in a row
+ await db.prepare("UPDATE website_chat_messages SET created_at=? WHERE conversation_id='idle-1' AND body=?").bind(iso(20),idle.NUDGE_TEXT).run();await db.prepare("UPDATE website_conversations SET last_message_at=? WHERE id='idle-1'").bind(iso(20)).run();
+ const detail=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?id=idle-1'))).json();assert.equal(detail.conversation.quiet,true);
+ assert.equal((await admin.POST(post({id:'idle-1',action:'follow_up'}))).status,200);
+ let row=await db.prepare("SELECT status,follow_up_at FROM website_conversations WHERE id='idle-1'").first();assert.equal(row.status,'pending');assert.ok(row.follow_up_at);
+ assert.equal((await admin.POST(post({id:'idle-1',action:'complete'}))).status,200);
+ row=await db.prepare("SELECT status,follow_up_at FROM website_conversations WHERE id='idle-1'").first();assert.equal(row.status,'closed');assert.equal(row.follow_up_at,null);
 });

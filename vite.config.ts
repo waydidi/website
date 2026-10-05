@@ -35,7 +35,7 @@ function bindingConfig(command: "build" | "serve") {
     // each visitor: pages with several queries finish sooner.
     placement: { mode: "smart" as const },
     // Runs worker/index.ts "scheduled": trip reminders and operations alerts.
-    triggers: { crons: ["*/5 * * * *"] },
+    triggers: { crons: ["*/5 * * * *", "* * * * *"] },
     d1_databases: d1
       ? [
           {

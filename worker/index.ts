@@ -95,7 +95,12 @@ const worker = {
     }
     return withSecurityHeaders(response, url);
   },
-  async scheduled(controller: { scheduledTime: number }, _env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(controller: { scheduledTime: number; cron?: string }, _env: Env, ctx: ExecutionContext): Promise<void> {
+    // Every minute: chat check-ins ("Are you still with us?") only.
+    if (controller.cron === "* * * * *") {
+      ctx.waitUntil(import("../lib/chat-idle").then((m) => m.sendIdleNudges(new Date(controller.scheduledTime))).catch((e) => console.error("chat check-in failed", e)));
+      return;
+    }
     ctx.waitUntil(runOperationsAutomation(new Date(controller.scheduledTime)));
     // Customer chat messages that could not reach Telegram are retried every run.
     ctx.waitUntil(import("../lib/website-chat").then((m) => m.retryFailedTelegram()).catch(() => undefined));

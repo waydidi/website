@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     filters.push(`(c.public_id LIKE ?1q OR c.customer_name LIKE ?1q OR c.customer_email LIKE ?1q OR c.customer_phone LIKE ?1q OR EXISTS(SELECT 1 FROM website_chat_messages s WHERE s.conversation_id=c.id AND s.body LIKE ?1q))`.replace(/\?1q/g, "?"));
     for (let i = 0; i < 5; i++) binds.push(`%${q}%`);
   }
-  const conversations = (await env.DB.prepare(`SELECT c.id,c.public_id,c.status,c.channel,c.customer_name,c.customer_email,c.source_title,c.source_url,c.assigned_name,c.assigned_staff_id,c.last_message_at,c.updated_at,c.read_by,c.read_at,${UNREAD} unread,
+  const conversations = (await env.DB.prepare(`SELECT c.id,c.public_id,c.status,c.channel,c.customer_name,c.customer_email,c.source_title,c.source_url,c.assigned_name,c.assigned_staff_id,c.last_message_at,c.updated_at,c.follow_up_at,c.read_by,c.read_at,${UNREAD} unread,
     (SELECT body FROM website_chat_messages WHERE conversation_id=c.id ORDER BY rowid DESC LIMIT 1) preview,
     (SELECT sender FROM website_chat_messages WHERE conversation_id=c.id ORDER BY rowid DESC LIMIT 1) last_sender
     FROM website_conversations c WHERE ${filters.join(" AND ")} ORDER BY COALESCE(c.last_message_at,c.updated_at) DESC LIMIT 100`).bind(...binds).all()).results;
@@ -51,7 +51,9 @@ export async function GET(request: Request) {
     else {
       conversation = { id: c.id, public_id: c.public_id, status: c.status, customer_name: c.customer_name, customer_email: c.customer_email, customer_phone: c.customer_phone,
         customer_id: c.customer_id, customer_country: c.customer_country ?? null, source_url: c.source_url, source_title: c.source_title, topic: c.topic, assigned_name: c.assigned_name, assigned_staff_id: c.assigned_staff_id,
-        created_at: c.created_at, on_telegram: Boolean(c.telegram_message_id), bot_paused: Boolean((c as { bot_paused?: number }).bot_paused) };
+        created_at: c.created_at, last_message_at: c.last_message_at,
+        // No messages for 15 minutes: the inbox offers "Completed" / "Follow up".
+        quiet: Boolean(c.last_message_at && Date.parse(now) - Date.parse(c.last_message_at) >= 15 * 60 * 1000), follow_up_at: (c as { follow_up_at?: string | null }).follow_up_at ?? null, on_telegram: Boolean(c.telegram_message_id), bot_paused: Boolean((c as { bot_paused?: number }).bot_paused) };
       messages = await messagesFor(c.id);
       // Opening a chat marks it read for the whole team (badge and bell clear on every device).
       const latest = (messages as { seq: number; sender: string }[]).filter((m) => m.sender === "visitor").at(-1)?.seq ?? 0;
@@ -112,6 +114,15 @@ export async function POST(request: Request) {
     case "retry_telegram":
       if (typeof input.messageId !== "string") return reply("Choose a message.", 400);
       try { await deliverVisitorMessage(c.id, input.messageId); } catch { return reply("Telegram is still unavailable. It will retry automatically.", 502); }
+      break;
+    // Quiet chat: finish it, or keep it for a later follow-up (customer still deciding).
+    case "complete":
+      await env.DB.prepare("UPDATE website_conversations SET follow_up_at=NULL WHERE id=?").bind(c.id).run();
+      await setStatus(c.id, "closed");
+      break;
+    case "follow_up":
+      await env.DB.prepare("UPDATE website_conversations SET follow_up_at=? WHERE id=?").bind(new Date().toISOString(), c.id).run();
+      await setStatus(c.id, "pending");
       break;
     case "cee_pause": await pauseBot(c.id, true); break;
     case "cee_resume": await pauseBot(c.id, false); break;

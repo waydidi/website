@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { countryLabel } from "@/lib/country";
 
-type Row = { id: string; public_id: string; status: string; customer_name: string | null; customer_email: string | null; source_title: string | null; source_url: string | null; assigned_name: string | null; assigned_staff_id: string | null; last_message_at: string | null; unread: number; preview: string | null; last_sender: string | null; channel?: string; read_by?: string | null; read_at?: string | null };
-type Detail = Row & { customer_country: string | null; customer_phone: string | null; customer_id: string | null; topic: string | null; created_at: string; on_telegram: boolean; bot_paused: boolean; read_seq?: number };
+type Row = { id: string; public_id: string; status: string; customer_name: string | null; customer_email: string | null; source_title: string | null; source_url: string | null; assigned_name: string | null; assigned_staff_id: string | null; last_message_at: string | null; unread: number; preview: string | null; last_sender: string | null; channel?: string; follow_up_at?: string | null; read_by?: string | null; read_at?: string | null };
+type Detail = Row & { customer_country: string | null; customer_phone: string | null; customer_id: string | null; topic: string | null; created_at: string; on_telegram: boolean; bot_paused: boolean; read_seq?: number; quiet?: boolean; follow_up_at?: string | null };
 type Msg = { seq: number; id: string; sender: "visitor" | "staff"; sender_name: string | null; is_bot?: number; body: string; created_at: string; telegram_status: string | null };
 type Data = { conversations: Row[]; conversation: Detail | null; messages: Msg[]; selectionError: string | null; team: { id: string; name: string }[]; me: { id: string; name: string }; cee?: { enabled: boolean; keySet: boolean } };
 
@@ -87,7 +87,7 @@ export function ChatInbox() {
           {data?.conversations.map((r) => <li key={r.id}><button type="button" onClick={() => select(r.id)} aria-current={id === r.id} className={`block w-full border-b border-slate-100 px-4 py-3 text-left ${id === r.id ? "bg-orange-50" : "hover:bg-slate-50"}`}>
             <span className="flex items-center gap-2"><span className={`min-w-0 flex-1 truncate text-[14px] ${r.unread ? "font-bold" : "font-semibold"}`}>{who(r)}</span>{r.channel && r.channel !== "web" && <span className={`shrink-0 rounded-full px-1.5 text-[10.5px] font-bold text-white ${r.channel === "whatsapp" ? "bg-[#25D366]" : "bg-[#06C755]"}`}>{r.channel === "whatsapp" ? "WhatsApp" : "LINE"}</span>}<span className="shrink-0 text-[11.5px] text-slate-500">{when(r.last_message_at)}</span></span>
             <span className="mt-0.5 flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-[13px] text-slate-600">{r.last_sender === "staff" ? "Staff: " : ""}{r.preview ?? "New conversation"}</span>{r.unread > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-[#FE8B05] px-1.5 text-[11px] font-bold text-white">{r.unread}</span>}</span>
-            <span className="mt-1 flex items-center gap-2 text-[11.5px] text-slate-500"><span className={`rounded-full px-1.5 py-0.5 font-semibold ${STATUS[r.status]?.[1] ?? ""}`}>{STATUS[r.status]?.[0] ?? r.status}</span><span className="truncate">{r.assigned_name ?? "Unassigned"}{r.source_title ? ` · ${r.source_title}` : ""}</span>{!r.unread && r.last_sender === "visitor" && r.read_by && <span className="ml-auto shrink-0 font-semibold text-sky-700">✓ Read by {r.read_by}</span>}</span>
+            <span className="mt-1 flex items-center gap-2 text-[11.5px] text-slate-500"><span className={`rounded-full px-1.5 py-0.5 font-semibold ${STATUS[r.status]?.[1] ?? ""}`}>{STATUS[r.status]?.[0] ?? r.status}</span>{r.follow_up_at && r.status !== "closed" && <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-800">Follow up</span>}<span className="truncate">{r.assigned_name ?? "Unassigned"}{r.source_title ? ` · ${r.source_title}` : ""}</span>{!r.unread && r.last_sender === "visitor" && r.read_by && <span className="ml-auto shrink-0 font-semibold text-sky-700">✓ Read by {r.read_by}</span>}</span>
           </button></li>)}
         </ul>
       </aside>
@@ -137,6 +137,12 @@ export function ChatInbox() {
           <option value="">{c.assigned_name && !c.assigned_staff_id ? `${c.assigned_name} (Telegram)` : "Unassigned"}</option>
           {data?.team.map((t) => <option key={t.id} value={t.id}>{t.name}{t.id === me?.id ? " (me)" : ""}</option>)}
         </select>
+        {c.status !== "closed" && c.quiet && <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p className="font-semibold text-amber-900">No messages for 15 minutes</p>
+          <p className="mt-0.5 text-[12.5px] text-amber-800">Finish the chat, or keep it to follow up if the customer is still deciding.</p>
+          <div className="mt-2 flex gap-2"><button type="button" disabled={busy} onClick={() => void act({ action: "complete" })} className="h-9 flex-1 rounded-full bg-emerald-600 px-3 text-[13px] font-semibold text-white">✓ Completed</button><button type="button" disabled={busy} onClick={() => void act({ action: "follow_up" })} className="h-9 flex-1 rounded-full border border-violet-300 bg-white px-3 text-[13px] font-semibold text-violet-800">Follow up</button></div>
+        </div>}
+        {c.follow_up_at && c.status !== "closed" && <p className="mt-3 rounded-lg bg-violet-50 p-2 text-[12.5px] font-semibold text-violet-800">Marked for follow-up {new Date(c.follow_up_at).toLocaleString()}</p>}
         <h3 className="mt-5 text-[12px] font-bold uppercase tracking-wide text-slate-500">Non (quote bot)</h3>
         {!data?.cee?.keySet ? <p className="mt-2 text-slate-600">Off: add ANTHROPIC_API_KEY in Cloudflare to turn Non on.</p> : <>
           <p className="mt-2 text-slate-600">{!data.cee.enabled ? "Non is off for all chats." : c.assigned_name || c.bot_paused ? "Non is quiet in this chat (a person has it)." : "Non is answering this chat."}</p>
