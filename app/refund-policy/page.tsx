@@ -18,9 +18,9 @@ const thb = (n: number) => `฿${n.toLocaleString("en-US")}`;
 const example = (hours: number) => customerRefundMinor(300000, refundPercent("customer_cancellation", hours)) / 100;
 
 const cards = [
-  { when: "More than 48 hours before pickup", result: "100% refund", text: "Cancel more than 48 hours before your scheduled service to receive a full refund, unless different conditions were stated for your booking.", tone: "border-emerald-200 bg-emerald-50" },
-  { when: "24–48 hours before pickup", result: "50% refund", text: "Cancel between 24 and 48 hours before your scheduled service to receive a 50% refund, unless different booking conditions apply.", tone: "border-amber-200 bg-amber-50" },
-  { when: "Less than 24 hours before pickup", result: "Non-refundable", text: "Bookings cancelled less than 24 hours before the scheduled service are non-refundable.", tone: "border-slate-200 bg-[#F5F6F8]" },
+  { when: "More than 48 hours before pickup", result: "100% refund", text: "Cancel more than 48 hours before your scheduled service to receive a full refund, unless different conditions were stated for your booking.", tone: "border-emerald-200 bg-emerald-50", accent: "text-emerald-700" },
+  { when: "24–48 hours before pickup", result: "50% refund", text: "Cancel between 24 and 48 hours before your scheduled service to receive a 50% refund, unless different booking conditions apply.", tone: "border-amber-200 bg-amber-50", accent: "text-amber-700" },
+  { when: "Less than 24 hours before pickup", result: "Non-refundable", text: "Bookings cancelled less than 24 hours before the scheduled service are non-refundable.", tone: "border-slate-200 bg-[#F5F6F8]", accent: "text-slate-700" },
 ];
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -46,7 +46,7 @@ export default function RefundPolicyPage() {
       <section aria-labelledby="glance-h" className="py-12">
         <h2 id="glance-h" className="text-3xl font-black tracking-[-.035em]">Cancellation at a glance</h2>
         <ul className="mt-6 grid gap-4 md:grid-cols-3">
-          {cards.map(({ when, result, text, tone }) => <li key={when} className={`rounded-[24px] border p-6 ${tone}`}>
+          {cards.map(({ when, result, text, tone, accent }) => <li key={when} className={`rounded-[24px] border p-6 ${tone}`}>
             <p className="text-[15px] font-bold text-slate-800">{when}</p>
             <p className={`mt-3 text-[30px] font-black tracking-[-.03em] ${accent}`}>{result}</p>
             <p className="mt-2 text-[15px] leading-6 text-slate-700">{text}</p>
