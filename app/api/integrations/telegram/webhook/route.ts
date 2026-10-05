@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { constantTimeEqual } from "@/lib/security";
-import { answerCallback, sendCard, telegramChatId, type TelegramMessage, type TelegramUser } from "@/lib/telegram/client";
+import { answerCallback, sendCard, telegramChatId, tg, type TelegramMessage, type TelegramUser } from "@/lib/telegram/client";
 import { esc } from "@/lib/telegram/cards";
 import { acknowledgeBooking } from "@/lib/telegram/bookings";
 import { addStaffMessage, assign, conversationById, conversationForTelegramMessage, setStatus } from "@/lib/website-chat";
@@ -81,6 +81,13 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
 }
 
 async function handleMessage(m: TelegramMessage) {
+  const text0 = (m.text ?? "").trim();
+  // Setup helper: before TELEGRAM_CHAT_ID is set, /chatid in a group answers with that group's ID.
+  if (!telegramChatId() && (text0 === "/chatid" || text0.startsWith("/chatid@"))) {
+    await tg("sendMessage", { chat_id: m.chat.id, parse_mode: "HTML", reply_parameters: { message_id: m.message_id, allow_sending_without_reply: true },
+      text: `This group's chat ID is <code>${m.chat.id}</code>. Add it in Cloudflare as TELEGRAM_CHAT_ID.` }).catch(() => undefined);
+    return;
+  }
   if (String(m.chat.id) !== telegramChatId()) return;
   const text = (m.text ?? "").trim();
   if (text === "/id" || text.startsWith("/id@")) {

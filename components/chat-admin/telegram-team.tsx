@@ -39,7 +39,7 @@ export function TelegramTeam() {
         {data.webhook?.lastError && <li className="text-[13px] text-red-600">Last Telegram error: {data.webhook.lastError}</li>}
       </ul>
       {data.canEdit && <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" disabled={busy || !ready} onClick={() => void post({ action: "connect" }, "Webhook connected. Telegram will now send replies here.")} className="h-10 rounded-full bg-[#FE8B05] px-4 text-[14px] font-semibold text-white disabled:opacity-50">{connected ? "Reconnect webhook" : "Connect webhook"}</button>
+        <button type="button" disabled={busy || !(data.secrets.TELEGRAM_BOT_TOKEN && data.secrets.TELEGRAM_WEBHOOK_SECRET)} onClick={() => void post({ action: "connect" }, "Webhook connected. Telegram will now send replies here.")} className="h-10 rounded-full bg-[#FE8B05] px-4 text-[14px] font-semibold text-white disabled:opacity-50">{connected ? "Reconnect webhook" : "Connect webhook"}</button>
         <button type="button" disabled={busy || !ready} onClick={() => void post({ action: "test" }, "Test message sent to the Telegram group.")} className="h-10 rounded-full border border-slate-200 px-4 text-[14px] font-semibold disabled:opacity-50">Send test message</button>
       </div>}
     </section>
