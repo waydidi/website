@@ -77,7 +77,7 @@ export const customerMessage = (publicId: string, name: string | null, body: str
 export const staffEcho = (publicId: string, name: string, body: string) =>
   `<b>${esc(name)}</b> replied on the website · ${esc(publicId)}\n<blockquote>${esc(clip(body, 3500))}</blockquote>`;
 
-export type CardBooking = { reference: string; customerName: string; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; vehicle: string; passengers: number; luggage: number; total: number; payment: string; acknowledgedBy?: string | null };
+export type CardBooking = { reference: string; customerName: string; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; vehicle: string; passengers: number; luggage: number; total: number; payment: string; acknowledgedBy?: string | null; driverCost?: number | null; driverName?: string | null; costDone?: boolean; driverDone?: boolean };
 
 export function bookingCard(b: CardBooking) {
   return [
@@ -93,9 +93,13 @@ export function bookingCard(b: CardBooking) {
     `Reference: ${esc(b.reference)}`,
     "",
     b.acknowledgedBy ? `Taken by <b>${esc(b.acknowledgedBy)}</b>` : "Awaiting assignment",
+    ...(b.acknowledgedBy ? [`Driver cost: ${b.costDone ? `THB ${(b.driverCost ?? 0).toLocaleString("en-US")}` : "not set"}`, `Driver: ${b.driverDone ? esc(b.driverName ?? "added") : "not added"}`] : []),
   ].join("\n");
 }
 
-export const bookingKeyboard = (b: CardBooking, adminUrl: string): InlineKeyboard => [
-  [...(b.acknowledgedBy ? [] : [{ text: "Assign to me", callback_data: `booking_assign:${b.reference}` }]), { text: "Open booking", url: adminUrl }],
-];
+/** Not taken: Assign. Taken: Set cost and Add driver information, each removed once done. */
+export const bookingKeyboard = (b: CardBooking, adminUrl: string): InlineKeyboard => {
+  if (!b.acknowledgedBy) return [[{ text: "Assign to me", callback_data: `booking_assign:${b.reference}` }, { text: "Open booking", url: adminUrl }]];
+  const tasks = [...(b.costDone ? [] : [{ text: "Set cost", callback_data: `bk_cost:${b.reference}` }]), ...(b.driverDone ? [] : [{ text: "Add driver information", callback_data: `bk_drv:${b.reference}` }])];
+  return [...(tasks.length ? [tasks] : []), [{ text: "Open booking", url: adminUrl }]];
+};

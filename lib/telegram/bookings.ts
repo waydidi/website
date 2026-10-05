@@ -12,11 +12,15 @@ const adminUrl = (ref: string) => `${SITE_URL}/admin/journeys/${encodeURICompone
 
 type Row = { reference: string; customer_name: string; customer_surname: string | null; pickup: string; dropoff: string; pickup_date: string; pickup_time: string; vehicle: string; passengers: number; luggage: number; total: number; payment_method: string };
 async function card(reference: string, acknowledgedBy: string | null): Promise<CardBooking | null> {
+  const tasks = await db().prepare("SELECT t.cost_done,t.driver_done,t.driver_form_json,c.total_driver_cost FROM telegram_booking_cards t LEFT JOIN booking_costs c ON c.booking_reference=t.booking_reference WHERE t.booking_reference=?")
+    .bind(reference).first<{ cost_done: number; driver_done: number; driver_form_json: string | null; total_driver_cost: number | null }>().catch(() => null);
   const b = await db().prepare("SELECT reference,customer_name,customer_surname,pickup,dropoff,pickup_date,pickup_time,vehicle,passengers,luggage,total,payment_method FROM bookings WHERE reference=?").bind(reference).first<Row>();
   if (!b) return null;
   return { reference: b.reference, customerName: `${b.customer_name} ${b.customer_surname ?? ""}`.trim(), pickup: b.pickup, dropoff: b.dropoff, pickupDate: b.pickup_date, pickupTime: b.pickup_time,
     vehicle: VEHICLES[b.vehicle as keyof typeof VEHICLES]?.name ?? b.vehicle, passengers: b.passengers, luggage: b.luggage, total: b.total,
-    payment: b.payment_method === "cash" ? "cash on the day" : "paid online", acknowledgedBy };
+    payment: b.payment_method === "cash" ? "cash on the day" : "paid online", acknowledgedBy,
+    costDone: Boolean(tasks?.cost_done), driverDone: Boolean(tasks?.driver_done), driverCost: tasks?.total_driver_cost ?? null,
+    driverName: tasks?.driver_form_json ? (JSON.parse(tasks.driver_form_json) as { name?: string }).name ?? null : null };
 }
 
 /** Posts the new-booking card once per booking (safe to call repeatedly). */
@@ -43,4 +47,11 @@ export async function acknowledgeBooking(reference: string, name: string) {
   const c = await card(reference, name);
   if (row?.telegram_message_id && c) await editCard(row.telegram_message_id, bookingCard(c), bookingKeyboard(c, adminUrl(reference))).catch(() => undefined);
   return true;
+}
+
+/** Re-draws a booking card (after cost or driver details are added). */
+export async function refreshBookingCard(reference: string) {
+  const row = await db().prepare("SELECT telegram_message_id,acknowledged_by FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number; acknowledged_by: string | null }>();
+  const c = await card(reference, row?.acknowledged_by ?? null);
+  if (row?.telegram_message_id && c) await editCard(row.telegram_message_id, bookingCard(c), bookingKeyboard(c, adminUrl(reference))).catch(() => undefined);
 }

@@ -8,8 +8,9 @@ const root=fileURLToPath(new URL('..',import.meta.url));
 const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("test")}}',compatibilityDate:'2026-05-22',d1Databases:['DB']});
 const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
+await db.exec("CREATE TABLE drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT,vehicle TEXT,car_plate TEXT,driver_type TEXT,status TEXT,base_location TEXT DEFAULT '',created_at TEXT,updated_at TEXT);");
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -251,4 +252,41 @@ test('conversation ids read as WD_chat_DDMMYYYYHHMM in Bangkok time, with _2 for
  assert.equal(chat.chatIdFor('2026-08-18T03:24:00.000Z'),'WD_chat_180820261024');
  const a=await chat.createConversation('id-a',{email:'a@b.co'});const b=await chat.createConversation('id-b',{email:'a@b.co'});
  assert.match(a.public_id,/^WD_chat_\d{12}(_\d+)?$/);assert.match(b.public_id,/^WD_chat_\d{12}(_\d+)?$/);assert.notEqual(a.public_id,b.public_id);
+});
+test('Telegram booking: assign → Set cost → Add driver information step by step → Thai job post with one trip link',async()=>{
+ await db.exec("CREATE TABLE IF NOT EXISTS bookings(reference TEXT PRIMARY KEY,customer_name TEXT,customer_surname TEXT,customer_email TEXT,customer_phone TEXT,pickup TEXT,dropoff TEXT,pickup_date TEXT,pickup_time TEXT,passengers INTEGER,luggage INTEGER,vehicle TEXT,payment_method TEXT,total INTEGER,amount_paid INTEGER DEFAULT 0,flight_number TEXT,status TEXT);");
+ await db.exec("CREATE TABLE IF NOT EXISTS booking_costs(booking_reference TEXT PRIMARY KEY,accepted_offer_id TEXT,agreed_driver_cost INTEGER NOT NULL DEFAULT 0,additional_costs INTEGER NOT NULL DEFAULT 0,total_driver_cost INTEGER NOT NULL DEFAULT 0,payment_status TEXT NOT NULL DEFAULT 'unpaid',paid_at TEXT,payment_reference TEXT,notes TEXT,updated_by TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);");
+ await db.exec("CREATE TABLE IF NOT EXISTS drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT,vehicle TEXT,car_plate TEXT,driver_type TEXT,status TEXT,base_location TEXT DEFAULT '',created_at TEXT,updated_at TEXT);");
+ await db.exec("CREATE TABLE IF NOT EXISTS booking_assignments(id TEXT PRIMARY KEY,booking_reference TEXT,leg TEXT,driver_id TEXT,token_hash TEXT,current_status TEXT,assigned_by TEXT,assigned_at TEXT,token_expires_at TEXT,revoked_at TEXT,updated_at TEXT);");
+ try{await db.exec("ALTER TABLE drivers ADD COLUMN license_number TEXT;");}catch{}
+ const hook=await vite.ssrLoadModule('/app/api/integrations/telegram/webhook/route.ts');
+ Object.assign(globalThis.__chatTest.env,{TELEGRAM_WEBHOOK_SECRET:'s'.repeat(24),TELEGRAM_CHAT_ID:'-100',TELEGRAM_BOT_TOKEN:'t'});
+ const sent=[];const real=globalThis.fetch;let mid=7000;
+ globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://api.telegram.org')){const body=JSON.parse(init.body);sent.push({method:u.split('/').pop(),...body});return new Response(JSON.stringify({ok:true,result:{message_id:++mid,chat:{id:-100}}}));}return real(url,init);};
+ try{
+  await db.prepare("INSERT INTO bookings VALUES('MC7Q2P','Mansi','Choksi Choksi','m@x.co','','Trat airport','Dinso Resort & Villas Ko Chang','2026-10-14','12:45',2,2,'economy_sedan','card',2400,2400,'PG305','confirmed')").run();
+  await db.prepare("INSERT INTO telegram_booking_cards(booking_reference,telegram_message_id,created_at) VALUES('MC7Q2P',6999,?)").bind(new Date().toISOString()).run();
+  let u=500;const call=(update)=>hook.POST(new Request('https://example.invalid/api/integrations/telegram/webhook',{method:'POST',headers:{'content-type':'application/json','x-telegram-bot-api-secret-token':'s'.repeat(24)},body:JSON.stringify({update_id:++u,...update})}));
+  const tap=(data)=>call({callback_query:{id:'q',from:{id:777,first_name:'Alex'},data,message:{message_id:6999,chat:{id:-100}}}});
+  const say=(text,replyTo)=>call({message:{message_id:++mid,chat:{id:-100},from:{id:777},text,...(replyTo?{reply_to_message:{message_id:replyTo,chat:{id:-100}}}:{})}});
+  const lastPrompt=()=>[...sent].reverse().find((m)=>m.reply_markup?.force_reply);
+  await tap('bk_cost:MC7Q2P');assert.equal(lastPrompt(),undefined); // must be assigned first
+  await tap('booking_assign:MC7Q2P');
+  const kb=sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text);assert.deepEqual(kb,['Set cost','Add driver information','Open booking']);
+  await tap('bk_cost:MC7Q2P');assert.match(lastPrompt().text,/Driver cost/);
+  await say('abc');assert.match(sent.filter((m)=>m.method==='sendMessage').at(-2).text,/number/); // asked again
+  await say('900');
+  assert.equal((await db.prepare("SELECT total_driver_cost FROM booking_costs WHERE booking_reference='MC7Q2P'").first()).total_driver_cost,900);
+  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Add driver information','Open booking']);
+  await tap('bk_drv:MC7Q2P');
+  for(const [q,a] of [[/full name/,'Somchai Jaidee'],[/phone/,'081 234 5678'],[/plate/,'1กข 1234'],[/model/,'Toyota Camry, black'],[/licence/,'12345678']]){assert.match(lastPrompt().text,q);await say(a);}
+  const d=await db.prepare("SELECT full_name,phone,car_plate,vehicle,license_number FROM drivers WHERE full_name='Somchai Jaidee'").first();
+  assert.deepEqual([d.phone,d.car_plate,d.vehicle,d.license_number],['081 234 5678','1กข 1234','Toyota Camry, black','12345678']);
+  const job=sent.filter((m)=>m.method==='sendMessage').map((m)=>m.text).find((t)=>t.startsWith('Economy sedan🚗'));
+  assert.ok(job,'job posted');
+  for(const line of ['ชื่อลูกค้า: Mansi Choksi Choksi','จำนวน: 2 คน, 2 กระเป๋า','วันที่/เวลา: 14/10/2026 12:45','ไฟลท์: PG305','รับ: Trat airport','ส่ง: Dinso Resort &amp; Villas Ko Chang','ราคา: -']) assert.ok(job.includes(line),line);
+  assert.match(job,/\/driver\/trip\/[a-f0-9]{48}/);
+  assert.equal((await db.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='MC7Q2P' AND revoked_at IS NULL").first()).n,1);
+  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Open booking']);
+ }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
 });

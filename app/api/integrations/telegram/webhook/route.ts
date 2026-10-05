@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { constantTimeEqual } from "@/lib/security";
 import { answerCallback, sendCard, sendPrivate, telegramChatId, tg, type TelegramMessage, type TelegramUser } from "@/lib/telegram/client";
 import { esc, pickKeyboard } from "@/lib/telegram/cards";
-import { acknowledgeBooking } from "@/lib/telegram/bookings";
+import { acknowledgeBooking, refreshBookingCard } from "@/lib/telegram/bookings";
+import { askBookingQuestion, handleBookingAnswer } from "@/lib/telegram/booking-tasks";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus } from "@/lib/website-chat";
 
 // Telegram → Waydidi. Verified by the secret-token header, de-duplicated by update_id, and every action
@@ -56,6 +57,12 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   if (!target || target.length > 60) return answerCallback(q.id, "Unknown action.");
   const who = { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(q.from.id) };
 
+  if (action === "bk_cost" || action === "bk_drv") {
+    const taken = await db().prepare("SELECT acknowledged_by FROM telegram_booking_cards WHERE booking_reference=?").bind(target).first<{ acknowledged_by: string | null }>();
+    if (!taken?.acknowledged_by) return answerCallback(q.id, "Assign the booking first.", true);
+    await askBookingQuestion(target, action === "bk_cost" ? "cost" : "driver_name", q.from);
+    return answerCallback(q.id, action === "bk_cost" ? "Type the driver cost." : "Answer the driver questions one by one.");
+  }
   if (action === "booking_assign") {
     const done = await acknowledgeBooking(target, admin.display_name);
     return answerCallback(q.id, done ? "Booking is yours." : "Someone already took this booking.");
@@ -131,6 +138,9 @@ async function handleMessage(m: TelegramMessage) {
     await sendCard(`Your Telegram ID is <code>${m.from?.id ?? "unknown"}</code>. Ask the Waydidi owner to add it under Admin → Chat → Telegram team.`, undefined, m.message_id);
     return;
   }
+  // Answers to "Set cost" / "Add driver information" questions on booking cards.
+  const teamMember = await approved(m.from);
+  if (teamMember && await handleBookingAnswer(m, teamMember.display_name, refreshBookingCard)) return;
   // Customer answers: replies to a Waydidi card or prompt, or the next plain message from someone
   // who tapped "Reply" in the last 10 minutes. Other group talk is ignored.
   if (!text || text.startsWith("/")) return;
