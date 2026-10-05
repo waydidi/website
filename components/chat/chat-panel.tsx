@@ -28,13 +28,27 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
   const count = useRef(messages.length);
   const panel = useRef<HTMLElement>(null);
 
-  // Mobile: keep the composer above the on-screen keyboard by following the visual viewport.
+  // Phones: the panel fills exactly the visible area, so the keyboard sits right under the
+  // composer. iOS scrolls the page when the keyboard opens, so the panel follows the visual
+  // viewport (top + height) and the page behind is locked while the chat is open.
   useEffect(() => {
+    if (window.innerWidth >= 640) return;
     const vv = window.visualViewport;
-    if (!vv) return;
-    const fit = () => { if (panel.current && window.innerWidth < 640) panel.current.style.height = `${vv.height}px`; };
-    fit(); vv.addEventListener("resize", fit);
-    return () => vv.removeEventListener("resize", fit);
+    const body = document.body, html = document.documentElement, y = window.scrollY;
+    const saved = { position: body.style.position, top: body.style.top, width: body.style.width, overflow: html.style.overflow };
+    body.style.position = "fixed"; body.style.top = `-${y}px`; body.style.width = "100%"; html.style.overflow = "hidden";
+    const fit = () => {
+      const el = panel.current;
+      if (!el || !vv) return;
+      el.style.top = `${vv.offsetTop}px`; el.style.bottom = "auto"; el.style.height = `${vv.height}px`;
+      list.current && atBottom.current && (list.current.scrollTop = list.current.scrollHeight);
+    };
+    fit(); vv?.addEventListener("resize", fit); vv?.addEventListener("scroll", fit);
+    return () => {
+      vv?.removeEventListener("resize", fit); vv?.removeEventListener("scroll", fit);
+      body.style.position = saved.position; body.style.top = saved.top; body.style.width = saved.width; html.style.overflow = saved.overflow;
+      window.scrollTo(0, y);
+    };
   }, []);
   useEffect(() => { if (window.matchMedia("(hover: hover)").matches) input.current?.focus(); const esc = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", esc); return () => document.removeEventListener("keydown", esc); }, [onClose]);
 
