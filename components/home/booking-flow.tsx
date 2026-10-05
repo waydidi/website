@@ -499,7 +499,15 @@ export function BookingFlow({
     setHourlyQuote(null);
     setRoutePrefill({ pickupPlaceId: params.get("pickupPlaceId") ?? "", dropoffPlaceId: hourly ? undefined : params.get("dropoffPlaceId") ?? "", nonce: Date.now() });
     window.history.replaceState({ waydidiStage: "search" }, "", window.location.pathname + window.location.hash);
+    // From the chat's "Book" button: go straight to the passenger step once the route is priced.
+    if (mode === "chat" && !hourly && params.get("pickupPlaceId") && params.get("dropoffPlaceId") && vehicle && vehicle in VEHICLES) chatAutoAdvance.current = true;
   }, []);
+  const chatAutoAdvance = useRef(false);
+  useEffect(() => {
+    if (!chatAutoAdvance.current || stage !== "search" || !fareQuote?.prices?.[vehicle]) return;
+    chatAutoAdvance.current = false;
+    goToStage("details");
+  }, [fareQuote, vehicle, stage]);
 
   // Signed-in customers get their saved places (search form) and saved
   // travellers (passenger step). Both endpoints return empty lists otherwise.

@@ -39,10 +39,13 @@ function fitting(prices: Record<string, { total: number }>, passengers: number, 
 }
 
 /** Booking form link with everything Non already knows filled in. */
-export function bookingLink(p: { service: "transfer" | "hourly"; pickup: string; dropoff?: string; date: string; time: string; passengers: number; luggage: number; vehicle: VehicleId; hours?: number }) {
+export function bookingLink(p: { service: "transfer" | "hourly"; pickup: string; dropoff?: string; date: string; time: string; passengers: number; luggage: number; vehicle: VehicleId; hours?: number; pickupPlaceId?: string; dropoffPlaceId?: string }) {
   const q = new URLSearchParams({ rebook: "chat", service: p.service, pickup: p.pickup, date: p.date, time: p.time, passengers: String(p.passengers), luggage: String(p.luggage), vehicle: p.vehicle });
   if (p.dropoff) q.set("dropoff", p.dropoff);
   if (p.hours) q.set("hours", String(p.hours));
+  // Google place ids let the booking form price the route at once and open the passenger step.
+  if (p.pickupPlaceId) q.set("pickupPlaceId", p.pickupPlaceId);
+  if (p.dropoffPlaceId) q.set("dropoffPlaceId", p.dropoffPlaceId);
   return `${SITE_URL}/?${q}#booking-search`;
 }
 
@@ -84,7 +87,7 @@ export async function quoteTransfer(input: { pickup: string; dropoff: string; da
   if (!leg?.distanceMeters) return { ok: false, reason: "Could not work out the route; hand over to staff.", handover: true };
   const prices = await withSeason(await pricesForArea(area.id, leg.distanceMeters), input.date, { service: "transfer", areaId: area.id });
   const pickupText = label(from, input.pickup), dropoffText = label(to, input.dropoff);
-  const cars = fitting(prices, input.passengers, input.bags, (v) => bookingLink({ service: "transfer", pickup: pickupText, dropoff: dropoffText, date: input.date, time: input.time, passengers: input.passengers, luggage: input.bags, vehicle: v }));
+  const cars = fitting(prices, input.passengers, input.bags, (v) => bookingLink({ service: "transfer", pickup: pickupText, dropoff: dropoffText, date: input.date, time: input.time, passengers: input.passengers, luggage: input.bags, vehicle: v, pickupPlaceId: from.id, dropoffPlaceId: to.id }));
   if (!cars.length) return { ok: false, reason: "No single car fits this group and luggage; hand over to staff.", handover: true };
   const inclusions = await loadInclusions({ lat: from.location!.latitude, lng: from.location!.longitude }, { lat: to.location!.latitude, lng: to.location!.longitude }).catch(() => null);
   const minutes = leg.duration ? Math.round(Number.parseFloat(leg.duration) / 60) : null;
