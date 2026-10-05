@@ -162,3 +162,11 @@ test("the Users list qualifies outer columns inside subqueries", async () => {
   assert.doesNotMatch(admin, /from customer_identities i where i\.customer_id = \$\{customers\.id\}/);
   assert.match(admin, /i\.customer_id = "customers"\."id"/);
 });
+
+test("admins add a booking to a member's account; moving one from another account needs confirmation", async () => {
+  const route = await read("app/api/admin/users/[id]/route.ts");
+  assert.match(route, /export async function POST[\s\S]*getWaydidiAdmin\(\)[\s\S]*sameOrigin\(request\)/);
+  const admin = await read("lib/customer-admin.ts");
+  assert.match(admin, /if \(link && !move\)[\s\S]*needsMove: true/);
+  assert.match(admin, /status === "binned"[\s\S]*No booking with that reference/);
+});

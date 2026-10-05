@@ -1,6 +1,6 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { customerBookingLinks, customerIdentities, customerLoginCodes, customerSavedPassengers, customerSavedPlaces, customers, customerSessions } from "@/db/schema";
+import { bookingEvents, bookings, customerBookingLinks, customerIdentities, customerLoginCodes, customerSavedPassengers, customerSavedPlaces, customers, customerSessions } from "@/db/schema";
 import { ACCOUNT_VISIBLE_STATUSES } from "@/lib/customer-account";
 
 /**
@@ -50,4 +50,25 @@ export async function deleteCustomerAccount(customerId: string) {
     db.delete(customers).where(eq(customers.id, customerId)),
   ]);
   return true;
+}
+
+/** Adds a booking to a member's account; moving it from another account needs move=true. */
+export async function linkBookingToCustomer(customerId: string, reference: string, move: boolean, by: string) {
+  const db = getDb();
+  const [customer] = await db.select({ id: customers.id, email: customers.email }).from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) return { ok: false as const, status: 404, error: "User not found." };
+  const [booking] = reference ? await db.select({ reference: bookings.reference, status: bookings.status, email: bookings.customerEmail, name: bookings.customerName, surname: bookings.customerSurname }).from(bookings).where(eq(bookings.reference, reference)).limit(1) : [];
+  if (!booking || booking.status === "binned") return { ok: false as const, status: 404, error: "No booking with that reference." };
+  const [link] = await db.select().from(customerBookingLinks).where(eq(customerBookingLinks.bookingReference, reference)).limit(1);
+  if (link?.customerId === customerId || (!link && (booking.email ?? "").toLowerCase() === customer.email)) return { ok: true as const, reference, already: true };
+  if (link && !move) {
+    const [other] = await db.select({ email: customers.email }).from(customers).where(eq(customers.id, link.customerId)).limit(1);
+    return { ok: false as const, status: 409, error: `This booking is in another account (${other?.email ?? "unknown"}). Move it here?`, needsMove: true };
+  }
+  const now = new Date().toISOString();
+  await db.insert(customerBookingLinks).values({ bookingReference: reference, customerId, createdAt: now })
+    .onConflictDoUpdate({ target: customerBookingLinks.bookingReference, set: { customerId, createdAt: now } });
+  await db.insert(bookingEvents).values({ bookingReference: reference, eventType: "admin_added_to_account", createdAt: now }).catch(() => undefined);
+  console.info("Admin added booking to account", { reference, customerId, admin: by });
+  return { ok: true as const, reference, already: false, guest: `${booking.name} ${booking.surname ?? ""}`.trim() };
 }

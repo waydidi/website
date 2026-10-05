@@ -3,6 +3,7 @@
 import { ArrowUpDown, Download, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { UserDeleteButton } from "@/components/user-delete-button";
+import { AddBookingButton } from "@/components/users-admin/add-booking-button";
 
 // Members (customer accounts), laid out like the Partners → Drivers page.
 export type UserRow = { id: string; name: string | null; surname: string | null; email: string; phone: string | null; providers: string | null; trips: number; createdAt: string; lastSeenAt: string | null; marketingOptIn: boolean };
@@ -94,7 +95,7 @@ export function UsersWorkspace({ users, monthStart, activeSince }: { users: User
             <td className="px-5">{u.marketingOptIn
               ? <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[13px] font-medium text-emerald-700"><span className="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />Yes</span>
               : <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[13px] font-medium text-slate-600"><span className="size-1.5 rounded-full bg-slate-400" aria-hidden="true" />No</span>}</td>
-            <td className="px-5"><UserDeleteButton id={u.id} email={u.email} /></td>
+            <td className="px-5"><div className="flex flex-wrap items-center gap-4"><AddBookingButton id={u.id} email={u.email} /><UserDeleteButton id={u.id} email={u.email} /></div></td>
           </tr>)}
         </tbody>
       </table>
