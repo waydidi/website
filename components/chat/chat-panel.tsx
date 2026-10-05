@@ -109,7 +109,7 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
         const grouped = prev && prev.sender === m.sender && prev.name === m.name;
         return m.sender === "visitor"
           ? <div key={m.id} className={`flex flex-col items-end ${grouped ? "mt-1" : "mt-4"}`}>
-              <p className="max-w-[82%] whitespace-pre-wrap break-words rounded-[18px] rounded-br-md bg-[#FE8B05] px-3.5 py-2.5 text-[14.5px] leading-snug text-white">{m.body}</p>
+              <p translate="no" className="max-w-[82%] whitespace-pre-wrap break-words rounded-[18px] rounded-br-md bg-[#FE8B05] px-3.5 py-2.5 text-[14.5px] leading-snug text-white">{m.body}</p>
               <span className="mt-1 text-[11.5px] text-slate-500">{m.state === "sending" ? "Sending…" : m.state === "failed"
                 ? <span className="text-red-600">Not sent · <button type="button" className="font-semibold underline" onClick={() => void onSend(m.body, { topic }, m)}>Try again</button></span>
                 : time(m.createdAt)}</span>
@@ -147,7 +147,7 @@ function Bubble({ side, who, at, tight, children }: { side: "left"; who: string 
   void side;
   return <div className={`flex flex-col items-start ${tight ? "mt-1" : "mt-4 first:mt-0"}`}>
     {who && <span className="mb-1 ml-1 text-[12px] font-semibold text-slate-600">{who}</span>}
-    <p className="max-w-[82%] whitespace-pre-wrap break-words rounded-[18px] rounded-bl-md border border-slate-200 bg-white px-3.5 py-2.5 text-[14.5px] leading-snug text-[#15161C]">{children}</p>
+    <p translate="no" className="max-w-[82%] whitespace-pre-wrap break-words rounded-[18px] rounded-bl-md border border-slate-200 bg-white px-3.5 py-2.5 text-[14.5px] leading-snug text-[#15161C]">{children}</p>
     {at && <span className="ml-1 mt-1 text-[11.5px] text-slate-500">{at}</span>}
   </div>;
 }

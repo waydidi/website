@@ -6,6 +6,8 @@ import "./globals.css";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { PublicPathHeader } from "@/components/public-header";
 import { PwaProvider } from "@/components/pwa/pwa-provider";
+import { SiteTranslator } from "@/components/site-translator";
+import { PRE_HIDE } from "@/lib/site-languages";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -43,7 +45,7 @@ export default function RootLayout({
     url: SITE_URL,
   };
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       {/* A relative link: metadata icons are made absolute with metadataBase,
           which breaks the favicon on any other domain (e.g. workers.dev). */}
       <head>
@@ -54,6 +56,8 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="Waydidi Travel" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        {/* Visitors who chose another language: hide the English for a moment while it is translated. */}
+        <script dangerouslySetInnerHTML={{ __html: PRE_HIDE }} />
       </head>
       <body className="antialiased">
         <PwaProvider>
@@ -66,6 +70,7 @@ export default function RootLayout({
           <PublicPathHeader />
           <div id="main-content" tabIndex={-1}>{children}</div>
           <WebsiteChat />
+          <SiteTranslator />
         </PwaProvider>
         {gaId && <GoogleAnalytics id={gaId} />}
         <script

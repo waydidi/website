@@ -400,3 +400,6 @@ html.admin-dark :is(aside, nav[aria-label="Mobile admin sections"]) :is(.text-\[
 @media (prefers-reduced-motion: reduce) {
   .waydidi-route-fill { animation: none; transform: scaleY(1); }
 }
+
+/* Site translation: the English page stays hidden (max 2.5 s) until its translation is applied. */
+html.wd-tx body { visibility: hidden; }

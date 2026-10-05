@@ -1,22 +1,20 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useI18n } from "@/components/i18n-provider";
 import { localeInfo, type Locale } from "@/lib/i18n";
+import { SITE_LANGS, type SiteLang } from "@/lib/site-languages";
+import { siteLang } from "@/components/site-translator";
 
-type Language = { code: Locale; label: string; flag: string };
+type Language = (typeof SITE_LANGS)[number];
 
-// Only languages the site is actually translated into. Choosing one opens
-// that language's homepage (see localeInfo in lib/i18n.ts). Flags are the
-// square SVGs from flag-icons (MIT), copied to /public/flags.
-export const LANGUAGES: Language[] = [
-  { code: "en", label: "English", flag: "en" },
-  { code: "th", label: "ภาษาไทย", flag: "th" },
-  { code: "zh", label: "简体中文", flag: "cn" },
-];
+// Every language the site can be shown in. Thai and Chinese homepages have hand-checked pages
+// (/th, /zh); everything else is translated by AI in the page (components/site-translator.tsx).
+// Flags are the square SVGs from flag-icons (MIT), copied to /public/flags.
+export const LANGUAGES: Language[] = SITE_LANGS;
 
 export const CURRENCIES: [string, string][] = [
   ["THB", "Thai Baht"], ["USD", "US Dollar"], ["AUD", "Australian Dollar"], ["SGD", "Singapore Dollar"], ["CNY", "Chinese Yuan"],
@@ -55,18 +53,27 @@ export function LocalePicker({ className = "" }: { className?: string }) {
   const { locale, t } = useI18n();
   const router = useRouter();
 
+  const path = usePathname() ?? "/";
+  const [chosen, setChosen] = useState<SiteLang>(locale);
   useEffect(() => {
-    // The saved currency lives in a cookie, only readable after hydration.
+    // The saved currency and language live in cookies, only readable after hydration.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrency(readCurrency());
-  }, []);
+    // On /th and /zh the page itself says the language; elsewhere the cookie does.
+    setChosen(locale !== "en" ? locale : siteLang());
+  }, [locale]);
 
-  const language = LANGUAGES.find((l) => l.code === locale) ?? LANGUAGES[0];
-  function chooseLanguage(code: Locale) {
+  const language = LANGUAGES.find((l) => l.code === chosen) ?? LANGUAGES[0];
+  function chooseLanguage(code: SiteLang) {
     remember(LOCALE_COOKIE, code);
     setOpen(false);
+    if (code === chosen) return;
+    const home = path === "/" || path === "/th" || path === "/zh";
+    // Homepages have hand-checked Thai/Chinese versions; any other page reloads in the new language.
     // Any unfinished booking is kept in sessionStorage and restored there.
-    if (code !== locale) router.push(localeInfo[code].path);
+    if (home && (code === "en" || code === "th" || code === "zh")) router.push(localeInfo[code as Locale].path);
+    else if (home && path !== "/") window.location.assign("/");
+    else window.location.reload();
   }
   function chooseCurrency(code: string) {
     remember(CURRENCY_COOKIE, code);
@@ -106,7 +113,7 @@ export function LocalePicker({ className = "" }: { className?: string }) {
         <div className="flex-1 overflow-y-auto px-6 pb-8 pt-5 sm:px-8">
           {tab === "languages" ? <>
             <h3 className="mb-2 text-base font-bold">{t("locale.allLanguages")}</h3>
-            <ul className="grid">{LANGUAGES.map((l) => <li key={l.code}><button lang={localeInfo[l.code].htmlLang} onClick={() => chooseLanguage(l.code)} aria-current={l.code === locale || undefined} className={`${row(l.code === locale)} min-h-14`}><LanguageIcon language={l} size={32} />{l.label}</button></li>)}</ul>
+            <ul className="grid">{LANGUAGES.map((l) => <li key={l.code}><button lang={l.htmlLang} onClick={() => chooseLanguage(l.code)} aria-current={l.code === chosen || undefined} className={`${row(l.code === chosen)} min-h-14`}><LanguageIcon language={l} size={32} />{l.label}</button></li>)}</ul>
           </> : <>
             <h3 className="mb-2 text-base font-bold">{t("locale.topCurrencies")}</h3>
             <ul className="grid">{CURRENCIES.filter(([c]) => TOP_CURRENCIES.includes(c)).map(([code, name]) => <li key={code}><button onClick={() => chooseCurrency(code)} aria-current={code === currency || undefined} className={`${row(code === currency)} min-h-12`}><span><strong className="font-bold">{code}</strong> - {name}</span></button></li>)}</ul>
