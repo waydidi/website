@@ -4,7 +4,7 @@ import { env } from "cloudflare:workers";
 
 export type InlineButton = { text: string; callback_data?: string; url?: string };
 export type InlineKeyboard = InlineButton[][];
-export type TelegramMessage = { message_id: number; chat: { id: number }; from?: TelegramUser; text?: string; reply_to_message?: TelegramMessage };
+export type TelegramMessage = { message_id: number; chat: { id: number; type?: string }; from?: TelegramUser; text?: string; reply_to_message?: TelegramMessage };
 export type TelegramUser = { id: number; username?: string; first_name?: string; last_name?: string; is_bot?: boolean };
 
 export const telegramConfigured = () => Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID);
@@ -29,6 +29,11 @@ export async function tg<T = unknown>(method: string, payload: Record<string, un
 export const sendCard = (text: string, keyboard?: InlineKeyboard, replyTo?: number) =>
   tg<TelegramMessage>("sendMessage", { chat_id: telegramChatId(), text, parse_mode: "HTML", disable_web_page_preview: true,
     ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
+    ...(replyTo ? { reply_parameters: { message_id: replyTo, allow_sending_without_reply: true } } : {}) });
+
+/** A message to one person's private chat with the bot (they must have pressed Start once). */
+export const sendPrivate = (chatId: string, text: string, replyTo?: number) =>
+  tg<TelegramMessage>("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true,
     ...(replyTo ? { reply_parameters: { message_id: replyTo, allow_sending_without_reply: true } } : {}) });
 
 export async function editCard(messageId: number, text: string, keyboard?: InlineKeyboard) {

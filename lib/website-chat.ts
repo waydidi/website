@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { SITE_URL } from "@/lib/site";
 import { deliverToChannel } from "@/lib/channels";
-import { editCard, sendCard, telegramConfigured } from "@/lib/telegram/client";
+import { editCard, sendCard, sendPrivate, telegramConfigured } from "@/lib/telegram/client";
 import { conversationCard, conversationKeyboard, customerMessage, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
 
 // One canonical support conversation, stored in D1. The website widget, the admin inbox and Telegram
@@ -63,6 +63,16 @@ export async function deliverVisitorMessage(conversationId: string, messageId: s
   const c = await conversationById(conversationId);
   const m = await db().prepare("SELECT body,created_at,telegram_status FROM website_chat_messages WHERE id=?").bind(messageId).first<{ body: string; created_at: string; telegram_status: string | null }>();
   if (!c || !m || m.telegram_status === "sent") return;
+  // Assigned chats go to the assignee's private chat with the bot; the group only if that fails.
+  const dm = c.assigned_name ? await assigneeTelegramId(c) : null;
+  if (dm) {
+    try {
+      const sent = await sendPrivate(dm, customerMessage(c.public_id, c.customer_name, m.body) + "\n<i>Reply here to answer.</i>");
+      await rememberPrivate(dm, sent.message_id, c.id);
+      await db().prepare("UPDATE website_chat_messages SET telegram_status='sent' WHERE id=?").bind(messageId).run();
+      return;
+    } catch { /* not started with the bot, or blocked: fall back to the group */ }
+  }
   try {
     let telegramId: number;
     if (!c.telegram_message_id) {
@@ -179,12 +189,50 @@ export async function pauseBot(conversationId: string, paused: boolean, state?: 
   await db().prepare("UPDATE website_conversations SET bot_paused=?,bot_state=COALESCE(?,bot_state) WHERE id=?").bind(paused ? 1 : 0, state ?? null, conversationId).run();
 }
 
+/** The assignee's Telegram ID: set when assigned from Telegram, or linked to their admin login. */
+export async function assigneeTelegramId(c: Conversation) {
+  if (c.assigned_telegram_user_id) return c.assigned_telegram_user_id;
+  if (!c.assigned_staff_id) return null;
+  const row = await db().prepare("SELECT telegram_user_id FROM telegram_admins WHERE staff_id=? AND enabled=1 LIMIT 1").bind(c.assigned_staff_id).first<{ telegram_user_id: string }>();
+  return row?.telegram_user_id ?? null;
+}
+const rememberPrivate = (chatId: string, messageId: number, conversationId: string) =>
+  db().prepare("INSERT OR IGNORE INTO telegram_dm_messages(chat_id,message_id,conversation_id,created_at) VALUES(?,?,?,?)").bind(chatId, messageId, conversationId, nowIso()).run();
+
+/** Which chat a private message answers: the one it replies to, else the latest one sent to this person. */
+export async function conversationForPrivateMessage(chatId: string, replyToId: number | null) {
+  if (replyToId) {
+    const r = await db().prepare("SELECT conversation_id FROM telegram_dm_messages WHERE chat_id=? AND message_id=?").bind(chatId, replyToId).first<{ conversation_id: string }>();
+    if (r) return r.conversation_id;
+  }
+  const latest = await db().prepare("SELECT conversation_id FROM telegram_dm_messages WHERE chat_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1").bind(chatId).first<{ conversation_id: string }>();
+  return latest?.conversation_id ?? null;
+}
+
+/** "Chat WD-… has been assigned to …" in the group, and the chat so far in the assignee's private chat. */
+async function announceAssignment(conversationId: string) {
+  if (!telegramConfigured()) return;
+  const c = await conversationById(conversationId);
+  if (!c?.assigned_name) return;
+  const name = c.assigned_name.replace(/[<>&]/g, "");
+  await sendCard(`📌 Chat <b>${c.public_id}</b> has been assigned to <b>${name}</b>.`, undefined, c.telegram_message_id ?? undefined).catch(() => undefined);
+  const dm = await assigneeTelegramId(c);
+  if (!dm) return;
+  const recent = (await messagesFor(c.id, 0, 6)).map((m) => `${m.sender === "visitor" ? "Customer" : (m.sender_name ?? "Waydidi").replace(/[<>&]/g, "")}: ${m.body.replace(/[<>&]/g, "").slice(0, 300)}`).join("\n");
+  try {
+    const sent = await sendPrivate(dm, `📌 <b>${c.public_id}</b> is yours · ${(c.customer_name ?? "Website visitor").replace(/[<>&]/g, "")}\n\n${recent}\n\n<i>New messages from this customer will come here. Just type to answer.</i>`);
+    await rememberPrivate(dm, sent.message_id, c.id);
+  } catch {
+    await sendCard(`⚠️ Couldn't message <b>${name}</b> privately. Open the Waydidi bot and tap <b>Start</b> once; until then this chat's messages stay in the group.`, undefined, c.telegram_message_id ?? undefined).catch(() => undefined);
+  }
+}
+
 /** Assigns a conversation. With force=false it only claims an unassigned one. */
 export async function assign(conversationId: string, who: Staffer, force: boolean) {
   const now = nowIso();
   const result = await db().prepare(`UPDATE website_conversations SET assigned_staff_id=?,assigned_telegram_user_id=?,assigned_name=?,assigned_at=?,updated_at=?
     WHERE id=? ${force ? "" : "AND assigned_name IS NULL"}`).bind(who.staffId ?? null, who.telegramUserId ?? null, who.name, now, now, conversationId).run();
-  if (result.meta.changes) { await pauseBot(conversationId, true); await refreshCard(conversationId, true).catch(() => undefined); }
+  if (result.meta.changes) { await pauseBot(conversationId, true); await refreshCard(conversationId, true).catch(() => undefined); await announceAssignment(conversationId).catch(() => undefined); }
   return result.meta.changes > 0;
 }
 

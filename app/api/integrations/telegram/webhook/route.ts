@@ -1,10 +1,10 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { constantTimeEqual } from "@/lib/security";
-import { answerCallback, sendCard, telegramChatId, tg, type TelegramMessage, type TelegramUser } from "@/lib/telegram/client";
+import { answerCallback, sendCard, sendPrivate, telegramChatId, tg, type TelegramMessage, type TelegramUser } from "@/lib/telegram/client";
 import { esc } from "@/lib/telegram/cards";
 import { acknowledgeBooking } from "@/lib/telegram/bookings";
-import { addStaffMessage, assign, conversationById, conversationForTelegramMessage, setStatus } from "@/lib/website-chat";
+import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, setStatus } from "@/lib/website-chat";
 
 // Telegram → Waydidi. Verified by the secret-token header, de-duplicated by update_id, and every action
 // is checked against the approved Telegram admin list. Callback data is only a hint; it is re-validated here.
@@ -85,6 +85,22 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   }
 }
 
+async function handlePrivate(m: TelegramMessage) {
+  const text = (m.text ?? "").trim(), chatId = String(m.chat.id);
+  const admin = await approved(m.from);
+  if (text === "/start" || text.startsWith("/start ")) {
+    await sendPrivate(chatId, admin ? `Hi ${esc(admin.display_name)} 👋 Chats assigned to you will arrive here. Just type to answer the customer.` : `Hi! Your Telegram ID is <code>${m.from?.id ?? "unknown"}</code>. Ask the Waydidi owner to add you to the Telegram team.`).catch(() => undefined);
+    return;
+  }
+  if (!admin || !text || text.startsWith("/")) return;
+  const conversationId = await conversationForPrivateMessage(chatId, m.reply_to_message?.message_id ?? null);
+  if (!conversationId) { await sendPrivate(chatId, "No chat to answer yet. Chats assigned to you will appear here.").catch(() => undefined); return; }
+  if (text.length > 2000) { await sendPrivate(chatId, "⚠️ Not sent: replies can be up to 2,000 characters.", m.message_id).catch(() => undefined); return; }
+  const result = await addStaffMessage(conversationId, text, { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(m.from!.id) }, "telegram");
+  const c = await conversationById(conversationId);
+  await sendPrivate(chatId, "error" in result ? `⚠️ ${esc(result.error ?? "")}` : `✓ Sent to ${esc(c?.public_id ?? "the customer")}`, m.message_id).catch(() => undefined);
+}
+
 async function handleMessage(m: TelegramMessage) {
   const text0 = (m.text ?? "").trim();
   // Setup helper: before TELEGRAM_CHAT_ID is set, /chatid in a group answers with that group's ID.
@@ -93,6 +109,8 @@ async function handleMessage(m: TelegramMessage) {
       text: `This group's chat ID is <code>${m.chat.id}</code>. Add it in Cloudflare as TELEGRAM_CHAT_ID.` }).catch(() => undefined);
     return;
   }
+  // Private chat with the bot: the assignee answers their chats here.
+  if (m.chat.type === "private") { await handlePrivate(m); return; }
   if (String(m.chat.id) !== telegramChatId()) return;
   const text = (m.text ?? "").trim();
   if (text === "/id" || text.startsWith("/id@")) {

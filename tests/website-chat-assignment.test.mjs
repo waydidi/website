@@ -9,7 +9,7 @@ const mf=new Miniflare({modules:true,script:'export default {fetch(){return new 
 const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -200,4 +200,30 @@ test('after tapping Reply in Telegram, the next plain message (not a swipe-reply
  await call(plain(22,777,'Team talk, not for the customer'));
  const bodies=(await db.prepare("SELECT body FROM website_chat_messages WHERE conversation_id='chat-2' AND sender='staff' AND body IN ('Our price is 800 THB','Team talk, not for the customer','Someone else chatting')").all()).results.map((r)=>r.body);
  assert.deepEqual(bodies,['Our price is 800 THB']);
+});
+test('assigning in Telegram announces it in the group, then the chat continues in the assignee\'s private chat',async()=>{
+ const hook=await vite.ssrLoadModule('/app/api/integrations/telegram/webhook/route.ts');const chat=await vite.ssrLoadModule('/lib/website-chat.ts');
+ Object.assign(globalThis.__chatTest.env,{TELEGRAM_WEBHOOK_SECRET:'s'.repeat(24),TELEGRAM_CHAT_ID:'-100',TELEGRAM_BOT_TOKEN:'t'});
+ const sent=[];const real=globalThis.fetch;let id=5000;
+ globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://api.telegram.org')){const body=JSON.parse(init.body);sent.push({method:u.split('/').pop(),...body});return new Response(JSON.stringify({ok:true,result:{message_id:++id,chat:{id:body.chat_id}}}));}return real(url,init);};
+ try{
+  const t=new Date().toISOString();
+  await db.prepare("INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status,telegram_message_id) VALUES('dm-1','dm-h',?,?,?,'WD-22222','open',4000)").bind(expires,t,t).run();
+  await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('dm-m1','dm-1','visitor','How much to Pattaya?',?)").bind(t).run();
+  const call=(update)=>hook.POST(new Request('https://example.invalid/api/integrations/telegram/webhook',{method:'POST',headers:{'content-type':'application/json','x-telegram-bot-api-secret-token':'s'.repeat(24)},body:JSON.stringify(update)}));
+  await call({update_id:300,callback_query:{id:'q',from:{id:777},data:'chat_assign:dm-1',message:{message_id:4000,chat:{id:-100}}}});
+  const group=sent.filter((m)=>m.method==='sendMessage'&&m.chat_id==='-100').map((m)=>m.text);
+  assert.ok(group.some((x)=>/Chat <b>WD-22222<\/b> has been assigned to <b>Alex<\/b>/.test(x)));
+  const dm=sent.filter((m)=>m.method==='sendMessage'&&m.chat_id==='777');assert.equal(dm.length,1);assert.match(dm[0].text,/How much to Pattaya/);
+  // New customer message goes to the private chat, not the group
+  sent.length=0;await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('dm-m2','dm-1','visitor','Tomorrow 9am',?)").bind(t).run();
+  await chat.deliverVisitorMessage('dm-1','dm-m2');
+  assert.deepEqual(sent.filter((m)=>m.method==='sendMessage').map((m)=>m.chat_id),['777']);
+  // Typing in the private chat answers the customer
+  await call({update_id:301,message:{message_id:77,chat:{id:777,type:'private'},from:{id:777},text:'800 THB, see you tomorrow'}});
+  assert.equal((await db.prepare("SELECT sender_name FROM website_chat_messages WHERE conversation_id='dm-1' AND body='800 THB, see you tomorrow'").first()).sender_name,'Alex');
+  // Someone not on the team can't answer in private
+  await call({update_id:302,message:{message_id:78,chat:{id:999,type:'private'},from:{id:999},text:'hack'}});
+  assert.equal((await db.prepare("SELECT COUNT(*) n FROM website_chat_messages WHERE body='hack'").first()).n,0);
+ }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
 });
