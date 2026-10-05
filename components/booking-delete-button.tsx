@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArchiveRestore, Trash2 } from "lucide-react";
+import { ArchiveRestore, Eye, EyeOff, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -19,6 +19,7 @@ export function BookingDeleteButton({ reference, binned = false, purgeAfter }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
 
   async function request(action: "bin" | "restore") {
@@ -47,7 +48,17 @@ export function BookingDeleteButton({ reference, binned = false, purgeAfter }: {
             <AlertDialogTitle>Delete booking {reference}?</AlertDialogTitle>
             <AlertDialogDescription>It moves to the Bin for 30 days, where you can restore it. After 30 days it is deleted permanently. Enter the admin password to confirm.</AlertDialogDescription>
           </AlertDialogHeader>
-          <input type="password" autoComplete="current-password" autoFocus required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin password" aria-label="Admin password" className="mt-4 h-11 w-full rounded-xl border border-slate-200 px-3 text-[15px] outline-none focus:border-[#FF8A05]" />
+          {/* A text field masked with CSS, so browsers don't offer saved passwords or passkeys here; the eye shows what was typed. */}
+          <div className="relative mt-4">
+            <input type="text" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} data-1p-ignore data-lpignore="true" data-form-type="other"
+              autoFocus required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin password" aria-label="Admin password"
+              style={show ? undefined : ({ WebkitTextSecurity: "disc" } as React.CSSProperties)}
+              className="h-11 w-full rounded-xl border border-slate-200 pl-3 pr-11 text-[15px] outline-none focus:border-[#FF8A05]" />
+            <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? "Hide password" : "Show password"} aria-pressed={show}
+              className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+              {show ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+            </button>
+          </div>
           {error && <p role="alert" className="mt-2 text-sm font-semibold text-red-600">{error}</p>}
           <AlertDialogFooter className="mt-5">
             <AlertDialogCancel type="button" disabled={busy}>Cancel</AlertDialogCancel>
