@@ -11,7 +11,7 @@ const db=await mf.getD1Database('DB');
 await db.exec("CREATE TABLE attractions(id TEXT PRIMARY KEY,name TEXT,customer_name TEXT,area TEXT DEFAULT '',category TEXT DEFAULT 'sight',tags_json TEXT DEFAULT '[]',open_time TEXT,close_time TEXT,closed_days_json TEXT DEFAULT '[]',duration_min INTEGER DEFAULT 60,dress_code TEXT,description TEXT,status TEXT DEFAULT 'active');");
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.prepare("INSERT INTO staff_accounts VALUES('anna','Anna',1,'support')").run();
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 globalThis.__ceeTest={env:{DB:db,ANTHROPIC_API_KEY:'test-key'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'cee-env',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0cee-env';},load(id){if(id==='\0cee-env')return 'export const env=globalThis.__ceeTest.env';}}],server:{middlewareMode:true}});
 after(async()=>{await vite.close();await mf.dispose();delete globalThis.__ceeTest;});
@@ -297,4 +297,25 @@ test('website chat booking: summary → yes → payment link at the server price
  const id2=again.url.split('/').pop();
  const r2=await route.POST(new Request(`https://example.invalid/api/chat-pay/${id2}`,{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json'},body:JSON.stringify({action:'test_pay'})}),{params:Promise.resolve({id:id2})});
  assert.equal(r2.status,403);
+});
+test('website chat shows quotes, payment links and confirmations as rich cards (text kept for other channels)',async()=>{
+ const cards=await vite.ssrLoadModule('/lib/chat-cards.ts');
+ const id=await conversation('BKK to Pattaya tomorrow 10:00, 2 people 2 bags');
+ const c=scripted(use('quote_transfer',{pickup:'BKK',dropoff:'Pattaya',date:'2026-10-06',time:'10:00',passengers:2,bags:2}),say('Here are your options:'));
+ await bot.runCee(id,{client:c,tools});
+ assert.match(c.calls[0].system[0].text,/cards with buttons/);
+ const rows=(await db.prepare("SELECT body,card_json FROM website_chat_messages WHERE conversation_id=? AND sender='staff' ORDER BY rowid").bind(id).all()).results;
+ assert.equal(rows[0].body,'Here are your options:');
+ const card=cards.parseCard(rows[1].card_json);assert.equal(card.type,'quote');assert.equal(card.cars[0].price,1800);assert.match(rows[1].body,/Economy sedan: THB 1,800/);
+ const customer=await vite.ssrLoadModule('/app/api/chat/route.ts');const {sha256}=await vite.ssrLoadModule('/lib/security.ts');
+ const tok='d'.repeat(48);await db.prepare('UPDATE website_conversations SET token_hash=? WHERE id=?').bind(await sha256(tok),id).run();
+ const data=await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie:`waydidi_chat=${tok}`}}))).json();
+ assert.equal(data.messages.find((m)=>m.card)?.card.type,'quote');
+ // WhatsApp/LINE get no card (the text already has the prices and links)
+ const wa=await conversation('BKK to Pattaya');await db.prepare("UPDATE website_conversations SET channel='whatsapp' WHERE id=?").bind(wa).run();
+ await bot.runCee(wa,{client:scripted(use('quote_transfer',{pickup:'BKK',dropoff:'Pattaya',date:'2026-10-06',time:'10:00',passengers:2,bags:2}),say('Economy ฿1,800')),tools});
+ assert.equal((await db.prepare("SELECT COUNT(*) n FROM website_chat_messages WHERE conversation_id=? AND card_json IS NOT NULL").bind(wa).first()).n,0);
+ // Unsafe or malformed cards are never shown
+ assert.equal(cards.parseCard(JSON.stringify({type:'quote',title:'x',cars:[{name:'a',price:1,url:'javascript:alert(1)'}]})),null);
+ assert.equal(cards.parseCard('not json'),null);
 });

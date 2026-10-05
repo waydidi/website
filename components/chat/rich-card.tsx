@@ -1,0 +1,55 @@
+import { CheckCircle2, Clock, Users, Briefcase } from "lucide-react";
+import type { ChatCard } from "@/lib/chat-cards";
+
+// LINE-style cards inside the website chat: car options with Book buttons, a booking summary with
+// a Pay button, and the confirmation after payment.
+
+const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
+const shell = "w-[88%] max-w-[320px] overflow-hidden rounded-[18px] border border-slate-200 bg-white text-[#15161C] shadow-sm";
+
+export function RichCard({ card }: { card: ChatCard }) {
+  if (card.type === "quote") return <div className={shell}>
+    <div className="bg-[#FFF3E6] px-4 py-3">
+      <p className="text-[12px] font-semibold uppercase tracking-wide text-[#B85D00]">Your options</p>
+      <p className="mt-0.5 text-[15px] font-bold leading-snug">{card.title}</p>
+      {card.subtitle && <p className="mt-0.5 text-[12.5px] text-slate-600">{card.subtitle}</p>}
+    </div>
+    <ul className="divide-y divide-slate-100">
+      {card.cars.map((c) => <li key={c.name} className="flex items-center gap-3 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14.5px] font-semibold">{c.name}</p>
+          <p className="mt-0.5 flex items-center gap-2.5 text-[12px] text-slate-500"><span className="inline-flex items-center gap-1"><Users size={12} aria-hidden="true" />{c.seats}</span><span className="inline-flex items-center gap-1"><Briefcase size={12} aria-hidden="true" />{c.bags}</span></p>
+        </div>
+        <div className="text-right">
+          <p className="text-[14.5px] font-bold">{thb(c.price)}</p>
+          <a href={c.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex h-8 items-center rounded-full bg-[#FE8B05] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#E67900]">Book</a>
+        </div>
+      </li>)}
+    </ul>
+    {card.notes.length > 0 && <p className="border-t border-slate-100 px-4 py-2.5 text-[12px] leading-snug text-slate-500">{card.notes.join(" ")}</p>}
+  </div>;
+
+  if (card.type === "payment") return <div className={shell}>
+    <div className="bg-[#FFF3E6] px-4 py-3"><p className="text-[12px] font-semibold uppercase tracking-wide text-[#B85D00]">{card.title}</p></div>
+    <dl className="grid gap-1.5 px-4 py-3 text-[13px]">
+      {card.rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{v}</dd></div>)}
+    </dl>
+    <div className="flex items-baseline justify-between border-t border-slate-100 px-4 py-3"><span className="text-[13px] font-semibold">Total</span><span className="text-[19px] font-bold">{thb(card.amount)}</span></div>
+    <div className="px-4 pb-4">
+      <a href={card.url} target="_blank" rel="noreferrer" className="flex h-11 items-center justify-center rounded-full bg-[#FE8B05] text-[15px] font-bold text-white hover:bg-[#E67900]">Pay {thb(card.amount)}</a>
+      <p className="mt-2 flex items-center justify-center gap-1 text-[11.5px] text-slate-500"><Clock size={12} aria-hidden="true" />Valid until {new Date(card.expiresAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })} · secure payment page</p>
+    </div>
+  </div>;
+
+  return <div className={shell}>
+    <div className="flex items-center gap-2 bg-emerald-50 px-4 py-3 text-emerald-800"><CheckCircle2 size={18} aria-hidden="true" /><p className="text-[14px] font-bold">Booking confirmed</p></div>
+    <div className="px-4 py-3">
+      <p className="text-[12px] text-slate-500">Booking reference</p>
+      <p className="text-[20px] font-bold tracking-wide">{card.reference}</p>
+      <dl className="mt-2 grid gap-1.5 text-[13px]">
+        {card.rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{v}</dd></div>)}
+      </dl>
+      <p className="mt-3 border-t border-slate-100 pt-2.5 text-[13px]"><span className="text-slate-500">Paid</span> <b>{thb(card.amount)}</b>{card.test && <span className="ml-1 text-violet-700">(test, no money charged)</span>}</p>
+    </div>
+  </div>;
+}

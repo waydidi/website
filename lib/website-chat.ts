@@ -16,11 +16,11 @@ export type Conversation = CardConversation & {
   bot_paused?: number; bot_thinking_at?: string | null; channel?: string; channel_user_id?: string | null;
   bot_lock_until?: string | null; telegram_card_at?: string | null; line_reply_token?: string | null; line_reply_token_at?: string | null;
 };
-export type ChatMessage = { id: string; sender: "visitor" | "staff"; sender_name: string | null; is_bot?: number; body: string; created_at: string; client_id: string | null; telegram_status: string | null };
+export type ChatMessage = { id: string; sender: "visitor" | "staff"; sender_name: string | null; is_bot?: number; card_json?: string | null; body: string; created_at: string; client_id: string | null; telegram_status: string | null };
 export type Staffer = { name: string; staffId?: string | null; telegramUserId?: string | null };
 
 export const STATUSES: ChatStatus[] = ["open", "pending", "closed"];
-export const MESSAGE_COLUMNS = "id,sender,is_bot,COALESCE(sender_name,CASE WHEN sender='staff' THEN 'Waydidi team' END) sender_name,body,created_at,client_id,telegram_status";
+export const MESSAGE_COLUMNS = "id,sender,is_bot,card_json,COALESCE(sender_name,CASE WHEN sender='staff' THEN 'Waydidi team' END) sender_name,body,created_at,client_id,telegram_status";
 const adminUrl = (id: string) => `${SITE_URL}/admin/chat?id=${encodeURIComponent(id)}`;
 const nowIso = () => new Date().toISOString();
 
@@ -150,11 +150,11 @@ export async function addStaffMessage(conversationId: string, body: string, who:
 }
 
 /** Non's reply: shown as "Non", never assigns the conversation, mirrored to Telegram. */
-export async function addBotMessage(conversationId: string, body: string) {
+export async function addBotMessage(conversationId: string, body: string, card?: object | null) {
   const c = await conversationById(conversationId);
   if (!c) return null;
   const now = nowIso(), id = crypto.randomUUID();
-  await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot) VALUES(?,?,'staff',?,?,'Non',1)`).bind(id, c.id, body, now).run();
+  await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot,card_json) VALUES(?,?,'staff',?,?,'Non',1,?)`).bind(id, c.id, body, now, card ? JSON.stringify(card) : null).run();
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();
   await toChannel(c, id, body);
   // Not copied to Telegram: the staff group gets customer messages and handovers only (Telegram's group limit).

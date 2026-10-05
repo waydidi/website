@@ -3,6 +3,7 @@
 import { ArrowDown, ArrowLeft, CircleHelp, ExternalLink, Minus, RotateCw, SendHorizontal, Star, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { WaydidiMark } from "@/components/waydidi-logo";
+import { RichCard } from "@/components/chat/rich-card";
 import type { ChatInfo, ChatMsg, ChatReview, Context } from "@/components/website-chat";
 
 const QUICK = ["Airport transfer", "Private driver", "Day trip", "Existing booking", "Something else"];
@@ -113,7 +114,9 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
                 ? <span className="text-red-600">Not sent · <button type="button" className="font-semibold underline" onClick={() => void onSend(m.body, { topic }, m)}>Try again</button></span>
                 : time(m.createdAt)}</span>
             </div>
-          : <Bubble key={m.id} side="left" who={grouped ? null : `${m.name ?? "Waydidi team"} — Waydidi`} at={time(m.createdAt)} tight={Boolean(grouped)}>{m.body}</Bubble>;
+          : m.card
+            ? <div key={m.id} className={`flex flex-col items-start ${grouped ? "mt-1.5" : "mt-4"}`}>{!grouped && <span className="mb-1 ml-1 text-[12px] font-semibold text-slate-600">{`${m.name ?? "Waydidi team"} — Waydidi`}</span>}<RichCard card={m.card} /><span className="ml-1 mt-1 text-[11.5px] text-slate-500">{time(m.createdAt)}</span></div>
+            : <Bubble key={m.id} side="left" who={grouped ? null : `${m.name ?? "Waydidi team"} — Waydidi`} at={time(m.createdAt)} tight={Boolean(grouped)}>{m.body}</Bubble>;
       })}
       {info?.typing && <p role="status" className="mt-4 inline-flex items-center gap-2 rounded-[18px] rounded-bl-md bg-white px-3.5 py-2.5 text-[13.5px] text-slate-500 shadow-sm">
         <span className="inline-flex gap-1" aria-hidden="true">{[0, 150, 300].map((d) => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: `${d}ms` }} />)}</span>Non is typing…</p>}

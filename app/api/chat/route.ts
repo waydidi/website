@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { readCookie } from "@/lib/staff-security";
 import { isJsonRequest, sameOrigin, secureToken, sha256 } from "@/lib/security";
+import { parseCard } from "@/lib/chat-cards";
 import { googleReviewUrl, reviewForConversation } from "@/lib/support-reviews";
 import { scheduleNon } from "@/lib/cee/schedule";
 import { addVisitorMessage, conversationByTokenHash, createConversation, messagesFor, type Conversation } from "@/lib/website-chat";
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
   if (!c) return NextResponse.json({ conversation: null, messages: [] }, { headers });
   const after = Math.max(0, Number(new URL(request.url).searchParams.get("after")) || 0);
   // Visitors see staff by their display name only, never staff ids or Telegram details.
-  const messages = (await messagesFor(c.id, after)).map((m) => ({ seq: m.seq, id: m.id, sender: m.sender, name: m.sender === "staff" ? m.sender_name : null, body: m.body, createdAt: m.created_at, clientId: m.client_id }));
+  const messages = (await messagesFor(c.id, after)).map((m) => ({ seq: m.seq, id: m.id, sender: m.sender, name: m.sender === "staff" ? m.sender_name : null, body: m.body, createdAt: m.created_at, clientId: m.client_id, card: parseCard(m.card_json) }));
   return NextResponse.json({ conversation: { ...view(c), review: await reviewState(c) }, messages }, { headers });
 }
 

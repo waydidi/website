@@ -4,10 +4,11 @@ import dynamic from "next/dynamic";
 import { X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ChatCard } from "@/lib/chat-cards";
 
 // Ask Waydidi: a small always-loaded launcher. The full messenger panel is loaded only when opened.
 
-export type ChatMsg = { seq?: number; id: string; sender: "visitor" | "staff"; name: string | null; body: string; createdAt: string; clientId: string | null; state?: "sending" | "failed" };
+export type ChatMsg = { seq?: number; id: string; sender: "visitor" | "staff"; name: string | null; body: string; createdAt: string; clientId: string | null; state?: "sending" | "failed"; card?: ChatCard | null };
 export type ChatReview = { submitted: boolean; rating: number | null; googleUrl: string | null } | null;
 export type ChatInfo = { publicId: string; status: string; agent: string | null; name: string | null; review?: ChatReview; typing?: boolean } | null;
 export type Context = { topic?: string | null; name?: string; email?: string; phone?: string };

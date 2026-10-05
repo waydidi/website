@@ -5,6 +5,7 @@ import { sha256 } from "@/lib/security";
 import { SITE_URL } from "@/lib/site";
 import { VEHICLES, type VehicleId } from "@/lib/vehicles";
 import { addBotMessage, conversationById } from "@/lib/website-chat";
+import { cardText, type ConfirmedCard, type PaymentCard } from "@/lib/chat-cards";
 
 // Booking from the chat: Non (or staff) sends a payment link for a price the SERVER works out
 // again from the price tables. Paying it creates a confirmed booking and tells the customer in
@@ -60,7 +61,10 @@ export async function createChatPaymentLink(conversationId: string, input: LinkI
     passengers: input.passengers, bags: input.bags, hours: input.kind === "hourly" ? input.hours : null, summary: q.summary };
   await db().prepare(`INSERT INTO chat_payment_links(id,conversation_id,kind,details_json,vehicle,amount,customer_name,customer_phone,customer_email,status,created_at,expires_at)
     VALUES(?,?,?,?,?,?,?,?,?,'pending',?,?)`).bind(id, conversationId, input.kind, JSON.stringify(details), car.vehicle, car.price, name, phone, email, now.toISOString(), expires.toISOString()).run();
-  return { ok: true as const, url: linkUrl(id), amount: car.price, car: car.name, summary: q.summary, expiresInMinutes: LINK_MINUTES };
+  const card: PaymentCard = { type: "payment", title: "Booking summary", url: linkUrl(id), amount: car.price, expiresAt: expires.toISOString(), rows: [
+    ["From", input.pickup], [details.hours ? "Service" : "To", details.dropoff], ["Date", input.date], ["Pickup time", input.time],
+    ["Passengers", `${input.passengers} people, ${input.bags} bags`], ["Car", car.name], ["Lead passenger", `${name} · ${phone}`]] };
+  return { ok: true as const, url: linkUrl(id), amount: car.price, car: car.name, summary: q.summary, expiresInMinutes: LINK_MINUTES, card };
 }
 
 export async function chatPaymentLink(id: string) {
@@ -105,7 +109,9 @@ export async function markChatPaymentPaid(id: string, provider: "payso" | "test"
     throw error;
   }
   const car = VEHICLES[link.vehicle as VehicleId]?.name ?? link.vehicle;
-  await addBotMessage(link.conversation_id, `Payment received, thank you! Your booking ${reference} is confirmed: ${d.pickup} → ${d.dropoff}, ${d.date} at ${d.time}, ${car}. We'll send your driver's details before the trip.${provider === "test" ? " (Test payment: no money was charged.)" : ""}`).catch(() => undefined);
+  const confirmed: ConfirmedCard = { type: "confirmed", reference: reference!, amount: link.amount, test: provider === "test",
+    rows: [["From", d.pickup], [d.hours ? "Service" : "To", d.dropoff], ["Date", d.date], ["Pickup time", d.time], ["Car", car], ["Lead passenger", link.customer_name]] };
+  await addBotMessage(link.conversation_id, `Payment received, thank you! Your booking ${reference} is confirmed. We'll send your driver's details before the trip.${provider === "test" ? " (Test payment: no money was charged.)" : ""}\n\n${cardText(confirmed)}`, confirmed).catch(() => undefined);
   await import("@/lib/telegram/bookings").then((m) => m.notifyBookingTelegram(reference)).catch(() => undefined);
   return { ok: true as const, reference };
 }
