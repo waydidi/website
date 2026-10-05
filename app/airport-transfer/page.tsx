@@ -72,7 +72,7 @@ export default function SuvarnabhumiAirportPage() {
   return <BookingFlow hero={{title:"Private airport transfers in Thailand",subtitle:"Pre-book your airport pickup or drop-off with a fixed price, a confirmed vehicle and a driver who meets you at arrivals.",image:"/service-ride-airport.webp",top:<Breadcrumbs crumbs={[{name:"Home",path:"/"},{name:"Airport transfer",path:"/airport-transfer"}]} className="text-white"/>}}><main className="bg-white text-[#211726]">
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
 
-    <nav aria-label="Suvarnabhumi Airport page sections" className="sticky top-[69px] lg:top-[97px] z-30 border-y border-slate-200 bg-white/95 backdrop-blur">
+    <nav aria-label="Suvarnabhumi Airport page sections" className="sticky top-[79px] lg:top-[107px] z-30 border-y border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-[1260px] gap-8 overflow-x-auto px-5 py-5 text-sm font-black sm:text-base lg:px-8">
         <a href="#transfer-service" className="whitespace-nowrap text-[#D96F00]">Transfer service</a>
         <a href="#trips" className="whitespace-nowrap hover:text-[#D96F00]">Trip from Suvarnabhumi Airport</a>

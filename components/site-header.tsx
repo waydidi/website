@@ -84,7 +84,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
 
   return (
     <header
-      className={`z-40 flex h-[69px] w-full items-center justify-between px-5 transition-[background-color,color,box-shadow] duration-300 lg:h-[97px] lg:px-8 ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-[#FF8A05] text-white" : "bg-transparent text-white"}`}
+      className={`z-40 flex h-[79px] w-full items-center justify-between px-5 transition-[background-color,color,box-shadow] duration-300 lg:h-[107px] lg:px-8 ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-[#FF8A05] text-white" : "bg-transparent text-white"}`}
     >
       <Link href="/" className={`inline-flex shrink-0 transition-colors duration-300 ${light ? "text-[#FF8A05]" : "text-white"}`} aria-label={t("nav.home")}>
         {/* Explicit widths (logo is 810:308): Safari collapses a width-less
