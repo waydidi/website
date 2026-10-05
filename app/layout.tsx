@@ -5,7 +5,6 @@ import { env } from "cloudflare:workers";
 import "./globals.css";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { PublicPathHeader } from "@/components/public-header";
-import { SpinBar } from "@/components/spin/spin-bar";
 import { PwaProvider } from "@/components/pwa/pwa-provider";
 
 export const metadata: Metadata = {
@@ -66,7 +65,6 @@ export default function RootLayout({
           </a>
           <PublicPathHeader />
           <div id="main-content" tabIndex={-1}>{children}</div>
-          <SpinBar />
           <WebsiteChat />
         </PwaProvider>
         {gaId && <GoogleAnalytics id={gaId} />}

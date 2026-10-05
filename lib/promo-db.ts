@@ -4,7 +4,6 @@ import { bookings, memberCoupons, promoCodes, promoRedemptions } from "@/db/sche
 import { evaluatePromo, normalizeCode, type PromoResult } from "./promo";
 import { LOYALTY_CODE, LOYALTY_TITLE, loyaltyDiscount, loyaltyStatus } from "./loyalty";
 import { availableGift, couponValue, FREE_TRANSFER_CODE, freeTransferDiscount, listMemberGifts, REWARD_CODE, REWARD_MIN_FARE, rewardDiscount } from "./gifts";
-import { SPIN_CODE, SPIN_MIN_FARE, spinDiscount, spinStatus } from "./spin";
 
 // Bookings in these states no longer hold a use of their code.
 // Only bookings that were never paid give the use back; cancelled or refunded bookings keep it.
@@ -83,17 +82,6 @@ export async function checkPromo(input: {
     const discount = rewardDiscount(couponValue(gift.giftId), input.total);
     if (discount <= 0) return { ok: false, reason: `Reward coupons work on fares from THB ${REWARD_MIN_FARE.toLocaleString("en-US")}.` };
     return { ok: true, discount, finalTotal: input.total - discount, promo: { id: `gift:${gift.id}`, code: REWARD_CODE, title: `Reward: ${gift.name}` } };
-  }
-  // Prize won on the wheel: once per member, within its expiry.
-  if (normalizeCode(input.code) === SPIN_CODE) {
-    if (!input.customerId) return { ok: false, reason: "Sign in to use your wheel prize." };
-    const spin = await spinStatus(input.customerId);
-    if (!spin.spun || !spin.prize) return { ok: false, reason: "Spin the wheel first to win a prize." };
-    if (spin.used) return { ok: false, reason: "You've already used your wheel prize." };
-    if (spin.expired) return { ok: false, reason: "Your wheel prize has expired." };
-    const discount = spinDiscount(spin.prize, input.total);
-    if (discount <= 0) return { ok: false, reason: `Your wheel prize works on fares from THB ${SPIN_MIN_FARE.toLocaleString("en-US")}.` };
-    return { ok: true, discount, finalTotal: input.total - discount, promo: { id: `spin:${spin.prize.id}`, code: SPIN_CODE, title: `Wheel prize: ${spin.prize.label}` } };
   }
   const promo = await findPromo(input.code);
   if (!promo) return { ok: false, reason: "This promo code isn't valid." };
@@ -174,7 +162,7 @@ export async function bestCoupon(input: { total: number; serviceType: "transfer"
   const promos = await activePromos();
   // Member rewards first, then public codes; ties keep the earlier one (same order as before).
   const codes = [
-    ...(input.customerId ? [LOYALTY_CODE, FREE_TRANSFER_CODE, REWARD_CODE, SPIN_CODE] : []),
+    ...(input.customerId ? [LOYALTY_CODE, FREE_TRANSFER_CODE, REWARD_CODE] : []),
     ...promos.map((p) => p.code),
   ];
   // All codes are checked at the same time instead of one after another.

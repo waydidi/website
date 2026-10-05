@@ -233,11 +233,6 @@ export function BookingFlow({
     window.dispatchEvent(new Event("waydidi:booking-stage"));
     return () => { delete document.documentElement.dataset.bookingStage; window.dispatchEvent(new Event("waydidi:booking-stage")); };
   }, [stage]);
-  // Lets page-wide bottom bars (e.g. "Spin the wheel") step aside during booking.
-  useEffect(() => {
-    document.documentElement.dataset.bookingStage = stage;
-    return () => { delete document.documentElement.dataset.bookingStage; };
-  }, [stage]);
   const [serviceType, setServiceType] = useState<ServiceType>("transfer");
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
