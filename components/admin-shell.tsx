@@ -136,7 +136,6 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
     { href: "/admin/blog", label: "Blog", icon: Newspaper },
   ] },
   { title: "People", items: [
-    { href: "/admin/profile", label: "Profile", icon: UserRound },
     { href: "/admin/staff", label: "Staff access", icon: Users },
     { href: "/admin/chat", label: "Website chat", icon: Users },
     { href: "/admin/users", label: "Users", icon: Users },
