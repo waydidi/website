@@ -1,6 +1,4 @@
-import { AdminKeyLogin } from "@/components/admin-key-login";
-import { requireWaydidiAdmin } from "@/lib/admin";
-import PaymentsWorkspace from "./payments-workspace";
+import { redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
-export default async function PaymentsPage() { const access = await requireWaydidiAdmin("/admin/payments"); if (!access.authorized)
-    return <AdminKeyLogin configured={access.configured}/>; return <PaymentsWorkspace />; }
+/** Payments now live on the Financials page. */
+export default function PaymentsPage() { redirect("/admin/financials#payments"); }

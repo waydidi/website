@@ -48,7 +48,7 @@ function Table({ head, rows }: { head: string[]; rows: (string | number)[][] }) 
 }
 
 // Revenue by trip date, and what each driver is owed per week.
-export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ range?: string; from?: string; to?: string; by?: string; tab?: string }> }) {
+export async function ReportsSection({ searchParams }: { searchParams: Promise<{ range?: string; from?: string; to?: string; by?: string; tab?: string }> }) {
   const access = await requireWaydidiAdmin("/admin/reports");
   if (!access.authorized) return <AdminKeyLogin configured={access.configured} />;
   const q = await searchParams;
@@ -75,8 +75,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     <div className="mx-auto grid max-w-[1200px] gap-5">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 pt-2">
-        {list.map((p) => <Link key={p.id} href={`?${new URLSearchParams({ range: p.id, by, tab })}`} className={`rounded-full px-4 py-2 text-[13px] font-bold ${!custom && p.id === preset.id ? "bg-[#1f1726] text-white" : "border border-slate-200 bg-white"}`}>{p.label}</Link>)}
-        <form className="flex flex-wrap items-center gap-2" action="">
+        {list.map((p) => <Link key={p.id} href={`?${new URLSearchParams({ range: p.id, by, tab })}#reports`} className={`rounded-full px-4 py-2 text-[13px] font-bold ${!custom && p.id === preset.id ? "bg-[#1f1726] text-white" : "border border-slate-200 bg-white"}`}>{p.label}</Link>)}
+        <form className="flex flex-wrap items-center gap-2" action="#reports">
           <input type="hidden" name="by" value={by} /><input type="hidden" name="tab" value={tab} />
           <input type="date" name="from" defaultValue={from} className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-[13px]" aria-label="From" />
           <span className="text-slate-400">–</span>
@@ -87,7 +87,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <p className="-mt-2 text-[13px] text-slate-500">{nice(from)} – {nice(to)} · by trip date · confirmed and completed trips only</p>
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["revenue", "payouts", "discounts"] as const).map((t) => <Link key={t} href={`?${qs({ tab: t })}`} className={`-mb-px border-b-2 px-4 py-2 text-[14px] font-bold ${tab === t ? "border-[#FF8A05] text-[#1f1726]" : "border-transparent text-slate-500"}`}>{t === "revenue" ? "Revenue" : t === "payouts" ? "Driver payouts" : "Discounts"}</Link>)}
+        {(["revenue", "payouts", "discounts"] as const).map((t) => <Link key={t} href={`?${qs({ tab: t })}#reports`} className={`-mb-px border-b-2 px-4 py-2 text-[14px] font-bold ${tab === t ? "border-[#FF8A05] text-[#1f1726]" : "border-transparent text-slate-500"}`}>{t === "revenue" ? "Revenue" : t === "payouts" ? "Driver payouts" : "Discounts"}</Link>)}
       </div>
 
       {tab === "discounts" && discounts ? <>
@@ -119,7 +119,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         {total.costMissing > 0 && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[13px] font-semibold text-amber-900">{total.costMissing} trip{total.costMissing === 1 ? " has" : "s have"} no driver cost set yet, so driver cost and margin are incomplete. Set costs in each journey&apos;s Driver information (<Link href="/admin/operations" className="underline">Operations</Link> → eye icon).</p>}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex gap-1">{(["day", "month"] as const).map((b) => <Link key={b} href={`?${qs({ by: b })}`} className={`rounded-full px-3 py-1.5 text-[13px] font-bold ${by === b ? "bg-[#FFF0DF] text-[#C96100]" : "text-slate-500"}`}>By {b}</Link>)}</div>
+          <div className="flex gap-1">{(["day", "month"] as const).map((b) => <Link key={b} href={`?${qs({ by: b })}#reports`} className={`rounded-full px-3 py-1.5 text-[13px] font-bold ${by === b ? "bg-[#FFF0DF] text-[#C96100]" : "text-slate-500"}`}>By {b}</Link>)}</div>
           <a href={`/api/admin/reports/export?${new URLSearchParams({ type: "revenue", from, to })}`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-2 text-[13px] font-bold"><Download size={15} aria-hidden="true" />Export trips (CSV)</a>
         </div>
         {chart && chart.length > 1 && <div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[14px] font-bold">Revenue per day</p><div className="mt-2"><RevenueChart data={chart} /></div></div>}
@@ -161,4 +161,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </>}
     </div>
   </main>;
+}
+
+/** /admin/reports now lives on the Financials page. */
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const q = Object.fromEntries(Object.entries(await searchParams).filter((e): e is [string, string] => typeof e[1] === "string"));
+  const { redirect } = await import("next/navigation");
+  redirect(`/admin/financials${Object.keys(q).length ? `?${new URLSearchParams(q)}` : ""}#reports`);
 }

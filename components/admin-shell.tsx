@@ -334,12 +334,6 @@ export default function AdminShell({
               return <Link key={t.href} href={t.href} aria-current={selected ? "page" : undefined} className={`rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors sm:px-4 ${selected ? "bg-[#FFF0DF] text-[#C96100]" : "text-slate-600 hover:bg-slate-50"}`}>{t.label}</Link>;
             })}
           </nav>}
-          {isFinancialsPath(pathname) && <nav aria-label="Financial categories" className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
-            {FINANCIAL_TABS.filter(t => allowedStaffRoute(role, t.href, "GET")).map(t => {
-              const selected = pathname === t.href || pathname.startsWith(`${t.href}/`);
-              return <Link key={t.href} href={t.href} aria-current={selected ? "page" : undefined} className={`rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors sm:px-4 ${selected ? "bg-[#FFF0DF] text-[#C96100]" : "text-slate-600 hover:bg-slate-50"}`}>{t.label}</Link>;
-            })}
-          </nav>}
         </div>
         <section className="admin-page-slot mx-auto min-h-[calc(100vh-72px)] max-w-[1600px] px-0 pb-32 md:pb-8">
           {children}

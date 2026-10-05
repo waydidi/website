@@ -1,13 +1,4 @@
-import type { Metadata } from "next";
-import { AdminKeyLogin } from "@/components/admin-key-login";
-import { Commissions } from "@/components/trip-planner/commissions";
-import { requireWaydidiAdmin } from "@/lib/admin";
-
+import { redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Agency commissions · Waydidi operations", robots: { index: false, follow: false } };
-
-export default async function Page() {
-  const access = await requireWaydidiAdmin("/admin/trips/commissions");
-  if (!access.authorized) return <AdminKeyLogin configured={access.configured} />;
-  return <Commissions />;
-}
+/** Commissions now live on the Financials page. */
+export default function Page() { redirect("/admin/financials#commissions"); }
