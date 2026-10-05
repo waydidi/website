@@ -24,6 +24,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ refe
     getDb().update(bookings).set({ status: "binned", binPreviousStatus: booking.status, binnedAt: now.toISOString(), purgeAfter, binnedBy: admin.email, updatedAt: now.toISOString() }).where(eq(bookings.reference, reference)),
     getDb().update(bookingAssignments).set({ revokedAt: now.toISOString(), updatedAt: now.toISOString() }).where(eq(bookingAssignments.bookingReference, reference)),
   ]);
+  if (booking.status !== "cancelled") await import("@/lib/telegram/booking-changes").then((m) => m.notifyAdminBinned(reference, admin.email)).catch(() => undefined);
   return NextResponse.json({ ok: true, purgeAfter });
 }
 
@@ -38,5 +39,6 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
   if (!booking || booking.status !== "binned") return NextResponse.json({ error: "Booking is not in the bin." }, { status: 404 });
   await getDb().update(bookings).set({ status: booking.binPreviousStatus || "confirmed", binnedAt: null, purgeAfter: null, binnedBy: null, binPreviousStatus: null, updatedAt: new Date().toISOString() }).where(eq(bookings.reference, reference));
+  if (booking.binPreviousStatus !== "cancelled") await import("@/lib/telegram/booking-changes").then((m) => m.notifyAdminRestored(reference, admin.email)).catch(() => undefined);
   return NextResponse.json({ ok: true });
 }

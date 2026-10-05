@@ -18,5 +18,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   const pickup = new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime();
   if (pickup - Date.now() < 24 * 60 * 60 * 1000) return NextResponse.json({ error: "Cancellations less than 24 hours before pickup are non-refundable. Contact Waydidi on WhatsApp +66 63 206 4884." }, { status: 409 });
 
-  return NextResponse.json({ error: "To cancel or ask about a refund, contact Waydidi on WhatsApp +66 63 206 4884 or email support@waydidi.com with your booking reference." }, { status: 409 });
+  // No online refunds yet: the team gets the request in Telegram and confirms with the customer.
+  await import("@/lib/telegram/booking-changes").then((m) => m.notifyCancellationRequest(reference)).catch((e) => console.error("telegram cancel request failed", e instanceof Error ? e.message : "unknown"));
+  return NextResponse.json({ status: "requested", message: `We've received your cancellation request for ${reference}. Our team will confirm by email shortly. Questions: WhatsApp +66 63 206 4884 or support@waydidi.com.` }, { status: 202 });
 }

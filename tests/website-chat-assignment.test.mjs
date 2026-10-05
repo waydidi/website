@@ -10,7 +10,7 @@ const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec("CREATE TABLE drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT,vehicle TEXT,car_plate TEXT,driver_type TEXT,status TEXT,base_location TEXT DEFAULT '',created_at TEXT,updated_at TEXT);");
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -288,5 +288,38 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
   assert.match(job,/\/driver\/trip\/[a-f0-9]{48}/);
   assert.equal((await db.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='MC7Q2P' AND revoked_at IS NULL").first()).n,1);
   assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Open booking']);
+ }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
+});
+test('Telegram cancellation and change requests: cards with buttons, booking updated, driver told in Thai',async()=>{
+ for(const c of ['cancelled_at TEXT','updated_at TEXT','booking_version INTEGER NOT NULL DEFAULT 1'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
+ await db.exec("CREATE TABLE IF NOT EXISTS booking_change_requests(id TEXT PRIMARY KEY,booking_reference TEXT,status TEXT DEFAULT 'pending',pickup TEXT,dropoff TEXT,pickup_date TEXT,pickup_time TEXT,vehicle_id TEXT,original_total INTEGER,revised_total INTEGER,price_difference INTEGER,reason TEXT,booking_version INTEGER,created_at TEXT,resolved_at TEXT);");
+ const hook=await vite.ssrLoadModule('/app/api/integrations/telegram/webhook/route.ts');
+ const ch=await vite.ssrLoadModule('/lib/telegram/booking-changes.ts');
+ Object.assign(globalThis.__chatTest.env,{TELEGRAM_BOT_TOKEN:'t'});
+ const sent=[];const real=globalThis.fetch;let mid=9000;
+ globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://api.telegram.org')){const body=JSON.parse(init.body);sent.push({method:u.split('/').pop(),...body});return new Response(JSON.stringify({ok:true,result:{message_id:++mid,chat:{id:-100}}}));}return real(url,init);};
+ const tap=(data)=>hook.POST(new Request('https://example.invalid/api/integrations/telegram/webhook',{method:'POST',headers:{'content-type':'application/json','x-telegram-bot-api-secret-token':'s'.repeat(24)},body:JSON.stringify({update_id:Math.floor(Math.random()*1e9),callback_query:{id:'q',from:{id:777,first_name:'Alex'},data,message:{message_id:1,chat:{id:-100}}}})}));
+ const msgs=()=>sent.filter((m)=>m.method==='sendMessage').map((m)=>m.text);
+ try{
+  // Change request on MC7Q2P (driver already has the job from the previous test).
+  await db.prepare("INSERT INTO booking_change_requests VALUES('chg-1','MC7Q2P','pending','Trat airport','KC Grande Resort, Ko Chang','2026-10-14','15:00','comfort_suv',2400,2900,500,'Flight moved',1,?,NULL)").bind(new Date().toISOString()).run();
+  assert.equal(await ch.notifyChangeRequest('chg-1'),true);assert.equal(await ch.notifyChangeRequest('chg-1'),false);
+  const card=msgs().at(-1);console.log('\n'+card+'\n');
+  assert.match(card,/คำขอเปลี่ยนแปลงการจอง MC7Q2P/);assert.match(card,/\+THB 500/);
+  assert.deepEqual(sent.at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.callback_data),['chg_ok:chg-1','chg_no:chg-1']);
+  await tap('chg_ok:chg-1');
+  const b=await db.prepare("SELECT pickup_time,dropoff,vehicle,total,booking_version FROM bookings WHERE reference='MC7Q2P'").first();
+  assert.deepEqual([b.pickup_time,b.dropoff,b.vehicle,b.total,b.booking_version],['15:00','KC Grande Resort, Ko Chang','comfort_suv',2900,2]);
+  const update=msgs().find((t)=>t.includes('แก้ไขงาน MC7Q2P'));assert.ok(update);console.log(update+'\n');assert.match(update,/15:00/);
+  assert.equal((await db.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='MC7Q2P' AND revoked_at IS NULL").first()).n,1);
+  await tap('chg_ok:chg-1');assert.equal(msgs().filter((t)=>t.includes('แก้ไขงาน')).length,1); // once only
+  // Cancellation request → Cancel booking.
+  assert.equal(await ch.notifyCancellationRequest('MC7Q2P'),true);
+  const cancel=msgs().at(-1);console.log(cancel+'\n');assert.match(cancel,/คำขอยกเลิกการจอง MC7Q2P/);
+  await tap('bk_cancel:MC7Q2P');
+  assert.equal((await db.prepare("SELECT status FROM bookings WHERE reference='MC7Q2P'").first()).status,'cancelled');
+  assert.equal((await db.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='MC7Q2P' AND revoked_at IS NULL").first()).n,0);
+  const gone=msgs().at(-1);console.log(gone+'\n');assert.match(gone,/ยกเลิกงาน MC7Q2P/);assert.match(gone,/คนขับไม่ต้องไปรับ/);
+  assert.match(sent.filter((m)=>m.method==='editMessageText').at(-1).text,/ยกเลิกแล้ว โดย/);
  }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
 });

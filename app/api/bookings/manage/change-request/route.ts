@@ -89,5 +89,6 @@ export async function POST(request: Request) {
     createdAt: now,
     updatedAt: now,
   });
+  await import("@/lib/telegram/booking-changes").then((m) => m.notifyChangeRequest(id)).catch((e) => console.error("telegram change request failed", e instanceof Error ? e.message : "unknown"));
   return NextResponse.json({ ok: true, requestId: id, status: "pending", revisedTotal, priceDifference });
 }

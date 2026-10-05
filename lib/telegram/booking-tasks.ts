@@ -103,7 +103,7 @@ type BookingRow = { reference: string; customer_name: string; customer_surname: 
   pickup: string; dropoff: string; vehicle: string; payment_method: string; total: number; amount_paid: number };
 
 /** When cost and driver are both done: assign the driver (one trip link) and post the job in Thai. */
-export async function postAssignmentWhenReady(reference: string, by: string) {
+export async function postAssignmentWhenReady(reference: string, by: string, header?: string) {
   const card = await db().prepare("SELECT cost_done,driver_done,assignment_posted,driver_form_json,telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference)
     .first<{ cost_done: number; driver_done: number; assignment_posted: number; driver_form_json: string | null; telegram_message_id: number }>();
   if (!card?.cost_done || !card.driver_done || card.assignment_posted) return false;
@@ -124,6 +124,7 @@ export async function postAssignmentWhenReady(reference: string, by: string) {
   const cashDue = b.payment_method === "cash" ? Math.max(0, b.total - (b.amount_paid ?? 0)) : 0;
   const vehicleName = (VEHICLES as Record<string, { name: string }>)[b.vehicle]?.name ?? b.vehicle;
   const lines = [
+    ...(header ? [header, ""] : []),
     `${esc(vehicleName)}🚗`,
     "",
     `ชื่อลูกค้า: ${esc(`${b.customer_name} ${b.customer_surname ?? ""}`.trim())}`,

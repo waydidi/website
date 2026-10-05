@@ -5,6 +5,7 @@ import { answerCallback, sendCard, sendPrivate, telegramChatId, tg, type Telegra
 import { esc, pickKeyboard } from "@/lib/telegram/cards";
 import { acknowledgeBooking, refreshBookingCard } from "@/lib/telegram/bookings";
 import { askBookingQuestion, handleBookingAnswer } from "@/lib/telegram/booking-tasks";
+import { approveChange, cancelBookingFromTelegram, declineChange, keepBooking } from "@/lib/telegram/booking-changes";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus } from "@/lib/website-chat";
 
 // Telegram → Waydidi. Verified by the secret-token header, de-duplicated by update_id, and every action
@@ -63,6 +64,10 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
     await askBookingQuestion(target, action === "bk_cost" ? "cost" : "driver_name", q.from);
     return answerCallback(q.id, action === "bk_cost" ? "Type the driver cost." : "Answer the driver questions one by one.");
   }
+  if (action === "bk_cancel") return answerCallback(q.id, await cancelBookingFromTelegram(target, admin.display_name), true);
+  if (action === "bk_keep") return answerCallback(q.id, await keepBooking(target, admin.display_name), true);
+  if (action === "chg_ok") return answerCallback(q.id, await approveChange(target, admin.display_name), true);
+  if (action === "chg_no") return answerCallback(q.id, await declineChange(target, admin.display_name), true);
   if (action === "booking_assign") {
     const done = await acknowledgeBooking(target, admin.display_name);
     return answerCallback(q.id, done ? "Booking is yours." : "Someone already took this booking.");
