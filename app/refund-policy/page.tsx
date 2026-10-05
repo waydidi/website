@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { CircleAlert, CircleCheck, CircleSlash, Clock3, CloudRain, CreditCard, MessageCircle, RefreshCcw, ShieldCheck, Ticket, TriangleAlert } from "lucide-react";
 import { PublicFooter } from "@/components/public-footer";
 import { Breadcrumbs, JsonLd, breadcrumbSchema } from "@/components/seo";
 import { SITE_URL } from "@/lib/public-content";
@@ -19,14 +18,13 @@ const thb = (n: number) => `฿${n.toLocaleString("en-US")}`;
 const example = (hours: number) => customerRefundMinor(300000, refundPercent("customer_cancellation", hours)) / 100;
 
 const cards = [
-  { when: "More than 48 hours before pickup", result: "100% refund", text: "Cancel more than 48 hours before your scheduled service to receive a full refund, unless different conditions were stated for your booking.", Icon: CircleCheck, tone: "border-emerald-200 bg-emerald-50", accent: "text-emerald-700" },
-  { when: "24–48 hours before pickup", result: "50% refund", text: "Cancel between 24 and 48 hours before your scheduled service to receive a 50% refund, unless different booking conditions apply.", Icon: CircleAlert, tone: "border-amber-200 bg-amber-50", accent: "text-amber-700" },
-  { when: "Less than 24 hours before pickup", result: "Non-refundable", text: "Bookings cancelled less than 24 hours before the scheduled service are non-refundable.", Icon: CircleSlash, tone: "border-slate-200 bg-[#F5F6F8]", accent: "text-slate-700" },
+  { when: "More than 48 hours before pickup", result: "100% refund", text: "Cancel more than 48 hours before your scheduled service to receive a full refund, unless different conditions were stated for your booking.", tone: "border-emerald-200 bg-emerald-50" },
+  { when: "24–48 hours before pickup", result: "50% refund", text: "Cancel between 24 and 48 hours before your scheduled service to receive a 50% refund, unless different booking conditions apply.", tone: "border-amber-200 bg-amber-50" },
+  { when: "Less than 24 hours before pickup", result: "Non-refundable", text: "Bookings cancelled less than 24 hours before the scheduled service are non-refundable.", tone: "border-slate-200 bg-[#F5F6F8]" },
 ];
 
-function Section({ id, title, Icon, children }: { id: string; title: string; Icon: typeof Clock3; children: React.ReactNode }) {
-  return <section id={id} aria-labelledby={`${id}-h`} className="grid gap-4 border-t border-slate-200 py-9 md:grid-cols-[56px_1fr]">
-    <span className="grid size-12 place-items-center rounded-2xl bg-[#FFF0DF] text-[#D96F00]" aria-hidden="true"><Icon size={22} /></span>
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  return <section id={id} aria-labelledby={`${id}-h`} className="grid gap-4 border-t border-slate-200 py-9">
     <div className="min-w-0"><h2 id={`${id}-h`} className="text-2xl font-black tracking-[-.03em]">{title}</h2><div className="mt-3 space-y-3 text-[16px] leading-7 text-slate-700">{children}</div></div>
   </section>;
 }
@@ -48,8 +46,8 @@ export default function RefundPolicyPage() {
       <section aria-labelledby="glance-h" className="py-12">
         <h2 id="glance-h" className="text-3xl font-black tracking-[-.035em]">Cancellation at a glance</h2>
         <ul className="mt-6 grid gap-4 md:grid-cols-3">
-          {cards.map(({ when, result, text, Icon, tone, accent }) => <li key={when} className={`rounded-[24px] border p-6 ${tone}`}>
-            <p className="flex items-center gap-2 text-[15px] font-bold text-slate-800"><Icon size={20} className={accent} aria-hidden="true" />{when}</p>
+          {cards.map(({ when, result, text, tone }) => <li key={when} className={`rounded-[24px] border p-6 ${tone}`}>
+            <p className="text-[15px] font-bold text-slate-800">{when}</p>
             <p className={`mt-3 text-[30px] font-black tracking-[-.03em] ${accent}`}>{result}</p>
             <p className="mt-2 text-[15px] leading-6 text-slate-700">{text}</p>
           </li>)}
@@ -57,7 +55,7 @@ export default function RefundPolicyPage() {
         <p className="mt-5 rounded-2xl border-l-4 border-[#FE8B05] bg-[#FFF6EC] p-4 text-[15px] leading-6 text-slate-700">Some tours, attraction tickets, boat trips, activities, and third-party services may have different cancellation conditions. Where specific conditions are shown before booking, those conditions take precedence over this general policy.</p>
       </section>
 
-      <Section id="customer-cancellation" title="Customer cancellation" Icon={RefreshCcw}>
+      <Section id="customer-cancellation" title="Customer cancellation">
         <p>Unless otherwise stated on the specific service or booking:</p>
         <div className="overflow-x-auto rounded-2xl border border-slate-200"><table className="w-full min-w-[420px] text-left text-[15px]">
           <caption className="sr-only">Refund by cancellation time</caption>
@@ -69,43 +67,43 @@ export default function RefundPolicyPage() {
         <p>The notice period is the time between your scheduled service and when we receive your cancellation request, in Thailand time. It is not based on the date you paid.</p>
       </Section>
 
-      <Section id="no-shows" title="No-shows" Icon={TriangleAlert}>
+      <Section id="no-shows" title="No-shows">
         <p>No refund is provided when you do not appear at the agreed pickup location at the scheduled time.</p>
         <p>If you are running late, contact Waydidi as soon as possible. Waiting times depend on the service (for example, airport pickups wait from your flight&apos;s actual landing time), and you are not treated as a no-show the moment the pickup time passes.</p>
       </Section>
 
-      <Section id="waydidi-cancels" title="If Waydidi cancels your service" Icon={ShieldCheck}>
+      <Section id="waydidi-cancels" title="If Waydidi cancels your service">
         <p>If Waydidi Travel cannot provide a confirmed service and no suitable alternative can be arranged, you receive a <strong>100% refund</strong> for the affected service.</p>
         <p>We may first offer rescheduling, a replacement vehicle, or an alternative service. You are not required to accept a materially different replacement.</p>
       </Section>
 
-      <Section id="changes" title="Changing your booking" Icon={Clock3}>
+      <Section id="changes" title="Changing your booking">
         <p>You can ask to change the pickup date, time or location, destination, vehicle category, passenger count, luggage and other itinerary details.</p>
         <p>All changes are subject to availability and may change the price. Any price difference is confirmed with you before the change is made, and your original booking stays in place until then.</p>
       </Section>
 
-      <Section id="refund-payment" title="How refunds are paid" Icon={CreditCard}>
+      <Section id="refund-payment" title="How refunds are paid">
         <p>Approved refunds are normally returned to your original payment method. Depending on the cancellation conditions, a refund may be full or partial.</p>
         <p className="rounded-2xl bg-[#F5F6F8] p-4">Once Waydidi submits an approved refund, the time it takes to appear in your account depends on the payment provider, card network, payment method, and your bank. We can&apos;t guarantee an exact posting date.</p>
         <p>Cash bookings have no prepaid amount to refund.</p>
       </Section>
 
-      <Section id="payment-processing" title="Payment processing" Icon={CreditCard}>
+      <Section id="payment-processing" title="Payment processing">
         <p>Waydidi uses trusted payment providers, such as Stripe, to take and refund payments securely. Waydidi never stores your full card number or CVV.</p>
         <p>Refund fees charged by payment providers are covered by Waydidi. They are <strong>not</strong> deducted from your refund.</p>
       </Section>
 
-      <Section id="third-party" title="Tours, tickets & third-party services" Icon={Ticket}>
+      <Section id="third-party" title="Tours, tickets & third-party services">
         <p>Third-party products such as tours, attraction tickets, boat trips and activities may have their own cancellation conditions. Conditions shown or sent to you before booking take precedence over this general policy, and we keep a record of the conditions you accepted.</p>
       </Section>
 
-      <Section id="weather" title="Weather & uncontrollable events" Icon={CloudRain}>
+      <Section id="weather" title="Weather & uncontrollable events">
         <p>Bad weather alone does not make a booking refundable if the service can still run safely.</p>
         <p>If an operator cancels because conditions are unsafe, Waydidi may offer rescheduling, an alternative service, credit where specifically agreed, or a refund under the applicable conditions.</p>
         <p>Other events outside reasonable control include severe weather, flooding, natural disasters, road closures, government restrictions, civil emergencies and major transport disruption. Refunds, rescheduling or alternatives depend on the circumstances and the service conditions.</p>
       </Section>
 
-      <Section id="examples" title="Refund examples" Icon={RefreshCcw}>
+      <Section id="examples" title="Refund examples">
         <ul className="space-y-2">
           <li>{thb(3000)} booking cancelled 72 hours before pickup → <strong>{thb(example(72))} refund</strong></li>
           <li>{thb(3000)} booking cancelled 30 hours before pickup → <strong>{thb(example(30))} refund</strong></li>
@@ -121,7 +119,7 @@ export default function RefundPolicyPage() {
           <p className="mt-3 text-white/80">Message us on WhatsApp at {WHATSAPP} with your <strong className="text-white">booking number, name, service date and reason for cancelling</strong>.</p>
           <p className="mt-3 text-sm text-white/70">Waydidi will never ask for your full card number, CVV, banking password, OTP or payment-provider password.</p>
         </div>
-        <a href={waLink} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#FE8B05] px-6 font-bold text-white hover:bg-[#E67900] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><MessageCircle size={19} aria-hidden="true" />Contact Waydidi</a>
+        <a href={waLink} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#FE8B05] px-6 font-bold text-white hover:bg-[#E67900] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Contact Waydidi</a>
       </section>
     </div>
     <PublicFooter />
