@@ -27,6 +27,7 @@ function spans(s: Season, from: Date) {
 
 export default function SeasonsWorkspace() {
   const [seasons, setSeasons] = useState<Season[] | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
   const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
@@ -73,9 +74,17 @@ export default function SeasonsWorkspace() {
       <div className="grid gap-1.5">
         {(seasons ?? []).filter((s) => s.active).map((s) => <div key={s.id} className="grid grid-cols-[150px_1fr] items-center gap-3 text-[12px] sm:grid-cols-[220px_1fr]">
           <span className="truncate font-medium text-slate-700">{s.name} <span className="text-slate-400">{effect(s)}</span></span>
-          <div className="relative h-4 rounded-full bg-slate-100">{spans(s, today).map(([a, b]) => <span key={a} className={`absolute inset-y-0 rounded-full ${s.adjustment > 0 ? "bg-[#FF8A05]" : s.adjustment < 0 ? "bg-emerald-500" : "bg-slate-300"}`} style={{ left: `${a * 100}%`, width: `${Math.max(0.6, (b - a) * 100)}%` }} />)}</div>
+          <div className="relative h-4 rounded-full bg-slate-100">{spans(s, today).map(([a, b]) => <button type="button" key={a} onClick={() => setPicked(picked === s.id ? null : s.id)} aria-label={`${s.name}: ${fmtDay(s.startsOn)} – ${fmtDay(s.endsOn)}, ${effect(s)}`} aria-expanded={picked === s.id} className={`absolute inset-y-0 min-w-2 cursor-pointer rounded-full transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF8A05] ${picked === s.id ? "ring-2 ring-[#15161C] ring-offset-1" : ""} ${s.adjustment > 0 ? "bg-[#FF8A05]" : s.adjustment < 0 ? "bg-emerald-500" : "bg-slate-300"}`} style={{ left: `${a * 100}%`, width: `${Math.max(0.6, (b - a) * 100)}%` }} />)}</div>
         </div>)}
       </div>
+      {/* Details of the period clicked on the timeline */}
+      {(() => { const s = (seasons ?? []).find((x) => x.id === picked); if (!s) return null; return <div className="mt-4 flex flex-wrap items-start gap-x-8 gap-y-2 rounded-2xl border border-orange-200 bg-orange-50/60 p-4 text-[14px]">
+        <div className="min-w-0 flex-1"><p className="font-bold text-slate-900">{s.name}</p>{s.reason && <p className="text-[13px] text-slate-600">{s.reason}</p>}</div>
+        <div><p className="text-[12px] text-slate-500">Dates</p><p className="font-semibold">{fmtDay(s.startsOn)} – {fmtDay(s.endsOn)}</p><p className="text-[12px] text-slate-500">{s.repeatsYearly ? "Every year" : "One-off"}</p></div>
+        <div><p className="text-[12px] text-slate-500">Price change</p><p className={`font-semibold ${s.adjustment > 0 ? "text-[#C96100]" : s.adjustment < 0 ? "text-emerald-700" : "text-slate-600"}`}>{effect(s)}</p></div>
+        <div><p className="text-[12px] text-slate-500">Applies to</p><p className="font-semibold">{s.service === "all" ? "Transfer & hourly" : s.service === "transfer" ? "Transfer" : "By the hour"}</p>{s.areaIds && <p className="text-[12px] text-slate-500">Selected areas</p>}</div>
+        <div className="flex gap-2 self-center"><button type="button" onClick={() => { setError(""); setDraft(toDraft(s)); }} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 font-semibold"><Pencil size={14} />Edit</button><button type="button" onClick={() => setPicked(null)} aria-label="Close details" className="grid size-9 place-items-center rounded-full hover:bg-white"><X size={16} /></button></div>
+      </div>; })()}
     </section>
 
     <section className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">

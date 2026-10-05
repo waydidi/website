@@ -326,7 +326,8 @@ export default function AdminShell({
           <SettingsDialog dark={dark} onToggleDark={toggleDark} />
         </header>
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 pt-5 sm:px-8 md:pt-6">
-          <h1 className="text-[26px] font-semibold tracking-[-.02em] md:text-[28px]">{title}</h1>
+          {/* Areas, Hourly and Seasons have their own page headings, so "Fare management" isn't repeated above them. */}
+          {!["/admin/pricing", "/admin/hourly", "/admin/seasons"].some((p) => pathname === p || pathname.startsWith(`${p}/`)) && <h1 className="text-[26px] font-semibold tracking-[-.02em] md:text-[28px]">{title}</h1>}
           {isPartnersPath(pathname) && <nav aria-label="Partner categories" className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
             {PARTNER_TABS.filter(t => allowedStaffRoute(role, t.href, "GET")).map(t => {
               const selected = pathname === t.href || pathname.startsWith(`${t.href}/`);
