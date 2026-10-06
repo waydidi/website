@@ -8,7 +8,7 @@ export type FlightPoint = {
   iata: string | null; airport: string | null; city: string | null;
   scheduled: string | null; revised: string | null; actual: string | null;
   terminal: string | null; gate: string | null; belt: string | null;
-  lat: number | null; lon: number | null;
+  lat: number | null; lon: number | null; checkIn: string | null;
 };
 /** Where the plane is now (only while it's flying and the API has a recent report). */
 export type FlightPosition = { lat: number; lon: number; altFt: number | null; speedKt: number | null; track: number | null; at: string | null };
@@ -63,13 +63,13 @@ type Raw = {
 type RawPoint = {
   airport?: { iata?: string; name?: string; municipalityName?: string; location?: { lat?: number; lon?: number } };
   scheduledTime?: { local?: string }; revisedTime?: { local?: string }; runwayTime?: { local?: string };
-  terminal?: string; gate?: string; baggageBelt?: string;
+  terminal?: string; gate?: string; baggageBelt?: string; checkInDesk?: string;
 };
 const point = (p?: RawPoint): FlightPoint => ({
   iata: p?.airport?.iata ?? null, airport: p?.airport?.name ?? null, city: p?.airport?.municipalityName ?? null,
   scheduled: p?.scheduledTime?.local ?? null, revised: p?.revisedTime?.local ?? null, actual: p?.runwayTime?.local ?? null,
   terminal: p?.terminal ?? null, gate: p?.gate ?? null, belt: p?.baggageBelt ?? null,
-  lat: p?.airport?.location?.lat ?? null, lon: p?.airport?.location?.lon ?? null,
+  lat: p?.airport?.location?.lat ?? null, lon: p?.airport?.location?.lon ?? null, checkIn: p?.checkInDesk ?? null,
 });
 
 /** How long a result stays fresh: finished flights for hours, flights about to move for minutes. */
