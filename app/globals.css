@@ -403,3 +403,6 @@ html.admin-dark :is(aside, nav[aria-label="Mobile admin sections"]) :is(.text-\[
 
 /* Site translation: the English page stays hidden (max 2.5 s) until its translation is applied. */
 html.wd-tx body { visibility: hidden; }
+
+/* Airport boxes on /flights: no dropdown arrow on inputs with suggestions. */
+.wd-noarrow::-webkit-calendar-picker-indicator { display: none !important; opacity: 0; }

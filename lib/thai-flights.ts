@@ -51,3 +51,11 @@ export const WORLD_AIRPORTS = [
   ["SYD", "Sydney"], ["MEL", "Melbourne"], ["PER", "Perth"], ["BNE", "Brisbane"], ["AKL", "Auckland"], ["LAX", "Los Angeles"], ["SFO", "San Francisco"],
 ] as const;
 export const airportLabel = (code: string) => airportByCode(code)?.city ?? WORLD_AIRPORTS.find(([c]) => c === code)?.[1] ?? code;
+/** "phuket", "hkt", "Singapore" → airport code; null when nothing matches. */
+export function findAirport(text: string) {
+  const t = text.trim().toLowerCase();
+  if (!t) return null;
+  const all: [string, string, string][] = [...THAI_AIRPORTS.map((a) => [a.code, a.city, a.name] as [string, string, string]), ...WORLD_AIRPORTS.map(([c, n]) => [c, n, n] as [string, string, string])];
+  return (all.find(([c]) => c.toLowerCase() === t) ?? all.find(([, city, name]) => city.toLowerCase().startsWith(t) || name.toLowerCase().startsWith(t))
+    ?? all.find(([, city, name]) => city.toLowerCase().includes(t) || name.toLowerCase().includes(t)))?.[0] ?? (/^[a-z]{3}$/.test(t) ? t.toUpperCase() : null);
+}

@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowLeftRight, CalendarDays, Plane } from "lucide-react";
+import { CalendarDays, Plane, RefreshCw } from "lucide-react";
 import { useState } from "react";
-import { THAI_AIRPORTS, WORLD_AIRPORTS, airportLabel, cleanFlightNumber, touchesThailand } from "@/lib/thai-flights";
+import { THAI_AIRPORTS, WORLD_AIRPORTS, airportLabel, cleanFlightNumber, findAirport, touchesThailand } from "@/lib/thai-flights";
 
 type Point = { iata: string | null; airport: string | null; city: string | null; scheduled: string | null; revised: string | null; actual: string | null; terminal: string | null; gate: string | null; belt: string | null };
 type Result = { flightNumber: string; date: string; status: string; airline: string | null; aircraft: string | null; departure: Point; arrival: Point; checkedAt: string };
@@ -40,7 +40,7 @@ const niceDate = (d: string) => { const t = new Date(`${d}T00:00:00Z`); return `
 export function FlightStatusSearch() {
   const [mode, setMode] = useState<"flight" | "route">("flight");
   const [flight, setFlight] = useState("");
-  const [from, setFrom] = useState("BKK");
+  const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [date, setDate] = useState(today);
   const [busy, setBusy] = useState(false);
@@ -67,8 +67,9 @@ export function FlightStatusSearch() {
       if (!no) { setError("Enter a flight number, e.g. TG103 or FD3010."); return; }
       void ask({ flightNumber: no });
     } else {
-      const f = from.trim().toUpperCase(), t = to.trim().toUpperCase();
-      if (!/^[A-Z]{3}$/.test(f) || !/^[A-Z]{3}$/.test(t)) { setError("Enter both airports as 3-letter codes, e.g. BKK and SIN."); return; }
+      const f = findAirport(from), t = findAirport(to);
+      if (!f || !t) { setError("Enter a city or airport for both, e.g. Bangkok and Singapore."); return; }
+      setFrom(f); setTo(t);
       if (!touchesThailand(f, t)) { setError("One of the airports must be in Thailand."); return; }
       void ask({ from: f, to: t });
     }
@@ -77,7 +78,7 @@ export function FlightStatusSearch() {
   const tab = (m: "flight" | "route", label: string) => <button type="button" role="tab" aria-selected={mode === m} onClick={() => { setMode(m); setError(""); setResults([]); setRoute(null); }}
     className={`relative flex-1 py-4 text-[17px] transition ${mode === m ? "font-bold text-[#C96100] after:absolute after:bottom-0 after:left-1/2 after:h-[3px] after:w-10 after:-translate-x-1/2 after:rounded-full after:bg-[#FE8B05]" : "text-[#211726]"}`}>{label}</button>;
   const label = "block text-[14px] text-slate-500";
-  const input = "[&::-webkit-calendar-picker-indicator]:hidden mt-1 w-full border-0 bg-transparent p-0 text-[22px] font-bold text-[#211726] outline-none placeholder:font-semibold placeholder:text-slate-400";
+  const input = "wd-noarrow mt-1 w-full border-0 bg-transparent p-0 text-[22px] font-bold text-[#211726] outline-none placeholder:font-semibold placeholder:text-slate-400";
 
   return <div>
     <form onSubmit={search} className="overflow-hidden rounded-2xl bg-white shadow-[0_6px_24px_rgba(33,23,38,.10)]">
@@ -87,10 +88,10 @@ export function FlightStatusSearch() {
           <span className={label}>Flight number</span>
           <input value={flight} onChange={(e) => setFlight(e.target.value)} placeholder="Please enter a flight number" autoCapitalize="characters" autoComplete="off" className={input} />
           <span className="mt-1 block text-[13px] text-slate-400">e.g. TG103</span>
-        </label> : <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2 border-b border-slate-200 py-4">
-          <label className="min-w-0"><span className={label}>From</span><input value={from} onChange={(e) => setFrom(e.target.value.toUpperCase().slice(0, 3))} list="wd-airports" placeholder="BKK" autoCapitalize="characters" autoComplete="off" className={input} /><span className="mt-1 block truncate text-[13px] text-slate-400">{from.length === 3 ? airportLabel(from) : "City or airport code"}</span></label>
-          <button type="button" aria-label="Swap airports" onClick={() => { setFrom(to); setTo(from); }} className="mb-6 grid size-10 place-items-center rounded-full border border-slate-200 text-[#C96100]"><ArrowLeftRight size={18} /></button>
-          <label className="min-w-0 text-right"><span className={label}>To</span><input value={to} onChange={(e) => setTo(e.target.value.toUpperCase().slice(0, 3))} list="wd-airports" placeholder="SIN" autoCapitalize="characters" autoComplete="off" className={`${input} text-right`} /><span className="mt-1 block truncate text-[13px] text-slate-400">{to.length === 3 ? airportLabel(to) : "City or airport code"}</span></label>
+        </label> : <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-slate-200 py-4">
+          <label className="min-w-0"><span className={label}>Departure</span><input value={from} onChange={(e) => setFrom(e.target.value)} list="wd-airports" placeholder="From" autoComplete="off" className={input} /><span className="mt-1 block truncate text-[14px] text-slate-500">{from && findAirport(from) ? airportLabel(findAirport(from)!) : "City or airport"}</span></label>
+          <button type="button" aria-label="Swap departure and arrival" onClick={() => { setFrom(to); setTo(from); }} className="relative grid size-14 place-items-center rounded-full text-[#FE8B05]"><RefreshCw size={52} strokeWidth={1} className="absolute text-[#FE8B05]/40" /><Plane size={24} className="fill-[#FE8B05]" /></button>
+          <label className="min-w-0 text-right"><span className={label}>Arrival</span><input value={to} onChange={(e) => setTo(e.target.value)} list="wd-airports" placeholder="To" autoComplete="off" className={`${input} text-right`} /><span className="mt-1 block truncate text-[14px] text-slate-500">{to && findAirport(to) ? airportLabel(findAirport(to)!) : "City or airport"}</span></label>
           <datalist id="wd-airports">{THAI_AIRPORTS.map((a) => <option key={a.code} value={a.code}>{a.city}</option>)}{WORLD_AIRPORTS.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</datalist>
         </div>}
         <label className="relative block py-4">
