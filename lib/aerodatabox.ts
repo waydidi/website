@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { touchesThailand } from "@/lib/thai-flights";
+import { airportByCode, touchesThailand } from "@/lib/thai-flights";
 
 // Flight status from AeroDataBox (bought on API.market or RapidAPI). Results are cached in D1 and
 // every call to the paid API is counted, with a daily cap so the bill can't run away.
@@ -69,7 +69,7 @@ const point = (p?: RawPoint): FlightPoint => ({
   iata: p?.airport?.iata ?? null, airport: p?.airport?.name ?? null, city: p?.airport?.municipalityName ?? null,
   scheduled: p?.scheduledTime?.local ?? null, revised: p?.revisedTime?.local ?? null, actual: p?.runwayTime?.local ?? null,
   terminal: p?.terminal ?? null, gate: p?.gate ?? null, belt: p?.baggageBelt ?? null,
-  lat: p?.airport?.location?.lat ?? null, lon: p?.airport?.location?.lon ?? null, checkIn: p?.checkInDesk ?? null,
+  lat: p?.airport?.location?.lat ?? airportByCode(p?.airport?.iata ?? "")?.lat ?? null, lon: p?.airport?.location?.lon ?? airportByCode(p?.airport?.iata ?? "")?.lon ?? null, checkIn: p?.checkInDesk ?? null,
 });
 
 /** How long a result stays fresh: finished flights for hours, flights about to move for minutes. */

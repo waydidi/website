@@ -79,28 +79,39 @@ function weatherLabel(code: number): [string, typeof Sun] {
   return ["Showers", CloudRain];
 }
 
-/** Arrival-day forecast (free, no key). Hidden when the date is outside the 16-day forecast or it fails. */
+/** Weather at the arrival airport: right now, and the forecast for the arrival day (Open-Meteo, free, no key). */
 function Weather({ p }: { p: FlightPoint }) {
   const day = parts(p.revised ?? p.scheduled)?.[1];
-  const [w, setW] = useState<{ code: number; min: number; max: number } | null>(null);
+  const [w, setW] = useState<{ now: { code: number; temp: number } | null; day: { code: number; min: number; max: number; rain: number | null } | null } | null>(null);
   useEffect(() => {
-    if (p.lat === null || p.lon === null || !day) return;
+    if (p.lat === null || p.lon === null) return;
     const ctrl = new AbortController();
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&start_date=${day}&end_date=${day}`, { signal: ctrl.signal })
+    // The forecast reaches 16 days ahead; outside that only the current weather is shown.
+    const ahead = day ? (Date.parse(`${day}T00:00:00Z`) - Date.now()) / 86400_000 : null;
+    const inRange = ahead !== null && ahead > -2 && ahead < 15;
+    const range = inRange ? `&start_date=${day}&end_date=${day}` : "&forecast_days=1";
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto${range}`, { signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { daily?: { weather_code?: number[]; temperature_2m_max?: number[]; temperature_2m_min?: number[] } } | null) => {
-        const code = d?.daily?.weather_code?.[0], max = d?.daily?.temperature_2m_max?.[0], min = d?.daily?.temperature_2m_min?.[0];
-        if (typeof code === "number" && typeof max === "number" && typeof min === "number") setW({ code, min: Math.round(min), max: Math.round(max) });
+      .then((d: { current?: { temperature_2m?: number; weather_code?: number }; daily?: { weather_code?: number[]; temperature_2m_max?: number[]; temperature_2m_min?: number[]; precipitation_probability_max?: (number | null)[] } } | null) => {
+        if (!d) return;
+        const c = d.current, code = d.daily?.weather_code?.[0], max = d.daily?.temperature_2m_max?.[0], min = d.daily?.temperature_2m_min?.[0];
+        setW({
+          now: typeof c?.temperature_2m === "number" && typeof c.weather_code === "number" ? { code: c.weather_code, temp: Math.round(c.temperature_2m) } : null,
+          day: inRange && typeof code === "number" && typeof max === "number" && typeof min === "number" ? { code, min: Math.round(min), max: Math.round(max), rain: d.daily?.precipitation_probability_max?.[0] ?? null } : null,
+        });
       }).catch(() => undefined);
     return () => ctrl.abort();
   }, [p.lat, p.lon, day]);
-  if (!w) return null;
-  const [text, Icon] = weatherLabel(w.code);
+  if (!w || (!w.now && !w.day)) return null;
+  const row = (code: number, title: string, sub: string) => { const [text, Icon] = weatherLabel(code); return <div className="flex items-center gap-4 rounded-xl bg-[#F4F5F8] p-4">
+    <Icon size={34} strokeWidth={1.6} className="shrink-0 text-[#211726]" />
+    <div className="min-w-0"><p className="text-[17px] font-semibold">{title.replace("{w}", text)}</p><p className="text-sm text-slate-500">{sub}</p></div>
+  </div>; };
   return <section className="rounded-2xl bg-white p-5">
     <h2 className="text-[20px] font-semibold">You may want to know</h2>
-    <div className="mt-4 flex items-center gap-4 rounded-xl bg-[#F4F5F8] p-4">
-      <Icon size={34} strokeWidth={1.6} className="shrink-0 text-[#211726]" />
-      <div className="min-w-0"><p className="text-[17px] font-semibold">{text} | {w.min} °C – {w.max} °C</p><p className="text-sm text-slate-500">Weather forecast for {place(p)} on your arrival date</p></div>
+    <div className="mt-4 grid gap-3">
+      {w.now && row(w.now.code, `Now: {w} | ${w.now.temp} °C`, `Current weather in ${place(p)}`)}
+      {w.day && row(w.day.code, `{w} | ${w.day.min} °C – ${w.day.max} °C`, `Weather forecast for ${place(p)} on your arrival date${w.day.rain !== null && w.day.rain >= 30 ? ` · ${w.day.rain}% chance of rain` : ""}`)}
     </div>
   </section>;
 }
@@ -172,7 +183,13 @@ function Card({ r }: { r: FlightResult }) {
 }
 
 /** Full-screen results that slide in from the right, like Trip.com. The phone's back button closes it. */
-export function FlightDetail({ flights, onClose }: { flights: FlightResult[]; onClose: () => void }) {
+const withCoords = (p: FlightPoint): FlightPoint => {
+  const a = p.iata ? airportByCode(p.iata) : undefined;
+  return p.lat === null && a ? { ...p, lat: a.lat, lon: a.lon } : p;
+};
+
+export function FlightDetail({ flights: raw, onClose }: { flights: FlightResult[]; onClose: () => void }) {
+  const flights = raw.map((f) => ({ ...f, departure: withCoords(f.departure), arrival: withCoords(f.arrival) }));
   const [leg, setLeg] = useState(0);
   const [shown, setShown] = useState(false);
   const [legsOpen, setLegsOpen] = useState(false);
