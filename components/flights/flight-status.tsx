@@ -1,11 +1,12 @@
 "use client";
 
 import { CalendarDays, Plane, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { FlightMap } from "@/components/flights/flight-map";
 import { THAI_AIRPORTS, WORLD_AIRPORTS, airportLabel, cleanFlightNumber, findAirport, touchesThailand } from "@/lib/thai-flights";
 
-type Point = { iata: string | null; airport: string | null; city: string | null; scheduled: string | null; revised: string | null; actual: string | null; terminal: string | null; gate: string | null; belt: string | null };
-type Result = { flightNumber: string; date: string; status: string; airline: string | null; aircraft: string | null; departure: Point; arrival: Point; checkedAt: string };
+type Point = { iata: string | null; airport: string | null; city: string | null; scheduled: string | null; revised: string | null; actual: string | null; terminal: string | null; gate: string | null; belt: string | null; lat: number | null; lon: number | null };
+type Result = { flightNumber: string; date: string; status: string; airline: string | null; aircraft: string | null; departure: Point; arrival: Point; position: { lat: number; lon: number; track: number | null } | null; checkedAt: string };
 
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
 // Airport local time as sent ("2026-10-06 12:45+07:00") → "12:45".
@@ -59,6 +60,19 @@ export function FlightStatusSearch() {
     } catch { setError("Flight status is unavailable right now."); }
     setBusy(false);
   }
+  // Opened from "Most tracked flights" (/flights?flight=TG103&date=2026-10-06): search straight away.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const no = cleanFlightNumber(q.get("flight") ?? ""), d = q.get("date");
+    if (!no) return;
+    const t = window.setTimeout(() => {
+      setFlight(no);
+      if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) setDate(d);
+      void fetch("/api/flights/status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flightNumber: no, date: d ?? today() }) })
+        .then((r) => r.json().then((data) => (r.ok ? setResults(data.flights ?? []) : setError(data.error ?? "Flight status is unavailable right now.")))).catch(() => undefined);
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
   function lookUp(no: string) { setMode("flight"); setFlight(no); void ask({ flightNumber: no }); }
   function search(e: React.FormEvent) {
     e.preventDefault();
@@ -126,6 +140,8 @@ export function FlightStatusSearch() {
         <Plane className="mt-8 text-[#FE8B05]" size={22} />
         <div className="text-right [&_p]:ml-auto"><Side label="Arrival" p={r.arrival} /></div>
       </div>
+      <FlightMap from={r.departure} to={r.arrival} position={r.position} />
+      {r.position && <p className="mt-2 text-xs text-slate-500">Plane position from the last report.</p>}
       <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500">Local airport times. Updated {new Date(r.checkedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })} (Thailand time). Check with your airline for boarding and gate changes.</p>
       <a href="/airport-transfer" className="mt-4 flex min-h-12 items-center justify-center rounded-xl border border-[#FE8B05] px-3 text-center font-bold text-[#C96100] hover:bg-[#FFF6EC]">Need a ride{r.arrival.city ? ` in ${r.arrival.city}` : ""}? Book an airport transfer</a>
     </div>)}

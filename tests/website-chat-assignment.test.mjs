@@ -10,7 +10,7 @@ const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec("CREATE TABLE drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT,vehicle TEXT,car_plate TEXT,driver_type TEXT,status TEXT,base_location TEXT DEFAULT '',created_at TEXT,updated_at TEXT);");
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql','0088_flight_tracked.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -372,12 +372,15 @@ test('Flight status (AeroDataBox): Thailand-only, cached, counted, missing fligh
  env.AERODATABOX_KEY='k';
  const calls=[];const real=globalThis.fetch;
  globalThis.fetch=async(url,init)=>{calls.push({url:String(url),headers:init.headers});const u=String(url);
-  if(u.includes('/TG103/'))return new Response(JSON.stringify([{number:'TG 103',status:'Delayed',airline:{name:'Thai Airways',iata:'TG'},aircraft:{model:'Airbus A350'},departure:{airport:{iata:'BKK',name:'Suvarnabhumi',municipalityName:'Bangkok'},scheduledTime:{local:'2026-10-06 08:00+07:00'},revisedTime:{local:'2026-10-06 08:40+07:00'},terminal:'1',gate:'D5'},arrival:{airport:{iata:'CNX',name:'Chiang Mai',municipalityName:'Chiang Mai'},scheduledTime:{local:'2026-10-06 09:15+07:00'},baggageBelt:'2'}}]));
+  if(u.includes('/TG103/'))return new Response(JSON.stringify([{number:'TG 103',status:'Delayed',airline:{name:'Thai Airways',iata:'TG'},aircraft:{model:'Airbus A350'},location:{lat:16.1,lon:99.5,pressureAltFt:33000,trueTrack:{deg:350}},departure:{airport:{iata:'BKK',name:'Suvarnabhumi',municipalityName:'Bangkok',location:{lat:13.69,lon:100.75}},scheduledTime:{local:'2026-10-06 08:00+07:00'},revisedTime:{local:'2026-10-06 08:40+07:00'},terminal:'1',gate:'D5'},arrival:{airport:{iata:'CNX',name:'Chiang Mai',municipalityName:'Chiang Mai'},scheduledTime:{local:'2026-10-06 09:15+07:00'},baggageBelt:'2'}}]));
   if(u.includes('/BA117/'))return new Response(JSON.stringify([{number:'BA 117',status:'Expected',departure:{airport:{iata:'LHR'}},arrival:{airport:{iata:'JFK'}}}]));
   return new Response(null,{status:204});};
  try{
   const [f]=await adb.flightStatus('TG103','2026-10-06');
   assert.equal(f.flightNumber,'TG103');assert.equal(f.departure.gate,'D5');assert.equal(f.arrival.belt,'2');assert.equal(f.status,'Delayed');
+  assert.deepEqual([f.departure.lat,f.position.lat,f.position.track,f.position.altFt],[13.69,16.1,350,33000]);assert.match(calls[0].url,/withLocation=true/);
+  await adb.countSearch('TG103','2026-10-06');await adb.countSearch('TG103','2026-10-06');
+  const top=await adb.mostTracked();assert.equal(top[0].flight.flightNumber,'TG103');assert.equal(top[0].date,'2026-10-06');
   assert.equal(calls[0].headers['x-magicapi-key'],'k');assert.match(calls[0].url,/prod\.api\.market.*\/flights\/number\/TG103\/2026-10-06/);
   await adb.flightStatus('TG103','2026-10-06');assert.equal(calls.length,1,'second search served from cache');
   await assert.rejects(adb.flightStatus('BA117','2026-10-06'),/NOT_THAILAND/);

@@ -4,7 +4,7 @@ import { FlightStatusSearch } from "@/components/flights/flight-status";
 import { PublicFooter } from "@/components/public-footer";
 import { JsonLd, breadcrumbSchema, faqSchema } from "@/components/seo";
 import { SITE_URL } from "@/lib/public-content";
-import { latestStats } from "@/lib/aerodatabox";
+import { latestStats, mostTracked } from "@/lib/aerodatabox";
 import { POPULAR_ROUTES, THAI_AIRLINES, THAI_AIRPORTS, airportByCode, airportLabel } from "@/lib/thai-flights";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,8 @@ export const metadata: Metadata = {
   description: "Check the live status of domestic Thai flights and flights to and from Thailand by flight number or route. Then book your airport transfer.",
   alternates: { canonical: `${SITE_URL}${URL_PATH}` },
 };
+
+const STATUS_LABEL: Record<string, string> = { Expected: "Scheduled", CheckIn: "Check-in", Boarding: "Boarding", GateClosed: "Gate closed", Departed: "Departed", EnRoute: "In the air", Approaching: "Landing soon", Delayed: "Delayed", Diverted: "Diverted", Arrived: "Landed", Landed: "Landed", Canceled: "Cancelled" };
 
 const FAQ = [
   { q: "Which flights can I check?", a: "Domestic flights within Thailand and international flights arriving in or departing from Thailand." },
@@ -27,7 +29,7 @@ function Section({ title, sub, children }: { title: string; sub: string; childre
 }
 
 export default async function FlightsPage() {
-  const stats = await latestStats();
+  const [stats, tracked] = await Promise.all([latestStats(), mostTracked()]);
   const dayName = stats ? new Date(`${stats.day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" }) : "";
   const crumbs = [{ name: "Home", path: "/" }, { name: "Flight status", path: URL_PATH }];
   const card = "rounded-2xl border border-slate-200 bg-white p-4 sm:p-5";
@@ -46,6 +48,16 @@ export default async function FlightsPage() {
       </div>
     </div>
     <div className="mx-auto max-w-[1080px] px-4 sm:px-6 lg:px-8">
+
+      {tracked.length > 0 && <Section title="Most tracked flights" sub="Flights people are checking on Waydidi today">
+        <ul className="grid gap-3">{tracked.map(({ date, flight: f }) => <li key={f.flightNumber + date}>
+          <a href={`/flights?flight=${encodeURIComponent(f.flightNumber)}&date=${date}`} className={`${card} flex items-center gap-4 hover:border-[#FE8B05]`}>
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF6EC] text-[#FE8B05]"><Plane size={20} /></span>
+            <div className="min-w-0 flex-1"><p className="font-bold">{f.flightNumber}<span className="font-normal text-slate-500"> | {f.airline ?? ""}</span></p><p className="truncate text-sm text-slate-500">{airportLabel(f.departure.iata ?? "")} ({f.departure.iata}) → {airportLabel(f.arrival.iata ?? "")} ({f.arrival.iata})</p></div>
+            <span className="shrink-0 text-sm font-semibold text-[#2F7A6B]">{STATUS_LABEL[f.status] ?? "Scheduled"} ›</span>
+          </a>
+        </li>)}</ul>
+      </Section>}
 
       {stats && stats.airports.some((a) => a.flights) ? <>
         <Section title="Airport tracker" sub={`Departures at Thailand's busiest airports yesterday (${dayName})`}>

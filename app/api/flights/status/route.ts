@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
-import { flightStatus, routeFlights } from "@/lib/aerodatabox";
+import { countSearch, flightStatus, routeFlights } from "@/lib/aerodatabox";
 import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
 import { cleanFlightNumber } from "@/lib/thai-flights";
 
@@ -35,6 +35,11 @@ export async function POST(request: Request) {
   const window = Math.floor(Date.now() / 600_000);
   const row = await db.prepare("INSERT INTO security_rate_windows(fingerprint,window,attempts) VALUES(?,?,1) ON CONFLICT(fingerprint,window) DO UPDATE SET attempts=attempts+1 RETURNING attempts").bind(who, window).first<{ attempts: number }>();
   if ((row?.attempts ?? 0) > 30) return fail("RATE");
-  try { return NextResponse.json(route ? { route: await routeFlights(from, to, date) } : { flights: await flightStatus(number, date) }); }
+  try {
+    if (route) return NextResponse.json({ route: await routeFlights(from, to, date) });
+    const flights = await flightStatus(number, date);
+    await countSearch(number, date).catch(() => undefined);
+    return NextResponse.json({ flights });
+  }
   catch (e) { return fail(e instanceof Error ? e.message : "FLIGHT_API_UNAVAILABLE"); }
 }

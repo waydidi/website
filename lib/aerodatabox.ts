@@ -8,10 +8,13 @@ export type FlightPoint = {
   iata: string | null; airport: string | null; city: string | null;
   scheduled: string | null; revised: string | null; actual: string | null;
   terminal: string | null; gate: string | null; belt: string | null;
+  lat: number | null; lon: number | null;
 };
+/** Where the plane is now (only while it's flying and the API has a recent report). */
+export type FlightPosition = { lat: number; lon: number; altFt: number | null; speedKt: number | null; track: number | null; at: string | null };
 export type FlightStatus = {
   flightNumber: string; date: string; status: string; airline: string | null; airlineIata: string | null;
-  aircraft: string | null; departure: FlightPoint; arrival: FlightPoint; checkedAt: string;
+  aircraft: string | null; departure: FlightPoint; arrival: FlightPoint; position: FlightPosition | null; checkedAt: string;
 };
 
 const DAILY_CAP = 300;
@@ -39,9 +42,10 @@ async function claimCall() {
 type Raw = {
   number?: string; status?: string; airline?: { name?: string; iata?: string }; aircraft?: { model?: string };
   departure?: RawPoint; arrival?: RawPoint;
+  location?: { lat?: number; lon?: number; pressureAltFt?: number; groundSpeed?: { kt?: number }; trueTrack?: { deg?: number }; reportedAtUtc?: string };
 };
 type RawPoint = {
-  airport?: { iata?: string; name?: string; municipalityName?: string };
+  airport?: { iata?: string; name?: string; municipalityName?: string; location?: { lat?: number; lon?: number } };
   scheduledTime?: { local?: string }; revisedTime?: { local?: string }; runwayTime?: { local?: string };
   terminal?: string; gate?: string; baggageBelt?: string;
 };
@@ -49,6 +53,7 @@ const point = (p?: RawPoint): FlightPoint => ({
   iata: p?.airport?.iata ?? null, airport: p?.airport?.name ?? null, city: p?.airport?.municipalityName ?? null,
   scheduled: p?.scheduledTime?.local ?? null, revised: p?.revisedTime?.local ?? null, actual: p?.runwayTime?.local ?? null,
   terminal: p?.terminal ?? null, gate: p?.gate ?? null, belt: p?.baggageBelt ?? null,
+  lat: p?.airport?.location?.lat ?? null, lon: p?.airport?.location?.lon ?? null,
 });
 
 /** How long a result stays fresh: finished flights for hours, flights about to move for minutes. */
@@ -68,7 +73,7 @@ export async function flightStatus(flightNumber: string, date: string): Promise<
   }
   if (!flightApiConfigured()) throw new Error("FLIGHT_API_NOT_CONFIGURED");
   if (!await claimCall()) throw new Error("FLIGHT_API_LIMIT");
-  const { url, headers } = endpoint(`/flights/number/${encodeURIComponent(flightNumber)}/${date}?withAircraftImage=false&withLocation=false`);
+  const { url, headers } = endpoint(`/flights/number/${encodeURIComponent(flightNumber)}/${date}?withAircraftImage=false&withLocation=true`);
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });
   const now = new Date().toISOString();
   const save = (value: unknown, ms: number) => db().prepare("INSERT INTO flight_lookups(cache_key,result_json,fetched_at,expires_at) VALUES(?,?,?,?) ON CONFLICT(cache_key) DO UPDATE SET result_json=excluded.result_json,fetched_at=excluded.fetched_at,expires_at=excluded.expires_at")
@@ -81,6 +86,8 @@ export async function flightStatus(flightNumber: string, date: string): Promise<
     flightNumber: (f.number ?? flightNumber).replace(/\s+/g, ""), date, status: f.status ?? "Unknown",
     airline: f.airline?.name ?? null, airlineIata: f.airline?.iata ?? null, aircraft: f.aircraft?.model ?? null,
     departure: point(f.departure), arrival: point(f.arrival), checkedAt: now,
+    position: typeof f.location?.lat === "number" && typeof f.location?.lon === "number"
+      ? { lat: f.location.lat, lon: f.location.lon, altFt: f.location.pressureAltFt ?? null, speedKt: f.location.groundSpeed?.kt ?? null, track: f.location.trueTrack?.deg ?? null, at: f.location.reportedAtUtc ?? null } : null,
   }));
   // Thailand only. A flight number with a stop (e.g. LHR → DXB → BKK) is shown with all its legs when any leg
   // starts or ends in Thailand; flights that never touch Thailand aren't shown (and are remembered as such).
@@ -99,6 +106,8 @@ export type RouteFlight = {
 type FidsItem = { number?: string; status?: string; airline?: { name?: string }; codeshareStatus?: string; movement?: RawPoint };
 
 /** One airport's departures or arrivals for a day (two 12-hour calls; cached 15 minutes and shared by every route search). */
+/** The provider's last airport-board error, kept so a failed stats run can say why. */
+let lastBoardError = "";
 export async function airportBoard(iata: string, direction: "Departure" | "Arrival", date: string) {
   const key = `board:${iata}:${direction}:${date}`;
   const cached = await db().prepare("SELECT result_json FROM flight_lookups WHERE cache_key=? AND expires_at>?").bind(key, new Date().toISOString()).first<{ result_json: string }>();
@@ -111,7 +120,12 @@ export async function airportBoard(iata: string, direction: "Departure" | "Arriv
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });
     if (res.status === 429) throw new Error("FLIGHT_API_LIMIT");
     if (res.status === 204) continue;
-    if (!res.ok) { console.error("aerodatabox board", res.status); throw new Error(res.status === 400 || res.status === 404 ? "AIRPORT_NOT_FOUND" : "FLIGHT_API_UNAVAILABLE"); }
+    if (!res.ok) {
+      const detail = (await res.text().catch(() => "")).slice(0, 200);
+      console.error("aerodatabox board", res.status, detail);
+      lastBoardError = `HTTP ${res.status}: ${detail}`;
+      throw new Error(res.status === 400 || res.status === 404 ? "AIRPORT_NOT_FOUND" : "FLIGHT_API_UNAVAILABLE");
+    }
     const body = await res.json().catch(() => ({})) as { departures?: FidsItem[]; arrivals?: FidsItem[] };
     items.push(...(direction === "Departure" ? body.departures : body.arrivals) ?? []);
   }
@@ -193,11 +207,27 @@ export async function dailyStatsIfDue(at: Date) {
     await db().prepare("UPDATE flight_stats SET stats_json=?,status='done' WHERE day=?").bind(JSON.stringify(buildStats(day, boards)), day).run();
   } catch (e) {
     console.error("flight stats failed", e instanceof Error ? e.message : "unknown");
-    await db().prepare("UPDATE flight_stats SET status='failed' WHERE day=?").bind(day).run();
+    await db().prepare("UPDATE flight_stats SET status='failed',stats_json=? WHERE day=?").bind(JSON.stringify({ error: e instanceof Error ? e.message : "unknown", detail: lastBoardError }), day).run();
   }
 }
 
 export async function latestStats() {
   const row = await db().prepare("SELECT stats_json FROM flight_stats WHERE status='done' ORDER BY day DESC LIMIT 1").first<{ stats_json: string }>().catch(() => null);
   return row ? JSON.parse(row.stats_json) as FlightStats : null;
+}
+
+// ---- Most tracked flights: counted per search, shown from saved results (no extra API calls) ----
+
+export async function countSearch(flightNumber: string, date: string) {
+  const day = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+  await db().prepare("INSERT INTO flight_tracked(day,flight_number,flight_date,searches) VALUES(?,?,?,1) ON CONFLICT(day,flight_number,flight_date) DO UPDATE SET searches=searches+1").bind(day, flightNumber, date).run();
+}
+
+/** Today's most searched flights (Thailand time) with their last saved status. */
+export async function mostTracked(limit = 5) {
+  const day = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+  const { results } = await (db() as unknown as { prepare: (s: string) => { bind: (...v: unknown[]) => { all: <T>() => Promise<{ results: T[] }> } } })
+    .prepare("SELECT t.flight_number,t.flight_date,l.result_json FROM flight_tracked t JOIN flight_lookups l ON l.cache_key=t.flight_date||':'||t.flight_number WHERE t.day=? AND l.result_json LIKE '[%' ORDER BY t.searches DESC LIMIT ?")
+    .bind(day, limit).all<{ flight_number: string; flight_date: string; result_json: string }>().catch(() => ({ results: [] as { flight_number: string; flight_date: string; result_json: string }[] }));
+  return results.map((r) => ({ date: r.flight_date, flight: (JSON.parse(r.result_json) as FlightStatus[])[0] })).filter((r) => r.flight);
 }
