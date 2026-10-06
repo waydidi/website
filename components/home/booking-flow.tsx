@@ -466,7 +466,7 @@ export function BookingFlow({
     const ref = params.get("ref");
     if (ref && /^blog:[a-z0-9-]{1,90}$/.test(ref)) { try { sessionStorage.setItem("waydidi_source", ref); } catch { /* storage blocked */ } }
     const mode = params.get("rebook");
-    if (mode !== "again" && mode !== "return" && mode !== "chat") return;
+    if (mode !== "again" && mode !== "return" && mode !== "chat" && mode !== "flight") return;
     const count = (key: string, fallback: number) => {
       const value = Number(params.get(key));
       return Number.isInteger(value) && value > 0 && value <= 20 ? value : fallback;
@@ -482,14 +482,17 @@ export function BookingFlow({
     setExtraBagSets(Math.max(0, luggage - passengers));
     setBooking((current) => ({
       ...current,
-      pickup: params.get("pickup")?.slice(0, 300) ?? current.pickup,
-      dropoff: hourly ? current.dropoff : params.get("dropoff")?.slice(0, 300) ?? current.dropoff,
+      pickup: params.get("pickup")?.slice(0, 300) ?? (mode === "flight" ? "" : current.pickup),
+      // A flight link only knows the airport end; the customer adds their hotel.
+      dropoff: hourly ? current.dropoff : params.get("dropoff")?.slice(0, 300) ?? (mode === "flight" ? "" : current.dropoff),
       passengers,
       luggage,
       bookedHours: hourly ? count("hours", current.bookedHours) : current.bookedHours,
       // Links from Non (chat) also carry the date and time the customer gave.
-      ...(mode === "chat" && /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? { date: params.get("date")! } : {}),
-      ...(mode === "chat" && /^([01]\d|2[0-3]):[0-5]\d$/.test(params.get("time") ?? "") ? { time: params.get("time")! } : {}),
+      ...((mode === "chat" || mode === "flight") && /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? { date: params.get("date")! } : {}),
+      ...((mode === "chat" || mode === "flight") && /^([01]\d|2[0-3]):[0-5]\d$/.test(params.get("time") ?? "") ? { time: params.get("time")! } : {}),
+      // From the flight status page: the flight number is filled in for the driver.
+      ...(mode === "flight" && /^[A-Z0-9]{3,8}$/.test(params.get("flight") ?? "") ? { flightNumber: params.get("flight")! } : {}),
     }));
     const vehicle = params.get("vehicle");
     if (vehicle && vehicle in VEHICLES) setVehicle(vehicle);
