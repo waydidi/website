@@ -401,7 +401,7 @@ test('check booking: reference + surname must both match; wrong guesses are limi
  await db.exec('CREATE TABLE IF NOT EXISTS security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
  const lk=await vite.ssrLoadModule('/lib/cee/booking-lookup.ts');
  const ok=await lk.checkBooking('look-1','mc7q2p',' choksi ');assert.equal(ok.ok,true);assert.equal(ok.booking.statusText,'Confirmed');assert.equal(ok.booking.cashDue,2400);
- assert.ok(ok.booking.rows.some(([k,v])=>k==='Pickup'&&v==='14/12/2026 12:45'));
+ assert.ok(ok.booking.rows.some(([k,v])=>k==='Date/Time'&&v==='14/12/2026 12:45'));
  const bad=await lk.checkBooking('look-2','MC7Q2P','Smith');assert.equal(bad.ok,false);assert.doesNotMatch(bad.reason,/surname is wrong/i);
  for(let i=0;i<5;i++)await lk.checkBooking('look-3','ABCDEF','x');
  const locked=await lk.checkBooking('look-3','MC7Q2P','Choksi');assert.equal(locked.ok,false);assert.match(locked.reason,/Too many tries/);

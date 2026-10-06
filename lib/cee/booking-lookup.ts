@@ -47,13 +47,16 @@ export async function checkBooking(conversationId: string, referenceIn: string, 
   const car = (VEHICLES as Record<string, { name: string }>)[b.vehicle]?.name ?? b.vehicle;
   const cashDue = b.payment_method === "cash" ? Math.max(0, b.total - (b.amount_paid ?? 0)) : 0;
   const rows: [string, string][] = [
-    ["From", b.pickup], [b.service_type === "hourly" ? "Service" : "To", b.service_type === "hourly" ? `${b.booked_hours ?? ""} hours with driver` : b.dropoff],
-    ["Pickup", `${day(b.pickup_date)} ${b.pickup_time}`],
+    ["Lead passenger", `${b.customer_name} ${b.customer_surname ?? ""}`.trim()],
+    ["No. of passenger", `${b.passengers} people, ${b.luggage} bags`],
+    ["Date/Time", `${day(b.pickup_date)} ${b.pickup_time}`],
     ...(b.return_date && b.return_time ? [["Return", `${day(b.return_date)} ${b.return_time}`] as [string, string]] : []),
+    ["From", b.pickup], [b.service_type === "hourly" ? "Service" : "To", b.service_type === "hourly" ? `${b.booked_hours ?? ""} hours with driver` : b.dropoff],
     ...(b.flight_number ? [["Flight", b.flight_number] as [string, string]] : []),
     ["Vehicle", car],
     ["Payment", cashDue ? `฿${cashDue.toLocaleString("en-US")} (Cash to driver)` : b.payment_status === "paid" || b.amount_paid >= b.total ? `฿${b.total.toLocaleString("en-US")} (Paid)` : `฿${b.total.toLocaleString("en-US")} (${b.payment_status === "pending" ? "Not paid yet" : b.payment_status})`],
   ];
+
   return { ok: true, booking: {
     reference: b.reference, status: b.status, statusText: STATUS[b.status] ?? b.status, leadName: `${b.customer_name} ${b.customer_surname ?? ""}`.trim(), rows, people: b.passengers, bags: b.luggage, cashDue,
     driver: driver ? { name: driver.name, car: driver.car, plate: driver.plate, phone: soon ? driver.phone : null } : null,
