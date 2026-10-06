@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { FarSkyline, NearLandmarks, TukTuk } from "@/components/maintenance/bangkok-scene";
 import { MaintenanceSignIn } from "@/components/maintenance/sign-in";
-import { WaydidiMark, WaydidiWordmark } from "@/components/waydidi-logo";
+import { FlyingBird } from "@/components/maintenance/flying-bird";
+import { WaydidiWordmark } from "@/components/waydidi-logo";
 
 export const metadata: Metadata = { title: "Waydidi · Back soon", robots: { index: false, follow: false } };
 
@@ -17,7 +18,6 @@ export default function MaintenancePage() {
       .wd-mt .scroll-near { animation: wd-scroll 70s linear infinite; }
       .wd-mt .bird-x { animation: wd-across 16s linear infinite; }
       .wd-mt .bird-y { animation: wd-wave 4s ease-in-out infinite; }
-      .wd-mt .wing { animation: wd-flap .28s ease-in-out infinite alternate; transform-origin: 50% 70%; }
       .wd-mt .boat { animation: wd-sail 26s linear infinite; }
       .wd-mt .rock { animation: wd-rock 2.4s ease-in-out infinite; transform-origin: 50% 80%; }
       .wd-mt .tuk { animation: wd-drive 34s linear infinite; }
@@ -29,7 +29,6 @@ export default function MaintenancePage() {
       /* Bird: from off the left edge to off the right edge, rising and dipping as it goes. */
       @keyframes wd-across { from { transform: translateX(-160px) } to { transform: translateX(calc(100vw + 40px)) } }
       @keyframes wd-wave { 0%, 100% { transform: translateY(0) rotate(4deg) } 50% { transform: translateY(-34px) rotate(-6deg) } }
-      @keyframes wd-flap { from { transform: perspective(300px) rotateX(0deg) scaleY(1) } to { transform: perspective(300px) rotateX(58deg) scaleY(.7) skewX(-6deg) } }
       @keyframes wd-sail { from { transform: translateX(-220px) } to { transform: translateX(calc(100vw + 20px)) } }
       @keyframes wd-rock { 0%, 100% { transform: rotate(-1.5deg) translateY(0) } 50% { transform: rotate(1.5deg) translateY(2px) } }
       @keyframes wd-drive { from { transform: translateX(calc(100vw + 20px)) } to { transform: translateX(-120px) } }
@@ -47,7 +46,7 @@ export default function MaintenancePage() {
 
     {/* The Waydidi bird flying left to right across the sky, all the time */}
     <div className="pointer-events-none absolute left-0 top-[9%] z-10" aria-hidden>
-      <div className="bird-x"><div className="bird-y"><div className="wing"><WaydidiMark className="size-20 text-white drop-shadow-[0_6px_14px_rgba(150,70,0,.35)] sm:size-24" /></div></div></div>
+      <div className="bird-x"><div className="bird-y"><FlyingBird className="h-20 w-auto text-white drop-shadow-[0_6px_14px_rgba(150,70,0,.35)] sm:h-24" /></div></div>
     </div>
 
     {/* Message */}
