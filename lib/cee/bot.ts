@@ -3,7 +3,7 @@ import type { BetaMessageParam, BetaTool, BetaToolResultBlockParam } from "@anth
 import { env } from "cloudflare:workers";
 import { sendCard, telegramConfigured } from "@/lib/telegram/client";
 import { esc } from "@/lib/telegram/cards";
-import { addBotMessage, conversationById, messagesFor, pauseBot, setBotThinking } from "@/lib/website-chat";
+import { addBotMessage, conversationById, messagesFor, pauseBot, refreshCard, setBotThinking } from "@/lib/website-chat";
 import { chatPaymentsEnabled, createChatPaymentLink } from "@/lib/chat-pay";
 import { cardText, quoteCard, type ChatCard, type PaymentCard } from "@/lib/chat-cards";
 import { searchKnowledge } from "./knowledge";
@@ -278,5 +278,7 @@ async function handOver(conversationId: string, reason: string, summary: string)
   await pauseBot(conversationId, true, JSON.stringify({ handover: reason, summary, at: new Date().toISOString() }));
   const c = await conversationById(conversationId);
   if (c?.telegram_message_id && telegramConfigured())
-    await sendCard(`<b>Non handed over ${esc(c.public_id)}</b>\n${esc(reason)}\n<blockquote>${esc(summary)}</blockquote>\nReply to the card to answer the customer.`, undefined, c.telegram_message_id).catch(() => undefined);
+    await sendCard(`<b>Non handed over ${esc(c.public_id)}</b> · a person is needed\n${esc(reason)}\n<blockquote>${esc(summary)}</blockquote>\nTap Assign on the card to take this chat.`, undefined, c.telegram_message_id).catch(() => undefined);
+  // The card switches from "Non is answering" to Assign / Let other assign.
+  if (c) await refreshCard(c.id, true).catch(() => undefined);
 }

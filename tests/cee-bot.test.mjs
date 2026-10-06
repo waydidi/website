@@ -219,10 +219,10 @@ test('scheduling hands the chat to its Durable Object and shows typing at once',
  assert.deepEqual(seen,[[id,id]]);assert.ok((await db.prepare('SELECT bot_thinking_at t FROM website_conversations WHERE id=?').bind(id).first()).t);
  delete globalThis.__ceeTest.env.NON_AGENT;assert.equal(schedule.WAIT_MS,5000);
 });
-test('Telegram gets customer messages and staff replies, not Non replies; waits out a short 429',async()=>{
+test('Telegram gets customer messages, Non replies (under the card) and staff replies; waits out a short 429',async()=>{
  Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
  const id=await conversation('hi');await db.prepare('UPDATE website_conversations SET telegram_message_id=500 WHERE id=?').bind(id).run();
- tgCalls.length=0;await chat.addBotMessage(id,'Hello from Non');assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,0);
+ tgCalls.length=0;await chat.addBotMessage(id,'Hello from Non');const echo=tgCalls.filter((c)=>c.method==='sendMessage');assert.equal(echo.length,1);assert.match(echo[0].body.text,/Non \(AI\)/);assert.equal(echo[0].body.reply_parameters?.message_id??echo[0].body.reply_to_message_id,500);
  tg429=1;await chat.addStaffMessage(id,'Anna here',{name:'Anna',staffId:'anna'},'dashboard');
  assert.ok(tgCalls.some((c)=>c.method==='sendMessage'&&/Anna here/.test(c.body.text)));
  delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
@@ -319,4 +319,12 @@ test('website chat shows quotes, payment links and confirmations as rich cards (
  // Unsafe or malformed cards are never shown
  assert.equal(cards.parseCard(JSON.stringify({type:'quote',title:'x',cars:[{name:'a',price:1,url:'javascript:alert(1)'}]})),null);
  assert.equal(cards.parseCard('not json'),null);
+});
+
+test('while Non answers, the Telegram card says so and offers Take over; after a handover it asks for a person',async()=>{
+ const cards=await vite.ssrLoadModule('/lib/telegram/cards.ts');
+ const c={id:'c1',public_id:'WD_chat_1',status:'open',customer_name:null,customer_email:'a@b.co',customer_phone:null,source_title:null,source_url:null,topic:null,assigned_name:null,created_at:new Date().toISOString()};
+ assert.match(cards.conversationCard(c,null,true,true),/Non \(AI\) is answering/);
+ assert.deepEqual(cards.conversationKeyboard(c,'https://x',true).flat().map((b)=>b.text),['Take over','Open in Admin']);
+ assert.deepEqual(cards.conversationKeyboard(c,'https://x',false).flat().map((b)=>b.text),['Assign','Let other assign']);
 });

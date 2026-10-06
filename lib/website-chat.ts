@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { SITE_URL } from "@/lib/site";
 import { deliverToChannel } from "@/lib/channels";
 import { editCard, sendCard, sendPrivate, telegramConfigured } from "@/lib/telegram/client";
-import { conversationCard, conversationKeyboard, customerMessage, esc, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
+import { botEcho, conversationCard, conversationKeyboard, customerMessage, esc, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
 
 // One canonical support conversation, stored in D1. The website widget, the admin inbox and Telegram
 // are three views of the same rows; nothing is routed by name, only by conversation id.
@@ -84,7 +84,8 @@ export async function deliverVisitorMessage(conversationId: string, messageId: s
   try {
     let telegramId: number;
     if (!c.telegram_message_id) {
-      const sent = await sendCard(conversationCard(c, { body: m.body, created_at: m.created_at, from: "visitor" }, true), conversationKeyboard(c, adminUrl(c.id)));
+      const non = await nonAnswering(c);
+      const sent = await sendCard(conversationCard(c, { body: m.body, created_at: m.created_at, from: "visitor" }, true, non), conversationKeyboard(c, adminUrl(c.id), non));
       telegramId = sent.message_id;
       await db().prepare("UPDATE website_conversations SET telegram_message_id=? WHERE id=? AND telegram_message_id IS NULL").bind(telegramId, c.id).run();
     } else {
@@ -157,7 +158,8 @@ export async function addBotMessage(conversationId: string, body: string, card?:
   await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot,card_json) VALUES(?,?,'staff',?,?,'Non',1,?)`).bind(id, c.id, body, now, card ? JSON.stringify(card) : null).run();
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();
   await toChannel(c, id, body);
-  // Not copied to Telegram: the staff group gets customer messages and handovers only (Telegram's group limit).
+  // Copied under the chat's Telegram card so staff can follow what Non says (and step in).
+  if (c.telegram_message_id && telegramConfigured()) await sendCard(botEcho(c.public_id, body), undefined, c.telegram_message_id).catch(() => undefined);
   return id;
 }
 
@@ -262,7 +264,8 @@ export async function refreshCard(conversationId: string, force = false) {
   if (!force && c.telegram_card_at && now - Date.parse(c.telegram_card_at) < 30000) return;
   await db().prepare("UPDATE website_conversations SET telegram_card_at=? WHERE id=?").bind(new Date(now).toISOString(), c.id).run();
   const last = await db().prepare("SELECT sender,COALESCE(sender_name,'Waydidi team') name,body,created_at FROM website_chat_messages WHERE conversation_id=? ORDER BY rowid DESC LIMIT 1").bind(c.id).first<{ sender: string; name: string; body: string; created_at: string }>();
-  await editCard(c.telegram_message_id, conversationCard(c, last ? { body: last.body, created_at: last.created_at, from: last.sender === "visitor" ? "visitor" : last.name } : null, false), conversationKeyboard(c, adminUrl(c.id)));
+  const non = await nonAnswering(c);
+  await editCard(c.telegram_message_id, conversationCard(c, last ? { body: last.body, created_at: last.created_at, from: last.sender === "visitor" ? "visitor" : last.name } : null, false, non), conversationKeyboard(c, adminUrl(c.id), non));
 }
 
 /** Finds the conversation a Telegram reply belongs to: the card, any mirrored message, or a "Reply" prompt. */
@@ -271,4 +274,12 @@ export async function conversationForTelegramMessage(messageId: number) {
     UNION SELECT conversation_id FROM website_chat_messages WHERE telegram_message_id=?1
     UNION SELECT conversation_id FROM telegram_reply_prompts WHERE telegram_message_id=?1 LIMIT 1`).bind(messageId).first<{ id: string }>();
   return row?.id ?? null;
+}
+
+/** True while Non (the AI) is handling this chat: switched on, not paused, not handed to a person. */
+export async function nonAnswering(c: Conversation) {
+  if (c.status === "closed" || c.assigned_name || c.bot_paused) return false;
+  if (!(env as unknown as Record<string, unknown>).ANTHROPIC_API_KEY) return false;
+  const row = await db().prepare("SELECT value FROM app_settings WHERE key='cee_enabled'").first<{ value: string }>().catch(() => null);
+  return row?.value !== "0";
 }

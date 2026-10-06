@@ -29,7 +29,7 @@ const RULE = "============================";
  *   Website chat / Conversation id / Message (between rules) / Email / Origin country / Date-time,
  * with Assign / Let other assign buttons underneath.
  */
-export function conversationCard(c: CardConversation, latest: { body: string; created_at: string; from: string } | null, fresh: boolean) {
+export function conversationCard(c: CardConversation, latest: { body: string; created_at: string; from: string } | null, fresh: boolean, nonAnswering = false) {
   const lines = [
     fresh ? "<b>Website chat</b> (new)" : "<b>Website chat</b>",
     `Conversation <b>${esc(c.public_id)}</b>`,
@@ -45,14 +45,18 @@ export function conversationCard(c: CardConversation, latest: { body: string; cr
     `Date/Time: ${esc(time(c.created_at))}`,
     ...(c.customer_phone ? [`Phone: ${esc(c.customer_phone)}`] : []),
     "",
-    c.assigned_name ? `Assigned to <b>${esc(c.assigned_name)}</b> · ${STATUS_LABEL[c.status]}` : `Not assigned yet · ${STATUS_LABEL[c.status]}`,
+    c.assigned_name ? `Assigned to <b>${esc(c.assigned_name)}</b> · ${STATUS_LABEL[c.status]}`
+      : nonAnswering ? `<b>Non (AI) is answering</b> · no action needed. Tap Take over to reply yourself.`
+      : `Not assigned yet · ${STATUS_LABEL[c.status]}`,
   ];
   return lines.join("\n");
 }
 
-export function conversationKeyboard(c: CardConversation, adminUrl: string): InlineKeyboard {
+export function conversationKeyboard(c: CardConversation, adminUrl: string, nonAnswering = false): InlineKeyboard {
   const id = c.id;
   if (c.status === "closed") return [[{ text: "Reopen", callback_data: `chat_reopen:${id}` }, { text: "Open in Admin", url: adminUrl }]];
+  // Non is handling it: one button to step in (same as Assign: Non stops at once).
+  if (!c.assigned_name && nonAnswering) return [[{ text: "Take over", callback_data: `chat_assign:${id}` }, { text: "Open in Admin", url: adminUrl }]];
   if (!c.assigned_name) return [
     [{ text: "Assign", callback_data: `chat_assign:${id}` }],
     [{ text: "Let other assign", callback_data: `chat_pick:${id}` }],
@@ -72,6 +76,10 @@ export const pickKeyboard = (conversationId: string, team: { telegram_user_id: s
 /** Follow-up customer message, posted as a reply under the conversation card. */
 export const customerMessage = (publicId: string, name: string | null, body: string) =>
   `<b>${esc(publicId)}</b> · ${esc(name || "Website visitor")}\n<blockquote>${esc(clip(body, 3500))}</blockquote>`;
+
+/** Non's reply, posted under the card so staff can follow the conversation. */
+export const botEcho = (publicId: string, body: string) =>
+  `<b>Non (AI)</b> · ${esc(publicId)}\n<blockquote>${esc(clip(body, 1500))}</blockquote>`;
 
 /** A reply sent from the admin dashboard, mirrored so Telegram shows the whole thread. */
 export const staffEcho = (publicId: string, name: string, body: string) =>
