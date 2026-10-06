@@ -7,7 +7,7 @@ import {
   Truck,
   Users, UserRound,
   Newspaper,
-  TicketPercent, Gift, Route, Building2, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Search, Settings } from "lucide-react";
+  TicketPercent, Gift, Route, Building2, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Plane, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -91,6 +91,7 @@ const tabs = [
     icon: Newspaper,
   },
   { href: "/admin/translations", label: "Translations", mobileLabel: "Translate", title: "Website translations", icon: Newspaper },
+  { href: "/admin/flights", label: "Flights", mobileLabel: "Flights", title: "Flight data", icon: Plane },
   { href: "/admin/trips/packages", label: "Trip packages", mobileLabel: "Packages", title: "Trip packages", icon: Route },
   { href: "/admin/trips/live", label: "Live today", mobileLabel: "Live", title: "Live today", icon: Route },
   { href: "/admin/trips", label: "Trip planner", mobileLabel: "Trips", title: "Trip planner", icon: Route },
@@ -114,6 +115,7 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
       { href: "/admin/bookings?type=tour", label: "Tour", match: (p, t) => p.startsWith("/admin/bookings") && t === "tour" },
     ] },
     { href: "/admin/operations", label: "Operations", icon: Truck },
+    { href: "/admin/flights", label: "Flights", icon: Plane },
     { href: "/admin/trips", label: "Trip planner", icon: Route, children: [
       { href: "/admin/trips", label: "Smart trips", match: (p) => p === "/admin/trips" || (p.startsWith("/admin/trips/") && !p.startsWith("/admin/trips/live") && !p.startsWith("/admin/trips/commissions") && !p.startsWith("/admin/trips/packages")) },
       { href: "/admin/trips/packages", label: "Packages" },

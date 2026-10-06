@@ -42,6 +42,7 @@ export function FlightMap({ from, to, position }: { from: Pt; to: Pt; position: 
     if (!ready || !ref.current || !maps || from.lat === null || from.lon === null || to.lat === null || to.lon === null) return;
     const a = { lat: from.lat, lng: from.lon }, b = { lat: to.lat, lng: to.lon };
     let map;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Google refused to draw: hide the empty box
     try { map = new maps.Map(ref.current, { disableDefaultUI: true, zoomControl: true, clickableIcons: false, gestureHandling: "cooperative" }); } catch { setFailed(true); return; }
     const bounds = new maps.LatLngBounds(); bounds.extend(a); bounds.extend(b);
     if (position) bounds.extend({ lat: position.lat, lng: position.lon });

@@ -10,7 +10,7 @@ const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec("CREATE TABLE drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT,vehicle TEXT,car_plate TEXT,driver_type TEXT,status TEXT,base_location TEXT DEFAULT '',created_at TEXT,updated_at TEXT);");
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql','0088_flight_tracked.sql','0089_flight_watch.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql','0088_flight_tracked.sql','0089_flight_watch.sql','0090_flight_settings.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -444,4 +444,27 @@ test('Flight watch: delayed flight of an upcoming pickup → one Thai ⚠️ not
   eta='13:10';await db.exec("DELETE FROM flight_lookups");
   await fw.watchBookingFlights(t('09:30')); assert.equal(sent.length,2);assert.match(sent[1].text,/100 นาที/);
  }finally{globalThis.fetch=real;delete env.AERODATABOX_KEY;delete env.TELEGRAM_BOT_TOKEN;}
+});
+test('Admin → Flights: owner/operations only; daily limit and price saved and used',async()=>{
+ const api=await vite.ssrLoadModule('/app/api/admin/flights/route.ts');
+ const adb=await vite.ssrLoadModule('/lib/aerodatabox.ts');
+ const user=globalThis.__chatTest.user;const role=user.role;
+ const post=(body)=>api.POST(new Request('https://example.invalid/api/admin/flights',{method:'POST',headers:{'content-type':'application/json',origin:'https://example.invalid'},body:JSON.stringify(body)}));
+ try{
+  user.role='support';assert.equal((await api.GET()).status,403);
+  user.role='operations';
+  assert.equal((await post({dailyCap:-1,usdPerCall:0})).status,400);
+  assert.equal((await post({dailyCap:2,usdPerCall:0.002})).status,200);
+  const d=await (await api.GET()).json();
+  assert.deepEqual([d.settings.dailyCap,d.settings.usdPerCall],[2,0.002]);
+  // With a limit of 2 a day, the third new call is refused.
+  globalThis.__chatTest.env.AERODATABOX_KEY='k';const real=globalThis.fetch;
+  globalThis.fetch=async()=>new Response(null,{status:204});
+  await db.exec("DELETE FROM flight_api_usage");
+  try{
+   for(const no of ['AA101','AA102'])await assert.rejects(adb.flightStatus(no,'2026-10-09'),/FLIGHT_NOT_FOUND/);
+   await assert.rejects(adb.flightStatus('AA103','2026-10-09'),/FLIGHT_API_LIMIT/);
+  }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.AERODATABOX_KEY;}
+  await post({dailyCap:300,usdPerCall:0});
+ }finally{user.role=role;}
 });

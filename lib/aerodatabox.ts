@@ -17,7 +17,7 @@ export type FlightStatus = {
   aircraft: string | null; departure: FlightPoint; arrival: FlightPoint; position: FlightPosition | null; checkedAt: string;
 };
 
-const DAILY_CAP = 300;
+export const DEFAULT_CAP = 300;
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
 const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
 const vars = () => env as unknown as Record<string, string | undefined>;
@@ -49,7 +49,9 @@ async function politeFetch(url: string, headers: Record<string, string>) {
 /** Claims one call from today's budget; false when the cap is reached. */
 async function claimCall() {
   const day = new Date().toISOString().slice(0, 10);
-  const row = await db().prepare("INSERT INTO flight_api_usage(day,calls) VALUES(?,1) ON CONFLICT(day) DO UPDATE SET calls=calls+1 WHERE calls<? RETURNING calls").bind(day, DAILY_CAP).first<{ calls: number }>();
+  // The cap is set in Admin → Flights (default 300 calls a day).
+  const cap = (await db().prepare("SELECT daily_cap FROM flight_settings WHERE id=1").first<{ daily_cap: number }>().catch(() => null))?.daily_cap ?? DEFAULT_CAP;
+  const row = await db().prepare("INSERT INTO flight_api_usage(day,calls) VALUES(?,1) ON CONFLICT(day) DO UPDATE SET calls=calls+1 WHERE calls<? RETURNING calls").bind(day, cap).first<{ calls: number }>();
   return Boolean(row);
 }
 
@@ -206,15 +208,16 @@ export function buildStats(day: string, boards: Record<string, FidsItem[]>): Fli
 }
 
 /** Run from the every-minute cron: once a day after 02:00 Thailand time, builds yesterday's stats. */
-export async function dailyStatsIfDue(at: Date) {
+export async function dailyStatsIfDue(at: Date, force = false) {
   if (!flightApiConfigured()) return;
   const bkk = new Date(at.getTime() + 7 * 3600_000);
-  if (bkk.getUTCHours() < 2) return;
+  if (bkk.getUTCHours() < 2 && !force) return;
   const day = new Date(bkk.getTime() - 86400_000).toISOString().slice(0, 10);
   // Claim the day (one run only); a failed run may retry after an hour.
-  const claimed = await db().prepare("INSERT INTO flight_stats(day,status,created_at) VALUES(?,'pending',?) ON CONFLICT(day) DO UPDATE SET status='pending',created_at=excluded.created_at WHERE flight_stats.status='failed' AND flight_stats.created_at<? RETURNING day")
+  const claimed = force ? { day } : await db().prepare("INSERT INTO flight_stats(day,status,created_at) VALUES(?,'pending',?) ON CONFLICT(day) DO UPDATE SET status='pending',created_at=excluded.created_at WHERE flight_stats.status='failed' AND flight_stats.created_at<? RETURNING day")
     .bind(day, at.toISOString(), new Date(at.getTime() - 3600_000).toISOString()).first<{ day: string }>();
   if (!claimed) return;
+  if (force) await db().prepare("INSERT INTO flight_stats(day,status,created_at) VALUES(?,'pending',?) ON CONFLICT(day) DO UPDATE SET status='pending',created_at=excluded.created_at").bind(day, at.toISOString()).run();
   try {
     const boards: Record<string, FidsItem[]> = {};
     for (const iata of STATS_AIRPORTS) boards[iata] = await airportBoard(iata, "Departure", day);
