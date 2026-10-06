@@ -10,7 +10,7 @@ const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec("CREATE TABLE drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT,vehicle TEXT,car_plate TEXT,driver_type TEXT,status TEXT,base_location TEXT DEFAULT '',created_at TEXT,updated_at TEXT);");
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql','0088_flight_tracked.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql','0088_flight_tracked.sql','0089_flight_watch.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -420,4 +420,28 @@ test('Flight stats: built once a day from yesterday\'s departures (5 airports, 1
   assert.deepEqual(s.airlines.map((a)=>[a.name,a.flights]),[['Thai Airways',2],['Thai AirAsia',2]]);
   assert.deepEqual(s.routes[0],{from:'BKK',to:'HKT',flights:2,topAirline:'Thai Airways'});
  }finally{globalThis.fetch=real;delete env.AERODATABOX_KEY;}
+});
+test('Flight watch: delayed flight of an upcoming pickup → one Thai ⚠️ notice on the booking card, repeated only when it moves again',async()=>{
+ const fw=await vite.ssrLoadModule('/lib/flight-watch.ts');
+ const env=globalThis.__chatTest.env;Object.assign(env,{AERODATABOX_KEY:'k',TELEGRAM_BOT_TOKEN:'t',TELEGRAM_CHAT_ID:'-100'});
+ for(const c of ['created_at TEXT','return_date TEXT'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
+ await db.prepare("INSERT INTO bookings(reference,customer_name,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,flight_number,status) VALUES('FW1XYZ','Ann','Phuket International Airport (HKT)','Patong','2026-10-07','11:30',2,2,'economy_sedan','card',1000,'vz 300','confirmed')").run();
+ await db.prepare("INSERT INTO telegram_booking_cards(booking_reference,telegram_message_id,created_at) VALUES('FW1XYZ',9100,?)").bind(new Date().toISOString()).run();
+ let eta='12:40';const sent=[];const real=globalThis.fetch;
+ globalThis.fetch=async(url,init)=>{const u=String(url);
+  if(u.startsWith('https://api.telegram.org')){sent.push(JSON.parse(init.body));return new Response(JSON.stringify({ok:true,result:{message_id:1,chat:{id:-100}}}));}
+  if(u.includes('/VZ300/2026-10-07'))return new Response(JSON.stringify([{number:'VZ 300',status:'Delayed',airline:{name:'Thai Vietjet'},departure:{airport:{iata:'BKK'},scheduledTime:{local:'2026-10-07 09:50+07:00'}},arrival:{airport:{iata:'HKT'},scheduledTime:{local:'2026-10-07 11:30+07:00'},revisedTime:{local:`2026-10-07 ${eta}+07:00`}}}]));
+  return new Response(null,{status:204});};
+ try{
+  const t=(hhmm)=>new Date(Date.parse(`2026-10-07T${hhmm}:00+07:00`));
+  await fw.watchBookingFlights(t('09:07')); assert.equal(sent.length,0,'only on the quarter hour');
+  await fw.watchBookingFlights(t('09:00'));
+  assert.equal(sent.length,1);
+  assert.match(sent[0].text,/⚠️ เครื่องลงช้ากว่าเวลารับ 70 นาที/);assert.match(sent[0].text,/การจอง: FW1XYZ/);assert.match(sent[0].text,/เครื่องลงโดยประมาณ: 12:40/);
+  assert.equal(sent[0].reply_parameters.message_id,9100);
+  await db.exec("DELETE FROM flight_lookups");
+  await fw.watchBookingFlights(t('09:15')); assert.equal(sent.length,1,'same delay: no repeat');
+  eta='13:10';await db.exec("DELETE FROM flight_lookups");
+  await fw.watchBookingFlights(t('09:30')); assert.equal(sent.length,2);assert.match(sent[1].text,/100 นาที/);
+ }finally{globalThis.fetch=real;delete env.AERODATABOX_KEY;delete env.TELEGRAM_BOT_TOKEN;}
 });
