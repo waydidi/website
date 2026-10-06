@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useI18n } from "@/components/i18n-provider";
@@ -51,7 +51,6 @@ export function LocalePicker({ className = "" }: { className?: string }) {
   const [tab, setTab] = useState<"languages" | "currency">("languages");
   const [currency, setCurrency] = useState("THB");
   const { locale, t } = useI18n();
-  const router = useRouter();
 
   const path = usePathname() ?? "/";
   const [chosen, setChosen] = useState<SiteLang>(locale);
@@ -71,8 +70,10 @@ export function LocalePicker({ className = "" }: { className?: string }) {
     const home = path === "/" || path === "/th" || path === "/zh";
     // Homepages have hand-checked Thai/Chinese versions; any other page reloads in the new language.
     // Any unfinished booking is kept in sessionStorage and restored there.
-    if (home && (code === "en" || code === "th" || code === "zh")) router.push(localeInfo[code as Locale].path);
-    else if (home && path !== "/") window.location.assign("/");
+    // Always a full page load: the AI translator reads the language once when the page loads, so a
+    // client-side route change (or staying on the same URL) would keep showing the old language.
+    const target = home ? (code === "en" || code === "th" || code === "zh" ? localeInfo[code as Locale].path : "/") : null;
+    if (target && target !== path) window.location.assign(target);
     else window.location.reload();
   }
   function chooseCurrency(code: string) {

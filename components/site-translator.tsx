@@ -22,7 +22,8 @@ export function SiteTranslator() {
   const path = usePathname() ?? "/";
   const [lang, setLang] = useState<SiteLang>("en");
   const [original, setOriginal] = useState(false);
-  useEffect(() => { const t = window.setTimeout(() => setLang(siteLang()), 0); return () => window.clearTimeout(t); }, []);
+  // Re-read on every page change too, so the chosen language is always the current one.
+  useEffect(() => { const t = window.setTimeout(() => setLang(siteLang()), 0); return () => window.clearTimeout(t); }, [path]);
   const active = lang !== "en" && !untranslatedPath(path) && !original;
 
   useEffect(() => {
