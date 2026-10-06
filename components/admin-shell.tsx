@@ -22,6 +22,7 @@ const FINANCIAL_TABS = [{ href: "/admin/payments", label: "Payments" }, { href: 
 const isFinancialsPath = (pathname: string) => pathname === "/admin/financials" || FINANCIAL_TABS.some(t => pathname === t.href || pathname.startsWith(`${t.href}/`));
 const isActive = (pathname: string, href: string) => href === "/admin/trips" && isFinancialsPath(pathname) ? false : (href === "/admin" ? pathname === "/admin" : (href === "/admin/partners" && isPartnersPath(pathname)) || (href === "/admin/financials" && isFinancialsPath(pathname)) || pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/seasons"))));
 
+const DESKTOP_ONLY = ["/admin/pricing", "/admin/flights", "/admin/trips/packages", "/admin/trips/live", "/admin/trips", "/admin/attractions", "/admin/suppliers"];
 const tabs = [
   { href: "/admin/financials", label: "Financials", mobileLabel: "Financials", title: "Financials", icon: BarChart3 },
   { href: "/admin/chat", label: "Website chat", mobileLabel: "Chat", title: "Website chat", icon: Users },
@@ -366,8 +367,8 @@ function MobileTabBar({ pathname }: { pathname: string }) {
   const [MAIN, setMain] = useState(DEFAULT_MAIN);
   const [editing, setEditing] = useState<number | null>(null);
   const hold = useRef<{ timer?: number; fired?: boolean }>({});
-  // Fare management is desktop-only, so it is left out of the phone menu.
-  const phoneTabs = tabs.filter((tab) => tab.href !== "/admin/pricing");
+  // Desktop-only sections are left out of the phone menu: fare management, flight data and the trip planner pages.
+  const phoneTabs = tabs.filter((tab) => !DESKTOP_ONLY.includes(tab.href));
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(MAIN_KEY) ?? "null") as string[] | null;
