@@ -39,8 +39,8 @@ function PriceIncluded({ r }: { r: UpcomingRide }) {
   const ferry = includesKohChangFerry(r.pickup, r.dropoff);
   const items = ["Private vehicle with driver", "Fuel and driver costs", ...(ferry ? [`Koh Chang car ferry tickets for all ${r.passengers} ${r.passengers === 1 ? "passenger" : "passengers"}`] : [])];
   return <span className="relative inline-flex items-center gap-1.5">
-    {r.total ? `THB ${r.total.toLocaleString("en-US")}` : "Not set"}
     <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="What's included" className="grid size-[18px] place-items-center rounded-full bg-[#FE8B05] text-[11px] font-black leading-none text-white hover:bg-[#E67900]">!</button>
+    {r.total ? `THB ${r.total.toLocaleString("en-US")}` : "Not set"}
     {open && <span role="dialog" aria-label="What's included" className="absolute right-0 top-[calc(100%+6px)] z-20 w-[260px] rounded-xl border border-slate-200 bg-white p-3 text-left text-[13px] font-normal shadow-lg">
       <span className="mb-1.5 block font-bold">What&apos;s included</span>
       <span className="grid gap-1">{items.map((i) => <span key={i} className={`flex gap-1.5 ${i.startsWith("Koh Chang") ? "font-semibold text-[#2F7A6B]" : "text-slate-700"}`}><span aria-hidden>✓</span>{i}</span>)}</span>
