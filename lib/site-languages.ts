@@ -1,6 +1,5 @@
 // Languages the whole site can be shown in. English is the source; every other language is
-// translated by AI (cached and reviewable in Admin → Translations). Thai and Chinese homepages
-// also have hand-checked versions at /th and /zh.
+// translated by AI (Haiku; cached and reviewable in Admin → Translations).
 
 export type SiteLang = "en" | "th" | "zh" | "ko" | "fr" | "de" | "vi" | "ru" | "es" | "id" | "fil" | "hi";
 export const SITE_LANGS: { code: SiteLang; label: string; english: string; flag: string; htmlLang: string }[] = [
@@ -21,11 +20,11 @@ export const isSiteLang = (v: unknown): v is SiteLang => SITE_LANGS.some((l) => 
 export const LANG_COOKIE = "waydidi-lang";
 
 /**
- * Pages that are never machine-translated: staff and driver tools, the hand-translated homepages,
+ * Pages that are never machine-translated: staff and driver tools,
  * and pages showing a customer's own details (names, addresses, phone numbers must never be sent to
  * the AI or stored in the shared translation table).
  */
-export const untranslatedPath = (path: string) => /^\/(admin|admin-setup|driver|drivers\/portal|th|zh|account|trip|booking|pay|chat-pay|itinerary|f|agency)(\/|$)/.test(path);
+export const untranslatedPath = (path: string) => /^\/(admin|admin-setup|driver|drivers\/portal|account|trip|booking|pay|chat-pay|itinerary|f|agency)(\/|$)/.test(path);
 /** Legal pages: the translation is shown, with a note that the English text is the official one. */
 export const legalPath = (path: string) => /^\/(terms|privacy|refund-policy)(\/|$)/.test(path);
 
@@ -45,7 +44,7 @@ export const STYLE: Record<Exclude<SiteLang, "en">, string> = {
 };
 
 /** Inline <head> script: hides the English page briefly when a translation is coming (no flash). */
-export const PRE_HIDE = `try{var m=document.cookie.match(/(?:^|; )waydidi-lang=([a-z]+)/);var p=location.pathname;if(m&&m[1]!=="en"&&!/^\\/(admin|admin-setup|driver|drivers\\/portal|th|zh|account|trip|booking|pay|chat-pay|itinerary|f|agency)(\\/|$)/.test(p)){document.documentElement.classList.add("wd-tx");setTimeout(function(){document.documentElement.classList.remove("wd-tx")},2500)}}catch(e){}`;
+export const PRE_HIDE = `try{var m=document.cookie.match(/(?:^|; )waydidi-lang=([a-z]+)/);var p=location.pathname;if(m&&m[1]!=="en"&&!/^\\/(admin|admin-setup|driver|drivers\\/portal|account|trip|booking|pay|chat-pay|itinerary|f|agency)(\\/|$)/.test(p)){document.documentElement.classList.add("wd-tx");setTimeout(function(){document.documentElement.classList.remove("wd-tx")},2500)}}catch(e){}`;
 
 // ---- Shared by the page translator and Admin → Translations (page scan + cost estimate) ----
 

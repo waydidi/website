@@ -22,13 +22,6 @@ export function homeMetadata(locale: Locale): Metadata {
     description: messages["meta.description"],
     alternates: {
       canonical: url(locale),
-      // Tells search engines the three homepages are translations of one page.
-      languages: {
-        en: url("en"),
-        th: url("th"),
-        "zh-Hans": url("zh"),
-        "x-default": url("en"),
-      },
     },
     openGraph: {
       title: messages["meta.title"],

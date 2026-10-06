@@ -4,6 +4,6 @@ export async function purgeBlogCache(origin: string, slugs: string[] = []) {
   const cache = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
   if (!cache) return;
   const paths = ["/blog", ...slugs.filter(Boolean).map((s) => `/blog/${s}`)];
-  const urls = ["", "/th", "/zh"].flatMap((prefix) => paths.map((p) => `${origin}${prefix}${p}`));
+  const urls = paths.map((p) => `${origin}${p}`);
   await Promise.all(urls.map((u) => cache.delete(u).catch(() => false)));
 }

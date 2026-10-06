@@ -64,6 +64,13 @@ const worker = {
       if (!allowedStaffRoute(staff.role,accessPath,request.method)) return withSecurityHeaders(Response.json({error:"Your staff role does not permit this action."},{status:403}),url);
     }
 
+    // The old hand-translated /th and /zh pages: same page in English, shown in that language by the AI translator.
+    const old = url.pathname.match(/^\/(th|zh)(\/.*)?$/);
+    if (old && request.method === "GET") {
+      const to = new URL((old[2] || "/") + url.search, url.origin);
+      return new Response(null, { status: 301, headers: { Location: to.toString(), "Set-Cookie": `waydidi-lang=${old[1]}; Path=/; Max-Age=31536000; SameSite=Lax` } });
+    }
+
     if (url.pathname === "/_vinext/image") {
       // Without the ASSETS binding (not set on this deployment) the optimizer can't read
       // files, so send the browser to the original image instead of failing with a 500.

@@ -1,11 +1,9 @@
 "use client";
 
 import { X } from "lucide-react";
-import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useI18n } from "@/components/i18n-provider";
-import { localeInfo, type Locale } from "@/lib/i18n";
 import { SITE_LANGS, type SiteLang } from "@/lib/site-languages";
 import { siteLang } from "@/components/site-translator";
 
@@ -52,13 +50,12 @@ export function LocalePicker({ className = "" }: { className?: string }) {
   const [currency, setCurrency] = useState("THB");
   const { locale, t } = useI18n();
 
-  const path = usePathname() ?? "/";
   const [chosen, setChosen] = useState<SiteLang>(locale);
   useEffect(() => {
     // The saved currency and language live in cookies, only readable after hydration.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrency(readCurrency());
-    // On /th and /zh the page itself says the language; elsewhere the cookie does.
+    // The language cookie says which language the AI translator shows.
     setChosen(locale !== "en" ? locale : siteLang());
   }, [locale]);
 
@@ -67,14 +64,9 @@ export function LocalePicker({ className = "" }: { className?: string }) {
     remember(LOCALE_COOKIE, code);
     setOpen(false);
     if (code === chosen) return;
-    const home = path === "/" || path === "/th" || path === "/zh";
-    // Homepages have hand-checked Thai/Chinese versions; any other page reloads in the new language.
-    // Any unfinished booking is kept in sessionStorage and restored there.
-    // Always a full page load: the AI translator reads the language once when the page loads, so a
-    // client-side route change (or staying on the same URL) would keep showing the old language.
-    const target = home ? (code === "en" || code === "th" || code === "zh" ? localeInfo[code as Locale].path : "/") : null;
-    if (target && target !== path) window.location.assign(target);
-    else window.location.reload();
+    // Every page is English underneath; the AI translator (Haiku) shows it in the chosen language.
+    // Always a full page load: the translator reads the language once when the page loads.
+    window.location.reload();
   }
   function chooseCurrency(code: string) {
     remember(CURRENCY_COOKIE, code);
