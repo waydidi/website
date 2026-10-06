@@ -21,13 +21,16 @@ const STATUS: Record<string, [string, string]> = {
 const status = (s: string) => STATUS[s] ?? ["Scheduled", "bg-slate-100 text-slate-700"];
 
 function Side({ label, p }: { label: string; p: Point }) {
-  const late = p.revised && p.scheduled && hhmm(p.revised) !== hhmm(p.scheduled);
+  const changed = p.revised && p.scheduled && hhmm(p.revised) !== hhmm(p.scheduled);
+  // Same-day "HH:MM" strings compare correctly; later than planned is amber, earlier is green.
+  const late = changed && hhmm(p.revised) > hhmm(p.scheduled);
+  const gate = p.gate && !/^(ARR|DEP|N\/?A|-)$/i.test(p.gate) ? p.gate : null;
   return <div className="min-w-0">
     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
     <p className="mt-1 text-2xl font-black">{p.iata ?? "–"}</p>
     <p className="truncate text-sm text-slate-600">{p.city ?? p.airport ?? ""}</p>
-    <p className="mt-2 text-lg font-bold">{late ? <><span className="mr-2 text-sm font-normal text-slate-400 line-through">{hhmm(p.scheduled)}</span><span className="text-amber-700">{hhmm(p.revised)}</span></> : hhmm(p.actual ?? p.revised ?? p.scheduled)}</p>
-    <p className="mt-1 text-sm text-slate-600">{[p.terminal && `Terminal ${p.terminal}`, p.gate && `Gate ${p.gate}`, p.belt && `Belt ${p.belt}`].filter(Boolean).join(" · ") || "\u00a0"}</p>
+    <p className="mt-2 text-lg font-bold">{changed ? <><span className="mr-2 text-sm font-normal text-slate-400 line-through">{hhmm(p.scheduled)}</span><span className={late ? "text-amber-700" : "text-emerald-700"}>{hhmm(p.revised)}</span></> : hhmm(p.actual ?? p.revised ?? p.scheduled)}</p>
+    <p className="mt-1 text-sm text-slate-600">{[p.terminal && `Terminal ${p.terminal}`, gate && `Gate ${gate}`, p.belt && `Belt ${p.belt}`].filter(Boolean).join(" · ") || "\u00a0"}</p>
   </div>;
 }
 
@@ -72,11 +75,11 @@ export function FlightStatusSearch() {
   return <div>
     <form onSubmit={search} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
       <div className="flex flex-wrap gap-x-7 gap-y-3" role="radiogroup" aria-label="Search by">{radio("flight", "Flight no.")}{radio("airport", "Airport")}{radio("airline", "Airline")}</div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+      <div className="mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
         {mode === "flight" && <input value={flight} onChange={(e) => setFlight(e.target.value)} placeholder="Enter your flight number" aria-label="Flight number" autoCapitalize="characters" className={field} />}
         {mode === "airport" && <select value={airport} onChange={(e) => setAirport(e.target.value)} aria-label="Airport" className={field}><option value="">Choose a Thai airport</option>{THAI_AIRPORTS.map((a) => <option key={a.code} value={a.code}>{a.city} – {a.name} ({a.code})</option>)}</select>}
         {mode === "airline" && <select value={airline} onChange={(e) => setAirline(e.target.value)} aria-label="Airline" className={field}><option value="">Choose an airline</option>{THAI_AIRLINES.map((a) => <option key={a.code} value={a.code}>{a.name} ({a.code})</option>)}</select>}
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" className={`${field} sm:w-[180px]`} />
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" className={`${field} block min-w-0 appearance-none sm:w-[180px]`} />
       </div>
       <button type="submit" disabled={busy} className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#FE8B05] text-[18px] font-bold text-white transition hover:bg-[#E67900] disabled:opacity-60"><Search size={22} />{busy ? "Searching…" : "Search"}</button>
       {error && <p role="alert" className="mt-3 text-[15px] text-red-600">{error}</p>}
