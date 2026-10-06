@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/driver-picker";
+import { includesKohChangFerry } from "@/lib/booking-form";
 
 export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null };
 
@@ -31,6 +32,21 @@ const dateTime = (date: string, time: string) => { const [y, m, d] = date.split(
 // Paid online or by hand → green; cash to take on the day → red; anything else → amber with its status.
 const payment = (s?: string): [string, string] => s === "paid" || s === "partially_refunded" ? ["Paid", "bg-emerald-50 text-emerald-700"] : s === "cash_due" ? ["Collect cash", "bg-red-50 text-red-700"] : [s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ") : "Unpaid", "bg-amber-50 text-amber-800"];
 const vehicleName = (v: string) => { const t = v.replace(/_/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); };
+
+/** The price with a "!" that opens what the price includes (Koh Chang car ferry tickets when the ride starts or ends there). */
+function PriceIncluded({ r }: { r: UpcomingRide }) {
+  const [open, setOpen] = useState(false);
+  const ferry = includesKohChangFerry(r.pickup, r.dropoff);
+  const items = ["Private vehicle with driver", "Fuel and driver costs", ...(ferry ? [`Koh Chang car ferry tickets for all ${r.passengers} ${r.passengers === 1 ? "passenger" : "passengers"}`] : [])];
+  return <span className="relative inline-flex items-center gap-1.5">
+    {r.total ? `THB ${r.total.toLocaleString("en-US")}` : "Not set"}
+    <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="What's included" className="grid size-[18px] place-items-center rounded-full bg-[#FE8B05] text-[11px] font-black leading-none text-white hover:bg-[#E67900]">!</button>
+    {open && <span role="dialog" aria-label="What's included" className="absolute right-0 top-[calc(100%+6px)] z-20 w-[260px] rounded-xl border border-slate-200 bg-white p-3 text-left text-[13px] font-normal shadow-lg">
+      <span className="mb-1.5 block font-bold">What&apos;s included</span>
+      <span className="grid gap-1">{items.map((i) => <span key={i} className={`flex gap-1.5 ${i.startsWith("Koh Chang") ? "font-semibold text-[#2F7A6B]" : "text-slate-700"}`}><span aria-hidden>✓</span>{i}</span>)}</span>
+    </span>}
+  </span>;
+}
 
 // Upcoming rides: journey details above, driver picker left and assignment status right.
 export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drivers: PickerDriver[] }) {
@@ -63,7 +79,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
               ["Date & time", dateTime(r.pickupDate, r.pickupTime)],
               ["From", r.pickup],
               ["To", r.dropoff],
-              ["Price", r.total ? `THB ${r.total.toLocaleString("en-US")}` : "Not set"],
+              ["Price", <PriceIncluded key="price" r={r} />],
               ["Payment", <span key="pay" className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold ${payment(r.paymentStatus)[1]}`}>{payment(r.paymentStatus)[0]}</span>],
             ] as [string, React.ReactNode][]).map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
             <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="mt-1 justify-self-end text-[13px] font-semibold text-[#C96100] hover:underline">Open booking →</Link>
