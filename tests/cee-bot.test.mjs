@@ -353,3 +353,10 @@ test('every message Non cannot answer posts its own Assign/Wait card',async()=>{
  assert.equal(cards.length,2);for(const c of cards)assert.deepEqual(c.body.reply_markup.inline_keyboard.flat().map((b)=>b.text),['Assign','Wait']);
  delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
 });
+test('restaurant recommendations: Non uses find_places and the chat gets a places card with ratings and map links',async()=>{
+ const found={ok:true,places:[{name:'Baan Ice',kind:'Thai restaurant',rating:4.6,reviews:2100,price:'฿฿',address:'Sukhumvit 55, Bangkok',openNow:true,mapsUrl:'https://maps.google.com/?cid=1',photo:'/api/places/photo?n=x&s=y',summary:'Southern Thai home cooking'}]};
+ const c=scripted({content:[{type:'tool_use',id:'t1',name:'find_places',input:{query:'authentic Thai restaurant',near:'CentralWorld Bangkok'}}],stop_reason:'tool_use'},say('My top pick is Baan Ice. Want a car there?'));
+ const out=await bot.ceeTurn([{sender:'visitor',body:'Best authentic Thai restaurant near CentralWorld?'}],c,{tools:{...tools,findPlaces:async()=>found}});
+ assert.equal(out.cards[0].type,'places');assert.equal(out.cards[0].items[0].rating,4.6);assert.match(out.reply,/Baan Ice/);
+ const card=(await vite.ssrLoadModule('/lib/chat-cards.ts'));assert.ok(card.parseCard(JSON.stringify(out.cards[0])));assert.match(card.cardText(out.cards[0]),/Baan Ice \(4.6★/);
+});

@@ -4,7 +4,8 @@
 export type QuoteCard = { type: "quote"; title: string; subtitle: string; cars: { vehicle?: string; name: string; seats: number; bags: number; price: number; url: string }[]; notes: string[] };
 export type PaymentCard = { type: "payment"; title: string; rows: [string, string][]; amount: number; url: string; expiresAt: string };
 export type ConfirmedCard = { type: "confirmed"; reference: string; rows: [string, string][]; amount: number; test?: boolean };
-export type ChatCard = QuoteCard | PaymentCard | ConfirmedCard;
+export type PlacesCard = { type: "places"; title: string; items: { name: string; kind: string | null; rating: number | null; reviews: number | null; price: string | null; address: string; openNow: boolean | null; mapsUrl: string; photo: string | null }[] };
+export type ChatCard = QuoteCard | PaymentCard | ConfirmedCard | PlacesCard;
 
 const isStr = (v: unknown, max = 300): v is string => typeof v === "string" && v.length <= max;
 const safeUrl = (v: unknown) => isStr(v, 600) && /^(https:\/\/|\/)/.test(v);
@@ -16,6 +17,7 @@ export function parseCard(json: string | null | undefined): ChatCard | null {
     const c = JSON.parse(json) as Record<string, unknown>;
     if (c.type === "quote" && isStr(c.title) && Array.isArray(c.cars) && c.cars.every((x) => safeUrl(x?.url) && isStr(x?.name) && typeof x?.price === "number")) return c as unknown as QuoteCard;
     if (c.type === "payment" && safeUrl(c.url) && typeof c.amount === "number" && Array.isArray(c.rows)) return c as unknown as PaymentCard;
+    if (c.type === "places" && isStr(c.title) && Array.isArray(c.items) && c.items.every((x) => isStr(x?.name) && isStr(x?.mapsUrl, 600) && /^https:\/\//.test(x.mapsUrl) && (x.photo === null || safeUrl(x.photo)))) return c as unknown as PlacesCard;
     if (c.type === "confirmed" && isStr(c.reference, 20) && Array.isArray(c.rows)) return c as unknown as ConfirmedCard;
   } catch { /* not a card */ }
   return null;
@@ -32,6 +34,7 @@ export function quoteCard(q: { summary: string; cars: { vehicle: string; name: s
 /** Plain-text version of a card, for Telegram, WhatsApp, LINE and the admin inbox. */
 export function cardText(c: ChatCard) {
   if (c.type === "quote") return [`${c.title}${c.subtitle ? ` (${c.subtitle})` : ""}`, ...c.cars.map((x) => `• ${x.name}: ${thb(x.price)} – ${x.url}`), ...c.notes].join("\n");
+  if (c.type === "places") return [c.title, ...c.items.map((x) => `• ${x.name}${x.rating ? ` (${x.rating}★, ${x.reviews ?? 0} reviews)` : ""} – ${x.mapsUrl}`)].join("\n");
   if (c.type === "payment") return [c.title, ...c.rows.map(([k, v]) => `${k}: ${v}`), `Total: ${thb(c.amount)}`, `Pay here: ${c.url}`].join("\n");
   return [`Booking ${c.reference} confirmed`, ...c.rows.map(([k, v]) => `${k}: ${v}`), `Paid: ${thb(c.amount)}`].join("\n");
 }

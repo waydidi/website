@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, Luggage, Users } from "lucide-react";
+import { CheckCircle2, Clock, Luggage, MapPin, Star, Users } from "lucide-react";
 import type { ChatCard } from "@/lib/chat-cards";
 
 // LINE-style cards inside the website chat: car options with Book buttons, a booking summary with
@@ -42,6 +42,30 @@ export function RichCard({ card }: { card: ChatCard }) {
       })}
     </ul>
     {card.notes.length > 0 && <p className="border-t border-slate-100 px-4 py-2.5 text-[12px] leading-snug text-slate-500">{card.notes.join(" ")}</p>}
+  </div>;
+
+  if (card.type === "places") return <div className={shell}>
+    <div className="bg-[#FFF3E6] px-4 py-3"><p className="text-[15px] font-bold capitalize leading-snug">{card.title}</p><p className="mt-0.5 text-[12px] text-slate-500">From Google Maps · live ratings</p></div>
+    <ul className="divide-y divide-slate-100">
+      {card.items.map((p) => <li key={p.mapsUrl} className="flex gap-3 px-3.5 py-3">
+        <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#F6F7F9] text-slate-400">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {p.photo ? <img src={p.photo} alt="" width={64} height={64} loading="lazy" className="size-full object-cover" /> : <MapPin size={20} />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[14.5px] font-bold leading-tight">{p.name}</p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-slate-600">
+            {p.rating !== null && <span className="inline-flex items-center gap-0.5 font-semibold text-[#15161C]"><Star size={13} className="fill-[#FFB400] text-[#FFB400]" aria-hidden="true" />{p.rating.toFixed(1)}<span className="font-normal text-slate-500">({(p.reviews ?? 0).toLocaleString("en-US")})</span></span>}
+            {p.kind && <span>· {p.kind}</span>}{p.price && <span>· {p.price}</span>}
+          </p>
+          <p className="mt-0.5 truncate text-[12px] text-slate-500">{p.address}</p>
+          <div className="mt-1.5 flex items-center gap-2">
+            {p.openNow !== null && <span className={`rounded-full px-1.5 py-px text-[11px] font-bold ${p.openNow ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{p.openNow ? "Open now" : "Closed now"}</span>}
+            <a href={p.mapsUrl} target="_blank" rel="noreferrer" className="inline-flex h-7 items-center rounded-full border border-[#FE8B05] px-2.5 text-[12px] font-bold text-[#C96100] hover:bg-orange-50">Map</a>
+          </div>
+        </div>
+      </li>)}
+    </ul>
   </div>;
 
   if (card.type === "payment") return <div className={shell}>

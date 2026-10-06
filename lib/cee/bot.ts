@@ -5,6 +5,7 @@ import { addBotMessage, conversationById, messagesFor, setBotThinking } from "@/
 import { chatPaymentsEnabled, createChatPaymentLink } from "@/lib/chat-pay";
 import { cardText, quoteCard, type ChatCard, type PaymentCard } from "@/lib/chat-cards";
 import { searchKnowledge } from "./knowledge";
+import { findPlaces } from "./places";
 import { HOURLY_CITIES, findPackages, quoteHourly, quoteTransfer, type QuoteResult } from "./quotes";
 
 // Non: Waydidi's chat assistant on the website, WhatsApp and LINE. It answers instantly, quotes only
@@ -81,6 +82,8 @@ export const TOOLS: BetaTool[] = [
     input_schema: { type: "object", additionalProperties: false, required: ["city"], properties: { city: { ...str, description: "City slug, e.g. bangkok, pattaya, phuket, chiang-mai" } } } },
   { name: "search_knowledge", strict: true, description: "Search Waydidi's own notes (rules, tips, FAQs, places) and attraction database. Use for any question about policies, extras, places, restaurants, cafés, attractions or opening hours.",
     input_schema: { type: "object", additionalProperties: false, required: ["query", "city"], properties: { query: { ...str, description: "Short keywords in English, e.g. 'baby seat', 'cafe thong lor', 'grand palace dress code'" }, city: { ...str, description: "City slug if known, else empty string" } } } },
+  { name: "find_places", strict: true, description: "Find real restaurants, cafés, bars, markets, malls, spas or attractions in Thailand on Google Maps, with live ratings and opening status. Use for recommendations when Waydidi's notes have nothing. The website shows the results as a card list.",
+    input_schema: { type: "object", additionalProperties: false, required: ["query", "near"], properties: { query: { ...str, description: "What to find, in English, e.g. 'authentic Thai restaurant', 'rooftop bar', 'night market'" }, near: { ...str, description: "Area or landmark, e.g. 'Sukhumvit, Bangkok' or 'CentralWorld Bangkok'; empty string if none" } } } },
   { name: "handover", strict: true, description: "Pass this chat to the Waydidi team. After this you stop replying in this chat.",
     input_schema: { type: "object", additionalProperties: false, required: ["reason", "summary"], properties: { reason: str, summary: { ...str, description: "One or two lines for staff: what the customer wants and details collected so far" } } } },
 ];
@@ -88,8 +91,8 @@ const ESCALATE: BetaTool = { name: "escalate", strict: true, description: "Pass 
   input_schema: { type: "object", additionalProperties: false, required: ["why"], properties: { why: str } } };
 
 /** What the tools do. Swappable in tests. */
-export type CeeTools = { quoteTransfer: typeof quoteTransfer; quoteHourly: typeof quoteHourly; findPackages: typeof findPackages; searchKnowledge: typeof searchKnowledge };
-const realTools: CeeTools = { quoteTransfer, quoteHourly, findPackages, searchKnowledge };
+export type CeeTools = { quoteTransfer: typeof quoteTransfer; quoteHourly: typeof quoteHourly; findPackages: typeof findPackages; searchKnowledge: typeof searchKnowledge; findPlaces?: typeof findPlaces };
+const realTools: CeeTools = { quoteTransfer, quoteHourly, findPackages, searchKnowledge, findPlaces };
 type Block = { type: string; [k: string]: unknown };
 type Client = { beta: { messages: { create: (body: Record<string, unknown>) => Promise<{ content: Block[]; stop_reason: string | null; usage?: Usage }> } } };
 
@@ -174,7 +177,12 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
           content = json(q);
         }
         else if (u.name === "find_packages") { const list = await tools.findPackages(i.city); content = JSON.stringify(list.length ? list : { none: "No packages in this city; offer hourly or hand over." }); }
-        else if (u.name === "search_knowledge") { const found = await tools.searchKnowledge(i.query, i.city || null); content = JSON.stringify(found.notes.length || found.places.length ? found : { none: "Nothing in Waydidi's notes. Don't guess; offer to check with the team (handover)." }); }
+        else if (u.name === "search_knowledge") { const found = await tools.searchKnowledge(i.query, i.city || null); content = JSON.stringify(found.notes.length || found.places.length ? found : { none: "Nothing in Waydidi's notes. For restaurants, cafés, bars, markets or attractions use find_places. Otherwise don't guess; offer to check with the team (handover)." }); }
+        else if (u.name === "find_places") {
+          const r = tools.findPlaces ? await tools.findPlaces(String(i.query), String(i.near ?? "")) : { ok: false as const, reason: "Place search isn't available." };
+          if (r.ok) out.cards!.push({ type: "places", title: i.near ? `${i.query} near ${i.near}` : String(i.query), items: r.places.map((p) => ({ name: p.name, kind: p.kind, rating: p.rating, reviews: p.reviews, price: p.price, address: p.address, openNow: p.openNow, mapsUrl: p.mapsUrl, photo: p.photo })) });
+          content = JSON.stringify(r.ok ? { places: r.places.map((p) => ({ name: p.name, kind: p.kind, rating: p.rating, reviews: p.reviews, price: p.price, address: p.address, openNow: p.openNow, summary: p.summary })), note: "The customer sees these as a card list with photos, ratings and map links. In your text: one or two short lines with your top pick and why (only facts given here), and offer a car there." } : r);
+        }
         else if (u.name === "send_payment_link" && options.payLink) {
           const r = await options.payLink({ kind: i.kind === "hourly" ? "hourly" : "transfer", pickup: i.pickup, dropoff: i.dropoff, city: i.city, hours: Number(i.hours) || 0, date: i.date, time: i.time,
             passengers: Number(i.passengers) || 0, bags: Number(i.bags) || 0, vehicle: i.vehicle, leadName: (u.input as Record<string, string>).lead_name ?? "", leadPhone: (u.input as Record<string, string>).lead_phone ?? "" });
