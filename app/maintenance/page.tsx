@@ -35,6 +35,8 @@ export default function MaintenancePage() {
       @keyframes wd-drive { from { transform: translateX(calc(100vw + 20px)) } to { transform: translateX(-120px) } }
       @keyframes wd-shimmer { 0%, 100% { opacity: .55 } 50% { opacity: .85 } }
       @keyframes wd-fade { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
+      /* No chat button on the maintenance page (it is shown at the visitor's own address, e.g. the homepage). */
+      body:has(.wd-mt) [data-chat-launcher] { display: none !important; }
       @media (prefers-reduced-motion: reduce) { .wd-mt * { animation: none !important } }
     `}</style>
 

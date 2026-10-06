@@ -125,7 +125,7 @@ export function WebsiteChat() {
     {mounted && open && <ChatPanel info={info} messages={messages} loadError={loadError} onRetryLoad={() => void sync().catch(() => setLoadError(true))}
       onSend={send} onClose={() => setOpen(false)} onReviewed={() => void sync().catch(() => undefined)}
       onNewConversation={() => { fresh.current = true; setMessages([]); setInfo((i) => (i ? { ...i, status: "new", agent: null, review: null } : i)); }} />}
-    {launcher && <button type="button" onClick={() => { setMounted(true); setOpen((v) => !v); }} aria-label={open ? "Close chat" : unread ? `Ask Waydidi, ${unread} new ${unread === 1 ? "message" : "messages"}` : "Ask Waydidi"} aria-expanded={open}
+    {launcher && <button type="button" data-chat-launcher onClick={() => { setMounted(true); setOpen((v) => !v); }} aria-label={open ? "Close chat" : unread ? `Ask Waydidi, ${unread} new ${unread === 1 ? "message" : "messages"}` : "Ask Waydidi"} aria-expanded={open}
       className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 z-[85] grid place-items-center rounded-full text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FE8B05] sm:right-6 ${open ? "size-14 bg-[#FE8B05] shadow-[0_8px_24px_rgba(254,139,5,.35)] hover:bg-[#E67900] max-sm:hidden" : "h-[86px] w-[127px] rounded-2xl hover:scale-105"}`}>
       {open ? <X size={24} aria-hidden="true" /> : /* eslint-disable-next-line @next/next/no-img-element */
         <img src="/chat-driver.webp" alt="" width={127} height={86} className="h-[86px] w-[127px] drop-shadow-[0_6px_14px_rgba(0,0,0,.22)]" />}
