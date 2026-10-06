@@ -22,7 +22,7 @@ import { FormsTable } from "@/components/bookings-admin/form-requests";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { tripOwnerKey } from "@/lib/trip-access";
+import { rideUrl } from "@/lib/trip-access";
 import Link from "next/link";
 import { NotionCalendar } from "@/components/bookings-admin/notion-calendar";
 import { WaydidiLogo } from "@/components/waydidi-logo";
@@ -73,7 +73,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const cashAtStore = new Set(storeLinks.filter((l) => l.cash).map((l) => l.ref));
   // Customer trip status page links for bookings that have a driver.
   const origin = (() => { const h = requestHeaders.get("host"); return h ? `${h.startsWith("localhost") ? "http" : "https"}://${h}` : ""; })();
-  const tripLinks = new Map(await Promise.all(rows.filter((r) => assigned.has(r.reference)).map(async (r) => [r.reference, `${origin}/trip/${encodeURIComponent(r.reference)}?key=${await tripOwnerKey(r.reference)}`] as const)));
+  const tripLinks = new Map(await Promise.all(rows.filter((r) => assigned.has(r.reference)).map(async (r) => [r.reference, await rideUrl(origin, r)] as const)));
   // Driver job message (Thai labels) copied from the Assignment column.
   const costRows = refs.length ? await getDb().select({ ref: bookingCosts.bookingReference, total: bookingCosts.totalDriverCost, agreed: bookingCosts.agreedDriverCost }).from(bookingCosts).where(inArray(bookingCosts.bookingReference, refs)).catch(() => []) : [];
   const driverCost = new Map(costRows.map((c) => [c.ref, c.total || c.agreed]));

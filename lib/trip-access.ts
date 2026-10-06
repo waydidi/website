@@ -20,6 +20,22 @@ export async function tripOwnerKey(reference: string) {
   return `${issuedAt.toString(36)}.${(await tripSecretHmacHex(`trip-owner:${reference}:${issuedAt}`)).slice(0,32)}`;
 }
 
+/**
+ * The customer's ride-status key, made when the booking is confirmed. It's the same for the whole
+ * booking (so the link in the email, the account page and the chat is one link) and works until
+ * 7 days after the trip.
+ */
+export async function rideKey(reference: string, createdAt: string) {
+  return (await tripSecretHmacHex(`trip-ride:${reference}:${createdAt}`)).slice(0, 32);
+}
+export async function rideUrl(origin: string, booking: { reference: string; createdAt: string }) {
+  return `${origin}/trip/${encodeURIComponent(booking.reference)}?ride=${await rideKey(booking.reference, booking.createdAt)}`;
+}
+const rideLinkLive = (b: Booking) => {
+  const last = b.returnDate && b.returnDate > b.pickupDate ? b.returnDate : b.pickupDate;
+  return Date.now() < Date.parse(`${last}T23:59:59+07:00`) + 7 * 24 * 3600000;
+};
+
 async function shareSignature(reference: string, issuedAt: number) {
   return (await tripSecretHmacHex(`trip-share:${reference}:${issuedAt}`)).slice(0, 32);
 }
@@ -56,6 +72,9 @@ export async function resolveTripAccess(request: Request, reference: string): Pr
   const key = params.get("key") ?? "";
   const ownerKey=parseShareToken(key);
   if(ownerKey&&ownerKey.issuedAt<=Date.now()+1000&&Date.now()-ownerKey.issuedAt<24*3600000&&shareIssuedAfterRevoke(ownerKey.issuedAt,await latestAccessRevoke(reference,"owner"))&&constantTimeEqual(ownerKey.signature,(await tripSecretHmacHex(`trip-owner:${reference}:${ownerKey.issuedAt}`)).slice(0,32))) return {booking,access:"owner"};
+  const ride = params.get("ride") ?? "";
+  if (/^[a-f0-9]{32}$/.test(ride) && rideLinkLive(booking) && shareIssuedAfterRevoke(Date.parse(booking.createdAt), await latestAccessRevoke(reference, "owner"))
+    && constantTimeEqual(ride, await rideKey(reference, booking.createdAt))) return { booking, access: "owner" };
   const managed = await managedBooking(request);
   if (managed?.reference === reference) return { booking, access: "owner" };
 

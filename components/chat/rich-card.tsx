@@ -23,7 +23,7 @@ export function RichCard({ card, onShareLocation }: { card: ChatCard; onShareLoc
     // Waydidi orange header; "Confirmed" in the same green as the "Best value" badge.
     const tone = card.status === "confirmed" || card.status === "completed" ? "bg-[#06C755] text-white" : card.status === "cancelled" ? "bg-white text-red-700" : "bg-white text-amber-800";
     return <div className={shell}>
-      <div className="flex items-center justify-between gap-2 bg-[#FE8B05] px-4 py-3 text-white"><p className="text-[15px] font-bold">Booking {card.reference}</p><span className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${tone}`}>{card.statusText}</span></div>
+      <div className="flex items-center justify-between gap-2 bg-[#FE8B05] px-4 py-[19.5px] text-white"><p className="text-[15px] font-bold">Booking {card.reference}</p><span className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${tone}`}>{card.statusText}</span></div>
       <dl className="grid gap-1.5 px-4 py-3 text-[13px]">
         {card.rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt>
           {k === "No. of passenger" && card.people

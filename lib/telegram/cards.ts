@@ -85,7 +85,7 @@ export const botEcho = (publicId: string, body: string) =>
 export const staffEcho = (publicId: string, name: string, body: string) =>
   `<b>${esc(name)}</b> replied on the website · ${esc(publicId)}\n<blockquote>${esc(clip(body, 3500))}</blockquote>`;
 
-export type CardBooking = { reference: string; customerName: string; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; vehicle: string; passengers: number; luggage: number; total: number; payment: string; acknowledgedBy?: string | null; driverCost?: number | null; driverName?: string | null; costDone?: boolean; driverDone?: boolean };
+export type CardBooking = { reference: string; customerName: string; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; vehicle: string; passengers: number; luggage: number; total: number; payment: string; acknowledgedBy?: string | null; driverCost?: number | null; driverName?: string | null; costDone?: boolean; driverDone?: boolean; rideLink?: string | null; driverLink?: string | null };
 
 export function bookingCard(b: CardBooking) {
   return [
@@ -98,6 +98,8 @@ export function bookingCard(b: CardBooking) {
     `Vehicle: ${esc(b.vehicle)}`,
     `Group: ${b.passengers} passengers, ${b.luggage} luggage`,
     `Total: THB ${b.total.toLocaleString("en-US")} · ${esc(b.payment)}`,
+    ...(b.rideLink ? [`Customer ride status: ${esc(b.rideLink)}`] : []),
+    ...(b.driverLink ? [`Driver link: ${esc(b.driverLink)}`] : []),
     `Reference: ${esc(b.reference)}`,
     "",
     b.acknowledgedBy ? `Taken by <b>${esc(b.acknowledgedBy)}</b>` : "Awaiting assignment",

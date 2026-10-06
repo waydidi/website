@@ -1,4 +1,5 @@
 import { completeJourney, journeysFor, journeyFor, parseLeg } from "@/lib/journey-legs";
+import { driverTokenForAssignment } from "@/lib/trip-links";
 import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
     if (!booking || booking.status !== "confirmed" || !driver || driver.status !== "active") return NextResponse.json({ error: "Choose a confirmed booking and an active driver." }, { status: 409 });
     if (rotation) {
       if (rotation.revokedAt) return NextResponse.json({error:"This driver link was revoked."},{status:409});
-      const token = secureToken(); const tokenExpiresAt = new Date(Math.max(Date.now()+48*3600_000,new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime()+24*3600_000)).toISOString();
+      const token = await driverTokenForAssignment(bookingReference, leg); const tokenExpiresAt = new Date(Math.max(Date.now()+48*3600_000,new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime()+24*3600_000)).toISOString();
       const [updated] = await getDb().update(bookingAssignments).set({tokenHash:await sha256(token),tokenExpiresAt,updatedAt:now}).where(and(eq(bookingAssignments.id,rotation.id),isNull(bookingAssignments.revokedAt))).returning();
       if (!updated) return NextResponse.json({error:"Assignment changed. Refresh and retry."},{status:409});
       await getDb().insert(bookingEvents).values({bookingReference,eventType:"driver_link_rotated",providerEventId:`rotation:${crypto.randomUUID()}`,createdAt:now});
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
       }
       if (conflicts.length) return NextResponse.json({ error: `Driver schedule conflict: ${conflicts.join("; ")}. Use Operations Calendar to review or override.` }, { status: 409 });
     }
-    const token = secureToken();
+    const token = await driverTokenForAssignment(bookingReference, leg);
     const pickup = new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime();
     const expiry = new Date(Math.max(Date.now() + 48 * 60 * 60 * 1000, pickup + 24 * 60 * 60 * 1000)).toISOString();
     const assignment = { id: crypto.randomUUID(), bookingReference, leg, driverId, tokenHash: await sha256(token), currentStatus: "assigned", assignedBy: admin.email, assignedAt: now, tokenExpiresAt: expiry, updatedAt: now };

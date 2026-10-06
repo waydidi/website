@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { fullName } from "@/lib/person-name";
 import { SITE_URL } from "@/lib/site";
+import { bookingLinks } from "@/lib/trip-links";
 import { VEHICLES } from "@/lib/vehicles";
 import { bookingCard, bookingKeyboard, type CardBooking } from "./cards";
 import { editCard, sendCard, telegramConfigured } from "./client";
@@ -11,17 +12,20 @@ type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>
 const db = () => env.DB as { prepare: (sql: string) => Stmt };
 const adminUrl = (ref: string) => `${SITE_URL}/admin/journeys/${encodeURIComponent(ref)}`;
 
-type Row = { reference: string; customer_name: string; customer_surname: string | null; pickup: string; dropoff: string; pickup_date: string; pickup_time: string; vehicle: string; passengers: number; luggage: number; total: number; payment_method: string };
+type Row = { created_at: string; return_date: string | null; reference: string; customer_name: string; customer_surname: string | null; pickup: string; dropoff: string; pickup_date: string; pickup_time: string; vehicle: string; passengers: number; luggage: number; total: number; payment_method: string };
 async function card(reference: string, acknowledgedBy: string | null): Promise<CardBooking | null> {
   const tasks = await db().prepare("SELECT t.cost_done,t.driver_done,t.driver_form_json,c.total_driver_cost FROM telegram_booking_cards t LEFT JOIN booking_costs c ON c.booking_reference=t.booking_reference WHERE t.booking_reference=?")
     .bind(reference).first<{ cost_done: number; driver_done: number; driver_form_json: string | null; total_driver_cost: number | null }>().catch(() => null);
-  const b = await db().prepare("SELECT reference,customer_name,customer_surname,pickup,dropoff,pickup_date,pickup_time,vehicle,passengers,luggage,total,payment_method FROM bookings WHERE reference=?").bind(reference).first<Row>();
+  const b = await db().prepare("SELECT created_at,return_date,reference,customer_name,customer_surname,pickup,dropoff,pickup_date,pickup_time,vehicle,passengers,luggage,total,payment_method FROM bookings WHERE reference=?").bind(reference).first<Row>();
   if (!b) return null;
+  // The booking's two links (made once): customer ride status and the driver's job page.
+  const links = await bookingLinks({ reference: b.reference, createdAt: b.created_at, returnDate: b.return_date }).catch(() => null);
   return { reference: b.reference, customerName: fullName(b.customer_name, b.customer_surname), pickup: b.pickup, dropoff: b.dropoff, pickupDate: b.pickup_date, pickupTime: b.pickup_time,
     vehicle: VEHICLES[b.vehicle as keyof typeof VEHICLES]?.name ?? b.vehicle, passengers: b.passengers, luggage: b.luggage, total: b.total,
     payment: b.payment_method === "cash" ? "cash on the day" : "paid online", acknowledgedBy,
     costDone: Boolean(tasks?.cost_done), driverDone: Boolean(tasks?.driver_done), driverCost: tasks?.total_driver_cost ?? null,
-    driverName: tasks?.driver_form_json ? (JSON.parse(tasks.driver_form_json) as { name?: string }).name ?? null : null };
+    driverName: tasks?.driver_form_json ? (JSON.parse(tasks.driver_form_json) as { name?: string }).name ?? null : null,
+    rideLink: links?.customer ?? null, driverLink: links?.driver ?? null };
 }
 
 /** Posts the new-booking card once per booking (safe to call repeatedly). */

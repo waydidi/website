@@ -44,6 +44,13 @@ export async function POST(request: Request) {
         .bind(crypto.randomUUID(), telegramUserId, String(input.username ?? "").replace(/^@/, "").slice(0, 60) || null, name, staffId, now, now).run();
       break;
     }
+    case "edit": {
+      const name = String(input.displayName ?? "").trim();
+      if (name.length < 2 || name.length > 60) return reply("Enter the name customers will see, like Alex.", 400);
+      const username = String(input.username ?? "").trim().replace(/^@/, "").slice(0, 60) || null;
+      await env.DB.prepare("UPDATE telegram_admins SET display_name=?,telegram_username=?,updated_at=? WHERE id=?").bind(name, username, now, String(input.id ?? "")).run();
+      break;
+    }
     case "toggle":
       await env.DB.prepare("UPDATE telegram_admins SET enabled=1-enabled,updated_at=? WHERE id=?").bind(now, String(input.id ?? "")).run();
       break;

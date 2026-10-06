@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { fullName } from "@/lib/person-name";
-import { secureToken, sha256 } from "@/lib/security";
+import { sha256 } from "@/lib/security";
+import { driverTokenForAssignment } from "@/lib/trip-links";
 import { SITE_URL } from "@/lib/site";
 import { VEHICLES } from "@/lib/vehicles";
 import { esc } from "./cards";
@@ -114,7 +115,7 @@ export async function postAssignmentWhenReady(reference: string, by: string, hea
   const form = JSON.parse(card.driver_form_json ?? "{}") as DriverForm;
   if (!b || !form.driverId) { await db().prepare("UPDATE telegram_booking_cards SET assignment_posted=0 WHERE booking_reference=?").bind(reference).run(); return false; }
   // The driver's trip link: the driver updates status there, and the same page shows the trip's progress.
-  const token = secureToken(), at = now();
+  const token = await driverTokenForAssignment(reference, "outbound"), at = now();
   const pickupAt = new Date(`${b.pickup_date}T${b.pickup_time}:00+07:00`).getTime();
   const expires = new Date(Math.max(Date.now() + 48 * 3600_000, pickupAt + 24 * 3600_000)).toISOString();
   await db().prepare("UPDATE booking_assignments SET revoked_at=?,updated_at=? WHERE booking_reference=? AND leg='outbound' AND revoked_at IS NULL").bind(at, at, reference).run();

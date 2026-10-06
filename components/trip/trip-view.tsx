@@ -56,7 +56,7 @@ type Trip = {
 };
 
 const POLL_MS = 20_000;
-const AUTH_PARAMS = ["token", "key", "share", "leg"] as const;
+const AUTH_PARAMS = ["token", "key", "share", "ride", "leg"] as const;
 
 function authQuery() {
   const current = new URLSearchParams(window.location.search);
@@ -83,10 +83,10 @@ export function TripView({ reference }: { reference: string }) {
     if (query === null) return;
     try {
       const params=new URLSearchParams(query);
-      if(["token","key","share"].some(key=>params.has(key))) {
+      if(["token","key","share","ride"].some(key=>params.has(key))) {
         exchanged.current??=fetch("/api/trip/access",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reference,query})});
         if(!(await exchanged.current).ok) {setFailure("expired");return;}
-        const clean=new URL(window.location.href);for(const key of ["token","key","share"]) clean.searchParams.delete(key);
+        const clean=new URL(window.location.href);for(const key of ["token","key","share","ride"]) clean.searchParams.delete(key);
         window.history.replaceState(null,"",clean.pathname+clean.search);
       }
       const response = await fetch(`/api/trip/${encodeURIComponent(reference)}${new URLSearchParams(query).get("leg") ? `?leg=${new URLSearchParams(query).get("leg")}` : ""}`, { cache: "no-store" });

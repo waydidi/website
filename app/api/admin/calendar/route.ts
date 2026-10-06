@@ -1,4 +1,5 @@
 import { journeysFor, journeyFor, parseLeg } from "@/lib/journey-legs";
+import { driverTokenForAssignment } from "@/lib/trip-links";
 import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -249,7 +250,7 @@ export async function POST(request: Request) {
     }
     if (conflictMessages.length && !overrideConflict) return NextResponse.json({ error: "This driver has a schedule conflict.", conflicts: conflictMessages, canOverride: true }, { status: 409 });
 
-    const token = secureToken();
+    const token = await driverTokenForAssignment(bookingReference, leg);
     const expiry = new Date(Math.max(Date.now() + 48 * 60 * 60 * 1000, pickupTimestamp(booking.pickupDate, booking.pickupTime) + 24 * 60 * 60 * 1000)).toISOString();
     const assignment = { id: crypto.randomUUID(), bookingReference, leg, driverId, tokenHash: await sha256(token), currentStatus: "assigned", assignedBy: admin.email, assignedAt: now, tokenExpiresAt: expiry, updatedAt: now };
     await getDb().batch([

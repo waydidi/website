@@ -7,7 +7,7 @@ export async function POST(request:Request) {
  if(!sameOrigin(request)||!isJsonRequest(request)) return NextResponse.json({error:"Request blocked"},{status:403});
  const input=await request.json() as {reference?:string;query?:string};
  const reference=String(input.reference??"").toUpperCase(), params=new URLSearchParams(input.query??"");
- const url=new URL(`/api/trip/${reference}`,request.url);for(const key of ["token","key","share"]) {const value=params.get(key);if(value)url.searchParams.set(key,value);}
+ const url=new URL(`/api/trip/${reference}`,request.url);for(const key of ["token","key","share","ride"]) {const value=params.get(key);if(value)url.searchParams.set(key,value);}
  const resolved=await resolveTripAccess(new Request(url,{headers:request.headers}),reference);
  if(!resolved) return NextResponse.json({error:"Trip link expired or revoked. Verify your booking email for a new link."},{status:404});
  const issued=parseShareToken(params.get(resolved.access==="shared"?"share":"key")??"")?.issuedAt??(params.has("token")?Date.parse(resolved.booking.createdAt):Date.now());
