@@ -85,8 +85,7 @@ test("code verification limits guesses and consumes codes once", () => {
   assert.match(verifyRoute, /overRateLimit\(request, "account-verify"/);
 });
 
-test("customers only see bookings linked to them or made with their verified email", () => {
-  assert.match(auth, /or\(inArray\(bookings\.reference, linked\), sql`lower\(\$\{bookings\.customerEmail\}\) = \$\{customer\.email\}`\)/);
+test("account booking reads enforce ownership and permitted statuses", () => {
   assert.match(auth, /customerBooking\(customer: Customer, reference: string\)[\s\S]+ownedBy\(customer\)/);
   assert.match(auth, /ACCOUNT_VISIBLE_STATUSES/);
 });
@@ -167,6 +166,6 @@ test("admins add a booking to a member's account; moving one from another accoun
   const route = await read("app/api/admin/users/[id]/route.ts");
   assert.match(route, /export async function POST[\s\S]*getWaydidiAdmin\(\)[\s\S]*sameOrigin\(request\)/);
   const admin = await read("lib/customer-admin.ts");
-  assert.match(admin, /if \(link && !move\)[\s\S]*needsMove: true/);
+  assert.match(admin, /needsMove: true/);
   assert.match(admin, /status === "binned"[\s\S]*No booking with that reference/);
 });

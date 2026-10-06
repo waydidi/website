@@ -22,7 +22,7 @@ export async function listCustomers(search: string) {
     // Outer columns are written as "customers"."…" explicitly: an interpolated
     // column renders unqualified, and inside a subquery SQLite would resolve
     // a bare "id" to the inner table's own id.
-    trips: sql<number>`(select count(*) from bookings b where b.status in (${statuses}) and (lower(b.customer_email) = "customers"."email" or b.reference in (select l.booking_reference from customer_booking_links l where l.customer_id = "customers"."id")))`,
+    trips: sql<number>`(select count(*) from bookings b where b.status in (${statuses}) and ((lower(b.customer_email) = "customers"."email" and not exists (select 1 from customer_booking_links l where l.booking_reference=b.reference)) or b.reference in (select l.booking_reference from customer_booking_links l where l.customer_id = "customers"."id")))`,
     providers: sql<string | null>`(select group_concat(i.provider) from customer_identities i where i.customer_id = "customers"."id")`,
   }).from(customers)
     .where(term ? sql`(${customers.email} like ${`%${term}%`} or lower(coalesce(${customers.name}, '') || ' ' || coalesce(${customers.surname}, '')) like ${`%${term}%`} or coalesce(${customers.phone}, '') like ${`%${term}%`})` : undefined)
@@ -61,14 +61,18 @@ export async function linkBookingToCustomer(customerId: string, reference: strin
   if (!booking || booking.status === "binned") return { ok: false as const, status: 404, error: "No booking with that reference." };
   const [link] = await db.select().from(customerBookingLinks).where(eq(customerBookingLinks.bookingReference, reference)).limit(1);
   if (link?.customerId === customerId || (!link && (booking.email ?? "").toLowerCase() === customer.email)) return { ok: true as const, reference, already: true };
-  if (link && !move) {
-    const [other] = await db.select({ email: customers.email }).from(customers).where(eq(customers.id, link.customerId)).limit(1);
+  const [emailOwner] = !link && booking.email ? await db.select({ id: customers.id, email: customers.email }).from(customers).where(eq(customers.email, booking.email.toLowerCase())).limit(1) : [];
+  if (!move && (link || (emailOwner && emailOwner.id !== customerId))) {
+    const [other] = link ? await db.select({ email: customers.email }).from(customers).where(eq(customers.id, link.customerId)).limit(1) : [emailOwner];
     return { ok: false as const, status: 409, error: `This booking is in another account (${other?.email ?? "unknown"}). Move it here?`, needsMove: true };
   }
   const now = new Date().toISOString();
-  await db.insert(customerBookingLinks).values({ bookingReference: reference, customerId, createdAt: now })
-    .onConflictDoUpdate({ target: customerBookingLinks.bookingReference, set: { customerId, createdAt: now } });
-  await db.insert(bookingEvents).values({ bookingReference: reference, eventType: "admin_added_to_account", createdAt: now }).catch(() => undefined);
+  const [changed] = await db.batch([
+    db.insert(customerBookingLinks).values({ bookingReference: reference, customerId, createdAt: now })
+      .onConflictDoUpdate({ target: customerBookingLinks.bookingReference, set: { customerId, createdAt: now }, setWhere: move ? undefined : eq(customerBookingLinks.customerId, customerId) }),
+    db.insert(bookingEvents).select(sql`SELECT NULL, ${reference}, 'admin_added_to_account', NULL, ${now} FROM customer_booking_links WHERE booking_reference=${reference} AND customer_id=${customerId}`),
+  ]);
+  if (!changed.meta.changes) return { ok: false as const, status: 409, error: "Booking ownership changed. Review it before moving it.", needsMove: true };
   console.info("Admin added booking to account", { reference, customerId, admin: by });
   return { ok: true as const, reference, already: false, guest: `${booking.name} ${booking.surname ?? ""}`.trim() };
 }

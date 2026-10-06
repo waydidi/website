@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { approvedTranslationText } from "@/lib/site-translation-policy";
 import { LANG_COOKIE, SITE_LANGS, isSiteLang, legalPath, untranslatedPath, type SiteLang } from "@/lib/site-languages";
 
 // Shows every public page in the visitor's language. The page is rendered in English; this swaps
@@ -34,17 +35,20 @@ export function SiteTranslator() {
     document.documentElement.lang = info.htmlLang;
 
     let cache: Record<string, string> = {};
-    const key = `wd-tx:${lang}`;
+    const key = `wd-tx:v2:${lang}`;
     try { cache = JSON.parse(sessionStorage.getItem(key) ?? "{}"); } catch { cache = {}; }
     const textOrig = new WeakMap<Text, { src: string; shown: string }>();
     const attrOrig = new WeakMap<Element, Record<string, { src: string; shown: string }>>();
     const touchedText = new Set<Text>(), touchedAttr = new Set<Element>();
     const pending = new Set<string>();
+    let retryTimer = 0;
+    const attempts = new Map<string, number>();
+    const retryAfter = new Map<string, number>();
     let timer = 0, stopped = false, firstDone = false;
     let titleSrc = document.title, titleShown = "";
 
     // Codes such as THB, USD or a booking reference stay as they are.
-    const usable = (s: string) => { const t = s.trim(); return t.length > 0 && t.length <= 2000 && LETTERS.test(t) && !/^[A-Z0-9][A-Z0-9 ._/-]{0,7}$/.test(t) ? t : null; };
+    const usable = (s: string) => { const t = s.trim(); return approvedTranslationText(t) && t.length > 0 && t.length <= 2000 && LETTERS.test(t) && !/^[A-Z0-9][A-Z0-9 ._/-]{0,7}$/.test(t) ? t : null; };
     const wrap = (full: string, core: string, tr: string) => full.replace(core, tr);
     const skipped = (el: Element | null) => !el || Boolean(el.closest(SKIP));
 
@@ -55,7 +59,7 @@ export function SiteTranslator() {
       const core = usable(src);
       if (!core) return;
       const tr = cache[core];
-      if (tr === undefined) { pending.add(core); textOrig.set(node, { src, shown: src }); return; }
+      if (tr === undefined) { if ((retryAfter.get(core) ?? 0) <= Date.now()) pending.add(core); textOrig.set(node, { src, shown: src }); return; }
       const shown = wrap(src, core, tr);
       textOrig.set(node, { src, shown }); touchedText.add(node);
       if (node.nodeValue !== shown) node.nodeValue = shown;
@@ -69,7 +73,7 @@ export function SiteTranslator() {
         const core = usable(src);
         if (!core) continue;
         const tr = cache[core];
-        if (tr === undefined) { pending.add(core); recs[a] = { src, shown: src }; attrOrig.set(el, recs); continue; }
+        if (tr === undefined) { if ((retryAfter.get(core) ?? 0) <= Date.now()) pending.add(core); recs[a] = { src, shown: src }; attrOrig.set(el, recs); continue; }
         recs[a] = { src, shown: wrap(src, core, tr) }; attrOrig.set(el, recs); touchedAttr.add(el);
         if (v !== recs[a].shown) el.setAttribute(a, recs[a].shown);
       }
@@ -87,7 +91,7 @@ export function SiteTranslator() {
       if (document.title !== titleShown) titleSrc = document.title;
       const core = usable(titleSrc);
       if (!core) return;
-      if (cache[core] === undefined) { pending.add(core); return; }
+      if (cache[core] === undefined) { if ((retryAfter.get(core) ?? 0) <= Date.now()) pending.add(core); return; }
       titleShown = wrap(titleSrc, core, cache[core]);
       if (document.title !== titleShown) document.title = titleShown;
     }
@@ -102,8 +106,9 @@ export function SiteTranslator() {
       }
       try { sessionStorage.setItem(key, JSON.stringify(cache)); } catch { /* storage full or blocked */ }
       if (stopped) return;
-      // Missing ones (limit reached) stay in English; don't ask again on every change.
-      for (const t of texts) if (cache[t] === undefined) cache[t] = t;
+      // Temporary failures/another request's lease must not cache English as a translation.
+      for (const t of texts) if (cache[t] === undefined) { const n = (attempts.get(t) ?? 0) + 1; attempts.set(t, n); retryAfter.set(t, n < 3 ? Date.now() + 30000 : Infinity); }
+      if (texts.some((t) => cache[t] === undefined && (attempts.get(t) ?? 0) < 3) && !retryTimer) retryTimer = window.setTimeout(() => { retryTimer = 0; if (!stopped) { observer.disconnect(); walk(document.body); applyTitle(); observe(); schedule(); } }, 30050);
       observer.disconnect(); walk(document.body); applyTitle(); observe();
       if (!firstDone) { firstDone = true; done(); }
     }
@@ -127,7 +132,7 @@ export function SiteTranslator() {
 
     return () => {
       // Back to English (language switched off, "Show original", or a staff page).
-      stopped = true; observer.disconnect(); if (timer) window.clearTimeout(timer);
+      stopped = true; observer.disconnect(); if (timer) window.clearTimeout(timer); if (retryTimer) window.clearTimeout(retryTimer);
       for (const n of touchedText) { const r = textOrig.get(n); if (r && n.nodeValue === r.shown) n.nodeValue = r.src; }
       for (const el of touchedAttr) for (const [a, r] of Object.entries(attrOrig.get(el) ?? {})) if (el.getAttribute(a) === r.shown) el.setAttribute(a, r.src);
       if (titleShown && document.title === titleShown) document.title = titleSrc;

@@ -6,7 +6,7 @@ import { esc, pickKeyboard } from "@/lib/telegram/cards";
 import { acknowledgeBooking, refreshBookingCard } from "@/lib/telegram/bookings";
 import { askBookingQuestion, handleBookingAnswer } from "@/lib/telegram/booking-tasks";
 import { approveChange, cancelBookingFromTelegram, declineChange, keepBooking } from "@/lib/telegram/booking-changes";
-import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus } from "@/lib/website-chat";
+import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus, telegramClientId } from "@/lib/website-chat";
 
 // Telegram → Waydidi. Verified by the secret-token header, de-duplicated by update_id, and every action
 // is checked against the approved Telegram admin list. Callback data is only a hint; it is re-validated here.
@@ -119,10 +119,11 @@ async function handlePrivate(m: TelegramMessage) {
     return;
   }
   if (!admin || !text || text.startsWith("/")) return;
-  const conversationId = await conversationForPrivateMessage(chatId, m.reply_to_message?.message_id ?? null);
+  const saved = await db().prepare("SELECT conversation_id FROM website_chat_messages WHERE client_id=? AND sender='staff' LIMIT 1").bind(telegramClientId(chatId, m.message_id)).first<{ conversation_id: string }>();
+  const conversationId = saved?.conversation_id ?? await conversationForPrivateMessage(chatId, m.reply_to_message?.message_id ?? null);
   if (!conversationId) { await sendPrivate(chatId, "No chat to answer yet. Chats assigned to you will appear here.").catch(() => undefined); return; }
   if (text.length > 2000) { await sendPrivate(chatId, "Not sent: replies can be up to 2,000 characters.", m.message_id).catch(() => undefined); return; }
-  const result = await addStaffMessage(conversationId, text, { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(m.from!.id) }, "telegram");
+  const result = await addStaffMessage(conversationId, text, { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(m.from!.id) }, "telegram", m.message_id, chatId);
   // Normal one-to-one feel: no "sent" receipts, only a note if something went wrong.
   if ("error" in result) await sendPrivate(chatId, `Not sent: ${esc(result.error ?? "")}`, m.message_id).catch(() => undefined);
 }
@@ -149,13 +150,12 @@ async function handleMessage(m: TelegramMessage) {
   // Customer answers: replies to a Waydidi card or prompt, or the next plain message from someone
   // who tapped "Reply" in the last 10 minutes. Other group talk is ignored.
   if (!text || text.startsWith("/")) return;
-  let conversationId = m.reply_to_message ? await conversationForTelegramMessage(m.reply_to_message.message_id) : null;
+  const saved = await db().prepare("SELECT conversation_id FROM website_chat_messages WHERE client_id=? AND sender='staff' LIMIT 1").bind(telegramClientId(String(m.chat.id), m.message_id)).first<{ conversation_id: string }>();
+  let conversationId = saved?.conversation_id ?? (m.reply_to_message ? await conversationForTelegramMessage(m.reply_to_message.message_id) : null);
   if (!conversationId && !m.reply_to_message && m.from) {
     const recent = await db().prepare("SELECT conversation_id FROM telegram_reply_prompts WHERE telegram_user_id=? AND created_at>? ORDER BY created_at DESC LIMIT 1")
       .bind(String(m.from.id), new Date(Date.now() - 10 * 60 * 1000).toISOString()).first<{ conversation_id: string }>();
     conversationId = recent?.conversation_id ?? null;
-    // Used once: a second plain message isn't sent to the customer by accident.
-    if (conversationId) await db().prepare("UPDATE telegram_reply_prompts SET telegram_user_id=NULL WHERE telegram_user_id=?").bind(String(m.from.id)).run();
   }
   if (!conversationId) return;
   const admin = await approved(m.from);
@@ -164,6 +164,7 @@ async function handleMessage(m: TelegramMessage) {
     return;
   }
   if (text.length > 2000) { await sendCard("Not sent: replies can be up to 2,000 characters.", undefined, m.message_id); return; }
-  const result = await addStaffMessage(conversationId, text, { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(m.from!.id) }, "telegram", m.message_id);
+  const result = await addStaffMessage(conversationId, text, { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(m.from!.id) }, "telegram", m.message_id, String(m.chat.id));
   if ("error" in result) await sendCard(`${esc(result.error)}`, undefined, m.message_id);
+  else if (!m.reply_to_message) await db().prepare("UPDATE telegram_reply_prompts SET telegram_user_id=NULL WHERE telegram_user_id=? AND conversation_id=? AND created_at<=(SELECT created_at FROM website_chat_messages WHERE conversation_id=? AND client_id=?)").bind(String(m.from!.id), conversationId, conversationId, telegramClientId(String(m.chat.id), m.message_id)).run();
 }

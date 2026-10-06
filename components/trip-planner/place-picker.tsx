@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { loadMaps } from "@/components/account/place-autocomplete";
+import { attachPlaceAutocomplete, loadMaps } from "@/lib/google-places";
 
 export type PickedPoint = { text: string; lat: number | null; lng: number | null; placeId: string | null };
 
@@ -12,17 +12,14 @@ export function PlacePicker({ value, onChange, placeholder, className, id }: { v
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => {
     let active = true;
+    let cleanup: (() => void) | undefined;
     void loadMaps().then((ok) => {
       if (!active || !ok || !ref.current) return;
-      const auto = new window.google.maps.places.Autocomplete(ref.current, { componentRestrictions: { country: "th" }, fields: ["formatted_address", "name", "place_id", "geometry"] });
-      auto.addListener("place_changed", () => {
-        const p = auto.getPlace();
-        const text = p.name && p.formatted_address && !p.formatted_address.startsWith(p.name) ? `${p.name}, ${p.formatted_address}` : p.formatted_address || p.name || "";
-        const loc = p.geometry?.location;
-        onChangeRef.current({ text, lat: loc ? loc.lat() : null, lng: loc ? loc.lng() : null, placeId: p.place_id ?? null });
-      });
+      cleanup = attachPlaceAutocomplete(ref.current, (place) => {
+        onChangeRef.current({ text: place.address, lat: place.location?.lat ?? null, lng: place.location?.lng ?? null, placeId: place.placeId });
+      }).dispose;
     });
-    return () => { active = false; };
+    return () => { active = false; cleanup?.(); };
   }, []);
   return <input id={id} ref={ref} value={value} onChange={(e) => onChange({ text: e.target.value, lat: null, lng: null, placeId: null })} placeholder={placeholder} className={className} autoComplete="off" />;
 }

@@ -1,3 +1,4 @@
+import { approvedTranslationText } from "@/lib/site-translation-policy";
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
@@ -14,8 +15,8 @@ export async function POST(request: Request) {
   const input = await request.json().catch(() => ({})) as { lang?: unknown; texts?: unknown; path?: unknown };
   if (!isSiteLang(input.lang) || input.lang === "en") return NextResponse.json({ error: "Unsupported language." }, { status: 400, headers });
   const path = typeof input.path === "string" && input.path.startsWith("/") ? input.path.slice(0, 200) : null;
-  if (path && untranslatedPath(path)) return NextResponse.json({ translations: {} }, { headers });
-  const texts = Array.isArray(input.texts) ? [...new Set(input.texts.filter((t): t is string => typeof t === "string" && t.trim().length > 0 && t.length <= 2000))].slice(0, 120) : [];
+  if (!path || untranslatedPath(path)) return NextResponse.json({ translations: {} }, { headers });
+  const texts = Array.isArray(input.texts) ? [...new Set(input.texts.filter((t): t is string => typeof t === "string" && approvedTranslationText(t) && t.trim().length > 0 && t.length <= 2000))].slice(0, 120) : [];
   if (!texts.length) return NextResponse.json({ translations: {} }, { headers });
 
   const found = await cachedTranslations(input.lang, texts);

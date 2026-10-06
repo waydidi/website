@@ -55,11 +55,11 @@ export const messagesFor = (conversationId: string, afterRowid = 0, limit = 200)
 /** Customer message. Saved first; Telegram delivery is attempted afterwards and never loses the message. */
 export async function addVisitorMessage(c: Conversation, body: string, clientId: string | null) {
   const now = nowIso(), id = crypto.randomUUID();
-  const inserted = await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,client_id,telegram_status)
-    VALUES(?,?,'visitor',?,?,?,?) ON CONFLICT(conversation_id,client_id) DO NOTHING`).bind(id, c.id, body, now, clientId, telegramConfigured() ? "pending" : null).run();
+  const [inserted] = await db().batch([db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,client_id,telegram_status)
+    VALUES(?,?,'visitor',?,?,?,?) ON CONFLICT(conversation_id,client_id) DO NOTHING`).bind(id, c.id, body, now, clientId, telegramConfigured() ? "pending" : null),
+    db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=?,status=CASE WHEN status='closed' THEN 'open' ELSE status END WHERE id=? AND EXISTS(SELECT 1 FROM website_chat_messages WHERE id=?)").bind(now, now, c.id, id),
+  ]) as { meta: { changes: number } }[];
   if (!inserted.meta.changes) return { duplicate: true as const };
-  // A new message reopens a closed conversation.
-  await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=?,status=CASE WHEN status='closed' THEN 'open' ELSE status END WHERE id=?").bind(now, now, c.id).run();
   await deliverVisitorMessage(c.id, id).catch(() => undefined);
   return { duplicate: false as const, id };
 }
@@ -110,25 +110,29 @@ export async function retryFailedTelegram(limit = 20) {
   return ok;
 }
 
+export const telegramClientId = (chatId: string | undefined, messageId: number) => chatId ? `telegram:${chatId}:${messageId}` : `telegram:${messageId}`;
+
 /**
  * Staff reply from the dashboard or Telegram. The first replier of an unassigned conversation becomes
  * its owner; an assigned conversation is never silently taken over.
  */
-export async function addStaffMessage(conversationId: string, body: string, who: Staffer, origin: "dashboard" | "telegram", telegramMessageId?: number) {
+export async function addStaffMessage(conversationId: string, body: string, who: Staffer, origin: "dashboard" | "telegram", telegramMessageId?: number, telegramChatId?: string) {
   const c = await conversationById(conversationId);
   if (!c || c.expires_at <= nowIso()) return { error: "Conversation expired or unavailable." };
-  const clientId = origin === "telegram" && telegramMessageId != null ? `telegram:${telegramMessageId}` : null;
+  const clientId = origin === "telegram" && telegramMessageId != null ? telegramClientId(telegramChatId, telegramMessageId) : null;
   if (clientId) {
     const existing = await db().prepare("SELECT id FROM website_chat_messages WHERE conversation_id=? AND client_id=?").bind(c.id, clientId).first<{ id: string }>();
-    if (existing) return { id: existing.id };
+    if (existing) { await toChannel(c, existing.id, body); return { id: existing.id }; }
   }
   if (!c.assigned_name) await assign(c.id, who, false);
   const now = nowIso(), id = crypto.randomUUID();
   // Check ownership in the insert itself: assignment can change between requests.
-  const inserted = await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,staff_id,created_at,sender_name,telegram_message_id,telegram_status,client_id)
+  const [inserted] = await db().batch([db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,staff_id,created_at,sender_name,telegram_message_id,telegram_status,client_id)
     SELECT ?,?,'staff',?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM website_conversations WHERE id=? AND expires_at>? AND ((? IS NOT NULL AND assigned_staff_id=?) OR (? IS NOT NULL AND assigned_telegram_user_id=?)))
     ON CONFLICT(conversation_id,client_id) DO NOTHING`).bind(id, c.id, body, who.staffId ?? null, now, who.name, telegramMessageId ?? null, origin === "telegram" ? "sent" : null, clientId,
-      c.id, now, who.staffId ?? null, who.staffId ?? null, who.telegramUserId ?? null, who.telegramUserId ?? null).run();
+      c.id, now, who.staffId ?? null, who.staffId ?? null, who.telegramUserId ?? null, who.telegramUserId ?? null),
+    db().prepare("UPDATE website_conversations SET bot_paused=1,updated_at=?,last_message_at=?,status=CASE WHEN status='closed' THEN 'open' ELSE status END WHERE id=? AND EXISTS(SELECT 1 FROM website_chat_messages WHERE id=?)").bind(now, now, c.id, id),
+  ]) as { meta: { changes: number } }[];
   if (!inserted.meta.changes) {
     if (clientId) {
       const duplicate = await db().prepare("SELECT id FROM website_chat_messages WHERE conversation_id=? AND client_id=?").bind(c.id, clientId).first<{ id: string }>();
@@ -136,8 +140,6 @@ export async function addStaffMessage(conversationId: string, body: string, who:
     }
     return { error: "Another admin is handling this chat. Assign it to yourself before replying." };
   }
-  await pauseBot(c.id, true); // a person is talking now; Non stays quiet
-  await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=?,status=CASE WHEN status='closed' THEN 'open' ELSE status END WHERE id=?").bind(now, now, c.id).run();
   await toChannel(c, id, body);
   if (origin === "dashboard" && telegramConfigured() && c.telegram_message_id) {
     try {
@@ -164,6 +166,8 @@ export async function addBotMessage(conversationId: string, body: string, card?:
 /** WhatsApp/LINE copy of a reply. A failure is noted on the message, never lost on the website. */
 async function toChannel(c: Conversation, messageId: string, body: string) {
   if (!c.channel || c.channel === "web") return;
+  const delivered = await db().prepare("SELECT channel_message_id FROM website_chat_messages WHERE id=?").bind(messageId).first<{ channel_message_id: string | null }>();
+  if (delivered?.channel_message_id && delivered.channel_message_id !== "failed") return;
   try {
     let token: string | null = null;
     if (c.channel === "line") {
