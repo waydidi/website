@@ -78,7 +78,7 @@ export function FlightStatusSearch() {
   const tab = (m: "flight" | "route", label: string) => <button type="button" role="tab" aria-selected={mode === m} onClick={() => { setMode(m); setError(""); setResults([]); setRoute(null); }}
     className={`relative flex-1 py-4 text-[17px] transition ${mode === m ? "font-bold text-[#C96100] after:absolute after:bottom-0 after:left-1/2 after:h-[3px] after:w-10 after:-translate-x-1/2 after:rounded-full after:bg-[#FE8B05]" : "text-[#211726]"}`}>{label}</button>;
   const label = "block text-[14px] text-slate-500";
-  const input = "wd-noarrow mt-1 w-full border-0 bg-transparent p-0 text-[22px] font-bold text-[#211726] outline-none placeholder:font-semibold placeholder:text-slate-400";
+  const input = "wd-noarrow mt-1 w-full border-0 bg-transparent p-0 text-[20px] font-semibold text-[#211726] outline-none placeholder:font-semibold placeholder:text-slate-400";
 
   return <div>
     <form onSubmit={search} className="overflow-hidden rounded-2xl bg-white shadow-[0_6px_24px_rgba(33,23,38,.10)]">
@@ -96,10 +96,10 @@ export function FlightStatusSearch() {
         </div>}
         <label className="relative block py-4">
           <span className={label}>Departure date (local time)</span>
-          <span className="mt-1 flex items-center justify-between text-[22px] font-bold text-[#211726]">{niceDate(date)}<CalendarDays size={26} className="text-[#211726]" /></span>
+          <span className="mt-1 flex items-center justify-between text-[20px] font-semibold text-[#211726]">{niceDate(date)}<CalendarDays size={26} className="text-[#211726]" /></span>
           <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Departure date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
         </label>
-        <button type="submit" disabled={busy} className="h-14 w-full rounded-lg bg-[#FE8B05] text-[18px] font-bold text-white transition hover:bg-[#E67900] disabled:opacity-60">{busy ? "Checking…" : "Check flight status"}</button>
+        <button type="submit" disabled={busy} className="h-[52px] w-full rounded-lg bg-[#FE8B05] text-[17px] font-semibold text-white transition hover:bg-[#E67900] disabled:opacity-60">{busy ? "Checking…" : "Check flight status"}</button>
         {error && <p role="alert" className="mt-3 text-[15px] text-red-600">{error}</p>}
         {mode === "route" && !error && <p className="mt-3 text-[13px] leading-5 text-slate-500">Flights to, from and within Thailand. Direct flights are listed; for a connection, check each flight by its number.</p>}
       </div>
