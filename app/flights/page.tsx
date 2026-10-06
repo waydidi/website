@@ -4,8 +4,10 @@ import { FlightStatusSearch } from "@/components/flights/flight-status";
 import { PublicFooter } from "@/components/public-footer";
 import { Breadcrumbs, JsonLd, breadcrumbSchema, faqSchema } from "@/components/seo";
 import { SITE_URL } from "@/lib/public-content";
-import { POPULAR_ROUTES, THAI_AIRLINES, THAI_AIRPORTS, airportByCode } from "@/lib/thai-flights";
+import { latestStats } from "@/lib/aerodatabox";
+import { POPULAR_ROUTES, THAI_AIRLINES, THAI_AIRPORTS, airportByCode, airportLabel } from "@/lib/thai-flights";
 
+export const dynamic = "force-dynamic";
 const URL_PATH = "/flights";
 export const metadata: Metadata = {
   title: "Flight Status Thailand – Arrivals & Departures | Waydidi",
@@ -24,7 +26,9 @@ function Section({ title, sub, children }: { title: string; sub: string; childre
   return <section className="py-9"><h2 className="text-[26px] font-black tracking-[-.03em]">{title}</h2><p className="mt-2 text-slate-600">{sub}</p><div className="mt-5">{children}</div></section>;
 }
 
-export default function FlightsPage() {
+export default async function FlightsPage() {
+  const stats = await latestStats();
+  const dayName = stats ? new Date(`${stats.day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" }) : "";
   const crumbs = [{ name: "Home", path: "/" }, { name: "Flight status", path: URL_PATH }];
   const card = "rounded-2xl border border-slate-200 bg-white p-4 sm:p-5";
   return <main className="bg-white text-[#211726]">
@@ -38,6 +42,29 @@ export default function FlightsPage() {
     <div className="mx-auto -mt-16 max-w-[1080px] px-4 sm:px-6 lg:px-8">
       <FlightStatusSearch />
 
+      {stats && stats.airports.some((a) => a.flights) ? <>
+        <Section title="Airport tracker" sub={`Departures at Thailand's busiest airports yesterday (${dayName})`}>
+          <ol className="grid gap-3">{stats.airports.map((a, i) => <li key={a.iata} className={`${card} grid grid-cols-[24px_1fr_auto_auto] items-center gap-3 sm:gap-6`}>
+            <span className="text-lg font-black text-slate-400">{i + 1}</span>
+            <div className="min-w-0"><p className="font-bold leading-tight">{airportByCode(a.iata)?.name ?? a.iata}</p><p className="text-sm text-slate-500">{a.iata}</p></div>
+            <div className="text-right"><p className="text-lg font-black">{a.flights}</p><p className="text-xs text-slate-500">Departures</p></div>
+            <div className="text-right"><p className="text-lg font-black text-[#2F7A6B]">{a.onTime === null ? "–" : `${a.onTime}%`}</p><p className="text-xs text-slate-500">On-time</p></div>
+          </li>)}</ol>
+        </Section>
+        <Section title="Airline departures" sub="Airlines with the most departures from these airports yesterday">
+          <ul className="grid gap-3 sm:grid-cols-2">{stats.airlines.map((a) => <li key={a.name} className={`${card} flex items-center justify-between gap-4`}>
+            <div className="min-w-0"><p className="font-bold">{a.name}</p><p className="text-sm text-slate-500">On-time departures: {a.onTime === null ? "–" : `${a.onTime}%`}</p></div>
+            <div className="shrink-0 text-right"><p className="text-lg font-black">{a.flights}</p><p className="text-xs text-slate-500">Flights</p></div>
+          </li>)}</ul>
+        </Section>
+        <Section title="Busiest routes from Thailand" sub="Routes with the most departures yesterday">
+          <ol className="grid gap-3">{stats.routes.map((r, i) => <li key={r.from + r.to} className={`${card} flex items-center gap-4`}>
+            <span className="w-6 text-lg font-black text-slate-400">{i + 1}</span>
+            <div className="min-w-0 flex-1"><p className="font-bold">{airportLabel(r.from)} – {airportLabel(r.to)}</p><p className="truncate text-sm text-slate-500">{r.from} to {r.to}{r.topAirline ? ` | Most flights: ${r.topAirline}` : ""}</p></div>
+            <div className="shrink-0 text-right"><p className="text-lg font-black">{r.flights}</p><p className="text-xs text-slate-500">Flights</p></div>
+          </li>)}</ol>
+        </Section>
+      </> : <>
       <Section title="Thailand's airports" sub="Arrivals and departures at airports across Thailand">
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{THAI_AIRPORTS.map((a) => <li key={a.code} className={`${card} flex items-center gap-4`}>
           <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-[#FFF6EC] text-sm font-black text-[#C96100]">{a.code}</span>
@@ -59,6 +86,8 @@ export default function FlightsPage() {
           <Plane size={20} className="shrink-0 text-[#FE8B05]" />
         </li>)}</ol>
       </Section>
+
+      </>}
 
       <section className="my-6 grid gap-5 rounded-[24px] bg-[#211726] p-7 text-white md:grid-cols-[1fr_auto] md:items-center md:p-10">
         <div><h2 className="text-[26px] font-black tracking-[-.03em]">Landing soon? Your driver will be waiting</h2><p className="mt-2 text-white/80">Private airport transfers across Thailand. Add your flight number and your driver checks your landing time.</p></div>

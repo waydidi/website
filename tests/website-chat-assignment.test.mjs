@@ -10,7 +10,7 @@ const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec("CREATE TABLE drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT,vehicle TEXT,car_plate TEXT,driver_type TEXT,status TEXT,base_location TEXT DEFAULT '',created_at TEXT,updated_at TEXT);");
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -395,5 +395,26 @@ test('Flight status (AeroDataBox): Thailand-only, cached, counted, missing fligh
   await adb.routeFlights('BKK','SIN','2026-10-06');assert.equal(calls.length-before,2,'board cached');
   assert.deepEqual((await adb.routeFlights('SIN','BKK','2026-10-06')).map((f)=>[f.flightNumber,f.side]),[['SQ706','arrival']]);
   await assert.rejects(adb.routeFlights('SIN','HKG','2026-10-06'),/NOT_THAILAND/);
+ }finally{globalThis.fetch=real;delete env.AERODATABOX_KEY;}
+});
+test('Flight stats: built once a day from yesterday\'s departures (5 airports, 10 calls)',async()=>{
+ const adb=await vite.ssrLoadModule('/lib/aerodatabox.ts');
+ const env=globalThis.__chatTest.env;env.AERODATABOX_KEY='k';
+ const real=globalThis.fetch;let n=0;
+ const f=(to,no,airline,s,r)=>({number:no,status:'Departed',airline:{name:airline},movement:{airport:{iata:to},scheduledTime:{local:`2026-10-05 ${s}+07:00`},runwayTime:{local:`2026-10-05 ${r}+07:00`}}});
+ globalThis.fetch=async(url)=>{n++;const u=String(url);const am=u.includes('T00:00');
+  const bkk=[f('HKT','TG 201','Thai Airways','08:00','08:05'),f('HKT','FD 3001','Thai AirAsia','09:00','09:40'),f('SIN','TG 403','Thai Airways','10:00','10:10')];
+  return new Response(JSON.stringify({departures:u.includes('/BKK/')&&am?bkk:u.includes('/DMK/')&&am?[f('CNX','FD 3433','Thai AirAsia','07:00','07:00')]:[]}));};
+ try{
+  await adb.dailyStatsIfDue(new Date('2026-10-05T18:00:00Z')); // 01:00 in Bangkok: too early
+  assert.equal(n,0);
+  await adb.dailyStatsIfDue(new Date('2026-10-05T19:30:00Z')); // 02:30 Bangkok
+  await adb.dailyStatsIfDue(new Date('2026-10-05T19:31:00Z')); // already done
+  assert.equal(n,10);
+  const s=await adb.latestStats();
+  assert.equal(s.day,'2026-10-05');
+  assert.deepEqual(s.airports.slice(0,2),[{iata:'BKK',flights:3,onTime:67},{iata:'DMK',flights:1,onTime:100}]);
+  assert.deepEqual(s.airlines.map((a)=>[a.name,a.flights]),[['Thai Airways',2],['Thai AirAsia',2]]);
+  assert.deepEqual(s.routes[0],{from:'BKK',to:'HKT',flights:2,topAirline:'Thai Airways'});
  }finally{globalThis.fetch=real;delete env.AERODATABOX_KEY;}
 });

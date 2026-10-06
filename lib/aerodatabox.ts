@@ -99,7 +99,7 @@ export type RouteFlight = {
 type FidsItem = { number?: string; status?: string; airline?: { name?: string }; codeshareStatus?: string; movement?: RawPoint };
 
 /** One airport's departures or arrivals for a day (two 12-hour calls; cached 15 minutes and shared by every route search). */
-async function airportBoard(iata: string, direction: "Departure" | "Arrival", date: string) {
+export async function airportBoard(iata: string, direction: "Departure" | "Arrival", date: string) {
   const key = `board:${iata}:${direction}:${date}`;
   const cached = await db().prepare("SELECT result_json FROM flight_lookups WHERE cache_key=? AND expires_at>?").bind(key, new Date().toISOString()).first<{ result_json: string }>();
   if (cached) return JSON.parse(cached.result_json) as FidsItem[];
@@ -134,4 +134,70 @@ export async function routeFlights(from: string, to: string, date: string): Prom
     terminal: f.movement?.terminal ?? null, gate: f.movement?.gate ?? null,
   })).filter((f, i, all) => all.findIndex((g) => g.flightNumber === f.flightNumber && g.time === f.time) === i)
     .sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
+}
+
+// ---- Daily stats: yesterday's departures from Thailand's busiest airports (10 calls a day) ----
+
+export const STATS_AIRPORTS = ["BKK", "DMK", "HKT", "CNX", "HDY"];
+export type FlightStats = {
+  day: string;
+  airports: { iata: string; flights: number; onTime: number | null }[];
+  airlines: { name: string; flights: number; onTime: number | null }[];
+  routes: { from: string; to: string; flights: number; topAirline: string | null }[];
+};
+const minutes = (local?: string) => { const m = local?.match(/(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/); return m ? Date.parse(`${m[1]}T${m[2]}:${m[3]}:00Z`) / 60000 : null; };
+/** Left within 15 minutes of schedule; null when there's no actual or revised time yet. */
+function onTime(f: FidsItem) {
+  const s = minutes(f.movement?.scheduledTime?.local), a = minutes(f.movement?.runwayTime?.local ?? f.movement?.revisedTime?.local);
+  return s === null || a === null ? null : a - s <= 15;
+}
+const pct = (ok: number, of: number) => (of ? Math.round((ok / of) * 100) : null);
+
+export function buildStats(day: string, boards: Record<string, FidsItem[]>): FlightStats {
+  const airlines = new Map<string, { flights: number; ok: number; known: number }>();
+  const routes = new Map<string, { flights: number; airlines: Map<string, number> }>();
+  const airports = STATS_AIRPORTS.map((iata) => {
+    const list = (boards[iata] ?? []).filter((f) => !/Canceled/.test(f.status ?? ""));
+    let ok = 0, known = 0;
+    for (const f of list) {
+      const t = onTime(f);
+      if (t !== null) { known++; if (t) ok++; }
+      const name = f.airline?.name ?? "Other";
+      const a = airlines.get(name) ?? { flights: 0, ok: 0, known: 0 };
+      a.flights++; if (t !== null) { a.known++; if (t) a.ok++; } airlines.set(name, a);
+      const to = f.movement?.airport?.iata;
+      if (to) { const k = `${iata}-${to}`; const r = routes.get(k) ?? { flights: 0, airlines: new Map() }; r.flights++; r.airlines.set(name, (r.airlines.get(name) ?? 0) + 1); routes.set(k, r); }
+    }
+    return { iata, flights: list.length, onTime: pct(ok, known) };
+  }).sort((a, b) => b.flights - a.flights);
+  return {
+    day, airports,
+    airlines: [...airlines].filter(([n]) => n !== "Other").map(([name, a]) => ({ name, flights: a.flights, onTime: pct(a.ok, a.known) })).sort((a, b) => b.flights - a.flights).slice(0, 8),
+    routes: [...routes].map(([k, r]) => ({ from: k.slice(0, 3), to: k.slice(4), flights: r.flights, topAirline: [...r.airlines].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null })).sort((a, b) => b.flights - a.flights).slice(0, 8),
+  };
+}
+
+/** Run from the every-minute cron: once a day after 02:00 Thailand time, builds yesterday's stats. */
+export async function dailyStatsIfDue(at: Date) {
+  if (!flightApiConfigured()) return;
+  const bkk = new Date(at.getTime() + 7 * 3600_000);
+  if (bkk.getUTCHours() < 2) return;
+  const day = new Date(bkk.getTime() - 86400_000).toISOString().slice(0, 10);
+  // Claim the day (one run only); a failed run may retry after an hour.
+  const claimed = await db().prepare("INSERT INTO flight_stats(day,status,created_at) VALUES(?,'pending',?) ON CONFLICT(day) DO UPDATE SET status='pending',created_at=excluded.created_at WHERE flight_stats.status='failed' AND flight_stats.created_at<? RETURNING day")
+    .bind(day, at.toISOString(), new Date(at.getTime() - 3600_000).toISOString()).first<{ day: string }>();
+  if (!claimed) return;
+  try {
+    const boards: Record<string, FidsItem[]> = {};
+    for (const iata of STATS_AIRPORTS) boards[iata] = await airportBoard(iata, "Departure", day);
+    await db().prepare("UPDATE flight_stats SET stats_json=?,status='done' WHERE day=?").bind(JSON.stringify(buildStats(day, boards)), day).run();
+  } catch (e) {
+    console.error("flight stats failed", e instanceof Error ? e.message : "unknown");
+    await db().prepare("UPDATE flight_stats SET status='failed' WHERE day=?").bind(day).run();
+  }
+}
+
+export async function latestStats() {
+  const row = await db().prepare("SELECT stats_json FROM flight_stats WHERE status='done' ORDER BY day DESC LIMIT 1").first<{ stats_json: string }>().catch(() => null);
+  return row ? JSON.parse(row.stats_json) as FlightStats : null;
 }

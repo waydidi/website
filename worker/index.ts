@@ -104,6 +104,8 @@ const worker = {
     // Every minute: chat check-ins ("Are you still with us?") and ending website chats idle for 30 minutes.
     if (controller.cron === "* * * * *") {
       ctx.waitUntil(import("../lib/chat-idle").then(async (m) => { const at = new Date(controller.scheduledTime); await m.sendIdleNudges(at); await m.closeIdleChats(at); await import("../lib/telegram/handover").then((h) => h.remindWaiting(at)); }).catch((e) => console.error("chat check-in failed", e)));
+      // Once a day (after 02:00 Thailand time): yesterday's flight stats for /flights.
+      ctx.waitUntil(import("../lib/aerodatabox").then((m) => m.dailyStatsIfDue(new Date(controller.scheduledTime))).catch(() => undefined));
       return;
     }
     ctx.waitUntil(runOperationsAutomation(new Date(controller.scheduledTime)));
