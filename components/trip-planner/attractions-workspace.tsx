@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BadgeCheck, CalendarX2, Clock, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { BadgeCheck, CalendarX2, Clock, ImagePlus, LoaderCircle, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AttractionView, SupplierRow } from "@/lib/attractions";
 import { BEST_TIMES, MEAL_SLOTS, PLACE_TYPE_LABEL, PLACE_TYPES, PRICE_LEVEL, VIBES } from "@/lib/place-taxonomy";
@@ -80,17 +80,16 @@ export function AttractionsWorkspace() {
 
     <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-sm">
-        <thead className="bg-slate-50 text-slate-600"><tr>{["Attraction", "Area", "Hours", "Programs", "Verified", "Used in", ""].map((h) => <th key={h} className="h-12 px-4 font-normal">{h}</th>)}</tr></thead>
+        <thead className="bg-slate-50 text-slate-600"><tr>{["Attraction", "Area", "Hours", "Verified", "Used in", ""].map((h) => <th key={h} className="h-12 px-4 font-normal">{h}</th>)}</tr></thead>
         <tbody className="divide-y divide-slate-100">
-          {items === null && <tr><td colSpan={7} className="py-12 text-center"><LoaderCircle className="mx-auto animate-spin text-slate-400" /></td></tr>}
-          {items?.length === 0 && <tr><td colSpan={7} className="py-12 text-center text-slate-500">No attractions yet. Add the places you visit most often.</td></tr>}
+          {items === null && <tr><td colSpan={6} className="py-12 text-center"><LoaderCircle className="mx-auto animate-spin text-slate-400" /></td></tr>}
+          {items?.length === 0 && <tr><td colSpan={6} className="py-12 text-center text-slate-500">No attractions yet. Add the places you visit most often.</td></tr>}
           {shown.map((i) => { const days = age(i.verifiedAt); const stale = days === null || days > STALE; return <tr key={i.id} className={i.status === "hidden" ? "opacity-50" : ""}>
             <td className="px-4 py-3"><div className="flex items-center gap-3">
-              {i.coverImage ? <img src={i.coverImage} alt="" className="size-11 rounded-lg object-cover" /> : <span className="grid size-11 place-items-center rounded-lg bg-orange-50 text-[#D96F00]"><MapPin size={18} /></span>}
+              {(i.coverImage ?? i.gallery[0]) ? <img src={i.coverImage ?? i.gallery[0]} alt="" className="h-16 w-24 shrink-0 rounded-[10px] object-cover" /> : <span className="grid h-16 w-24 shrink-0 place-items-center rounded-[10px] bg-slate-100 text-slate-400" title="No photo yet"><ImagePlus size={18} /></span>}
               <div><p className="font-semibold text-slate-900">{i.name}{i.status === "hidden" && " (hidden)"}</p><p className="text-[12px] text-slate-500">{PLACE_TYPE_LABEL[i.category as keyof typeof PLACE_TYPE_LABEL] ?? i.category}{i.neighbourhood ? ` · ${i.neighbourhood}` : ""}{i.priceLevel ? ` · ${PRICE_LEVEL[i.priceLevel]}` : ""}{i.published ? " · on website" : ""}{i.latitude == null && " · no map location"}</p></div></div></td>
             <td className="px-4 py-3">{i.area || "—"}</td>
             <td className="whitespace-nowrap px-4 py-3">{i.openTime && i.closeTime ? `${i.openTime}–${i.closeTime}` : "Any time"}{i.closedDays.length > 0 && <p className="text-[12px] text-slate-500">Closed {i.closedDays.map((d) => DAYS[d]).join(", ")}</p>}</td>
-            <td className="px-4 py-3">{i.programs.length ? i.programs.map((p) => <p key={p.id} className="text-[13px]">{p.name} <span className="text-slate-500">{p.sessions.length ? p.sessions.map((s) => s.time).join(", ") : "any time"}</span></p>) : <span className="text-slate-400">—</span>}</td>
             <td className="px-4 py-3"><p className={stale ? "font-semibold text-amber-700" : "text-slate-700"}>{fmtDate(i.verifiedAt)}</p>{i.verifiedBy && <p className="text-[12px] text-slate-500">{i.verifiedBy}</p>}
               <button type="button" onClick={() => void verify(i.id)} className="mt-1 inline-flex items-center gap-1 text-[12px] font-semibold text-[#C96100] hover:underline"><BadgeCheck size={13} />Mark as verified</button></td>
             <td className="px-4 py-3">{i.usedIn} trip{i.usedIn === 1 ? "" : "s"}</td>
