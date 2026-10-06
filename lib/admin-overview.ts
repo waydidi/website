@@ -44,7 +44,7 @@ export async function adminOverview(at = new Date()) {
     }).from(bookings)
       .leftJoin(bookingAssignments, and(eq(bookingAssignments.bookingReference, bookings.reference), eq(bookingAssignments.leg,"outbound"), isNull(bookingAssignments.revokedAt)))
       .leftJoin(drivers, eq(drivers.id, bookingAssignments.driverId))
-      .where(and(gte(bookings.pickupDate, today), lte(bookings.pickupDate, bangkokDate(7, at)), inArray(bookings.status, ["pending_payment", "confirmed"]), isNull(bookings.binnedAt)))
+      .where(and(gte(bookings.pickupDate, today), lte(bookings.pickupDate, bangkokDate(30, at)), inArray(bookings.status, ["pending_payment", "confirmed"]), isNull(bookings.binnedAt)))
       .orderBy(bookings.pickupDate, bookings.pickupTime),
     db.select({ createdAt: bookings.createdAt, total: bookings.total, status: bookings.status, cancelledAt: bookings.cancelledAt }).from(bookings)
       .where(and(gte(bookings.createdAt, since30), notInArray(bookings.status, DEAD), isNull(bookings.binnedAt))),
