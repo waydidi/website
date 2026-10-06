@@ -1,6 +1,10 @@
 import { FALLBACK_RATES, sanitizeRates } from "@/lib/currency";
 
 const SOURCE = "https://open.er-api.com/v6/latest/THB";
+// Backup: European Central Bank rates via Frankfurter (free, no key).
+const BACKUP = "https://api.frankfurter.app/latest?from=THB&to=USD,AUD,SGD,CNY";
+// Last good rates, used when both sources fail (up to 7 days old) before the fixed fallback.
+const LAST_GOOD = "/api/exchange-rates?last-good";
 const WINDOW_MS = 12 * 60 * 60 * 1000;
 // Windows start at 00:00 and 12:00 Bangkok time (UTC+7).
 const OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -26,7 +30,18 @@ export async function GET(request: Request) {
     const response = await fetch(SOURCE, { signal: AbortSignal.timeout(4000) });
     const body = (await response.json()) as { result?: string; rates?: unknown };
     if (response.ok && body.result === "success") { rates = sanitizeRates(body.rates); live = true; }
+  } catch { /* try the backup */ }
+  if (!live) try {
+    const response = await fetch(BACKUP, { signal: AbortSignal.timeout(4000) });
+    const body = (await response.json()) as { rates?: unknown };
+    if (response.ok && body.rates) { rates = sanitizeRates(body.rates); live = true; }
   } catch { /* keep fallback */ }
+  const lastKey = new Request(new URL(LAST_GOOD, request.url).toString());
+  if (live) await cache?.put(lastKey, Response.json({ rates }, { headers: { "Cache-Control": "public, max-age=604800" } })).catch(() => undefined);
+  else {
+    const last = await cache?.match(lastKey).then((r) => r?.json() as Promise<{ rates?: unknown }> | undefined).catch(() => undefined);
+    if (last?.rates) rates = sanitizeRates(last.rates);
+  }
   const result = Response.json({ base: "THB", rates, live, nextUpdate: new Date((window + 1) * WINDOW_MS - OFFSET_MS).toISOString() }, { headers: { "Cache-Control": `public, max-age=${live ? maxAge : 300}` } });
   if (live) await cache?.put(key, result.clone()).catch(() => undefined);
   return result;
