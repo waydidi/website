@@ -6,21 +6,26 @@ import { useEffect, useRef, useState } from "react";
 type Pt = { lat: number | null; lon: number | null; iata: string | null };
 type Position = { lat: number; lon: number; track: number | null } | null;
 
-// Same loader as the trip page: the key comes from /api/maps/config, the script is added once.
-function loadMaps(onReady: () => void) {
+// Same key and script as the trip page. Ready is detected by polling, so it also works when the
+// script was already added (and loaded) by another part of the page.
+function loadMaps(onReady: () => void, onFail: () => void) {
   const w = window as any;
-  if (w.google?.maps) { onReady(); return; }
-  const existing = document.querySelector<HTMLScriptElement>("script[data-waydidi-google-maps]");
-  if (existing) { existing.addEventListener("load", onReady, { once: true }); return; }
-  fetch("/api/maps/config", { cache: "no-store" }).then((r) => r.json()).then(({ apiKey }: { apiKey?: string }) => {
-    if (!apiKey) return;
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
-    script.async = true;
-    script.dataset.waydidiGoogleMaps = "true";
-    script.addEventListener("load", onReady, { once: true });
-    document.head.appendChild(script);
-  }).catch(() => undefined);
+  if (!document.querySelector("script[data-waydidi-google-maps]") && !w.google?.maps) {
+    fetch("/api/maps/config", { cache: "no-store" }).then((r) => r.json()).then(({ apiKey }: { apiKey?: string }) => {
+      if (!apiKey || document.querySelector("script[data-waydidi-google-maps]")) return;
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
+      script.async = true;
+      script.dataset.waydidiGoogleMaps = "true";
+      document.head.appendChild(script);
+    }).catch(() => undefined);
+  }
+  const started = Date.now();
+  const timer = window.setInterval(() => {
+    if (w.google?.maps?.Map) { window.clearInterval(timer); onReady(); }
+    else if (Date.now() - started > 12_000) { window.clearInterval(timer); onFail(); }
+  }, 200);
+  return () => window.clearInterval(timer);
 }
 
 const PLANE = "M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z";
@@ -29,13 +34,15 @@ const PLANE = "M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l
 export function FlightMap({ from, to, position }: { from: Pt; to: Pt; position: Position }) {
   const ref = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
-  useEffect(() => { loadMaps(() => setReady(true)); }, []);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => loadMaps(() => setReady(true), () => setFailed(true)), []);
 
   useEffect(() => {
     const maps = (window as any).google?.maps;
     if (!ready || !ref.current || !maps || from.lat === null || from.lon === null || to.lat === null || to.lon === null) return;
     const a = { lat: from.lat, lng: from.lon }, b = { lat: to.lat, lng: to.lon };
-    const map = new maps.Map(ref.current, { disableDefaultUI: true, zoomControl: true, clickableIcons: false, gestureHandling: "cooperative" });
+    let map;
+    try { map = new maps.Map(ref.current, { disableDefaultUI: true, zoomControl: true, clickableIcons: false, gestureHandling: "cooperative" }); } catch { setFailed(true); return; }
     const bounds = new maps.LatLngBounds(); bounds.extend(a); bounds.extend(b);
     if (position) bounds.extend({ lat: position.lat, lng: position.lon });
     map.fitBounds(bounds, 48);
@@ -48,6 +55,6 @@ export function FlightMap({ from, to, position }: { from: Pt; to: Pt; position: 
       icon: { path: PLANE, fillColor: "#FE8B05", fillOpacity: 1, strokeColor: "#FFFFFF", strokeWeight: 1, scale: 1.5, rotation: position.track ?? 0, anchor: new maps.Point(12, 12) } });
   }, [ready, from.lat, from.lon, to.lat, to.lon, from.iata, to.iata, position]);
 
-  if (from.lat === null || to.lat === null) return null;
+  if (failed || from.lat === null || to.lat === null) return null;
   return <div ref={ref} className="mt-5 h-[220px] w-full overflow-hidden rounded-xl bg-[#EAF1F4] sm:h-[280px]" aria-label="Flight route map" role="img" />;
 }
