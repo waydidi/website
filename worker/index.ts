@@ -64,6 +64,19 @@ const worker = {
       if (!allowedStaffRoute(staff.role,accessPath,request.method)) return withSecurityHeaders(Response.json({error:"Your staff role does not permit this action."},{status:403}),url);
     }
 
+    // Maintenance mode (Admin → Settings): visitors see the maintenance page. Staff who are signed in,
+    // admin, driver and customer trip/payment links, the APIs (webhooks) and files keep working.
+    if ((request.method === "GET" || request.method === "HEAD") && !MAINTENANCE_OPEN.test(accessPath) && await maintenanceOn(env)) {
+      const staff = readCookie(request, STAFF_COOKIE) ? await staffForToken(env.DB, readCookie(request, STAFF_COOKIE)).catch(() => null) : null;
+      if (!staff) {
+        const page = await handler.fetch(new Request(new URL("/maintenance", url.origin), { headers: request.headers }), env, ctx);
+        const res = new Response(page.body, { status: 503, headers: page.headers });
+        res.headers.set("Cache-Control", "no-store");
+        res.headers.set("Retry-After", "3600");
+        return withSecurityHeaders(res, url);
+      }
+    }
+
     // The old hand-translated /th and /zh pages: same page in English, shown in that language by the AI translator.
     const old = url.pathname.match(/^\/(th|zh)(\/.*)?$/);
     if (old && request.method === "GET") {
@@ -122,6 +135,17 @@ const worker = {
     ctx.waitUntil(import("../lib/website-chat").then((m) => m.retryFailedTelegram()).catch(() => undefined));
   },
 };
+
+// Paths that stay open in maintenance mode. Anything with a file extension (images, scripts) is open too.
+const MAINTENANCE_OPEN = /^\/(admin|admin-setup|api|driver|drivers\/portal|trip|booking|pay|chat-pay|f|maintenance|_vinext|_next|assets)(\/|$)|\.[a-z0-9]{2,5}$/i;
+let maintenanceCache = { on: false, at: 0 };
+/** Read from D1 at most every 20 seconds per worker. */
+async function maintenanceOn(env: Env) {
+  if (Date.now() - maintenanceCache.at < 20_000) return maintenanceCache.on;
+  const row = await (env.DB as unknown as { prepare: (s: string) => { first: <T>() => Promise<T | null> } }).prepare("SELECT value FROM site_settings WHERE key='maintenance'").first<{ value: string }>().catch(() => null);
+  maintenanceCache = { on: row?.value === "on", at: Date.now() };
+  return maintenanceCache.on;
+}
 
 function withSecurityHeaders(response: Response, url: URL) {
     const secured = new Response(response.body, response);
