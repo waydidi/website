@@ -274,12 +274,12 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
   const lastPrompt=()=>[...sent].reverse().find((m)=>m.reply_markup?.force_reply);
   await tap('bk_cost:MC7Q2P');assert.equal(lastPrompt(),undefined); // must be assigned first
   await tap('booking_assign:MC7Q2P');
-  const kb=sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text);assert.deepEqual(kb,['Set cost','Add driver information','Open booking']);
+  const kb=sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text);assert.deepEqual(kb,['Set cost','Assign driver','Add outsource driver','Open booking']);
   await tap('bk_cost:MC7Q2P');assert.match(lastPrompt().text,/Driver cost/);
   await say('abc');assert.match(sent.filter((m)=>m.method==='sendMessage').at(-2).text,/number/); // asked again
   await say('900');
   assert.equal((await db.prepare("SELECT total_driver_cost FROM booking_costs WHERE booking_reference='MC7Q2P'").first()).total_driver_cost,900);
-  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Add driver information','Open booking']);
+  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Assign driver','Add outsource driver','Open booking']);
   await tap('bk_drv:MC7Q2P');
   for(const [q,a] of [[/full name/,'Somchai Jaidee'],[/phone/,'081 234 5678'],[/plate/,'1กข 1234'],[/model/,'Toyota Camry, black'],[/licence/,'12345678']]){assert.match(lastPrompt().text,q);await say(a);}
   const d=await db.prepare("SELECT full_name,phone,car_plate,vehicle,license_number FROM drivers WHERE full_name='Somchai Jaidee'").first();
@@ -290,6 +290,28 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
   assert.match(job,/\/driver\/trip\/[a-f0-9]{48}/);
   assert.equal((await db.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='MC7Q2P' AND revoked_at IS NULL").first()).n,1);
   assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Open booking']);
+ }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
+});
+test('Telegram booking: Assign driver lists our own drivers (not outsource) and assigns the one tapped',async()=>{
+ const hook=await vite.ssrLoadModule('/app/api/integrations/telegram/webhook/route.ts');
+ Object.assign(globalThis.__chatTest.env,{TELEGRAM_BOT_TOKEN:'t'});
+ const sent=[];const real=globalThis.fetch;let mid=8000;
+ globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://api.telegram.org')){const body=JSON.parse(init.body);sent.push({method:u.split('/').pop(),...body});return new Response(JSON.stringify({ok:true,result:{message_id:++mid,chat:{id:-100}}}));}return real(url,init);};
+ try{
+  await db.prepare("INSERT INTO bookings(reference,customer_name,customer_surname,customer_email,customer_phone,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,amount_paid,flight_number,status,created_at) VALUES('PK4D7R','Ann','Lee','a@x.co','','BKK','Pattaya','2026-10-20','09:00',2,1,'economy_sedan','card',1800,1800,'','confirmed',?)").bind(new Date().toISOString()).run();
+  await db.prepare("INSERT INTO drivers(id,full_name,phone,vehicle,car_plate,driver_type,status) VALUES('d-staff','Prasit Staff','0811111111','Camry','1กก 1','staff','active'),('d-out','Temp Outsource','0822222222','Vios','2ขข 2','outsource','active'),('d-off','Old Driver','0833333333','Altis','3คค 3','staff','inactive')").run();
+  await db.prepare("INSERT INTO telegram_booking_cards(booking_reference,telegram_message_id,created_at) VALUES('PK4D7R',7999,?)").bind(new Date().toISOString()).run();
+  let u=900;const tap=(data)=>hook.POST(new Request('https://example.invalid/api/integrations/telegram/webhook',{method:'POST',headers:{'content-type':'application/json','x-telegram-bot-api-secret-token':'s'.repeat(24)},body:JSON.stringify({update_id:++u,callback_query:{id:'q',from:{id:777,first_name:'Alex'},data,message:{message_id:7999,chat:{id:-100}}}})}));
+  await tap('booking_assign:PK4D7R');
+  await tap('bk_dl:PK4D7R');
+  const list=sent.filter((m)=>m.method==='editMessageReplyMarkup').at(-1).reply_markup.inline_keyboard.flat();
+  const names=list.map((b)=>b.text);assert.ok(names.includes('Prasit Staff'));assert.ok(!names.includes('Temp Outsource'));assert.ok(!names.includes('Old Driver'));assert.equal(names.at(-1),'Back');
+  await tap('bk_dp:PK4D7R:d-out');
+  assert.equal((await db.prepare("SELECT driver_done FROM telegram_booking_cards WHERE booking_reference='PK4D7R'").first()).driver_done,0);
+  await tap(list.find((b)=>b.text==='Prasit Staff').callback_data);
+  const card=await db.prepare("SELECT driver_done,driver_form_json FROM telegram_booking_cards WHERE booking_reference='PK4D7R'").first();
+  assert.equal(card.driver_done,1);assert.equal(JSON.parse(card.driver_form_json).driverId,'d-staff');
+  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Set cost','Open booking']);
  }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
 });
 test('Telegram cancellation and change requests: cards with buttons, booking updated, driver told in Thai',async()=>{

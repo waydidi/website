@@ -36,6 +36,8 @@ type ConfirmationEmailInput = {
   surname?: string | null;
   flightNumber?: string | null;
   subject?: string;
+  /** The customer's ride status page (driver, live progress). */
+  rideUrl?: string;
 };
 
 function toBase64(bytes: Uint8Array) {
@@ -151,6 +153,8 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
 ${p(escapeHtml(greeting))}
 ${p("Warm greetings from Waydidi Travel. We are pleased to confirm your booking with the following details:")}
 ${blocks.map(blockHtml).join("\n")}
+${input.rideUrl ? `${p("Follow your ride here: your driver's name, car and live trip status appear on this page once a driver is assigned.")}
+<p style="margin:0 0 20px"><a href="${escapeHtml(input.rideUrl)}" style="display:inline-block;background:#F27A1A;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 22px;border-radius:10px">Open your ride status</a></p>` : ""}
 ${p("Please find your official booking confirmation as a PDF file in this email.")}
 ${p(`If you have any questions before your trip, feel free to contact us via WhatsApp: <a href="https://wa.me/${WHATSAPP.replace(/\D/g, "")}" style="color:#C96100">${WHATSAPP}</a>`)}
 ${p("We look forward to taking care of your journey.")}
@@ -160,6 +164,7 @@ ${p("Best regards,<br>Waydidi Team")}
   const text = [
     greeting, "", "Warm greetings from Waydidi Travel. We are pleased to confirm your booking with the following details:", "",
     ...blocks.flatMap((lines) => [...lines.map(([label, value]) => `${label}: ${value}`), ""]),
+    ...(input.rideUrl ? [`Follow your ride status here: ${input.rideUrl}`, ""] : []),
     "Please find your official booking confirmation as a PDF file in this email.", "",
     `If you have any questions before your trip, feel free to contact us via WhatsApp: ${WHATSAPP}`, "",
     "We look forward to taking care of your journey.", "Best regards,", "Waydidi Team",

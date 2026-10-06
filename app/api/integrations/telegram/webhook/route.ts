@@ -4,7 +4,7 @@ import { constantTimeEqual } from "@/lib/security";
 import { answerCallback, sendCard, sendPrivate, telegramChatId, tg, type TelegramMessage, type TelegramUser } from "@/lib/telegram/client";
 import { esc, pickKeyboard } from "@/lib/telegram/cards";
 import { acknowledgeBooking, refreshBookingCard } from "@/lib/telegram/bookings";
-import { askBookingQuestion, handleBookingAnswer } from "@/lib/telegram/booking-tasks";
+import { askBookingQuestion, driverChoices, handleBookingAnswer, pickDriver } from "@/lib/telegram/booking-tasks";
 import { waitHandover } from "@/lib/telegram/handover";
 import { approveChange, cancelBookingFromTelegram, declineChange, keepBooking } from "@/lib/telegram/booking-changes";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus } from "@/lib/website-chat";
@@ -64,6 +64,21 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
     if (!taken?.acknowledged_by) return answerCallback(q.id, "Assign the booking first.", true);
     await askBookingQuestion(target, action === "bk_cost" ? "cost" : "driver_name", q.from);
     return answerCallback(q.id, action === "bk_cost" ? "Type the driver cost." : "Answer the driver questions one by one.");
+  }
+  if (action === "bk_dl" || action === "bk_dp" || action === "bk_dx") {
+    const card = await db().prepare("SELECT acknowledged_by,driver_done FROM telegram_booking_cards WHERE booking_reference=?").bind(target).first<{ acknowledged_by: string | null; driver_done: number }>();
+    if (!card?.acknowledged_by) return answerCallback(q.id, "Assign the booking first.", true);
+    if (card.driver_done) { await refreshBookingCard(target); return answerCallback(q.id, "A driver is already set.", true); }
+    if (action === "bk_dx") { await refreshBookingCard(target); return answerCallback(q.id); }
+    if (action === "bk_dl") {
+      const drivers = await driverChoices();
+      if (!drivers.length) return answerCallback(q.id, "No active drivers yet. Use Add outsource driver.", true);
+      const rows = drivers.map((d) => [{ text: d.full_name.slice(0, 40), callback_data: `bk_dp:${target}:${d.id}` }]);
+      await tg("editMessageReplyMarkup", { chat_id: q.message!.chat.id, message_id: q.message!.message_id, reply_markup: { inline_keyboard: [...rows, [{ text: "Back", callback_data: `bk_dx:${target}` }]] } }).catch(() => undefined);
+      return answerCallback(q.id, "Choose a driver.");
+    }
+    const picked = extra ? await pickDriver(target, extra, admin.display_name, refreshBookingCard) : false;
+    return answerCallback(q.id, picked ? "Driver assigned." : "That driver isn't available.", !picked);
   }
   if (action === "noop") return answerCallback(q.id);
   if (action === "bk_cancel") return answerCallback(q.id, await cancelBookingFromTelegram(target, admin.display_name), true);

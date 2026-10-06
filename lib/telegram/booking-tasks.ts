@@ -87,6 +87,25 @@ export async function handleBookingAnswer(m: TelegramMessage, adminName: string,
   return true;
 }
 
+/** Our own drivers (not outsource) who can be picked for a booking. */
+export async function driverChoices() {
+  const { results } = await db().prepare("SELECT id,full_name FROM drivers WHERE status='active' AND driver_type<>'outsource' ORDER BY full_name LIMIT 30").all<{ id: string; full_name: string }>();
+  return results;
+}
+
+/** Assigns one of our drivers from the list; returns false if the driver isn't available. */
+export async function pickDriver(reference: string, driverId: string, adminName: string, refresh: (reference: string) => Promise<unknown>) {
+  const d = await db().prepare("SELECT id,full_name,phone,car_plate,vehicle,license_number FROM drivers WHERE id=? AND status='active' AND driver_type<>'outsource'").bind(driverId)
+    .first<{ id: string; full_name: string; phone: string | null; car_plate: string | null; vehicle: string | null; license_number: string | null }>();
+  if (!d) return false;
+  const form: DriverForm = { name: d.full_name, phone: d.phone ?? undefined, plate: d.car_plate ?? undefined, model: d.vehicle ?? undefined, license: d.license_number ?? undefined, driverId: d.id };
+  const done = await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=?,driver_done=1 WHERE booking_reference=? AND driver_done=0").bind(JSON.stringify(form), reference).run();
+  if (!done.meta.changes) return false;
+  await refresh(reference);
+  await postAssignmentWhenReady(reference, adminName);
+  return true;
+}
+
 /** Same phone = same driver: details are updated; otherwise a new driver is added. */
 async function saveDriver(f: DriverForm) {
   const digits = (f.phone ?? "").replace(/\D/g, "");

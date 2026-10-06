@@ -7,6 +7,8 @@ import { bookingExtras } from "@/lib/booking-extras";
 import { createConfirmationPdf } from "@/lib/confirmation-pdf";
 import { sendConfirmationEmail } from "@/lib/email";
 import { sha256 } from "@/lib/security";
+import { SITE_URL } from "@/lib/site";
+import { rideUrl } from "@/lib/trip-access";
 type Booking=typeof bookings.$inferSelect;
 type Delivery={id:string;channel:string;recipient:string|null;attempts:number};
 
@@ -49,7 +51,7 @@ async function deliverBooking(booking:Booking) {
     else {const key=`confirmations/${booking.reference}.pdf`;await env.BUCKET.put(key,await pdf(),{httpMetadata:{contentType:"application/pdf"}});await getDb().update(bookings).set({pdfKey:key,updatedAt:at}).where(eq(bookings.reference,booking.reference));}
    } else if(!job.recipient) {status="pending_configuration";error="Office notification email is not configured.";}
    else {
-    const delivery=await sendConfirmationEmail({to:job.recipient,name:booking.customerName,reference:booking.reference,pdf:await pdf(),pickup:booking.pickup,dropoff:booking.dropoff,pickupDate:booking.pickupDate,pickupTime:booking.pickupTime,vehicle:booking.vehicle,customerPhone:booking.customerPhone,passengers:booking.passengers,luggage:booking.luggage,total:booking.total,paymentMethod:booking.paymentMethod,serviceType:booking.serviceType,bookedHours:booking.bookedHours,pricingArea:booking.pricingArea,returnPickup:booking.returnPickup,returnDropoff:booking.returnDropoff,returnDate:booking.returnDate,returnTime:booking.returnTime,outboundTotal:booking.outboundTotal,returnTotal:booking.returnTotal,extras:await bookingExtras(booking),surname:booking.customerSurname,flightNumber:booking.flightNumber});
+    const delivery=await sendConfirmationEmail({to:job.recipient,name:booking.customerName,reference:booking.reference,pdf:await pdf(),pickup:booking.pickup,dropoff:booking.dropoff,pickupDate:booking.pickupDate,pickupTime:booking.pickupTime,vehicle:booking.vehicle,customerPhone:booking.customerPhone,passengers:booking.passengers,luggage:booking.luggage,total:booking.total,paymentMethod:booking.paymentMethod,serviceType:booking.serviceType,bookedHours:booking.bookedHours,pricingArea:booking.pricingArea,returnPickup:booking.returnPickup,returnDropoff:booking.returnDropoff,returnDate:booking.returnDate,returnTime:booking.returnTime,outboundTotal:booking.outboundTotal,returnTotal:booking.returnTotal,extras:await bookingExtras(booking),surname:booking.customerSurname,flightNumber:booking.flightNumber,rideUrl:job.channel==="customer_email"?await rideUrl(SITE_URL,booking).catch(()=>undefined):undefined});
     status=delivery.status;if(status!=="sent")error="Email delivery has not been confirmed.";
    }
   } catch {status="failed";error="Delivery failed and will be retried independently.";}
