@@ -256,5 +256,5 @@ function StartForm({ question, setQuestion, email, setEmail, topic, setTopic, bu
 /** "(Paid)" in Non's messages shows in green. */
 function highlightPaid(text: string) {
   const parts = text.split(/(\(Paid\))/);
-  return parts.length === 1 ? text : parts.map((p, i) => p === "(Paid)" ? <span key={i} className="font-semibold text-[#00B14F]">(Paid)</span> : p);
+  return parts.length === 1 ? text : parts.map((p, i) => p === "(Paid)" ? <span key={i} className="font-semibold text-[#06C755]">(Paid)</span> : p);
 }

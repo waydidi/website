@@ -20,11 +20,12 @@ const shell = "w-[94%] max-w-[350px] overflow-hidden rounded-[18px] border borde
 export function RichCard({ card, onShareLocation }: { card: ChatCard; onShareLocation?: (text: string) => void }) {
   if (card.type === "location") return <LocationAsk text={card.text} onShare={onShareLocation} />;
   if (card.type === "booking") {
-    const tone = card.status === "confirmed" || card.status === "completed" ? "bg-emerald-50 text-emerald-700" : card.status === "cancelled" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800";
+    // Waydidi orange header; "Confirmed" in the same green as the "Best value" badge.
+    const tone = card.status === "confirmed" || card.status === "completed" ? "bg-[#06C755] text-white" : card.status === "cancelled" ? "bg-white text-red-700" : "bg-white text-amber-800";
     return <div className={shell}>
-      <div className="flex items-center justify-between gap-2 bg-[#FFF3E6] px-4 py-3"><p className="text-[15px] font-bold">Booking {card.reference}</p><span className={`rounded-full px-2 py-0.5 text-[12px] font-bold ${tone}`}>{card.statusText}</span></div>
+      <div className="flex items-center justify-between gap-2 bg-[#FE8B05] px-4 py-3 text-white"><p className="text-[15px] font-bold">Booking {card.reference}</p><span className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${tone}`}>{card.statusText}</span></div>
       <dl className="grid gap-1.5 px-4 py-3 text-[13px]">
-        {card.rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{v.endsWith("(Paid)") ? <>{v.slice(0, -6)}<span className="text-[#00B14F]">(Paid)</span></> : v}</dd></div>)}
+        {card.rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{k === "Car" && card.people ? <span className="inline-flex flex-wrap items-center justify-end gap-x-2">{v}<span className="inline-flex items-center gap-[3px] font-normal text-[#6B6B6B]"><Users size={16} className="text-[#1C1C1C]" aria-label="passengers" />{card.people}<Luggage size={16} className="ml-[5px] text-[#1C1C1C]" aria-label="bags" />{card.bags ?? 0}</span></span> : v.endsWith("(Paid)") ? <>{v.slice(0, -6)}<span className="text-[#06C755]">(Paid)</span></> : v}</dd></div>)}
       </dl>
       <div className="border-t border-slate-100 px-4 py-3 text-[13px]">
         <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">Driver</p>

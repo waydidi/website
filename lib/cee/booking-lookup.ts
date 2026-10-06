@@ -14,7 +14,7 @@ const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
 type Row = { reference: string; customer_name: string; customer_surname: string | null; status: string; pickup: string; dropoff: string; pickup_date: string; pickup_time: string;
   return_date: string | null; return_time: string | null; vehicle: string; passengers: number; luggage: number; flight_number: string | null; payment_method: string; payment_status: string;
   total: number; amount_paid: number; service_type: string; booked_hours: number | null };
-export type BookingStatus = { reference: string; status: string; statusText: string; leadName: string; rows: [string, string][]; cashDue: number; driver: { name: string; car: string | null; plate: string | null; phone: string | null } | null; manageUrl: string };
+export type BookingStatus = { reference: string; status: string; statusText: string; leadName: string; rows: [string, string][]; people: number; bags: number; cashDue: number; driver: { name: string; car: string | null; plate: string | null; phone: string | null } | null; manageUrl: string };
 
 const STATUS: Record<string, string> = { confirmed: "Confirmed", pending: "Waiting for payment", pending_payment: "Waiting for payment", cancelled: "Cancelled", completed: "Completed", binned: "Not found" };
 const day = (d: string) => { const [y, m, dd] = d.split("-"); return `${dd}/${m}/${y}`; };
@@ -51,12 +51,12 @@ export async function checkBooking(conversationId: string, referenceIn: string, 
     ["Pickup", `${day(b.pickup_date)} ${b.pickup_time}`],
     ...(b.return_date && b.return_time ? [["Return", `${day(b.return_date)} ${b.return_time}`] as [string, string]] : []),
     ...(b.flight_number ? [["Flight", b.flight_number] as [string, string]] : []),
-    ["Car", `${car} · ${b.passengers} people, ${b.luggage} bags`],
+    ["Car", car],
     ["Payment", cashDue ? `฿${cashDue.toLocaleString("en-US")} (Cash to driver)` : b.payment_status === "paid" || b.amount_paid >= b.total ? `฿${b.total.toLocaleString("en-US")} (Paid)` : `฿${b.total.toLocaleString("en-US")} (${b.payment_status === "pending" ? "Not paid yet" : b.payment_status})`],
   ];
   return { ok: true, booking: {
-    reference: b.reference, status: b.status, statusText: STATUS[b.status] ?? b.status, leadName: `${b.customer_name} ${b.customer_surname ?? ""}`.trim(), rows, cashDue,
+    reference: b.reference, status: b.status, statusText: STATUS[b.status] ?? b.status, leadName: `${b.customer_name} ${b.customer_surname ?? ""}`.trim(), rows, people: b.passengers, bags: b.luggage, cashDue,
     driver: driver ? { name: driver.name, car: driver.car, plate: driver.plate, phone: soon ? driver.phone : null } : null,
-    manageUrl: `${SITE_URL}/booking/manage`,
+    manageUrl: `${SITE_URL}/account/trips/${encodeURIComponent(b.reference)}`,
   } };
 }

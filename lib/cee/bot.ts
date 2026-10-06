@@ -199,7 +199,7 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
           if (!options.placeGuard) content = JSON.stringify({ ok: false, reason: "Booking lookup isn't available here; hand over." });
           else {
             const r = await checkBooking(options.placeGuard.conversationId, String(i.reference), String(i.surname));
-            if (r.ok && (options.channel ?? "web") === "web") out.cards!.push({ type: "booking", reference: r.booking.reference, status: r.booking.status, statusText: r.booking.statusText, rows: r.booking.rows, driver: r.booking.driver, manageUrl: r.booking.manageUrl });
+            if (r.ok && (options.channel ?? "web") === "web") out.cards!.push({ type: "booking", reference: r.booking.reference, status: r.booking.status, statusText: r.booking.statusText, rows: r.booking.rows, people: r.booking.people, bags: r.booking.bags, driver: r.booking.driver, manageUrl: r.booking.manageUrl });
             content = JSON.stringify(r.ok ? { ...r, note: (options.channel ?? "web") === "web" ? "The customer sees the details as a card; reply in one or two lines (status, and anything they asked about)." : "Give the key details in a short, clear list (status, pickup date/time, route, car, payment, driver)." } : r);
           }
         }
