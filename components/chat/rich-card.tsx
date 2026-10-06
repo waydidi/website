@@ -56,9 +56,10 @@ export function RichCard({ card }: { card: ChatCard }) {
           <p className="text-[14.5px] font-bold leading-tight">{p.name}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-slate-600">
             {p.rating !== null && <span className="inline-flex items-center gap-0.5 font-semibold text-[#15161C]"><Star size={13} className="fill-[#FFB400] text-[#FFB400]" aria-hidden="true" />{p.rating.toFixed(1)}<span className="font-normal text-slate-500">({(p.reviews ?? 0).toLocaleString("en-US")})</span></span>}
-            {p.kind && <span>· {p.kind}</span>}{p.price && <span>· {p.price}</span>}
+            {p.kind && <span>· {p.kind}</span>}{p.price && <span>· {p.price}</span>}{typeof p.distanceKm === "number" && <span>· {p.distanceKm < 1 ? `${Math.round(p.distanceKm * 1000)} m` : `${p.distanceKm} km`} away</span>}
           </p>
           <p className="mt-0.5 truncate text-[12px] text-slate-500">{p.address}</p>
+          {p.alert && <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-[11.5px] font-semibold text-amber-800">⚠️ Waydidi notice: {p.alert}</p>}
           <div className="mt-1.5 flex items-center gap-2">
             {p.openNow !== null && <span className={`rounded-full px-1.5 py-px text-[11px] font-bold ${p.openNow ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{p.openNow ? "Open now" : "Closed now"}</span>}
             <a href={p.mapsUrl} target="_blank" rel="noreferrer" className="inline-flex h-7 items-center rounded-full border border-[#FE8B05] px-2.5 text-[12px] font-bold text-[#C96100] hover:bg-orange-50">Map</a>

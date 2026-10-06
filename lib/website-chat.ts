@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { SITE_URL } from "@/lib/site";
 import { deliverToChannel } from "@/lib/channels";
 import { editCard, sendCard, sendPrivate, telegramConfigured } from "@/lib/telegram/client";
-import { botEcho, conversationCard, conversationKeyboard, customerMessage, esc, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
+import { conversationCard, conversationKeyboard, customerMessage, esc, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
 
 // One canonical support conversation, stored in D1. The website widget, the admin inbox and Telegram
 // are three views of the same rows; nothing is routed by name, only by conversation id.
@@ -70,6 +70,11 @@ export async function deliverVisitorMessage(conversationId: string, messageId: s
   const c = await conversationById(conversationId);
   const m = await db().prepare("SELECT body,created_at,telegram_status FROM website_chat_messages WHERE id=?").bind(messageId).first<{ body: string; created_at: string; telegram_status: string | null }>();
   if (!c || !m || m.telegram_status === "sent") return;
+  // While Non (the AI) is handling the chat the group isn't notified; it hears only about handovers.
+  if (!c.assigned_name && (await nonAnswering(c))) {
+    await db().prepare("UPDATE website_chat_messages SET telegram_status='skipped' WHERE id=? AND telegram_status='pending'").bind(messageId).run();
+    return;
+  }
   // Assigned chats go to the assignee's private chat with the bot; the group only if that fails.
   const dm = c.assigned_name ? await assigneeTelegramId(c) : null;
   if (dm) {
@@ -158,8 +163,7 @@ export async function addBotMessage(conversationId: string, body: string, card?:
   await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot,card_json) VALUES(?,?,'staff',?,?,'Non',1,?)`).bind(id, c.id, body, now, card ? JSON.stringify(card) : null).run();
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();
   await toChannel(c, id, body);
-  // Copied under the chat's Telegram card so staff can follow what Non says (and step in).
-  if (c.telegram_message_id && telegramConfigured()) await sendCard(botEcho(c.public_id, body), undefined, c.telegram_message_id).catch(() => undefined);
+  // Not posted to Telegram: the group only hears about handovers (with the recent conversation).
   return id;
 }
 
@@ -228,7 +232,7 @@ async function announceAssignment(conversationId: string) {
   await sendCard(`Chat <b>${c.public_id}</b> has been assigned to <b>${name}</b>.`, undefined, c.telegram_message_id ?? undefined).catch(() => undefined);
   const dm = await assigneeTelegramId(c);
   if (!dm) return;
-  const recent = (await messagesFor(c.id, 0, 6)).map((m) => `${m.sender === "visitor" ? "Customer" : (m.sender_name ?? "Waydidi").replace(/[<>&]/g, "")}: ${m.body.replace(/[<>&]/g, "").slice(0, 300)}`).join("\n");
+  const recent = (await messagesFor(c.id, 0, 200)).slice(-6).map((m) => `${m.sender === "visitor" ? "Customer" : (m.sender_name ?? "Waydidi").replace(/[<>&]/g, "")}: ${m.body.replace(/[<>&]/g, "").slice(0, 300)}`).join("\n");
   try {
     const sent = await sendPrivate(dm, `<b>${c.public_id}</b> is yours · ${(c.customer_name ?? "Website visitor").replace(/[<>&]/g, "")}\n\n${recent}\n\n<i>New messages from this customer will come here. Just type to answer.</i>`);
     await rememberPrivate(dm, sent.message_id, c.id);

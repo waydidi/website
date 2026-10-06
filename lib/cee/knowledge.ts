@@ -94,11 +94,20 @@ export async function searchKnowledge(query: string, city?: string | null, limit
   const notes = (await db().prepare(`SELECT title,kind,city,body,(${score(noteCols)}) + (CASE WHEN ? IS NOT NULL AND LOWER(COALESCE(city,''))=? THEN 2 ELSE 0 END) score
     FROM cee_knowledge WHERE active=1 AND (? IS NULL OR city IS NULL OR LOWER(city)=?) ORDER BY score DESC LIMIT ?`)
     .bind(...binds(noteCols.length), cityNorm, cityNorm, cityNorm, cityNorm, limit).all<{ title: string; kind: string; city: string | null; body: string; score: number }>().catch(() => ({ results: [] }))).results.filter((n) => n.score > 0);
-  const places = (await db().prepare(`SELECT COALESCE(customer_name,name) name,area,category,open_time,close_time,closed_days_json,duration_min,dress_code,description,(${score(placeCols)}) score
+  const places = (await db().prepare(`SELECT COALESCE(customer_name,name) name,area,category,open_time,close_time,closed_days_json,exceptions_json,duration_min,dress_code,description,(${score(placeCols)}) score
     FROM attractions WHERE status='active' ORDER BY score DESC LIMIT ?`)
     .bind(...binds(placeCols.length), Math.ceil(limit / 2)).all<Record<string, unknown> & { score: number }>().catch(() => ({ results: [] }))).results.filter((p) => p.score > 1);
   return {
     notes: notes.map((n) => ({ title: n.title, kind: n.kind, city: n.city, body: n.body.slice(0, 1200) })),
-    places: places.map((p) => { const rest: Record<string, unknown> = { ...p }; delete rest.score; return { ...rest, description: typeof p.description === "string" ? p.description.slice(0, 400) : null }; }),
+    places: places.map((p) => { const rest: Record<string, unknown> = { ...p }; delete rest.score; delete rest.exceptions_json; return { ...rest, description: typeof p.description === "string" ? p.description.slice(0, 400) : null, closures: upcomingClosures(p.exceptions_json) }; }),
   };
+}
+
+/** Closed periods from the attraction database that are current or coming up (these beat Google's opening hours). */
+function upcomingClosures(json: unknown) {
+  try {
+    const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+    const list = JSON.parse(typeof json === "string" ? json : "[]") as { from: string; to: string; programId?: string; note?: string; reason?: string; closed?: boolean }[];
+    return list.filter((e) => e.to >= today).slice(0, 5).map((e) => ({ from: e.from, to: e.to, ...(e.programId ? { program: e.programId } : {}), note: e.note ?? e.reason ?? "Closed / changed schedule" }));
+  } catch { return []; }
 }

@@ -8,11 +8,11 @@ import { readFile } from 'node:fs/promises';
 const root=fileURLToPath(new URL('..',import.meta.url));
 const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("test")}}',compatibilityDate:'2026-05-22',d1Databases:['DB']});
 const db=await mf.getD1Database('DB');
-await db.exec("CREATE TABLE attractions(id TEXT PRIMARY KEY,name TEXT,customer_name TEXT,area TEXT DEFAULT '',category TEXT DEFAULT 'sight',tags_json TEXT DEFAULT '[]',open_time TEXT,close_time TEXT,closed_days_json TEXT DEFAULT '[]',duration_min INTEGER DEFAULT 60,dress_code TEXT,description TEXT,status TEXT DEFAULT 'active');");
+await db.exec("CREATE TABLE attractions(id TEXT PRIMARY KEY,name TEXT,customer_name TEXT,area TEXT DEFAULT '',category TEXT DEFAULT 'sight',tags_json TEXT DEFAULT '[]',open_time TEXT,close_time TEXT,closed_days_json TEXT DEFAULT '[]',exceptions_json TEXT DEFAULT '[]',duration_min INTEGER DEFAULT 60,dress_code TEXT,description TEXT,status TEXT DEFAULT 'active');");
 await db.exec("CREATE TABLE drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT);");
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.prepare("INSERT INTO staff_accounts VALUES('anna','Anna',1,'support')").run();
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0084_chat_alerts_limits.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 globalThis.__ceeTest={env:{DB:db,ANTHROPIC_API_KEY:'test-key'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'cee-env',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0cee-env';},load(id){if(id==='\0cee-env')return 'export const env=globalThis.__ceeTest.env';}}],server:{middlewareMode:true}});
 after(async()=>{await vite.close();await mf.dispose();delete globalThis.__ceeTest;});
@@ -219,10 +219,14 @@ test('scheduling hands the chat to its Durable Object and shows typing at once',
  assert.deepEqual(seen,[[id,id]]);assert.ok((await db.prepare('SELECT bot_thinking_at t FROM website_conversations WHERE id=?').bind(id).first()).t);
  delete globalThis.__ceeTest.env.NON_AGENT;assert.equal(schedule.WAIT_MS,5000);
 });
-test('Telegram gets customer messages, Non replies (under the card) and staff replies; waits out a short 429',async()=>{
+test('while Non answers, the group gets nothing (no customer messages, no Non replies); staff replies are still mirrored; waits out a short 429',async()=>{
  Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
- const id=await conversation('hi');await db.prepare('UPDATE website_conversations SET telegram_message_id=500 WHERE id=?').bind(id).run();
- tgCalls.length=0;await chat.addBotMessage(id,'Hello from Non');const echo=tgCalls.filter((c)=>c.method==='sendMessage');assert.equal(echo.length,1);assert.match(echo[0].body.text,/Non \(AI\)/);assert.equal(echo[0].body.reply_parameters?.message_id??echo[0].body.reply_to_message_id,500);
+ const id=await conversation('hi');tgCalls.length=0;
+ await chat.addVisitorMessage(await db.prepare('SELECT * FROM website_conversations WHERE id=?').bind(id).first(),'How much to Pattaya?','c-skip-1');
+ assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,0);
+ assert.equal((await db.prepare("SELECT telegram_status FROM website_chat_messages WHERE client_id='c-skip-1'").first()).telegram_status,'skipped');
+ await chat.addBotMessage(id,'Hello from Non');assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,0);
+ await db.prepare('UPDATE website_conversations SET telegram_message_id=500 WHERE id=?').bind(id).run();
  tg429=1;await chat.addStaffMessage(id,'Anna here',{name:'Anna',staffId:'anna'},'dashboard');
  assert.ok(tgCalls.some((c)=>c.method==='sendMessage'&&/Anna here/.test(c.body.text)));
  delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
@@ -359,4 +363,28 @@ test('restaurant recommendations: Non uses find_places and the chat gets a place
  const out=await bot.ceeTurn([{sender:'visitor',body:'Best authentic Thai restaurant near CentralWorld?'}],c,{tools:{...tools,findPlaces:async()=>found}});
  assert.equal(out.cards[0].type,'places');assert.equal(out.cards[0].items[0].rating,4.6);assert.match(out.reply,/Baan Ice/);
  const card=(await vite.ssrLoadModule('/lib/chat-cards.ts'));assert.ok(card.parseCard(JSON.stringify(out.cards[0])));assert.match(card.cardText(out.cards[0]),/Baan Ice \(4.6★/);
+});
+test('place searches: limited per chat, repeats are free from the 24 h cache',async()=>{
+ const guard=await vite.ssrLoadModule('/lib/cee/guard.ts');
+ await guard.saveLimits({perChat:2});
+ let calls=0;const findPlaces=async()=>{calls++;return {ok:true,places:[{name:'A',kind:null,rating:4.5,reviews:100,price:null,address:'Sukhumvit',openNow:true,mapsUrl:'https://maps.google.com/?cid=9',photo:null,summary:null,distanceKm:0.4}]};};
+ const ask=(q)=>bot.ceeTurn([{sender:'visitor',body:q}],scripted({content:[{type:'tool_use',id:'t',name:'find_places',input:{query:q,near:'Hilton Sukhumvit'}}],stop_reason:'tool_use'},say('ok')),{tools:{...tools,findPlaces},placeGuard:{conversationId:'lim-1',actor:'chat:lim-1'}});
+ await ask('thai food');await ask('thai food');assert.equal(calls,1); // second is the saved result
+ await ask('rooftop bar');assert.equal(calls,2);
+ const blocked=await ask('night market');assert.equal(calls,2);assert.equal(blocked.cards.length,0); // limit of 2 paid searches
+ await guard.saveLimits({perChat:20});
+});
+test('alerts come first: stop-selling areas are not quoted, warn areas get a note on the card and in places',async()=>{
+ const now=new Date().toISOString();const alerts=[{id:'a1',title:'Flooding in Ayutthaya',message:'Roads near the old city are flooded.',areas:'Ayutthaya',effect:'stop',starts_at:now,ends_at:null,source_url:null,active:1},{id:'a2',title:'Songkran traffic',message:'Expect delays.',areas:'Pattaya',effect:'warn',starts_at:now,ends_at:null,source_url:null,active:1}];
+ const q=(dropoff)=>({ok:true,kind:'transfer',summary:`BKK → ${dropoff}, 2026-12-01 at 10:00, 2 passengers, 2 bags`,cars:[{vehicle:'economy_sedan',name:'Economy sedan',seats:3,bags:2,price:1500,bookUrl:'/b'}],notes:[]});
+ const run=(dropoff)=>{const c=scripted({content:[{type:'tool_use',id:'t',name:'quote_transfer',input:{pickup:'BKK',dropoff,date:'2026-12-01',time:'10:00',passengers:2,bags:2}}],stop_reason:'tool_use'},say('ok'));
+  return bot.ceeTurn([{sender:'visitor',body:'price'}],c,{tools:{...tools,quoteTransfer:async()=>q(dropoff)},alerts}).then((out)=>({out,calls:c.calls}));};
+ const stop=await run('Ayutthaya old city');assert.equal(stop.out.cards.length,0);assert.match(JSON.stringify(stop.calls.at(-1).messages.at(-1)),/Flooding in Ayutthaya/);
+ const warn=await run('Pattaya');assert.match(warn.out.cards[0].notes[0],/⚠️ Songkran traffic/);
+ assert.match(JSON.stringify(stop.calls[0].system),/ACTIVE WAYDIDI ALERTS/);
+});
+test('spam guard: too many messages in a few minutes pauses Non for that chat',async()=>{
+ const guard=await vite.ssrLoadModule('/lib/cee/guard.ts');
+ const id=await conversation('hi');for(let i=0;i<21;i++)await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES(?,?,'visitor','x',?)").bind('sp'+i+id,id,new Date().toISOString()).run();
+ assert.equal(await guard.spamPaused(id),true);
 });

@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { addBotMessage, conversationById, setStatus, type Conversation } from "@/lib/website-chat";
+import { addBotMessage, conversationById, messagesFor, setStatus, type Conversation } from "@/lib/website-chat";
 import { esc } from "./cards";
 import { editCard, sendCard, telegramConfigured } from "./client";
 
@@ -14,12 +14,19 @@ type State = { handover?: string; summary?: string; at?: string; card?: number; 
 const state = (c: Conversation): State => { try { return JSON.parse(c.bot_state ?? "{}") as State; } catch { return {}; } };
 const save = (id: string, s: State) => db().prepare("UPDATE website_conversations SET bot_state=? WHERE id=?").bind(JSON.stringify(s), id).run();
 
-const text = (c: Conversation, s: State, extra = "") => [
+const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
+/** The last few messages, so whoever takes the chat knows what happened (the group saw nothing before). */
+async function recent(c: Conversation) {
+  const all = await messagesFor(c.id, 0, 40).catch(() => []);
+  return all.slice(-6).map((m) => `${m.sender === "visitor" ? "Customer" : m.sender_name ?? "Waydidi"}: ${clip(m.body.replace(/\s+/g, " "), 200)}`).join("\n");
+}
+const text = (c: Conversation, s: State, extra = "", convo = "") => [
   `<b>Needs a person · ${esc(c.public_id)}</b>`,
   `${esc(c.customer_name || "Website visitor")}${c.customer_email ? ` · ${esc(c.customer_email)}` : ""}`,
   "",
   `Reason: ${esc(s.handover ?? "Non handed over")}`,
   ...(s.summary ? [`<blockquote>${esc(s.summary)}</blockquote>`] : []),
+  ...(convo ? ["", "<b>Recent messages</b>", `<blockquote expandable>${esc(convo)}</blockquote>`] : []),
   extra,
 ].filter((l) => l !== "").join("\n");
 const buttons = (id: string) => [[{ text: "Assign", callback_data: `chat_assign:${id}` }, { text: "Wait", callback_data: `chat_wait:${id}` }]];
@@ -30,7 +37,7 @@ export async function postHandoverCard(conversationId: string, extra = "") {
   const c = await conversationById(conversationId);
   if (!c || c.assigned_name) return;
   const s = state(c);
-  const sent = await sendCard(text(c, s, extra), buttons(c.id), c.telegram_message_id ?? undefined);
+  const sent = await sendCard(text(c, s, extra, await recent(c)), buttons(c.id), c.telegram_message_id ?? undefined);
   await save(c.id, { ...s, card: sent.message_id, waitUntil: null });
 }
 

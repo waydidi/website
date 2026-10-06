@@ -6,7 +6,8 @@ import { chatPaymentsEnabled, createChatPaymentLink } from "@/lib/chat-pay";
 import { cardText, quoteCard, type ChatCard, type PaymentCard } from "@/lib/chat-cards";
 import { searchKnowledge } from "./knowledge";
 import { findPlaces } from "./places";
-import { HOURLY_CITIES, findPackages, quoteHourly, quoteTransfer, type QuoteResult } from "./quotes";
+import { activeAlerts, actorFor, alertBrief, alertsFor, cachedSearch, logPlaceSearch, placeSearchAllowed, saveSearch, searchKey, type Alert } from "./guard";
+import { HOURLY_CITIES, findPackages, quoteHourly, quoteTransfer } from "./quotes";
 
 // Non: Waydidi's chat assistant on the website, WhatsApp and LINE. It answers instantly, quotes only
 // from the site's own price tables (via tools), looks up staff-written knowledge, and hands the chat
@@ -83,7 +84,7 @@ export const TOOLS: BetaTool[] = [
   { name: "search_knowledge", strict: true, description: "Search Waydidi's own notes (rules, tips, FAQs, places) and attraction database. Use for any question about policies, extras, places, restaurants, cafés, attractions or opening hours.",
     input_schema: { type: "object", additionalProperties: false, required: ["query", "city"], properties: { query: { ...str, description: "Short keywords in English, e.g. 'baby seat', 'cafe thong lor', 'grand palace dress code'" }, city: { ...str, description: "City slug if known, else empty string" } } } },
   { name: "find_places", strict: true, description: "Find real restaurants, cafés, bars, markets, malls, spas or attractions in Thailand on Google Maps, with live ratings and opening status. Use for recommendations when Waydidi's notes have nothing. The website shows the results as a card list.",
-    input_schema: { type: "object", additionalProperties: false, required: ["query", "near"], properties: { query: { ...str, description: "What to find, in English, e.g. 'authentic Thai restaurant', 'rooftop bar', 'night market'" }, near: { ...str, description: "Area or landmark, e.g. 'Sukhumvit, Bangkok' or 'CentralWorld Bangkok'; empty string if none" } } } },
+    input_schema: { type: "object", additionalProperties: false, required: ["query", "near"], properties: { query: { ...str, description: "What to find, in English, e.g. 'authentic Thai restaurant', 'rooftop bar', 'night market'" }, near: { ...str, description: "Where the customer is or will be: their hotel, address or landmark exactly as they said it (e.g. 'Hilton Sukhumvit Bangkok', 'CentralWorld'). Results are centred there. If they say 'near me' without a place, ask for their hotel or area first." } } } },
   { name: "handover", strict: true, description: "Pass this chat to the Waydidi team. After this you stop replying in this chat.",
     input_schema: { type: "object", additionalProperties: false, required: ["reason", "summary"], properties: { reason: str, summary: { ...str, description: "One or two lines for staff: what the customer wants and details collected so far" } } } },
 ];
@@ -116,7 +117,11 @@ Booking in the chat (you can take bookings):
 
 export type TurnOptions = {
   /** When set, Non may take bookings and send payment links. */
-  payLink?: PayLinkFn; tools?: CeeTools; now?: string; mode?: ModelMode; channel?: string; onProgress?: (text: string) => Promise<unknown> };
+  payLink?: PayLinkFn; tools?: CeeTools; now?: string; mode?: ModelMode; channel?: string; onProgress?: (text: string) => Promise<unknown>;
+  /** The team's active alerts (closures, flooding…): always in Non's instructions, applied to quotes and places. */
+  alerts?: Alert[];
+  /** Limits for paid place searches in this chat. Without it (tests, previews) searches aren't limited. */
+  placeGuard?: { conversationId: string; actor: string } };
 
 function toMessages(history: { sender: "visitor" | "staff"; body: string }[]) {
   // Merge consecutive same-role messages; the API wants alternating turns starting with the user.
@@ -148,7 +153,7 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
   if (!messages.length || messages[messages.length - 1].role !== "user") return out;
   const smart = model === MODELS.smart;
   // Tools + system are identical on every call, so they're cached (cheaper and faster).
-  const system = [{ type: "text", text: systemPrompt(options.now ?? bangkokNow(), options.channel) + (options.payLink ? BOOKING_NOTE : "") + ((options.channel ?? "web") === "web" ? CARD_NOTE : "") + (canEscalate ? ESCALATE_NOTE : ""), cache_control: { type: "ephemeral" } }];
+  const system = [{ type: "text", text: systemPrompt(options.now ?? bangkokNow(), options.channel) + (options.payLink ? BOOKING_NOTE : "") + ((options.channel ?? "web") === "web" ? CARD_NOTE : "") + (canEscalate ? ESCALATE_NOTE : ""), cache_control: { type: "ephemeral" } }, ...(options.alerts?.length ? [{ type: "text", text: alertBrief(options.alerts) }] : [])];
   let progressSent = false;
   for (let step = 0; step < 6; step++) {
     const res = await client.beta.messages.create({
@@ -173,15 +178,24 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
           const q = u.name === "quote_transfer"
             ? await tools.quoteTransfer({ pickup: i.pickup, dropoff: i.dropoff, date: i.date, time: i.time, passengers: i.passengers, bags: i.bags })
             : await tools.quoteHourly({ city: i.city, pickup: i.pickup, hours: i.hours, date: i.date, time: i.time, passengers: i.passengers, bags: i.bags });
-          if (q.ok) out.cards!.push(quoteCard(q));
-          content = json(q);
+          // The team's alerts come first: "stop selling" areas aren't quoted; "warn" areas get a note on the card.
+          const hits = q.ok ? alertsFor(options.alerts ?? [], i.pickup, i.dropoff, i.city, q.summary) : [];
+          const stop = hits.find((a) => a.effect === "stop");
+          if (q.ok && stop) content = JSON.stringify({ ok: false, reason: `Waydidi alert: ${stop.title}. ${stop.message} Don't quote this trip; explain the alert and hand over.`, handover: true });
+          else {
+            const warn = hits.filter((a) => a.effect !== "info");
+            if (q.ok) out.cards!.push(quoteCard({ ...q, notes: [...warn.map((a) => `⚠️ ${a.title}: ${a.message}`), ...q.notes] }));
+            content = JSON.stringify(warn.length ? { ...q, alerts: warn.map((a) => `${a.title}: ${a.message}`) } : q);
+          }
         }
         else if (u.name === "find_packages") { const list = await tools.findPackages(i.city); content = JSON.stringify(list.length ? list : { none: "No packages in this city; offer hourly or hand over." }); }
         else if (u.name === "search_knowledge") { const found = await tools.searchKnowledge(i.query, i.city || null); content = JSON.stringify(found.notes.length || found.places.length ? found : { none: "Nothing in Waydidi's notes. For restaurants, cafés, bars, markets or attractions use find_places. Otherwise don't guess; offer to check with the team (handover)." }); }
         else if (u.name === "find_places") {
-          const r = tools.findPlaces ? await tools.findPlaces(String(i.query), String(i.near ?? "")) : { ok: false as const, reason: "Place search isn't available." };
-          if (r.ok) out.cards!.push({ type: "places", title: i.near ? `${i.query} near ${i.near}` : String(i.query), items: r.places.map((p) => ({ name: p.name, kind: p.kind, rating: p.rating, reviews: p.reviews, price: p.price, address: p.address, openNow: p.openNow, mapsUrl: p.mapsUrl, photo: p.photo })) });
-          content = JSON.stringify(r.ok ? { places: r.places.map((p) => ({ name: p.name, kind: p.kind, rating: p.rating, reviews: p.reviews, price: p.price, address: p.address, openNow: p.openNow, summary: p.summary })), note: "The customer sees these as a card list with photos, ratings and map links. In your text: one or two short lines with your top pick and why (only facts given here), and offer a car there." } : r);
+          const r = await guardedPlaces(tools, String(i.query), String(i.near ?? ""), options.placeGuard);
+          if (r.ok) out.cards!.push({ type: "places", title: i.near ? `${i.query} near ${i.near}` : String(i.query), items: r.places.map((p) => { const a = alertsFor(options.alerts ?? [], p.name, p.address, String(i.near ?? ""))[0];
+            return { name: p.name, kind: p.kind, rating: p.rating, reviews: p.reviews, price: p.price, address: p.address, openNow: a?.effect === "stop" ? false : p.openNow, mapsUrl: p.mapsUrl, photo: p.photo, distanceKm: p.distanceKm ?? null, ...(a ? { alert: a.title } : {}) }; }) });
+          content = JSON.stringify(r.ok ? { places: r.places.map((p) => { const a = alertsFor(options.alerts ?? [], p.name, p.address, String(i.near ?? ""))[0];
+            return { name: p.name, kind: p.kind, rating: p.rating, reviews: p.reviews, price: p.price, address: p.address, openNow: p.openNow, summary: p.summary, distanceKm: p.distanceKm ?? null, ...(a ? { waydidiAlert: `${a.title}: ${a.message}` } : {}) }; }), note: "The customer sees these as a card list with photos, ratings and map links. In your text: one or two short lines with your top pick and why (only facts given here), and offer a car there." } : r);
         }
         else if (u.name === "send_payment_link" && options.payLink) {
           const r = await options.payLink({ kind: i.kind === "hourly" ? "hourly" : "transfer", pickup: i.pickup, dropoff: i.dropoff, city: i.city, hours: Number(i.hours) || 0, date: i.date, time: i.time,
@@ -198,7 +212,29 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
   }
   return { ...out, handover: out.handover ?? { reason: "Too many steps", summary: "Non couldn't finish this request." } };
 }
-const json = (q: QuoteResult) => JSON.stringify(q);
+
+/** Place search with the chat's limits, and a 24-hour shared cache (repeats are free). */
+async function guardedPlaces(tools: CeeTools, query: string, near: string, guard?: { conversationId: string; actor: string }) {
+  if (!tools.findPlaces) return { ok: false as const, reason: "Place search isn't available." };
+  if (!guard) return tools.findPlaces(query, near);
+  const key = await searchKey(query, near);
+  const hit = await cachedSearch<Awaited<ReturnType<typeof findPlaces>>>(key);
+  if (hit?.ok) { await logPlaceSearch(guard.conversationId, guard.actor, key, true).catch(() => undefined); return hit; }
+  const allowed = await placeSearchAllowed(guard.conversationId, guard.actor);
+  if (!allowed.ok) { if (allowed.siteLimit) await siteLimitAlert(); return { ok: false as const, reason: allowed.reason }; }
+  const r = await tools.findPlaces(query, near);
+  await logPlaceSearch(guard.conversationId, guard.actor, key, false).catch(() => undefined);
+  if (r.ok) await saveSearch(key, r).catch(() => undefined);
+  return r;
+}
+/** Once a day: tell the team the site-wide place search limit was reached. */
+async function siteLimitAlert() {
+  const day = new Date().toISOString().slice(0, 10);
+  if ((await setting("place_limit_alert")) === day) return;
+  await putSetting("place_limit_alert", day);
+  const tg = await import("@/lib/telegram/client");
+  if (tg.telegramConfigured()) await tg.sendCard("<b>Daily place-search limit reached</b>\nNon will answer restaurant and place questions from your notes only until tomorrow. Change the limit in Admin → Website chat → Non knowledge.").catch(() => undefined);
+}
 
 const ASKS_FOR_HUMAN = /\b(human|real person|agent|staff|operator|someone real|talk to (a )?person)\b|เจ้าหน้าที่|คุยกับคน|人工|真人|客服/i;
 
@@ -264,7 +300,7 @@ async function answerOnce(conversationId: string, client?: Client, answeredUpTo 
   const stillMine = async () => { const f = await conversationById(c.id); return Boolean(f && !f.assigned_name && !f.bot_paused); };
   const channel = c.channel ?? "web";
   const turn = await ceeTurn(history, client ?? (new Anthropic({ apiKey: apiKey() }) as unknown as Client), {
-    mode: await modelMode(), channel, tools,
+    mode: await modelMode(), channel, tools, alerts: await activeAlerts(), placeGuard: { conversationId: c.id, actor: actorFor(c) },
     payLink: chatPaymentsEnabled() ? (input) => createChatPaymentLink(c.id, input) : undefined,
     // LINE: one free reply per customer message, so the whole answer goes in one message (LINE shows its own loading dots).
     onProgress: channel === "line" ? undefined : async (text) => { if (await stillMine()) await addBotMessage(c.id, text); },

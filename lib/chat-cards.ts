@@ -4,7 +4,7 @@
 export type QuoteCard = { type: "quote"; title: string; subtitle: string; cars: { vehicle?: string; name: string; seats: number; bags: number; price: number; url: string }[]; notes: string[] };
 export type PaymentCard = { type: "payment"; title: string; rows: [string, string][]; amount: number; url: string; expiresAt: string };
 export type ConfirmedCard = { type: "confirmed"; reference: string; rows: [string, string][]; amount: number; test?: boolean };
-export type PlacesCard = { type: "places"; title: string; items: { name: string; kind: string | null; rating: number | null; reviews: number | null; price: string | null; address: string; openNow: boolean | null; mapsUrl: string; photo: string | null }[] };
+export type PlacesCard = { type: "places"; title: string; items: { name: string; kind: string | null; rating: number | null; reviews: number | null; price: string | null; address: string; openNow: boolean | null; mapsUrl: string; photo: string | null; alert?: string; distanceKm?: number | null }[] };
 export type ChatCard = QuoteCard | PaymentCard | ConfirmedCard | PlacesCard;
 
 const isStr = (v: unknown, max = 300): v is string => typeof v === "string" && v.length <= max;
