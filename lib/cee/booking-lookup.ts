@@ -14,7 +14,7 @@ const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
 type Row = { reference: string; customer_name: string; customer_surname: string | null; status: string; pickup: string; dropoff: string; pickup_date: string; pickup_time: string;
   return_date: string | null; return_time: string | null; vehicle: string; passengers: number; luggage: number; flight_number: string | null; payment_method: string; payment_status: string;
   total: number; amount_paid: number; service_type: string; booked_hours: number | null };
-export type BookingStatus = { reference: string; status: string; statusText: string; leadName: string; rows: [string, string][]; people: number; bags: number; cashDue: number; driver: { name: string; car: string | null; plate: string | null; phone: string | null } | null; manageUrl: string };
+export type BookingStatus = { reference: string; status: string; statusText: string; leadName: string; rows: [string, string][]; people: number; bags: number; cashDue: number; rideUrl: string; driver: { name: string; car: string | null; plate: string | null; phone: string | null } | null; manageUrl: string };
 
 const STATUS: Record<string, string> = { confirmed: "Confirmed", pending: "Waiting for payment", pending_payment: "Waiting for payment", cancelled: "Cancelled", completed: "Completed", binned: "Not found" };
 const day = (d: string) => { const [y, m, dd] = d.split("-"); return `${dd}/${m}/${y}`; };
@@ -60,6 +60,7 @@ export async function checkBooking(conversationId: string, referenceIn: string, 
   return { ok: true, booking: {
     reference: b.reference, status: b.status, statusText: STATUS[b.status] ?? b.status, leadName: `${b.customer_name} ${b.customer_surname ?? ""}`.trim(), rows, people: b.passengers, bags: b.luggage, cashDue,
     driver: driver ? { name: driver.name, car: driver.car, plate: driver.plate, phone: soon ? driver.phone : null } : null,
+    rideUrl: `${SITE_URL}/trip/${encodeURIComponent(b.reference)}`,
     manageUrl: `${SITE_URL}/account/trips/${encodeURIComponent(b.reference)}`,
   } };
 }

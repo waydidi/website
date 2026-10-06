@@ -31,11 +31,11 @@ export function RichCard({ card, onShareLocation }: { card: ChatCard; onShareLoc
             : <dd className="text-right font-medium">{v.endsWith("(Paid)") ? <>{v.slice(0, -6)}<span className="text-[#06C755]">(Paid)</span></> : v}</dd>}
         </div>)}
       </dl>
-      {card.driver && <div className="border-t border-slate-100 px-4 py-3 text-[13px]">
-        <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">Driver</p>
-        <p className="mt-0.5 font-medium">{card.driver.name}{card.driver.car ? ` · ${card.driver.car}` : ""}{card.driver.plate ? ` · ${card.driver.plate}` : ""}{card.driver.phone && <a href={`tel:${card.driver.phone.replace(/[^+\d]/g, "")}`} className="ml-1 font-bold text-[#C96100]">{card.driver.phone}</a>}</p>
-      </div>}
-      <div className="border-t border-slate-100 px-4 py-3"><a href={card.manageUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 w-full items-center justify-center rounded-full border border-[#FE8B05] text-[13px] font-bold text-[#C96100] hover:bg-orange-50">Manage booking</a></div>
+
+      <div className="grid gap-2 border-t border-slate-100 px-4 py-3">
+        {card.rideUrl && <a href={card.rideUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 w-full items-center justify-center rounded-full bg-[#FE8B05] text-[13px] font-bold text-white hover:bg-[#E67900]">Open your ride status</a>}
+        <a href={card.manageUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 w-full items-center justify-center rounded-full border border-[#FE8B05] text-[13px] font-bold text-[#C96100] hover:bg-orange-50">Manage booking</a>
+      </div>
     </div>;
   }
   if (card.type === "quote") return <div className={shell}>

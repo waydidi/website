@@ -6,7 +6,7 @@ export type PaymentCard = { type: "payment"; title: string; rows: [string, strin
 export type ConfirmedCard = { type: "confirmed"; reference: string; rows: [string, string][]; amount: number; test?: boolean };
 export type PlacesCard = { type: "places"; title: string; items: { name: string; kind: string | null; rating: number | null; reviews: number | null; price: string | null; address: string; openNow: boolean | null; mapsUrl: string; photo: string | null; alert?: string; distanceKm?: number | null }[] };
 export type LocationCard = { type: "location"; text: string };
-export type BookingCard = { type: "booking"; reference: string; status: string; statusText: string; rows: [string, string][]; people?: number; bags?: number; driver: { name: string; car: string | null; plate: string | null; phone: string | null } | null; manageUrl: string };
+export type BookingCard = { type: "booking"; reference: string; status: string; statusText: string; rows: [string, string][]; people?: number; bags?: number; driver: { name: string; car: string | null; plate: string | null; phone: string | null } | null; rideUrl?: string; manageUrl: string };
 export type ChatCard = QuoteCard | PaymentCard | ConfirmedCard | PlacesCard | LocationCard | BookingCard;
 
 const isStr = (v: unknown, max = 300): v is string => typeof v === "string" && v.length <= max;
@@ -41,7 +41,7 @@ export function cardText(c: ChatCard) {
   if (c.type === "location") return c.text;
   if (c.type === "booking") return [`Booking ${c.reference}: ${c.statusText}`, ...c.rows.map(([k, v]) => `${k}: ${v}`),
     ...(c.driver ? [`Driver: ${c.driver.name}${c.driver.car ? ` · ${c.driver.car}` : ""}${c.driver.plate ? ` · ${c.driver.plate}` : ""}${c.driver.phone ? ` · ${c.driver.phone}` : ""}`] : []),
-    `Manage booking: ${c.manageUrl}`].join("\n");
+    ...(c.rideUrl ? [`Ride status: ${c.rideUrl}`] : []), `Manage booking: ${c.manageUrl}`].join("\n");
   if (c.type === "places") return [c.title, ...c.items.map((x) => `• ${x.name}${x.rating ? ` (${x.rating}★, ${x.reviews ?? 0} reviews)` : ""} – ${x.mapsUrl}`)].join("\n");
   if (c.type === "payment") return [c.title, ...c.rows.map(([k, v]) => `${k}: ${v}`), `Total: ${thb(c.amount)}`, `Pay here: ${c.url}`].join("\n");
   return [`Booking ${c.reference} confirmed`, ...c.rows.map(([k, v]) => `${k}: ${v}`), `Paid: ${thb(c.amount)}`].join("\n");
