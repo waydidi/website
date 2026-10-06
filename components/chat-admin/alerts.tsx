@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 type Alert = { id: string; title: string; message: string; areas: string; effect: "info" | "warn" | "stop"; starts_at: string; ends_at: string | null; source_url: string | null; active: number; created_by: string | null };
 type Limits = { perChat: number; perCustomerDay: number; siteDay: number; spamMessages: number; spamMinutes: number; spamPauseMinutes: number };
-type Data = { alerts: Alert[]; limits: Limits; today: { paid: number; cached: number }; owner: boolean; now: string };
+type Data = { alerts: Alert[]; limits: Limits; today: { paid: number; cached: number; lastError: { status: number; detail: string; at: string } | null }; owner: boolean; now: string };
 const EFFECTS: [Alert["effect"], string, string][] = [
   ["info", "Information", "Non mentions it when the topic comes up."],
   ["warn", "Warn customers", "Also shown as ⚠️ on price cards and place lists for these areas."],
@@ -78,6 +78,7 @@ export function ChatAlerts() {
         {limits && <form onSubmit={(e) => { e.preventDefault(); void post({ action: "limits", limits }, "Limits saved."); }} className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-[13px]">
           <h3 className="text-[15px] font-bold">Limits {data.owner ? "" : "(owner only)"}</h3>
           <p className="text-slate-600">Last 24 hours: {data.today.paid} paid place searches, {data.today.cached} free repeats (saved results).</p>
+          {data.today.lastError && <p className="rounded-lg bg-red-50 p-2 text-[12.5px] text-red-800"><b>Last Google error ({data.today.lastError.status}, {new Date(data.today.lastError.at).toLocaleString("en-GB", { timeZone: "Asia/Bangkok" })}):</b> {data.today.lastError.detail || "no details"}</p>}
           <fieldset disabled={!data.owner || busy} className="grid grid-cols-2 gap-2">
             {LIMITS.map(([k, l]) => <label key={k} className="grid gap-1 font-semibold">{l}<input type="number" min={0} value={limits[k]} onChange={(e) => setLimits({ ...limits, [k]: Number(e.target.value) })} className={input} /></label>)}
           </fieldset>

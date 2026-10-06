@@ -9,6 +9,8 @@ export type FoundPlace = { name: string; kind: string | null; rating: number | n
 type GPlace = { id: string; displayName?: { text?: string }; formattedAddress?: string; rating?: number; userRatingCount?: number; priceLevel?: string; googleMapsUri?: string;
   location?: { latitude: number; longitude: number }; primaryTypeDisplayName?: { text?: string }; currentOpeningHours?: { openNow?: boolean }; photos?: { name: string }[]; editorialSummary?: { text?: string } };
 const PRICE: Record<string, string> = { PRICE_LEVEL_INEXPENSIVE: "฿", PRICE_LEVEL_MODERATE: "฿฿", PRICE_LEVEL_EXPENSIVE: "฿฿฿", PRICE_LEVEL_VERY_EXPENSIVE: "฿฿฿฿" };
+// A failed place search is not a reason to involve the team.
+const NO_RESULTS = "Live place search isn't available right now. Don't hand over. Apologise briefly, give any general tips you're sure of for that area (no made-up names, ratings or opening hours), and offer to drive them there or plan the day.";
 const salt = () => String((env as unknown as Record<string, string>).RATE_LIMIT_SALT ?? "waydidi");
 
 /** Signed photo link (so the photo endpoint can't be used to fetch arbitrary Google photos on our key). */
@@ -17,7 +19,7 @@ export const PHOTO_NAME = /^places\/[A-Za-z0-9_-]{10,300}\/photos\/[A-Za-z0-9_-]
 
 export async function findPlaces(query: string, near: string): Promise<{ ok: true; places: FoundPlace[] } | { ok: false; reason: string }> {
   const key = (env as unknown as Record<string, string>).GOOGLE_MAPS_SERVER_KEY;
-  if (!key) return { ok: false, reason: "Place search isn't connected. Say you'll ask the team, or hand over." };
+  if (!key) return { ok: false, reason: NO_RESULTS };
   // A hotel, landmark or address: search around that exact spot (about 2.5 km), nearest good places first.
   const coords = near.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
   const center = coords ? null : near ? await findPlace(near).catch(() => null) : null;
@@ -31,7 +33,14 @@ export async function findPlaces(query: string, near: string): Promise<{ ok: tru
       ...(at ? { locationBias: { circle: { center: at, radius: 2500 } } }
         : { locationRestriction: { rectangle: { low: { latitude: 5.5, longitude: 97.3 }, high: { latitude: 20.5, longitude: 105.7 } } } }) }),
   });
-  if (!res.ok) return { ok: false, reason: "Place search failed. Say you'll check with the team, or hand over." };
+  if (!res.ok) {
+    // Kept for Admin → Website chat → Alerts & limits, so a setup problem (API not enabled, key restriction) is visible.
+    const detail = (await res.text().catch(() => "")).slice(0, 400);
+    console.error("place search failed", res.status, detail);
+    await (env.DB as unknown as { prepare: (s: string) => { bind: (...v: unknown[]) => { run: () => Promise<unknown> } } }).prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('place_search_error',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at")
+      .bind(JSON.stringify({ status: res.status, detail, at: new Date().toISOString() }), new Date().toISOString()).run().catch(() => undefined);
+    return { ok: false, reason: NO_RESULTS };
+  }
   const data = await res.json() as { places?: GPlace[] };
   // Well-reviewed places first; Google's own order breaks ties.
   const list = (data.places ?? []).filter((p) => p.displayName?.text && p.googleMapsUri)
@@ -46,7 +55,7 @@ export async function findPlaces(query: string, near: string): Promise<{ ok: tru
       mapsUrl: p.googleMapsUri!, summary: p.editorialSummary?.text ?? null, distanceKm: km === null ? null : Math.round(km * 10) / 10,
       photo: photo && PHOTO_NAME.test(photo) ? `/api/places/photo?n=${encodeURIComponent(photo)}&s=${await photoSig(photo)}` : null };
   }));
-  return places.length ? { ok: true, places } : { ok: false, reason: "Nothing found. Ask for a different area or kind of place." };
+  return places.length ? { ok: true, places } : { ok: false, reason: "Nothing found there. Ask for a different area or kind of place. Don't hand over for this." };
 }
 
 /** Straight-line distance in km. */

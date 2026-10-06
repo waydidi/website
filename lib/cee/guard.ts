@@ -58,7 +58,10 @@ export const saveSearch = (key: string, result: unknown) =>
   db().prepare("INSERT INTO place_search_cache(query_key,result_json,created_at) VALUES(?,?,?) ON CONFLICT(query_key) DO UPDATE SET result_json=excluded.result_json,created_at=excluded.created_at").bind(key, JSON.stringify(result), nowIso()).run();
 export async function placeSearchStats() {
   const r = await db().prepare("SELECT SUM(cached=0) paid, SUM(cached=1) cached FROM place_searches WHERE created_at>?").bind(dayAgo()).first<{ paid: number | null; cached: number | null }>().catch(() => null);
-  return { paid: r?.paid ?? 0, cached: r?.cached ?? 0 };
+  const err = await db().prepare("SELECT value FROM app_settings WHERE key='place_search_error'").first<{ value: string }>().catch(() => null);
+  let lastError: { status: number; detail: string; at: string } | null = null;
+  try { lastError = err ? JSON.parse(err.value) : null; } catch { lastError = null; }
+  return { paid: r?.paid ?? 0, cached: r?.cached ?? 0, lastError };
 }
 
 /** Too many customer messages in a short time: Non pauses for this chat. Returns true when it should stay quiet. */

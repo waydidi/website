@@ -19,6 +19,21 @@ const shell = "w-[94%] max-w-[350px] overflow-hidden rounded-[18px] border borde
 
 export function RichCard({ card, onShareLocation }: { card: ChatCard; onShareLocation?: (text: string) => void }) {
   if (card.type === "location") return <LocationAsk text={card.text} onShare={onShareLocation} />;
+  if (card.type === "booking") {
+    const tone = card.status === "confirmed" || card.status === "completed" ? "bg-emerald-50 text-emerald-700" : card.status === "cancelled" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800";
+    return <div className={shell}>
+      <div className="flex items-center justify-between gap-2 bg-[#FFF3E6] px-4 py-3"><p className="text-[15px] font-bold">Booking {card.reference}</p><span className={`rounded-full px-2 py-0.5 text-[12px] font-bold ${tone}`}>{card.statusText}</span></div>
+      <dl className="grid gap-1.5 px-4 py-3 text-[13px]">
+        {card.rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{v}</dd></div>)}
+      </dl>
+      <div className="border-t border-slate-100 px-4 py-3 text-[13px]">
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">Driver</p>
+        {card.driver ? <p className="mt-0.5 font-medium">{card.driver.name}{card.driver.car ? ` · ${card.driver.car}` : ""}{card.driver.plate ? ` · ${card.driver.plate}` : ""}{card.driver.phone && <a href={`tel:${card.driver.phone.replace(/[^+\d]/g, "")}`} className="ml-1 font-bold text-[#C96100]">{card.driver.phone}</a>}</p>
+          : <p className="mt-0.5 text-slate-600">Not assigned yet. Details come before your trip.</p>}
+      </div>
+      <div className="border-t border-slate-100 px-4 py-3"><a href={card.manageUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 w-full items-center justify-center rounded-full border border-[#FE8B05] text-[13px] font-bold text-[#C96100] hover:bg-orange-50">Manage booking</a></div>
+    </div>;
+  }
   if (card.type === "quote") return <div className={shell}>
     <div className="bg-[#FFF3E6] px-4 py-3">
       <p className="text-[15px] font-bold leading-snug">{card.title}</p>
