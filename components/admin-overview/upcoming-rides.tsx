@@ -36,13 +36,16 @@ const vehicleName = (v: string) => { const t = v.replace(/_/g, " "); return t.ch
 export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drivers: PickerDriver[] }) {
   const [adding, setAdding] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  // 3 rides at first; each "Show more" adds 2 (or the 1 that is left).
+  const [shown, setShown] = useState(3);
+  const left = rides.length - shown;
   return <section aria-labelledby="upcoming-heading" className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
     <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
       <h2 id="upcoming-heading" className="text-[15px] font-black">Upcoming rides</h2>
       <Link href="/admin/bookings" className="text-[13px] font-bold text-[#C96100] hover:underline">See all →</Link>
     </div>
     {rides.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No upcoming rides.</p> : <ul className="divide-y divide-slate-100">
-      {rides.map((r) => <li key={r.reference} className="grid gap-3 px-4 py-3">
+      {rides.slice(0, shown).map((r) => <li key={r.reference} className="grid gap-3 px-4 py-3">
         <div className="min-w-0">
           <p className="text-[12px] font-semibold text-slate-500">{day(r.pickupDate)} · {r.pickupTime} · <span className="font-mono">{r.reference}</span>{r.status === "pending_payment" && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">Awaiting payment</span>}</p>
           <p className="mt-1 truncate text-[15px] font-black">{r.name}</p>
@@ -72,6 +75,9 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
         </div>
       </li>)}
     </ul>}
+    {left > 0 && <div className="flex justify-center border-t border-slate-100 py-2.5">
+      <button type="button" onClick={() => setShown((n) => n + Math.min(2, left))} className="rounded-full px-4 py-1.5 text-[13.5px] font-bold text-[#C96100] hover:bg-[#FFF6EC]">Show more ({left} more {left === 1 ? "ride" : "rides"})</button>
+    </div>}
     {adding && <AddDriverDialog reference={adding} onClose={() => setAdding(null)} />}
   </section>;
 }
