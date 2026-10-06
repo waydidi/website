@@ -5,19 +5,31 @@ import { useState } from "react";
 import { THAI_AIRLINES, THAI_AIRPORTS, cleanFlightNumber } from "@/lib/thai-flights";
 
 type Mode = "flight" | "airport" | "airline";
-type Result = {
-  flightNumber: string; flightDate: string; status: string; airline: string | null;
-  departureAirport: string | null; arrivalAirport: string | null;
-  scheduledArrival: string | null; estimatedArrival: string | null; actualArrival: string | null; terminal: string | null; checkedAt: string;
-};
+type Point = { iata: string | null; airport: string | null; city: string | null; scheduled: string | null; revised: string | null; actual: string | null; terminal: string | null; gate: string | null; belt: string | null };
+type Result = { flightNumber: string; date: string; status: string; airline: string | null; aircraft: string | null; departure: Point; arrival: Point; checkedAt: string };
 
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
-const clock = (iso: string | null) => (iso ? new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(iso)) : "–");
-const STATUS: Record<string, string> = {
-  scheduled: "bg-slate-100 text-slate-700", active: "bg-sky-100 text-sky-800", landed: "bg-emerald-100 text-emerald-800",
-  cancelled: "bg-red-100 text-red-700", incident: "bg-red-100 text-red-700", diverted: "bg-amber-100 text-amber-800", delayed: "bg-amber-100 text-amber-800",
+// Airport local time as sent ("2026-10-06 12:45+07:00") → "12:45".
+const hhmm = (local: string | null) => local?.match(/\d{2}:\d{2}/)?.[0] ?? "–";
+const STATUS: Record<string, [string, string]> = {
+  Expected: ["Scheduled", "bg-slate-100 text-slate-700"], CheckIn: ["Check-in", "bg-slate-100 text-slate-700"], Boarding: ["Boarding", "bg-sky-100 text-sky-800"],
+  GateClosed: ["Gate closed", "bg-sky-100 text-sky-800"], Departed: ["Departed", "bg-sky-100 text-sky-800"], EnRoute: ["In the air", "bg-sky-100 text-sky-800"],
+  Approaching: ["Landing soon", "bg-sky-100 text-sky-800"], Delayed: ["Delayed", "bg-amber-100 text-amber-800"], Diverted: ["Diverted", "bg-amber-100 text-amber-800"],
+  Arrived: ["Landed", "bg-emerald-100 text-emerald-800"], Landed: ["Landed", "bg-emerald-100 text-emerald-800"],
+  Canceled: ["Cancelled", "bg-red-100 text-red-700"], CanceledUncertain: ["May be cancelled", "bg-red-100 text-red-700"],
 };
-const statusLabel = (s: string) => (s === "active" ? "In the air" : s.charAt(0).toUpperCase() + s.slice(1));
+const status = (s: string) => STATUS[s] ?? ["Scheduled", "bg-slate-100 text-slate-700"];
+
+function Side({ label, p }: { label: string; p: Point }) {
+  const late = p.revised && p.scheduled && hhmm(p.revised) !== hhmm(p.scheduled);
+  return <div className="min-w-0">
+    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+    <p className="mt-1 text-2xl font-black">{p.iata ?? "–"}</p>
+    <p className="truncate text-sm text-slate-600">{p.city ?? p.airport ?? ""}</p>
+    <p className="mt-2 text-lg font-bold">{late ? <><span className="mr-2 text-sm font-normal text-slate-400 line-through">{hhmm(p.scheduled)}</span><span className="text-amber-700">{hhmm(p.revised)}</span></> : hhmm(p.actual ?? p.revised ?? p.scheduled)}</p>
+    <p className="mt-1 text-sm text-slate-600">{[p.terminal && `Terminal ${p.terminal}`, p.gate && `Gate ${p.gate}`, p.belt && `Belt ${p.belt}`].filter(Boolean).join(" · ") || "\u00a0"}</p>
+  </div>;
+}
 
 export function FlightStatusSearch() {
   const [mode, setMode] = useState<Mode>("flight");
@@ -27,21 +39,21 @@ export function FlightStatusSearch() {
   const [airline, setAirline] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<Result | null>(null);
+  const [results, setResults] = useState<Result[]>([]);
   const [notice, setNotice] = useState("");
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
-    setError(""); setResult(null); setNotice("");
+    setError(""); setResults([]); setNotice("");
     if (mode === "flight") {
       const no = cleanFlightNumber(flight);
       if (!no) { setError("Enter a flight number, e.g. TG103 or FD3010."); return; }
       setBusy(true);
       try {
-        const res = await fetch("/api/flights/lookup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flightNumber: no, flightDate: date }) });
+        const res = await fetch("/api/flights/status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flightNumber: no, date }) });
         const data = await res.json();
         if (!res.ok) setError(data.error ?? "Flight status is unavailable right now.");
-        else setResult(data);
+        else setResults(data.flights ?? []);
       } catch { setError("Flight status is unavailable right now."); }
       setBusy(false);
       return;
@@ -53,7 +65,7 @@ export function FlightStatusSearch() {
   }
 
   const radio = (m: Mode, label: string) => <label className="flex cursor-pointer items-center gap-2 text-[16px] text-[#211726]">
-    <input type="radio" name="mode" checked={mode === m} onChange={() => { setMode(m); setError(""); setNotice(""); setResult(null); }} className="size-5 accent-[#FE8B05]" />{label}
+    <input type="radio" name="mode" checked={mode === m} onChange={() => { setMode(m); setError(""); setNotice(""); setResults([]); }} className="size-5 accent-[#FE8B05]" />{label}
   </label>;
   const field = "h-14 w-full rounded-xl border border-slate-200 bg-white px-4 text-[16px] text-[#211726] outline-none placeholder:text-slate-400 focus:border-[#FE8B05] focus:ring-2 focus:ring-[#FE8B05]/20";
 
@@ -71,21 +83,18 @@ export function FlightStatusSearch() {
       {notice && <p role="status" className="mt-3 text-[15px] text-slate-600">{notice}</p>}
     </form>
 
-    {result && <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-live="polite">
+    {results.map((r, i) => <div key={i} className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-live="polite">
       <div className="flex items-start justify-between gap-3">
-        <div><p className="text-xl font-black">{result.flightNumber}</p><p className="text-slate-600">{result.airline ?? "Airline"} · {result.flightDate}</p></div>
-        <span className={`rounded-full px-3 py-1 text-sm font-bold ${STATUS[result.status] ?? STATUS.scheduled}`}>{statusLabel(result.status)}</span>
+        <div><p className="text-xl font-black">{r.flightNumber}</p><p className="text-slate-600">{[r.airline, r.aircraft].filter(Boolean).join(" · ")}</p></div>
+        <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold ${status(r.status)[1]}`}>{status(r.status)[0]}</span>
       </div>
-      <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-        <p className="font-bold">{result.departureAirport ?? "–"}</p><Plane className="text-[#FE8B05]" size={22} /><p className="text-right font-bold">{result.arrivalAirport ?? "–"}</p>
+      <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-start gap-3">
+        <Side label="Departure" p={r.departure} />
+        <Plane className="mt-8 text-[#FE8B05]" size={22} />
+        <div className="text-right [&_p]:ml-auto"><Side label="Arrival" p={r.arrival} /></div>
       </div>
-      <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-slate-100 pt-4 text-sm">
-        <div><dt className="text-slate-500">Scheduled arrival</dt><dd className="mt-1 text-base font-bold">{clock(result.scheduledArrival)}</dd></div>
-        <div><dt className="text-slate-500">{result.actualArrival ? "Landed" : "Expected"}</dt><dd className="mt-1 text-base font-bold">{clock(result.actualArrival ?? result.estimatedArrival)}</dd></div>
-        <div><dt className="text-slate-500">Terminal</dt><dd className="mt-1 text-base font-bold">{result.terminal ?? "–"}</dd></div>
-      </dl>
-      <p className="mt-3 text-xs text-slate-500">Times in Thailand time. Checked {clock(result.checkedAt)}.</p>
-      <a href="/airport-transfer" className="mt-4 flex min-h-12 items-center justify-center rounded-xl border border-[#FE8B05] font-bold text-[#C96100] hover:bg-[#FFF6EC]">Need a ride from the airport? Book a transfer</a>
-    </div>}
+      <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500">Local airport times. Updated {new Date(r.checkedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })} (Thailand time). Check with your airline for boarding and gate changes.</p>
+      <a href="/airport-transfer" className="mt-4 flex min-h-12 items-center justify-center rounded-xl border border-[#FE8B05] px-3 text-center font-bold text-[#C96100] hover:bg-[#FFF6EC]">Need a ride{r.arrival.city ? ` in ${r.arrival.city}` : ""}? Book an airport transfer</a>
+    </div>)}
   </div>;
 }
