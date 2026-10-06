@@ -245,6 +245,15 @@ export default function AdminShell({
   const params = useSearchParams();
   const tab = params?.get("tab") ?? params?.get("type") ?? params?.get("view") ?? null;
   const [collapsed, setCollapsed] = useState(false);
+  // Unread customer messages, for the red count on "Website chat" (checked every 20 s).
+  const [chatUnread, setChatUnread] = useState(0);
+  useEffect(() => {
+    let live = true;
+    const check = () => void fetch("/api/admin/chat?summary=1", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((d: { items?: { n: number }[] }) => { if (live) setChatUnread((d.items ?? []).reduce((n, i) => n + (i.n || 0), 0)); }).catch(() => undefined);
+    check(); const t = window.setInterval(check, 20000);
+    return () => { live = false; window.clearInterval(t); };
+  }, []);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -293,7 +302,8 @@ export default function AdminShell({
                 const Icon = g.icon ?? BookOpen;
                 const on = groupActive(g, pathname, tab);
                 const row = `flex h-10 w-full items-center gap-3 rounded-[10px] px-3 text-[15px] transition-colors ${on ? "bg-[#FFF0DF] font-semibold text-[#C96100]" : "text-slate-700 hover:bg-slate-100/80 hover:text-[#15161C]"} ${collapsed ? "justify-center" : ""}`;
-                if (!g.children || collapsed) return <li key={g.href}><Link href={g.children ? g.children[0].href : g.href} prefetch aria-current={on ? "page" : undefined} title={g.label} className={row}><Icon size={18} strokeWidth={on ? 2.4 : 1.9} className="shrink-0" />{!collapsed && <span className="truncate">{g.label}</span>}</Link></li>;
+                if (!g.children || collapsed) return <li key={g.href}><Link href={g.children ? g.children[0].href : g.href} prefetch aria-current={on ? "page" : undefined} title={g.label} className={row}><span className="relative shrink-0"><Icon size={18} strokeWidth={on ? 2.4 : 1.9} />{collapsed && g.href === "/admin/chat" && chatUnread > 0 && <span className="absolute -right-1 -top-1 size-2.5 rounded-full bg-[#E53935] ring-2 ring-white" aria-hidden="true" />}</span>{!collapsed && <span className="flex-1 truncate">{g.label}</span>}
+                  {!collapsed && g.href === "/admin/chat" && chatUnread > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-[#E53935] px-1.5 text-[11.5px] font-bold leading-none text-white" aria-label={`${chatUnread} unread`}>{chatUnread > 99 ? "99+" : chatUnread}</span>}</Link></li>;
                 const open = isOpen(g);
                 const id = `nav-${g.href.replaceAll("/", "-")}`;
                 return <li key={g.href}>
