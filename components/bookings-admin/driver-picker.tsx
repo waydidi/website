@@ -3,6 +3,7 @@
 import { Check, ChevronDown, LoaderCircle, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export type PickerDriver = { id: string; name: string; phone: string; email: string | null; area: string; vehicle: string; plate?: string | null; vehicleType?: string | null; hasPhoto?: boolean };
 
@@ -52,9 +53,11 @@ export function DriverPicker({ reference, leg = "outbound", drivers, current, ca
       <span className="truncate">{busy ? "Saving…" : chosen ? shortName(chosen.name) : "Choose driver"}</span>
       {busy ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronDown size={14} className="shrink-0 text-slate-400" />}
     </button>
-    {open && <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
-      <div role="dialog" aria-modal="true" aria-label="Choose driver" className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-[24px] bg-white pb-[max(12px,env(safe-area-inset-bottom))] shadow-2xl">
-        <div className="mx-auto mt-2.5 h-1.5 w-10 rounded-full bg-slate-200" aria-hidden="true" />
+    {/* Rendered on <body> so no card or table around it can clip or shift it: a bottom sheet on
+        phones, a centred popup on tablet and desktop. */}
+    {open && createPortal(<div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 md:items-center md:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
+      <div role="dialog" aria-modal="true" aria-label="Choose driver" className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-[24px] bg-white pb-[max(12px,env(safe-area-inset-bottom))] shadow-2xl md:max-h-[80vh] md:rounded-[24px] md:pb-3">
+        <div className="mx-auto mt-2.5 h-1.5 w-10 rounded-full bg-slate-200 md:hidden" aria-hidden="true" />
         <div className="flex items-center justify-between px-5 pb-2 pt-3"><h2 className="text-[17px] font-black">Choose driver</h2>
           <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="grid size-9 place-items-center rounded-full hover:bg-slate-100"><X size={18} /></button></div>
         <label className="mx-5 flex items-center gap-2 rounded-xl border border-slate-200 px-3 focus-within:border-[#FF8A05]">
@@ -81,6 +84,6 @@ export function DriverPicker({ reference, leg = "outbound", drivers, current, ca
         {onAddDriver && <button type="button" onClick={() => { setOpen(false); onAddDriver(); }} className="mx-5 mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-3 text-left text-[14px] font-bold text-[#C96100] hover:underline">+ Add driver</button>}
         {error && <p role="alert" className="px-5 pt-2 text-[13px] font-semibold text-red-600">{error}</p>}
       </div>
-    </div>}
+    </div>, document.body)}
   </div>;
 }
