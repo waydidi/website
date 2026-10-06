@@ -32,6 +32,20 @@ function endpoint(path: string): { url: string; headers: Record<string, string> 
     : { url: `https://prod.api.market/api/v1/aedbx/aerodatabox${path}`, headers: { "x-magicapi-key": key } };
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+let lastCallAt = 0;
+/** The API allows about one request per second: space calls out, and retry once after a 429. */
+async function politeFetch(url: string, headers: Record<string, string>) {
+  for (let attempt = 0; ; attempt++) {
+    const wait = lastCallAt + 1100 - Date.now();
+    if (wait > 0) await sleep(wait);
+    lastCallAt = Date.now();
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });
+    if (res.status !== 429 || attempt >= 1) return res;
+    await sleep(1500);
+  }
+}
+
 /** Claims one call from today's budget; false when the cap is reached. */
 async function claimCall() {
   const day = new Date().toISOString().slice(0, 10);
@@ -74,7 +88,7 @@ export async function flightStatus(flightNumber: string, date: string): Promise<
   if (!flightApiConfigured()) throw new Error("FLIGHT_API_NOT_CONFIGURED");
   if (!await claimCall()) throw new Error("FLIGHT_API_LIMIT");
   const { url, headers } = endpoint(`/flights/number/${encodeURIComponent(flightNumber)}/${date}?withAircraftImage=false&withLocation=true`);
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });
+  const res = await politeFetch(url, headers);
   const now = new Date().toISOString();
   const save = (value: unknown, ms: number) => db().prepare("INSERT INTO flight_lookups(cache_key,result_json,fetched_at,expires_at) VALUES(?,?,?,?) ON CONFLICT(cache_key) DO UPDATE SET result_json=excluded.result_json,fetched_at=excluded.fetched_at,expires_at=excluded.expires_at")
     .bind(key, JSON.stringify(value), now, new Date(Date.now() + ms).toISOString()).run();
@@ -117,8 +131,8 @@ export async function airportBoard(iata: string, direction: "Departure" | "Arriv
   for (const [from, to] of [["00:00", "11:59"], ["12:00", "23:59"]]) {
     if (!await claimCall()) throw new Error("FLIGHT_API_LIMIT");
     const { url, headers } = endpoint(`/flights/airports/iata/${iata}/${date}T${from}/${date}T${to}?direction=${direction}&withLeg=false&withCancelled=true&withCodeshared=false&withCargo=false&withPrivate=false`);
-    const res = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });
-    if (res.status === 429) throw new Error("FLIGHT_API_LIMIT");
+    const res = await politeFetch(url, headers);
+    if (res.status === 429) { lastBoardError = "HTTP 429: rate limited"; throw new Error("FLIGHT_API_LIMIT"); }
     if (res.status === 204) continue;
     if (!res.ok) {
       const detail = (await res.text().catch(() => "")).slice(0, 200);
