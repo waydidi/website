@@ -149,8 +149,6 @@ export function ChatInbox() {
           {data.cee.enabled && !c.assigned_name && <button type="button" disabled={busy} onClick={() => void act({ action: c.bot_paused ? "cee_resume" : "cee_pause" })} className="mt-2 h-9 rounded-full border border-slate-200 bg-white px-3 font-semibold">{c.bot_paused ? "Let Non answer again" : "Stop Non in this chat"}</button>}
           <label className="mt-2 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={data.cee.enabled} disabled={busy} onChange={(e) => void act({ action: "cee_enabled", on: e.target.checked })} className="accent-[#FE8B05]" />Non on for all chats (owner)</label>
         </>}
-        <h3 className="mt-5 text-[12px] font-bold uppercase tracking-wide text-slate-500">Telegram</h3>
-        <p className="mt-2 text-slate-600">{c.on_telegram ? "Posted to the staff group." : "Not on Telegram (not connected, or still sending)."}</p>
         <p className="mt-5 text-[12px] text-slate-500">{c.public_id} · started {new Date(c.created_at).toLocaleString()}</p>
       </aside>}
     </section>
