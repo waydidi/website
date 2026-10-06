@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, Clock, Luggage, MapPin, Star, Users } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { ChatCard } from "@/lib/chat-cards";
 
 // LINE-style cards inside the website chat: car options with Book buttons, a booking summary with
@@ -25,7 +25,11 @@ export function RichCard({ card, onShareLocation }: { card: ChatCard; onShareLoc
     return <div className={shell}>
       <div className="flex items-center justify-between gap-2 bg-[#FE8B05] px-4 py-3 text-white"><p className="text-[15px] font-bold">Booking {card.reference}</p><span className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${tone}`}>{card.statusText}</span></div>
       <dl className="grid gap-1.5 px-4 py-3 text-[13px]">
-        {card.rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{k === "Car" && card.people ? <span className="inline-flex flex-wrap items-center justify-end gap-x-2">{v}<span className="inline-flex items-center gap-[3px] font-normal text-[#6B6B6B]"><Users size={16} className="text-[#1C1C1C]" aria-label="passengers" />{card.people}<Luggage size={16} className="ml-[5px] text-[#1C1C1C]" aria-label="bags" />{card.bags ?? 0}</span></span> : v.endsWith("(Paid)") ? <>{v.slice(0, -6)}<span className="text-[#06C755]">(Paid)</span></> : v}</dd></div>)}
+        {card.rows.map(([k, v]) => <Fragment key={k}>
+          <div className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{v.endsWith("(Paid)") ? <>{v.slice(0, -6)}<span className="text-[#06C755]">(Paid)</span></> : v}</dd></div>
+          {k === "Vehicle" && card.people ? <div className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">No. of passenger</dt>
+            <dd className="inline-flex items-center gap-[3px] text-[#6B6B6B]"><Users size={16} className="text-[#1C1C1C]" aria-label="passengers" />{card.people}<Luggage size={16} className="ml-[5px] text-[#1C1C1C]" aria-label="bags" />{card.bags ?? 0}</dd></div> : null}
+        </Fragment>)}
       </dl>
       <div className="border-t border-slate-100 px-4 py-3 text-[13px]">
         <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">Driver</p>

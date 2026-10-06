@@ -51,7 +51,7 @@ export async function checkBooking(conversationId: string, referenceIn: string, 
     ["Pickup", `${day(b.pickup_date)} ${b.pickup_time}`],
     ...(b.return_date && b.return_time ? [["Return", `${day(b.return_date)} ${b.return_time}`] as [string, string]] : []),
     ...(b.flight_number ? [["Flight", b.flight_number] as [string, string]] : []),
-    ["Car", car],
+    ["Vehicle", car],
     ["Payment", cashDue ? `฿${cashDue.toLocaleString("en-US")} (Cash to driver)` : b.payment_status === "paid" || b.amount_paid >= b.total ? `฿${b.total.toLocaleString("en-US")} (Paid)` : `฿${b.total.toLocaleString("en-US")} (${b.payment_status === "pending" ? "Not paid yet" : b.payment_status})`],
   ];
   return { ok: true, booking: {

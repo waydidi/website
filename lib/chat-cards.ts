@@ -39,7 +39,7 @@ export function quoteCard(q: { summary: string; cars: { vehicle: string; name: s
 export function cardText(c: ChatCard) {
   if (c.type === "quote") return [`${c.title}${c.subtitle ? ` (${c.subtitle})` : ""}`, ...c.cars.map((x) => `• ${x.name}: ${thb(x.price)} – ${x.url}`), ...c.notes].join("\n");
   if (c.type === "location") return c.text;
-  if (c.type === "booking") return [`Booking ${c.reference}: ${c.statusText}`, ...c.rows.map(([k, v]) => `${k}: ${v}${k === "Car" && c.people ? ` (${c.people} people, ${c.bags ?? 0} bags)` : ""}`),
+  if (c.type === "booking") return [`Booking ${c.reference}: ${c.statusText}`, ...c.rows.flatMap(([k, v]) => [`${k}: ${v}`, ...(k === "Vehicle" && c.people ? [`No. of passenger: ${c.people} people, ${c.bags ?? 0} bags`] : [])]),
     ...(c.driver ? [`Driver: ${c.driver.name}${c.driver.car ? ` · ${c.driver.car}` : ""}${c.driver.plate ? ` · ${c.driver.plate}` : ""}${c.driver.phone ? ` · ${c.driver.phone}` : ""}`] : ["Driver: not assigned yet (details come before your trip)"]),
     `Manage booking: ${c.manageUrl}`].join("\n");
   if (c.type === "places") return [c.title, ...c.items.map((x) => `• ${x.name}${x.rating ? ` (${x.rating}★, ${x.reviews ?? 0} reviews)` : ""} – ${x.mapsUrl}`)].join("\n");
