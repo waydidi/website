@@ -279,6 +279,6 @@ async function handOver(conversationId: string, reason: string, summary: string)
   try { prev = JSON.parse(c.bot_state ?? "{}"); } catch { prev = {}; }
   // Non keeps answering until a person taps Assign; a handover never stops it on its own.
   await db().prepare("UPDATE website_conversations SET bot_state=? WHERE id=?").bind(JSON.stringify({ ...prev, handover: reason, summary, at: new Date().toISOString() }), c.id).run();
-  // One "Needs a person" card per chat ([Assign] [Wait]); later handovers don't repeat it.
-  if (!prev.card) await import("@/lib/telegram/handover").then((m) => m.postHandoverCard(c.id)).catch(() => undefined);
+  // Every message Non can't answer gets a "Needs a person" card with [Assign] [Wait].
+  await import("@/lib/telegram/handover").then((m) => m.postHandoverCard(c.id)).catch(() => undefined);
 }

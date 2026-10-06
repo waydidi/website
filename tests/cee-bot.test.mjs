@@ -343,3 +343,13 @@ test('handover: a "Needs a person" card with Assign and Wait; Wait tells the cus
  assert.ok(tgCalls.some((c)=>c.method==='sendMessage'&&/reminder/.test(c.body.text)));
  delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
 });
+test('every message Non cannot answer posts its own Assign/Wait card',async()=>{
+ Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
+ const id=await conversation('Can I talk to a real person?');await db.prepare('UPDATE website_conversations SET telegram_message_id=701 WHERE id=?').bind(id).run();
+ tgCalls.length=0;await bot.runCee(id,{client:scripted()});
+ await chat.addVisitorMessage(await db.prepare('SELECT * FROM website_conversations WHERE id=?').bind(id).first(),'I want a human please',null);
+ await bot.runCee(id,{client:scripted()});
+ const cards=tgCalls.filter((c)=>c.method==='sendMessage'&&/Needs a person/.test(c.body.text));
+ assert.equal(cards.length,2);for(const c of cards)assert.deepEqual(c.body.reply_markup.inline_keyboard.flat().map((b)=>b.text),['Assign','Wait']);
+ delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
+});
