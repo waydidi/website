@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   return new Response("Forbidden", { status: 403 });
 }
 
-type Payload = { entry?: { changes?: { value?: { contacts?: { wa_id: string; profile?: { name?: string } }[]; messages?: { from: string; id: string; type: string; text?: { body?: string }; button?: { text?: string }; interactive?: { button_reply?: { title?: string }; list_reply?: { title?: string } } }[] } }[] }[] };
+type Payload = { entry?: { changes?: { value?: { contacts?: { wa_id: string; profile?: { name?: string } }[]; messages?: { from: string; id: string; type: string; text?: { body?: string }; button?: { text?: string }; interactive?: { button_reply?: { title?: string }; list_reply?: { title?: string } }; location?: { latitude?: number; longitude?: number; name?: string; address?: string } }[] } }[] }[] };
 
 export async function POST(request: Request) {
   if (!whatsappConfigured()) return new Response("Not configured", { status: 404 });
@@ -20,7 +20,9 @@ export async function POST(request: Request) {
     const v = change.value;
     for (const msg of v?.messages ?? []) {
       const name = v?.contacts?.find((c) => c.wa_id === msg.from)?.profile?.name ?? null;
-      const text = msg.text?.body ?? msg.button?.text ?? msg.interactive?.button_reply?.title ?? msg.interactive?.list_reply?.title
+      const pin = msg.location?.latitude !== undefined && msg.location.longitude !== undefined
+        ? `📍 My location: ${msg.location.latitude.toFixed(5)},${msg.location.longitude.toFixed(5)}${msg.location.name || msg.location.address ? ` (${[msg.location.name, msg.location.address].filter(Boolean).join(", ")})` : ""}` : null;
+      const text = pin ?? msg.text?.body ?? msg.button?.text ?? msg.interactive?.button_reply?.title ?? msg.interactive?.list_reply?.title
         ?? `[${msg.type} message. Photos, voice notes and files aren't read by Non yet; please type your question.]`;
       await receiveChannelMessage({ channel: "whatsapp", userId: msg.from, messageId: msg.id, text, name, phone: `+${msg.from}` }).catch((e) => console.error("whatsapp inbound failed", e instanceof Error ? e.message : "unknown"));
     }

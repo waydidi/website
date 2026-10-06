@@ -84,7 +84,9 @@ export const TOOLS: BetaTool[] = [
   { name: "search_knowledge", strict: true, description: "Search Waydidi's own notes (rules, tips, FAQs, places) and attraction database. Use for any question about policies, extras, places, restaurants, cafés, attractions or opening hours.",
     input_schema: { type: "object", additionalProperties: false, required: ["query", "city"], properties: { query: { ...str, description: "Short keywords in English, e.g. 'baby seat', 'cafe thong lor', 'grand palace dress code'" }, city: { ...str, description: "City slug if known, else empty string" } } } },
   { name: "find_places", strict: true, description: "Find real restaurants, cafés, bars, markets, malls, spas or attractions in Thailand on Google Maps, with live ratings and opening status. Use for recommendations when Waydidi's notes have nothing. The website shows the results as a card list.",
-    input_schema: { type: "object", additionalProperties: false, required: ["query", "near"], properties: { query: { ...str, description: "What to find, in English, e.g. 'authentic Thai restaurant', 'rooftop bar', 'night market'" }, near: { ...str, description: "Where the customer is or will be: their hotel, address or landmark exactly as they said it (e.g. 'Hilton Sukhumvit Bangkok', 'CentralWorld'). Results are centred there. If they say 'near me' without a place, ask for their hotel or area first." } } } },
+    input_schema: { type: "object", additionalProperties: false, required: ["query", "near"], properties: { query: { ...str, description: "What to find, in English, e.g. 'authentic Thai restaurant', 'rooftop bar', 'night market'" }, near: { ...str, description: "Where the customer is or will be: their hotel, address or landmark exactly as they said it (e.g. 'Hilton Sukhumvit Bangkok', 'CentralWorld'), or coordinates 'lat,lng' from a shared location. Results are centred there. If they say 'near me' without a place, call ask_location first." } } } },
+  { name: "ask_location", strict: true, description: "The customer said 'near me' / 'nearby' without naming a place. On the website this shows a 'Share my location' button (the browser asks their permission); on WhatsApp/LINE it asks them to send their location pin. Their reply comes back as '📍 My location: lat,lng'; then call find_places with that in near.",
+    input_schema: { type: "object", additionalProperties: false, required: ["reason"], properties: { reason: { ...str, description: "What you'll look for, e.g. 'restaurants near you'" } } } },
   { name: "handover", strict: true, description: "Pass this chat to the Waydidi team. After this you stop replying in this chat.",
     input_schema: { type: "object", additionalProperties: false, required: ["reason", "summary"], properties: { reason: str, summary: { ...str, description: "One or two lines for staff: what the customer wants and details collected so far" } } } },
 ];
@@ -190,6 +192,12 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
         }
         else if (u.name === "find_packages") { const list = await tools.findPackages(i.city); content = JSON.stringify(list.length ? list : { none: "No packages in this city; offer hourly or hand over." }); }
         else if (u.name === "search_knowledge") { const found = await tools.searchKnowledge(i.query, i.city || null); content = JSON.stringify(found.notes.length || found.places.length ? found : { none: "Nothing in Waydidi's notes. For restaurants, cafés, bars, markets or attractions use find_places. Otherwise don't guess; offer to check with the team (handover)." }); }
+        else if (u.name === "ask_location") {
+          const web = (options.channel ?? "web") === "web";
+          if (web) out.cards!.push({ type: "location", text: `Share your location so I can find ${String(i.reason || "places") } close to you. Your browser will ask for permission; it's only used for this search.` });
+          content = web ? "A 'Share my location' button is shown under your message. In your text, ask them to tap it (or type their hotel or area instead). Keep it to one line."
+            : "Ask them to send their location: on WhatsApp tap 📎 → Location; on LINE tap + → Location. Or type their hotel or area.";
+        }
         else if (u.name === "find_places") {
           const r = await guardedPlaces(tools, String(i.query), String(i.near ?? ""), options.placeGuard);
           if (r.ok) out.cards!.push({ type: "places", title: i.near ? `${i.query} near ${i.near}` : String(i.query), items: r.places.map((p) => { const a = alertsFor(options.alerts ?? [], p.name, p.address, String(i.near ?? ""))[0];

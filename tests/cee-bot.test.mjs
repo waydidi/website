@@ -388,3 +388,9 @@ test('spam guard: too many messages in a few minutes pauses Non for that chat',a
  const id=await conversation('hi');for(let i=0;i<21;i++)await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES(?,?,'visitor','x',?)").bind('sp'+i+id,id,new Date().toISOString()).run();
  assert.equal(await guard.spamPaused(id),true);
 });
+test('"near me": on the website Non shows a Share my location button; on WhatsApp it asks for the location pin',async()=>{
+ const ask=(channel)=>bot.ceeTurn([{sender:'visitor',body:'good coffee near me?'}],scripted({content:[{type:'tool_use',id:'t',name:'ask_location',input:{reason:'coffee shops near you'}}],stop_reason:'tool_use'},say('Tap the button to share your location.')),{tools,channel});
+ const web=await ask('web');assert.equal(web.cards[0].type,'location');assert.match(web.cards[0].text,/coffee shops near you/);
+ const wa=await ask('whatsapp');assert.equal(wa.cards.length,0);
+ const cards=await vite.ssrLoadModule('/lib/chat-cards.ts');assert.ok(cards.parseCard(JSON.stringify(web.cards[0])));
+});

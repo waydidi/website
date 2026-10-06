@@ -19,9 +19,10 @@ export async function findPlaces(query: string, near: string): Promise<{ ok: tru
   const key = (env as unknown as Record<string, string>).GOOGLE_MAPS_SERVER_KEY;
   if (!key) return { ok: false, reason: "Place search isn't connected. Say you'll ask the team, or hand over." };
   // A hotel, landmark or address: search around that exact spot (about 2.5 km), nearest good places first.
-  const center = near ? await findPlace(near).catch(() => null) : null;
-  const at = center?.location ?? null;
-  const textQuery = at ? query : near ? `${query} near ${near}` : query;
+  const coords = near.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+  const center = coords ? null : near ? await findPlace(near).catch(() => null) : null;
+  const at = coords ? { latitude: Number(coords[1]), longitude: Number(coords[2]) } : center?.location ?? null;
+  const textQuery = at || coords ? query : near ? `${query} near ${near}` : query;
   const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
     method: "POST", signal: AbortSignal.timeout(8000),
     headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key,

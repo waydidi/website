@@ -1,4 +1,7 @@
+"use client";
+
 import { CheckCircle2, Clock, Luggage, MapPin, Star, Users } from "lucide-react";
+import { useState } from "react";
 import type { ChatCard } from "@/lib/chat-cards";
 
 // LINE-style cards inside the website chat: car options with Book buttons, a booking summary with
@@ -14,7 +17,8 @@ const FLEET: Record<string, { label: string; models: string; image: string }> = 
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 const shell = "w-[94%] max-w-[350px] overflow-hidden rounded-[18px] border border-slate-200 bg-white text-[#15161C] shadow-sm";
 
-export function RichCard({ card }: { card: ChatCard }) {
+export function RichCard({ card, onShareLocation }: { card: ChatCard; onShareLocation?: (text: string) => void }) {
+  if (card.type === "location") return <LocationAsk text={card.text} onShare={onShareLocation} />;
   if (card.type === "quote") return <div className={shell}>
     <div className="bg-[#FFF3E6] px-4 py-3">
       <p className="text-[15px] font-bold leading-snug">{card.title}</p>
@@ -90,6 +94,29 @@ export function RichCard({ card }: { card: ChatCard }) {
         {card.rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{v}</dd></div>)}
       </dl>
       <p className="mt-3 border-t border-slate-100 pt-2.5 text-[13px]"><span className="text-slate-500">Paid</span> <b>{thb(card.amount)}</b>{card.test && <span className="ml-1 text-violet-700">(test, no money charged)</span>}</p>
+    </div>
+  </div>;
+}
+
+// "Share my location": the browser asks the customer's permission; only the rounded position is sent.
+function LocationAsk({ text, onShare }: { text: string; onShare?: (text: string) => void }) {
+  const [state, setState] = useState<"idle" | "asking" | "sent" | "denied">("idle");
+  function share() {
+    if (!navigator.geolocation || !onShare) { setState("denied"); return; }
+    setState("asking");
+    navigator.geolocation.getCurrentPosition(
+      (p) => { onShare(`📍 My location: ${p.coords.latitude.toFixed(4)},${p.coords.longitude.toFixed(4)}`); setState("sent"); },
+      () => setState("denied"), { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 });
+  }
+  return <div className={shell}>
+    <div className="flex gap-3 px-4 py-3.5">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[#D96F00]"><MapPin size={20} /></span>
+      <p className="text-[13.5px] leading-snug text-slate-700">{text}</p>
+    </div>
+    <div className="border-t border-slate-100 px-4 py-3">
+      {state === "sent" ? <p className="text-[13px] font-semibold text-emerald-700">Location shared. Looking nearby…</p>
+        : state === "denied" ? <p className="text-[13px] text-slate-600">Location isn&apos;t available. Just type your hotel or area instead.</p>
+        : <button type="button" disabled={state === "asking"} onClick={share} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[#FE8B05] text-[14px] font-bold text-white hover:bg-[#E67900] disabled:opacity-60"><MapPin size={16} />{state === "asking" ? "Waiting for permission…" : "Share my location"}</button>}
     </div>
   </div>;
 }
