@@ -1,95 +1,82 @@
 import type { Metadata } from "next";
+import { FarSkyline, NearLandmarks, TukTuk } from "@/components/maintenance/bangkok-scene";
 import { MaintenanceSignIn } from "@/components/maintenance/sign-in";
 import { WaydidiMark, WaydidiWordmark } from "@/components/waydidi-logo";
 
 export const metadata: Metadata = { title: "Waydidi · Back soon", robots: { index: false, follow: false } };
 
-// Shown to visitors while the site is in maintenance mode (Admin → Settings). The Waydidi bird
-// flies in over Thai landmarks: Wat Arun's prang, a temple roof, a chedi, palms and a longtail boat.
+// Shown to visitors while the site is in maintenance mode (Admin → Settings). The Waydidi bird flies
+// across the sky, a longtail boat sails along the river and Bangkok's landmarks scroll past in two
+// layers (the far skyline slower than the temples by the river).
 export default function MaintenancePage() {
   return <main className="font-home wd-mt relative min-h-dvh overflow-hidden bg-[linear-gradient(180deg,#FE8B05_0%,#FFA94D_38%,#FFD9A8_64%,#FFF3E2_100%)] text-white">
     <style>{`
       .wd-mt .sun { animation: wd-rise 2.4s ease-out both; }
       .wd-mt .cloud { animation: wd-drift linear infinite; }
-      .wd-mt .bird { animation: wd-fly 3.6s cubic-bezier(.3,.1,.25,1) both, wd-bob 3s ease-in-out 3.6s infinite; }
-      .wd-mt .wing { animation: wd-flap .26s ease-in-out 14 alternate both, wd-glide 2.6s ease-in-out 3.64s infinite; transform-origin: 50% 70%; }
-      .wd-mt .fade { animation: wd-fade 1s ease-out both; }
-      .wd-mt .boat { animation: wd-sail 18s linear infinite; }
+      .wd-mt .scroll-far { animation: wd-scroll 150s linear infinite; }
+      .wd-mt .scroll-near { animation: wd-scroll 70s linear infinite; }
+      .wd-mt .bird-x { animation: wd-across 16s linear infinite; }
+      .wd-mt .bird-y { animation: wd-wave 4s ease-in-out infinite; }
+      .wd-mt .wing { animation: wd-flap .28s ease-in-out infinite alternate; transform-origin: 50% 70%; }
+      .wd-mt .boat { animation: wd-sail 26s linear infinite; }
+      .wd-mt .rock { animation: wd-rock 2.4s ease-in-out infinite; transform-origin: 50% 80%; }
+      .wd-mt .tuk { animation: wd-drive 34s linear infinite; }
       .wd-mt .water { animation: wd-shimmer 4s ease-in-out infinite; }
-      @keyframes wd-rise { from { transform: translateY(60px); opacity: 0 } to { transform: none; opacity: 1 } }
+      .wd-mt .fade { animation: wd-fade 1s ease-out both; }
+      @keyframes wd-rise { from { transform: translate(-50%, 60px); opacity: 0 } to { transform: translate(-50%, 0); opacity: 1 } }
       @keyframes wd-drift { from { transform: translateX(-30vw) } to { transform: translateX(130vw) } }
-      @keyframes wd-fly {
-        0% { transform: translate(-70vw, 38vh) scale(.55) rotate(-14deg); opacity: 0 }
-        10% { opacity: 1 }
-        40% { transform: translate(-22vw, -6vh) scale(.8) rotate(-6deg) }
-        70% { transform: translate(14vw, 4vh) scale(1) rotate(6deg) }
-        100% { transform: none; opacity: 1 }
-      }
-      @keyframes wd-bob { 0%, 100% { translate: 0 0 } 50% { translate: 0 -10px } }
-      /* Wings beat: the bird squashes down and tips forward, then opens up again. */
+      @keyframes wd-scroll { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+      /* Bird: from off the left edge to off the right edge, rising and dipping as it goes. */
+      @keyframes wd-across { from { transform: translateX(-160px) } to { transform: translateX(calc(100vw + 40px)) } }
+      @keyframes wd-wave { 0%, 100% { transform: translateY(0) rotate(4deg) } 50% { transform: translateY(-34px) rotate(-6deg) } }
       @keyframes wd-flap { from { transform: perspective(300px) rotateX(0deg) scaleY(1) } to { transform: perspective(300px) rotateX(58deg) scaleY(.7) skewX(-6deg) } }
-      @keyframes wd-glide { 0%, 70%, 100% { transform: none } 78% { transform: perspective(300px) rotateX(45deg) scaleY(.8) } 86% { transform: none } 92% { transform: perspective(300px) rotateX(40deg) scaleY(.82) } }
-      @keyframes wd-fade { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
-      @keyframes wd-sail { from { transform: translateX(-160px) } to { transform: translateX(110vw) } }
+      @keyframes wd-sail { from { transform: translateX(-220px) } to { transform: translateX(calc(100vw + 20px)) } }
+      @keyframes wd-rock { 0%, 100% { transform: rotate(-1.5deg) translateY(0) } 50% { transform: rotate(1.5deg) translateY(2px) } }
+      @keyframes wd-drive { from { transform: translateX(calc(100vw + 20px)) } to { transform: translateX(-120px) } }
       @keyframes wd-shimmer { 0%, 100% { opacity: .55 } 50% { opacity: .85 } }
+      @keyframes wd-fade { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
       @media (prefers-reduced-motion: reduce) { .wd-mt * { animation: none !important } }
     `}</style>
 
     {/* Sun and clouds */}
-    <div className="sun absolute left-1/2 top-[52%] size-[220px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,#FFF7E8_0%,#FFE2B8_55%,rgba(255,226,184,0)_72%)] sm:size-[300px]" aria-hidden />
+    <div className="sun absolute left-1/2 top-[50%] size-[220px] rounded-full bg-[radial-gradient(circle,#FFF7E8_0%,#FFE2B8_55%,rgba(255,226,184,0)_72%)] sm:size-[300px]" aria-hidden />
     {[{ t: "12%", d: "48s", w: 180, o: 0 }, { t: "22%", d: "64s", w: 120, o: -20 }, { t: "8%", d: "80s", w: 240, o: -45 }].map((c, i) =>
       <svg key={i} className="cloud absolute left-0 opacity-70" style={{ top: c.t, width: c.w, animationDuration: c.d, animationDelay: `${c.o}s` }} viewBox="0 0 200 70" aria-hidden><path fill="#FFF8EE" d="M20 60h160a22 22 0 0 0-8-42 30 30 0 0 0-56-8 26 26 0 0 0-46 10A24 24 0 0 0 20 60z" /></svg>)}
 
-
-    {/* Message */}
-    <div className="relative z-10 mx-auto flex max-w-xl flex-col items-center px-6 pt-[16vh] text-center sm:pt-[13vh]">
-      {/* The Waydidi bird flies in from the bottom left and lands here, above the name. */}
-      <div className="bird" aria-hidden><div className="wing"><WaydidiMark className="size-24 text-white drop-shadow-[0_6px_14px_rgba(150,70,0,.35)] sm:size-28" /></div></div>
-      <WaydidiWordmark className="fade mt-3 h-[44px] w-[174px] text-white [animation-delay:3.4s]" />
-      <h1 className="fade mt-5 text-[30px] font-bold leading-tight [animation-delay:3.7s] sm:text-[40px]">We&apos;ll be right back</h1>
-      <p className="fade mt-3 text-[16px] leading-7 text-white/95 [animation-delay:4s] sm:text-[18px]">Waydidi is getting a little upgrade. Your bookings and rides are not affected. Need help now? Message us on WhatsApp.</p>
-      <a href="https://wa.me/66632064884" className="fade mt-6 inline-flex h-12 items-center rounded-full bg-white px-6 font-semibold text-[#C96100] shadow-sm [animation-delay:4.3s] hover:bg-[#FFF6EC]">WhatsApp +66 63 206 4884</a>
+    {/* The Waydidi bird flying left to right across the sky, all the time */}
+    <div className="pointer-events-none absolute left-0 top-[9%] z-10" aria-hidden>
+      <div className="bird-x"><div className="bird-y"><div className="wing"><WaydidiMark className="size-20 text-white drop-shadow-[0_6px_14px_rgba(150,70,0,.35)] sm:size-24" /></div></div></div>
     </div>
 
-    {/* Thai landmarks skyline */}
-    <svg className="absolute inset-x-0 bottom-0 h-[42vh] min-h-[260px] w-full" viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice" aria-hidden>
-      {/* far hills (Phi Phi / Krabi limestone) */}
-      <path fill="#F3A35A" opacity=".55" d="M0 300 C60 240 90 180 130 230 C160 150 200 140 230 220 C270 260 300 240 340 280 L380 300 C900 300 1000 300 1060 300 C1100 210 1140 170 1180 230 C1210 160 1250 150 1290 240 C1330 270 1380 250 1440 280 V420 H0Z" />
-      {/* Wat Arun prang (centre-left) */}
-      <g fill="#C9671A">
-        <path d="M430 330 L430 300 L445 300 L452 250 L462 250 L470 180 L478 180 L484 110 L489 60 L492 30 L495 60 L500 110 L506 180 L514 180 L522 250 L532 250 L539 300 L554 300 L554 330Z" />
-        <path d="M380 330 L384 300 L392 300 L398 268 L404 240 L408 268 L414 300 L422 300 L426 330Z" />
-        <path d="M562 330 L566 300 L574 300 L580 268 L586 240 L590 268 L596 300 L604 300 L608 330Z" />
-      </g>
-      {/* Temple roof (Grand Palace style, tiered gables) */}
-      <g fill="#B85A12">
-        <path d="M720 330 L720 290 L860 290 L860 330Z" />
-        <path d="M700 292 L790 232 L880 292Z" />
-        <path d="M722 262 L790 206 L858 262Z" />
-        <path d="M746 232 L790 186 L834 232Z" />
-        <path d="M786 190 L790 140 L794 190Z" />
-        <path d="M700 292 L690 280 M880 292 L890 280" stroke="#B85A12" strokeWidth="5" strokeLinecap="round" />
-      </g>
-      {/* Chedi (bell stupa) */}
-      <path fill="#C9671A" d="M960 330 L960 312 L968 312 C968 286 984 268 1000 262 C1016 268 1032 286 1032 312 L1040 312 L1040 330Z M992 262 L996 220 L1000 160 L1004 220 L1008 262Z" />
-      {/* Palms */}
-      {[[250, 1], [640, .9], [1120, 1.05], [1300, .85]].map(([x, s], i) => <g key={i} transform={`translate(${x} 330) scale(${s})`} fill="#A84F0E">
-        <path d="M-3 0 C-1 -40 2 -80 6 -112 L10 -112 C7 -80 4 -40 3 0Z" />
-        <path d="M8 -112 C-20 -128 -46 -120 -60 -100 C-38 -112 -18 -112 8 -110Z M8 -112 C34 -130 62 -124 76 -104 C54 -114 32 -114 8 -110Z M8 -112 C0 -140 -18 -150 -36 -148 C-16 -140 -4 -128 6 -110Z M8 -112 C20 -142 40 -150 58 -146 C38 -138 24 -126 10 -110Z" />
-      </g>)}
-      {/* Ground and river */}
-      <path fill="#A84F0E" d="M0 326 H1440 V344 H0Z" />
-      <rect className="water" y="344" width="1440" height="76" fill="#F6B46E" />
-      <g className="water" stroke="#FFE7C7" strokeWidth="3" strokeLinecap="round" opacity=".7">
-        <path d="M120 372 h70 M420 392 h110 M760 366 h80 M1040 400 h120 M1260 376 h70" />
-      </g>
-      {/* Longtail boat */}
-      <g className="boat" transform="translate(0 0)">
-        <path fill="#8A3F0A" d="M40 366 C70 380 150 382 190 368 L198 352 L176 360 C140 366 80 366 52 358Z" />
-        <path fill="#8A3F0A" d="M196 352 L214 330 L218 332 L202 356Z" />
-        <path fill="#FFE7C7" d="M196 352 L214 330 L210 344Z" opacity=".8" />
-      </g>
-    </svg>
+    {/* Message */}
+    <div className="relative z-20 mx-auto flex max-w-xl flex-col items-center px-6 pt-[26vh] text-center sm:pt-[24vh]">
+      <WaydidiWordmark className="fade h-[44px] w-[174px] text-white" />
+      <h1 className="fade mt-5 text-[30px] font-bold leading-tight [animation-delay:.3s] sm:text-[40px]">We&apos;ll be right back</h1>
+      <p className="fade mt-3 text-[16px] leading-7 text-white/95 [animation-delay:.6s] sm:text-[18px]">Waydidi is getting a little upgrade. Your bookings and rides are not affected. Need help now? Message us on WhatsApp.</p>
+      <a href="https://wa.me/66632064884" className="fade mt-6 inline-flex h-12 items-center rounded-full bg-white px-6 font-semibold text-[#C96100] shadow-sm [animation-delay:.9s] hover:bg-[#FFF6EC]">WhatsApp +66 63 206 4884</a>
+    </div>
+
+    {/* Bangkok passing by: far skyline (slow), landmarks by the river (faster) */}
+    <div className="absolute inset-x-0 bottom-0 h-[42vh] min-h-[260px]" aria-hidden>
+      <div className="scroll-far absolute inset-y-0 left-0 flex h-full w-max"><FarSkyline /><FarSkyline /></div>
+      <div className="scroll-near absolute inset-y-0 left-0 flex h-full w-max"><NearLandmarks /><NearLandmarks /></div>
+      {/* Tuk-tuk driving along the bank (right to left) */}
+      <div className="tuk absolute left-0 h-[7%] min-h-[18px]" style={{ bottom: "calc(100% * 94 / 420 - 2px)" }}><TukTuk /></div>
+      {/* River */}
+      <svg className="absolute inset-x-0 bottom-0 h-[18%] w-full" viewBox="0 0 1440 76" preserveAspectRatio="none">
+        <rect className="water" width="1440" height="76" fill="#F6B46E" />
+        <g className="water" stroke="#FFE7C7" strokeWidth="3" strokeLinecap="round" opacity=".7"><path d="M120 28 h70 M420 48 h110 M760 22 h80 M1040 56 h120 M1260 32 h70" /></g>
+      </svg>
+      {/* Longtail boat sailing left to right, all the time */}
+      <div className="boat absolute bottom-[7%] left-0 h-[12%] min-h-[30px]">
+        <svg className="rock h-full w-auto" viewBox="30 326 196 62" aria-hidden>
+          <path fill="#8A3F0A" d="M40 366 C70 380 150 382 190 368 L198 352 L176 360 C140 366 80 366 52 358Z" />
+          <path fill="#8A3F0A" d="M196 352 L214 330 L218 332 L202 356Z" />
+          <path fill="#8A3F0A" d="M96 360 V344 H140 V360Z" opacity=".85" />
+          <path fill="#FFE7C7" d="M196 352 L214 330 L210 344Z" opacity=".8" />
+        </svg>
+      </div>
+    </div>
 
     <MaintenanceSignIn />
   </main>;
