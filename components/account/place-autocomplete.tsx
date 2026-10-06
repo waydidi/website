@@ -1,5 +1,6 @@
 "use client";
 
+import { attachPlaceAutocomplete, loadMaps } from "@/lib/google-places";
 import { MapPin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -13,26 +14,7 @@ declare global {
   }
 }
 
-// Loads the Maps JavaScript API once, sharing the script tag used by the
-// homepage route picker. Resolves false when no API key is configured.
-export function loadMaps(): Promise<boolean> {
-  return fetch("/api/maps/config", { cache: "no-store" })
-    .then((response) => response.json() as Promise<{ apiKey?: string }>)
-    .then(({ apiKey }) => new Promise<boolean>((resolve) => {
-      if (!apiKey) return resolve(false);
-      if (window.google?.maps?.places) return resolve(true);
-      const existing = document.querySelector<HTMLScriptElement>("script[data-waydidi-google-maps]");
-      if (existing) return existing.addEventListener("load", () => resolve(true), { once: true });
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&v=weekly`;
-      script.async = true;
-      script.dataset.waydidiGoogleMaps = "true";
-      script.addEventListener("load", () => resolve(true), { once: true });
-      script.addEventListener("error", () => resolve(false), { once: true });
-      document.head.appendChild(script);
-    }))
-    .catch(() => false);
-}
+export { loadMaps } from "@/lib/google-places";
 
 /** Address search limited to Thailand; reports the chosen Google place. */
 export function PlaceAutocomplete({ id, onPick }: { id: string; onPick: (place: PickedPlace | null) => void }) {
@@ -43,22 +25,15 @@ export function PlaceAutocomplete({ id, onPick }: { id: string; onPick: (place: 
 
   useEffect(() => {
     let active = true;
+    let cleanup: (() => void) | undefined;
     loadMaps().then((ok) => {
       if (!active) return;
       if (!ok || !input.current) return setStatus("unavailable");
-      const autocomplete = new window.google.maps.places.Autocomplete(input.current, {
-        componentRestrictions: { country: "th" },
-        fields: ["place_id", "formatted_address", "name"],
-      });
-      autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-        const address = place.name && place.formatted_address && !place.formatted_address.startsWith(place.name)
-          ? `${place.name}, ${place.formatted_address}` : place.formatted_address || place.name || "";
-        onPickRef.current(place.place_id && address ? { placeId: place.place_id, address } : null);
-      });
+      const autocomplete = attachPlaceAutocomplete(input.current, (place) => onPickRef.current(place));
+      cleanup = autocomplete.dispose;
       setStatus("ready");
     });
-    return () => { active = false; };
+    return () => { active = false; cleanup?.(); };
   }, []);
 
   return <div>

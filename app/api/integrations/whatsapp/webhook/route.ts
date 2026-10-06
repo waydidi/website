@@ -15,15 +15,17 @@ export async function POST(request: Request) {
   if (!whatsappConfigured()) return new Response("Not configured", { status: 404 });
   const raw = await request.text();
   if (!(await validWhatsappSignature(raw, request.headers.get("x-hub-signature-256")))) return new Response("Bad signature", { status: 401 });
-  const payload = JSON.parse(raw || "{}") as Payload;
+  let payload: Payload;
+  try { payload = JSON.parse(raw || "{}"); } catch { return new Response("Invalid JSON", { status: 400 }); }
+  let failed = false;
   for (const change of payload.entry?.flatMap((e) => e.changes ?? []) ?? []) {
     const v = change.value;
     for (const msg of v?.messages ?? []) {
       const name = v?.contacts?.find((c) => c.wa_id === msg.from)?.profile?.name ?? null;
       const text = msg.text?.body ?? msg.button?.text ?? msg.interactive?.button_reply?.title ?? msg.interactive?.list_reply?.title
         ?? `[${msg.type} message. Photos, voice notes and files aren't read by Non yet; please type your question.]`;
-      await receiveChannelMessage({ channel: "whatsapp", userId: msg.from, messageId: msg.id, text, name, phone: `+${msg.from}` }).catch((e) => console.error("whatsapp inbound failed", e instanceof Error ? e.message : "unknown"));
+      await receiveChannelMessage({ channel: "whatsapp", userId: msg.from, messageId: msg.id, text, name, phone: `+${msg.from}` }).catch((e) => { failed = true; console.error("whatsapp inbound failed", e instanceof Error ? e.message : "unknown"); });
     }
   }
-  return new Response("ok"); // always 200 quickly so Meta doesn't retry a handled message
+  return new Response(failed ? "Retry later" : "ok", { status: failed ? 503 : 200 });
 }

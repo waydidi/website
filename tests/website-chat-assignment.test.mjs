@@ -10,7 +10,7 @@ const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec("CREATE TABLE drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT,vehicle TEXT,car_plate TEXT,driver_type TEXT,status TEXT,base_location TEXT DEFAULT '',created_at TEXT,updated_at TEXT);");
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_translation_claims.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -331,13 +331,13 @@ test('site translation: cached lines come from D1, new lines are translated once
  globalThis.fetch=async(url,init)=>{if(String(url).includes('anthropic.com')){calls++;const texts=JSON.parse(JSON.parse(init.body).messages[0].content);return new Response(JSON.stringify({id:'m',type:'message',role:'assistant',model:'x',content:[{type:'text',text:JSON.stringify(texts.map((t)=>'[ko] '+t))}],stop_reason:'end_turn',usage:{input_tokens:10,output_tokens:10}}),{headers:{'content-type':'application/json'}});}return real(url,init);};
  const ask=(body)=>tr.POST(new Request('https://example.invalid/api/translate',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json','cf-connecting-ip':'tx-test'},body:JSON.stringify(body)})).then((r)=>r.json());
  try{
-  const a=await ask({lang:'ko',path:'/help',texts:['Book a ride','Free cancellation']});
-  assert.deepEqual(a.translations,{'Book a ride':'[ko] Book a ride','Free cancellation':'[ko] Free cancellation'});assert.equal(calls,1);
+  const a=await ask({lang:'ko',path:'/help',texts:['Book a ride','Free cancellation up to 48 hours']});
+  assert.deepEqual(a.translations,{'Book a ride':'[ko] Book a ride','Free cancellation up to 48 hours':'[ko] Free cancellation up to 48 hours'});assert.equal(calls,1);
   await ask({lang:'ko',path:'/help',texts:['Book a ride']});assert.equal(calls,1); // cached
   assert.deepEqual((await ask({lang:'ko',path:'/admin/bookings',texts:['Book a ride']})).translations,{}); // staff pages never
   assert.equal((await ask({lang:'xx',texts:['Hi']})).error,'Unsupported language.');
   await env().DB.prepare("UPDATE site_translations SET text='예약하기',status='reviewed' WHERE lang='ko' AND hash=?").bind(await lib.textHash('Book a ride')).run();
-  assert.equal((await ask({lang:'ko',texts:['Book a ride']})).translations['Book a ride'],'예약하기');
+  assert.equal((await ask({lang:'ko',path:'/help',texts:['Book a ride']})).translations['Book a ride'],'예약하기');
  }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.ANTHROPIC_API_KEY;}
 });
 const env=()=>globalThis.__chatTest.env;
