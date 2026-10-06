@@ -45,7 +45,8 @@ export function SiteTranslator() {
 
     // Codes such as THB, USD or a booking reference stay as they are.
     const usable = (s: string) => { const t = s.trim(); return t.length > 0 && t.length <= 2000 && LETTERS.test(t) && !/^[A-Z0-9][A-Z0-9 ._/-]{0,7}$/.test(t) ? t : null; };
-    const wrap = (full: string, core: string, tr: string) => full.replace(core, tr);
+    // A function replacer, so "$&" or "$1" in a translation is shown as written.
+    const wrap = (full: string, core: string, tr: string) => full.replace(core, () => tr);
     const skipped = (el: Element | null) => !el || Boolean(el.closest(SKIP));
 
     function applyText(node: Text) {
