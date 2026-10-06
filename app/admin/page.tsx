@@ -33,13 +33,16 @@ export default async function AdminOverviewPage() {
       {/* Key numbers */}
       <section aria-labelledby="numbers-heading">
         <h2 id="numbers-heading" className="sr-only">Key numbers</h2>
-        <div className="grid grid-cols-2 gap-3 pt-2 lg:grid-cols-4">
+        {/* Desktop: numbers as 2×2 on the left half, upcoming rides on the right half. */}
+        <div className="pt-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Stat label="Bookings today" value={String(o.stats.today.bookings)} sub={thb(o.stats.today.revenue)} />
           <Stat label="Last 7 days" value={String(o.stats.week.bookings)} sub={`${thb(o.stats.week.revenue)} · ${o.stats.week.cancelled} cancelled`} />
           <Stat label="Last 30 days" value={String(o.stats.month.bookings)} sub={`${thb(o.stats.month.revenue)} · avg ${thb(o.stats.month.average)}`} />
           <Stat label="Cash to collect" value={thb(o.cashDue.amount)} sub={`${o.cashDue.count} upcoming cash ride${o.cashDue.count === 1 ? "" : "s"}`} />
         </div>
-        <UpcomingRides rides={o.rides} drivers={o.drivers} />
+        <div className="lg:[&>section]:mt-0"><UpcomingRides rides={o.rides} drivers={o.drivers} /></div>
+        </div>
       </section>
 
       {/* Quick links */}
