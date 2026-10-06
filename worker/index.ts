@@ -51,7 +51,7 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-    // Page visits on the old workers.dev address or www. move to waydidi.com for good. API and
+    // Page visits on earlier custom-domain aliases move to the single live origin. API and
     // webhook calls (Stripe, Telegram, LINE, WhatsApp) keep working there until they are re-pointed.
     if (LEGACY_HOSTS.includes(url.hostname) && (request.method === "GET" || request.method === "HEAD") && !url.pathname.startsWith("/api/")) {
       return Response.redirect(new URL(url.pathname + url.search, SITE_URL).toString(), 301);

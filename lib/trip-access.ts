@@ -26,7 +26,10 @@ export async function tripOwnerKey(reference: string) {
  * 7 days after the trip.
  */
 export async function rideKey(reference: string, createdAt: string) {
-  return (await tripSecretHmacHex(`trip-ride:${reference}:${createdAt}`)).slice(0, 32);
+  const revokedAt = await latestAccessRevoke(reference, "owner");
+  // Existing unrecalled email links retain their key. Revoking an exposed key
+  // rotates future links rather than permanently disabling ride status.
+  return (await tripSecretHmacHex(`trip-ride:${reference}:${createdAt}${revokedAt ? `:revoked:${revokedAt}` : ""}`)).slice(0, 32);
 }
 export async function rideUrl(origin: string, booking: { reference: string; createdAt: string }) {
   return `${origin}/trip/${encodeURIComponent(booking.reference)}?ride=${await rideKey(booking.reference, booking.createdAt)}`;
@@ -73,7 +76,7 @@ export async function resolveTripAccess(request: Request, reference: string): Pr
   const ownerKey=parseShareToken(key);
   if(ownerKey&&ownerKey.issuedAt<=Date.now()+1000&&Date.now()-ownerKey.issuedAt<24*3600000&&shareIssuedAfterRevoke(ownerKey.issuedAt,await latestAccessRevoke(reference,"owner"))&&constantTimeEqual(ownerKey.signature,(await tripSecretHmacHex(`trip-owner:${reference}:${ownerKey.issuedAt}`)).slice(0,32))) return {booking,access:"owner"};
   const ride = params.get("ride") ?? "";
-  if (/^[a-f0-9]{32}$/.test(ride) && rideLinkLive(booking) && shareIssuedAfterRevoke(Date.parse(booking.createdAt), await latestAccessRevoke(reference, "owner"))
+  if (/^[a-f0-9]{32}$/.test(ride) && rideLinkLive(booking)
     && constantTimeEqual(ride, await rideKey(reference, booking.createdAt))) return { booking, access: "owner" };
   const managed = await managedBooking(request);
   if (managed?.reference === reference) return { booking, access: "owner" };

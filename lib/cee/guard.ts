@@ -48,6 +48,21 @@ export async function placeSearchAllowed(conversationId: string, actor: string):
     return { ok: false, reason: "Place search is paused for today. Answer from Waydidi's notes or offer the team.", siteLimit: true };
   return { ok: true };
 }
+/** Reserve before calling Google. The conditional INSERT checks every limit
+ * in the same serialized database statement, including concurrent workers. */
+export async function claimPlaceSearch(conversationId: string, actor: string, key: string) {
+  const l = await getLimits(), since = dayAgo();
+  const row = await db().prepare(`INSERT INTO place_searches(id,conversation_id,actor,query_key,cached,created_at)
+    SELECT ?,?,?,?,0,? WHERE
+      (SELECT COUNT(*) FROM place_searches WHERE conversation_id=? AND cached=0) < ? AND
+      (SELECT COUNT(*) FROM place_searches WHERE actor=? AND cached=0 AND created_at>?) < ? AND
+      (SELECT COUNT(*) FROM place_searches WHERE cached=0 AND created_at>?) < ?
+    RETURNING id`).bind(crypto.randomUUID(), conversationId, actor, key, nowIso(), conversationId, l.perChat, actor, since, l.perCustomerDay, since, l.siteDay).first<{ id: string }>();
+  if (row) return { ok: true as const };
+  const allowed = await placeSearchAllowed(conversationId, actor);
+  return allowed.ok ? { ok: false as const, reason: "Place search is temporarily paused. Please try again later." } : allowed;
+}
+
 export const logPlaceSearch = (conversationId: string, actor: string, key: string, cached: boolean) =>
   db().prepare("INSERT INTO place_searches(id,conversation_id,actor,query_key,cached,created_at) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(), conversationId, actor, key, cached ? 1 : 0, nowIso()).run();
 export async function cachedSearch<T>(key: string): Promise<T | null> {

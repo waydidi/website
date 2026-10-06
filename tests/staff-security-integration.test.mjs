@@ -1,3 +1,4 @@
+import { migrationStatements } from './helpers/migrations.mjs';
 import assert from 'node:assert/strict';
 import test,{after} from 'node:test';
 import {Miniflare} from 'miniflare';
@@ -7,7 +8,7 @@ import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('..',import.meta.url));
 const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("test")}}',compatibilityDate:'2026-05-22',d1Databases:['DB']});
 const d1=await mf.getD1Database('DB');
-for(const name of (await readdir(root+'/drizzle')).filter(n=>n.endsWith('.sql')).sort()){const sql=(await readFile(root+'/drizzle/'+name,'utf8')).replace(/--[^\n]*/g,'').split(';').map(s=>s.trim()).filter(Boolean);if(sql.length)await d1.batch(sql.map(s=>d1.prepare(s)));}
+for(const name of (await readdir(root+'/drizzle')).filter(n=>n.endsWith('.sql')).sort()){const sql=migrationStatements((await readFile(root+'/drizzle/'+name,'utf8'))).map(s=>s.trim()).filter(Boolean);if(sql.length)await d1.batch(sql.map(s=>d1.prepare(s)));}
 globalThis.__staffTestEnv={DB:d1,WAYDIDI_ADMIN_SESSION_SECRET:'test-only-staff-secret-with-at-least-32-characters'};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'staff-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0staff-env';},load(id){if(id==='\0staff-env')return 'export const env=globalThis.__staffTestEnv';}}],server:{middlewareMode:true}});
 after(async()=>{await vite.close();await mf.dispose();delete globalThis.__staffTestEnv;});

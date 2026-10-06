@@ -24,7 +24,7 @@ export const LANG_COOKIE = "waydidi-lang";
  * and pages showing a customer's own details (names, addresses, phone numbers must never be sent to
  * the AI or stored in the shared translation table).
  */
-export const untranslatedPath = (path: string) => /^\/(admin|admin-setup|driver|drivers\/portal|account|trip|booking|pay|chat-pay|itinerary|f|agency)(\/|$)/.test(path);
+export const untranslatedPath = (path: string) => /^\/(admin|admin-setup|driver|drivers\/portal|account|trip|booking|checkout|pay|chat-pay|itinerary|f|s|agency|th|zh)(\/|$)/.test(path);
 /** Legal pages: the translation is shown, with a note that the English text is the official one. */
 export const legalPath = (path: string) => /^\/(terms|privacy|refund-policy)(\/|$)/.test(path);
 
@@ -44,7 +44,7 @@ export const STYLE: Record<Exclude<SiteLang, "en">, string> = {
 };
 
 /** Inline <head> script: hides the English page briefly when a translation is coming (no flash). */
-export const PRE_HIDE = `try{var m=document.cookie.match(/(?:^|; )waydidi-lang=([a-z]+)/);var p=location.pathname;if(m&&m[1]!=="en"&&!/^\\/(admin|admin-setup|driver|drivers\\/portal|account|trip|booking|pay|chat-pay|itinerary|f|agency)(\\/|$)/.test(p)){document.documentElement.classList.add("wd-tx");setTimeout(function(){document.documentElement.classList.remove("wd-tx")},2500)}}catch(e){}`;
+export const PRE_HIDE = `try{var m=document.cookie.match(/(?:^|; )waydidi-lang=([a-z]+)/);var p=location.pathname;if(m&&m[1]!=="en"&&!/^\\/(admin|admin-setup|driver|drivers\\/portal|account|trip|booking|checkout|pay|chat-pay|itinerary|f|s|agency|th|zh)(\\/|$)/.test(p)){document.documentElement.classList.add("wd-tx");setTimeout(function(){document.documentElement.classList.remove("wd-tx")},2500)}}catch(e){}`;
 
 // ---- Shared by the page translator and Admin → Translations (page scan + cost estimate) ----
 

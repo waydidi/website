@@ -7,7 +7,7 @@ import { cardText, quoteCard, type ChatCard, type PaymentCard } from "@/lib/chat
 import { searchKnowledge } from "./knowledge";
 import { findPlaces } from "./places";
 import { checkBooking } from "./booking-lookup";
-import { activeAlerts, actorFor, alertBrief, alertsFor, cachedSearch, logPlaceSearch, placeSearchAllowed, saveSearch, searchKey, type Alert } from "./guard";
+import { activeAlerts, actorFor, alertBrief, alertsFor, cachedSearch, logPlaceSearch, claimPlaceSearch, saveSearch, searchKey, type Alert } from "./guard";
 import { HOURLY_CITIES, findPackages, quoteHourly, quoteTransfer } from "./quotes";
 
 // Non: Waydidi's chat assistant on the website, WhatsApp and LINE. It answers instantly, quotes only
@@ -86,7 +86,7 @@ export const TOOLS: BetaTool[] = [
     input_schema: { type: "object", additionalProperties: false, required: ["query", "city"], properties: { query: { ...str, description: "Short keywords in English, e.g. 'baby seat', 'cafe thong lor', 'grand palace dress code'" }, city: { ...str, description: "City slug if known, else empty string" } } } },
   { name: "find_places", strict: true, description: "Find real restaurants, cafés, bars, markets, malls, spas or attractions in Thailand on Google Maps, with live ratings and opening status. Use for recommendations when Waydidi's notes have nothing. The website shows the results as a card list.",
     input_schema: { type: "object", additionalProperties: false, required: ["query", "near"], properties: { query: { ...str, description: "What to find, in English, e.g. 'authentic Thai restaurant', 'rooftop bar', 'night market'" }, near: { ...str, description: "Where the customer is or will be: their hotel, address or landmark exactly as they said it (e.g. 'Hilton Sukhumvit Bangkok', 'CentralWorld'), or coordinates 'lat,lng' from a shared location. Results are centred there. If they say 'near me' without a place, call ask_location first." } } } },
-  { name: "check_booking", strict: true, description: "Look up an existing booking for the customer: needs the booking reference (e.g. MC7Q2P, from the confirmation email) AND the lead passenger's surname. Returns status, trip details, payment and driver. Never guess either value; ask for what's missing.",
+  { name: "check_booking", strict: true, description: "Look up an existing booking for the customer: requires a signed-in Waydidi account owning the booking, plus the reference and lead passenger's surname. Returns status, trip details, payment and driver. Never guess either value; ask for what's missing.",
     input_schema: { type: "object", additionalProperties: false, required: ["reference", "surname"], properties: { reference: str, surname: { ...str, description: "Lead passenger's last name as the customer typed it" } } } },
   { name: "ask_location", strict: true, description: "The customer said 'near me' / 'nearby' without naming a place. On the website this shows a 'Share my location' button (the browser asks their permission); on WhatsApp/LINE it asks them to send their location pin. Their reply comes back as '📍 My location: lat,lng'; then call find_places with that in near.",
     input_schema: { type: "object", additionalProperties: false, required: ["reason"], properties: { reason: { ...str, description: "What you'll look for, e.g. 'restaurants near you'" } } } },
@@ -239,10 +239,9 @@ async function guardedPlaces(tools: CeeTools, query: string, near: string, guard
   const key = await searchKey(query, near);
   const hit = await cachedSearch<Awaited<ReturnType<typeof findPlaces>>>(key);
   if (hit?.ok) { await logPlaceSearch(guard.conversationId, guard.actor, key, true).catch(() => undefined); return hit; }
-  const allowed = await placeSearchAllowed(guard.conversationId, guard.actor);
+  const allowed = await claimPlaceSearch(guard.conversationId, guard.actor, key);
   if (!allowed.ok) { if (allowed.siteLimit) await siteLimitAlert(); return { ok: false as const, reason: allowed.reason }; }
   const r = await tools.findPlaces(query, near);
-  await logPlaceSearch(guard.conversationId, guard.actor, key, false).catch(() => undefined);
   if (r.ok) await saveSearch(key, r).catch(() => undefined);
   return r;
 }
