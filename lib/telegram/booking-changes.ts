@@ -148,11 +148,7 @@ export async function approveChange(id: string, by: string) {
   await db().prepare("UPDATE booking_change_requests SET status='approved',resolved_at=? WHERE id=?").bind(at, id).run();
   await close(`chg:${id}`, changeText(b, c, `\nอนุมัติแล้ว โดย ${esc(by)}${c.price_difference ? ` · ${c.price_difference > 0 ? "เก็บเงินเพิ่ม" : "คืนเงิน"} ${thb(Math.abs(c.price_difference))}` : ""}`));
   // The driver gets a fresh job post (new link; the old one stops working).
-  if (await jobMessageId(b.reference)) {
-    await db().prepare("UPDATE telegram_booking_cards SET assignment_posted=0 WHERE booking_reference=?").bind(b.reference).run();
-    await postAssignmentWhenReady(b.reference, by, `<b>แก้ไขงาน ${esc(b.reference)}</b> (ข้อมูลใหม่ ลิงก์เดิมใช้ไม่ได้แล้ว)`);
-  }
-  await import("./bookings").then((m) => m.refreshBookingCard(b.reference)).catch(() => undefined);
+  await republishJob(b.reference, by);
   return "Change approved.";
 }
 
@@ -164,4 +160,14 @@ export async function declineChange(id: string, by: string) {
   if (!r.meta.changes) return "Already handled.";
   await close(`chg:${id}`, changeText(b, c, `\nไม่อนุมัติ โดย ${esc(by)} · แจ้งลูกค้าด้วย`));
   return "Change declined. Let the customer know.";
+}
+
+/** After a booking's details change: a driver who has the job gets a new job post (new link), and the card is redrawn. */
+export async function republishJob(reference: string, by: string, note = "") {
+  if (!telegramConfigured()) return;
+  if (await jobMessageId(reference)) {
+    await db().prepare("UPDATE telegram_booking_cards SET assignment_posted=0 WHERE booking_reference=?").bind(reference).run();
+    await postAssignmentWhenReady(reference, by, `<b>แก้ไขงาน ${esc(reference)}</b> (ข้อมูลใหม่ ลิงก์เดิมใช้ไม่ได้แล้ว)${note ? ` · ${esc(note)}` : ""}`);
+  }
+  await import("./bookings").then((m) => m.refreshBookingCard(reference)).catch(() => undefined);
 }
