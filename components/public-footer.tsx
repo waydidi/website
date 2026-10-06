@@ -6,7 +6,7 @@ import { destinations } from "@/lib/public-content";
 const columns = [
   {title:"Transfer",links:[["Airport transfer","/airport-transfer"],["City-to-city transfer","/a-to-b-transfer"],["Multi-city transfer","/long-journeys"],["Hourly driver","/hourly-driver"]]},
   {title:"Destinations",links:[...destinations.map(d=>[d.name,`/destinations/${d.slug}`]),["All destinations","/destinations"]]},
-  {title:"Help",links:[["Help centre","/help"],["Contact support","/contact"],["Frequently asked questions","/faq"],["Manage booking","/booking/manage"],["Airport pickup guide","/airport-pickup-instructions"],["Travel agencies","/agencies"],["Drive with Waydidi","/drivers"]]},
+  {title:"Help",links:[["Help centre","/help"],["Contact support","/contact"],["Frequently asked questions","/faq"],["Manage booking","/booking/manage"],["Airport pickup guide","/airport-pickup-instructions"],["Flight status","/flights"],["Travel agencies","/agencies"],["Drive with Waydidi","/drivers"]]},
 ];
 
 export function PublicFooter(){return <footer className="bg-[#FF8A05] text-white">
