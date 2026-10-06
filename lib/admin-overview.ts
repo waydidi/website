@@ -1,4 +1,5 @@
 import { and, count, eq, gte, inArray, isNull, lte, notInArray, sql } from "drizzle-orm";
+import { fullName } from "@/lib/person-name";
 import { getDb } from "@/db";
 import {
   agencyApplications, bookingAssignments, bookingChangeRequests, bookings, driverApplications, drivers,
@@ -59,7 +60,7 @@ export async function adminOverview(at = new Date()) {
 
   const rides: OverviewRide[] = upcoming.map(({ b, driver, driverId, driverStatus }) => ({
     reference: b.reference, pickupDate: b.pickupDate, pickupTime: b.pickupTime, pickup: b.pickup, dropoff: b.dropoff,
-    name: `${b.customerName} ${b.customerSurname ?? ""}`.trim(), vehicle: b.vehicle, passengers: b.passengers, luggage: b.luggage, status: b.status, paymentMethod: b.paymentMethod, paymentStatus: b.paymentStatus,
+    name: fullName(b.customerName, b.customerSurname), vehicle: b.vehicle, passengers: b.passengers, luggage: b.luggage, status: b.status, paymentMethod: b.paymentMethod, paymentStatus: b.paymentStatus,
     total: b.total, flightNumber: b.flightNumber, flightStatus: b.flightStatus, driver: driver ?? null, driverId: driverId ?? null, driverStatus: driverStatus ?? null,
     attention: b.attentionStatus === "attention",
   }));

@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { fullName as personName } from "@/lib/person-name";
 import { VEHICLES } from "@/lib/vehicles";
 import { esc } from "./cards";
 import { editCard, sendCard, telegramConfigured } from "./client";
@@ -17,7 +18,7 @@ const carName = (v: string) => (VEHICLES as Record<string, { name: string }>)[v]
 type Booking = { reference: string; customer_name: string; customer_surname: string | null; customer_phone: string | null; pickup: string; dropoff: string; pickup_date: string; pickup_time: string;
   vehicle: string; total: number; payment_method: string; status: string };
 const booking = (ref: string) => db().prepare("SELECT reference,customer_name,customer_surname,customer_phone,pickup,dropoff,pickup_date,pickup_time,vehicle,total,payment_method,status FROM bookings WHERE reference=?").bind(ref).first<Booking>();
-const fullName = (b: Booking) => `${b.customer_name} ${b.customer_surname ?? ""}`.trim();
+const fullName = (b: Booking) => personName(b.customer_name, b.customer_surname);
 const trip = (b: { pickup_date: string; pickup_time: string; pickup: string; dropoff: string; vehicle: string }) => `${ddmmyyyy(b.pickup_date)} ${b.pickup_time} · ${b.pickup} → ${b.dropoff} · ${carName(b.vehicle)}`;
 const hoursUntil = (b: Booking) => (new Date(`${b.pickup_date}T${b.pickup_time}:00+07:00`).getTime() - Date.now()) / 3600_000;
 

@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { fullName } from "@/lib/person-name";
 import { SITE_URL } from "@/lib/site";
 import { VEHICLES } from "@/lib/vehicles";
 import { bookingCard, bookingKeyboard, type CardBooking } from "./cards";
@@ -16,7 +17,7 @@ async function card(reference: string, acknowledgedBy: string | null): Promise<C
     .bind(reference).first<{ cost_done: number; driver_done: number; driver_form_json: string | null; total_driver_cost: number | null }>().catch(() => null);
   const b = await db().prepare("SELECT reference,customer_name,customer_surname,pickup,dropoff,pickup_date,pickup_time,vehicle,passengers,luggage,total,payment_method FROM bookings WHERE reference=?").bind(reference).first<Row>();
   if (!b) return null;
-  return { reference: b.reference, customerName: `${b.customer_name} ${b.customer_surname ?? ""}`.trim(), pickup: b.pickup, dropoff: b.dropoff, pickupDate: b.pickup_date, pickupTime: b.pickup_time,
+  return { reference: b.reference, customerName: fullName(b.customer_name, b.customer_surname), pickup: b.pickup, dropoff: b.dropoff, pickupDate: b.pickup_date, pickupTime: b.pickup_time,
     vehicle: VEHICLES[b.vehicle as keyof typeof VEHICLES]?.name ?? b.vehicle, passengers: b.passengers, luggage: b.luggage, total: b.total,
     payment: b.payment_method === "cash" ? "cash on the day" : "paid online", acknowledgedBy,
     costDone: Boolean(tasks?.cost_done), driverDone: Boolean(tasks?.driver_done), driverCost: tasks?.total_driver_cost ?? null,

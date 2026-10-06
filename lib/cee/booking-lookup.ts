@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { fullName } from "@/lib/person-name";
 import { legacySurname, normalizeSurname } from "@/lib/booking-reference";
 import { constantTimeEqual, sha256 } from "@/lib/security";
 import { SITE_URL } from "@/lib/site";
@@ -47,7 +48,7 @@ export async function checkBooking(conversationId: string, referenceIn: string, 
   const car = (VEHICLES as Record<string, { name: string }>)[b.vehicle]?.name ?? b.vehicle;
   const cashDue = b.payment_method === "cash" ? Math.max(0, b.total - (b.amount_paid ?? 0)) : 0;
   const rows: [string, string][] = [
-    ["Lead passenger", `${b.customer_name} ${b.customer_surname ?? ""}`.trim()],
+    ["Lead passenger", fullName(b.customer_name, b.customer_surname)],
     ["No. of passenger", `${b.passengers} people, ${b.luggage} bags`],
     ["Date/Time", `${day(b.pickup_date)} ${b.pickup_time}`],
     ...(b.return_date && b.return_time ? [["Return", `${day(b.return_date)} ${b.return_time}`] as [string, string]] : []),
@@ -58,7 +59,7 @@ export async function checkBooking(conversationId: string, referenceIn: string, 
   ];
 
   return { ok: true, booking: {
-    reference: b.reference, status: b.status, statusText: STATUS[b.status] ?? b.status, leadName: `${b.customer_name} ${b.customer_surname ?? ""}`.trim(), rows, people: b.passengers, bags: b.luggage, cashDue,
+    reference: b.reference, status: b.status, statusText: STATUS[b.status] ?? b.status, leadName: fullName(b.customer_name, b.customer_surname), rows, people: b.passengers, bags: b.luggage, cashDue,
     driver: driver ? { name: driver.name, car: driver.car, plate: driver.plate, phone: soon ? driver.phone : null } : null,
     rideUrl: `${SITE_URL}/trip/${encodeURIComponent(b.reference)}`,
     manageUrl: `${SITE_URL}/account/trips/${encodeURIComponent(b.reference)}`,

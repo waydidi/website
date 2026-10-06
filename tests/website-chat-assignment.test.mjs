@@ -284,7 +284,7 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
   assert.deepEqual([d.phone,d.car_plate,d.vehicle,d.license_number],['081 234 5678','1กข 1234','Toyota Camry, black','12345678']);
   const job=sent.filter((m)=>m.method==='sendMessage').map((m)=>m.text).find((t)=>t.startsWith('Economy sedan🚗'));
   assert.ok(job,'job posted');
-  for(const line of ['ชื่อลูกค้า: Mansi Choksi Choksi','จำนวน: 2 คน, 2 กระเป๋า','วันที่/เวลา: 14/10/2026 12:45','ไฟลท์: PG305','รับ: Trat airport','ส่ง: Dinso Resort &amp; Villas Ko Chang','ราคา: -']) assert.ok(job.includes(line),line);
+  for(const line of ['ชื่อลูกค้า: Mansi Choksi','จำนวน: 2 คน, 2 กระเป๋า','วันที่/เวลา: 14/10/2026 12:45','ไฟลท์: PG305','รับ: Trat airport','ส่ง: Dinso Resort &amp; Villas Ko Chang','ราคา: -']) assert.ok(job.includes(line),line);
   assert.match(job,/\/driver\/trip\/[a-f0-9]{48}/);
   assert.equal((await db.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='MC7Q2P' AND revoked_at IS NULL").first()).n,1);
   assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Open booking']);

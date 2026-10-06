@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { fullName } from "@/lib/person-name";
 import { secureToken, sha256 } from "@/lib/security";
 import { SITE_URL } from "@/lib/site";
 import { VEHICLES } from "@/lib/vehicles";
@@ -127,7 +128,7 @@ export async function postAssignmentWhenReady(reference: string, by: string, hea
     ...(header ? [header, ""] : []),
     `${esc(vehicleName)}🚗`,
     "",
-    `ชื่อลูกค้า: ${esc(`${b.customer_name} ${b.customer_surname ?? ""}`.trim())}`,
+    `ชื่อลูกค้า: ${esc(fullName(b.customer_name, b.customer_surname))}`,
     `จำนวน: ${b.passengers} คน, ${b.luggage} กระเป๋า`,
     `วันที่/เวลา: ${d}/${mo}/${y} ${esc(b.pickup_time)}`,
     `ไฟลท์: ${esc(b.flight_number || "-")}`,
