@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, Share2, CalendarPlus, Car, Check, ChevronDown, Clock, Copy, FileText, LoaderCircle, Map as MapIcon, Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { NewBookingButton } from "@/components/bookings-admin/new-booking";
 import type { FormService } from "@/lib/booking-form";
@@ -15,6 +15,12 @@ export function CreateMenu({ service, waiting = 0 }: { service: FormService; wai
   const [kind, setKind] = useState<FormService>("transfer");
   // "Create form": choosing a service makes the link at once, shows it below the choice and copies it.
   const [made, setMade] = useState<{ kind: FormService; url?: string; copied?: boolean; busy?: boolean; error?: string } | null>(null);
+
+  // Links made earlier, shown under each service so staff can find, copy or check them again.
+  const [saved, setSaved] = useState<SavedLink[] | null>(null);
+  const loadSaved = () => fetch("/api/admin/forms", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { forms: [] }))
+    .then((out: { forms?: SavedLink[] }) => setSaved(out.forms ?? [])).catch(() => setSaved([]));
+  useEffect(() => { if (open && step === "form") void loadSaved(); }, [open, step]);
 
   function makeLink(id: FormService) {
     if (made?.kind === id && made.url) { setMade(null); return; }
@@ -31,6 +37,7 @@ export function CreateMenu({ service, waiting = 0 }: { service: FormService; wai
       : urlPromise.then((u) => navigator.clipboard?.writeText(u));
     urlPromise.then((url) => {
       setMade({ kind: id, url });
+      void loadSaved();
       copy.then(() => setMade({ kind: id, url, copied: true })).catch(() => undefined);
     }).catch((e: unknown) => setMade({ kind: id, error: e instanceof Error ? e.message : "The link could not be created." }));
   }
@@ -64,6 +71,7 @@ export function CreateMenu({ service, waiting = 0 }: { service: FormService; wai
                       <ShareLink url={mine.url} />
                     </div>
                   </>}
+                <SavedLinks links={(saved ?? []).filter((f) => f.serviceType === id)} loading={!saved} current={mine.url} />
               </div>}
             </div>;
           })}
@@ -105,4 +113,39 @@ function ShareLink({ url }: { url: string }) {
       {apps.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" onClick={() => setMenu(false)} className="px-3 py-2 text-[13px] font-medium text-slate-800 hover:bg-orange-50">{label}</a>)}
     </span>}
   </span>;
+}
+
+type SavedLink = { token: string; serviceType: FormService; status: "waiting" | "submitted" | "booked"; note: string | null; createdAt: string; expiresAt: string; bookingReference: string | null };
+const STATUS: Record<SavedLink["status"], [string, string]> = {
+  waiting: ["Waiting", "bg-amber-50 text-amber-800"], submitted: ["Answered", "bg-blue-50 text-blue-800"], booked: ["Booked", "bg-emerald-50 text-emerald-800"],
+};
+
+// Earlier links for this service, newest first.
+function SavedLinks({ links, loading, current }: { links: SavedLink[]; loading: boolean; current?: string }) {
+  const [copied, setCopied] = useState("");
+  const [all, setAll] = useState(false);
+  const rest = links.filter((l) => !current?.endsWith(`/f/${l.token}`));
+  if (loading) return <p className="mt-4 text-[13px] text-slate-500">Loading saved links…</p>;
+  if (!rest.length) return null;
+  const shown = all ? rest : rest.slice(0, 5);
+  const now = new Date().toISOString();
+  return <div className="mt-4 border-t border-orange-100 pt-3">
+    <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500">Saved links</p>
+    <ul className="mt-2 grid gap-1.5">
+      {shown.map((l) => {
+        const url = `${window.location.origin}/f/${l.token}`;
+        const expired = l.status === "waiting" && l.expiresAt < now;
+        const [label, tone] = expired ? ["Expired", "bg-slate-100 text-slate-500"] : STATUS[l.status];
+        return <li key={l.token} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[13px] ring-1 ring-slate-200">
+          <div className="min-w-0 flex-1">
+            <a href={url} target="_blank" rel="noreferrer" className="block truncate font-mono text-[#C96100] hover:underline">/f/{l.token}</a>
+            <span className="text-[12px] text-slate-500">{new Date(l.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })}{l.bookingReference ? ` · ${l.bookingReference}` : ""}{l.note ? ` · ${l.note}` : ""}</span>
+          </div>
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone}`}>{label}</span>
+          <button type="button" onClick={() => { void navigator.clipboard?.writeText(url).then(() => { setCopied(l.token); setTimeout(() => setCopied(""), 1500); }); }} aria-label="Copy link" className="grid size-8 shrink-0 place-items-center rounded-lg border border-slate-200 hover:border-[#FF8A05]">{copied === l.token ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}</button>
+        </li>;
+      })}
+    </ul>
+    {rest.length > 5 && <button type="button" onClick={() => setAll((v) => !v)} className="mt-2 text-[13px] font-semibold text-[#C96100]">{all ? "Show fewer" : `Show all ${rest.length}`}</button>}
+  </div>;
 }
