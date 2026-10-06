@@ -176,9 +176,9 @@ export type FlightStats = {
   routes: { from: string; to: string; flights: number; topAirline: string | null }[];
 };
 const minutes = (local?: string) => { const m = local?.match(/(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/); return m ? Date.parse(`${m[1]}T${m[2]}:${m[3]}:00Z`) / 60000 : null; };
-/** Left within 15 minutes of schedule; null when there's no actual or revised time yet. */
+/** Left the gate within 15 minutes of schedule (gate time, not take-off: taxiing adds 15+ minutes); null when unknown. */
 function onTime(f: FidsItem) {
-  const s = minutes(f.movement?.scheduledTime?.local), a = minutes(f.movement?.runwayTime?.local ?? f.movement?.revisedTime?.local);
+  const s = minutes(f.movement?.scheduledTime?.local), a = minutes(f.movement?.revisedTime?.local ?? f.movement?.runwayTime?.local);
   return s === null || a === null ? null : a - s <= 15;
 }
 const pct = (ok: number, of: number) => (of ? Math.round((ok / of) * 100) : null);
