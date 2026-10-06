@@ -1,10 +1,9 @@
 "use client";
 
-import { Plane, Search } from "lucide-react";
+import { ArrowLeftRight, CalendarDays, Plane } from "lucide-react";
 import { useState } from "react";
-import { THAI_AIRLINES, THAI_AIRPORTS, cleanFlightNumber } from "@/lib/thai-flights";
+import { THAI_AIRPORTS, WORLD_AIRPORTS, airportLabel, cleanFlightNumber, touchesThailand } from "@/lib/thai-flights";
 
-type Mode = "flight" | "airport" | "airline";
 type Point = { iata: string | null; airport: string | null; city: string | null; scheduled: string | null; revised: string | null; actual: string | null; terminal: string | null; gate: string | null; belt: string | null };
 type Result = { flightNumber: string; date: string; status: string; airline: string | null; aircraft: string | null; departure: Point; arrival: Point; checkedAt: string };
 
@@ -34,57 +33,87 @@ function Side({ label, p }: { label: string; p: Point }) {
   </div>;
 }
 
+type RouteRow = { flightNumber: string; status: string; airline: string | null; from: string; to: string; time: string | null; revised: string | null; side: "departure" | "arrival"; terminal: string | null; gate: string | null };
+// Built by hand (not Intl) so the server and the browser render exactly the same text: "Tue, Oct 6".
+const niceDate = (d: string) => { const t = new Date(`${d}T00:00:00Z`); return `${"Sun Mon Tue Wed Thu Fri Sat".split(" ")[t.getUTCDay()]}, ${"Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ")[t.getUTCMonth()]} ${t.getUTCDate()}`; };
+
 export function FlightStatusSearch() {
-  const [mode, setMode] = useState<Mode>("flight");
+  const [mode, setMode] = useState<"flight" | "route">("flight");
   const [flight, setFlight] = useState("");
+  const [from, setFrom] = useState("BKK");
+  const [to, setTo] = useState("");
   const [date, setDate] = useState(today);
-  const [airport, setAirport] = useState("");
-  const [airline, setAirline] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [results, setResults] = useState<Result[]>([]);
-  const [notice, setNotice] = useState("");
+  const [route, setRoute] = useState<RouteRow[] | null>(null);
 
-  async function search(e: React.FormEvent) {
+  async function ask(payload: object) {
+    setBusy(true); setError(""); setResults([]); setRoute(null);
+    try {
+      const res = await fetch("/api/flights/status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, date }) });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Flight status is unavailable right now.");
+      else if (data.route) setRoute(data.route);
+      else setResults(data.flights ?? []);
+    } catch { setError("Flight status is unavailable right now."); }
+    setBusy(false);
+  }
+  function lookUp(no: string) { setMode("flight"); setFlight(no); void ask({ flightNumber: no }); }
+  function search(e: React.FormEvent) {
     e.preventDefault();
-    setError(""); setResults([]); setNotice("");
     if (mode === "flight") {
       const no = cleanFlightNumber(flight);
       if (!no) { setError("Enter a flight number, e.g. TG103 or FD3010."); return; }
-      setBusy(true);
-      try {
-        const res = await fetch("/api/flights/status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flightNumber: no, date }) });
-        const data = await res.json();
-        if (!res.ok) setError(data.error ?? "Flight status is unavailable right now.");
-        else setResults(data.flights ?? []);
-      } catch { setError("Flight status is unavailable right now."); }
-      setBusy(false);
-      return;
+      void ask({ flightNumber: no });
+    } else {
+      const f = from.trim().toUpperCase(), t = to.trim().toUpperCase();
+      if (!/^[A-Z]{3}$/.test(f) || !/^[A-Z]{3}$/.test(t)) { setError("Enter both airports as 3-letter codes, e.g. BKK and SIN."); return; }
+      if (!touchesThailand(f, t)) { setError("One of the airports must be in Thailand."); return; }
+      void ask({ from: f, to: t });
     }
-    if (mode === "airport" && !airport) { setError("Choose an airport."); return; }
-    if (mode === "airline" && !airline) { setError("Choose an airline."); return; }
-    const name = mode === "airport" ? THAI_AIRPORTS.find((a) => a.code === airport)?.name : THAI_AIRLINES.find((a) => a.code === airline)?.name;
-    setNotice(`Live departures and arrivals for ${name} are coming soon. For now, search by flight number.`);
   }
 
-  const radio = (m: Mode, label: string) => <label className="flex cursor-pointer items-center gap-2 text-[16px] text-[#211726]">
-    <input type="radio" name="mode" checked={mode === m} onChange={() => { setMode(m); setError(""); setNotice(""); setResults([]); }} className="size-5 accent-[#FE8B05]" />{label}
-  </label>;
-  const field = "h-14 w-full rounded-xl border border-slate-200 bg-white px-4 text-[16px] text-[#211726] outline-none placeholder:text-slate-400 focus:border-[#FE8B05] focus:ring-2 focus:ring-[#FE8B05]/20";
+  const tab = (m: "flight" | "route", label: string) => <button type="button" role="tab" aria-selected={mode === m} onClick={() => { setMode(m); setError(""); setResults([]); setRoute(null); }}
+    className={`relative flex-1 py-4 text-[17px] transition ${mode === m ? "font-bold text-[#C96100] after:absolute after:bottom-0 after:left-1/2 after:h-[3px] after:w-10 after:-translate-x-1/2 after:rounded-full after:bg-[#FE8B05]" : "text-[#211726]"}`}>{label}</button>;
+  const label = "block text-[14px] text-slate-500";
+  const input = "[&::-webkit-calendar-picker-indicator]:hidden mt-1 w-full border-0 bg-transparent p-0 text-[22px] font-bold text-[#211726] outline-none placeholder:font-semibold placeholder:text-slate-400";
 
   return <div>
-    <form onSubmit={search} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-      <div className="flex flex-wrap gap-x-7 gap-y-3" role="radiogroup" aria-label="Search by">{radio("flight", "Flight no.")}{radio("airport", "Airport")}{radio("airline", "Airline")}</div>
-      <div className="mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
-        {mode === "flight" && <input value={flight} onChange={(e) => setFlight(e.target.value)} placeholder="Enter your flight number" aria-label="Flight number" autoCapitalize="characters" className={field} />}
-        {mode === "airport" && <select value={airport} onChange={(e) => setAirport(e.target.value)} aria-label="Airport" className={field}><option value="">Choose a Thai airport</option>{THAI_AIRPORTS.map((a) => <option key={a.code} value={a.code}>{a.city} – {a.name} ({a.code})</option>)}</select>}
-        {mode === "airline" && <select value={airline} onChange={(e) => setAirline(e.target.value)} aria-label="Airline" className={field}><option value="">Choose an airline</option>{THAI_AIRLINES.map((a) => <option key={a.code} value={a.code}>{a.name} ({a.code})</option>)}</select>}
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" className={`${field} block min-w-0 appearance-none sm:w-[180px]`} />
+    <form onSubmit={search} className="overflow-hidden rounded-2xl bg-white shadow-[0_6px_24px_rgba(33,23,38,.10)]">
+      <div role="tablist" className="flex border-b border-slate-200">{tab("flight", "Flight no.")}{tab("route", "Route")}</div>
+      <div className="px-5 pb-5 sm:px-6">
+        {mode === "flight" ? <label className="block border-b border-slate-200 py-4">
+          <span className={label}>Flight number</span>
+          <input value={flight} onChange={(e) => setFlight(e.target.value)} placeholder="Please enter a flight number" autoCapitalize="characters" autoComplete="off" className={input} />
+          <span className="mt-1 block text-[13px] text-slate-400">e.g. TG103</span>
+        </label> : <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2 border-b border-slate-200 py-4">
+          <label className="min-w-0"><span className={label}>From</span><input value={from} onChange={(e) => setFrom(e.target.value.toUpperCase().slice(0, 3))} list="wd-airports" placeholder="BKK" autoCapitalize="characters" autoComplete="off" className={input} /><span className="mt-1 block truncate text-[13px] text-slate-400">{from.length === 3 ? airportLabel(from) : "City or airport code"}</span></label>
+          <button type="button" aria-label="Swap airports" onClick={() => { setFrom(to); setTo(from); }} className="mb-6 grid size-10 place-items-center rounded-full border border-slate-200 text-[#C96100]"><ArrowLeftRight size={18} /></button>
+          <label className="min-w-0 text-right"><span className={label}>To</span><input value={to} onChange={(e) => setTo(e.target.value.toUpperCase().slice(0, 3))} list="wd-airports" placeholder="SIN" autoCapitalize="characters" autoComplete="off" className={`${input} text-right`} /><span className="mt-1 block truncate text-[13px] text-slate-400">{to.length === 3 ? airportLabel(to) : "City or airport code"}</span></label>
+          <datalist id="wd-airports">{THAI_AIRPORTS.map((a) => <option key={a.code} value={a.code}>{a.city}</option>)}{WORLD_AIRPORTS.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</datalist>
+        </div>}
+        <label className="relative block py-4">
+          <span className={label}>Departure date (local time)</span>
+          <span className="mt-1 flex items-center justify-between text-[22px] font-bold text-[#211726]">{niceDate(date)}<CalendarDays size={26} className="text-[#211726]" /></span>
+          <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Departure date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+        </label>
+        <button type="submit" disabled={busy} className="h-14 w-full rounded-lg bg-[#FE8B05] text-[18px] font-bold text-white transition hover:bg-[#E67900] disabled:opacity-60">{busy ? "Checking…" : "Check flight status"}</button>
+        {error && <p role="alert" className="mt-3 text-[15px] text-red-600">{error}</p>}
+        {mode === "route" && !error && <p className="mt-3 text-[13px] leading-5 text-slate-500">Flights to, from and within Thailand. Direct flights are listed; for a connection, check each flight by its number.</p>}
       </div>
-      <button type="submit" disabled={busy} className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#FE8B05] text-[18px] font-bold text-white transition hover:bg-[#E67900] disabled:opacity-60"><Search size={22} />{busy ? "Searching…" : "Search"}</button>
-      {error && <p role="alert" className="mt-3 text-[15px] text-red-600">{error}</p>}
-      {notice && <p role="status" className="mt-3 text-[15px] text-slate-600">{notice}</p>}
     </form>
+
+    {route && <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white" aria-live="polite">
+      <p className="border-b border-slate-100 px-5 py-3 text-sm font-semibold text-slate-600">{route.length ? `${route.length} direct flight${route.length === 1 ? "" : "s"}` : "No direct flights found"} · {airportLabel(from)} → {airportLabel(to)} · {niceDate(date)}</p>
+      <ul className="divide-y divide-slate-100">{route.map((r) => <li key={r.flightNumber + r.time}>
+        <button type="button" onClick={() => lookUp(r.flightNumber)} className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-[#FFF6EC]">
+          <span className="w-14 text-lg font-black">{hhmm(r.revised ?? r.time)}</span>
+          <span className="min-w-0 flex-1"><span className="block font-bold">{r.flightNumber}</span><span className="block truncate text-sm text-slate-500">{r.airline ?? ""} · {r.side === "departure" ? "departs" : "arrives"}{r.terminal ? ` · T${r.terminal}` : ""}</span></span>
+          <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${status(r.status)[1]}`}>{status(r.status)[0]}</span>
+        </button>
+      </li>)}</ul>
+    </div>}
 
     {results.map((r, i) => <div key={i} className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-live="polite">
       <div className="flex items-start justify-between gap-3">

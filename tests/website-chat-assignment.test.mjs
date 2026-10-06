@@ -385,5 +385,15 @@ test('Flight status (AeroDataBox): Thailand-only, cached, counted, missing fligh
   await assert.rejects(adb.flightStatus('ZZ999','2026-10-06'),/FLIGHT_NOT_FOUND/);
   assert.equal(calls.length,3);
   assert.equal((await db.prepare("SELECT calls FROM flight_api_usage").first()).calls,3);
+  // Route: BKK → SIN reads BKK departures (2 half-day calls), cached for the next search; SIN → BKK reads BKK arrivals.
+  globalThis.fetch=async(url,init)=>{calls.push({url:String(url)});const u=String(url);const m=(iata,no,t)=>({number:no,status:'Expected',airline:{name:'X'},movement:{airport:{iata},scheduledTime:{local:`2026-10-06 ${t}+07:00`},terminal:'1'}});
+   if(u.includes('direction=Departure'))return new Response(JSON.stringify({departures:u.includes('T00:00')?[m('SIN','TG 403','09:00'),m('HKT','TG 201','08:00')]:[m('SIN','SQ 711','13:30')]}));
+   return new Response(JSON.stringify({arrivals:[m('SIN','SQ 706','10:00')]}));};
+  const before=calls.length;
+  const r=await adb.routeFlights('BKK','SIN','2026-10-06');
+  assert.deepEqual(r.map((f)=>f.flightNumber),['TG403','SQ711']);assert.equal(calls.length-before,2);
+  await adb.routeFlights('BKK','SIN','2026-10-06');assert.equal(calls.length-before,2,'board cached');
+  assert.deepEqual((await adb.routeFlights('SIN','BKK','2026-10-06')).map((f)=>[f.flightNumber,f.side]),[['SQ706','arrival']]);
+  await assert.rejects(adb.routeFlights('SIN','HKG','2026-10-06'),/NOT_THAILAND/);
  }finally{globalThis.fetch=real;delete env.AERODATABOX_KEY;}
 });

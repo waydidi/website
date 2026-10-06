@@ -40,3 +40,14 @@ export function cleanFlightNumber(v: string) {
   const s = v.toUpperCase().replace(/[^A-Z0-9]/g, "");
   return /^[A-Z0-9]{2}\d{1,4}[A-Z]?$/.test(s) ? s : null;
 }
+
+/** Common airports with flights to and from Thailand (route search suggestions; any 3-letter code works). */
+export const WORLD_AIRPORTS = [
+  ["SIN", "Singapore"], ["KUL", "Kuala Lumpur"], ["HKG", "Hong Kong"], ["TPE", "Taipei"], ["ICN", "Seoul Incheon"], ["NRT", "Tokyo Narita"], ["HND", "Tokyo Haneda"], ["KIX", "Osaka Kansai"],
+  ["PVG", "Shanghai Pudong"], ["PEK", "Beijing Capital"], ["PKX", "Beijing Daxing"], ["CAN", "Guangzhou"], ["SZX", "Shenzhen"], ["CTU", "Chengdu"], ["KMG", "Kunming"],
+  ["SGN", "Ho Chi Minh City"], ["HAN", "Hanoi"], ["DAD", "Da Nang"], ["MNL", "Manila"], ["CGK", "Jakarta"], ["DPS", "Bali Denpasar"], ["RGN", "Yangon"], ["PNH", "Phnom Penh"], ["KTI", "Siem Reap"], ["VTE", "Vientiane"], ["LPQ", "Luang Prabang"],
+  ["DEL", "Delhi"], ["BOM", "Mumbai"], ["BLR", "Bengaluru"], ["CCU", "Kolkata"], ["CMB", "Colombo"], ["KTM", "Kathmandu"], ["DAC", "Dhaka"],
+  ["DXB", "Dubai"], ["DOH", "Doha"], ["AUH", "Abu Dhabi"], ["IST", "Istanbul"], ["LHR", "London Heathrow"], ["CDG", "Paris"], ["FRA", "Frankfurt"], ["MUC", "Munich"], ["ZRH", "Zurich"], ["AMS", "Amsterdam"], ["CPH", "Copenhagen"], ["ARN", "Stockholm"], ["HEL", "Helsinki"],
+  ["SYD", "Sydney"], ["MEL", "Melbourne"], ["PER", "Perth"], ["BNE", "Brisbane"], ["AKL", "Auckland"], ["LAX", "Los Angeles"], ["SFO", "San Francisco"],
+] as const;
+export const airportLabel = (code: string) => airportByCode(code)?.city ?? WORLD_AIRPORTS.find(([c]) => c === code)?.[1] ?? code;

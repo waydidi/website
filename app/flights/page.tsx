@@ -9,7 +9,7 @@ import { POPULAR_ROUTES, THAI_AIRLINES, THAI_AIRPORTS, airportByCode } from "@/l
 const URL_PATH = "/flights";
 export const metadata: Metadata = {
   title: "Flight Status Thailand – Arrivals & Departures | Waydidi",
-  description: "Check the live status of domestic Thai flights and flights to and from Thailand by flight number, airport or airline. Then book your airport transfer.",
+  description: "Check the live status of domestic Thai flights and flights to and from Thailand by flight number or route. Then book your airport transfer.",
   alternates: { canonical: `${SITE_URL}${URL_PATH}` },
 };
 
@@ -32,7 +32,7 @@ export default function FlightsPage() {
     <section className="bg-[#FE8B05]"><div className="mx-auto max-w-[1080px] px-4 pb-24 pt-8 sm:px-6 sm:pt-12 lg:px-8">
       <Breadcrumbs crumbs={crumbs} className="text-white/90" />
       <h1 className="mt-4 text-[34px] font-black leading-[1.05] tracking-[-.04em] text-white sm:text-5xl">Flight status</h1>
-      <p className="mt-4 max-w-2xl text-lg leading-8 text-white/95">Track domestic Thai flights and flights to and from Thailand by flight number, airport or airline.</p>
+      <p className="mt-4 max-w-2xl text-lg leading-8 text-white/95">Track domestic Thai flights and flights to and from Thailand by flight number or route.</p>
     </div></section>
 
     <div className="mx-auto -mt-16 max-w-[1080px] px-4 sm:px-6 lg:px-8">
