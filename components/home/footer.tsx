@@ -35,6 +35,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
               links={[
                 { label: t("nav.hourlyDriver"), href: "/hourly-driver" },
                 { label: t("nav.pickupGuide"), href: "/airport-pickup-instructions" },
+                { label: t("footer.checkFlights"), href: "/flights" },
                 { label: t("footer.luggagePolicy"), href: "/luggage-policy" },
               ]}
             />

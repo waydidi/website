@@ -479,6 +479,10 @@
     "text": "帮助",
     "status": "machine"
   },
+  "footer.checkFlights": {
+    "text": "查询航班",
+    "status": "machine"
+  },
   "footer.luggagePolicy": {
     "text": "行李政策",
     "status": "machine"
