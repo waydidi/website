@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { isSiteLang } from "@/lib/site-languages";
-import { textHash, translationConfigured } from "@/lib/site-translate";
+import { cachedTranslations, textHash, translateMissing, translationConfigured } from "@/lib/site-translate";
+import { usableText } from "@/lib/site-languages";
 
 // Admin → Translations: every AI-translated line, by language. Saving a correction marks it
 // "reviewed" (never overwritten); deleting one makes the AI translate it again on the next view.
@@ -49,6 +50,19 @@ export async function POST(request: Request) {
     if (typeof input.hash !== "string") return reply("Line not found.", 400);
     const r = await db().prepare("UPDATE site_translations SET text=?,status='reviewed',updated_at=?,updated_by=? WHERE lang=? AND hash=?").bind(text, now, staff.email ?? staff.role, input.lang, input.hash).run();
     return r.meta.changes ? NextResponse.json({ ok: true }, { headers }) : reply("Line not found.", 404);
+  }
+  // Page scan from the admin's browser: which of these texts aren't translated yet.
+  if (input.action === "missing" || input.action === "translate") {
+    const raw = (input as { texts?: unknown }).texts;
+    const texts = Array.isArray(raw) ? [...new Set(raw.map((t) => (typeof t === "string" ? usableText(t) : null)).filter((t): t is string => Boolean(t)))].slice(0, input.action === "missing" ? 3000 : 60) : [];
+    const found = await cachedTranslations(input.lang, texts);
+    const missing = texts.filter((t) => !found.has(t));
+    if (input.action === "missing") return NextResponse.json({ total: texts.length, missing }, { headers });
+    if (!translationConfigured()) return reply("Add ANTHROPIC_API_KEY in Cloudflare first.", 400);
+    const path = typeof (input as { path?: unknown }).path === "string" ? String((input as { path: string }).path).slice(0, 200) : null;
+    const done = await translateMissing(input.lang, missing, path);
+    if (missing.length && !done.size) return reply("Nothing was translated: today's limit is reached or the AI is unavailable. Try again later.", 503);
+    return NextResponse.json({ translated: done.size }, { headers });
   }
   if (input.action === "approve" && typeof input.hash === "string") {
     await db().prepare("UPDATE site_translations SET status='reviewed',updated_at=?,updated_by=? WHERE lang=? AND hash=?").bind(now, staff.email ?? staff.role, input.lang, input.hash).run();

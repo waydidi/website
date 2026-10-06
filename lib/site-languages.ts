@@ -46,3 +46,40 @@ export const STYLE: Record<Exclude<SiteLang, "en">, string> = {
 
 /** Inline <head> script: hides the English page briefly when a translation is coming (no flash). */
 export const PRE_HIDE = `try{var m=document.cookie.match(/(?:^|; )waydidi-lang=([a-z]+)/);var p=location.pathname;if(m&&m[1]!=="en"&&!/^\\/(admin|admin-setup|driver|drivers\\/portal|th|zh|account|trip|booking|pay|chat-pay|itinerary|f|agency)(\\/|$)/.test(p)){document.documentElement.classList.add("wd-tx");setTimeout(function(){document.documentElement.classList.remove("wd-tx")},2500)}}catch(e){}`;
+
+// ---- Shared by the page translator and Admin → Translations (page scan + cost estimate) ----
+
+export const TX_SKIP = "script,style,noscript,code,pre,textarea,svg,[translate=no],.notranslate,[data-no-translate]";
+export const TX_ATTRS = ["placeholder", "aria-label", "title", "alt"] as const;
+/** A piece of page text worth translating (has letters; not a code like THB or a booking reference). */
+export function usableText(s: string) {
+  const t = s.trim();
+  return t.length > 0 && t.length <= 2000 && /\p{L}/u.test(t) && !/^[A-Z0-9][A-Z0-9 ._/-]{0,7}$/.test(t) ? t : null;
+}
+/** Every translatable text on a page (as the visitor's browser would translate it), without duplicates. */
+export function pageTexts(doc: Document) {
+  const out = new Set<string>();
+  const add = (v: string | null) => { const t = v && usableText(v); if (t) out.add(t); };
+  add(doc.title);
+  const walk = (el: Element) => {
+    if (el.matches(TX_SKIP)) return;
+    for (const a of TX_ATTRS) add(el.getAttribute(a));
+    for (const n of Array.from(el.childNodes)) { if (n.nodeType === 3) add(n.nodeValue); else if (n.nodeType === 1) walk(n as Element); }
+  };
+  if (doc.body) walk(doc.body);
+  return [...out];
+}
+
+/** Translation model and its price (US$ per million tokens). */
+export const TX_MODEL = { id: "claude-haiku-4-5", name: "Haiku 4.5", inUsd: 1, outUsd: 5 };
+// Rough tokens per character of output: scripts like Thai and Hindi take more tokens.
+const OUT_RATE: Partial<Record<SiteLang, number>> = { th: 0.9, hi: 0.9, ko: 0.6, zh: 0.7, ru: 0.45, vi: 0.45 };
+/** Estimated US$ to translate these English texts into one language (batches of 60 with a ~900-token instruction). */
+export function estimateCost(texts: string[], lang: SiteLang) {
+  if (!texts.length) return 0;
+  const chars = texts.reduce((n, t) => n + t.length + 4, 0);
+  const batches = Math.ceil(texts.length / 60);
+  const inTokens = batches * 900 + chars / 3.5;
+  const outTokens = chars * (OUT_RATE[lang] ?? 0.35) + texts.length * 3;
+  return (inTokens * TX_MODEL.inUsd + outTokens * TX_MODEL.outUsd) / 1e6;
+}

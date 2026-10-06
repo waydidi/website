@@ -2,15 +2,14 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LANG_COOKIE, SITE_LANGS, isSiteLang, legalPath, untranslatedPath, type SiteLang } from "@/lib/site-languages";
+import { LANG_COOKIE, SITE_LANGS, TX_ATTRS, TX_SKIP, isSiteLang, legalPath, untranslatedPath, usableText, type SiteLang } from "@/lib/site-languages";
 
 // Shows every public page in the visitor's language. The page is rendered in English; this swaps
 // its text (and placeholders, labels, alt text, title) for cached AI translations, and keeps
 // doing so as the page changes. Only text nodes' values are changed, so React keeps working.
 
-const SKIP = "script,style,noscript,code,pre,textarea,svg,[translate=no],.notranslate,[data-no-translate]";
-const ATTRS = ["placeholder", "aria-label", "title", "alt"] as const;
-const LETTERS = /\p{L}/u;
+const SKIP = TX_SKIP;
+const ATTRS = TX_ATTRS;
 
 export function siteLang(): SiteLang {
   try {
@@ -43,8 +42,7 @@ export function SiteTranslator() {
     let timer = 0, stopped = false, firstDone = false;
     let titleSrc = document.title, titleShown = "";
 
-    // Codes such as THB, USD or a booking reference stay as they are.
-    const usable = (s: string) => { const t = s.trim(); return t.length > 0 && t.length <= 2000 && LETTERS.test(t) && !/^[A-Z0-9][A-Z0-9 ._/-]{0,7}$/.test(t) ? t : null; };
+    const usable = usableText;
     // A function replacer, so "$&" or "$1" in a translation is shown as written.
     const wrap = (full: string, core: string, tr: string) => full.replace(core, () => tr);
     const skipped = (el: Element | null) => !el || Boolean(el.closest(SKIP));

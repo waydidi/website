@@ -1,13 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "cloudflare:workers";
 import { sha256 } from "@/lib/security";
-import { SITE_LANGS, STYLE, type SiteLang } from "@/lib/site-languages";
+import { SITE_LANGS, STYLE, TX_MODEL, type SiteLang } from "@/lib/site-languages";
 
 // Site-wide AI translation. Each English text is translated once per language by Claude, stored
 // in D1 and served from there to every visitor. Staff can correct any line (it's then "reviewed"
 // and never re-translated).
 
-export const TRANSLATE_MODEL = "claude-sonnet-5-5";
+export const TRANSLATE_MODEL = TX_MODEL.id;
 const DAILY_LIMIT = 30000; // new strings per day across all languages (cost guard)
 const BATCH = 60;
 
@@ -61,7 +61,7 @@ async function callClaude(lang: SiteLang, texts: string[]) {
   const arr = JSON.parse(json) as unknown[];
   if (!Array.isArray(arr) || arr.length !== texts.length || arr.some((s) => typeof s !== "string")) throw new Error("TRANSLATION_SHAPE");
   const u = res.usage;
-  const usd = ((u.input_tokens + (u.cache_creation_input_tokens ?? 0) * 1.25 + (u.cache_read_input_tokens ?? 0) * 0.1) * 3 + u.output_tokens * 15) / 1e6;
+  const usd = ((u.input_tokens + (u.cache_creation_input_tokens ?? 0) * 1.25 + (u.cache_read_input_tokens ?? 0) * 0.1) * TX_MODEL.inUsd + u.output_tokens * TX_MODEL.outUsd) / 1e6;
   return { out: arr as string[], usd };
 }
 

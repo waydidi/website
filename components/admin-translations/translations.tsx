@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { SITE_LANGS } from "@/lib/site-languages";
+import { PageTranslator } from "./page-translator";
 
 type Row = { hash: string; source: string; text: string; status: string; path: string | null; updated_at: string; updated_by: string | null };
 type Data = { rows: Row[]; counts: { lang: string; total: number; reviewed: number }[]; usage: { strings: number; usd: number } | null; configured: boolean };
@@ -42,6 +43,7 @@ export function SiteTranslations() {
       <p className="text-slate-600">Every page is translated by AI the first time someone views it in a language, then saved and reused. Correct any line here: corrected lines are marked <b>Checked</b> and never changed by the AI. Prices, refunds and legal pages show a note that the English is the official text.</p>
       <p className="text-right text-slate-500">{data?.configured === false ? <span className="font-semibold text-red-700">Off: add ANTHROPIC_API_KEY in Cloudflare</span> : <>This month: {data?.usage?.strings ?? 0} lines · ${(data?.usage?.usd ?? 0).toFixed(2)}</>}</p>
     </div>
+    <PageTranslator onDone={() => void load()} />
     <nav className="flex flex-wrap gap-2" aria-label="Languages">
       {LANGS.map((l) => { const c = count(l.code); return <button key={l.code} type="button" onClick={() => { setLang(l.code); setPage(0); }} aria-pressed={lang === l.code}
         className={`rounded-full px-3 py-1.5 font-semibold ${lang === l.code ? "bg-[#FFF0DF] text-[#C96100]" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"}`}>{l.label}{c ? <span className="ml-1 font-normal text-slate-500">{c.reviewed}/{c.total}</span> : null}</button>; })}
