@@ -24,7 +24,7 @@ export function RichCard({ card, onShareLocation }: { card: ChatCard; onShareLoc
     return <div className={shell}>
       <div className="flex items-center justify-between gap-2 bg-[#FFF3E6] px-4 py-3"><p className="text-[15px] font-bold">Booking {card.reference}</p><span className={`rounded-full px-2 py-0.5 text-[12px] font-bold ${tone}`}>{card.statusText}</span></div>
       <dl className="grid gap-1.5 px-4 py-3 text-[13px]">
-        {card.rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{v}</dd></div>)}
+        {card.rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{v.endsWith("(Paid)") ? <>{v.slice(0, -6)}<span className="text-[#00B14F]">(Paid)</span></> : v}</dd></div>)}
       </dl>
       <div className="border-t border-slate-100 px-4 py-3 text-[13px]">
         <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">Driver</p>

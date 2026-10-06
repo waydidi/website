@@ -147,7 +147,7 @@ function Bubble({ side, who, at, tight, children }: { side: "left"; who: string 
   void side;
   return <div className={`flex flex-col items-start ${tight ? "mt-1" : "mt-4 first:mt-0"}`}>
     {who && <span className="mb-1 ml-1 text-[12px] font-semibold text-slate-600">{who}</span>}
-    <p translate="no" className="max-w-[82%] whitespace-pre-wrap break-words rounded-[18px] rounded-bl-md border border-slate-200 bg-white px-3.5 py-2.5 text-[14.5px] leading-snug text-[#15161C]">{children}</p>
+    <p translate="no" className="max-w-[82%] whitespace-pre-wrap break-words rounded-[18px] rounded-bl-md border border-slate-200 bg-white px-3.5 py-2.5 text-[14.5px] leading-snug text-[#15161C]">{typeof children === "string" ? highlightPaid(children) : children}</p>
     {at && <span className="ml-1 mt-1 text-[11.5px] text-slate-500">{at}</span>}
   </div>;
 }
@@ -251,4 +251,10 @@ function StartForm({ question, setQuestion, email, setEmail, topic, setTopic, bu
       <p className="mt-2 text-center text-[11px] text-slate-400">Please don&apos;t share card numbers or passwords in chat.</p>
     </div>
   </form>;
+}
+
+/** "(Paid)" in Non's messages shows in green. */
+function highlightPaid(text: string) {
+  const parts = text.split(/(\(Paid\))/);
+  return parts.length === 1 ? text : parts.map((p, i) => p === "(Paid)" ? <span key={i} className="font-semibold text-[#00B14F]">(Paid)</span> : p);
 }

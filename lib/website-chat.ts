@@ -156,7 +156,8 @@ export async function addStaffMessage(conversationId: string, body: string, who:
 }
 
 /** Non's reply: shown as "Non", never assigns the conversation, mirrored to Telegram. */
-export async function addBotMessage(conversationId: string, body: string, card?: object | null) {
+export async function addBotMessage(conversationId: string, rawBody: string, card?: object | null) {
+  const body = plainText(rawBody);
   const c = await conversationById(conversationId);
   if (!c) return null;
   const now = nowIso(), id = crypto.randomUUID();
@@ -287,3 +288,8 @@ export async function nonAnswering(c: Conversation) {
   const row = await db().prepare("SELECT value FROM app_settings WHERE key='cee_enabled'").first<{ value: string }>().catch(() => null);
   return row?.value !== "0";
 }
+
+/** Non writes plain text: markdown bold, headings and bullet marks are removed if they slip through. */
+export const plainText = (t: string) => t
+  .replace(/\*\*(.+?)\*\*/g, "$1").replace(/__(.+?)__/g, "$1")
+  .replace(/^#{1,6}\s+/gm, "").replace(/^[ \t]*[•\-*][ \t]+/gm, "");

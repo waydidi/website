@@ -52,7 +52,7 @@ export async function checkBooking(conversationId: string, referenceIn: string, 
     ...(b.return_date && b.return_time ? [["Return", `${day(b.return_date)} ${b.return_time}`] as [string, string]] : []),
     ...(b.flight_number ? [["Flight", b.flight_number] as [string, string]] : []),
     ["Car", `${car} · ${b.passengers} people, ${b.luggage} bags`],
-    ["Payment", cashDue ? `Pay THB ${cashDue.toLocaleString("en-US")} in cash to the driver` : b.payment_status === "paid" || b.amount_paid >= b.total ? `Paid (THB ${b.total.toLocaleString("en-US")})` : `THB ${b.total.toLocaleString("en-US")} · ${b.payment_status}`],
+    ["Payment", cashDue ? `฿${cashDue.toLocaleString("en-US")} (Cash to driver)` : b.payment_status === "paid" || b.amount_paid >= b.total ? `฿${b.total.toLocaleString("en-US")} (Paid)` : `฿${b.total.toLocaleString("en-US")} (${b.payment_status === "pending" ? "Not paid yet" : b.payment_status})`],
   ];
   return { ok: true, booking: {
     reference: b.reference, status: b.status, statusText: STATUS[b.status] ?? b.status, leadName: `${b.customer_name} ${b.customer_surname ?? ""}`.trim(), rows, cashDue,
