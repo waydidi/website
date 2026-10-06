@@ -5,6 +5,7 @@ import { answerCallback, sendCard, sendPrivate, telegramChatId, tg, type Telegra
 import { esc, pickKeyboard } from "@/lib/telegram/cards";
 import { acknowledgeBooking, refreshBookingCard } from "@/lib/telegram/bookings";
 import { askBookingQuestion, handleBookingAnswer } from "@/lib/telegram/booking-tasks";
+import { waitHandover } from "@/lib/telegram/handover";
 import { approveChange, cancelBookingFromTelegram, declineChange, keepBooking } from "@/lib/telegram/booking-changes";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus } from "@/lib/website-chat";
 
@@ -64,6 +65,7 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
     await askBookingQuestion(target, action === "bk_cost" ? "cost" : "driver_name", q.from);
     return answerCallback(q.id, action === "bk_cost" ? "Type the driver cost." : "Answer the driver questions one by one.");
   }
+  if (action === "noop") return answerCallback(q.id);
   if (action === "bk_cancel") return answerCallback(q.id, await cancelBookingFromTelegram(target, admin.display_name), true);
   if (action === "bk_keep") return answerCallback(q.id, await keepBooking(target, admin.display_name), true);
   if (action === "chg_ok") return answerCallback(q.id, await approveChange(target, admin.display_name), true);
@@ -77,8 +79,11 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   switch (action) {
     case "chat_assign": {
       const done = await assign(c.id, who, false);
+      // On a "Needs a person" card: drop its buttons and say who took it.
+      if (q.message && q.message.message_id !== c.telegram_message_id) await tg("editMessageReplyMarkup", { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [[{ text: done ? `Taken by ${admin.display_name}` : `Taken by ${c.assigned_name}`, callback_data: "noop:x" }]] } }).catch(() => undefined);
       return answerCallback(q.id, done ? "Assigned to you." : `Already assigned to ${c.assigned_name}.`);
     }
+    case "chat_wait": return answerCallback(q.id, await waitHandover(c.id, admin.display_name), true);
     case "chat_pending": await setStatus(c.id, "pending"); return answerCallback(q.id, "Marked pending.");
     case "chat_open": await setStatus(c.id, "open"); return answerCallback(q.id, "Marked open.");
     case "chat_close": await setStatus(c.id, "closed"); return answerCallback(q.id, "Closed.");

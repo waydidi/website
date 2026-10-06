@@ -13,7 +13,7 @@ const db = () => env.DB as { prepare: (sql: string) => Stmt; batch: (s: Stmt[]) 
 export type Conversation = CardConversation & {
   token_hash: string; expires_at: string; customer_id: string | null; telegram_message_id: number | null;
   assigned_staff_id: string | null; assigned_telegram_user_id: string | null; last_message_at: string | null; updated_at: string;
-  bot_paused?: number; bot_thinking_at?: string | null; channel?: string; channel_user_id?: string | null;
+  bot_paused?: number; bot_state?: string | null; bot_thinking_at?: string | null; channel?: string; channel_user_id?: string | null;
   bot_lock_until?: string | null; telegram_card_at?: string | null; line_reply_token?: string | null; line_reply_token_at?: string | null;
 };
 export type ChatMessage = { id: string; sender: "visitor" | "staff"; sender_name: string | null; is_bot?: number; card_json?: string | null; body: string; created_at: string; client_id: string | null; telegram_status: string | null };

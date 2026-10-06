@@ -1,9 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { BetaMessageParam, BetaTool, BetaToolResultBlockParam } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { env } from "cloudflare:workers";
-import { sendCard, telegramConfigured } from "@/lib/telegram/client";
-import { esc } from "@/lib/telegram/cards";
-import { addBotMessage, conversationById, messagesFor, pauseBot, refreshCard, setBotThinking } from "@/lib/website-chat";
+import { addBotMessage, conversationById, messagesFor, setBotThinking } from "@/lib/website-chat";
 import { chatPaymentsEnabled, createChatPaymentLink } from "@/lib/chat-pay";
 import { cardText, quoteCard, type ChatCard, type PaymentCard } from "@/lib/chat-cards";
 import { searchKnowledge } from "./knowledge";
@@ -275,10 +273,12 @@ async function answerOnce(conversationId: string, client?: Client, answeredUpTo 
 }
 
 async function handOver(conversationId: string, reason: string, summary: string) {
-  await pauseBot(conversationId, true, JSON.stringify({ handover: reason, summary, at: new Date().toISOString() }));
   const c = await conversationById(conversationId);
-  if (c?.telegram_message_id && telegramConfigured())
-    await sendCard(`<b>Non handed over ${esc(c.public_id)}</b> · a person is needed\n${esc(reason)}\n<blockquote>${esc(summary)}</blockquote>\nTap Assign on the card to take this chat.`, undefined, c.telegram_message_id).catch(() => undefined);
-  // The card switches from "Non is answering" to Assign / Let other assign.
-  if (c) await refreshCard(c.id, true).catch(() => undefined);
+  if (!c) return;
+  let prev: Record<string, unknown> = {};
+  try { prev = JSON.parse(c.bot_state ?? "{}"); } catch { prev = {}; }
+  // Non keeps answering until a person taps Assign; a handover never stops it on its own.
+  await db().prepare("UPDATE website_conversations SET bot_state=? WHERE id=?").bind(JSON.stringify({ ...prev, handover: reason, summary, at: new Date().toISOString() }), c.id).run();
+  // One "Needs a person" card per chat ([Assign] [Wait]); later handovers don't repeat it.
+  if (!prev.card) await import("@/lib/telegram/handover").then((m) => m.postHandoverCard(c.id)).catch(() => undefined);
 }

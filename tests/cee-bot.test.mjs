@@ -90,12 +90,12 @@ test('a staff reply or assignment silences Non in that chat',async()=>{
 test('asking for a person hands over without calling the model (English, Thai, Chinese)',async()=>{
  for(const text of ['Can I talk to a real person?','ขอคุยกับเจ้าหน้าที่','我要人工客服']){
   const id=await conversation(text);const c=scripted();await bot.runCee(id,{client:c});
-  assert.equal(c.calls.length,0);assert.equal((await row(id)).bot_paused,1);assert.equal((await replies(id))[0].sender_name,'Non');
+  assert.equal(c.calls.length,0);const r=await row(id);assert.equal(r.bot_paused,0);assert.match(r.bot_state,/Customer asked for a person/);assert.equal((await replies(id))[0].sender_name,'Non');
  }
 });
-test('a model error hands the chat to staff and says nothing wrong to the customer',async()=>{
+test('a model error alerts staff, says nothing wrong to the customer, and Non keeps answering until someone assigns',async()=>{
  const id=await conversation('BKK to Pattaya');await bot.runCee(id,{client:scripted()});
- assert.equal((await row(id)).bot_paused,1);assert.equal((await replies(id)).length,0);
+ const r=await row(id);assert.equal(r.bot_paused,0);assert.match(r.bot_state,/Non error/);assert.equal((await replies(id)).length,0);
 });
 test('Non is off without an API key or when switched off',async()=>{
  globalThis.__ceeTest.env.ANTHROPIC_API_KEY=undefined;assert.equal(await bot.ceeEnabled(),false);globalThis.__ceeTest.env.ANTHROPIC_API_KEY='test-key';
@@ -327,4 +327,19 @@ test('while Non answers, the Telegram card says so and offers Take over; after a
  assert.match(cards.conversationCard(c,null,true,true),/Non \(AI\) is answering/);
  assert.deepEqual(cards.conversationKeyboard(c,'https://x',true).flat().map((b)=>b.text),['Take over','Open in Admin']);
  assert.deepEqual(cards.conversationKeyboard(c,'https://x',false).flat().map((b)=>b.text),['Assign','Let other assign']);
+});
+test('handover: a "Needs a person" card with Assign and Wait; Wait tells the customer and the card comes back after 10 minutes',async()=>{
+ Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
+ const ho=await vite.ssrLoadModule('/lib/telegram/handover.ts');
+ const id=await conversation('Can I talk to a real person?');await db.prepare('UPDATE website_conversations SET telegram_message_id=700 WHERE id=?').bind(id).run();
+ tgCalls.length=0;await bot.runCee(id,{client:scripted()});
+ const card=tgCalls.find((c)=>c.method==='sendMessage'&&/Needs a person/.test(c.body.text));
+ assert.ok(card);assert.deepEqual(card.body.reply_markup.inline_keyboard.flat().map((b)=>b.text),['Assign','Wait']);
+ assert.equal((await row(id)).bot_paused,0); // Non keeps answering until someone assigns
+ assert.match(await ho.waitHandover(id,'Alex'),/Reminder in 10 minutes/);
+ const last=(await replies(id)).at(-1);assert.match(last.body,/Thanks for waiting/);
+ tgCalls.length=0;assert.equal(await ho.remindWaiting(new Date()),0);
+ assert.equal(await ho.remindWaiting(new Date(Date.now()+11*60_000)),1);
+ assert.ok(tgCalls.some((c)=>c.method==='sendMessage'&&/reminder/.test(c.body.text)));
+ delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
 });
