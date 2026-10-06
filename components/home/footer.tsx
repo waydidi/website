@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { WaydidiWordmark } from "@/components/waydidi-logo";
-import { destinations } from "@/lib/public-content";
 import { FooterLegal } from "@/components/footer-legal";
 import { getMessages, translate, type Locale, type MessageKey } from "@/lib/i18n";
 
@@ -42,8 +41,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
             <FooterLinks
               title={t("nav.destinations")}
               links={[
-                ...destinations.map((place) => ({ label: place.name, href: `/destinations/${place.slug}` })),
-                { label: t("footer.allDestinations"), href: "/destinations" },
+                { label: t("footer.ourDestinations"), href: "/destinations" },
               ]}
             />
             <FooterLinks

@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { WaydidiWordmark } from "@/components/waydidi-logo";
 import { FooterLegal } from "@/components/footer-legal";
-import { destinations } from "@/lib/public-content";
 
 const columns = [
   {title:"Transfer",links:[["Airport transfer","/airport-transfer"],["City-to-city transfer","/a-to-b-transfer"],["Multi-city transfer","/long-journeys"],["Hourly driver","/hourly-driver"]]},
-  {title:"Destinations",links:[...destinations.map(d=>[d.name,`/destinations/${d.slug}`]),["All destinations","/destinations"]]},
+  {title:"Destinations",links:[["Our destinations","/destinations"]]},
   {title:"Help",links:[["Help centre","/help"],["Contact support","/contact"],["Frequently asked questions","/faq"],["Manage booking","/booking/manage"],["Airport pickup guide","/airport-pickup-instructions"],["Check flights","/flights"],["Travel agencies","/agencies"],["Drive with Waydidi","/drivers"]]},
 ];
 

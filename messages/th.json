@@ -479,6 +479,10 @@
     "text": "ช่วยเหลือ",
     "status": "machine"
   },
+  "footer.ourDestinations": {
+    "text": "จุดหมายปลายทางของเรา",
+    "status": "machine"
+  },
   "footer.checkFlights": {
     "text": "เช็กสถานะเที่ยวบิน",
     "status": "machine"

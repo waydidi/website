@@ -479,6 +479,10 @@
     "text": "帮助",
     "status": "machine"
   },
+  "footer.ourDestinations": {
+    "text": "我们的目的地",
+    "status": "machine"
+  },
   "footer.checkFlights": {
     "text": "查询航班",
     "status": "machine"
