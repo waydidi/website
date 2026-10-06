@@ -4,6 +4,7 @@ import { legacySurname, normalizeSurname } from "@/lib/booking-reference";
 import { constantTimeEqual, sha256 } from "@/lib/security";
 import { SITE_URL } from "@/lib/site";
 import { VEHICLES } from "@/lib/vehicles";
+import { tripOwnerKey } from "@/lib/trip-access";
 
 // "Check my booking" in the chat (website, WhatsApp, LINE): the booking reference AND the lead
 // passenger's surname must both match. Wrong guesses are limited per chat so references can't be tried out.
@@ -61,7 +62,8 @@ export async function checkBooking(conversationId: string, referenceIn: string, 
   return { ok: true, booking: {
     reference: b.reference, status: b.status, statusText: STATUS[b.status] ?? b.status, leadName: fullName(b.customer_name, b.customer_surname), rows, people: b.passengers, bags: b.luggage, cashDue,
     driver: driver ? { name: driver.name, car: driver.car, plate: driver.plate, phone: soon ? driver.phone : null } : null,
-    rideUrl: `${SITE_URL}/trip/${encodeURIComponent(b.reference)}`,
+    // Verified by reference + surname, so the customer gets their own 24-hour trip link (same as the email).
+    rideUrl: `${SITE_URL}/trip/${encodeURIComponent(b.reference)}${await tripOwnerKey(b.reference).then((k) => `?key=${k}&leg=outbound`).catch(() => "")}`,
     manageUrl: `${SITE_URL}/account/trips/${encodeURIComponent(b.reference)}`,
   } };
 }

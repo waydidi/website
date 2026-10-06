@@ -407,4 +407,5 @@ test('check booking: reference + surname must both match; wrong guesses are limi
  const locked=await lk.checkBooking('look-3','MC7Q2P','Choksi');assert.equal(locked.ok,false);assert.match(locked.reason,/Too many tries/);
  const out=await bot.ceeTurn([{sender:'visitor',body:'check MC7Q2P Choksi'}],scripted({content:[{type:'tool_use',id:'t',name:'check_booking',input:{reference:'MC7Q2P',surname:'Choksi'}}],stop_reason:'tool_use'},say('Your booking is confirmed.')),{tools,placeGuard:{conversationId:'look-4',actor:'chat:look-4'}});
  assert.equal(out.cards[0].type,'booking');assert.equal(out.cards[0].reference,'MC7Q2P');
+ globalThis.__ceeTest.env.WAYDIDI_ADMIN_SESSION_SECRET='s'.repeat(40);const signed=await lk.checkBooking('look-5','MC7Q2P','Choksi');assert.match(signed.booking.rideUrl,/\/trip\/MC7Q2P\?key=[a-z0-9]+\.[a-f0-9]{32}&leg=outbound/);delete globalThis.__ceeTest.env.WAYDIDI_ADMIN_SESSION_SECRET;
 });

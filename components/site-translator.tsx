@@ -33,12 +33,15 @@ export function SiteTranslator() {
     document.documentElement.lang = info.htmlLang;
 
     let cache: Record<string, string> = {};
-    const key = `wd-tx:${lang}`;
+    const key = `wd-tx2:${lang}`; // v2: earlier versions saved untranslated text here
     try { cache = JSON.parse(sessionStorage.getItem(key) ?? "{}"); } catch { cache = {}; }
     const textOrig = new WeakMap<Text, { src: string; shown: string }>();
     const attrOrig = new WeakMap<Element, Record<string, { src: string; shown: string }>>();
     const touchedText = new Set<Text>(), touchedAttr = new Set<Element>();
     const pending = new Set<string>();
+    // Texts that couldn't be translated yet: shown in English for now and tried again shortly (not saved).
+    const skip = new Set<string>();
+    let retries = 0;
     let timer = 0, stopped = false, firstDone = false;
     let titleSrc = document.title, titleShown = "";
 
@@ -54,7 +57,7 @@ export function SiteTranslator() {
       const core = usable(src);
       if (!core) return;
       const tr = cache[core];
-      if (tr === undefined) { pending.add(core); textOrig.set(node, { src, shown: src }); return; }
+      if (tr === undefined) { if (!skip.has(core)) pending.add(core); textOrig.set(node, { src, shown: src }); return; }
       const shown = wrap(src, core, tr);
       textOrig.set(node, { src, shown }); touchedText.add(node);
       if (node.nodeValue !== shown) node.nodeValue = shown;
@@ -68,7 +71,7 @@ export function SiteTranslator() {
         const core = usable(src);
         if (!core) continue;
         const tr = cache[core];
-        if (tr === undefined) { pending.add(core); recs[a] = { src, shown: src }; attrOrig.set(el, recs); continue; }
+        if (tr === undefined) { if (!skip.has(core)) pending.add(core); recs[a] = { src, shown: src }; attrOrig.set(el, recs); continue; }
         recs[a] = { src, shown: wrap(src, core, tr) }; attrOrig.set(el, recs); touchedAttr.add(el);
         if (v !== recs[a].shown) el.setAttribute(a, recs[a].shown);
       }
@@ -86,7 +89,7 @@ export function SiteTranslator() {
       if (document.title !== titleShown) titleSrc = document.title;
       const core = usable(titleSrc);
       if (!core) return;
-      if (cache[core] === undefined) { pending.add(core); return; }
+      if (cache[core] === undefined) { if (!skip.has(core)) pending.add(core); return; }
       titleShown = wrap(titleSrc, core, cache[core]);
       if (document.title !== titleShown) document.title = titleShown;
     }
@@ -101,8 +104,9 @@ export function SiteTranslator() {
       }
       try { sessionStorage.setItem(key, JSON.stringify(cache)); } catch { /* storage full or blocked */ }
       if (stopped) return;
-      // Missing ones (limit reached) stay in English; don't ask again on every change.
-      for (const t of texts) if (cache[t] === undefined) cache[t] = t;
+      const missed = texts.filter((t) => cache[t] === undefined);
+      for (const t of missed) skip.add(t);
+      if (missed.length && retries < 3) { retries++; window.setTimeout(() => { if (stopped) return; skip.clear(); observer.disconnect(); walk(document.body); applyTitle(); observe(); schedule(); }, 8000 * retries); }
       observer.disconnect(); walk(document.body); applyTitle(); observe();
       if (!firstDone) { firstDone = true; done(); }
     }

@@ -328,7 +328,7 @@ test('site translation: cached lines come from D1, new lines are translated once
  const lib=await vite.ssrLoadModule('/lib/site-translate.ts');
  globalThis.__chatTest.env.ANTHROPIC_API_KEY='k';
  const real=globalThis.fetch;let calls=0;
- globalThis.fetch=async(url,init)=>{if(String(url).includes('anthropic.com')){calls++;const texts=JSON.parse(JSON.parse(init.body).messages[0].content);return new Response(JSON.stringify({id:'m',type:'message',role:'assistant',model:'x',content:[{type:'text',text:JSON.stringify(texts.map((t)=>'[ko] '+t))}],stop_reason:'end_turn',usage:{input_tokens:10,output_tokens:10}}),{headers:{'content-type':'application/json'}});}return real(url,init);};
+ globalThis.fetch=async(url,init)=>{if(String(url).includes('anthropic.com')){calls++;const texts=JSON.parse(JSON.parse(init.body).messages[0].content);return new Response(JSON.stringify({id:'m',type:'message',role:'assistant',model:'x',content:[{type:'text',text:JSON.stringify(Object.fromEntries(Object.entries(texts).map(([k,t])=>[k,'[ko] '+t])))}],stop_reason:'end_turn',usage:{input_tokens:10,output_tokens:10}}),{headers:{'content-type':'application/json'}});}return real(url,init);};
  const ask=(body)=>tr.POST(new Request('https://example.invalid/api/translate',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json','cf-connecting-ip':'tx-test'},body:JSON.stringify(body)})).then((r)=>r.json());
  try{
   const a=await ask({lang:'ko',path:'/help',texts:['Book a ride','Free cancellation']});
