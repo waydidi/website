@@ -7,6 +7,7 @@ import { matchPublishedArea, pricesForArea } from "@/lib/pricing";
 import { loadInclusions } from "@/lib/route-inclusions-db";
 import { withSeason } from "@/lib/seasons";
 import { SITE_URL } from "@/lib/site";
+import { limitVehicles } from "@/lib/vehicle-routes";
 import { VEHICLES, type VehicleId } from "@/lib/vehicles";
 
 // Non's prices. Every number here comes from the same pricing tables the booking form uses;
@@ -85,7 +86,7 @@ export async function quoteTransfer(input: { pickup: string; dropoff: string; da
   }).then((r) => (r.ok ? r.json() : null)).catch(() => null) as { routes?: { distanceMeters?: number; duration?: string }[] } | null;
   const leg = route?.routes?.[0];
   if (!leg?.distanceMeters) return { ok: false, reason: "Could not work out the route; hand over to staff.", handover: true };
-  const prices = await withSeason(await pricesForArea(area.id, leg.distanceMeters), input.date, { service: "transfer", areaId: area.id });
+  const prices = limitVehicles(await withSeason(await pricesForArea(area.id, leg.distanceMeters), input.date, { service: "transfer", areaId: area.id }), from.location!, to.location!);
   const pickupText = label(from, input.pickup), dropoffText = label(to, input.dropoff);
   const cars = fitting(prices, input.passengers, input.bags, (v) => bookingLink({ service: "transfer", pickup: pickupText, dropoff: dropoffText, date: input.date, time: input.time, passengers: input.passengers, luggage: input.bags, vehicle: v, pickupPlaceId: from.id, dropoffPlaceId: to.id }));
   if (!cars.length) return { ok: false, reason: "No single car fits this group and luggage; hand over to staff.", handover: true };

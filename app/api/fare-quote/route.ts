@@ -7,6 +7,7 @@ import { checkoutAttempts, fareQuotes } from "@/db/schema";
 import { BOOKING_TIMEZONE, bangkokDepartureIso } from "@/lib/booking-time";
 import { fareQuoteInputSchema, validationError } from "@/lib/booking-validation";
 import { matchPublishedArea, pricesForArea } from "@/lib/pricing";
+import { limitVehicles } from "@/lib/vehicle-routes";
 import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
 import { loadInclusions } from "@/lib/route-inclusions-db";
 import { logOperationalError, monitoredHeaders, requestIdFor } from "@/lib/observability";
@@ -128,7 +129,8 @@ export async function POST(request: Request) {
     const durationSeconds = Math.round(
       Number.parseFloat(route.duration.replace("s", "")),
     );
-    const prices = await withSeason(await pricesForArea(area.id, route.distanceMeters), input.pickupDate, { service: "transfer", areaId: area.id });
+    // Comfort BMW is only sold between Bangkok and its airports.
+    const prices = limitVehicles(await withSeason(await pricesForArea(area.id, route.distanceMeters), input.pickupDate, { service: "transfer", areaId: area.id }), pickup.location, dropoff.location);
     const inclusions = await loadInclusions(
       { lat: pickup.location.latitude, lng: pickup.location.longitude },
       { lat: dropoff.location.latitude, lng: dropoff.location.longitude },

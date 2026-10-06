@@ -1483,7 +1483,7 @@ export function BookingFlow({
         </div>
       )}
       <section
-        className={`relative ${stage === "search" ? "overflow-hidden bg-brand text-white md:bg-[#0E0F12]" : "bg-white text-ink"}`}
+        className={`relative ${stage === "search" ? `overflow-hidden bg-brand text-white ${hero?.image ? "md:bg-[#0E0F12]" : ""}` : "bg-white text-ink"}`}
       >
         {stage === "search" ? (
           <SiteHeader overlay />
@@ -1497,13 +1497,13 @@ export function BookingFlow({
 
         {stage === "search" && (
           <>
-            {/* Large screens only: the photo is decorative and too costly for mobile data. */}
+            {/* City pages only: the homepage hero is plain Waydidi orange on every screen size. */}
             {/* Starts below the 97px header so the nav always sits on solid
                 orange. The masks fade the photo itself into the orange, left and
                 top, rather than stacking overlay layers on it. */}
             <div
               aria-hidden="true"
-              className={`pointer-events-none absolute inset-0 ${hero?.image ? "" : "hidden md:block"}`}
+              className={`pointer-events-none absolute inset-0 ${hero?.image ? "" : "hidden"}`}
             >
               <Image
                 src={hero?.image ?? "/hero-driver-customer.webp"}
