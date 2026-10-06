@@ -1,6 +1,6 @@
 import type { SecurityDatabase } from "../lib/worker-db";
 import { allowedStaffRoute, readCookie, staffForToken, STAFF_COOKIE } from "../lib/staff-security";
-import { SITE_URL } from "../lib/site";
+import { LEGACY_HOSTS, SITE_URL } from "../lib/site";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
@@ -51,6 +51,11 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    // Page visits on the old workers.dev address or www. move to waydidi.com for good. API and
+    // webhook calls (Stripe, Telegram, LINE, WhatsApp) keep working there until they are re-pointed.
+    if (LEGACY_HOSTS.includes(url.hostname) && (request.method === "GET" || request.method === "HEAD") && !url.pathname.startsWith("/api/")) {
+      return Response.redirect(new URL(url.pathname + url.search, SITE_URL).toString(), 301);
+    }
     let accessPath:string;
     try { accessPath=decodeURIComponent(url.pathname).replace(/\/+/g,"/"); } catch { return new Response("Invalid path",{status:400}); }
     if ((accessPath.startsWith("/api/admin/") && accessPath !== "/api/admin/session") || accessPath.startsWith("/admin/")) {
