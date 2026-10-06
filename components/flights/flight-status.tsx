@@ -140,7 +140,6 @@ export function FlightStatusSearch() {
         </label>
         <button type="submit" disabled={busy} className="h-[52px] w-full rounded-lg bg-[#FE8B05] text-[17px] font-semibold text-white transition hover:bg-[#E67900] disabled:opacity-60">{busy ? "Checking…" : "Check flight status"}</button>
         {error && <p role="alert" className="mt-3 text-[15px] text-red-600">{error}</p>}
-        {mode === "route" && !error && <p className="mt-3 text-[13px] leading-5 text-slate-500">Flights to, from and within Thailand. Direct flights are listed; for a connection, check each flight by its number.</p>}
       </div>
     </form>
 
