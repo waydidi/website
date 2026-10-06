@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { MaintenanceSignIn } from "@/components/maintenance/sign-in";
 import { WaydidiMark, WaydidiWordmark } from "@/components/waydidi-logo";
 
 export const metadata: Metadata = { title: "Waydidi · Back soon", robots: { index: false, follow: false } };
@@ -12,7 +12,7 @@ export default function MaintenancePage() {
       .wd-mt .sun { animation: wd-rise 2.4s ease-out both; }
       .wd-mt .cloud { animation: wd-drift linear infinite; }
       .wd-mt .bird { animation: wd-fly 3.6s cubic-bezier(.3,.1,.25,1) both, wd-bob 3s ease-in-out 3.6s infinite; }
-      .wd-mt .wing { animation: wd-flap .45s ease-in-out 9 alternate both; transform-origin: 50% 60%; }
+      .wd-mt .wing { animation: wd-flap .26s ease-in-out 14 alternate both, wd-glide 2.6s ease-in-out 3.64s infinite; transform-origin: 50% 70%; }
       .wd-mt .fade { animation: wd-fade 1s ease-out both; }
       .wd-mt .boat { animation: wd-sail 18s linear infinite; }
       .wd-mt .water { animation: wd-shimmer 4s ease-in-out infinite; }
@@ -26,7 +26,9 @@ export default function MaintenancePage() {
         100% { transform: none; opacity: 1 }
       }
       @keyframes wd-bob { 0%, 100% { translate: 0 0 } 50% { translate: 0 -10px } }
-      @keyframes wd-flap { from { transform: scaleY(1) } to { transform: scaleY(.82) } }
+      /* Wings beat: the bird squashes down and tips forward, then opens up again. */
+      @keyframes wd-flap { from { transform: perspective(300px) rotateX(0deg) scaleY(1) } to { transform: perspective(300px) rotateX(58deg) scaleY(.7) skewX(-6deg) } }
+      @keyframes wd-glide { 0%, 70%, 100% { transform: none } 78% { transform: perspective(300px) rotateX(45deg) scaleY(.8) } 86% { transform: none } 92% { transform: perspective(300px) rotateX(40deg) scaleY(.82) } }
       @keyframes wd-fade { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
       @keyframes wd-sail { from { transform: translateX(-160px) } to { transform: translateX(110vw) } }
       @keyframes wd-shimmer { 0%, 100% { opacity: .55 } 50% { opacity: .85 } }
@@ -89,6 +91,6 @@ export default function MaintenancePage() {
       </g>
     </svg>
 
-    <Link href="/admin" className="absolute bottom-[calc(16px+env(safe-area-inset-bottom))] right-5 z-20 rounded-full px-3 py-1.5 text-[14px] font-semibold text-[#7A3A06] hover:bg-white/40">Sign in</Link>
+    <MaintenanceSignIn />
   </main>;
 }
