@@ -264,8 +264,8 @@ export default function OperationsWorkspace({ email }: { email: string }) {
     .filter((item) => item.bookingKey === selected)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return (
-    <main className="min-h-screen bg-[#f3f5f8] text-[#211726]">
-      <header className="border-b border-orange-400 bg-[#FF8A05] px-5 py-5 text-white sm:px-8">
+    <main className="min-h-screen bg-[#f3f5f8] text-plum">
+      <header className="border-b border-orange-400 bg-brand px-5 py-5 text-white sm:px-8">
         <div className="mx-auto flex max-w-[1550px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-5">
             <Link href="/" className="inline-flex text-white">
@@ -303,7 +303,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
           </Link>
           <Link
             href="/admin/operations"
-            className="flex shrink-0 items-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-[#D96F00]"
+            className="flex shrink-0 items-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-brand-text"
           >
             <Truck size={17} />
             Booking operations
@@ -408,19 +408,19 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex flex-col items-start gap-1">
-                              <button type="button" onClick={() => setEvidenceFor(booking.key)} className="text-sm font-bold text-[#C96100] hover:underline">See</button>
+                              <button type="button" onClick={() => setEvidenceFor(booking.key)} className="text-sm font-bold text-brand-darker hover:underline">See</button>
                               {pending > 0 && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">{pending} to review</span>}
                             </div>
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-2">
-                              <button type="button" disabled={!assignment} onClick={() => assignment && void copyLink(booking.key, assignment.id)} title={assignment ? "Copy the driver's trip link" : "Assign a driver first"} aria-label={copied === booking.key ? "Link copied" : "Copy driver link"} className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FF8A05] text-white disabled:bg-slate-200 disabled:text-slate-400">
+                              <button type="button" disabled={!assignment} onClick={() => assignment && void copyLink(booking.key, assignment.id)} title={assignment ? "Copy the driver's trip link" : "Assign a driver first"} aria-label={copied === booking.key ? "Link copied" : "Copy driver link"} className="grid size-9 shrink-0 place-items-center rounded-full bg-brand text-white disabled:bg-slate-200 disabled:text-slate-400">
                                 {copied === booking.key ? <Check size={16} /> : <Clipboard size={16} />}
                               </button>
                               <Link
                                 href={`/admin/journeys/${encodeURIComponent(booking.reference)}`}
                                 aria-label={`View ${booking.reference}`}
-                                className="grid size-9 shrink-0 place-items-center rounded-full border border-orange-200 text-[#D96F00]"
+                                className="grid size-9 shrink-0 place-items-center rounded-full border border-orange-200 text-brand-text"
                               >
                                 <Eye size={16} />
                               </Link>
@@ -450,7 +450,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                 <>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[.14em] text-[#D96F00]">
+                      <p className="text-xs font-black uppercase tracking-[.14em] text-brand-text">
                         Journey details
                       </p>
                       <h2 className="mt-2 text-2xl font-black">
@@ -463,26 +463,26 @@ export default function OperationsWorkspace({ email }: { email: string }) {
                     </div>
                     <a
                       href={`tel:${selectedBooking.customerPhone}`}
-                      className="grid size-11 place-items-center rounded-full bg-[#211726] text-white"
+                      className="grid size-11 place-items-center rounded-full bg-plum text-white"
                     >
                       <Phone size={18} />
                     </a>
                   </div>
                   <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm">
                     <p className="flex gap-2 font-bold">
-                      <MapPin className="shrink-0 text-[#FF8A05]" size={17} />
+                      <MapPin className="shrink-0 text-brand" size={17} />
                       {selectedBooking.pickup}
                     </p>
                     <p className="my-2 ml-2 h-4 border-l-2 border-dotted border-slate-300" />
                     <p className="flex gap-2 font-bold">
-                      <Route className="shrink-0 text-[#FF8A05]" size={17} />
+                      <Route className="shrink-0 text-brand" size={17} />
                       {selectedBooking.dropoff}
                     </p>
                   </div>
                   {selectedAssignment && (
                     <div className="mt-4 flex items-center justify-between rounded-2xl border border-orange-200 bg-orange-50 p-4">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-[#D96F00]">
+                        <p className="text-xs font-bold uppercase tracking-wider text-brand-text">
                           Assigned driver
                         </p>
                         <p className="mt-1 font-black">

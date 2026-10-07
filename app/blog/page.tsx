@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   openGraph: { title: "Waydidi travel guides", description: "Tips and inspiration for travelling around Thailand by private car.", url: `${SITE_URL}/blog`, type: "website" },
 };
 
-const heading = "text-[26px] font-bold tracking-[-.02em] text-[#1C1C1C]";
+const heading = "text-[26px] font-bold tracking-[-.02em] text-charcoal";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export default async function BlogHome() {
   const byDate = [...posts].sort((a, b) => b.date.localeCompare(a.date));
   const featured = byDate.filter((p) => p.featured);
   const popular = posts.filter((p) => p.popular).sort((a, b) => a.popular! - b.popular!);
-  return <main className="font-home bg-white text-[#1C1C1C]">
+  return <main className="font-home bg-white text-charcoal">
     {/* Hero */}
     <section className="relative isolate overflow-hidden">
       <Image src="/destinations/phuket.webp" alt="" fill priority unoptimized sizes="100vw" className="-z-10 object-cover" />
@@ -41,13 +41,13 @@ export default async function BlogHome() {
       {/* Featured */}
       <section className="pt-12" aria-labelledby="featured-heading">
         <h2 id="featured-heading" className={heading}>Featured articles</h2>
-        <hr className="mt-3 border-t-[3px] border-[#1C1C1C]" />
+        <hr className="mt-3 border-t-[3px] border-charcoal" />
         <ul className="mt-6 grid gap-8 md:grid-cols-2">
           {featured.map((post) => <li key={post.slug}>
             <Link href={`/blog/${post.slug}`} className="block">
               <BlogCover post={post} />
               <p className="mt-4 text-[19px] font-semibold leading-snug">{post.title}</p>
-              <p className="mt-2 text-[15px] text-[#8A8A8A]">{formatBlogDate(post.date)}</p>
+              <p className="mt-2 text-[15px] text-grey-soft">{formatBlogDate(post.date)}</p>
             </Link>
           </li>)}
         </ul>
@@ -56,14 +56,14 @@ export default async function BlogHome() {
       {/* Popular */}
       <section className="pt-14" aria-labelledby="popular-heading">
         <h2 id="popular-heading" className={heading}>Popular articles</h2>
-        <hr className="mt-3 border-t-[3px] border-[#1C1C1C]" />
+        <hr className="mt-3 border-t-[3px] border-charcoal" />
         <ol className="mt-6 grid gap-7">
           {popular.map((post, i) => <li key={post.slug}>
             <Link href={`/blog/${post.slug}`} className="flex gap-4">
               <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#DDE3EE] text-[20px] font-bold italic text-white">{i + 1}</span>
               <span className="min-w-0">
                 <span className="block text-[17px] font-semibold leading-snug">{post.title}</span>
-                <span className="mt-1.5 line-clamp-2 block text-[15px] leading-6 text-[#8A8A8A]">{post.excerpt}</span>
+                <span className="mt-1.5 line-clamp-2 block text-[15px] leading-6 text-grey-soft">{post.excerpt}</span>
               </span>
             </Link>
           </li>)}
@@ -73,17 +73,17 @@ export default async function BlogHome() {
       {/* Latest */}
       <section className="pt-14" aria-labelledby="latest-heading">
         <h2 id="latest-heading" className={heading}>Latest articles</h2>
-        <hr className="mt-3 border-t-[3px] border-[#1C1C1C]" />
+        <hr className="mt-3 border-t-[3px] border-charcoal" />
         <LatestList posts={byDate} filters />
       </section>
 
       {/* Categories */}
       <section className="pt-14" aria-labelledby="topics-heading">
         <h2 id="topics-heading" className={heading}>Browse by topic</h2>
-        <hr className="mt-3 border-t-[3px] border-[#1C1C1C]" />
+        <hr className="mt-3 border-t-[3px] border-charcoal" />
         <ul className="mt-5 flex flex-wrap gap-3">
           {[...new Set(posts.flatMap((p) => p.categories.map(categoryLabel)))].map((label) => <li key={label}>
-            <Link href={`/blog/category/${categorySlug(label)}`} className="inline-flex h-11 items-center gap-2 rounded-full border border-[#D6D3CC] px-5 text-[15px] font-semibold hover:border-[#FF8A05] hover:bg-[#FFF6EB]">{label}<span className="text-[#8A8A8A]">{posts.filter((p) => p.categories.some((c) => categoryLabel(c) === label)).length}</span></Link>
+            <Link href={`/blog/category/${categorySlug(label)}`} className="inline-flex h-11 items-center gap-2 rounded-full border border-[#D6D3CC] px-5 text-[15px] font-semibold hover:border-brand hover:bg-[#FFF6EB]">{label}<span className="text-grey-soft">{posts.filter((p) => p.categories.some((c) => categoryLabel(c) === label)).length}</span></Link>
           </li>)}
         </ul>
       </section>
@@ -94,7 +94,7 @@ export default async function BlogHome() {
         <p className="mt-3 text-[18px] font-medium">Popular places in Thailand</p>
         <ol className="mt-4 flex flex-wrap gap-3">
           {POPULAR_PLACES.map((place, i) => <li key={place.href}>
-            <Link href={place.href} className="flex overflow-hidden rounded-lg border border-[#8A5A1E] text-[15px] text-[#1C1C1C] hover:bg-[#FFF6EB]">
+            <Link href={place.href} className="flex overflow-hidden rounded-lg border border-[#8A5A1E] text-[15px] text-charcoal hover:bg-[#FFF6EB]">
               <span className="border-r border-[#8A5A1E] bg-[#FFF6EB] px-3 py-1.5 text-[#8A5A1E]">{i + 1}</span>
               <span className="px-4 py-1.5">{place.label}</span>
             </Link>

@@ -17,5 +17,5 @@ export function QuoteAccept({ token, accepted }: {
                 setError(e instanceof Error ? e.message : 'Please try again.');
                 setBusy(false);
             }
-        }} className="w-full rounded-full bg-[#FE8B05] p-4 font-semibold text-white">{busy ? 'Opening booking…' : accepted ? 'Continue booking' : 'Accept quote & continue'}</button>{error && <p role="alert" className="mt-4 text-red-600">{error}</p>}</>;
+        }} className="w-full rounded-full bg-brand p-4 font-semibold text-white">{busy ? 'Opening booking…' : accepted ? 'Continue booking' : 'Accept quote & continue'}</button>{error && <p role="alert" className="mt-4 text-red-600">{error}</p>}</>;
 }

@@ -26,7 +26,7 @@ const blank: Answers = {
   passengers: 2, luggage: 2, vehicle: "economy_sedan", childSeats: 0, exchangeStop: false, ferryPeople: 0,
 };
 
-export const box = "w-full rounded-2xl border-2 font-normal border-[#F0E3D4] bg-white px-4 text-[#1F1726] shadow-[0_1px_2px_rgba(60,30,0,.04)] outline-none transition placeholder:text-[#BDB2A8] focus:border-[#FF8A05] focus:ring-4 focus:ring-[#FF8A05]/15 disabled:bg-[#FAF6F1] disabled:text-[#6B6170]";
+export const box = "w-full rounded-2xl border-2 font-normal border-[#F0E3D4] bg-white px-4 text-plum shadow-[0_1px_2px_rgba(60,30,0,.04)] outline-none transition placeholder:text-[#BDB2A8] focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:bg-[#FAF6F1] disabled:text-[#6B6170]";
 export const bigInput = `${box} h-16 text-[20px] sm:text-[22px]`;
 export const smallLabel = "block text-[14px] font-semibold text-[#4A3F4F]";
 export const smallInput = `${box} mt-1.5 h-14 text-[17px]`;
@@ -51,9 +51,9 @@ export function TimeSelect({ value, onChange, disabled, className }: { value: st
 
 export function Stepper({ value, set, min, max, label }: { value: number; set: (n: number) => void; min: number; max: number; label: string }) {
   return <span className="flex items-center gap-3">
-    <button type="button" aria-label={`Fewer ${label}`} disabled={value <= min} onClick={() => set(value - 1)} className="grid size-10 place-items-center rounded-full border-2 border-[#F0E3D4] bg-white text-[#1F1726] transition active:scale-90 enabled:hover:border-[#FF8A05] disabled:opacity-35"><Minus size={18} /></button>
+    <button type="button" aria-label={`Fewer ${label}`} disabled={value <= min} onClick={() => set(value - 1)} className="grid size-10 place-items-center rounded-full border-2 border-[#F0E3D4] bg-white text-plum transition active:scale-90 enabled:hover:border-brand disabled:opacity-35"><Minus size={18} /></button>
     <span className="w-6 text-center text-[20px] font-semibold tabular-nums" aria-live="polite">{value}</span>
-    <button type="button" aria-label={`More ${label}`} disabled={value >= max} onClick={() => set(value + 1)} className="grid size-10 place-items-center rounded-full border-2 border-[#FF8A05] bg-[#FF8A05] text-white transition active:scale-90 enabled:hover:bg-[#E67900] disabled:border-[#F0E3D4] disabled:bg-white disabled:text-[#1F1726] disabled:opacity-35"><Plus size={18} /></button>
+    <button type="button" aria-label={`More ${label}`} disabled={value >= max} onClick={() => set(value + 1)} className="grid size-10 place-items-center rounded-full border-2 border-brand bg-brand text-white transition active:scale-90 enabled:hover:bg-brand-strong disabled:border-[#F0E3D4] disabled:bg-white disabled:text-plum disabled:opacity-35"><Plus size={18} /></button>
   </span>;
 }
 
@@ -152,10 +152,10 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
     setA((c) => ({ ...c, passengers, luggage, vehicle: locked("vehicle") || vehicleFits(c.vehicle, passengers, luggage) ? c.vehicle : smallestFittingVehicle(passengers, luggage) ?? "premium_minivan" }));
   }
 
-  if (sent) return <main className="grid min-h-dvh place-items-center bg-[#FF8A05] px-6 text-white">
+  if (sent) return <main className="grid min-h-dvh place-items-center bg-brand px-6 text-white">
     <div className="max-w-md text-center animate-in fade-in zoom-in-95 duration-500">
       <Image src="/waydidi-logo.png" alt="Waydidi" width={180} height={68} className="mx-auto mb-8 h-auto w-40" />
-      <span className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-white text-[#FF8A05]"><Check size={34} strokeWidth={3} /></span>
+      <span className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-white text-brand"><Check size={34} strokeWidth={3} /></span>
       <h1 className="text-[32px] font-bold leading-tight">Thank you{firstName ? `, ${firstName}` : ""}!</h1>
       <p className="mt-3 text-[17px] text-white/90">We&apos;ve received your details and will confirm your ride shortly on WhatsApp or email.</p>
     </div>
@@ -165,10 +165,10 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
   const number = index + 1;
   const last = index === steps.length - 1;
 
-  return <main className="flex min-h-dvh flex-col bg-white text-[#1F1726]" onKeyDown={(e) => {
+  return <main className="flex min-h-dvh flex-col bg-white text-plum" onKeyDown={(e) => {
     if (e.key === "Enter" && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof Element && e.target.closest("[role=dialog]"))) { e.preventDefault(); void next(); }
   }}>
-    <header className="sticky top-0 z-20 bg-[#FF8A05] pb-3 text-white">
+    <header className="sticky top-0 z-20 bg-brand pb-3 text-white">
       <div className="mx-auto flex h-16 w-full max-w-xl items-center gap-2 px-5">
         <WaydidiLogo className="mr-auto h-11 w-auto text-white" />
         <button type="button" onClick={() => go(index - 1)} disabled={index === 0} className="inline-flex disabled:invisible h-10 items-center gap-1.5 rounded-full px-3 text-[15px] font-medium text-white transition hover:bg-white/15"><ArrowLeft size={18} />Back</button>
@@ -196,7 +196,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
             <label className={smallLabel}>Pickup location{locked("pickup") && <Lock size={13} className="ml-1 inline text-[#9A8F86]" />}<PlaceInput inputRef={firstInput} className={smallInput} value={a.pickup} onChange={(v) => set("pickup", v)} placeholder="Airport, hotel name or address" disabled={locked("pickup")} /></label>
             {airport && <label className={`${smallLabel} animate-in fade-in slide-in-from-top-2`}>Flight number <span className="font-normal text-[#9A8F86]">(optional)</span><input className={smallInput} value={a.flightNumber} onChange={(e) => set("flightNumber", e.target.value.toUpperCase())} placeholder="TG 123" /></label>}
             {service === "hourly"
-              ? <div className={smallLabel}>How many hours?<div className="mt-2">{locked("hours") ? <span className="text-[19px] text-[#1F1726]">{a.hours} hours</span> : <Stepper value={a.hours} set={(n) => set("hours", n)} min={1} max={24} label="hours" />}</div></div>
+              ? <div className={smallLabel}>How many hours?<div className="mt-2">{locked("hours") ? <span className="text-[19px] text-plum">{a.hours} hours</span> : <Stepper value={a.hours} set={(n) => set("hours", n)} min={1} max={24} label="hours" />}</div></div>
               : <label className={smallLabel}>{service === "tour" ? "Which tour?" : "Where are you going?"}{locked("dropoff") && <Lock size={13} className="ml-1 inline text-[#9A8F86]" />}
                 {service === "tour"
                   ? <input className={smallInput} value={a.dropoff} onChange={(e) => set("dropoff", e.target.value)} placeholder="e.g. Floating market day trip" disabled={locked("dropoff")} />
@@ -211,9 +211,9 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
           <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">Do you need a return trip?</h1>
           <p className="mt-2 text-[17px] text-[#6B6170]">From {a.dropoff || "your drop-off"} back to {a.pickup || "your pickup"}.</p>
           <div className="mt-7 grid gap-3 sm:grid-cols-2">
-            {([[true, "A", "Yes, add a return"], [false, "B", "No, one way"]] as const).map(([value, key, text]) => <button key={key} type="button" onClick={() => set("returnTrip", value)} className={`flex h-16 items-center gap-3 rounded-2xl border-2 px-4 text-left text-[17px] font-semibold transition active:scale-[.98] ${a.returnTrip === value ? "border-[#FF8A05] bg-[#FFF0DF]" : "border-[#F0E3D4] bg-white hover:border-[#FFC98A]"}`}>
-              <span className={`grid size-7 place-items-center rounded-md border text-[13px] font-bold ${a.returnTrip === value ? "border-[#FF8A05] bg-[#FF8A05] text-white" : "border-[#E5DDD4] text-[#9A8F86]"}`}>{key}</span>{text}
-              {a.returnTrip === value && <Check size={20} className="ml-auto text-[#FF8A05]" />}
+            {([[true, "A", "Yes, add a return"], [false, "B", "No, one way"]] as const).map(([value, key, text]) => <button key={key} type="button" onClick={() => set("returnTrip", value)} className={`flex h-16 items-center gap-3 rounded-2xl border-2 px-4 text-left text-[17px] font-semibold transition active:scale-[.98] ${a.returnTrip === value ? "border-brand bg-brand-tint" : "border-[#F0E3D4] bg-white hover:border-[#FFC98A]"}`}>
+              <span className={`grid size-7 place-items-center rounded-md border text-[13px] font-bold ${a.returnTrip === value ? "border-brand bg-brand text-white" : "border-[#E5DDD4] text-[#9A8F86]"}`}>{key}</span>{text}
+              {a.returnTrip === value && <Check size={20} className="ml-auto text-brand" />}
             </button>)}
           </div>
           {a.returnTrip && <div className="mt-7 grid gap-5 animate-in fade-in slide-in-from-top-2">
@@ -234,11 +234,11 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
               const v = VEHICLES[id];
               const fits = locked("vehicle") || vehicleFits(id, a.passengers, a.luggage);
               const chosen = a.vehicle === id;
-              return <button key={id} type="button" disabled={!fits} onClick={() => { set("vehicle", id); setCarPicked(true); }} className={`relative rounded-2xl border-2 p-3 text-left transition active:scale-[.98] disabled:opacity-35 ${chosen && carPicked ? "border-[#FF8A05] bg-[#FFF7EE] shadow-[0_6px_16px_-8px_rgba(255,138,5,.6)]" : "border-[#F0E3D4] bg-white hover:border-[#FFC98A]"}`}>
+              return <button key={id} type="button" disabled={!fits} onClick={() => { set("vehicle", id); setCarPicked(true); }} className={`relative rounded-2xl border-2 p-3 text-left transition active:scale-[.98] disabled:opacity-35 ${chosen && carPicked ? "border-brand bg-[#FFF7EE] shadow-[0_6px_16px_-8px_rgba(255,138,5,.6)]" : "border-[#F0E3D4] bg-white hover:border-[#FFC98A]"}`}>
                 <Image src={`/vehicle-${id.replace(/_/g, "-")}.webp`} alt="" width={200} height={110} unoptimized className="h-16 w-full object-contain" />
                 <span className="mt-1 block text-[15px] font-semibold">{v.name}</span>
                 <span className="block text-[13px] text-[#6B6170]">Up to {v.passengers} people · {v.bags} bags</span>
-                {chosen && carPicked && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-[#FF8A05] text-white"><Check size={15} strokeWidth={3} /></span>}
+                {chosen && carPicked && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-brand text-white"><Check size={15} strokeWidth={3} /></span>}
               </button>;
             })}
           </div>
@@ -260,7 +260,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
               <label className="flex cursor-pointer items-center gap-3 py-3">
                 <Image src="/addon-currency-exchange.webp" alt="" width={44} height={44} unoptimized className="size-11 object-contain" />
                 <span className="flex-1"><span className="block font-medium">Currency exchange stop</span><span className="text-[13px] text-[#6B6170]">+THB {EXCHANGE_STOP_THB.toLocaleString()}</span></span>
-                <input type="checkbox" checked={a.exchangeStop} onChange={(e) => set("exchangeStop", e.target.checked)} className="size-5 accent-[#FF8A05]" />
+                <input type="checkbox" checked={a.exchangeStop} onChange={(e) => set("exchangeStop", e.target.checked)} className="size-5 accent-brand" />
               </label>
             </li>
           </ul>
@@ -287,12 +287,12 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
                 <button type="button" disabled={at < 0} onClick={() => go(at)} className="flex w-full items-start gap-3 px-4 py-3 text-left enabled:hover:bg-[#FFF7EE]">
                   <dt className="w-32 shrink-0 text-[14px] text-[#9A8F86]">{k}</dt>
                   <dd className="min-w-0 flex-1 break-words text-[16px] font-medium">{v}</dd>
-                  {at >= 0 ? <Pencil size={15} className="mt-1 shrink-0 text-[#FF8A05]" /> : <Lock size={15} className="mt-1 shrink-0 text-[#C9BFB5]" />}
+                  {at >= 0 ? <Pencil size={15} className="mt-1 shrink-0 text-brand" /> : <Lock size={15} className="mt-1 shrink-0 text-[#C9BFB5]" />}
                 </button>
               </div>;
             })}
           </dl>
-          {prefill.price !== undefined && <div className="mt-4 flex items-center justify-between rounded-2xl bg-[#FFF0DF] px-4 py-3">
+          {prefill.price !== undefined && <div className="mt-4 flex items-center justify-between rounded-2xl bg-brand-tint px-4 py-3">
             <span className="text-[16px] font-semibold">Your agreed price</span>
             <span className="text-[20px] font-bold">THB {(prefill.price + a.childSeats * CHILD_SEAT_THB + (a.exchangeStop ? EXCHANGE_STOP_THB : 0) + (ferry ? a.ferryPeople * FERRY_HOTEL_THB : 0)).toLocaleString()}</span>
           </div>}
@@ -301,7 +301,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
         {error && <p key={error} role="alert" className="mt-5 flex items-center gap-2 rounded-xl bg-[#FFE9E6] px-4 py-2.5 text-[15px] font-medium text-[#B42318] animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-[#B42318] text-[12px] font-bold text-white">!</span>{error}</p>}
 
         <div className="mt-8 hidden items-center gap-3 sm:flex">
-          <button type="button" onClick={() => void next()} disabled={busy} className="inline-flex h-14 items-center gap-2 rounded-2xl bg-[#FF8A05] px-8 text-[18px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(255,138,5,.7)] transition hover:bg-[#E67900] active:scale-[.98] disabled:opacity-60">
+          <button type="button" onClick={() => void next()} disabled={busy} className="inline-flex h-14 items-center gap-2 rounded-2xl bg-brand px-8 text-[18px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(255,138,5,.7)] transition hover:bg-brand-strong active:scale-[.98] disabled:opacity-60">
             {busy && <LoaderCircle size={20} className="animate-spin" />}{last ? "Send my details" : "Continue"}{!last && !busy && <Check size={20} strokeWidth={3} />}
           </button>
           {!last && <span className="text-[13px] text-[#9A8F86]">or press <b>Enter ↵</b></span>}
@@ -310,7 +310,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
     </section>
 
     <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#F0E3D4] bg-white/95 px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:hidden">
-      <button type="button" onClick={() => void next()} disabled={busy} className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#FF8A05] text-[18px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(255,138,5,.7)] transition active:scale-[.98] disabled:opacity-60">
+      <button type="button" onClick={() => void next()} disabled={busy} className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[18px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(255,138,5,.7)] transition active:scale-[.98] disabled:opacity-60">
         {busy && <LoaderCircle size={20} className="animate-spin" />}{last ? "Send my details" : "Continue"}
       </button>
     </div>

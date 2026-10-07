@@ -29,11 +29,11 @@ export default async function PackagePage({ params }: { params: Promise<{ slug: 
   const product = { "@context": "https://schema.org", "@type": "Product", name: p.name, description: p.summary ?? undefined, image: p.coverImage ?? undefined,
     offers: from ? { "@type": "Offer", price: from, priceCurrency: "THB", availability: "https://schema.org/InStock", url: `${SITE_URL}/trips/${p.slug}` } : undefined };
 
-  return <main className="bg-white text-[#211726]">
+  return <main className="bg-white text-plum">
     <JsonLd data={[breadcrumbSchema(crumbs), product]} />
     <section className="mx-auto max-w-[1180px] px-4 pt-5 sm:px-5">
-      <div className="relative overflow-hidden rounded-[26px] bg-[#211726] text-white">
-        {p.coverImage && <><img src={p.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-[#211726]/90 via-[#211726]/50 to-[#211726]/10" /></>}
+      <div className="relative overflow-hidden rounded-[26px] bg-plum text-white">
+        {p.coverImage && <><img src={p.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-plum/90 via-plum/50 to-plum/10" /></>}
         <div className="relative p-6 pt-24 sm:p-10 sm:pt-40">
           <Breadcrumbs crumbs={crumbs} className="mb-5 text-white" />
           <p className="text-sm font-black uppercase tracking-[.16em] text-[#FFB25A]">{KIND_LABEL[p.kind as keyof typeof KIND_LABEL]} · Private car and driver</p>
@@ -46,18 +46,18 @@ export default async function PackagePage({ params }: { params: Promise<{ slug: 
     <section className="mx-auto grid max-w-[1180px] gap-10 px-4 py-10 sm:px-5 lg:grid-cols-[1fr_400px]">
       <div className="grid content-start gap-10">
         {p.summary && <p className="text-lg leading-8 text-slate-700">{p.summary}</p>}
-        {p.highlights.length > 0 && <ul className="grid gap-2">{p.highlights.map((h) => <li key={h} className="flex gap-2"><Check size={20} className="mt-0.5 shrink-0 text-[#D96F00]" />{h}</li>)}</ul>}
+        {p.highlights.length > 0 && <ul className="grid gap-2">{p.highlights.map((h) => <li key={h} className="flex gap-2"><Check size={20} className="mt-0.5 shrink-0 text-brand-text" />{h}</li>)}</ul>}
         <div>
           <h2 className="text-2xl font-black tracking-[-.03em]">Your day</h2>
           <ol className="mt-5 grid gap-4">
-            <li className="flex gap-3 rounded-2xl bg-[#F5F6F8] p-4 font-bold">Pickup from your hotel</li>
+            <li className="flex gap-3 rounded-2xl bg-canvas p-4 font-bold">Pickup from your hotel</li>
             {stops.map((s, i) => <li key={s.id} className="grid gap-3 overflow-hidden rounded-2xl border border-slate-200 sm:grid-cols-[180px_1fr]">
               <div className="aspect-[16/10] bg-slate-100 sm:aspect-auto">{s.cover && <img src={s.cover} alt={s.name} loading="lazy" className="h-full w-full object-cover" />}</div>
-              <div className="p-4 sm:pl-0"><p className="text-sm font-bold text-[#D96F00]">Stop {i + 1}</p><h3 className="text-lg font-black">{s.name}</h3>
+              <div className="p-4 sm:pl-0"><p className="text-sm font-bold text-brand-text">Stop {i + 1}</p><h3 className="text-lg font-black">{s.name}</h3>
                 {s.pitch && <p className="mt-1 leading-7 text-slate-600">{s.pitch}</p>}
                 <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-500"><Clock size={15} />About {s.durationMin >= 60 ? `${Math.round(s.durationMin / 30) / 2} h` : `${s.durationMin} min`}</p></div>
             </li>)}
-            <li className="flex gap-3 rounded-2xl bg-[#F5F6F8] p-4 font-bold">Drop-off at your hotel</li>
+            <li className="flex gap-3 rounded-2xl bg-canvas p-4 font-bold">Drop-off at your hotel</li>
           </ol>
           <p className="mt-3 text-sm text-slate-500">The order can change to suit your hotel and the day. You see the exact times before you pay.</p>
         </div>

@@ -12,7 +12,7 @@ type Data = {
   funnel: { closed: number; prompted: number; rated: number; submitted: number; cta_shown: number; cta_clicked: number };
 };
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 1000) / 10}%` : "–");
-const stars = (n: number) => <span className="inline-flex" aria-label={`${n} of 5 stars`}>{[1, 2, 3, 4, 5].map((i) => <Star key={i} size={14} aria-hidden="true" className={i <= n ? "fill-[#FE8B05] text-[#FE8B05]" : "text-slate-300"} />)}</span>;
+const stars = (n: number) => <span className="inline-flex" aria-label={`${n} of 5 stars`}>{[1, 2, 3, 4, 5].map((i) => <Star key={i} size={14} aria-hidden="true" className={i <= n ? "fill-brand text-brand" : "text-slate-300"} />)}</span>;
 
 // Waydidi's internal support ratings from the chat. Not Google reviews; Google clicks are only clicks.
 export function SupportReviews() {
@@ -43,9 +43,9 @@ export function SupportReviews() {
     <section className="grid gap-4 lg:grid-cols-3">
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <p className="text-[13px] font-semibold text-slate-500">Support rating (Waydidi chat)</p>
-        <p className="mt-1 text-[34px] font-bold">{data.summary.average ?? "–"} <span className="text-[#FE8B05]">★</span></p>
+        <p className="mt-1 text-[34px] font-bold">{data.summary.average ?? "–"} <span className="text-brand">★</span></p>
         <p className="text-[14px] text-slate-600">{total} {total === 1 ? "review" : "reviews"}{data.summary.attention ? ` · ${data.summary.attention} need attention` : ""}</p>
-        <ul className="mt-3 grid gap-1.5">{[5, 4, 3, 2, 1].map((r) => { const n = data.distribution.find((d) => d.rating === r)?.n ?? 0; return <li key={r} className="flex items-center gap-2 text-[13px]"><span className="w-8 shrink-0">{r} ★</span><span className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-[#FE8B05]" style={{ width: `${(n / max) * 100}%` }} /></span><span className="w-8 text-right tabular-nums">{n}</span></li>; })}</ul>
+        <ul className="mt-3 grid gap-1.5">{[5, 4, 3, 2, 1].map((r) => { const n = data.distribution.find((d) => d.rating === r)?.n ?? 0; return <li key={r} className="flex items-center gap-2 text-[13px]"><span className="w-8 shrink-0">{r} ★</span><span className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-brand" style={{ width: `${(n / max) * 100}%` }} /></span><span className="w-8 text-right tabular-nums">{n}</span></li>; })}</ul>
       </div>
       <div className="rounded-2xl border border-slate-200 bg-white p-5 text-[14px]">
         <p className="text-[13px] font-semibold text-slate-500">Feedback funnel</p>
@@ -61,7 +61,7 @@ export function SupportReviews() {
       </div>
       <div className="rounded-2xl border border-slate-200 bg-white p-5 text-[14px]">
         <p className="text-[13px] font-semibold text-slate-500">By admin (internal only)</p>
-        <ul className="mt-2 grid gap-2">{data.perAdmin.length ? data.perAdmin.map((a) => <li key={a.admin} className="flex items-center justify-between gap-2"><button type="button" onClick={() => setF({ ...f, admin: f.admin === a.admin ? "" : a.admin })} className={`truncate text-left ${f.admin === a.admin ? "font-bold text-[#C96100]" : ""}`}>{a.admin}</button><span className="shrink-0 tabular-nums">{a.average} ★ · {a.reviews}</span></li>) : <li className="text-slate-500">No reviews yet.</li>}</ul>
+        <ul className="mt-2 grid gap-2">{data.perAdmin.length ? data.perAdmin.map((a) => <li key={a.admin} className="flex items-center justify-between gap-2"><button type="button" onClick={() => setF({ ...f, admin: f.admin === a.admin ? "" : a.admin })} className={`truncate text-left ${f.admin === a.admin ? "font-bold text-brand-darker" : ""}`}>{a.admin}</button><span className="shrink-0 tabular-nums">{a.average} ★ · {a.reviews}</span></li>) : <li className="text-slate-500">No reviews yet.</li>}</ul>
       </div>
     </section>
 
@@ -70,7 +70,7 @@ export function SupportReviews() {
       <label className="grid gap-1 font-semibold">Admin<select value={f.admin} onChange={(e) => setF({ ...f, admin: e.target.value })} className="h-9 rounded-lg border border-slate-200 px-2 font-normal"><option value="">All</option>{data.perAdmin.map((a) => <option key={a.admin}>{a.admin}</option>)}</select></label>
       <label className="grid gap-1 font-semibold">From<input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} className="h-9 rounded-lg border border-slate-200 px-2 font-normal" /></label>
       <label className="grid gap-1 font-semibold">To<input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} className="h-9 rounded-lg border border-slate-200 px-2 font-normal" /></label>
-      <label className="flex h-9 items-center gap-2 font-semibold"><input type="checkbox" checked={f.attention} onChange={(e) => setF({ ...f, attention: e.target.checked })} className="accent-[#FE8B05]" />Needs attention</label>
+      <label className="flex h-9 items-center gap-2 font-semibold"><input type="checkbox" checked={f.attention} onChange={(e) => setF({ ...f, attention: e.target.checked })} className="accent-brand" />Needs attention</label>
     </section>
 
     <ul className="grid gap-2">
@@ -84,7 +84,7 @@ export function SupportReviews() {
         </div>
         {r.feedback && <p className="mt-2 whitespace-pre-wrap break-words">{r.feedback}</p>}
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-slate-500">
-          <Link href={`/admin/chat?id=${encodeURIComponent(r.conversation_id)}`} className="font-semibold text-[#C96100] underline">{r.public_id}</Link>
+          <Link href={`/admin/chat?id=${encodeURIComponent(r.conversation_id)}`} className="font-semibold text-brand-darker underline">{r.public_id}</Link>
           {(r.source_title || r.source_url) && <span>From {r.source_title || r.source_url}</span>}
           {r.google_cta_clicked_at && <span>Opened Google review link</span>}
           <span>{r.consent_to_publish ? `May publish · ${r.publication_status}` : "Private (no consent)"}</span>

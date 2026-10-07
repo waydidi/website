@@ -27,7 +27,7 @@ export const STATUS_LABEL: Record<string, [string, string]> = {
   draft: ["Draft", "bg-slate-100 text-slate-700"], pricing: ["Waiting for price", "bg-violet-100 text-violet-800"], sent: ["Sent", "bg-sky-100 text-sky-800"],
   changes_requested: ["Changes requested", "bg-amber-100 text-amber-800"], accepted: ["Accepted · paid", "bg-emerald-100 text-emerald-800"], cancelled: ["Cancelled", "bg-red-100 text-red-700"],
 };
-const PRIORITY: Record<Priority, [string, string]> = { fixed: ["Fixed", "bg-[#211726] text-white"], must: ["Must do", "bg-orange-100 text-[#C96100]"], nice: ["Nice to have", "bg-slate-100 text-slate-600"] };
+const PRIORITY: Record<Priority, [string, string]> = { fixed: ["Fixed", "bg-plum text-white"], must: ["Must do", "bg-orange-100 text-brand-darker"], nice: ["Nice to have", "bg-slate-100 text-slate-600"] };
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 const uid = () => crypto.randomUUID().slice(0, 8);
 const bangkokToday = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
@@ -163,8 +163,8 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
   return <main className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6">
     {/* Header */}
     <div className="flex flex-wrap items-center gap-3">
-      <Link href={home} className="grid size-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 hover:text-[#C96100]" aria-label="All trips"><ArrowLeft size={18} /></Link>
-      <input value={draft.title} onChange={(e) => update({ title: e.target.value })} placeholder={draft.isTemplate ? "Template name, e.g. Phuket highlights day" : "Trip name, e.g. Phuket private day trip"} className="h-11 min-w-[220px] flex-1 rounded-xl border border-transparent bg-transparent px-2 text-[24px] font-black tracking-[-.03em] outline-none hover:border-slate-200 focus:border-[#FF8A05] focus:bg-white" aria-label="Trip name" />
+      <Link href={home} className="grid size-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 hover:text-brand-darker" aria-label="All trips"><ArrowLeft size={18} /></Link>
+      <input value={draft.title} onChange={(e) => update({ title: e.target.value })} placeholder={draft.isTemplate ? "Template name, e.g. Phuket highlights day" : "Trip name, e.g. Phuket private day trip"} className="h-11 min-w-[220px] flex-1 rounded-xl border border-transparent bg-transparent px-2 text-[24px] font-black tracking-[-.03em] outline-none hover:border-slate-200 focus:border-brand focus:bg-white" aria-label="Trip name" />
       {meta && <span className="text-[13px] font-semibold text-slate-500">{meta.ref}</span>}
       {meta && !meta.isTemplate && <span className={`rounded-full px-2.5 py-0.5 text-[13px] font-semibold ${STATUS_LABEL[meta.status]?.[1]}`}>{STATUS_LABEL[meta.status]?.[0] ?? meta.status}</span>}
       {draft.isTemplate && <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-[13px] font-semibold text-violet-800">Quick quote template</span>}
@@ -175,8 +175,8 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
       </div>
     </div>
     {meta && !meta.isTemplate && <nav aria-label="Trip days" className="mt-3 flex flex-wrap items-center gap-2">
-      {group.length > 1 && group.map((d) => <Link key={d.id} href={`${home}/${d.id}`} className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold ${d.id === meta.id ? "border-[#FF8A05] bg-orange-50 text-[#C96100]" : "border-slate-200 bg-white text-slate-700 hover:border-[#FF8A05]"}`}>Day {d.dayNumber}{d.tripDate ? ` · ${new Date(`${d.tripDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })}` : ""} · {d.stops} stop{d.stops === 1 ? "" : "s"}</Link>)}
-      {!locked && <button type="button" onClick={async () => { const r = await action("add_day"); if (r?.id) router.push(`${home}/${r.id}`); }} className="rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-[13px] font-semibold text-slate-600 hover:border-[#FF8A05] hover:text-[#C96100]">+ Add day</button>}
+      {group.length > 1 && group.map((d) => <Link key={d.id} href={`${home}/${d.id}`} className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold ${d.id === meta.id ? "border-brand bg-orange-50 text-brand-darker" : "border-slate-200 bg-white text-slate-700 hover:border-brand"}`}>Day {d.dayNumber}{d.tripDate ? ` · ${new Date(`${d.tripDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })}` : ""} · {d.stops} stop{d.stops === 1 ? "" : "s"}</Link>)}
+      {!locked && <button type="button" onClick={async () => { const r = await action("add_day"); if (r?.id) router.push(`${home}/${r.id}`); }} className="rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-[13px] font-semibold text-slate-600 hover:border-brand hover:text-brand-darker">+ Add day</button>}
       {group.length > 1 && <span className="text-[13px] text-slate-500">Multi-day trip · total THB {group.reduce((n, d) => n + d.total, 0).toLocaleString("en-US")} · sent and paid together</span>}
     </nav>}
     {(error || notice) && <p role={error ? "alert" : "status"} className={`mt-2 text-[14px] font-semibold ${error ? "text-red-600" : "text-emerald-700"}`}>{error || notice}</p>}
@@ -197,7 +197,7 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
             <Field label="Bags"><input type="number" min={0} max={30} value={draft.bags} onChange={(e) => update({ bags: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={inputCls} /></Field>
           </div>
           <Field label="Pickup" className="mt-3" hint={draft.pickupLat == null && draft.pickupText ? "Pick a suggestion so drive times can be worked out" : undefined}><PlacePicker value={draft.pickupText} onChange={(p) => update({ pickupText: p.text, ...(p.lat != null ? { pickupLat: p.lat, pickupLng: p.lng } : {}) })} className={inputCls} placeholder="Hotel or address" /></Field>
-          <label className="mt-2 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={sameEnd} onChange={(e) => { setSameEnd(e.target.checked); setDirty(true); }} className="size-4 accent-[#FF8A05]" />End where the trip starts</label>
+          <label className="mt-2 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={sameEnd} onChange={(e) => { setSameEnd(e.target.checked); setDirty(true); }} className="size-4 accent-brand" />End where the trip starts</label>
           {!sameEnd && <Field label="Drop-off at the end" className="mt-2"><PlacePicker value={draft.endText ?? ""} onChange={(p) => update({ endText: p.text, ...(p.lat != null ? { endLat: p.lat, endLng: p.lng } : {}) })} className={inputCls} placeholder="Hotel, airport or address" /></Field>}
           <div className="mt-3 grid grid-cols-2 gap-3">
             <Field label="Vehicle" hint={vehicle ? `Seats ${vehicle.passengers}, ${vehicle.bags} bags` : undefined}><select value={draft.vehicle} onChange={(e) => update({ vehicle: e.target.value })} className={inputCls}>{Object.entries(VEHICLES).map(([id, v]) => <option key={id} value={id}>{v.name}</option>)}</select></Field>
@@ -214,7 +214,7 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
         <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex items-center justify-between gap-2"><h2 className="text-[16px] font-bold">Itinerary</h2>{planning && <LoaderCircle size={16} className="animate-spin text-slate-400" />}</div>
           <ol className="mt-3 grid gap-2">
-            <li className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px]"><span className="grid size-7 place-items-center rounded-full bg-[#211726] text-[12px] font-bold text-white">P</span><span className="font-bold tabular-nums">{draft.startTime}</span><span className="truncate">Pickup · {draft.pickupText || "set the pickup"}</span></li>
+            <li className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px]"><span className="grid size-7 place-items-center rounded-full bg-plum text-[12px] font-bold text-white">P</span><span className="font-bold tabular-nums">{draft.startTime}</span><span className="truncate">Pickup · {draft.pickupText || "set the pickup"}</span></li>
             {draft.stops.map((s, index) => {
               const p = plannedById[s.id]; const a = s.attractionId ? byId[s.attractionId] : undefined;
               const program = a?.programs.find((x) => x.id === s.programId);
@@ -222,7 +222,7 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
               const contact = s.attractionId ? contacts[s.attractionId] : undefined;
               const hasError = p?.problems.some((x) => x.level === "error");
               return <li key={s.id} draggable={!locked} onDragStart={() => setDragId(s.id)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (dragId) moveStop(dragId, index); setDragId(null); }}
-                onClick={() => setSelected(s.id)} className={`rounded-2xl border p-3 text-[14px] transition ${selected === s.id ? "border-[#FF8A05] ring-2 ring-orange-100" : hasError ? "border-red-200 bg-red-50/40" : "border-slate-200"} ${s.skipped ? "opacity-55" : ""}`}>
+                onClick={() => setSelected(s.id)} className={`rounded-2xl border p-3 text-[14px] transition ${selected === s.id ? "border-brand ring-2 ring-orange-100" : hasError ? "border-red-200 bg-red-50/40" : "border-slate-200"} ${s.skipped ? "opacity-55" : ""}`}>
                 {p && p.travelMin > 0 && <p className="-mt-1 mb-2 text-[12px] text-slate-500">↓ {duration(p.travelMin)} drive{p.wait > 0 ? ` · ${duration(p.wait)} wait` : ""}</p>}
                 <div className="flex items-start gap-2">
                   <GripVertical size={16} className="mt-1 shrink-0 cursor-grab text-slate-300" aria-hidden />
@@ -259,7 +259,7 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
                 </div>
               </li>;
             })}
-            {result && draft.stops.length > 0 && <li className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px]"><span className="grid size-7 place-items-center rounded-full bg-[#211726] text-[12px] font-bold text-white">{sameEnd ? "P" : "E"}</span><span className="font-bold tabular-nums">{fmt(result.plan.returnAt)}</span><span className="truncate">{sameEnd ? "Back at pickup" : `Drop-off · ${draft.endText}`}{result.plan.returnTravel ? ` (${duration(result.plan.returnTravel)} drive)` : ""}</span></li>}
+            {result && draft.stops.length > 0 && <li className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px]"><span className="grid size-7 place-items-center rounded-full bg-plum text-[12px] font-bold text-white">{sameEnd ? "P" : "E"}</span><span className="font-bold tabular-nums">{fmt(result.plan.returnAt)}</span><span className="truncate">{sameEnd ? "Back at pickup" : `Drop-off · ${draft.endText}`}{result.plan.returnTravel ? ` (${duration(result.plan.returnTravel)} drive)` : ""}</span></li>}
           </ol>
           {!locked && <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={() => setPicker(true)} className={btnPrimary}><Plus size={16} />Add attraction</button>
@@ -284,10 +284,10 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
           {result && !errors.length && !warnings.length && <p className="mt-2 text-[14px] text-emerald-700">Fixed sessions are protected, places are open, and the trip fits its hours.</p>}
           <ul className="mt-2 grid gap-1.5 text-[13px]">{[...errors, ...warnings].map((p, i) => <li key={i} className={p.level === "error" ? "text-red-700" : "text-amber-700"}>{p.level === "error" ? "✕" : "!"} {p.message}</li>)}</ul>
           {result && result.alternatives.length > 0 && !locked && <div className="mt-3 grid gap-2 border-t border-slate-100 pt-3">
-            <p className="flex items-center gap-1.5 text-[14px] font-bold"><Sparkles size={15} className="text-[#D96F00]" />Ways to fit the trip</p>
+            <p className="flex items-center gap-1.5 text-[14px] font-bold"><Sparkles size={15} className="text-brand-text" />Ways to fit the trip</p>
             {result.alternatives.map((alt, i) => <div key={i} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-[13px]">
               <span><b>{String.fromCharCode(65 + i)}.</b> {alt.label} · {alt.extendHours ? `trip ${draft.durationHours + alt.extendHours} hours` : `back ${fmt(alt.returnAt)}`}{!alt.fits && " (still over)"}</span>
-              <button type="button" onClick={() => { if (alt.extendHours) update({ durationHours: Math.min(16, draft.durationHours + alt.extendHours) }); else setStops(alt.stops); }} className="font-semibold text-[#C96100] hover:underline">Apply</button>
+              <button type="button" onClick={() => { if (alt.extendHours) update({ durationHours: Math.min(16, draft.durationHours + alt.extendHours) }); else setStops(alt.stops); }} className="font-semibold text-brand-darker hover:underline">Apply</button>
             </div>)}
           </div>}
         </section>
@@ -314,8 +314,8 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
         {meta && <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-[16px] font-bold">Sharing and versions</h2>
           {meta.sentAt && <div className="mt-2 flex flex-wrap items-center gap-2 text-[14px]">
-            <a href={`/itinerary/${meta.token}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-[#C96100] hover:underline"><ExternalLink size={14} />Customer page</a>
-            <button type="button" onClick={() => { void navigator.clipboard.writeText(`${location.origin}/itinerary/${meta.token}`); setNotice("Link copied."); }} className="inline-flex items-center gap-1 font-semibold text-slate-600 hover:text-[#C96100]"><Copy size={14} />Copy link</button>
+            <a href={`/itinerary/${meta.token}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-brand-darker hover:underline"><ExternalLink size={14} />Customer page</a>
+            <button type="button" onClick={() => { void navigator.clipboard.writeText(`${location.origin}/itinerary/${meta.token}`); setNotice("Link copied."); }} className="inline-flex items-center gap-1 font-semibold text-slate-600 hover:text-brand-darker"><Copy size={14} />Copy link</button>
             <span className="text-slate-500">{meta.viewedAt ? `Opened ${new Date(meta.viewedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}` : "Not opened yet"}</span>
           </div>}
           {meta.feedbackRating != null && <div className={`mt-2 rounded-xl p-3 text-[14px] ${meta.feedbackRating <= 3 ? "bg-red-50 text-red-900" : "bg-emerald-50 text-emerald-900"}`}><b>{"★".repeat(meta.feedbackRating)}{"☆".repeat(5 - meta.feedbackRating)}</b> customer rating{meta.feedbackComment && <p className="mt-1">“{meta.feedbackComment}”</p>}</div>}
@@ -361,10 +361,10 @@ function AttractionPicker({ attractions, date, area, onClose, onAdd }: { attract
       <div className="flex items-center justify-between"><h2 id="pick-title" className="text-[20px] font-bold">{chosen ? chosen.customerName || chosen.name : "Add attraction"}</h2><button type="button" onClick={chosen ? () => setChosen(null) : onClose} aria-label={chosen ? "Back" : "Close"} className="rounded-full p-1.5 hover:bg-slate-100">{chosen ? <ArrowLeft size={20} /> : <X size={20} />}</button></div>
       {!chosen ? <>
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search attractions" className={`${inputCls} mt-3`} />
-        {area && <label className="mt-2 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={onlyArea} onChange={(e) => setOnlyArea(e.target.checked)} className="size-4 accent-[#FF8A05]" />Only {area}</label>}
+        {area && <label className="mt-2 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={onlyArea} onChange={(e) => setOnlyArea(e.target.checked)} className="size-4 accent-brand" />Only {area}</label>}
         <ul className="mt-3 grid gap-2 overflow-y-auto">
-          {list.map((a) => <li key={a.id}><button type="button" onClick={() => { setChosen(a); setProgramId(a.programs[0]?.id ?? ""); setSession(""); }} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-3 text-left hover:border-[#FF8A05]">
-            {a.coverImage ? <img src={a.coverImage} alt="" className="size-12 rounded-lg object-cover" /> : <span className="grid size-12 place-items-center rounded-lg bg-orange-50 text-[#D96F00]"><MapPin size={18} /></span>}
+          {list.map((a) => <li key={a.id}><button type="button" onClick={() => { setChosen(a); setProgramId(a.programs[0]?.id ?? ""); setSession(""); }} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-3 text-left hover:border-brand">
+            {a.coverImage ? <img src={a.coverImage} alt="" className="size-12 rounded-lg object-cover" /> : <span className="grid size-12 place-items-center rounded-lg bg-orange-50 text-brand-text"><MapPin size={18} /></span>}
             <span className="min-w-0 flex-1"><span className="block font-semibold">{a.customerName || a.name}</span><span className="block text-[12px] text-slate-500">{a.area} · {a.category} · {a.openTime ? `${a.openTime}–${a.closeTime}` : "any time"}{a.programs.length ? ` · ${a.programs.length} program${a.programs.length > 1 ? "s" : ""}` : ""}{a.latitude == null ? " · no map location" : ""}</span></span>
           </button></li>)}
           {!list.length && <li className="py-8 text-center text-[14px] text-slate-500">No attractions match. Add them under Attractions.</li>}
@@ -373,7 +373,7 @@ function AttractionPicker({ attractions, date, area, onClose, onAdd }: { attract
         {chosen.description && <p className="text-[14px] text-slate-600">{chosen.description}</p>}
         {chosen.programs.length > 0 && <Field label="Program"><select value={programId} onChange={(e) => { setProgramId(e.target.value); setSession(""); }} className={inputCls}><option value="">General visit ({chosen.durationMin} min)</option>{chosen.programs.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.durationMin} min)</option>)}</select></Field>}
         {program && program.sessions.length > 0 && <Field label="Session" hint={date ? (sessions.length ? `Sessions on ${date}` : "No sessions on this date") : "Set the trip date to see that day's sessions"}>
-          <div className="flex flex-wrap gap-2">{(date ? sessions : program.sessions.map((s) => s.time)).map((t) => <button key={t} type="button" onClick={() => setSession(session === t ? "" : t)} className={`h-10 rounded-xl border px-4 text-[14px] font-semibold ${session === t ? "border-[#FF8A05] bg-orange-50 text-[#C96100]" : "border-slate-200"}`}>{t}</button>)}</div></Field>}
+          <div className="flex flex-wrap gap-2">{(date ? sessions : program.sessions.map((s) => s.time)).map((t) => <button key={t} type="button" onClick={() => setSession(session === t ? "" : t)} className={`h-10 rounded-xl border px-4 text-[14px] font-semibold ${session === t ? "border-brand bg-orange-50 text-brand-darker" : "border-slate-200"}`}>{t}</button>)}</div></Field>}
         {!session && <Field label="Priority"><select value={priority} onChange={(e) => setPriority(e.target.value as Priority)} className={inputCls}><option value="must">Must do (customer asked)</option><option value="nice">Nice to have (if time allows)</option><option value="fixed">Fixed (already booked)</option></select></Field>}
         {session && <p className="rounded-xl bg-orange-50 p-3 text-[13px] text-[#9A4D00]">Fixed session at {session}: the plan will arrive {program?.arrivalBufferMin ?? chosen.arrivalBufferMin} min early and arrange other stops around it.</p>}
         <button type="button" onClick={() => onAdd(chosen, programId || null, session || null, priority)} className={btnPrimary}><Plus size={16} />Add to trip</button>
@@ -392,7 +392,7 @@ function SendDialog({ hasEmail, errors, onClose, onSend }: { hasEmail: boolean; 
       <p className="mt-1 text-[14px] text-slate-600">This saves a new version the customer sees on their itinerary page. Earlier versions are kept.</p>
       {errors > 0 && <p className="mt-3 rounded-xl bg-red-50 p-3 text-[13px] font-semibold text-red-700">{errors} check(s) are failing. You can still send, but fix them first if you can.</p>}
       <Field label="What changed (for the version history)" className="mt-3"><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Added Promthep Cape" className={inputCls} /></Field>
-      <label className="mt-3 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={notify} disabled={!hasEmail} onChange={(e) => setNotify(e.target.checked)} className="size-4 accent-[#FF8A05]" />Email the link to the customer{!hasEmail && " (add an email first)"}</label>
+      <label className="mt-3 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={notify} disabled={!hasEmail} onChange={(e) => setNotify(e.target.checked)} className="size-4 accent-brand" />Email the link to the customer{!hasEmail && " (add an email first)"}</label>
       <div className="mt-4 flex gap-2"><button type="button" onClick={onClose} className={`${btnQuiet} flex-1`}>Back</button><button type="submit" disabled={busy} className={`${btnPrimary} flex-1`}>{busy && <LoaderCircle size={16} className="animate-spin" />}Send</button></div>
     </form>
   </div>;

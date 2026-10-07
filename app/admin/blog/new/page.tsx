@@ -11,5 +11,5 @@ export const metadata: Metadata = { title: "Add new post · Waydidi operations",
 export default async function NewPostPage() {
   const access = await requireWaydidiAdmin("/admin/blog/new");
   if (!access.authorized) return <AdminKeyLogin configured={access.configured} />;
-  return <main className="min-h-screen bg-[#F6F7F9] px-4 text-[#1f1726] sm:px-8"><div className="mx-auto max-w-[1280px]"><PostEditor initial={EMPTY_POST} knownCategories={await knownCategories()} /></div></main>;
+  return <main className="min-h-screen bg-[#F6F7F9] px-4 text-plum sm:px-8"><div className="mx-auto max-w-[1280px]"><PostEditor initial={EMPTY_POST} knownCategories={await knownCategories()} /></div></main>;
 }

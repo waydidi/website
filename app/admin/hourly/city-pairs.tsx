@@ -52,7 +52,7 @@ export default function HourlyCityPairs() {
           <td className="text-center"><input type="checkbox" disabled={busy} checked={current.rates[v].active} aria-label={`Offer ${NAMES[v]}`} onChange={(e) => edit((p) => { p.rates[v].active = e.target.checked; return p; })} /></td>
         </tr>)}</tbody>
       </table></div>
-      <div className="mt-4 flex items-center gap-3"><button disabled={busy} onClick={save} className="rounded-full bg-[#FF8A05] px-6 py-2.5 font-semibold text-white disabled:opacity-60">{busy ? "Saving…" : "Save city-pair prices"}</button></div>
+      <div className="mt-4 flex items-center gap-3"><button disabled={busy} onClick={save} className="rounded-full bg-brand px-6 py-2.5 font-semibold text-white disabled:opacity-60">{busy ? "Saving…" : "Save city-pair prices"}</button></div>
       <div className="mt-5 rounded-xl bg-slate-50 p-3 text-sm">
         <label>Overtime calculator · extra minutes <input type="number" min={0} max={1440} value={extraMinutes} onChange={(e) => setExtraMinutes(Math.max(0, Number(e.target.value) || 0))} className="ml-2 h-9 w-20 rounded border bg-white px-2" /></label>
         <p className="mt-2">{HOURLY_VEHICLES.map((v) => `${NAMES[v]}: ฿${hourlyOvertime(extraMinutes, current.rates[v].extraHourRate).total}`).join(" · ")}</p>

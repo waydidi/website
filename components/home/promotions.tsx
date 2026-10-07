@@ -57,9 +57,9 @@ function PromoCard({ promo, onTerms, state, onCollect }: { promo: Promotion; onT
     <span aria-hidden="true" className="absolute -left-3 top-1/2 size-6 -translate-y-1/2 rounded-full bg-[#FFF3E6]" />
     <span aria-hidden="true" className="absolute -right-3 top-1/2 size-6 -translate-y-1/2 rounded-full bg-[#FFF3E6]" />
     <button type="button" onClick={onTerms} className="absolute right-4 top-3 text-[13px] font-semibold text-[#E07400] underline-offset-2 hover:underline">{t("promo.tc")}</button>
-    <p className="min-h-12 pr-8 text-[16px] font-medium leading-6 text-[#1C1C1C]">{title}</p>
+    <p className="min-h-12 pr-8 text-[16px] font-medium leading-6 text-charcoal">{title}</p>
     <div className="mt-4 flex items-center gap-3">
-      <span className="flex h-11 min-w-0 flex-1 items-center truncate rounded-lg bg-[#F4F4F2] px-3 text-[15px] text-[#1C1C1C]">{code}</span>
+      <span className="flex h-11 min-w-0 flex-1 items-center truncate rounded-lg bg-[#F4F4F2] px-3 text-[15px] text-charcoal">{code}</span>
       {collected
         ? <Link href="/account/coupons" className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border-2 border-[#16A34A] bg-[#F0FDF4] px-3.5 text-[15px] font-semibold text-[#15803D] animate-in zoom-in-95 duration-300" aria-live="polite">
             <Check size={17} strokeWidth={3} aria-hidden="true" />{t("promo.collected")}
@@ -136,13 +136,13 @@ export function Promotions() {
   }, []);
   if (!promotions.length) return null;
   return <section className="bg-gradient-to-b from-[#FFF3E6] to-[#FFF9F3] py-8" aria-labelledby="promotions-heading">
-    <h2 id="promotions-heading" className="mx-auto max-w-[1180px] px-5 text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C] lg:px-0">{t("promo.heading")}</h2>
+    <h2 id="promotions-heading" className="mx-auto max-w-[1180px] px-5 text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-charcoal lg:px-0">{t("promo.heading")}</h2>
     {/* Native horizontal scroll with snap: smooth with a finger or trackpad. */}
     <ul className="mx-auto mt-4 flex max-w-[1180px] snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto overscroll-x-contain px-5 pb-3 [scrollbar-width:none] lg:scroll-px-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
       {promotions.map((promo) => <PromoCard key={promo.code} promo={promo} onTerms={() => setTerms(promo)} state={states[promo.code.toUpperCase()] ?? "idle"} onCollect={() => void collect(promo.code.toUpperCase())} />)}
     </ul>
     <TermsSheet promo={terms} onClose={() => setTerms(null)} />
-    {toast && <div role="status" className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+112px)] z-[90] mx-auto flex w-fit max-w-[90vw] items-center gap-2 rounded-full bg-[#1C1C1C] px-5 py-3 text-[15px] font-medium text-white shadow-xl animate-in fade-in slide-in-from-bottom-4">{toast}{toast === t("promo.collectedToast") && <Link href="/account/coupons" className="font-semibold text-[#FFB04D] underline underline-offset-2">{t("promo.view")}</Link>}</div>}
+    {toast && <div role="status" className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+112px)] z-[90] mx-auto flex w-fit max-w-[90vw] items-center gap-2 rounded-full bg-charcoal px-5 py-3 text-[15px] font-medium text-white shadow-xl animate-in fade-in slide-in-from-bottom-4">{toast}{toast === t("promo.collectedToast") && <Link href="/account/coupons" className="font-semibold text-[#FFB04D] underline underline-offset-2">{t("promo.view")}</Link>}</div>}
   </section>;
 }
 
@@ -171,16 +171,16 @@ function TermsSheet({ promo, onClose }: { promo: Promotion | null; onClose: () =
   return <DialogPrimitive.Root open={Boolean(promo)} onOpenChange={(open) => { if (!open) onClose(); }}>
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/45 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-      <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[90dvh] flex-col rounded-t-[22px] bg-white text-[#1C1C1C] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[560px] sm:-translate-x-1/2">
+      <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[90dvh] flex-col rounded-t-[22px] bg-white text-charcoal shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[560px] sm:-translate-x-1/2">
         {promo && <>
           <div className="mx-auto mt-2.5 h-1.5 w-12 shrink-0 rounded-full bg-[#D9D9D9]" aria-hidden="true" />
           <div className="flex-1 overflow-y-auto px-5 pb-4 pt-5">
             <DialogPrimitive.Title className="text-[21px] font-semibold leading-snug">Your promo code is ready to use at payment.</DialogPrimitive.Title>
-            <DialogPrimitive.Description className="mt-5 text-[15px] text-[#6B6B6B]">Terms and Conditions:</DialogPrimitive.Description>
+            <DialogPrimitive.Description className="mt-5 text-[15px] text-grey-text">Terms and Conditions:</DialogPrimitive.Description>
             <h3 className="mt-3 text-[16px] font-semibold underline underline-offset-4">General Terms &amp; Conditions</h3>
             <ol className="mt-3 grid list-decimal gap-1.5 pl-6 text-[15px] leading-6 text-[#2B2B2B]">{general.map((line) => <li key={line}>{line}</li>)}</ol>
             <h3 className="mt-6 text-[16px] font-semibold underline underline-offset-4">Product Terms &amp; Conditions</h3>
-            <p className="mt-3 flex items-center gap-2 text-[15px] font-semibold"><span className="size-1.5 rounded-full bg-[#1C1C1C]" aria-hidden="true" />{promo.service}</p>
+            <p className="mt-3 flex items-center gap-2 text-[15px] font-semibold"><span className="size-1.5 rounded-full bg-charcoal" aria-hidden="true" />{promo.service}</p>
             <ol className="mt-2 grid list-decimal gap-1.5 pl-6 text-[15px] leading-6 text-[#2B2B2B]">{promo.offer.map((line) => <li key={line}>{line}</li>)}</ol>
             <h3 className="mt-6 text-[16px] font-semibold underline underline-offset-4">Booking policies</h3>
             <ol className="mt-3 grid list-decimal gap-1.5 pl-6 text-[15px] leading-6 text-[#2B2B2B]">
@@ -189,7 +189,7 @@ function TermsSheet({ promo, onClose }: { promo: Promotion | null; onClose: () =
               <li>The discount applies to the fare shown at booking; extra stops, waiting or route changes are charged separately.</li>
               <li>Waydidi may cancel a discount that is used against these terms.</li>
             </ol>
-            <p className="mt-4 text-[14px] text-[#6B6B6B]">Full terms: <Link href="/terms" className="font-medium text-[#E07400] underline underline-offset-2">Booking terms</Link> · <Link href="/refund-policy" className="font-medium text-[#E07400] underline underline-offset-2">Cancellation &amp; refunds</Link></p>
+            <p className="mt-4 text-[14px] text-grey-text">Full terms: <Link href="/terms" className="font-medium text-[#E07400] underline underline-offset-2">Booking terms</Link> · <Link href="/refund-policy" className="font-medium text-[#E07400] underline underline-offset-2">Cancellation &amp; refunds</Link></p>
           </div>
           <div className="grid gap-3 border-t border-[#F0F0F0] px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-3">
             <div className="flex items-center gap-3 rounded-xl border border-dashed border-[#D9D9D9] py-2 pl-5 pr-2">

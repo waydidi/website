@@ -30,7 +30,7 @@ export function TransferPartners() {
         tabIndex={selected === index ? 0 : -1}
         onClick={() => setSelected(index)}
         onKeyDown={(event) => onKeyDown(event, index)}
-        className={`min-h-9 rounded-full px-3 py-2 text-[13px] leading-[1.2] tracking-[-.02em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FE8B05] whitespace-nowrap min-[375px]:px-4 min-[375px]:text-[14px] sm:min-h-12 sm:px-6 sm:text-[18px] ${selected === index ? "bg-[#171D21] text-white" : "bg-[#F2F3F6] text-[#171D21] hover:bg-slate-200"}`}
+        className={`min-h-9 rounded-full px-3 py-2 text-[13px] leading-[1.2] tracking-[-.02em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand whitespace-nowrap min-[375px]:px-4 min-[375px]:text-[14px] sm:min-h-12 sm:px-6 sm:text-[18px] ${selected === index ? "bg-[#171D21] text-white" : "bg-[#F2F3F6] text-[#171D21] hover:bg-slate-200"}`}
       >{partner.label}</button>)}
     </div>
     {TRANSFER_PARTNERS.map((partner, index) => <div
@@ -40,7 +40,7 @@ export function TransferPartners() {
       aria-labelledby={`transfer-partner-tab-${partner.id}`}
       tabIndex={0}
       hidden={selected !== index}
-      className={`rounded-[28px] px-[22px] pb-10 pt-[22px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FE8B05] sm:rounded-[32px] sm:p-10 sm:pb-[70px] lg:p-14 lg:pb-[86px] ${partner.gradient}`}
+      className={`rounded-[28px] px-[22px] pb-10 pt-[22px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand sm:rounded-[32px] sm:p-10 sm:pb-[70px] lg:p-14 lg:pb-[86px] ${partner.gradient}`}
     >
       <h3 className="max-w-[850px] text-[20px] font-medium leading-[1.15] tracking-[-.02em] sm:text-[28px] sm:font-semibold lg:text-[32px]">{partner.title}</h3>
       <p className="mt-[22px] max-w-[940px] whitespace-pre-line text-[14px] leading-[1.34] tracking-[-.01em] sm:mt-6 sm:text-[18px] sm:leading-[1.5]">{partner.description}</p>

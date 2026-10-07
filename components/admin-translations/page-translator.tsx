@@ -92,12 +92,12 @@ export function PageTranslator({ onDone }: { onDone: () => void }) {
 
     <div className="flex flex-wrap gap-1.5">
       {LANGS.map((l) => <button key={l.code} type="button" aria-pressed={langs.has(l.code)} onClick={() => { const n = new Set(langs); if (n.has(l.code)) n.delete(l.code); else n.add(l.code); setLangs(n); setRows(null); }}
-        className={`rounded-full px-3 py-1 text-[13px] font-semibold ${langs.has(l.code) ? "bg-[#FFF0DF] text-[#C96100]" : "bg-slate-50 text-slate-500 ring-1 ring-slate-200"}`}>{l.label}</button>)}
+        className={`rounded-full px-3 py-1 text-[13px] font-semibold ${langs.has(l.code) ? "bg-brand-tint text-brand-darker" : "bg-slate-50 text-slate-500 ring-1 ring-slate-200"}`}>{l.label}</button>)}
     </div>
 
     <div className="flex flex-wrap items-center gap-2">
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter pages, e.g. destinations" className="h-9 flex-1 rounded-lg border border-slate-200 px-3" />
-      <button type="button" onClick={() => toggle(shown, true)} className="text-[13px] font-semibold text-[#C96100]">Select shown</button>
+      <button type="button" onClick={() => toggle(shown, true)} className="text-[13px] font-semibold text-brand-darker">Select shown</button>
       <button type="button" onClick={() => toggle([...picked], false)} className="text-[13px] font-semibold text-slate-500">Clear</button>
     </div>
 
@@ -105,8 +105,8 @@ export function PageTranslator({ onDone }: { onDone: () => void }) {
       {pages === null && <li className="p-4 text-slate-500"><LoaderCircle size={15} className="inline animate-spin" /> Loading pages…</li>}
       {shown.map((p) => { const kids = children.get(p) ?? []; const depth = p === "/" ? 0 : p.split("/").length - 2;
         return <li key={p} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-100 px-3 py-2 last:border-0" style={{ paddingLeft: 12 + depth * 18 }}>
-          <label className="flex min-w-0 flex-1 items-center gap-2"><input type="checkbox" checked={picked.has(p)} onChange={(e) => toggle([p], e.target.checked)} className="size-4 accent-[#FF8A05]" /><span className="truncate font-mono text-[13px]">{p}</span></label>
-          {kids.length > 0 && <label className="flex items-center gap-1.5 text-[12.5px] text-slate-600"><input type="checkbox" checked={[p, ...kids].every((k) => picked.has(k))} onChange={(e) => toggle([p, ...kids], e.target.checked)} className="size-4 accent-[#FF8A05]" />Whole section ({kids.length + 1} pages)</label>}
+          <label className="flex min-w-0 flex-1 items-center gap-2"><input type="checkbox" checked={picked.has(p)} onChange={(e) => toggle([p], e.target.checked)} className="size-4 accent-brand" /><span className="truncate font-mono text-[13px]">{p}</span></label>
+          {kids.length > 0 && <label className="flex items-center gap-1.5 text-[12.5px] text-slate-600"><input type="checkbox" checked={[p, ...kids].every((k) => picked.has(k))} onChange={(e) => toggle([p, ...kids], e.target.checked)} className="size-4 accent-brand" />Whole section ({kids.length + 1} pages)</label>}
         </li>; })}
     </ul>
 
@@ -121,7 +121,7 @@ export function PageTranslator({ onDone }: { onDone: () => void }) {
         <tbody>{rows.map((r) => <tr key={r.lang} className="border-t border-slate-100"><td className="py-1.5">{SITE_LANGS.find((l) => l.code === r.lang)?.label}</td><td>{r.total}</td><td>{r.missing.length || "All done"}</td><td>{r.missing.length ? usd(r.usd) : "—"}</td></tr>)}</tbody>
         <tfoot><tr className="border-t border-slate-200 font-bold"><td className="py-1.5">Total</td><td /><td>{newCount}</td><td>{usd(total)}</td></tr></tfoot></table>
       <p className="text-[12.5px] text-slate-500">An estimate for {TX_MODEL.name} (US${TX_MODEL.inUsd} input / US${TX_MODEL.outUsd} output per million tokens). The real cost appears above under “This month”.</p>
-      <button type="button" disabled={!newCount || Boolean(busy)} onClick={() => { if (window.confirm(`Translate ${newCount} texts for about ${usd(total)}?`)) void translate(); }} className="h-10 w-fit rounded-full bg-[#FE8B05] px-5 font-bold text-white disabled:opacity-50">Translate {newCount} texts now</button>
+      <button type="button" disabled={!newCount || Boolean(busy)} onClick={() => { if (window.confirm(`Translate ${newCount} texts for about ${usd(total)}?`)) void translate(); }} className="h-10 w-fit rounded-full bg-brand px-5 font-bold text-white disabled:opacity-50">Translate {newCount} texts now</button>
     </div>}
   </section>;
 }

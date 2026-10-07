@@ -3,12 +3,12 @@ import { AccountNav } from "@/components/account/account-nav";
 import { PublicFooter } from "@/components/public-footer";
 
 export function AccountShell({ name, email, children }: { name: string | null; email: string; children: ReactNode }) {
-  return <main className="min-h-screen bg-[#F5F6F8] text-[#211726]">
+  return <main className="min-h-screen bg-canvas text-plum">
     <div className="mx-auto grid max-w-[1180px] gap-6 px-5 pb-28 pt-8 lg:grid-cols-[250px_1fr] lg:pb-16 lg:pt-10">
       <aside className="hidden lg:block">
         <div className="sticky top-[121px] rounded-[24px] bg-white p-5">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
-            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-lg font-black text-[#D96F00]">{(name || email).charAt(0).toUpperCase()}</span>
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-tint text-lg font-black text-brand-text">{(name || email).charAt(0).toUpperCase()}</span>
             <div className="min-w-0"><p className="truncate font-black">{name || "Your account"}</p><p className="truncate text-sm text-slate-500">{email}</p></div>
           </div>
           <AccountNav variant="sidebar" />

@@ -10,7 +10,7 @@ export function DestinationGuides({ city, posts, fallbackImage }: { city: string
       {posts.map((post) => {
         const photo = post.cover.photo ?? fallbackImage;
         return <li key={post.slug} className="w-[72%] shrink-0 snap-start sm:w-[300px]">
-          <Link href={`/blog/${post.slug}`} className="group relative block aspect-square overflow-hidden rounded-[22px] bg-gradient-to-br from-[#FF8A05] to-[#FF5C1F] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF8A05]">
+          <Link href={`/blog/${post.slug}`} className="group relative block aspect-square overflow-hidden rounded-[22px] bg-gradient-to-br from-brand to-[#FF5C1F] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {photo && <img src={photo} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />}
             <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" aria-hidden="true" />

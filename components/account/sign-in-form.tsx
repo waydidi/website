@@ -84,19 +84,19 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
     window.location.assign(safeNext(next));
   }
 
-  const input = "h-14 w-full rounded-lg border border-slate-300 bg-white px-5 text-lg text-[#0F294D] outline-none transition placeholder:text-slate-400 focus:border-[#FF8A05] focus:ring-2 focus:ring-orange-100";
-  const primary = "flex h-[52px] w-full items-center justify-center rounded-lg bg-[#FF8A05] text-lg font-medium text-white transition hover:bg-[#F07F00] disabled:opacity-60";
+  const input = "h-14 w-full rounded-lg border border-slate-300 bg-white px-5 text-lg text-navy outline-none transition placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-orange-100";
+  const primary = "flex h-[52px] w-full items-center justify-center rounded-lg bg-brand text-lg font-medium text-white transition hover:bg-[#F07F00] disabled:opacity-60";
   const nextParam = encodeURIComponent(safeNext(next));
 
   return <div className="flex min-h-[calc(100dvh-59px)] flex-col lg:min-h-[calc(100dvh-97px)]">
     {turnstile.widget}
     <div className="flex-1">
       {step === "email" ? <>
-        <h1 className="text-center text-[26px] font-bold text-[#0F294D]">Sign in / register</h1>
+        <h1 className="text-center text-[26px] font-bold text-navy">Sign in / register</h1>
         <p className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[15px] text-slate-500">
-          <span className="inline-flex items-center gap-1.5"><CarFront size={17} className="text-[#FF8A05]" aria-hidden="true" />Manage every trip</span>
+          <span className="inline-flex items-center gap-1.5"><CarFront size={17} className="text-brand" aria-hidden="true" />Manage every trip</span>
           <span className="text-slate-300" aria-hidden="true">|</span>
-          <span className="inline-flex items-center gap-1.5"><BadgeCheck size={17} className="text-[#FF8A05]" aria-hidden="true" />Faster booking</span>
+          <span className="inline-flex items-center gap-1.5"><BadgeCheck size={17} className="text-brand" aria-hidden="true" />Faster booking</span>
         </p>
         {error ? <p role="alert" className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
         <form onSubmit={requestCode} noValidate className="mt-7 grid gap-4">
@@ -109,18 +109,18 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
           <div className="grid gap-3">{providers.map((id) => {
             const { label, icon: Icon } = PROVIDERS[id];
             // Plain link: the server redirects on to the provider's sign-in page.
-            return <a key={id} href={`/api/account/oauth/${id}/start?next=${nextParam}`} className="flex h-[52px] items-center justify-center gap-3 rounded-lg border border-slate-300 bg-white text-lg font-medium text-[#0F294D] transition hover:border-slate-400 hover:bg-slate-50"><Icon />{label}</a>;
+            return <a key={id} href={`/api/account/oauth/${id}/start?next=${nextParam}`} className="flex h-[52px] items-center justify-center gap-3 rounded-lg border border-slate-300 bg-white text-lg font-medium text-navy transition hover:border-slate-400 hover:bg-slate-50"><Icon />{label}</a>;
           })}</div>
         </> : null}
       </> : <form onSubmit={verify} noValidate>
-        <button type="button" onClick={() => { setStep("email"); setError(""); }} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-[#D96F00]"><ArrowLeft size={16} /> Change email</button>
-        <h1 className="mt-5 text-center text-[26px] font-bold text-[#0F294D]">Enter your code</h1>
+        <button type="button" onClick={() => { setStep("email"); setError(""); }} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-brand-text"><ArrowLeft size={16} /> Change email</button>
+        <h1 className="mt-5 text-center text-[26px] font-bold text-navy">Enter your code</h1>
         <p role="status" className="mt-3 text-center text-[15px] text-slate-500">{notice} It expires in 10 minutes.</p>
         {error ? <p role="alert" className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
         <label className="sr-only" htmlFor="account-code">6-digit code</label>
         <input id="account-code" autoComplete="one-time-code" inputMode="numeric" pattern="\d{6}" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className={`${input} mt-7 text-center text-2xl tracking-[.5em]`} placeholder="••••••" />
         <button disabled={loading || code.length !== 6} className={`${primary} mt-4`}>{loading ? "Checking…" : "Sign in"}</button>
-        <button type="button" disabled={loading} onClick={() => requestCode()} className="mt-5 w-full text-[15px] font-medium text-[#C96100] hover:underline">Send a new code</button>
+        <button type="button" disabled={loading} onClick={() => requestCode()} className="mt-5 w-full text-[15px] font-medium text-brand-darker hover:underline">Send a new code</button>
       </form>}
     </div>
     <p className="mt-10 pb-6 text-sm leading-6 text-slate-500">

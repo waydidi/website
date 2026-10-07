@@ -72,7 +72,7 @@ export function TripsList({ mode, view, quoteId }: { mode: "admin" | "agency"; v
             {view === "templates" ? <>
               <td className="px-4 py-3"><p className="font-semibold">{r.templateName || r.title}</p>{r.shared && <p className="text-[12px] text-slate-500">Waydidi template</p>}</td>
               <td className="px-4 py-3">{r.area || "—"}</td><td className="px-4 py-3">{r.stopCount}</td><td className="px-4 py-3">{r.durationHours} hr</td><td className="px-4 py-3">{thb(r.total)}</td>
-              <td className="px-4 py-3 text-right"><button type="button" onClick={(e) => { e.stopPropagation(); setQuoteFrom(r); }} className="inline-flex items-center gap-1 font-semibold text-[#C96100] hover:underline"><Zap size={14} />Quote</button></td>
+              <td className="px-4 py-3 text-right"><button type="button" onClick={(e) => { e.stopPropagation(); setQuoteFrom(r); }} className="inline-flex items-center gap-1 font-semibold text-brand-darker hover:underline"><Zap size={14} />Quote</button></td>
             </> : <>
               <td className="px-4 py-3"><p className="font-semibold">{r.title}</p><p className="text-[12px] text-slate-500">{r.ref}{r.groupId ? ` · Day ${r.dayNumber}` : ""}{r.agencyName ? ` · ${r.agencyName}` : ""}</p></td>
               <td className="px-4 py-3">{r.customerName || "—"}{r.customerEmail && <p className="text-[12px] text-slate-500">{r.customerEmail}</p>}</td>
@@ -81,7 +81,7 @@ export function TripsList({ mode, view, quoteId }: { mode: "admin" | "agency"; v
               <td className="px-4 py-3">{r.stopCount}</td>
               <td className="px-4 py-3">{thb(r.total)}</td>
               <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${STATUS_LABEL[r.status]?.[1] ?? ""}`}>{STATUS_LABEL[r.status]?.[0] ?? r.status}</span></td>
-              <td className="px-4 py-3 text-right text-[#C96100]">Open</td>
+              <td className="px-4 py-3 text-right text-brand-darker">Open</td>
             </>}
           </tr>)}
         </tbody>
@@ -115,7 +115,7 @@ function QuickQuote({ base, home, preset, presetId, label, templates: known, onC
   }
   return <div role="dialog" aria-modal="true" aria-labelledby="qq-title" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
     <form onSubmit={(e) => { e.preventDefault(); void create(true); }} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-      <div className="flex items-center justify-between"><h2 id="qq-title" className="flex items-center gap-2 text-[20px] font-bold"><Zap size={19} className="text-[#D96F00]" />Quick quote</h2><button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
+      <div className="flex items-center justify-between"><h2 id="qq-title" className="flex items-center gap-2 text-[20px] font-bold"><Zap size={19} className="text-brand-text" />Quick quote</h2><button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
       <div className="mt-4 grid gap-3">
         <Field label={label}><select required value={template?.id ?? ""} onChange={(e) => { const t = templates?.find((x) => x.id === e.target.value) ?? null; setTemplate(t); if (t) setF((v) => ({ ...v, startTime: t.startTime })); }} className={inputCls}><option value="">{templates ? "Choose a ready-made day" : "Loading…"}</option>{templates?.map((t) => <option key={t.id} value={t.id}>{t.templateName || t.title} · {t.durationHours} hr · THB {t.total.toLocaleString("en-US")}</option>)}</select></Field>
         <div className="grid grid-cols-2 gap-3">

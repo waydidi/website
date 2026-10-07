@@ -43,9 +43,9 @@ export function DurationPicker({ value, options, label, format, onChange, classN
         <DialogPrimitive.Title className="text-center text-[17px] font-bold">{label}</DialogPrimitive.Title>
         <div className="relative mt-3 h-[240px] overflow-hidden">
           {/* Selection band and fades above/below, as in an alarm clock. */}
-          <div className="pointer-events-none absolute inset-x-0 top-1/2 h-12 -translate-y-1/2 rounded-2xl bg-[#FFF0DF]" />
+          <div className="pointer-events-none absolute inset-x-0 top-1/2 h-12 -translate-y-1/2 rounded-2xl bg-brand-tint" />
           <div ref={wheel} onScroll={onScroll} className="relative h-full snap-y snap-mandatory overflow-y-scroll overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ paddingBlock: 96 }}>
-            {options.map((n) => <button key={n} type="button" onClick={() => pick(n)} className={`flex h-12 w-full snap-center items-center justify-center text-[22px] tabular-nums transition ${n === draft ? "font-bold text-[#D96F00]" : "text-slate-400"}`}>{format(n)}</button>)}
+            {options.map((n) => <button key={n} type="button" onClick={() => pick(n)} className={`flex h-12 w-full snap-center items-center justify-center text-[22px] tabular-nums transition ${n === draft ? "font-bold text-brand-text" : "text-slate-400"}`}>{format(n)}</button>)}
           </div>
           <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white to-transparent" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white to-transparent" />

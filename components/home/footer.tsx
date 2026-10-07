@@ -7,7 +7,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
   const messages = getMessages(locale);
   const t = (key: MessageKey) => translate(messages, key);
   return (
-    <footer id="support" className="no-print mt-14 bg-[#FF8A05] text-white">
+    <footer id="support" className="no-print mt-14 bg-brand text-white">
       <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
         <div className="pt-12">
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_.8fr_.8fr_.8fr_.8fr]">

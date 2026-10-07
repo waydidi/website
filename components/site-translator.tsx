@@ -143,6 +143,6 @@ export function SiteTranslator() {
   if (lang === "en" || untranslatedPath(path)) return null;
   return <div translate="no" className="notranslate fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 z-[70] max-w-[min(86vw,360px)] rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-[12px] leading-snug text-slate-600 shadow-sm backdrop-blur">
     {original ? "Showing the original English." : <>Translated by AI.{legalPath(path) ? " The English version is the official text." : ""}</>}{" "}
-    <button type="button" onClick={() => setOriginal((v) => !v)} className="font-semibold text-[#C96100] underline-offset-2 hover:underline">{original ? `Show ${SITE_LANGS.find((l) => l.code === lang)?.label}` : "Show original"}</button>
+    <button type="button" onClick={() => setOriginal((v) => !v)} className="font-semibold text-brand-darker underline-offset-2 hover:underline">{original ? `Show ${SITE_LANGS.find((l) => l.code === lang)?.label}` : "Show original"}</button>
   </div>;
 }

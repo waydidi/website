@@ -44,7 +44,7 @@ export function LiveToday() {
       {trips?.map((t) => { const l = t.live; const late = l.delayMin >= 10; return <article key={t.id} className={`rounded-3xl border bg-white p-5 shadow-sm ${l.risks.length ? "border-red-200" : late ? "border-amber-200" : "border-slate-200"}`}>
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div><Link href={`/admin/trips/${t.id}`} className="text-[18px] font-bold hover:underline">{t.title}</Link>
-            <p className="text-[13px] text-slate-500">{t.ref}{t.bookingReference ? ` · booking ${t.bookingReference}` : ""} · {t.customerName ?? "Guest"}{t.customerPhone && <> · <a href={`tel:${t.customerPhone.replace(/[^\d+]/g, "")}`} className="inline-flex items-center gap-1 text-[#C96100]"><Phone size={12} />{t.customerPhone}</a></>}</p></div>
+            <p className="text-[13px] text-slate-500">{t.ref}{t.bookingReference ? ` · booking ${t.bookingReference}` : ""} · {t.customerName ?? "Guest"}{t.customerPhone && <> · <a href={`tel:${t.customerPhone.replace(/[^\d+]/g, "")}`} className="inline-flex items-center gap-1 text-brand-darker"><Phone size={12} />{t.customerPhone}</a></>}</p></div>
           <div className="flex flex-wrap gap-2 text-[13px] font-semibold">
             <span className="rounded-full bg-slate-100 px-2.5 py-1">{STATE[l.state]}</span>
             {l.state === "live" && <span className={`rounded-full px-2.5 py-1 ${late ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{l.delayMin > 0 ? `${l.delayMin} min late` : "On time"}</span>}
@@ -52,9 +52,9 @@ export function LiveToday() {
           </div>
         </header>
         {l.state === "live" && <p className="mt-3 text-[14px]">{l.current ? <>At <b>{l.current.name}</b> until about {fmt(l.current.projectedEnd)}. </> : null}{l.next ? <>Next: <b>{l.next.name}</b>, arriving about {fmt(l.next.etaMin)}.</> : "Heading back."} Back around {fmt(l.returnAt)}.</p>}
-        <ol className="mt-3 flex flex-wrap gap-1.5 text-[12px]">{l.stops.map((s) => <li key={s.id} className={`rounded-lg px-2 py-1 ${s.status === "done" ? "bg-slate-100 text-slate-400 line-through" : s.status === "current" ? "bg-[#211726] text-white" : s.status === "at_risk" ? "bg-red-100 font-semibold text-red-800" : s.status === "skipped" ? "bg-slate-100 text-slate-400" : "bg-orange-50 text-[#9A4D00]"}`}>
+        <ol className="mt-3 flex flex-wrap gap-1.5 text-[12px]">{l.stops.map((s) => <li key={s.id} className={`rounded-lg px-2 py-1 ${s.status === "done" ? "bg-slate-100 text-slate-400 line-through" : s.status === "current" ? "bg-plum text-white" : s.status === "at_risk" ? "bg-red-100 font-semibold text-red-800" : s.status === "skipped" ? "bg-slate-100 text-slate-400" : "bg-orange-50 text-[#9A4D00]"}`}>
           {s.status === "skipped" ? "Skipped · " : ""}{fmt(s.projectedStart)} {s.name}{s.sessionTime ? ` (session ${s.sessionTime})` : ""}
-          {s.status === "skipped" && <button type="button" onClick={() => void apply(t, { kind: "restore", stopId: s.id }, `Put ${s.name} back`)} className="ml-1 font-semibold text-[#C96100] underline">undo</button>}
+          {s.status === "skipped" && <button type="button" onClick={() => void apply(t, { kind: "restore", stopId: s.id }, `Put ${s.name} back`)} className="ml-1 font-semibold text-brand-darker underline">undo</button>}
         </li>)}</ol>
         {l.risks.length > 0 && <div className="mt-3 rounded-2xl bg-red-50 p-3"><p className="flex items-center gap-1.5 text-[14px] font-bold text-red-800"><AlertTriangle size={16} />At risk</p><ul className="mt-1 grid gap-0.5 text-[13px] text-red-800">{l.risks.map((r) => <li key={r}>• {r}</li>)}</ul></div>}
         {l.suggestions.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{l.suggestions.map((sg) => <button key={sg.label} type="button" disabled={Boolean(busy)} onClick={() => void apply(t, { kind: sg.kind, stopId: sg.stopId, minutes: sg.minutes }, sg.label)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-semibold ${sg.fixes ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200 text-slate-700"}`}>

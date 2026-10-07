@@ -622,10 +622,10 @@ export function BookingResultsMap(props: Props) {
           <p className="mt-3 font-medium text-ink">Calculating your route…</p>
         </div>
       </div>}
-      <button onClick={props.onEdit} className="absolute left-4 top-[max(16px,env(safe-area-inset-top))] z-10 grid size-11 place-items-center rounded-full bg-white text-[#1C1C1C] shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label="Edit trip">
+      <button onClick={props.onEdit} className="absolute left-4 top-[max(16px,env(safe-area-inset-top))] z-10 grid size-11 place-items-center rounded-full bg-white text-charcoal shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label="Edit trip">
         <ArrowLeft size={22} />
       </button>
-      <button type="button" onClick={props.onEditTrip ?? props.onEdit} className="absolute left-1/2 top-[max(16px,env(safe-area-inset-top))] z-10 flex h-11 max-w-[calc(100%-140px)] -translate-x-1/2 items-center gap-2 rounded-full bg-white px-5 text-[16px] font-medium text-[#1C1C1C] shadow-md" aria-label="Edit passengers, date and time">
+      <button type="button" onClick={props.onEditTrip ?? props.onEdit} className="absolute left-1/2 top-[max(16px,env(safe-area-inset-top))] z-10 flex h-11 max-w-[calc(100%-140px)] -translate-x-1/2 items-center gap-2 rounded-full bg-white px-5 text-[16px] font-medium text-charcoal shadow-md" aria-label="Edit passengers, date and time">
         <Users size={20} className="shrink-0 text-brand" aria-hidden="true" /><span className="truncate">{passengers} · {pillLabel(props.date, props.time)}</span>
       </button>
     </div>
@@ -666,32 +666,32 @@ export function BookingResultsMap(props: Props) {
             const off = !ready || item.fits === false;
             const badge = !priceReady || item.fits === false ? null : item.id === cheapest?.id ? "best" : item.popular ? "popular" : null;
             return <li key={item.id}>
-              <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`relative grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-[15px] text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-[#FF8A05] bg-white" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
+              <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`relative grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-[15px] text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-brand bg-white" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
                 <span className="grid h-14 place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className={`max-h-14 w-full object-contain ${item.id === "comfort_suv" ? "scale-110" : ""}`} /> : <CarFront size={44} className="text-[#9A9A9A]" aria-hidden="true" />}</span>
                 <span className="min-w-0">
-                  <strong className="block text-[17px] font-semibold leading-tight text-[#1C1C1C]">{item.name}</strong>
-                  <span className="mt-1 flex items-center gap-1.5 text-[15px] text-[#6B6B6B]">
-                    {item.passengers !== undefined && <><span>{item.passengers}</span><Users size={18} className="text-[#1C1C1C]" aria-label="passengers" /></>}
-                    {item.bags !== undefined && <><span className="ml-2">{item.bags}</span><Luggage size={18} className="text-[#1C1C1C]" aria-label="bags" /></>}
+                  <strong className="block text-[17px] font-semibold leading-tight text-charcoal">{item.name}</strong>
+                  <span className="mt-1 flex items-center gap-1.5 text-[15px] text-grey-text">
+                    {item.passengers !== undefined && <><span>{item.passengers}</span><Users size={18} className="text-charcoal" aria-label="passengers" /></>}
+                    {item.bags !== undefined && <><span className="ml-2">{item.bags}</span><Luggage size={18} className="text-charcoal" aria-label="bags" /></>}
                     <span
                       role="button"
                       tabIndex={0}
                       aria-label={`${item.name} details`}
                       onClick={(e) => { e.stopPropagation(); setInfoId(item.id); }}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setInfoId(item.id); } }}
-                      className="-m-2 ml-0 grid size-9 place-items-center rounded-full text-[#9A9A9A] hover:text-[#1C1C1C]"
+                      className="-m-2 ml-0 grid size-9 place-items-center rounded-full text-[#9A9A9A] hover:text-charcoal"
                     ><CircleHelp size={18} aria-hidden="true" /></span>
                   </span>
                   {item.fits === false ? <span className="mt-2 block text-sm font-medium text-brand-deep">Too small for your group</span>
                     : null}
                   {/* Sits on the card's top edge so it adds no height. */}
-                  {badge === "best" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-[#06C755] bg-[#06C755] px-2 py-px text-[12px] font-medium text-white"><Lightbulb size={12} aria-hidden="true" />Best value</span>
+                  {badge === "best" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-line-green bg-line-green px-2 py-px text-[12px] font-medium text-white"><Lightbulb size={12} aria-hidden="true" />Best value</span>
                     : badge === "popular" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-[#FF1F2D] bg-[#FF1F2D] px-2 py-px text-[12px] font-medium text-white"><Flame size={12} aria-hidden="true" />Most popular</span> : null}
                 </span>
                 <span className="self-start text-right">
-                  <span className="block whitespace-nowrap text-[#1C1C1C]">{!props.quoteRequest && <span className="text-[13px] text-[#4A4A4A]">{code} </span>}<strong className="text-[17px] font-semibold">{props.quoteRequest ? "On request" : !priceReady ? <span role="status" aria-label="Loading quote" className="inline-block h-5 w-24 animate-pulse rounded bg-slate-200" /> : amount(item.price)}</strong></span>
-                  {!props.quoteRequest && priceReady && currency !== "THB" && <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">~{thb(item.price)}</span>}
-                  <span className="mt-0.5 block text-[12px] text-[#8A8A8A]">{props.hourly ? `${props.hourly.hours} hours` : props.returnTrip ? t("results.roundTrip") : t("results.totalPrice")}</span>
+                  <span className="block whitespace-nowrap text-charcoal">{!props.quoteRequest && <span className="text-[13px] text-[#4A4A4A]">{code} </span>}<strong className="text-[17px] font-semibold">{props.quoteRequest ? "On request" : !priceReady ? <span role="status" aria-label="Loading quote" className="inline-block h-5 w-24 animate-pulse rounded bg-slate-200" /> : amount(item.price)}</strong></span>
+                  {!props.quoteRequest && priceReady && currency !== "THB" && <span className="mt-0.5 block text-[12px] text-grey-soft">~{thb(item.price)}</span>}
+                  <span className="mt-0.5 block text-[12px] text-grey-soft">{props.hourly ? `${props.hourly.hours} hours` : props.returnTrip ? t("results.roundTrip") : t("results.totalPrice")}</span>
                 </span>
               </button>
             </li>;
@@ -709,7 +709,7 @@ export function BookingResultsMap(props: Props) {
           <p className="text-[17px] font-semibold text-[#7A4A00]">50% refundable</p>
           <p className="mt-1.5 text-[14px] leading-6 text-[#6B4A16]">Pickup is 24–48 hours away. If you cancel before <strong className="font-semibold">{cancelDeadline(props.date, props.time, 24)}</strong>, 50% is refunded. <a href="/refund-policy" target="_blank" className="underline underline-offset-2">Policy</a></p>
         </div> : <div className="mt-6 rounded-2xl border border-[#E6E6E6] bg-[#F7F7F7] p-4">
-          <p className="text-[17px] font-semibold text-[#1C1C1C]">Non-refundable</p>
+          <p className="text-[17px] font-semibold text-charcoal">Non-refundable</p>
           <p className="mt-1.5 text-[14px] leading-6 text-[#4A4A4A]">Pickup is less than 24 hours away, so this booking can&apos;t be refunded if cancelled. <a href="/refund-policy" target="_blank" className="underline underline-offset-2">Policy</a></p>
         </div>)}
       </div>
@@ -719,8 +719,8 @@ export function BookingResultsMap(props: Props) {
     {/* Bottom bar */}
     <div ref={barRef} className="absolute inset-x-0 bottom-0 z-20 border-t border-[#EEEEEE] bg-white px-4 lg:right-auto lg:w-[460px] pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="flex min-w-0 items-center gap-2 leading-none"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-[#1C1C1C]">{fareText(total)}</strong>{!props.quoteRequest && priceReady && currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-[#8A8A8A]">~{thb(total)}</span>}{extrasCount > 0 && <span className="min-w-0 touch-pan-x overflow-x-auto whitespace-nowrap text-[12px] font-medium text-[#D32F2F] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{t("addons.including", { items: [seats > 0 ? (seats > 1 ? t("addons.childSeats", { count: seats }) : t("addons.childSeat")) : null, exchange ? t("addons.exchange") : null, ferry > 0 ? `${t("addons.ferryHotel")} × ${ferry}` : null].filter(Boolean).join(", ") })}</span>}</p>
-        <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#1C1C1C]"><Info size={18} aria-hidden="true" />Price and route</button>
+        <p className="flex min-w-0 items-center gap-2 leading-none"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-charcoal">{fareText(total)}</strong>{!props.quoteRequest && priceReady && currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-grey-soft">~{thb(total)}</span>}{extrasCount > 0 && <span className="min-w-0 touch-pan-x overflow-x-auto whitespace-nowrap text-[12px] font-medium text-[#D32F2F] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{t("addons.including", { items: [seats > 0 ? (seats > 1 ? t("addons.childSeats", { count: seats }) : t("addons.childSeat")) : null, exchange ? t("addons.exchange") : null, ferry > 0 ? `${t("addons.ferryHotel")} × ${ferry}` : null].filter(Boolean).join(", ") })}</span>}</p>
+        <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-charcoal"><Info size={18} aria-hidden="true" />Price and route</button>
       </div>
       <div className="mt-5 flex items-center gap-3">
         {props.onExtrasChange && <button type="button" onClick={() => setExtrasOpen(true)} aria-label="Additional services" className="relative grid size-12 shrink-0 place-items-center rounded-full bg-brand text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
@@ -736,17 +736,17 @@ export function BookingResultsMap(props: Props) {
     <DialogPrimitive.Root open={extrasOpen} onOpenChange={setExtrasOpen}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[20px] bg-white text-[#1C1C1C] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
+        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[20px] bg-white text-charcoal shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
           <div className="flex items-center justify-between px-5 pt-5">
             <DialogPrimitive.Title className="text-[24px] font-semibold leading-tight">{t("addons.title")}</DialogPrimitive.Title>
             <DialogPrimitive.Close className="grid size-10 place-items-center rounded-full hover:bg-slate-100" aria-label="Close"><X size={24} /></DialogPrimitive.Close>
           </div>
-          <DialogPrimitive.Description className="px-5 pt-1 text-[14px] text-[#6B6B6B]">{t("addons.subtitle")}</DialogPrimitive.Description>
+          <DialogPrimitive.Description className="px-5 pt-1 text-[14px] text-grey-text">{t("addons.subtitle")}</DialogPrimitive.Description>
           <ul className="flex-1 overflow-y-auto px-5 pb-2 pt-2">
             {ferryAvailable && <li className="border-b border-[#EEEEEE]">
               <div className="flex items-center gap-4 py-4">
                 <Image src="/ferry-3d.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
-                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.ferryHotel")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.ferryHotelDesc")}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">+{t("addons.perPerson", { price: money(FERRY_HOTEL_THB) })}</span></span>
+                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.ferryHotel")}</span><span className="block text-[13px] text-grey-text">{t("addons.ferryHotelDesc")}</span><span className="mt-0.5 block text-[13px] font-semibold text-charcoal">+{t("addons.perPerson", { price: money(FERRY_HOTEL_THB) })}</span></span>
                 <span className="relative flex items-center self-stretch pb-5">
                 <span className="flex items-center gap-3">
                   <button type="button" aria-label="Fewer ferry tickets" disabled={ferry === 0} onClick={() => setExtras({ ferryHotelPeople: ferry - 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Minus size={16} aria-hidden="true" /></button>
@@ -760,7 +760,7 @@ export function BookingResultsMap(props: Props) {
             </li>}
             <li className="flex items-center gap-4 border-b border-[#EEEEEE] py-4">
               <Image src="/addon-child-seat.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
-              <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.childSeat")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.childSeatDesc", { max: maxSeats })}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">{freeSeatsMax ? <><span className="text-[#00B14F]">{freeSeatsMax} free ({[props.memberTier?.freeChildSeats ? props.memberTier.name : null, props.giftVouchers?.childSeat ? "gift" : null].filter(Boolean).join(" + ")})</span> · then {t("addons.each", { price: money(CHILD_SEAT_THB) })}</> : t("addons.each", { price: money(CHILD_SEAT_THB) })}</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.childSeat")}</span><span className="block text-[13px] text-grey-text">{t("addons.childSeatDesc", { max: maxSeats })}</span><span className="mt-0.5 block text-[13px] font-semibold text-charcoal">{freeSeatsMax ? <><span className="text-[#00B14F]">{freeSeatsMax} free ({[props.memberTier?.freeChildSeats ? props.memberTier.name : null, props.giftVouchers?.childSeat ? "gift" : null].filter(Boolean).join(" + ")})</span> · then {t("addons.each", { price: money(CHILD_SEAT_THB) })}</> : t("addons.each", { price: money(CHILD_SEAT_THB) })}</span></span>
               <span className="relative flex items-center self-stretch pb-5">
               <span className="flex items-center gap-3">
                 <button type="button" aria-label="Remove child seat" disabled={seats === 0} onClick={() => setExtras({ childSeats: seats - 1 })} className="grid size-8 place-items-center rounded-full border border-[#D9D9D9] disabled:opacity-40"><Minus size={16} aria-hidden="true" /></button>
@@ -773,8 +773,8 @@ export function BookingResultsMap(props: Props) {
             <li>
               <label className="flex cursor-pointer items-center gap-4 py-4">
                 <Image src="/addon-currency-exchange.webp" alt="" width={44} height={44} unoptimized className="size-11 shrink-0 object-contain" />
-                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.exchange")}</span><span className="block text-[13px] text-[#6B6B6B]">{t("addons.exchangeDesc")}</span><span className="mt-0.5 block text-[13px] font-semibold text-[#1C1C1C]">{props.memberTier?.freeExchangeStop || props.giftVouchers?.exchangeStop ? <><s className="font-normal text-[#8A8A8A]">+{money(EXCHANGE_STOP_THB)}</s> <span className="text-[#00B14F]">Free ({props.memberTier?.freeExchangeStop ? props.memberTier.name : "gift"})</span></> : `+${money(EXCHANGE_STOP_THB)}`}</span></span>
-                <input type="checkbox" checked={exchange} onChange={(e) => setExtras({ exchangeStop: e.target.checked })} className="size-5 accent-[#FF8A05]" />
+                <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{t("addons.exchange")}</span><span className="block text-[13px] text-grey-text">{t("addons.exchangeDesc")}</span><span className="mt-0.5 block text-[13px] font-semibold text-charcoal">{props.memberTier?.freeExchangeStop || props.giftVouchers?.exchangeStop ? <><s className="font-normal text-grey-soft">+{money(EXCHANGE_STOP_THB)}</s> <span className="text-[#00B14F]">Free ({props.memberTier?.freeExchangeStop ? props.memberTier.name : "gift"})</span></> : `+${money(EXCHANGE_STOP_THB)}`}</span></span>
+                <input type="checkbox" checked={exchange} onChange={(e) => setExtras({ exchangeStop: e.target.checked })} className="size-5 accent-brand" />
               </label>
             </li>
           </ul>
@@ -789,7 +789,7 @@ export function BookingResultsMap(props: Props) {
     <DialogPrimitive.Root open={Boolean(info)} onOpenChange={(open) => { if (!open) setInfoId(null); }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[20px] bg-white text-[#1C1C1C] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
+        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[20px] bg-white text-charcoal shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
           {info && <>
             <div className="flex items-center justify-between px-5 pt-5">
               <DialogPrimitive.Title className="text-[28px] font-semibold leading-tight">Details</DialogPrimitive.Title>
@@ -798,7 +798,7 @@ export function BookingResultsMap(props: Props) {
             <div className="flex-1 overflow-y-auto px-5 pb-4">
               <div className="flex flex-wrap items-center gap-3 border-b border-[#E6E6E6] py-4">
                 <p className="text-[17px] font-medium">Class: {info.name}</p>
-                {info.id === cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-[#06C755] px-2.5 py-0.5 text-[14px] font-medium text-white"><Lightbulb size={14} aria-hidden="true" />Best value</span>}
+                {info.id === cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-line-green px-2.5 py-0.5 text-[14px] font-medium text-white"><Lightbulb size={14} aria-hidden="true" />Best value</span>}
                 {info.popular && info.id !== cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-[#FF1F2D] px-2.5 py-0.5 text-[14px] font-medium text-white"><Flame size={14} aria-hidden="true" />Most popular</span>}
               </div>
               <DialogPrimitive.Description className="sr-only">Vehicle details and price for {info.name}</DialogPrimitive.Description>
@@ -810,7 +810,7 @@ export function BookingResultsMap(props: Props) {
               </ul>
               <h3 className="mt-6 text-[17px] font-medium">Included</h3>
               <ul className="mt-3 grid gap-2.5 text-[16px] text-[#4A4A4A]">
-                {["Private car and driver for your group", "Door-to-door", "Fixed price agreed before you book", waitingLine(props.pickup, locale), ...lines.included].map((line) => <li key={line} className="flex items-center gap-3"><Check size={18} className="shrink-0 text-[#06C755]" aria-hidden="true" />{line}</li>)}
+                {["Private car and driver for your group", "Door-to-door", "Fixed price agreed before you book", waitingLine(props.pickup, locale), ...lines.included].map((line) => <li key={line} className="flex items-center gap-3"><Check size={18} className="shrink-0 text-line-green" aria-hidden="true" />{line}</li>)}
               </ul>
               {lines.excluded.length > 0 && <>
                 <h3 className="mt-6 text-[17px] font-medium">Excluded</h3>
@@ -836,7 +836,7 @@ export function BookingResultsMap(props: Props) {
     <DialogPrimitive.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[20px] bg-white text-[#1C1C1C] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
+        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[20px] bg-white text-charcoal shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
           <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-[#D9D9D9]" aria-hidden="true" />
           <div className="flex items-start justify-between px-5 pt-4">
             <div>
@@ -854,7 +854,7 @@ export function BookingResultsMap(props: Props) {
             <Leg title="Travel Date" date={props.date} time={props.time} from={props.pickup} to={props.dropoff} quote={props.quote} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
             {props.returnTrip && props.returnDate && props.returnTime
               ? <Leg title="Return" date={props.returnDate} time={props.returnTime} from={props.dropoff} to={props.pickup} quote={props.returnQuote ?? null} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
-              : !props.hourly && <button type="button" onClick={() => { setDetailsOpen(false); (props.onAddReturn ?? props.onEditRoute ?? props.onEdit)(); }} className="mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[#BDBDBD] text-[16px] text-[#1C1C1C]"><ArrowRightLeft size={20} className="text-brand" aria-hidden="true" />Add return</button>}
+              : !props.hourly && <button type="button" onClick={() => { setDetailsOpen(false); (props.onAddReturn ?? props.onEditRoute ?? props.onEdit)(); }} className="mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[#BDBDBD] text-[16px] text-charcoal"><ArrowRightLeft size={20} className="text-brand" aria-hidden="true" />Add return</button>}
 
             <div className="mt-8 border-t border-[#E6E6E6] pt-6">
               <h3 className="flex items-center gap-3 text-[19px] font-medium">Includes</h3>
@@ -862,13 +862,13 @@ export function BookingResultsMap(props: Props) {
                 <p className="mt-5 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(props.priceBreakdown[selected.id].outbound)}</span></p>
                 <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>{money(props.priceBreakdown[selected.id].return)}</span></p>
               </>}
-              {!props.quoteRequest && <p className="mt-4 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} className="shrink-0 text-[#06C755]" aria-hidden="true" />All prices are fixed totals for your private ride</p>}
-              {lines.included.map((line) => <p key={line} className="mt-2 flex items-center gap-2 text-[14px] text-[#6B6B6B]"><Check size={16} className="shrink-0 text-[#06C755]" aria-hidden="true" />{line}</p>)}
+              {!props.quoteRequest && <p className="mt-4 flex items-center gap-2 text-[14px] text-grey-text"><Check size={16} className="shrink-0 text-line-green" aria-hidden="true" />All prices are fixed totals for your private ride</p>}
+              {lines.included.map((line) => <p key={line} className="mt-2 flex items-center gap-2 text-[14px] text-grey-text"><Check size={16} className="shrink-0 text-line-green" aria-hidden="true" />{line}</p>)}
               {seats > 0 && <p className="mt-4 flex justify-between text-[16px] text-[#4A4A4A]"><span>Child seat × {seats}</span><span>{addonPrice(Math.max(0, seats - freeNow.childSeats) * CHILD_SEAT_THB)}</span></p>}
               {ferryAvailable && ferry > 0 && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Ferry &amp; hotel transfer × {ferry}</span><span>{addonPrice(FERRY_HOTEL_THB * ferry)}</span></p>}
               {exchange && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Currency exchange stop</span><span>{addonPrice(freeNow.exchangeStop ? 0 : EXCHANGE_STOP_THB)}</span></p>}
               <p className="mt-4 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">{fareText(total)}</strong></p>
-              <p className="mt-1 text-right text-[14px] text-[#8A8A8A]">{!props.quoteRequest && priceReady && currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
+              <p className="mt-1 text-right text-[14px] text-grey-soft">{!props.quoteRequest && priceReady && currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
             </div>
           </div>
         </DialogPrimitive.Content>
@@ -884,22 +884,22 @@ function Leg({ title, date, time, from, to, quote, onEdit }: { title: string; da
   const end = placeParts(to);
   return <div className="mt-8">
     <div className="flex items-center justify-between">
-      <p className="text-[17px] text-[#6B6B6B]"><strong className="font-medium">{title}</strong> · {longDate(date)}</p>
+      <p className="text-[17px] text-grey-text"><strong className="font-medium">{title}</strong> · {longDate(date)}</p>
       <button type="button" onClick={onEdit} className="flex items-center gap-2 text-[16px]"><Pencil size={18} aria-hidden="true" />Edit</button>
     </div>
     <div className="relative mt-5 pl-9">
-      <span className="absolute bottom-3 left-[6px] top-2 w-[3px] bg-[#1C1C1C]" aria-hidden="true" />
+      <span className="absolute bottom-3 left-[6px] top-2 w-[3px] bg-charcoal" aria-hidden="true" />
       {/* Waydidi orange line travelling from the pickup (black) square to the drop-off (orange) one. */}
       <span className="absolute bottom-3 left-[6px] top-2 w-[3px] overflow-hidden" aria-hidden="true">
-        <span className="waydidi-route-fill absolute inset-0 origin-top bg-[#FF8A05]" />
+        <span className="waydidi-route-fill absolute inset-0 origin-top bg-brand" />
       </span>
-      <span className="absolute left-0 top-1.5 size-[15px] rounded-[3px] bg-[#1C1C1C]" aria-hidden="true" />
+      <span className="absolute left-0 top-1.5 size-[15px] rounded-[3px] bg-charcoal" aria-hidden="true" />
       <span className="absolute bottom-1 left-0 size-[15px] rounded-[3px] bg-brand" aria-hidden="true" />
-      <div className="flex justify-between gap-3"><p className="min-w-0 truncate text-[18px]">{start.name}</p><p className="shrink-0 text-[17px] text-[#6B6B6B]">{clockLabel(date, time)}</p></div>
-      {start.detail && <p className="truncate text-[14px] text-[#8A8A8A]">{start.detail}</p>}
+      <div className="flex justify-between gap-3"><p className="min-w-0 truncate text-[18px]">{start.name}</p><p className="shrink-0 text-[17px] text-grey-text">{clockLabel(date, time)}</p></div>
+      {start.detail && <p className="truncate text-[14px] text-grey-soft">{start.detail}</p>}
       {quote && <div className="my-5 flex gap-1.5 text-[15px]"><span className="rounded-md border border-[#D9D9D9] px-2.5 py-0.5">~ {minutes >= 60 ? `${Math.floor(minutes / 60)} hr ${Math.round(minutes % 60)} min` : `${Math.round(minutes)} min`}</span><span className="rounded-md border border-[#D9D9D9] px-2.5 py-0.5">~ {Math.round(km)} Km / {Math.round(km * 0.621)} Mi</span></div>}
-      <div className="flex justify-between gap-3"><p className="min-w-0 truncate text-[18px]">{end.name}</p>{quote && <p className="shrink-0 text-[17px] text-[#6B6B6B]">{clockLabel(date, time, minutes)}</p>}</div>
-      {end.detail && <p className="truncate text-[14px] text-[#8A8A8A]">{end.detail}</p>}
+      <div className="flex justify-between gap-3"><p className="min-w-0 truncate text-[18px]">{end.name}</p>{quote && <p className="shrink-0 text-[17px] text-grey-text">{clockLabel(date, time, minutes)}</p>}</div>
+      {end.detail && <p className="truncate text-[14px] text-grey-soft">{end.detail}</p>}
     </div>
   </div>;
 }

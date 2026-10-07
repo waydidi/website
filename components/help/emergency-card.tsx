@@ -13,7 +13,7 @@ const NUMBERS = [
 export function EmergencyCard() {
   const [open, setOpen] = useState(false);
   return <div className="rounded-xl bg-white shadow-[0_2px_12px_rgb(15_23_42/0.06)]">
-    <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-3 px-5 py-5 text-left text-xl font-medium text-[#211726]">
+    <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-3 px-5 py-5 text-left text-xl font-medium text-plum">
       <Siren size={24} className="text-red-600" aria-hidden="true" />Emergency assistance
       <ChevronDown size={20} className={`ml-auto text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
     </button>

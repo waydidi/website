@@ -108,7 +108,7 @@ export function AdminAffiliates() {
   const applied = (rows ?? []).filter((r) => r.status === "applied");
   const partners = (rows ?? []).filter((r) => r.status === "active" || r.status === "paused");
   const totals = partners.reduce((t, r) => ({ bookings: t.bookings + r.bookings, sales: t.sales + r.sales, owed: t.owed + r.earned, pending: t.pending + r.pending }), { bookings: 0, sales: 0, owed: 0, pending: 0 });
-  const field = "h-10 w-full rounded-lg border border-slate-300 px-3 text-[14px] outline-none focus:border-[#FE8B05]";
+  const field = "h-10 w-full rounded-lg border border-slate-300 px-3 text-[14px] outline-none focus:border-brand";
 
   return <div className="grid gap-4">
     <div className="grid gap-3 sm:grid-cols-4">
@@ -117,11 +117,11 @@ export function AdminAffiliates() {
     </div>
 
     {applied.length > 0 && <section className={`${box} border-[#F6B46E]`}>
-      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3"><h2 className="text-[15px] font-bold">New applications</h2><span className="rounded-full bg-[#FFF0DF] px-2 py-0.5 text-[12px] font-bold text-[#C96100]">{applied.length} waiting</span></div>
+      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3"><h2 className="text-[15px] font-bold">New applications</h2><span className="rounded-full bg-brand-tint px-2 py-0.5 text-[12px] font-bold text-brand-darker">{applied.length} waiting</span></div>
       <ul className="divide-y divide-slate-100">{applied.map((a) => <li key={a.id} className="grid gap-2 px-4 py-3 text-[13.5px] sm:grid-cols-[1fr_auto] sm:items-start">
         <div className="min-w-0">
           <p className="font-semibold">{a.name} <span className="font-normal text-slate-500">· {KINDS.find(([k]) => k === a.kind)?.[1] ?? a.kind}{a.audience ? ` · ${a.audience}` : ""}</span></p>
-          <p className="text-slate-600">{a.email}{a.phone ? ` · ${a.phone}` : ""}{a.website ? <> · <a href={/^https?:\/\//.test(a.website) ? a.website : `https://${a.website}`} target="_blank" rel="noreferrer" className="text-[#C96100] underline">{a.website}</a></> : null}</p>
+          <p className="text-slate-600">{a.email}{a.phone ? ` · ${a.phone}` : ""}{a.website ? <> · <a href={/^https?:\/\//.test(a.website) ? a.website : `https://${a.website}`} target="_blank" rel="noreferrer" className="text-brand-darker underline">{a.website}</a></> : null}</p>
           {a.pitch && <p className="mt-1 whitespace-pre-line rounded-lg bg-slate-50 p-2 text-slate-700">{a.pitch}</p>}
           <p className="mt-1 text-[12px] text-slate-500">Will get: waydidi.com/?ref={a.slug} · code {a.code} · {a.commission_percent}% / {a.discount_percent}% off (change with Edit before approving)</p>
         </div>
@@ -136,7 +136,7 @@ export function AdminAffiliates() {
     <section className={box}>
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <h2 className="text-[15px] font-bold">Affiliate partners</h2>
-        <button type="button" onClick={() => { setForm({ ...EMPTY }); setError(""); }} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#FE8B05] px-4 text-[13.5px] font-semibold text-white hover:bg-[#E67900]"><Plus size={16} />Add partner</button>
+        <button type="button" onClick={() => { setForm({ ...EMPTY }); setError(""); }} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-brand px-4 text-[13.5px] font-semibold text-white hover:bg-brand-strong"><Plus size={16} />Add partner</button>
       </div>
       {rows === null ? <p className="p-4 text-slate-500">Loading…</p> : partners.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No partners yet. Add your first one: they get a link like waydidi.com/?ref=name and a code for their followers.</p> :
         <div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-[13.5px]">
@@ -144,16 +144,16 @@ export function AdminAffiliates() {
           <tbody className="divide-y divide-slate-100">{partners.map((a) => <Fragment key={a.id}>
             <tr className="align-middle">
               <td className="px-4 py-3"><p className="font-semibold">{a.name}{a.status === "paused" && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">Paused</span>}</p><p className="text-[12px] text-slate-500">{KINDS.find(([k]) => k === a.kind)?.[1] ?? a.kind}{a.email ? ` · ${a.email}` : ""}</p></td>
-              <td><span className="flex items-center gap-1 font-mono text-[12.5px]">waydidi.com/?ref={a.slug}<CopyButton text={`https://waydidi.com/?ref=${a.slug}`} /></span><span className="flex items-center gap-1 font-mono text-[12.5px] text-[#C96100]">{a.code}<CopyButton text={a.code} /></span>
-                <span className="flex items-center gap-1 text-[12px] text-slate-500">Dashboard link<CopyButton text={a.dashboardUrl} /><button type="button" onClick={() => void newLink(a)} className="font-semibold underline underline-offset-2 hover:text-[#C96100]">New</button></span></td>
+              <td><span className="flex items-center gap-1 font-mono text-[12.5px]">waydidi.com/?ref={a.slug}<CopyButton text={`https://waydidi.com/?ref=${a.slug}`} /></span><span className="flex items-center gap-1 font-mono text-[12.5px] text-brand-darker">{a.code}<CopyButton text={a.code} /></span>
+                <span className="flex items-center gap-1 text-[12px] text-slate-500">Dashboard link<CopyButton text={a.dashboardUrl} /><button type="button" onClick={() => void newLink(a)} className="font-semibold underline underline-offset-2 hover:text-brand-darker">New</button></span></td>
               <td className="text-[12.5px]"><span className="font-semibold">{a.tier} · {a.rate}%</span> to them<br /><span className="text-slate-500">{a.discount_percent}% off with code · {a.completed} rides</span></td>
               <td>{a.clicks30}</td><td>{a.bookings}</td><td>{thb(a.sales)}</td>
               <td className="font-semibold text-emerald-700">{thb(a.earned)}</td><td className="text-amber-700">{thb(a.pending)}</td>
               <td className="whitespace-nowrap pr-4 text-right">
                 <button type="button" onClick={() => setQr(a)} className="rounded-lg px-2 py-1 font-semibold text-slate-600 hover:bg-slate-100">QR</button>
-                <button type="button" onClick={() => void showBookings(a.id)} className="rounded-lg px-2 py-1 font-semibold text-[#C96100] hover:bg-[#FFF6EC]">{open === a.id ? "Hide" : "Bookings"}</button>
+                <button type="button" onClick={() => void showBookings(a.id)} className="rounded-lg px-2 py-1 font-semibold text-brand-darker hover:bg-brand-wash">{open === a.id ? "Hide" : "Bookings"}</button>
                 <button type="button" onClick={() => { setForm({ id: a.id, name: a.name, slug: a.slug, code: a.code, email: a.email ?? "", phone: a.phone ?? "", kind: a.kind, commissionPercent: String(a.commission_percent), discountPercent: String(a.discount_percent), status: a.status, notes: a.notes ?? "" }); setError(""); }} className="rounded-lg px-2 py-1 font-semibold text-slate-600 hover:bg-slate-100">Edit</button>
-                {a.earned > 0 && <button type="button" onClick={() => void pay(a)} className="ml-1 rounded-lg bg-[#211726] px-2.5 py-1 font-semibold text-white">Mark paid</button>}
+                {a.earned > 0 && <button type="button" onClick={() => void pay(a)} className="ml-1 rounded-lg bg-plum px-2.5 py-1 font-semibold text-white">Mark paid</button>}
               </td>
             </tr>
             {open === a.id && <tr><td colSpan={9} className="bg-slate-50 px-4 py-3">
@@ -162,7 +162,7 @@ export function AdminAffiliates() {
                   <tbody>{bookings.map((b) => <tr key={b.booking_reference} className="border-t border-slate-200">
                     <td className="py-1.5 font-mono">{b.booking_reference}</td><td>{b.pickup_date} · {b.customer_name} · {b.pickup} → {b.dropoff}</td><td>{b.via === "code" ? "Code" : "Link"}</td>
                     <td>{thb(b.fare_before_discount - b.discount)}{b.discount > 0 && <span className="text-slate-500"> ({thb(b.discount)} off)</span>}</td>
-                    <td><span className={`rounded-full px-2 py-0.5 text-[11.5px] font-bold ${b.state === "cancelled" ? "bg-slate-100 text-slate-500 line-through" : b.paid_at ? "bg-emerald-50 text-emerald-700" : b.state === "earned" ? "bg-[#FFF0DF] text-[#C96100]" : "bg-amber-50 text-amber-800"}`}>{thb(b.commission)} {b.state === "cancelled" ? "cancelled" : b.paid_at ? "paid" : b.state === "earned" ? "owed" : "pending"}</span></td>
+                    <td><span className={`rounded-full px-2 py-0.5 text-[11.5px] font-bold ${b.state === "cancelled" ? "bg-slate-100 text-slate-500 line-through" : b.paid_at ? "bg-emerald-50 text-emerald-700" : b.state === "earned" ? "bg-brand-tint text-brand-darker" : "bg-amber-50 text-amber-800"}`}>{thb(b.commission)} {b.state === "cancelled" ? "cancelled" : b.paid_at ? "paid" : b.state === "earned" ? "owed" : "pending"}</span></td>
                   </tr>)}</tbody></table>}
             </td></tr>}
           </Fragment>)}</tbody>
@@ -184,7 +184,7 @@ export function AdminAffiliates() {
             <td className="max-w-[260px] whitespace-pre-line text-[12.5px] text-slate-600">{p.notes || <span className="text-slate-400">No bank details yet (add with Edit)</span>}</td>
             <td>{p.rides}</td><td>{thb(p.amount)}</td>
             <td className={p.unpaid ? "font-semibold text-emerald-700" : "text-slate-400"}>{p.unpaid ? thb(p.unpaid) : "Paid"}</td>
-            <td className="pr-4 text-right">{p.unpaid > 0 && <button type="button" onClick={() => void payMonth(p)} className="rounded-lg bg-[#211726] px-3 py-1.5 font-semibold text-white">Mark paid</button>}</td>
+            <td className="pr-4 text-right">{p.unpaid > 0 && <button type="button" onClick={() => void payMonth(p)} className="rounded-lg bg-plum px-3 py-1.5 font-semibold text-white">Mark paid</button>}</td>
           </tr>)}</tbody>
         </table></div>}
       <p className="border-t border-slate-100 px-4 py-2 text-[12px] text-slate-500">Rides count in the month of their pickup date, once completed. Tiers: Silver after 10 completed rides (+2%), Gold after 30 (+4%), on top of each partner&apos;s own rate; the rate is fixed on each booking when it&apos;s made.</p>
@@ -193,12 +193,12 @@ export function AdminAffiliates() {
     <section className={box}>
       <div className="border-b border-slate-100 px-4 py-3"><h2 className="text-[15px] font-bold">Content kit prices</h2><p className="text-[12.5px] text-slate-500">&quot;From&quot; price per car shown in the partners&apos; ready-made captions (EN / TH / ZH). Leave empty to leave the price out.</p></div>
       {kit && <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">{KIT_ROUTES.map((r) => <label key={r.id} className="grid gap-1 text-[13px] font-semibold">{r.title.en}
-        <span className="flex items-center rounded-lg border border-slate-300 px-3 focus-within:border-[#FE8B05]"><span className="text-slate-400">฿</span><input inputMode="numeric" value={kit[r.id] ?? ""} onChange={(e) => setKit({ ...kit, [r.id]: e.target.value.replace(/\D/g, "") })} placeholder="e.g. 1200" className="h-10 w-full bg-transparent px-1.5 font-normal outline-none" /></span>
+        <span className="flex items-center rounded-lg border border-slate-300 px-3 focus-within:border-brand"><span className="text-slate-400">฿</span><input inputMode="numeric" value={kit[r.id] ?? ""} onChange={(e) => setKit({ ...kit, [r.id]: e.target.value.replace(/\D/g, "") })} placeholder="e.g. 1200" className="h-10 w-full bg-transparent px-1.5 font-normal outline-none" /></span>
       </label>)}</div>}
-      <div className="flex items-center gap-3 border-t border-slate-100 px-4 py-3"><button type="button" onClick={() => void saveKit()} className="h-9 rounded-lg bg-[#211726] px-4 text-[13px] font-semibold text-white">Save prices</button>{kitMsg && <span className="text-[13px] font-semibold text-[#C96100]">{kitMsg}</span>}</div>
+      <div className="flex items-center gap-3 border-t border-slate-100 px-4 py-3"><button type="button" onClick={() => void saveKit()} className="h-9 rounded-lg bg-plum px-4 text-[13px] font-semibold text-white">Save prices</button>{kitMsg && <span className="text-[13px] font-semibold text-brand-darker">{kitMsg}</span>}</div>
     </section>
 
-    {qr && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#211726]/50 p-4" role="dialog" aria-modal="true" aria-label={`QR for ${qr.name}`} onClick={(e) => e.target === e.currentTarget && setQr(null)}>
+    {qr && <div className="fixed inset-0 z-50 flex items-center justify-center bg-plum/50 p-4" role="dialog" aria-modal="true" aria-label={`QR for ${qr.name}`} onClick={(e) => e.target === e.currentTarget && setQr(null)}>
       <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
         <button type="button" onClick={() => setQr(null)} aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></button>
         <h2 className="text-[18px] font-bold">{qr.name}</h2><p className="mb-3 text-[13px] text-slate-500">waydidi.com/?ref={qr.slug}</p>
@@ -208,7 +208,7 @@ export function AdminAffiliates() {
 
     <p className="text-[12.5px] text-slate-500">Commission is earned when the ride is completed, on what the customer actually paid. Cancelled rides earn nothing. A partner link is remembered for 30 days (the last link clicked wins); a partner&apos;s code also gives the customer their discount. Partners can&apos;t earn on their own bookings, and store (QR) bookings don&apos;t count.</p>
 
-    {form && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#211726]/50 p-4" role="dialog" aria-modal="true" aria-labelledby="aff-form">
+    {form && <div className="fixed inset-0 z-50 flex items-center justify-center bg-plum/50 p-4" role="dialog" aria-modal="true" aria-labelledby="aff-form">
       <form onSubmit={save} className="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <button type="button" onClick={() => setForm(null)} aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></button>
         <h2 id="aff-form" className="text-[20px] font-bold">{form.id ? "Edit partner" : "Add partner"}</h2>
@@ -222,10 +222,10 @@ export function AdminAffiliates() {
           <label className="grid gap-1 text-[13px] font-semibold">Phone<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={field} /></label>
           <label className="grid gap-1 text-[13px] font-semibold">Type<select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} className={field}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
           <label className="grid gap-1 text-[13px] font-semibold">Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={field}>{form.status === "applied" && <option value="applied">Waiting for approval</option>}<option value="active">Active</option><option value="paused">Paused (link and code stop working)</option></select></label>
-          <label className="grid gap-1 text-[13px] font-semibold sm:col-span-2">Notes (bank / PromptPay, agreement…)<textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className="w-full rounded-lg border border-slate-300 p-3 text-[14px] outline-none focus:border-[#FE8B05]" /></label>
+          <label className="grid gap-1 text-[13px] font-semibold sm:col-span-2">Notes (bank / PromptPay, agreement…)<textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className="w-full rounded-lg border border-slate-300 p-3 text-[14px] outline-none focus:border-brand" /></label>
         </div>
         {error && <p role="alert" className="mt-3 text-[14px] text-red-600">{error}</p>}
-        <button type="submit" disabled={busy} className="mt-5 h-11 w-full rounded-xl bg-[#FE8B05] font-semibold text-white hover:bg-[#E67900] disabled:opacity-60">{busy ? "Saving…" : "Save partner"}</button>
+        <button type="submit" disabled={busy} className="mt-5 h-11 w-full rounded-xl bg-brand font-semibold text-white hover:bg-brand-strong disabled:opacity-60">{busy ? "Saving…" : "Save partner"}</button>
       </form>
     </div>}
   </div>;

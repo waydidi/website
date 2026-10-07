@@ -45,7 +45,7 @@ export function SavedPlaces({ initial }: { initial: Place[] }) {
 
   return <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
     {places.length ? <ul className="grid grid-cols-[minmax(0,1fr)] gap-3">{places.map((place) => { const Icon = iconFor(place.label); return <li key={place.id} className="flex items-center gap-4 rounded-[20px] bg-white p-5">
-      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[#D96F00]"><Icon size={20} /></span>
+      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-tint text-brand-text"><Icon size={20} /></span>
       <div className="min-w-0 flex-1"><p className="font-bold">{place.label}</p><p className="truncate text-sm text-slate-600">{place.address}</p></div>
       <button onClick={() => remove(place.id)} aria-label={`Remove ${place.label}`} className="grid size-10 shrink-0 place-items-center rounded-full text-slate-500 hover:bg-red-50 hover:text-red-600"><Trash2 size={18} /></button>
     </li>; })}</ul> : null}
@@ -53,16 +53,16 @@ export function SavedPlaces({ initial }: { initial: Place[] }) {
     {adding ? <form key={formKey} onSubmit={add} className="rounded-[20px] bg-white p-6">
       <h2 className="font-black">Add a place</h2>
       <label className="mt-4 block text-sm font-bold" htmlFor="place-label">Name</label>
-      <input id="place-label" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={40} placeholder="Home, Hotel, Office…" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF8A05] focus:ring-4 focus:ring-orange-100" />
-      <div className="mt-2 flex flex-wrap gap-2">{suggestions.map((s) => <button type="button" key={s} onClick={() => setLabel(s)} className="rounded-full border border-slate-200 px-3 py-1 text-sm hover:border-[#FF8A05]">{s}</button>)}</div>
+      <input id="place-label" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={40} placeholder="Home, Hotel, Office…" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-brand focus:ring-4 focus:ring-orange-100" />
+      <div className="mt-2 flex flex-wrap gap-2">{suggestions.map((s) => <button type="button" key={s} onClick={() => setLabel(s)} className="rounded-full border border-slate-200 px-3 py-1 text-sm hover:border-brand">{s}</button>)}</div>
       <label className="mt-5 block text-sm font-bold" htmlFor="place-address">Address</label>
       <div className="mt-2"><PlaceAutocomplete id="place-address" onPick={setPicked} /></div>
       {error ? <p role="alert" className="mt-3 text-sm font-bold text-red-600">{error}</p> : null}
       <div className="mt-5 flex gap-3">
-        <button disabled={busy || !label.trim() || !picked} className="rounded-full bg-[#FF8A05] px-6 py-3 font-black text-white disabled:opacity-50">{busy ? "Saving…" : "Save place"}</button>
+        <button disabled={busy || !label.trim() || !picked} className="rounded-full bg-brand px-6 py-3 font-black text-white disabled:opacity-50">{busy ? "Saving…" : "Save place"}</button>
         {places.length ? <button type="button" onClick={() => { setAdding(false); setError(""); }} className="rounded-full px-5 py-3 font-bold text-slate-600">Cancel</button> : null}
       </div>
-    </form> : <button onClick={() => setAdding(true)} className="flex items-center justify-center gap-2 rounded-[20px] border-2 border-dashed border-slate-300 p-5 font-bold text-slate-600 hover:border-[#FF8A05] hover:text-[#C96100]"><Plus size={19} />Add a place</button>}
+    </form> : <button onClick={() => setAdding(true)} className="flex items-center justify-center gap-2 rounded-[20px] border-2 border-dashed border-slate-300 p-5 font-bold text-slate-600 hover:border-brand hover:text-brand-darker"><Plus size={19} />Add a place</button>}
     <p className="text-sm text-slate-500">Saved places appear in the search form so you can pick them as your pickup or drop-off.</p>
   </div>;
 }

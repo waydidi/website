@@ -49,27 +49,27 @@ export function SettingsDialog({ dark, onToggleDark }: { dark: boolean; onToggle
       <DialogDescription className="sr-only">Your admin account and display settings.</DialogDescription>
       <div className="flex flex-col items-center pt-2 text-center">
         <div className="relative">
-          <div className="grid size-28 place-items-center overflow-hidden rounded-full bg-[#FFF0DF] text-[28px] font-black text-[#C96100]">
+          <div className="grid size-28 place-items-center overflow-hidden rounded-full bg-brand-tint text-[28px] font-black text-brand-darker">
             {hasPhoto
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={`/api/admin/avatar?v=${version}`} alt="" className="size-full object-cover" onError={() => setHasPhoto(false)} />
               : "WD"}
           </div>
-          <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} aria-label={hasPhoto ? "Change photo" : "Add photo"} className="absolute -right-1 top-1 grid size-9 place-items-center rounded-full bg-white text-slate-700 shadow-md hover:text-[#C96100]"><Pencil size={15} /></button>
+          <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} aria-label={hasPhoto ? "Change photo" : "Add photo"} className="absolute -right-1 top-1 grid size-9 place-items-center rounded-full bg-white text-slate-700 shadow-md hover:text-brand-darker"><Pencil size={15} /></button>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void upload(f); }} />
         </div>
         <DialogTitle className="mt-4 text-[22px] font-bold">Waydidi Admin</DialogTitle>
         <span className="mt-2 rounded-lg bg-emerald-50 px-3 py-1 text-[12.5px] font-semibold text-emerald-700">Administrator</span>
         {error && <p role="alert" className="mt-2 text-[12px] font-semibold text-red-600">{error}</p>}
-        <Link href="/admin/settings" onClick={() => setOpen(false)} className="mt-5 inline-flex h-12 items-center rounded-2xl bg-[#FF8A05] px-8 text-[15px] font-bold text-white shadow-sm hover:bg-[#E67900]">All settings</Link>
-        <Link href="/admin/profile" onClick={() => setOpen(false)} className="mt-3 text-[14px] font-semibold text-[#C96100] hover:underline">Manage profile</Link>
+        <Link href="/admin/settings" onClick={() => setOpen(false)} className="mt-5 inline-flex h-12 items-center rounded-2xl bg-brand px-8 text-[15px] font-bold text-white shadow-sm hover:bg-brand-strong">All settings</Link>
+        <Link href="/admin/profile" onClick={() => setOpen(false)} className="mt-3 text-[14px] font-semibold text-brand-darker hover:underline">Manage profile</Link>
       </div>
       <div className="mt-5 grid gap-2.5">
         <div className={card}><p className="text-[12px] text-slate-500">Admin ID</p><p className="mt-0.5 text-[15px] font-medium">{username || "…"}</p></div>
         <div className={card}><p className="text-[12px] text-slate-500">Session</p><p className="mt-0.5 text-[15px] font-medium">MFA verified · expires after 8 hours or 30 minutes idle</p></div>
         <div className={`${card} flex items-center justify-between`}>
           <div><p className="text-[12px] text-slate-500">Appearance</p><p className="mt-0.5 text-[15px] font-medium">Dark mode</p></div>
-          <button type="button" role="switch" aria-checked={dark} aria-label="Dark mode" onClick={onToggleDark} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${dark ? "bg-[#FF8A05]" : "bg-slate-300"}`}>
+          <button type="button" role="switch" aria-checked={dark} aria-label="Dark mode" onClick={onToggleDark} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${dark ? "bg-brand" : "bg-slate-300"}`}>
             <span className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition-all ${dark ? "left-[22px]" : "left-0.5"}`} />
           </button>
         </div>

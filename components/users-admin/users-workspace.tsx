@@ -67,10 +67,10 @@ export function UsersWorkspace({ users, monthStart, activeSince }: { users: User
 
     <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
       <div role="tablist" aria-label="Filter" className="inline-flex flex-wrap rounded-xl bg-[#E8EAEE] p-1">
-        {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`h-9 rounded-lg px-4 text-[15px] ${tab === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}>{label}</button>)}
+        {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`h-9 rounded-lg px-4 text-[15px] ${tab === id ? "bg-white font-medium text-night shadow-sm" : "text-slate-600 hover:text-night"}`}>{label}</button>)}
       </div>
       <div className="flex items-center gap-2">
-        {searchOpen && <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, email or phone" aria-label="Search members" className="h-10 w-56 rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-[#FF8A05]" />}
+        {searchOpen && <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, email or phone" aria-label="Search members" className="h-10 w-56 rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-brand" />}
         <button type="button" onClick={() => { setSearchOpen((v) => !v); if (searchOpen) setQuery(""); }} aria-label={searchOpen ? "Close search" : "Search"} className={iconBtn}>{searchOpen ? <X size={17} /> : <Search size={17} />}</button>
         <button type="button" onClick={() => setSort((s) => (s + 1) % SORTS.length)} aria-label={`Sort: ${SORTS[sort][1]}`} title={`Sort: ${SORTS[sort][1]}`} className={iconBtn}><ArrowUpDown size={17} /></button>
       </div>
@@ -85,8 +85,8 @@ export function UsersWorkspace({ users, monthStart, activeSince }: { users: User
           {rows.length === 0 && <tr><td colSpan={8} className="px-5 py-14 text-center text-slate-500">{query ? "No members match your search." : users.length ? "No members in this view." : "No one has registered yet."}</td></tr>}
           {rows.map((u) => <tr key={u.id} className="border-t border-slate-100">
             <td className="h-[72px] px-5"><div className="flex items-center gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[13px] font-bold text-[#C96100]" aria-hidden="true">{initials(fullName(u))}</span>
-              <div className="min-w-0"><p className="font-medium text-[#15161C]">{fullName(u)}</p><p className="text-[13px] text-slate-500">{u.email}</p></div></div></td>
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-tint text-[13px] font-bold text-brand-darker" aria-hidden="true">{initials(fullName(u))}</span>
+              <div className="min-w-0"><p className="font-medium text-night">{fullName(u)}</p><p className="text-[13px] text-slate-500">{u.email}</p></div></div></td>
             <td className="whitespace-nowrap px-5">{day(u.createdAt)}</td>
             <td className="whitespace-nowrap px-5 tabular-nums">{u.phone || "N/A"}</td>
             <td className="px-5"><div className="flex flex-wrap gap-1">{["Email", ...(u.providers ?? "").split(",").filter(Boolean).map((p) => PROVIDER_LABELS[p] ?? p)].map((m) => <span key={m} className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-700">{m}</span>)}</div></td>

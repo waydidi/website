@@ -60,32 +60,32 @@ export function DriverCreateForm({
           required
           name="fullName"
           placeholder="Full name"
-          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-[#FF8A05]"
+          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-brand"
         />
         <input
           required
           name="phone"
           placeholder="Phone number"
-          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-[#FF8A05]"
+          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-brand"
         />
         <input
           required
           name="baseLocation"
           placeholder="Base location"
-          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-[#FF8A05]"
+          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-brand"
         />
         <input
           required
           name="vehicle"
           placeholder="Car / vehicle"
-          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-[#FF8A05]"
+          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-brand"
         />
         <select
           required
           name="vehicleType"
           defaultValue=""
           aria-label="Vehicle type"
-          className="col-span-2 h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-[#FF8A05]"
+          className="col-span-2 h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-brand"
         >
           <option value="" disabled>Vehicle type</option>
           <option value="sedan">Sedan</option>
@@ -96,7 +96,7 @@ export function DriverCreateForm({
           type="email"
           name="email"
           placeholder="Email for reminders (optional)"
-          className="col-span-2 h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-[#FF8A05]"
+          className="col-span-2 h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-brand"
         />
     </div>
     <section className="rounded-2xl border border-slate-200 p-3">
@@ -111,7 +111,7 @@ export function DriverCreateForm({
             key={bank.code}
             type="button"
             onClick={() => setBankCode(bank.code)}
-            className={`flex items-center gap-2 rounded-xl border p-2 text-left transition ${bankCode === bank.code ? "border-[#FF8A05] bg-orange-50" : "border-slate-200 bg-white hover:border-orange-200"}`}
+            className={`flex items-center gap-2 rounded-xl border p-2 text-left transition ${bankCode === bank.code ? "border-brand bg-orange-50" : "border-slate-200 bg-white hover:border-orange-200"}`}
           >
             {/* Official bank logos from the thai-banks-logo package (public/banks). */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -133,7 +133,7 @@ export function DriverCreateForm({
         inputMode="numeric"
         autoComplete="off"
         placeholder="Bank account number"
-        className="mt-3 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-[#FF8A05]"
+        className="mt-3 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-brand"
       />
       {!bankCode && (
         <p className="mt-2 text-xs font-semibold text-amber-700">
@@ -187,7 +187,7 @@ export function DriverCreateForm({
       )}
       <button
       disabled={busy || !bankCode}
-        className={`flex h-11 w-full items-center justify-center gap-2 rounded-full font-bold text-white disabled:opacity-50 ${darkButton ? "bg-[#211726]" : "bg-[#FF8A05]"}`}
+        className={`flex h-11 w-full items-center justify-center gap-2 rounded-full font-bold text-white disabled:opacity-50 ${darkButton ? "bg-plum" : "bg-brand"}`}
       >
         {busy ? (
           <LoaderCircle size={17} className="animate-spin" />

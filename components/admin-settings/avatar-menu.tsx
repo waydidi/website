@@ -46,14 +46,14 @@ export function AvatarMenu() {
   }
 
   return <div ref={boxRef} className="relative shrink-0">
-    <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} aria-label="Account menu" className="grid size-10 place-items-center overflow-hidden rounded-full border border-slate-200 bg-white text-[13px] font-bold text-[#C96100] focus-visible:ring-2 focus-visible:ring-[#FF8A05]">
+    <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} aria-label="Account menu" className="grid size-10 place-items-center overflow-hidden rounded-full border border-slate-200 bg-white text-[13px] font-bold text-brand-darker focus-visible:ring-2 focus-visible:ring-brand">
       {hasPhoto
         // eslint-disable-next-line @next/next/no-img-element
         ? <img src={`/api/admin/avatar?v=${version}`} alt="" className="size-full object-cover" onError={() => setHasPhoto(false)} />
         : "WD"}
     </button>
     {open && <div role="menu" className="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-[14px] shadow-lg">
-      <p className="border-b border-slate-100 px-4 py-2.5 font-semibold text-[#15161C]">Waydidi Admin</p>
+      <p className="border-b border-slate-100 px-4 py-2.5 font-semibold text-night">Waydidi Admin</p>
       <button type="button" role="menuitem" disabled={busy} onClick={() => fileRef.current?.click()} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50"><ImagePlus size={16} />{hasPhoto ? "Change photo" : "Add photo"}</button>
       {hasPhoto && <button type="button" role="menuitem" disabled={busy} onClick={removePhoto} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50"><Trash2 size={16} />Remove photo</button>}
       <button type="button" role="menuitem" onClick={() => { setOpen(false); window.dispatchEvent(new Event("waydidi:open-settings")); }} className="flex w-full items-center gap-2.5 border-t border-slate-100 px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50"><Settings size={16} />Settings</button>

@@ -148,7 +148,7 @@ export default function ConfirmationClient({
           </p>
           <button
             onClick={() => load()}
-            className="mt-6 inline-flex h-12 items-center gap-2 rounded-full bg-[#FF8A05] px-6 font-bold text-white"
+            className="mt-6 inline-flex h-12 items-center gap-2 rounded-full bg-brand px-6 font-bold text-white"
           >
             <RotateCw size={18} /> Try again
           </button>
@@ -157,14 +157,14 @@ export default function ConfirmationClient({
     );
   if (!booking || !["confirmed", "completed", "cancelled", "no_show"].includes(booking.status))
     return (
-      <main className="grid min-h-screen place-items-center bg-white p-6 text-[#1f1726]">
+      <main className="grid min-h-screen place-items-center bg-white p-6 text-plum">
         <div className="max-w-md text-center">
-          {booking?.paymentStatus === "failed" || booking?.paymentStatus === "expired" ? <XCircle className="mx-auto text-red-600" size={42} /> : <Clock3 className="mx-auto animate-pulse text-[#D96F00]" size={42} />}
+          {booking?.paymentStatus === "failed" || booking?.paymentStatus === "expired" ? <XCircle className="mx-auto text-red-600" size={42} /> : <Clock3 className="mx-auto animate-pulse text-brand-text" size={42} />}
           <h1 className="mt-5 text-3xl font-black">{booking?.paymentStatus === "refunded" ? "Payment refunded · booking unconfirmed" : booking?.paymentStatus === "disputed" ? "Payment under review" : booking?.paymentStatus === "failed" ? "Your payment was not completed" : booking?.paymentStatus === "expired" || booking?.status === "expired" ? "Your payment session expired" : "Confirming your payment…"}</h1>
           <p className="mt-3 text-slate-500">
             {["refunded","disputed"].includes(booking?.paymentStatus ?? "") ? "Please contact Waydidi operations to review this booking. A ride confirmation has not been issued." : booking?.paymentStatus === "failed" ? (booking.paymentFailureMessage ?? "No confirmed charge was found. Your journey details remain saved.") : booking?.paymentStatus === "expired" ? "Your journey details are still saved. Return to your booking to restart secure payment." : "Stripe confirmation can take a few moments. You can safely close this page—we’ll continue checking."}
           </p>
-          {(booking?.paymentStatus === "failed" || booking?.paymentStatus === "expired") && <Link href={booking?.paymentStatus === "failed" && booking.checkoutSessionId ? `/pay/${reference}?token=${encodeURIComponent(token)}&session_id=${encodeURIComponent(booking.checkoutSessionId)}` : "/?recover=payment"} className="mt-6 inline-flex h-12 items-center rounded-full bg-[#FF8A05] px-6 font-bold text-white">Return to booking</Link>}
+          {(booking?.paymentStatus === "failed" || booking?.paymentStatus === "expired") && <Link href={booking?.paymentStatus === "failed" && booking.checkoutSessionId ? `/pay/${reference}?token=${encodeURIComponent(token)}&session_id=${encodeURIComponent(booking.checkoutSessionId)}` : "/?recover=payment"} className="mt-6 inline-flex h-12 items-center rounded-full bg-brand px-6 font-bold text-white">Return to booking</Link>}
           {timedOut && (
             <>
               <p className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
@@ -173,7 +173,7 @@ export default function ConfirmationClient({
               </p>
               <button
                 onClick={() => load()}
-                className="mt-5 inline-flex h-12 items-center gap-2 rounded-full bg-[#FF8A05] px-6 font-bold text-white"
+                className="mt-5 inline-flex h-12 items-center gap-2 rounded-full bg-brand px-6 font-bold text-white"
               >
                 <RotateCw size={18} /> Check payment again
               </button>
@@ -245,7 +245,7 @@ export default function ConfirmationClient({
   return (
     <main className="min-h-screen bg-[#f6f7f9] px-4 py-6 sm:px-5 sm:py-10">
       <div className="booking-confirmation mx-auto max-w-[850px] overflow-hidden rounded-[32px] bg-white shadow-xl shadow-orange-950/10">
-        <div className="bg-[#FF8A05] p-8 text-white sm:p-11">
+        <div className="bg-brand p-8 text-white sm:p-11">
           <Link
             href="/"
             className="mb-8 inline-flex text-white"
@@ -291,7 +291,7 @@ export default function ConfirmationClient({
             {!cancelled && (
               <a
                 href={`/trip/${encodeURIComponent(reference)}?token=${encodeURIComponent(token)}`}
-                className="flex h-13 items-center gap-2 rounded-full bg-[#211726] px-7 font-bold text-white"
+                className="flex h-13 items-center gap-2 rounded-full bg-plum px-7 font-bold text-white"
               >
                 <Navigation size={19} /> Track your trip
               </a>
@@ -299,7 +299,7 @@ export default function ConfirmationClient({
             {!cancelled && (
               <a
                 href={`/api/bookings/${encodeURIComponent(reference)}/pdf?token=${encodeURIComponent(token)}`}
-                className="flex h-13 items-center gap-2 rounded-full bg-[#FF8A05] px-7 font-bold text-white"
+                className="flex h-13 items-center gap-2 rounded-full bg-brand px-7 font-bold text-white"
               >
                 <Download size={19} /> Download PDF
               </a>
@@ -352,7 +352,7 @@ function AccountPrompt({ email, reference }: { email: string; reference: string 
       </div>
       <Link
         href={signedIn ? tripPath : `/account/sign-in?email=${encodeURIComponent(email)}&next=${encodeURIComponent(tripPath)}`}
-        className="shrink-0 rounded-full bg-[#211726] px-6 py-3 text-center font-bold text-white"
+        className="shrink-0 rounded-full bg-plum px-6 py-3 text-center font-bold text-white"
       >
         {signedIn ? "View in my account" : "Create account"}
       </Link>

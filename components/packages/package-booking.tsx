@@ -7,7 +7,7 @@ import { PlacePicker } from "@/components/trip-planner/place-picker";
 type Car = { id: string; name: string; seats: number; price: number };
 type Quote = { ok: boolean; errors: string[]; total: number; feesOnSite: number; returnAt: string | null; timeline: { name: string; start: string; end: string }[] };
 
-const input = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]";
+const input = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand";
 const label = "grid gap-1 text-[13px] font-bold text-slate-700";
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 
@@ -45,7 +45,7 @@ export function PackageBooking({ slug, startTimes, cars, minDate }: { slug: stri
     } catch (e) { setError((e as Error).message); setBusy(false); }
   };
 
-  if (!cars.length) return <div className="rounded-[22px] bg-[#F5F6F8] p-5">This trip isn&apos;t bookable online yet. Chat with us to arrange it.</div>;
+  if (!cars.length) return <div className="rounded-[22px] bg-canvas p-5">This trip isn&apos;t bookable online yet. Chat with us to arrange it.</div>;
   const set = (patch: Partial<typeof b>) => setB((x) => ({ ...x, ...patch }));
 
   return <div className="grid gap-4 rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
@@ -60,12 +60,12 @@ export function PackageBooking({ slug, startTimes, cars, minDate }: { slug: stri
       <label className={label}>Children<input type="number" min={0} max={10} className={input} value={b.children} onChange={(e) => set({ children: Math.max(0, Number(e.target.value) || 0) })} /></label>
     </div>
     <fieldset className="grid gap-2"><legend className="mb-1 text-[13px] font-bold text-slate-700">Car</legend>
-      {cars.map((c) => <label key={c.id} className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 text-[15px] ${b.vehicle === c.id ? "border-[#FF8A05] bg-orange-50" : "border-slate-200"} ${b.adults + b.children > c.seats ? "opacity-50" : ""}`}>
+      {cars.map((c) => <label key={c.id} className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 text-[15px] ${b.vehicle === c.id ? "border-brand bg-orange-50" : "border-slate-200"} ${b.adults + b.children > c.seats ? "opacity-50" : ""}`}>
         <span className="flex items-center gap-2"><input type="radio" name="car" checked={b.vehicle === c.id} onChange={() => set({ vehicle: c.id })} />{c.name} · {c.seats} seats</span><span className="font-bold">{thb(c.price)}</span>
       </label>)}
     </fieldset>
 
-    {quote && <div className="grid gap-2 rounded-xl bg-[#F5F6F8] p-4 text-[14px]">
+    {quote && <div className="grid gap-2 rounded-xl bg-canvas p-4 text-[14px]">
       {quote.errors.length > 0 ? <ul className="grid gap-1 text-red-700">{quote.errors.map((x) => <li key={x}>{x}</li>)}</ul> : <>
         <ol className="grid gap-1">{quote.timeline.map((s, i) => <li key={i} className="flex justify-between gap-3"><span>{s.name}</span><span className="shrink-0 tabular-nums text-slate-600">{s.start}–{s.end}</span></li>)}</ol>
         {quote.returnAt && <p className="text-slate-600">Back at your hotel around {quote.returnAt}</p>}
@@ -79,7 +79,7 @@ export function PackageBooking({ slug, startTimes, cars, minDate }: { slug: stri
       <input className={input} type="email" placeholder="Email" autoComplete="email" value={contact.email} onChange={(e) => setContact({ ...contact, email: e.target.value })} />
       <input className={input} type="tel" placeholder="Phone or WhatsApp" autoComplete="tel" value={contact.phone} onChange={(e) => setContact({ ...contact, phone: e.target.value })} />
       <label className="flex gap-2 text-[13px] text-slate-600"><input type="checkbox" checked={contact.agree} onChange={(e) => setContact({ ...contact, agree: e.target.checked })} />I accept the <Link href="/terms" className="underline">terms</Link> and cancellation policy.</label>
-      <button onClick={book} disabled={busy} className="h-12 rounded-full bg-[#FF8A05] font-black text-white hover:bg-[#E67900] disabled:opacity-60">{busy ? "Opening payment…" : `Pay ${thb(quote.total)}`}</button>
+      <button onClick={book} disabled={busy} className="h-12 rounded-full bg-brand font-black text-white hover:bg-brand-strong disabled:opacity-60">{busy ? "Opening payment…" : `Pay ${thb(quote.total)}`}</button>
     </div>}
     {!ready && <p className="text-[13px] text-slate-500">Choose a date and your hotel to see the timing and total.</p>}
     {error && <p className="text-[14px] text-red-600">{error}</p>}

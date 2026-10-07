@@ -76,9 +76,9 @@ export function FlightStatusSearch() {
   }
 
   const tab = (m: "flight" | "route", label: string) => <button type="button" role="tab" aria-selected={mode === m} onClick={() => { setMode(m); setError(""); setResults([]); setRoute(null); }}
-    className={`relative flex-1 py-4 text-[17px] transition ${mode === m ? "font-bold text-[#C96100] after:absolute after:bottom-0 after:left-1/2 after:h-[3px] after:w-10 after:-translate-x-1/2 after:rounded-full after:bg-[#FE8B05]" : "text-[#211726]"}`}>{label}</button>;
+    className={`relative flex-1 py-4 text-[17px] transition ${mode === m ? "font-bold text-brand-darker after:absolute after:bottom-0 after:left-1/2 after:h-[3px] after:w-10 after:-translate-x-1/2 after:rounded-full after:bg-brand" : "text-plum"}`}>{label}</button>;
   const label = "block text-[14px] text-slate-500";
-  const input = "wd-noarrow mt-1 w-full border-0 bg-transparent p-0 text-[20px] font-semibold text-[#211726] outline-none placeholder:font-semibold placeholder:text-slate-400";
+  const input = "wd-noarrow mt-1 w-full border-0 bg-transparent p-0 text-[20px] font-semibold text-plum outline-none placeholder:font-semibold placeholder:text-slate-400";
 
   return <div>
     <form onSubmit={search} className="overflow-hidden rounded-2xl bg-white shadow-[0_6px_24px_rgba(33,23,38,.10)]">
@@ -90,16 +90,16 @@ export function FlightStatusSearch() {
           <span className="mt-1 block text-[13px] text-slate-400">e.g. TG103</span>
         </label> : <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-slate-200 py-4">
           <label className="min-w-0"><span className={label}>Departure</span><input value={from} onChange={(e) => setFrom(e.target.value)} list="wd-airports" placeholder="From" autoComplete="off" className={input} /><span className="mt-1 block truncate text-[14px] text-slate-500">{from && findAirport(from) ? airportLabel(findAirport(from)!) : "City or airport"}</span></label>
-          <button type="button" aria-label="Swap departure and arrival" onClick={() => { setFrom(to); setTo(from); }} className="relative grid size-14 place-items-center rounded-full text-[#FE8B05]"><RefreshCw size={52} strokeWidth={1} className="absolute text-[#FE8B05]/40" /><Plane size={24} className="fill-[#FE8B05]" /></button>
+          <button type="button" aria-label="Swap departure and arrival" onClick={() => { setFrom(to); setTo(from); }} className="relative grid size-14 place-items-center rounded-full text-brand"><RefreshCw size={52} strokeWidth={1} className="absolute text-brand/40" /><Plane size={24} className="fill-brand" /></button>
           <label className="min-w-0 text-right"><span className={label}>Arrival</span><input value={to} onChange={(e) => setTo(e.target.value)} list="wd-airports" placeholder="To" autoComplete="off" className={`${input} text-right`} /><span className="mt-1 block truncate text-[14px] text-slate-500">{to && findAirport(to) ? airportLabel(findAirport(to)!) : "City or airport"}</span></label>
           <datalist id="wd-airports">{THAI_AIRPORTS.map((a) => <option key={a.code} value={a.code}>{a.city}</option>)}{WORLD_AIRPORTS.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</datalist>
         </div>}
         <label className="relative block py-4">
           <span className={label}>Departure date (local time)</span>
-          <span className="mt-1 flex items-center justify-between text-[20px] font-semibold text-[#211726]">{niceDate(date)}<CalendarDays size={26} className="text-[#211726]" /></span>
+          <span className="mt-1 flex items-center justify-between text-[20px] font-semibold text-plum">{niceDate(date)}<CalendarDays size={26} className="text-plum" /></span>
           <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Departure date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
         </label>
-        <button type="submit" disabled={busy} className="h-[52px] w-full rounded-lg bg-[#FE8B05] text-[17px] font-semibold text-white transition hover:bg-[#E67900] disabled:opacity-60">{busy ? "Checking…" : "Check flight status"}</button>
+        <button type="submit" disabled={busy} className="h-[52px] w-full rounded-lg bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-strong disabled:opacity-60">{busy ? "Checking…" : "Check flight status"}</button>
         {error && <p role="alert" className="mt-3 text-[15px] text-red-600">{error}</p>}
       </div>
     </form>
@@ -107,7 +107,7 @@ export function FlightStatusSearch() {
     {route && <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white" aria-live="polite">
       <p className="border-b border-slate-100 px-5 py-3 text-sm font-semibold text-slate-600">{route.length ? `${route.length} direct flight${route.length === 1 ? "" : "s"}` : "No direct flights found"} · {airportLabel(from)} → {airportLabel(to)} · {niceDate(date)}</p>
       <ul className="divide-y divide-slate-100">{route.map((r) => <li key={r.flightNumber + r.time}>
-        <button type="button" onClick={() => lookUp(r.flightNumber)} className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-[#FFF6EC]">
+        <button type="button" onClick={() => lookUp(r.flightNumber)} className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-brand-wash">
           <span className="w-14 text-lg font-black">{hhmm(r.revised ?? r.time)}</span>
           <span className="min-w-0 flex-1"><span className="block font-bold">{r.flightNumber}</span><span className="block truncate text-sm text-slate-500">{r.airline ?? ""} · {r.side === "departure" ? "departs" : "arrives"}{r.terminal ? ` · T${r.terminal}` : ""}</span></span>
           <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${status(r.status)[1]}`}>{status(r.status)[0]}</span>

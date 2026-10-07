@@ -38,12 +38,12 @@ export function ProfileForm({ displayName, email, username, role }: { displayNam
     } catch (e) { setError(e instanceof Error ? e.message : "Your photo could not be updated."); }
     finally { setBusy(false); }
   }
-  const field = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-[#FE8B05]";
+  const field = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-brand";
   return <div className="grid max-w-[760px] gap-5">
     <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
       <h2 className="text-[18px] font-semibold">Your profile</h2>
       <div className="mt-5 flex flex-wrap items-center gap-4">
-        <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-full bg-orange-50 text-2xl font-bold text-[#C96100]">
+        <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-full bg-orange-50 text-2xl font-bold text-brand-darker">
           {photo ? <img src={`/api/admin/avatar?v=${version}`} alt="Your profile photo" className="size-full object-cover" onError={() => setPhoto(false)} /> : name.trim().slice(0, 2).toUpperCase()}
         </div>
         <div><button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium disabled:opacity-50"><Camera size={16} />{photo ? "Change photo" : "Add photo"}</button>
@@ -58,7 +58,7 @@ export function ProfileForm({ displayName, email, username, role }: { displayNam
         <div className="grid gap-4 sm:grid-cols-2"><div><p className="text-xs text-slate-500">Staff ID</p><p className="mt-1 text-sm font-medium">{username}</p></div><div><p className="text-xs text-slate-500">Role</p><p className="mt-1 text-sm font-medium capitalize">{role}</p></div></div>
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         {message && <p role="status" className="text-sm text-emerald-700">{message}</p>}
-        <button type="submit" disabled={busy} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#FE8B05] px-5 text-sm font-semibold text-white disabled:opacity-50 sm:justify-self-start">{busy && <LoaderCircle size={16} className="animate-spin" />}Save changes</button>
+        <button type="submit" disabled={busy} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-50 sm:justify-self-start">{busy && <LoaderCircle size={16} className="animate-spin" />}Save changes</button>
       </form>
     </section>
     <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div><h2 className="font-semibold">Sign out</h2><p className="mt-1 text-sm text-slate-500">End your session on this device.</p></div><SignOutButton /></section>

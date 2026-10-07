@@ -8,11 +8,11 @@ export function DestinationCards() {
       <h2 id="home-destinations-heading" className="text-[32px] font-bold leading-[1.15] tracking-[-.025em] sm:text-[40px] lg:text-[48px]">Destinations</h2>
       <p className="mt-4 max-w-[850px] text-[16px] leading-[26px] text-[#575757] sm:mt-5 sm:text-[18px] sm:leading-8">Book a private transfer to airports, cities and piers across Thailand</p>
     </div>
-    <div role="region" aria-label="Waydidi service areas — scroll to explore" tabIndex={0} className="home-destination-track mt-11 flex gap-3 overflow-x-auto overscroll-x-contain px-5 pb-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FE8B05] sm:mt-12 sm:gap-4" style={{ scrollSnapType: "x mandatory", scrollPaddingInline: "max(20px, calc((100vw - 1140px) / 2))", paddingInline: "max(20px, calc((100vw - 1140px) / 2))", scrollbarWidth: "none" }}>
+    <div role="region" aria-label="Waydidi service areas — scroll to explore" tabIndex={0} className="home-destination-track mt-11 flex gap-3 overflow-x-auto overscroll-x-contain px-5 pb-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand sm:mt-12 sm:gap-4" style={{ scrollSnapType: "x mandatory", scrollPaddingInline: "max(20px, calc((100vw - 1140px) / 2))", paddingInline: "max(20px, calc((100vw - 1140px) / 2))", scrollbarWidth: "none" }}>
       {destinations.map(destination => <Link
         key={destination.slug}
         href={`/destinations/${destination.slug}`}
-        className="group relative isolate block aspect-[4/5] w-[65.5vw] max-w-[360px] shrink-0 snap-start overflow-hidden rounded-[16px] text-white outline-offset-4 focus-visible:outline-2 focus-visible:outline-[#FE8B05] sm:w-[320px] sm:rounded-[20px] lg:w-[360px]"
+        className="group relative isolate block aspect-[4/5] w-[65.5vw] max-w-[360px] shrink-0 snap-start overflow-hidden rounded-[16px] text-white outline-offset-4 focus-visible:outline-2 focus-visible:outline-brand sm:w-[320px] sm:rounded-[20px] lg:w-[360px]"
         style={{ backgroundColor: destination.color }}
       >
         {destination.image && <Image src={destination.image} alt="" fill unoptimized sizes="(max-width: 639px) 65.5vw, (max-width: 1023px) 320px, 360px" className="object-cover transition-transform duration-500 motion-safe:group-hover:scale-[1.03]" />}

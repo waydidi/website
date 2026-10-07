@@ -27,7 +27,7 @@ export function TransferLinks() {
     <nav aria-label="Thailand transfer destinations" className="mx-auto max-w-[1180px] rounded-[8px] border border-[#F2F3F5] bg-white px-4 py-4 shadow-[0_2px_8px_rgba(25,42,65,.04)]">
       <ul className="grid grid-cols-2 gap-x-4 gap-y-[14px] text-[clamp(11px,3.4vw,15px)] font-normal leading-5 text-[#192E49]">
         {transferAreas.map(area => <li key={area.name}>
-          <Link href={`/destinations/${area.destination}`} className="block w-fit whitespace-nowrap rounded-sm hover:underline hover:underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FE8B05]">Transfer in {area.name}</Link>
+          <Link href={`/destinations/${area.destination}`} className="block w-fit whitespace-nowrap rounded-sm hover:underline hover:underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand">Transfer in {area.name}</Link>
         </li>)}
       </ul>
     </nav>

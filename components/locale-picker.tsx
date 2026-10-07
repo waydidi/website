@@ -75,8 +75,8 @@ export function LocalePicker({ className = "" }: { className?: string }) {
     setOpen(false);
   }
 
-  const row = (selected: boolean) => `flex w-full items-center gap-4 rounded-xl px-3 text-left text-base transition ${selected ? "bg-[#F5F7FA] font-medium text-[#3264FF]" : "text-[#0F294D] hover:bg-[#F5F7FA]"}`;
-  const tabClass = (active: boolean) => `relative pb-4 text-lg leading-none transition ${active ? "font-bold text-[#0F294D] after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:rounded-full after:bg-[#0F294D]" : "text-[#8592A6] hover:text-[#0F294D]"}`;
+  const row = (selected: boolean) => `flex w-full items-center gap-4 rounded-xl px-3 text-left text-base transition ${selected ? "bg-[#F5F7FA] font-medium text-[#3264FF]" : "text-navy hover:bg-[#F5F7FA]"}`;
+  const tabClass = (active: boolean) => `relative pb-4 text-lg leading-none transition ${active ? "font-bold text-navy after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:rounded-full after:bg-navy" : "text-[#8592A6] hover:text-navy"}`;
 
   return <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
     <DialogPrimitive.Trigger asChild>
@@ -93,13 +93,13 @@ export function LocalePicker({ className = "" }: { className?: string }) {
         // focus ring appears around "Languages" on touch devices.
         onOpenAutoFocus={(event) => { event.preventDefault(); (event.currentTarget as HTMLElement).focus(); }}
         onCloseAutoFocus={(event) => { if (openedByPointer.current) event.preventDefault(); }}
-        className="fixed inset-x-0 bottom-0 z-[81] flex max-h-[92dvh] flex-col rounded-t-[20px] bg-white text-[#0F294D] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
+        className="fixed inset-x-0 bottom-0 z-[81] flex max-h-[92dvh] flex-col rounded-t-[20px] bg-white text-navy shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
         <div className="flex items-end justify-between border-b border-[#EEF1F6] px-6 pt-6 sm:px-8">
           <div className="flex gap-8" role="tablist">
             <button role="tab" aria-selected={tab === "languages"} onClick={() => setTab("languages")} className={tabClass(tab === "languages")}>{t("locale.languages")}</button>
             <button role="tab" aria-selected={tab === "currency"} onClick={() => setTab("currency")} className={tabClass(tab === "currency")}>{t("locale.currency")}</button>
           </div>
-          <DialogPrimitive.Close className="mb-3 grid size-9 place-items-center rounded-full text-[#0F294D] hover:bg-slate-100" aria-label={t("locale.close")}><X size={24} strokeWidth={2} /></DialogPrimitive.Close>
+          <DialogPrimitive.Close className="mb-3 grid size-9 place-items-center rounded-full text-navy hover:bg-slate-100" aria-label={t("locale.close")}><X size={24} strokeWidth={2} /></DialogPrimitive.Close>
         </div>
         <DialogPrimitive.Title className="sr-only">{tab === "languages" ? t("locale.languages") : t("locale.currency")}</DialogPrimitive.Title>
         <DialogPrimitive.Description className="sr-only">{t("locale.remembered")}</DialogPrimitive.Description>

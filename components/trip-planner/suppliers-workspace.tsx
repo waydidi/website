@@ -46,13 +46,13 @@ export function SuppliersWorkspace() {
     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {shown.map((s) => <article key={s.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between gap-2"><div><h2 className="text-[17px] font-bold">{s.name}</h2><p className="text-[13px] capitalize text-slate-500">{s.kind}{s.contactName ? ` · ${s.contactName}` : ""}</p></div>
-          <div className="flex"><button type="button" onClick={() => setDraft({ id: s.id, name: s.name, kind: s.kind, contactName: s.contactName ?? "", phone: s.phone ?? "", lineId: s.lineId ?? "", whatsapp: s.whatsapp ?? "", email: s.email ?? "", notes: s.notes ?? "" })} aria-label={`Edit ${s.name}`} className="grid size-9 place-items-center rounded-full text-slate-500 hover:bg-orange-50 hover:text-[#C96100]"><Pencil size={16} /></button>
+          <div className="flex"><button type="button" onClick={() => setDraft({ id: s.id, name: s.name, kind: s.kind, contactName: s.contactName ?? "", phone: s.phone ?? "", lineId: s.lineId ?? "", whatsapp: s.whatsapp ?? "", email: s.email ?? "", notes: s.notes ?? "" })} aria-label={`Edit ${s.name}`} className="grid size-9 place-items-center rounded-full text-slate-500 hover:bg-orange-50 hover:text-brand-darker"><Pencil size={16} /></button>
             <button type="button" onClick={() => void remove(s)} aria-label={`Delete ${s.name}`} className="grid size-9 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button></div></div>
         <div className="mt-3 grid gap-1.5 text-[14px]">
-          {s.phone && <a href={`tel:${digits(s.phone)}`} className="flex items-center gap-2 text-slate-700 hover:text-[#C96100]"><Phone size={15} />{s.phone}</a>}
-          {s.whatsapp && <a href={`https://wa.me/${digits(s.whatsapp).replace("+", "")}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-slate-700 hover:text-[#C96100]"><MessageCircle size={15} />WhatsApp {s.whatsapp}</a>}
+          {s.phone && <a href={`tel:${digits(s.phone)}`} className="flex items-center gap-2 text-slate-700 hover:text-brand-darker"><Phone size={15} />{s.phone}</a>}
+          {s.whatsapp && <a href={`https://wa.me/${digits(s.whatsapp).replace("+", "")}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-slate-700 hover:text-brand-darker"><MessageCircle size={15} />WhatsApp {s.whatsapp}</a>}
           {s.lineId && <p className="flex items-center gap-2 text-slate-700"><MessageCircle size={15} />LINE {s.lineId}</p>}
-          {s.email && <a href={`mailto:${s.email}`} className="flex items-center gap-2 text-slate-700 hover:text-[#C96100]"><Mail size={15} />{s.email}</a>}
+          {s.email && <a href={`mailto:${s.email}`} className="flex items-center gap-2 text-slate-700 hover:text-brand-darker"><Mail size={15} />{s.email}</a>}
         </div>
         {s.notes && <p className="mt-3 whitespace-pre-line rounded-xl bg-slate-50 p-3 text-[13px] text-slate-600">{s.notes}</p>}
         {s.attractions.length > 0 && <p className="mt-3 text-[13px] text-slate-500">For: {s.attractions.map((a) => a.name).join(", ")}</p>}

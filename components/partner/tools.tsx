@@ -7,9 +7,9 @@ import { useEffect, useState } from "react";
 export function CopyRow({ label, value, shown }: { label: string; value: string; shown?: React.ReactNode }) {
   const [done, setDone] = useState(false);
   return <div className="flex items-center gap-2 rounded-xl border border-dashed border-[#F6B46E] bg-[#FFFAF4] px-3 py-2.5 text-[14px]">
-    <span className="min-w-0 flex-1 truncate"><span className="text-slate-500">{label} </span>{shown ?? <b className="text-[#C96100]">{value}</b>}</span>
+    <span className="min-w-0 flex-1 truncate"><span className="text-slate-500">{label} </span>{shown ?? <b className="text-brand-darker">{value}</b>}</span>
     <button type="button" onClick={() => void navigator.clipboard.writeText(value).then(() => { setDone(true); window.setTimeout(() => setDone(false), 1500); })}
-      className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#FFF0DF] px-3 py-1 text-[12.5px] font-semibold text-[#C96100]">{done ? <><Check size={14} />Copied</> : <><Copy size={14} />Copy</>}</button>
+      className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-tint px-3 py-1 text-[12.5px] font-semibold text-brand-darker">{done ? <><Check size={14} />Copied</> : <><Copy size={14} />Copy</>}</button>
   </div>;
 }
 
@@ -20,7 +20,7 @@ export function LinkBuilder({ slug }: { slug: string }) {
   const q = new URLSearchParams({ ref: slug });
   if (from.trim() || to.trim()) { q.set("rebook", "chat"); if (from.trim()) q.set("pickup", from.trim()); if (to.trim()) q.set("dropoff", to.trim()); }
   const link = `https://waydidi.com/?${q}`;
-  const field = "h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-[14px] outline-none focus:border-[#FE8B05]";
+  const field = "h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-[14px] outline-none focus:border-brand";
   return <div className="grid gap-2">
     <div className="grid grid-cols-2 gap-2">
       <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="From, e.g. Phuket Airport" aria-label="From" className={field} />
@@ -60,8 +60,8 @@ export function PartnerQr({ url, name, code, discount, compact }: { url: string;
     {/* SVG made by the qrcode library from our own URL */}
     <div className={`${compact ? "size-[84px]" : "size-[112px]"} shrink-0 rounded-lg border border-slate-200 bg-white p-1 [&_svg]:h-full [&_svg]:w-full`} dangerouslySetInnerHTML={{ __html: svg }} aria-label="QR code" role="img" />
     <div className="grid gap-1.5">
-      <button type="button" disabled={!svg} onClick={() => printPoster(svg, url, name, code, discount)} className="inline-flex items-center gap-1.5 rounded-full bg-[#FE8B05] px-3.5 py-1.5 text-[13px] font-semibold text-white hover:bg-[#E67900]"><Printer size={15} />Print A4 poster</button>
-      <button type="button" disabled={!svg} onClick={download} className="rounded-full px-3.5 py-1.5 text-[13px] font-semibold text-[#C96100] hover:bg-[#FFF0DF]">Download QR</button>
+      <button type="button" disabled={!svg} onClick={() => printPoster(svg, url, name, code, discount)} className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 text-[13px] font-semibold text-white hover:bg-brand-strong"><Printer size={15} />Print A4 poster</button>
+      <button type="button" disabled={!svg} onClick={download} className="rounded-full px-3.5 py-1.5 text-[13px] font-semibold text-brand-darker hover:bg-brand-tint">Download QR</button>
     </div>
   </div>;
 }

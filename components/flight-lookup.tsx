@@ -22,7 +22,7 @@ export function FlightLookup({ flightNumber, flightDate }: { flightNumber: strin
     finally { setLoading(false); }
   }
   return <div className="sm:col-span-2">
-    <button type="button" onClick={check} disabled={loading || !flightNumber.trim()} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#FF8A05] px-4 text-sm font-black text-[#B85E00] disabled:cursor-not-allowed disabled:opacity-45">
+    <button type="button" onClick={check} disabled={loading || !flightNumber.trim()} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-brand px-4 text-sm font-black text-[#B85E00] disabled:cursor-not-allowed disabled:opacity-45">
       {loading ? <LoaderCircle className="animate-spin" size={17}/> : currentResult ? <RefreshCw size={17}/> : <Plane size={17}/>} {currentResult ? "Check again" : "Check flight"}
     </button>
     {currentResult && <div role="status" className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm">
