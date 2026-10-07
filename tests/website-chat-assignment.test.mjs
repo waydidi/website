@@ -11,9 +11,10 @@ const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec("CREATE TABLE drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT,vehicle TEXT,car_plate TEXT,driver_type TEXT,status TEXT,base_location TEXT DEFAULT '',created_at TEXT,updated_at TEXT);");
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql','0088_flight_tracked.sql','0089_flight_watch.sql','0090_flight_settings.sql','0091_site_settings.sql','0092_translation_claims.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
-for(const sql of migrationStatements(await readFile(root+'/drizzle/0095_connected_crm.sql','utf8')).filter(s=>/^CREATE TABLE (crm_contacts|crm_sources|crm_leads|crm_tasks|crm_events)\(/.test(s)))await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql','0088_flight_tracked.sql','0089_flight_watch.sql','0090_flight_settings.sql','0091_site_settings.sql','0092_translation_claims.sql','0096_affiliates.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const sql of migrationStatements(await readFile(root+'/drizzle/0095_connected_crm.sql','utf8')).filter(s=>/^CREATE TABLE (crm_contacts|crm_sources|crm_leads|crm_tasks|crm_events|crm_outbox)\(/.test(s)))await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
+for(const sql of migrationStatements(await readFile(root+'/drizzle/0097_crm_security_reliability.sql','utf8')).filter(s=>/^ALTER TABLE crm_tasks/.test(s)))await db.prepare(sql).run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
 after(async()=>{await vite.close();await mf.dispose();delete globalThis.__chatTest;});
@@ -474,4 +475,148 @@ test('Admin → Flights: owner/operations only; daily limit and price saved and 
   }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.AERODATABOX_KEY;}
   await post({dailyCap:300,usdPerCall:0});
  }finally{user.role=role;}
+});
+test('Affiliates: link click, code discount, commission on completed rides, no self-referral, paid',async()=>{
+ globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'owner'};
+ const af=await vite.ssrLoadModule('/lib/affiliates.ts');
+ const now=new Date().toISOString();
+ await db.prepare("INSERT INTO affiliates(id,slug,code,name,email,phone,commission_percent,discount_percent,status,created_at,updated_at) VALUES('a1','mint','MINT5','Mint','mint@x.co','081 234 5678',8,5,'active',?,?),('a2','gone','GONE5','Gone',null,null,8,5,'paused',?,?)").bind(now,now,now,now).run();
+ assert.equal(await af.countClick('mint'),true);await af.countClick('mint');
+ assert.equal(await af.countClick('gone'),false,'paused partner link does nothing');
+ assert.equal(await af.countClick('nobody'),false);
+ assert.equal((await af.affiliateByCode(' mint5 ')).id,'a1');
+ assert.equal(af.refFromRequest(new Request('https://x.co',{headers:{cookie:'a=1; wd_ref=mint; b=2'}})),'mint');
+ const a=await af.affiliateBySlug('mint');
+ assert.ok(af.isSelfReferral(a,'MINT@x.co',null));assert.ok(af.isSelfReferral(a,null,'+66812345678'));assert.ok(!af.isSelfReferral(a,'cust@y.co','0899999999'));
+ assert.equal(af.affiliateDiscount(2000,5),100);
+ for(const c of ['created_at TEXT','return_date TEXT'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
+ await db.prepare("INSERT INTO bookings(reference,customer_name,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES('AF1','Ann','BKK','Pattaya','2026-10-20','09:00',2,2,'economy_sedan','card',1900,'completed'),('AF2','Bob','HKT','Kata','2026-10-21','10:00',2,2,'economy_sedan','card',1000,'confirmed'),('AF3','Cy','DMK','Hua Hin','2026-10-22','10:00',2,2,'economy_sedan','card',3000,'cancelled')").run();
+ await af.linkBooking({reference:'AF1',affiliate:a,via:'code',fare:2000,discount:100});
+ await af.linkBooking({reference:'AF2',affiliate:a,via:'link',fare:1000,discount:0});
+ await af.linkBooking({reference:'AF3',affiliate:a,via:'link',fare:3000,discount:0});
+ const [s]=(await af.affiliateSummaries()).filter((x)=>x.id==='a1');
+ assert.deepEqual([s.clicks30,s.bookings,s.sales,s.earned,s.pending,s.paid],[2,2,2900,152,80,0],'cancelled ride earns nothing; 8% of what was paid');
+ const list=await af.affiliateBookings('a1');
+ assert.deepEqual(list.map((b)=>[b.booking_reference,b.state]).sort(),[['AF1','earned'],['AF2','pending'],['AF3','cancelled']]);
+ // Admin "Mark paid" pays only completed rides.
+ const api=await vite.ssrLoadModule('/app/api/admin/affiliates/route.ts');
+ const r=await api.POST(new Request('https://example.invalid/api/admin/affiliates',{method:'POST',headers:{'content-type':'application/json',origin:'https://example.invalid'},body:JSON.stringify({action:'pay',id:'a1'})}));
+ assert.equal((await r.json()).paid,1);
+ const [s2]=(await af.affiliateSummaries()).filter((x)=>x.id==='a1');assert.deepEqual([s2.earned,s2.paid,s2.pending],[0,152,80]);
+});
+test('Partner dashboard: signed private link, New link revokes the old one, numbers without customer names',async()=>{
+ const af=await vite.ssrLoadModule('/lib/affiliates.ts');
+ const env=globalThis.__chatTest.env;env.WAYDIDI_ADMIN_SESSION_SECRET='s'.repeat(40);
+ try{
+  await af.ensureAffiliateTables();
+  const id='11111111-2222-3333-4444-555555555555';const now=new Date().toISOString();
+  await db.prepare("INSERT INTO affiliates(id,slug,code,name,commission_percent,discount_percent,status,created_at,updated_at) VALUES(?,'dash','DASH5','Dash',8,5,'active',?,?)").bind(id,now,now).run();
+  const path=await af.dashboardPath({id,link_version:0});
+  const [, , pid, key]=path.split('/');
+  assert.equal((await af.affiliateForDashboard(pid,key)).slug,'dash');
+  assert.equal(await af.affiliateForDashboard(pid,key.replace(/.$/,(c)=>c==='0'?'1':'0')),null,'wrong key');
+  await db.prepare("INSERT INTO bookings(reference,customer_name,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES('DB1','Secret Name','Suvarnabhumi Airport (BKK), Bangkok','Hilton Pattaya, Beach Rd','2026-10-25','09:00',2,2,'economy_sedan','card',2000,'completed')").run();
+  const a=await af.affiliateForDashboard(pid,key);
+  await af.linkBooking({reference:'DB1',affiliate:a,via:'link',fare:2000,discount:0});
+  const d=await af.partnerDashboard(a);
+  assert.deepEqual([d.owed,d.pending,d.paid,d.completedRides,d.month.bookings],[160,0,0,1,1]);
+  assert.ok(!JSON.stringify(d).includes('Secret Name'),'no customer names');
+  // New link: old key stops working.
+  await db.prepare("UPDATE affiliates SET link_version=1 WHERE id=?").bind(id).run();
+  assert.equal(await af.affiliateForDashboard(pid,key),null);
+  const [, , , key2]=(await af.dashboardPath({id,link_version:1})).split('/');
+  assert.equal((await af.affiliateForDashboard(pid,key2)).slug,'dash');
+ }finally{delete env.WAYDIDI_ADMIN_SESSION_SECRET;}
+});
+test('Partner applications: apply (free link/code, no duplicates), approve sends welcome email, decline',async()=>{
+ globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'owner'};
+ const af=await vite.ssrLoadModule('/lib/affiliates.ts');
+ const env=globalThis.__chatTest.env;Object.assign(env,{WAYDIDI_ADMIN_SESSION_SECRET:'s'.repeat(40),RESEND_API_KEY:'re_x',BOOKING_FROM_EMAIL:'Waydidi <hi@waydidi.com>'});
+ try{ await db.exec("CREATE TABLE IF NOT EXISTS promo_codes(id TEXT PRIMARY KEY,code TEXT)"); }catch{}
+ const real=globalThis.fetch;const mails=[];
+ globalThis.fetch=async(url,init)=>{if(String(url).includes('resend'))mails.push(JSON.parse(init.body));return new Response(JSON.stringify({id:'m1'}),{status:200});};
+ try{
+  const app={name:'Koh Chang Guide',email:'Guide@KC.co',phone:'',kind:'guide',website:'kcguide.com',audience:'5k',pitch:'Tours',wanted:'Mint'};
+  const r1=await af.applyAsAffiliate(app);
+  assert.equal(r1.ok,true);assert.equal(r1.slug,'mint-2','"mint" was taken by an earlier test partner');assert.match(r1.code,/^MINT\d+5$/);
+  const r2=await af.applyAsAffiliate(app);assert.equal(r2.ok,false,'same email can only apply once');
+  const r3=await af.applyAsAffiliate({...app,email:'new@kc.co',wanted:'',name:'Sea Breeze Hotel'});assert.equal(r3.slug,'sea-breeze-hotel');
+  assert.equal(await af.affiliateBySlug('mint-2'),null,'applied partners have no working link yet');
+  const api=await vite.ssrLoadModule('/app/api/admin/affiliates/route.ts');
+  const post=(body)=>api.POST(new Request('https://example.invalid/api/admin/affiliates',{method:'POST',headers:{'content-type':'application/json',origin:'https://example.invalid'},body:JSON.stringify(body)}));
+  const ok=await (await post({action:'approve',id:r1.id})).json();
+  assert.equal(ok.ok,true);
+  assert.equal((await af.affiliateBySlug('mint-2')).status,'active');
+  assert.equal(mails.length,1);assert.equal(mails[0].to[0],'guide@kc.co');assert.match(mails[0].text,/ref=mint-2/);assert.match(mails[0].text,/\/partner\/[0-9a-f-]{36}\/[0-9a-f]{32}/);
+  assert.equal((await post({action:'approve',id:r1.id})).status,409,'only once');
+  await post({action:'decline',id:r3.id});
+  assert.equal((await db.prepare("SELECT status FROM affiliates WHERE id=?").bind(r3.id).first()).status,'declined');
+ }finally{globalThis.fetch=real;delete env.WAYDIDI_ADMIN_SESSION_SECRET;delete env.RESEND_API_KEY;delete env.BOOKING_FROM_EMAIL;}
+});
+test('Affiliate tiers and monthly payouts',async()=>{
+ const af=await vite.ssrLoadModule('/lib/affiliates.ts');
+ assert.deepEqual([af.tierFor(0).tier.name,af.tierFor(9).ridesToNext,af.tierFor(10).tier.name,af.tierFor(30).tier.name,af.tierFor(30).next],['Starter',1,'Silver','Gold',null]);
+ assert.equal(af.effectiveRate({commission_percent:8},12),10);assert.equal(af.effectiveRate({commission_percent:5},35),9,'bonus on top of a custom rate');
+ const now=new Date().toISOString();
+ await db.prepare("INSERT INTO affiliates(id,slug,code,name,notes,commission_percent,discount_percent,status,created_at,updated_at) VALUES('t1','tier','TIER5','Tier Co','PromptPay 0812345678',8,5,'active',?,?)").bind(now,now).run();
+ const a=await af.affiliateBySlug('tier');
+ // 10 completed rides in September → Silver; the next booking earns 10%.
+ for(let i=0;i<10;i++){
+  await db.prepare("INSERT INTO bookings(reference,customer_name,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES(?,'X','A','B',?,'09:00',1,1,'economy_sedan','card',1000,'completed')").bind(`T${i}`,`2026-09-${String(10+i).padStart(2,'0')}`).run();
+  await af.linkBooking({reference:`T${i}`,affiliate:a,via:'link',fare:1000,discount:0});
+ }
+ await db.prepare("INSERT INTO bookings(reference,customer_name,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES('T10','X','A','B','2026-10-02','09:00',1,1,'economy_sedan','card',1000,'completed')").run();
+ await af.linkBooking({reference:'T10',affiliate:a,via:'link',fare:1000,discount:0});
+ assert.equal((await db.prepare("SELECT commission FROM booking_affiliates WHERE booking_reference='T10'").first()).commission,100,'Silver 10%');
+ const [sep]=(await af.payoutList('2026-09')).filter((p)=>p.id==='t1');
+ assert.deepEqual([sep.rides,sep.amount,sep.unpaid,sep.notes],[10,800,800,'PromptPay 0812345678']);
+ assert.equal(await af.markPaid('t1','2026-09'),10);
+ const [sep2]=(await af.payoutList('2026-09')).filter((p)=>p.id==='t1');assert.equal(sep2.unpaid,0);
+ const [oct]=(await af.payoutList('2026-10')).filter((p)=>p.id==='t1');assert.equal(oct.unpaid,100,'October not touched');
+ const [s]=(await af.affiliateSummaries()).filter((x)=>x.id==='t1');assert.deepEqual([s.tier,s.rate,s.completed],['Silver',10,11]);
+});
+test('Friend referrals: personal code, friend discount on first ride only, not own code, reward coupon once ride completed',async()=>{
+ const rf=await vite.ssrLoadModule('/lib/referrals.ts');
+ await db.exec("CREATE TABLE IF NOT EXISTS customers(id TEXT PRIMARY KEY,email TEXT,name TEXT,surname TEXT,phone TEXT)");
+ await db.exec("DROP TABLE IF EXISTS promo_codes");
+ await db.exec("CREATE TABLE promo_codes(id TEXT PRIMARY KEY,code TEXT UNIQUE,title TEXT,discount_type TEXT,discount_value INTEGER,max_discount INTEGER,min_fare INTEGER DEFAULT 0,starts_at TEXT,ends_at TEXT,max_uses INTEGER,per_customer_limit INTEGER DEFAULT 1,first_booking_only INTEGER DEFAULT 0,service TEXT DEFAULT 'any',vehicles_json TEXT,offer_terms_json TEXT,show_on_homepage INTEGER DEFAULT 0,status TEXT,created_at TEXT,updated_at TEXT)");
+ await db.exec("CREATE TABLE IF NOT EXISTS member_coupons(customer_id TEXT,code TEXT,collected_at TEXT,PRIMARY KEY(customer_id,code))");
+ await db.prepare("INSERT INTO customers(id,email,name,phone) VALUES('c1','anna@x.co','Anna','081 111 2222')").run();
+ const code=await rf.referralCode({id:'c1',name:'Anna'});
+ assert.match(code,/^FRIENDANNA\d{2}$/);assert.equal(await rf.referralCode({id:'c1',name:'Anna'}),code,'same code every time');
+ assert.equal(await rf.checkReferral({code:'MINT5',total:1000}),null,'not a friend code');
+ assert.match((await rf.checkReferral({code,total:1000,email:'ANNA@x.co'})).reason,/own invite/);
+ assert.match((await rf.checkReferral({code,total:400,email:'bob@y.co'})).reason,/from ฿500/);
+ const ok=await rf.checkReferral({code,total:1500,email:'bob@y.co',phone:'0899999999'});
+ assert.deepEqual([ok.ok,ok.discount,ok.finalTotal,ok.referrerId],[true,100,1400,'c1']);
+ // Someone who already rode with Waydidi can't use it.
+ for(const c of ['customer_email TEXT','customer_phone TEXT'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
+ await db.prepare("INSERT INTO bookings(reference,customer_name,customer_email,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES('OLD1','Old','old@y.co','A','B','2026-01-01','09:00',1,1,'economy_sedan','card',900,'completed')").run();
+ assert.match((await rf.checkReferral({code,total:1500,email:'old@y.co'})).reason,/first ride/);
+ // Friend books; reward only after the ride is completed.
+ await db.prepare("INSERT INTO bookings(reference,customer_name,customer_email,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES('FR1','Bob','bob@y.co','A','B','2026-11-01','09:00',1,1,'economy_sedan','card',1400,'confirmed'),('FR2','Cy','cy@y.co','A','B','2026-11-02','09:00',1,1,'economy_sedan','card',1400,'cancelled')").run();
+ await rf.recordReferral('FR1','c1','bob@y.co');await rf.recordReferral('FR2','c1','cy@y.co');
+ assert.equal(await rf.issueReferralRewards(),0,'confirmed rides do not issue a reward');
+ await db.prepare("UPDATE bookings SET status='completed' WHERE reference='FR1'").run();
+ assert.equal(await rf.issueReferralRewards(),1);assert.equal(await rf.issueReferralRewards(),0,'cannot reward the same ride twice');
+ const reward=await db.prepare("SELECT reward_code FROM referral_uses WHERE booking_reference='FR1'").first();
+ const coupon=await db.prepare("SELECT * FROM promo_codes WHERE code=?").bind(reward.reward_code).first();
+ assert.deepEqual([coupon.discount_type,coupon.discount_value,coupon.max_uses,coupon.status],['fixed',100,1,'active']);
+ assert.ok(await db.prepare("SELECT 1 FROM member_coupons WHERE customer_id='c1' AND code=?").bind(reward.reward_code).first(),'saved to her coupons');
+ const mail=await db.prepare("SELECT email,status,payload_json FROM crm_outbox WHERE dedupe_key='referral-reward:FR1'").first();assert.equal(mail.email,'anna@x.co');assert.equal(mail.status,'pending');assert.equal(JSON.parse(mail.payload_json).customerId,'c1');
+ assert.deepEqual(await rf.referralSummary('c1'),{waiting:0,rewarded:1,earned:100});
+});
+test('Partner content kit: captions in 3 languages with the partner code/link; price line only once set',async()=>{
+ const kit=await vite.ssrLoadModule('/lib/partner-kit.ts');
+ const af=await vite.ssrLoadModule('/lib/affiliates.ts');
+ assert.equal(kit.KIT_ROUTES.length,8);
+ const r=kit.KIT_ROUTES.find((x)=>x.id==='hkt-patong');
+ for(const lang of ['en','th','zh']){
+  const t=kit.kitCaption(r,lang,{link:'https://waydidi.com/?ref=mint',code:'MINT5',discount:5});
+  assert.ok(t.includes('MINT5')&&t.includes('ref=mint')&&!/[{}]/.test(t),lang);
+  assert.ok(!t.includes('฿'),'no price until set');
+ }
+ assert.match(kit.kitCaption(r,'th',{link:'L',code:'C',discount:5,price:1200}),/เริ่มต้น ฿1,200 ต่อคัน/);
+ await af.saveKitPrices({'hkt-patong':1200},'test');
+ assert.deepEqual(await af.kitPrices(),{'hkt-patong':1200});
 });

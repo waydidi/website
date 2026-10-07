@@ -49,6 +49,10 @@ export async function deleteCustomerAccount(customerId: string) {
   await raw.batch([
     raw.prepare("UPDATE partner_voucher_codes SET box_id=NULL WHERE box_id IN (SELECT id FROM member_boxes WHERE customer_id=?)").bind(customerId),
     ...["customer_booking_links","customer_identities","customer_saved_places","customer_saved_passengers","customer_billing_profiles","customer_sessions","member_spins","member_gifts","member_boxes","member_reward_emails","member_coupons"].map(t=>raw.prepare(`DELETE FROM ${t} WHERE customer_id=?`).bind(customerId)),
+    raw.prepare("DELETE FROM referral_codes WHERE customer_id=?").bind(customerId),
+    raw.prepare("UPDATE referral_uses SET referrer_id=?,friend_email=NULL,friend_phone=NULL,status=CASE WHEN status IN ('pending','rewarding') THEN 'void' ELSE status END WHERE referrer_id=?").bind(retainedId,customerId),
+    raw.prepare("UPDATE referral_uses SET friend_email=NULL,friend_phone=NULL WHERE lower(friend_email)=?").bind(customer.email),
+    raw.prepare("UPDATE crm_outbox SET status=CASE WHEN status='sent' THEN status ELSE 'cancelled' END,payload_json='{}',email='' WHERE json_extract(payload_json,'$.customerId')=?").bind(customerId),
     raw.prepare("DELETE FROM customer_login_codes WHERE email=?").bind(customer.email),
     raw.prepare("UPDATE booking_member_discounts SET customer_id=? WHERE customer_id=?").bind(retainedId,customerId),
     raw.prepare("UPDATE website_conversations SET customer_id=NULL WHERE customer_id=?").bind(customerId),

@@ -20,10 +20,14 @@ for (const name of (await readdir(root + '/drizzle')).filter(n => n.endsWith('.s
 }
 globalThis.__crmEnv = { DB: d1, RESEND_API_KEY: 'test', BOOKING_FROM_EMAIL: 'test@example.invalid', WAYDIDI_ADMIN_SESSION_SECRET: '01234567890123456789012345678901' };
 const originalFetch = globalThis.fetch;
-let calls = 0, failEmail = false;
-globalThis.fetch = async (url) => {
+let calls = 0, failEmail = false, telegramCalls = 0, failTelegram = false, lastTelegramText = "", emailSignal;
+globalThis.fetch = async (url, options) => {
+    if (String(url).includes('api.telegram.org')) {
+        telegramCalls++; lastTelegramText=JSON.parse(options.body).text;
+        return new Response(JSON.stringify(failTelegram ? {ok:false,description:'test failure'} : {ok:true,result:{message_id:1,chat:{id:1}}}), {status:200,headers:{'Content-Type':'application/json'}});
+    }
     if (String(url).includes('resend.com')) {
-        calls++;
+        calls++; emailSignal=options.signal;
         return new Response(JSON.stringify({ id: 'test' }), { status: failEmail ? 503 : 200, headers: { 'Content-Type': 'application/json' } });
     }
     throw new Error('Unexpected network ' + url);
@@ -163,7 +167,48 @@ test('concurrent quote conversions cannot attach the enquiry to another booking'
     const other = quote.booking_reference === 'CONVERTA' ? 'CONVERTB' : 'CONVERTA';
     assert.notEqual((await d1.prepare("SELECT contact_id FROM crm_sources WHERE kind='booking' AND source_id=?").bind(other).first()).contact_id, c.id);
 });
+test('audit: member activity cannot restore consent cleared by consolidation',async()=>{
+ await d1.prepare("INSERT INTO customers(id,email,name,marketing_opt_in,created_at,updated_at) VALUES('audit-consent','audit-consent@example.invalid','Consent',1,?,?)").bind(now,now).run();
+ const target=await create('Consolidated member','audit-consent@example.invalid');
+ await crm.crmAction('merge',{id:'member:audit-consent',targetId:target.id},'owner','owner');
+ await d1.prepare("UPDATE customers SET last_seen_at=? WHERE id='audit-consent'").bind(now).run();
+ assert.equal((await crm.contact(target.id)).marketing_opt_in,0);
+ await d1.prepare("UPDATE customers SET marketing_opt_in=1,updated_at=? WHERE id='audit-consent'").bind(now).run();
+ assert.equal((await crm.contact(target.id)).marketing_opt_in,1);
+});
+test('audit: CRM tasks reject another customer chat',async()=>{
+ await d1.prepare("INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at) VALUES('audit-chat','audit-chat-hash',?,?,?)").bind(new Date(Date.now()+86400000).toISOString(),now,now).run();
+ const c=await create('Unrelated customer');
+ await assert.rejects(()=>crm.crmAction('task',{contactId:c.id,conversationId:'audit-chat',title:'Incorrect follow-up',dueAt:now,ownerId:'owner'},'owner','owner'),/Chat does not belong/);
+});
+test('audit: primary agency contact cannot be silently disabled as a team member',async()=>{
+ await assert.rejects(()=>crm.crmAction('partner',{agencyId:'agency-test',email:'hotel@example.invalid',rateNotes:'',active:false},'owner','owner'),/primary agency/);
+ assert.ok(await agency.agencyForCustomer({email:'hotel@example.invalid'}));
+});
+test('audit: due reminders remain pending without Telegram configuration',async()=>{
+ const automation=await vite.ssrLoadModule('/lib/crm-automation.ts'),c=await create('Reminder recipient');
+ const task=await crm.crmAction('task',{contactId:c.id,title:'Due reminder',dueAt:now,ownerId:'owner'},'owner','owner');
+ await d1.prepare("DELETE FROM crm_sync_state WHERE id='automation'").run();
+ await automation.runCrmAutomation();
+ assert.equal((await d1.prepare('SELECT reminded_at FROM crm_tasks WHERE id=?').bind(task.id).first()).reminded_at,null);
+});
+test('audit: pipeline state rolls back when its audit event fails',async()=>{
+ const c=await create('Atomic history'),lead=await crm.crmAction('lead',{contactId:c.id,title:'Atomic enquiry',valueMinor:0},'owner','owner');
+ await d1.prepare("CREATE TRIGGER audit_fail_event BEFORE INSERT ON crm_events WHEN NEW.kind='stage' BEGIN SELECT RAISE(ABORT,'Audit unavailable'); END").run();
+ try{await assert.rejects(()=>crm.crmAction('stage',{id:lead.id,stage:'quoted',version:0},'owner','owner'));assert.equal((await d1.prepare('SELECT stage FROM crm_leads WHERE id=?').bind(lead.id).first()).stage,'new');}
+ finally{await d1.prepare('DROP TRIGGER audit_fail_event').run();}
+});
+test('audit: retention processes rules beyond the first thirty',async()=>{
+ await d1.prepare('UPDATE crm_retention_rules SET enabled=0').run();
+ await book('AUDITRETAIN','audit-retain@example.invalid','completed');
+ await d1.prepare("UPDATE bookings SET pickup_date='2020-01-01' WHERE reference='AUDITRETAIN'").run();
+ const ids=[];for(let i=0;i<31;i++)ids.push((await crm.crmAction('retention',{title:'Audit rule '+i,kind:'inactive',days:30,ownerId:'owner',channel:'task',message:'',enabled:true},'owner','owner')).id);
+ await d1.prepare("DELETE FROM crm_sync_state WHERE id='automation'").run();
+ await (await vite.ssrLoadModule('/lib/crm-automation.ts')).runCrmAutomation();
+ assert.equal((await d1.prepare("SELECT count(*) n FROM crm_tasks WHERE dedupe_key LIKE '%:AUDITRETAIN'").first()).n,31);
+ await d1.prepare('UPDATE crm_retention_rules SET enabled=0').run();
 
+});
 test('regression: linked booking leaves an empty searchable guest contact', async () => {
  await d1.prepare("INSERT INTO customers(id,email,name,created_at,updated_at) VALUES('review-member','review@example.invalid','Review member',?,?)").bind(now,now).run();
  await book('REVIEWLINK','review@example.invalid');
@@ -247,4 +292,69 @@ test('CSV cursors preserve all members across every supported sort and CRM filte
   const csv=await new Response(await crm.exportContacts('review@example.invalid',filter)).text();
   assert.equal(csv.trim().split('\r\n').length-1,expected);
  }
+});
+
+test('reminder delivery retries failures, recovers stale claims and stops at its attempt cap',async()=>{
+ const automation=await vite.ssrLoadModule('/lib/crm-automation.ts');
+ await d1.prepare("UPDATE crm_tasks SET due_at='2099-01-01T00:00:00.000Z' WHERE status='open'").run();
+ const c=await create('Reliable reminder'),t=await crm.crmAction('task',{contactId:c.id,title:'Reminder <test>',dueAt:now,ownerId:'owner'},'owner','owner');
+ globalThis.__crmEnv.TELEGRAM_BOT_TOKEN='test';globalThis.__crmEnv.TELEGRAM_CHAT_ID='1';
+ const scan=async()=>{await d1.prepare("DELETE FROM crm_sync_state WHERE id='automation'").run();await automation.runCrmAutomation();};
+ try {
+  failTelegram=true;const before=telegramCalls;await scan();
+  let row=await d1.prepare('SELECT * FROM crm_tasks WHERE id=?').bind(t.id).first();
+  assert.equal(telegramCalls,before+1);assert.equal(row.reminded_at,null);assert.equal(row.reminder_claimed_at,null);assert.ok(row.reminder_error);assert.equal(row.reminder_attempts,1);
+  failTelegram=false;await d1.prepare('UPDATE crm_tasks SET reminder_claimed_at=? WHERE id=?').bind(new Date(Date.now()-20*60000).toISOString(),t.id).run();await scan();
+  row=await d1.prepare('SELECT * FROM crm_tasks WHERE id=?').bind(t.id).first();assert.ok(row.reminded_at);assert.equal(row.reminder_attempts,2);assert.equal(row.reminder_error,null);assert.match(lastTelegramText,/Reminder &lt;test&gt;/);
+  await d1.prepare('UPDATE crm_tasks SET reminded_at=NULL,reminder_attempts=5 WHERE id=?').bind(t.id).run();const stopped=telegramCalls;await scan();assert.equal(telegramCalls,stopped);
+  await crm.crmAction('task',{id:t.id,contactId:c.id,title:'Rescheduled',dueAt:now,ownerId:'owner'},'owner','owner');await scan();assert.equal(telegramCalls,stopped+1);
+ } finally {delete globalThis.__crmEnv.TELEGRAM_BOT_TOKEN;delete globalThis.__crmEnv.TELEGRAM_CHAT_ID;failTelegram=false;}
+});
+test('email provider requests have an abort deadline',async()=>{
+ emailSignal=null;await (await vite.ssrLoadModule('/lib/email.ts')).sendTripEmail({to:'audit-timeout@example.invalid',kicker:'Waydidi',title:'Hello',intro:'Hello',cta:'Book',link:'https://example.invalid/',tag:'audit-timeout',rows:[],footer:'Test'});assert.ok(emailSignal instanceof AbortSignal);
+});
+
+test('referral reward failure rolls back and retry creates one coupon and recoverable email',async()=>{
+ const referrals=await vite.ssrLoadModule('/lib/referrals.ts');await referrals.ensureReferralTables();
+ await d1.prepare("INSERT INTO customers(id,email,name,created_at,updated_at) VALUES('audit-referrer','audit-referrer@example.invalid','Referrer',?,?)").bind(now,now).run();
+ await book('REFFAIL','newfriend@example.invalid','completed');await referrals.recordReferral('REFFAIL','audit-referrer','newfriend@example.invalid','+66 123456789');
+ await d1.prepare("CREATE TRIGGER audit_coupon_failure BEFORE INSERT ON promo_codes WHEN NEW.code LIKE 'THANKS%' BEGIN SELECT RAISE(ABORT,'Coupon unavailable'); END").run();
+ try {await assert.rejects(()=>referrals.issueReferralRewards());assert.equal((await d1.prepare("SELECT status FROM referral_uses WHERE booking_reference='REFFAIL'").first()).status,'pending');assert.equal((await d1.prepare("SELECT count(*) n FROM crm_outbox WHERE dedupe_key='referral-reward:REFFAIL'").first()).n,0);}
+ finally {await d1.prepare('DROP TRIGGER audit_coupon_failure').run();}
+ await Promise.all([referrals.issueReferralRewards(),referrals.issueReferralRewards()]);
+ assert.equal((await d1.prepare("SELECT count(*) n FROM member_coupons WHERE customer_id='audit-referrer'").first()).n,1);
+ assert.equal((await d1.prepare("SELECT count(*) n FROM crm_outbox WHERE dedupe_key='referral-reward:REFFAIL'").first()).n,1);
+});
+test('concurrent referral jobs enforce the annual reward cap atomically',async()=>{
+ const referrals=await vite.ssrLoadModule('/lib/referrals.ts');
+ const c='audit-cap';await d1.prepare('INSERT INTO customers(id,email,name,created_at,updated_at) VALUES(?,?,?,?,?)').bind(c,c+'@example.invalid','Cap',now,now).run();
+ await d1.batch(Array.from({length:19},(_,i)=>d1.prepare("INSERT INTO referral_uses(booking_reference,referrer_id,status,created_at,rewarded_at) VALUES(?,?,'rewarded',?,?)").bind('CAPOLD'+i,c,now,now)));
+ for(const ref of ['CAPNEW1','CAPNEW2']){await book(ref,ref+'@example.invalid','completed');await referrals.recordReferral(ref,c);}
+ await Promise.all([referrals.issueReferralRewards(),referrals.issueReferralRewards()]);
+ assert.equal((await d1.prepare("SELECT count(*) n FROM referral_uses WHERE referrer_id=? AND status='rewarded'").bind(c).first()).n,20);
+ assert.equal((await d1.prepare("SELECT count(*) n FROM member_coupons WHERE customer_id=?").bind(c).first()).n,1);
+});
+test('account deletion revokes referral codes, anonymizes history and cancels referral emails',async()=>{
+ const referrals=await vite.ssrLoadModule('/lib/referrals.ts');const code=await referrals.referralCode({id:'audit-referrer',name:'Referrer'});
+ assert.ok((await referrals.checkReferral({code,total:1000,email:'unrelated@example.invalid'}))?.ok);
+ await members.deleteCustomerAccount('audit-referrer');
+ assert.equal(await referrals.checkReferral({code,total:1000,email:'unrelated@example.invalid'}),null);
+ const row=await d1.prepare("SELECT * FROM referral_uses WHERE booking_reference='REFFAIL'").first();assert.match(row.referrer_id,/^deleted:/);assert.equal(row.friend_email,null);assert.equal(row.friend_phone,null);
+ const mail=await d1.prepare("SELECT status,email,payload_json FROM crm_outbox WHERE dedupe_key='referral-reward:REFFAIL'").first();assert.equal(mail.status,'cancelled');assert.equal(mail.email,'');assert.equal(mail.payload_json,'{}');
+});
+test('partner dashboard aggregates all bookings beyond its recent-history limit',async()=>{
+ const affiliate=await vite.ssrLoadModule('/lib/affiliates.ts');await affiliate.ensureAffiliateTables();
+ const id=crypto.randomUUID();await d1.prepare('INSERT INTO affiliates(id,slug,code,name,created_at,updated_at) VALUES(?,?,?,?,?,?)').bind(id,'audit-partner','AUDITPARTNER','Partner',now,now).run();
+ await book('AFFBASE','affbase@example.invalid','completed');
+ const columns=(await d1.prepare('PRAGMA table_info(bookings)').all()).results.map(c=>c.name);
+ await d1.batch(Array.from({length:305},(_,i)=>d1.prepare(`INSERT INTO bookings(${columns.join(',')}) SELECT ${columns.map(c=>c==='reference'?'?':c==='id'?'NULL':c).join(',')} FROM bookings WHERE reference='AFFBASE'`).bind('AFF'+i)));
+ await d1.batch(Array.from({length:305},(_,i)=>d1.prepare("INSERT INTO booking_affiliates(booking_reference,affiliate_id,via,fare_before_discount,discount,commission_percent,commission,created_at) VALUES(?,?,'link',1000,0,8,80,?)").bind('AFF'+i,id,now)));
+ const a=await d1.prepare('SELECT * FROM affiliates WHERE id=?').bind(id).first();const dash=await affiliate.partnerDashboard(a);
+ assert.equal(dash.completedRides,305);assert.equal(dash.owed,305*80);assert.equal(dash.month.bookings,305);assert.equal(dash.recent.length,30);assert.equal(dash.tier,'Gold');
+});
+
+test('spreadsheet exports neutralize formula and newline prefixes while preserving CSV quotes',async()=>{
+ const {csvCell}=await vite.ssrLoadModule('/lib/crm-rules.ts');
+ for(const input of ['=HYPERLINK("https://example.invalid")','+SUM(1,2)','@SUM(1,2)','\n=SUM(1,2)'])assert.ok(csvCell(input).startsWith('"\''));
+ assert.equal(csvCell('Traveller "A"'),'"Traveller ""A"""');
 });

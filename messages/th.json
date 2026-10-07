@@ -483,6 +483,10 @@
     "text": "จุดหมายปลายทางของเรา",
     "status": "machine"
   },
+  "footer.becomePartner": {
+    "text": "ร่วมเป็นพาร์ทเนอร์",
+    "status": "machine"
+  },
   "footer.checkFlights": {
     "text": "เช็กสถานะเที่ยวบิน",
     "status": "machine"

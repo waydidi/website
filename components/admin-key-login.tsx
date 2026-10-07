@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { KeyRound, LoaderCircle, ShieldCheck, UserRound } from "lucide-react";
-import { AdminOwnerSetup } from "@/components/admin-owner-setup";
+import { KeyRound, LoaderCircle, UserRound } from "lucide-react";
+import { AnimatedScene } from "@/components/maintenance/animated-scene";
+import { WaydidiLogo } from "@/components/waydidi-logo";
 
 export function AdminKeyLogin({ configured }: { configured: boolean }) {
   const [username, setUsername] = useState("");
@@ -40,23 +41,23 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-slate-100 p-6 text-[#1f1726]">
-      <section className="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm sm:p-10">
-        <span className="grid size-14 place-items-center rounded-full bg-[#FFF0DE] text-[#D96F00]">
-          <ShieldCheck size={28} />
-        </span>
-        <h1 className="mt-6 text-3xl font-black tracking-[-.03em]">Waydidi admin</h1>
-        <p className="mt-2 text-slate-600">
-          {configured ? "Sign in with your staff ID, password, and authenticator code." : "Admin sign-in has not been set up yet."}
+    <AnimatedScene>
+      {/* Logo (bird + name) just above the box, 12px apart, both centred over the moving scene. */}
+      <div className="relative z-20 flex min-h-dvh flex-col items-center justify-center px-4 pb-[16vh] pt-10">
+      <WaydidiLogo className="h-[76px] w-auto text-white drop-shadow-[0_4px_12px_rgba(150,70,0,.3)]" />
+      <section className="mt-3 w-full max-w-sm rounded-2xl bg-white p-6 text-[#211726] shadow-2xl sm:p-7">
+        <h1 className="text-[22px] font-bold">Admin sign in</h1>
+        <p className="mt-1 text-[14px] text-slate-500">
+          {configured ? (mfa ? "Enter the six-digit code from your authenticator app." : "Sign in to the Waydidi admin panel.") : "Admin sign-in has not been set up yet."}
         </p>
-        <form className="mt-7" onSubmit={submit}>
+        <form className="mt-5" onSubmit={submit}>
           {!mfa && <><label className="text-sm font-bold" htmlFor="admin-id">Admin ID</label>
-          <div className="mb-4 mt-2 flex items-center rounded-2xl border border-slate-300 bg-slate-50 px-4 focus-within:border-[#FF8A05] focus-within:ring-2 focus-within:ring-[#FF8A05]/20">
+          <div className="mb-4 mt-2 flex items-center rounded-xl border border-slate-300 bg-slate-50 px-3 focus-within:border-[#FF8A05] focus-within:ring-2 focus-within:ring-[#FF8A05]/20">
             <UserRound className="shrink-0 text-slate-400" size={20} />
-            <input id="admin-id" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(event) => setUsername(event.target.value)} disabled={!configured || loading} className="min-w-0 flex-1 bg-transparent px-3 py-4 outline-none disabled:cursor-not-allowed" placeholder="Enter admin ID" required maxLength={100} />
+            <input id="admin-id" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(event) => setUsername(event.target.value)} disabled={!configured || loading} className="min-w-0 flex-1 bg-transparent px-2 py-3 outline-none disabled:cursor-not-allowed" placeholder="Enter admin ID" required maxLength={100} />
           </div>
-          <label className="text-sm font-bold" htmlFor="admin-key">Password</label>
-          <div className="mt-2 flex items-center rounded-2xl border border-slate-300 bg-slate-50 px-4 focus-within:border-[#FF8A05] focus-within:ring-2 focus-within:ring-[#FF8A05]/20">
+          <label className="text-sm font-bold" htmlFor="admin-key">Admin key</label>
+          <div className="mt-2 flex items-center rounded-xl border border-slate-300 bg-slate-50 px-3 focus-within:border-[#FF8A05] focus-within:ring-2 focus-within:ring-[#FF8A05]/20">
             <KeyRound className="shrink-0 text-slate-400" size={20} />
             <input
               id="admin-key"
@@ -65,8 +66,8 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
               value={key}
               onChange={(event) => setKey(event.target.value)}
               disabled={!configured || loading}
-              className="min-w-0 flex-1 bg-transparent px-3 py-4 outline-none disabled:cursor-not-allowed"
-              placeholder="Enter password"
+              className="min-w-0 flex-1 bg-transparent px-2 py-3 outline-none disabled:cursor-not-allowed"
+              placeholder="Enter admin key"
               required
               minLength={8}
               maxLength={200}
@@ -86,14 +87,14 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
           <button
             type="submit"
             disabled={!configured || loading}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-5 py-4 font-black text-white transition hover:bg-[#e97800] disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#FE8B05] px-5 font-semibold text-white transition hover:bg-[#e97800] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading && <LoaderCircle className="animate-spin" size={19} />}
-            {loading ? "Checking…" : mfa ? "Verify and sign in" : "Continue"}
+            {loading ? "Checking…" : mfa ? "Verify" : "Sign in"}
           </button>
         </form>
-        {configured && !mfa && <AdminOwnerSetup mode="request" />}
       </section>
-    </main>
+      </div>
+    </AnimatedScene>
   );
 }

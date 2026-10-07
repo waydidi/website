@@ -1,7 +1,7 @@
 import { z } from "zod";
 export const STAGES = ["new", "quoted", "awaiting_payment", "won", "lost", "cancelled"] as const;
 export const normalizePhone = (phone: string | null) => (phone ?? "").replace(/[^0-9]/g, "");
-export const csvCell = (value: unknown) => { const s = String(value ?? ""); return `"${(/^[=+\-@\t\r]/.test(s) ? "'" + s : s).replaceAll('"', '""')}"`; };
+export const csvCell = (value: unknown) => { const s = String(value ?? ""); return `"${(/^[=+\-@\t\r\n]/.test(s) ? "'" + s : s).replaceAll('"', '""')}"`; };
 export const retryDelay = (attempt: number) => Math.min(24 * 3600000, 5 * 60000 * 2 ** Math.max(0, attempt - 1));
 export const contactInput = z.object({ name: z.string().trim().min(1).max(150), email: z.string().trim().toLowerCase().email().max(254).or(z.literal("")), phone: z.string().trim().max(40), notes: z.string().max(4000).default(""), ownerId: z.string().max(100).nullable().optional(), language: z.string().max(10).default("en") });
 export const taskInput = z.object({ contactId: z.string().min(1).max(150), leadId: z.string().max(150).nullable().optional(), conversationId: z.string().max(150).nullable().optional(), title: z.string().trim().min(1).max(200), dueAt: z.string().datetime({ offset: true }), ownerId: z.string().min(1).max(100) });

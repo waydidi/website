@@ -20,13 +20,16 @@ const fields = z.object({
 
 async function guard(request: Request) {
   if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
-  if (!(await getWaydidiAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const staff = await getWaydidiAdmin();
+  if (!staff) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!["owner", "operations", "finance"].includes(staff.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return null;
 }
 
 // Add a storefront partner.
 export async function POST(request: Request) {
   const blocked = await guard(request); if (blocked) return blocked;
+  if ((await getWaydidiAdmin())?.role === "finance") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const parsed = fields.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: `Check ${String(parsed.error.issues[0]?.path[0] ?? "the form")}.` }, { status: 400 });
   const f = parsed.data;
@@ -45,7 +48,12 @@ export async function PATCH(request: Request) {
   const input = await request.json().catch(() => null) as { id?: unknown; settle?: unknown } & Record<string, unknown> | null;
   const id = typeof input?.id === "string" ? input.id : "";
   if (!id) return NextResponse.json({ error: "Missing storefront." }, { status: 400 });
-  if (input?.settle === true) return NextResponse.json({ ok: true, settled: await settleStoreBookings(id) });
+  const role = (await getWaydidiAdmin())?.role;
+  if (input?.settle === true) {
+    if (!["owner", "finance"].includes(role ?? "")) return NextResponse.json({ error: "Settlement requires finance access" }, { status: 403 });
+    return NextResponse.json({ ok: true, settled: await settleStoreBookings(id) });
+  }
+  if (role === "finance") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   // Status switch in the list: only turns the QR on or off.
   if (input?.toggle === true && typeof input.active === "boolean") {
     await getDb().update(storefronts).set({ active: input.active, updatedAt: new Date().toISOString() }).where(eq(storefronts.id, id));

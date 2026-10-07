@@ -1,0 +1,9 @@
+{
+  "name": "@waydidi/braces",
+  "version": "3.0.3-waydidi.1",
+  "description": "Local MIT-licensed braces 3.0.3 fork with bounded AST recursion",
+  "main": "index.js",
+  "type": "commonjs",
+  "license": "MIT",
+  "dependencies": { "fill-range": "^7.1.1" }
+}

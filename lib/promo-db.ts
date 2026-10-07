@@ -1,3 +1,4 @@
+import { checkReferral } from "@/lib/referrals";
 import { and, count, eq, inArray, notInArray, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookings, memberCoupons, promoCodes, promoRedemptions } from "@/db/schema";
@@ -83,6 +84,9 @@ export async function checkPromo(input: {
     if (discount <= 0) return { ok: false, reason: `Reward coupons work on fares from THB ${REWARD_MIN_FARE.toLocaleString("en-US")}.` };
     return { ok: true, discount, finalTotal: input.total - discount, promo: { id: `gift:${gift.id}`, code: REWARD_CODE, title: `Reward: ${gift.name}` } };
   }
+  // A member's friend invite code (FRIEND…): ฿100 off a friend's first ride.
+  const referral = await checkReferral({ code: normalizeCode(input.code), total: input.total, email: input.email, phone: input.phone, customerId: input.customerId }).catch(() => null);
+  if (referral) return referral.ok ? { ok: true, discount: referral.discount, finalTotal: referral.finalTotal, promo: referral.promo } : { ok: false, reason: referral.reason };
   const promo = await findPromo(input.code);
   if (!promo) return { ok: false, reason: "This promo code isn't valid." };
   const email = (input.email ?? "").trim().toLowerCase();

@@ -90,6 +90,7 @@ async function resend(payload: Record<string, unknown>, idempotencyKey: string):
         "Idempotency-Key": idempotencyKey.slice(0, 256),
       },
       body: JSON.stringify({ from: env.BOOKING_FROM_EMAIL, ...withLogo(payload) }),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) console.error("Resend rejected email", response.status, await response.text());
     return { status: response.ok ? "sent" : "failed" };

@@ -111,14 +111,17 @@ function EditDialog({ store, open, onClose }: { store: Store | null; open: boole
   </Dialog>;
 }
 
-function DetailDialog({ store, onClose }: { store: Store | null; onClose: () => void }) {
+function DetailDialog({ store, onClose, canSettle }: { store: Store | null; onClose: () => void; canSettle: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   async function settle() {
     if (!store || !window.confirm(`Mark ${store.name} as settled? This covers every completed ride not settled yet.`)) return;
-    setBusy(true);
-    await fetch("/api/admin/storefronts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: store.id, settle: true }) }).catch(() => null);
-    setBusy(false); onClose(); router.refresh();
+    setBusy(true); setError("");
+    const response = await fetch("/api/admin/storefronts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: store.id, settle: true }) }).catch(() => null);
+    setBusy(false);
+    if (!response?.ok) { setError("Settlement failed. Please retry."); return; }
+    onClose(); router.refresh();
   }
   return <Dialog open={Boolean(store)} onOpenChange={(o) => { if (!o) onClose(); }}>
     <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 sm:max-w-3xl">
@@ -131,7 +134,8 @@ function DetailDialog({ store, onClose }: { store: Store | null; onClose: () => 
           <div className="rounded-xl bg-slate-50 p-3"><p className="text-[12px] text-slate-500">Balance</p><p className="text-[16px]"><Balance value={store.stats.balance} /></p></div>
         </div>
         <p className="mt-2 text-[13px] text-slate-500">Commission is earned when the ride is completed. Cash taken at the counter is due to Waydidi minus the store&apos;s commission.</p>
-        {(store.stats.earned > 0 || store.stats.balance !== 0) && <button type="button" onClick={() => void settle()} disabled={busy} className="mt-3 inline-flex h-10 w-fit items-center gap-2 rounded-full bg-[#15803D] px-5 font-semibold text-white disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Mark settled</button>}
+        {error && <p role="alert" className="mt-3 text-red-700">{error}</p>}
+        {canSettle && (store.stats.earned > 0 || store.stats.balance !== 0) && <button type="button" onClick={() => void settle()} disabled={busy} className="mt-3 inline-flex h-10 w-fit items-center gap-2 rounded-full bg-[#15803D] px-5 font-semibold text-white disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Mark settled</button>}
         <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[620px] text-left text-[14px]">
           <thead className="text-slate-500"><tr>{["Booking", "Pickup", "Paid", "Total", "Commission", ""].map((h) => <th key={h} className="px-2 py-2 font-medium">{h}</th>)}</tr></thead>
           <tbody>{store.bookings.length === 0 ? <tr><td colSpan={6} className="px-2 py-8 text-center text-slate-500">No bookings yet.</td></tr> : store.bookings.map((b) => <tr key={b.reference} className="border-t border-slate-100">
@@ -148,7 +152,7 @@ function DetailDialog({ store, onClose }: { store: Store | null; onClose: () => 
   </Dialog>;
 }
 
-export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
+export function StorefrontsWorkspace({ stores, canEdit, canSettle }: { stores: Store[]; canEdit: boolean; canSettle: boolean }) {
   const [editing, setEditing] = useState<Store | null>(null);
   const [adding, setAdding] = useState(false);
   const [qr, setQr] = useState<Store | null>(null);
@@ -160,7 +164,7 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
 
   return <div className="grid gap-5 px-4 pb-10 pt-4 sm:px-8">
     <div className="-mt-[52px] -mb-1 flex justify-end">
-      <button type="button" onClick={() => setAdding(true)} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]"><Plus size={17} strokeWidth={2.5} />Add storefront</button>
+      {canEdit && <button type="button" onClick={() => setAdding(true)} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]"><Plus size={17} strokeWidth={2.5} />Add storefront</button>}
     </div>
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <StatCard title="Storefronts" value={String(stores.length)} sub={`${stores.filter((s) => s.active).length} active`} />
@@ -180,10 +184,10 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
             <td className="px-5">{s.bookings.length}</td>
             <td className="px-5">{thb(s.revenue)}</td>
             <td className="px-5"><Balance value={s.stats.balance} /></td>
-            <td className="px-5"><StatusSwitch id={s.id} name={s.name} active={s.active} /></td>
+            <td className="px-5">{canEdit ? <StatusSwitch id={s.id} name={s.name} active={s.active} /> : s.active ? "Active" : "Inactive"}</td>
             <td className="px-5"><span className="flex items-center gap-3 text-slate-500">
               <button type="button" onClick={() => setQr(s)} aria-label={`QR code for ${s.name}`} title="QR poster" className="hover:text-[#C96100]"><QrCode size={19} /></button>
-              <button type="button" onClick={() => setEditing(s)} aria-label={`Edit ${s.name}`} title="Edit" className="hover:text-[#C96100]"><Pencil size={18} /></button>
+              {canEdit && <button type="button" onClick={() => setEditing(s)} aria-label={`Edit ${s.name}`} title="Edit" className="hover:text-[#C96100]"><Pencil size={18} /></button>}
               <button type="button" onClick={() => setViewing(s)} aria-label={`Bookings for ${s.name}`} title="Bookings and commission" className="hover:text-[#C96100]"><Eye size={19} /></button>
             </span></td>
           </tr>)}
@@ -192,7 +196,7 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
     </div>
     <EditDialog store={editing} open={adding || Boolean(editing)} onClose={() => { setAdding(false); setEditing(null); }} />
     <QrDialog store={qr} onClose={() => setQr(null)} />
-    <DetailDialog store={viewing} onClose={() => setViewing(null)} />
+    <DetailDialog canSettle={canSettle} store={viewing} onClose={() => setViewing(null)} />
   </div>;
 }
 

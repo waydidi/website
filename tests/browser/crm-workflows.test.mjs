@@ -65,3 +65,16 @@ test('enquiry load failure prevents accidental unlinking on reschedule',async()=
   assert.equal(await page.getByRole('button',{name:'Save',exact:true}).isDisabled(),true);assert.equal(posts.length,0);
  }finally{await page.close();}
 });
+
+test('affiliate payout CSV escapes formulas and operations cannot see payout actions',async()=>{
+ const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/api/admin/affiliates**',async route=>{
+  const params=new URL(route.request().url()).searchParams;
+  await route.fulfill({json:params.has('kit')?{prices:{}}:params.has('payouts')?{payouts:[{id:'p1',name:'=HYPERLINK("https://example.invalid")',email:'p1@example.invalid',phone:'+66123456789',notes:'\n=SUM(1,2)',rides:1,amount:100,unpaid:100,paid_at:null}]}:{affiliates:[],canPay:false}});
+ });
+ try{
+  await page.goto(origin+'/?affiliates=1');const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download CSV',exact:true}).click();
+  const stream=await (await download).createReadStream();let csv='';for await(const chunk of stream)csv+=chunk.toString();
+  assert.ok(csv.includes('"\'=HYPERLINK(""https://example.invalid"")"'));assert.ok(csv.includes('"\'\n=SUM(1,2)"'));assert.equal(await page.getByRole('button',{name:'Mark paid',exact:true}).count(),0);assert.deepEqual(errors,[]);
+ }finally{await page.close();}
+});

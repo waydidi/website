@@ -112,7 +112,16 @@ const worker = {
       const hit = await edgeCache.match(url.toString()).catch(() => undefined);
       if (hit) return withSecurityHeaders(hit, url);
     }
-    const response = await handler.fetch(request, env, ctx);
+    let response = await handler.fetch(request, env, ctx);
+    // Affiliate link (?ref=mint): remember the partner for 30 days (the last link clicked wins) and count the click.
+    const ref = request.method === "GET" && !accessPath.startsWith("/api/") && !accessPath.startsWith("/admin") ? url.searchParams.get("ref") : null;
+    if (ref && /^[a-z0-9][a-z0-9-]{1,39}$/.test(ref) && response.status === 200) {
+      const known = await import("../lib/affiliates").then((m) => m.countClick(ref)).catch(() => false);
+      if (known) {
+        response = new Response(response.body, response);
+        response.headers.append("Set-Cookie", `wd_ref=${ref}; Path=/; Max-Age=${30 * 86400}; SameSite=Lax; Secure; HttpOnly`);
+      }
+    }
     if (ttl && edgeCache && response.status === 200 && !response.headers.has("Set-Cookie")) {
       const copy = new Response(response.clone().body, response);
       copy.headers.set("Cache-Control", `public, max-age=0, s-maxage=${ttl}`);
@@ -126,6 +135,8 @@ const worker = {
       ctx.waitUntil(import("../lib/chat-idle").then(async (m) => { const at = new Date(controller.scheduledTime); await m.sendIdleNudges(at); await m.closeIdleChats(at); await import("../lib/telegram/handover").then((h) => h.remindWaiting(at)); }).catch((e) => console.error("chat check-in failed", e)));
       // Once a day (after 02:00 Thailand time): yesterday's flight stats for /flights.
       ctx.waitUntil(import("../lib/aerodatabox").then((m) => m.dailyStatsIfDue(new Date(controller.scheduledTime))).catch(() => undefined));
+      // Every 30 minutes: thank-you coupons for members whose invited friend has completed a ride.
+      ctx.waitUntil(import("../lib/referrals").then((m) => m.referralRewardsIfDue(new Date(controller.scheduledTime))).catch((e) => console.error("referral rewards failed", e)));
       // Every 15 minutes: flights of upcoming airport pickups; the team is told about delays in Telegram.
       ctx.waitUntil(import("../lib/flight-watch").then((m) => m.watchBookingFlights(new Date(controller.scheduledTime))).catch((e) => console.error("flight watch failed", e)));
       return;
@@ -137,7 +148,7 @@ const worker = {
 };
 
 // Paths that stay open in maintenance mode. Anything with a file extension (images, scripts) is open too.
-const MAINTENANCE_OPEN = /^\/(admin|admin-setup|api|driver|drivers\/portal|trip|booking|pay|chat-pay|f|maintenance|_vinext|_next|assets)(\/|$)|\.[a-z0-9]{2,5}$/i;
+const MAINTENANCE_OPEN = /^\/(admin|admin-setup|api|driver|partner|drivers\/portal|trip|booking|pay|chat-pay|f|maintenance|_vinext|_next|assets)(\/|$)|\.[a-z0-9]{2,5}$/i;
 let maintenanceCache = { on: false, at: 0 };
 /** Read from D1 at most every 20 seconds per worker. */
 async function maintenanceOn(env: Env) {

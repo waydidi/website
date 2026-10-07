@@ -6,6 +6,8 @@ import { toSatang } from "@/lib/money";
 import { payPageUrl } from "@/lib/stripe";
 import { NextResponse } from "next/server";
 import { storeCommission, storeDiscount, storefrontBySlug } from "@/lib/storefront";
+import { recordReferral } from "@/lib/referrals";
+import { affiliateByCode, affiliateBySlug, affiliateDiscount, isSelfReferral, linkBooking, refFromRequest, type Affiliate } from "@/lib/affiliates";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { bookingContacts, bookingFreeAddons, bookingMemberDiscounts, bookingSources, bookingStorefronts, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
 import { and as andWhere, eq as eqWhere } from "drizzle-orm";
@@ -371,6 +373,19 @@ export async function POST(request: Request) {
       storeApplied = { fare: total, percent: storefront.discountPercent, discount };
       total -= discount;
     }
+    // Affiliate partner: their code (in the promo box) gives the customer their discount; their link
+    // (?ref=…, remembered 30 days) only credits them. Store bookings and self-referrals don't count.
+    let affiliate: Affiliate | null = null, affiliateVia: "link" | "code" = "link", affiliateDiscountThb = 0;
+    if (!storefront) {
+      const byCode = input.promoCode ? await affiliateByCode(input.promoCode) : null;
+      if (byCode) { affiliate = byCode; affiliateVia = "code"; input.promoCode = undefined; }
+      else { const slug = refFromRequest(request); affiliate = slug ? await affiliateBySlug(slug) : null; }
+      if (affiliate && isSelfReferral(affiliate, input.customerEmail, input.customerPhone)) {
+        if (affiliateVia === "code") return NextResponse.json({ code: "PROMO_INVALID", error: "Partner codes can't be used on your own bookings.", field: "promoCode" }, { status: 409 });
+        affiliate = null;
+      }
+      if (affiliate && affiliateVia === "code") { affiliateDiscountThb = affiliateDiscount(total, affiliate.discount_percent); total -= affiliateDiscountThb; }
+    }
     let promoApplied: { promoId: string; code: string; originalTotal: number; discount: number } | null = null;
     if (input.promoCode) {
       const result = await checkPromo({
@@ -568,6 +583,18 @@ export async function POST(request: Request) {
       customerEmail: input.customerEmail, customerPhone: input.customerPhone,
       originalTotal: storeApplied.fare, discount: storeApplied.discount, finalTotal: storeApplied.fare - storeApplied.discount, createdAt: now,
     }).onConflictDoNothing().catch(() => undefined);
+    // Friend invite: remembered so the member gets their thank-you coupon once this ride is completed.
+    if (promoApplied?.promoId.startsWith("referral:")) await recordReferral(reference, promoApplied.promoId.slice(9), input.customerEmail, input.customerPhone).catch((error) => console.error("referral record failed", error));
+    if (affiliate) {
+      // Commission on what the customer finally pays.
+      await linkBooking({ reference, affiliate, via: affiliateVia, fare: total + affiliateDiscountThb, discount: affiliateDiscountThb }).catch((error) => console.error("affiliate link failed", error));
+      await getDb().insert(bookingSources).values({ bookingReference: reference, source: `aff:${affiliate.slug}`, createdAt: now }).onConflictDoNothing().catch(() => undefined);
+      if (affiliateDiscountThb > 0) await getDb().insert(promoRedemptions).values({
+        id: crypto.randomUUID(), promoId: "affiliate", code: affiliate.code, bookingReference: reference,
+        customerEmail: input.customerEmail, customerPhone: input.customerPhone,
+        originalTotal: total + affiliateDiscountThb, discount: affiliateDiscountThb, finalTotal: total, createdAt: now,
+      }).onConflictDoNothing().catch(() => undefined);
+    }
     if (account) await getDb().insert(customerBookingLinks).values({ bookingReference: reference, customerId: account.customer.id, createdAt: now }).onConflictDoNothing();
     await getDb().insert(bookingPayments).values({
       id: `primary:${reference}`,

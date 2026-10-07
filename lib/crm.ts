@@ -212,10 +212,12 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
             throw new CrmError('Add a lost reason.');
         if (p.stage === 'won')
             throw new CrmError('Link a confirmed booking to mark this enquiry booked.');
-        const result = await db.prepare('UPDATE crm_leads SET stage=?,loss_reason=?,version=version+1,updated_at=? WHERE id=? AND version=?').bind(p.stage, p.lossReason ?? null, stamp, id, p.version).run();
-        if (!result.meta.changes)
+        const result = await db.batch([
+            db.prepare("INSERT INTO crm_events(id,contact_id,entity_id,kind,body,staff_id,created_at) SELECT ?,contact_id,id,'stage',?,?,? FROM crm_leads WHERE id=? AND version=?").bind(crypto.randomUUID(), `${lead.stage} → ${p.stage}${p.lossReason ? ': ' + p.lossReason : ''}`, staffId, stamp, id, p.version),
+            db.prepare('UPDATE crm_leads SET stage=?,loss_reason=?,version=version+1,updated_at=? WHERE id=? AND version=?').bind(p.stage,p.lossReason ?? null,stamp,id,p.version),
+        ]);
+        if (!result[1].meta.changes)
             throw new CrmError('This enquiry changed. Refresh and try again.', 409);
-        await eventStatement(lead.contact_id, id, 'stage', `${lead.stage} → ${p.stage}${p.lossReason ? ': ' + p.lossReason : ''}`, staffId).run();
         return { id };
     }
     if (action === 'task') {
@@ -224,13 +226,14 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
         await staffExists(p.ownerId);
         if (p.leadId && !await first('SELECT id FROM crm_leads WHERE id=? AND contact_id=?', p.leadId, p.contactId))
             throw new CrmError('Enquiry does not belong to this customer.');
-        const old = id ? await first<{
-            contact_id: string;
-        }>('SELECT contact_id FROM crm_tasks WHERE id=?', id) : null;
+        const old = id ? await first<{contact_id: string;conversation_id: string | null}>('SELECT contact_id,conversation_id FROM crm_tasks WHERE id=?', id) : null;
         if (id && (!old || old.contact_id !== p.contactId))
             throw new CrmError('This task does not belong to the selected customer.');
+        const conversationId = old?.conversation_id ?? p.conversationId;
+        if (conversationId && !await first("SELECT source_id FROM crm_sources WHERE kind='chat' AND source_id=? AND contact_id=?", conversationId,p.contactId))
+            throw new CrmError('Chat does not belong to this customer.');
         const tid = id || crypto.randomUUID();
-        await db.batch([old ? db.prepare("UPDATE crm_tasks SET lead_id=?,title=?,due_at=?,owner_id=?,status='open',completed_at=NULL,reminded_at=NULL,updated_at=? WHERE id=?").bind(p.leadId ?? null, p.title, new Date(p.dueAt).toISOString(), p.ownerId, stamp, tid) : db.prepare('INSERT INTO crm_tasks(id,contact_id,lead_id,conversation_id,title,due_at,owner_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)').bind(tid, p.contactId, p.leadId ?? null, p.conversationId ?? null, p.title, new Date(p.dueAt).toISOString(), p.ownerId, stamp, stamp), eventStatement(p.contactId, tid, 'task', `Scheduled: ${p.title}`, staffId)]);
+        await db.batch([old ? db.prepare("UPDATE crm_tasks SET lead_id=?,title=?,due_at=?,owner_id=?,status='open',completed_at=NULL,reminded_at=NULL,reminder_claimed_at=NULL,reminder_attempts=0,reminder_error=NULL,updated_at=? WHERE id=?").bind(p.leadId ?? null, p.title, new Date(p.dueAt).toISOString(), p.ownerId, stamp, tid) : db.prepare('INSERT INTO crm_tasks(id,contact_id,lead_id,conversation_id,title,due_at,owner_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)').bind(tid, p.contactId, p.leadId ?? null, p.conversationId ?? null, p.title, new Date(p.dueAt).toISOString(), p.ownerId, stamp, stamp), eventStatement(p.contactId, tid, 'task', `Scheduled: ${p.title}`, staffId)]);
         return { id: tid };
     }
     if (action === 'task_status') {
@@ -241,7 +244,7 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
         }>('SELECT contact_id,title FROM crm_tasks WHERE id=?', id);
         if (!t)
             throw new CrmError('Task not found.', 404);
-        await db.batch([db.prepare('UPDATE crm_tasks SET status=?,completed_at=?,reminded_at=NULL,updated_at=? WHERE id=?').bind(status, status === 'completed' ? stamp : null, stamp, id), eventStatement(t.contact_id, id, 'task', `${t.title}: ${status}`, staffId)]);
+        await db.batch([db.prepare('UPDATE crm_tasks SET status=?,completed_at=?,reminded_at=NULL,reminder_claimed_at=NULL,reminder_attempts=0,reminder_error=NULL,updated_at=? WHERE id=?').bind(status, status === 'completed' ? stamp : null, stamp, id), eventStatement(t.contact_id, id, 'task', `${t.title}: ${status}`, staffId)]);
         return { id };
     }
     if (action === 'quote') {
@@ -297,10 +300,13 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
         if (!['owner', 'operations'].includes(role))
             throw new CrmError('Partner management access required.', 403);
         const p = z.object({ agencyId: z.string(), ownerId: z.string().nullable().optional(), rateNotes: z.string().max(4000), email: z.string().trim().toLowerCase().email().or(z.literal('')).optional(), memberRole: z.enum(['manager', 'booker']).optional(), active: z.boolean().optional() }).parse(input);
-        if (!await first("SELECT id FROM agency_applications WHERE id=? AND status='approved'", p.agencyId))
+        const approvedAgency = await first<{id:string;email:string}>("SELECT id,email FROM agency_applications WHERE id=? AND status='approved'", p.agencyId);
+        if (!approvedAgency)
             throw new CrmError('Choose an approved agency.');
         if (p.ownerId)
             await staffExists(p.ownerId);
+        if (p.email === approvedAgency.email.toLowerCase())
+            throw new CrmError('The primary agency email cannot be changed as a team member. Change the agency approval status to revoke its portal access.');
         if (p.email && await first("SELECT id FROM agency_applications WHERE lower(email)=? AND id<>? AND status='approved'", p.email, p.agencyId))
             throw new CrmError('This email is the primary contact for another agency.');
         await db.batch([db.prepare('INSERT INTO crm_partner_accounts(agency_id,owner_id,rate_notes,updated_at) VALUES(?,?,?,?) ON CONFLICT(agency_id) DO UPDATE SET owner_id=excluded.owner_id,rate_notes=excluded.rate_notes,updated_at=excluded.updated_at').bind(p.agencyId, p.ownerId ?? null, p.rateNotes, stamp), ...(p.email ? [db.prepare('INSERT INTO agency_members(agency_id,email,role,active,created_at) VALUES(?,?,?,?,?) ON CONFLICT(agency_id,email) DO UPDATE SET role=excluded.role,active=excluded.active').bind(p.agencyId, p.email, p.memberRole ?? 'booker', Number(p.active ?? true), stamp)] : []), eventStatement(null, p.agencyId, 'partner', 'Partner account updated', staffId)]);

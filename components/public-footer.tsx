@@ -5,7 +5,7 @@ import { FooterLegal } from "@/components/footer-legal";
 const columns = [
   {title:"Transfer",links:[["Airport transfer","/airport-transfer"],["City-to-city transfer","/a-to-b-transfer"],["Multi-city transfer","/long-journeys"],["Hourly driver","/hourly-driver"]]},
   {title:"Destinations",links:[["Our destinations","/destinations"]]},
-  {title:"Help",links:[["Help centre","/help"],["Contact support","/contact"],["Frequently asked questions","/faq"],["Manage booking","/booking/manage"],["Airport pickup guide","/airport-pickup-instructions"],["Check flights","/flights"],["Travel agencies","/agencies"],["Drive with Waydidi","/drivers"]]},
+  {title:"Help",links:[["Help centre","/help"],["Contact support","/contact"],["Frequently asked questions","/faq"],["Manage booking","/booking/manage"],["Airport pickup guide","/airport-pickup-instructions"],["Check flights","/flights"],["Travel agencies","/agencies"],["Become a partner","/partners"],["Drive with Waydidi","/drivers"]]},
 ];
 
 export function PublicFooter(){return <footer className="bg-[#FF8A05] text-white">
