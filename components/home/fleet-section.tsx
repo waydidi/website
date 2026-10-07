@@ -17,7 +17,7 @@ export function FleetSection() {
     <div className="mx-auto max-w-[1024px] px-5 lg:px-0">
       <h2 id="fleet-heading" className="max-w-[560px] text-[32px] font-bold leading-[1.08] tracking-[-.03em] text-[#141414] sm:text-[40px]">Maximum comfort and safety for your trip</h2>
       <p className="mt-3 text-[17px] text-[#5A5A5A]">Licensed vehicles, professional drivers</p>
-      <ul className="-mx-5 mt-7 flex gap-3 overflow-x-auto px-5 pb-2 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
+      <ul tabIndex={0} className="-mx-5 mt-7 flex gap-3 overflow-x-auto px-5 pb-2 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
         {FLEET.map((car) => {
           const v = VEHICLES[car.id];
           return <li key={car.id} className="relative flex w-[82%] shrink-0 flex-col overflow-hidden rounded-[22px] border border-[#E4E4E1] bg-white md:w-auto">

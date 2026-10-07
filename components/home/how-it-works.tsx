@@ -81,7 +81,7 @@ export function HowItWorks() {
       <p className="mt-2 text-[15px] text-[#4A4A4A]">{t("how.subtitle")}</p>
     </div>
     {/* Free horizontal scroll: no snap, so cards stop wherever the swipe ends. */}
-    <ol className="mx-auto mt-6 flex max-w-[1180px] gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] lg:px-0 [&::-webkit-scrollbar]:hidden">
+    <ol tabIndex={0} className="mx-auto mt-6 flex max-w-[1180px] gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] lg:px-0 [&::-webkit-scrollbar]:hidden">
       {VISUALS.map((visual, i) => <li key={i} className="w-[82%] max-w-[340px] shrink-0">
         <div className="relative grid aspect-[10/11] place-items-center overflow-hidden rounded-3xl border border-[#E6E4DE] bg-gradient-to-b from-[#F6F5F2] to-[#EDECE8]">
           {visual}
