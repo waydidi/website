@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Globe, Mail, MessageCircle, Phone, Search, SendHorizontal, Tag, UserRound } from "lucide-react";
+import { ArrowLeft, ChevronDown, Globe, Mail, MessageCircle, Phone, Search, SendHorizontal, Tag, UserRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { countryLabel } from "@/lib/country";
@@ -78,8 +78,16 @@ export function ChatInbox() {
       {/* Inbox */}
       <aside aria-label="Conversations" className={`flex min-h-0 flex-col border-slate-200 md:border-r ${id ? "max-md:hidden" : ""}`}>
         <div className="border-b border-slate-100 p-3">
-          <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 focus-within:border-[#FE8B05]"><Search size={15} className="text-slate-400" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, WD-number, text" aria-label="Search conversations" className="h-10 min-w-0 flex-1 bg-transparent text-[14px] outline-none" /></label>
-          <div className="mt-2 flex flex-wrap gap-1.5">{FILTERS.map(([k, l]) => <button key={k} type="button" onClick={() => setFilter(k)} aria-pressed={filter === k} className={`rounded-full px-2.5 py-1 text-[12.5px] font-semibold ${filter === k ? "bg-[#FFF0DF] text-[#C96100]" : "text-slate-600 hover:bg-slate-100"}`}>{l}</button>)}</div>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(104px,20%)] items-center gap-2">
+          <label className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 px-3 focus-within:border-[#FE8B05]"><Search size={15} className="text-slate-400" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, WD-number, text" aria-label="Search conversations" className="h-10 min-w-0 flex-1 bg-transparent text-[14px] outline-none" /></label>
+          {/* Status filter as one pill, to the right of the search (search about 80%, status about 20%) */}
+          <span className="relative min-w-0">
+            <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Show conversations" className="h-10 w-full min-w-0 cursor-pointer appearance-none truncate rounded-full bg-[#FFF0DF] pl-3 pr-7 text-[13px] font-semibold text-[#C96100] outline-none focus:ring-2 focus:ring-[#FE8B05]/40">
+              {FILTERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+            <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#C96100]" aria-hidden />
+          </span>
+        </div>
         </div>
         <ul className="min-h-0 flex-1 overflow-y-auto">
           {data && !data.conversations.length && <li className="p-6 text-center text-[14px] text-slate-500">No conversations need your attention.</li>}
