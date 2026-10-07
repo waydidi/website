@@ -57,7 +57,7 @@ export default function RefundPolicyPage() {
 
       <Section id="customer-cancellation" title="Customer cancellation">
         <p>Unless otherwise stated on the specific service or booking:</p>
-        <div className="overflow-x-auto rounded-2xl border border-slate-200"><table className="w-full min-w-[420px] text-left text-[15px]">
+        <div tabIndex={0} role="region" aria-label="Refund amounts" className="overflow-x-auto rounded-2xl border border-slate-200"><table className="w-full min-w-[420px] text-left text-[15px]">
           <caption className="sr-only">Refund by cancellation time</caption>
           <thead className="bg-[#F5F6F8] text-slate-600"><tr><th scope="col" className="px-4 py-3 font-semibold">Cancellation time</th><th scope="col" className="px-4 py-3 font-semibold">Refund</th></tr></thead>
           <tbody className="divide-y divide-slate-100">

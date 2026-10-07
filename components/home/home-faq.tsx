@@ -22,7 +22,7 @@ export function HomeFaq() {
       {TABS.map(([id]) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => { setTab(id); setOpen(null); }}
         className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[15px] font-semibold transition ${tab === id ? "bg-brand text-white" : "text-[#8A8A8A] hover:text-[#1C1C1C]"}`}>{t(`faq.tab.${id}` as MessageKey)}</button>)}
     </div>
-    <ul role="tabpanel" className="mx-auto mt-4 max-w-[760px] px-5">
+    <div role="tabpanel"><ul className="mx-auto mt-4 max-w-[760px] px-5">
       {items.map((item, i) => {
         const id = `${tab}-${i}`;
         const expanded = open === id;
@@ -34,6 +34,6 @@ export function HomeFaq() {
           {expanded && <p id={`${id}-a`} className="-mt-2 pb-5 pr-10 text-[14px] leading-6 text-[#4A4A4A]">{item.a}</p>}
         </li>;
       })}
-    </ul>
+    </ul></div>
   </section>;
 }

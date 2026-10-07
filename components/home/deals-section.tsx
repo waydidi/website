@@ -62,7 +62,7 @@ export function DealsSection() {
         <ul className="mt-5 grid gap-6">
           {reasons.map(({ Icon, title, text, href }) => <li key={title} className="flex gap-4">
             <Icon className="mt-0.5 size-8 shrink-0 text-[#FF8A05]" aria-hidden="true" />
-            <div><p className="text-[18px] font-semibold text-[#0F294D]">{title}</p><p className="mt-1 text-[15px] leading-relaxed text-[#455873]">{text} <Link href={href} className="text-[#E57A00] hover:underline">Learn more</Link></p></div>
+            <div><p className="text-[18px] font-semibold text-[#0F294D]">{title}</p><p className="mt-1 text-[15px] leading-relaxed text-[#455873]">{text} <Link href={href} className="text-[#E57A00] underline underline-offset-2">Learn more</Link></p></div>
           </li>)}
         </ul>
       </div>
