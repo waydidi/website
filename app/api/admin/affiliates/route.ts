@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
-import { affiliateBookings, affiliateSummaries, cleanCode, cleanSlug, dashboardPath, ensureAffiliateTables, isSlug, type Affiliate } from "@/lib/affiliates";
+import { affiliateBookings, affiliateSummaries, cleanCode, cleanSlug, dashboardPath, ensureAffiliateTables, isSlug, markPaid, payoutList, type Affiliate } from "@/lib/affiliates";
 import { sendTripEmail } from "@/lib/email";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
@@ -14,7 +14,10 @@ const reply = (error: string, status = 400) => NextResponse.json({ error }, { st
 export async function GET(request: Request) {
   const staff = await getWaydidiAdmin();
   if (!staff) return reply("Staff access required.", 403);
-  const id = new URL(request.url).searchParams.get("id");
+  const params = new URL(request.url).searchParams;
+  const payouts = params.get("payouts");
+  if (payouts) return NextResponse.json({ payouts: await payoutList(payouts) }, { headers });
+  const id = params.get("id");
   if (id) return NextResponse.json({ bookings: await affiliateBookings(id) }, { headers });
   const list = await affiliateSummaries().catch(() => []);
   // Each partner's private dashboard link (signed; "New link" replaces it).
@@ -58,9 +61,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true }, { headers });
   }
   if (b.action === "pay" && typeof b.id === "string") {
-    // Everything earned (ride completed) and not yet paid.
-    const r = await db().prepare("UPDATE booking_affiliates SET paid_at=? WHERE affiliate_id=? AND paid_at IS NULL AND booking_reference IN (SELECT reference FROM bookings WHERE status='completed')").bind(now, b.id).run();
-    return NextResponse.json({ ok: true, paid: r.meta.changes }, { headers });
+    // One month's completed rides (Monthly payouts), or everything completed so far.
+    const month = typeof b.month === "string" && /^\d{4}-\d{2}$/.test(b.month) ? b.month : undefined;
+    return NextResponse.json({ ok: true, paid: await markPaid(b.id, month) }, { headers });
   }
   const name = String(b.name ?? "").trim().slice(0, 80);
   const slug = cleanSlug(String(b.slug ?? ""));

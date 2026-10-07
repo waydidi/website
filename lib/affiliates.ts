@@ -57,6 +57,23 @@ export async function countClick(slug: string) {
   return true;
 }
 
+// ---- Tiers: the rate grows with completed rides (a bonus on top of the partner's own rate) ----
+export const TIERS = [
+  { id: "starter", name: "Starter", rides: 0, bonus: 0 },
+  { id: "silver", name: "Silver", rides: 10, bonus: 2 },
+  { id: "gold", name: "Gold", rides: 30, bonus: 4 },
+] as const;
+export function tierFor(completedRides: number) {
+  const i = TIERS.reduce((best, t, idx) => (completedRides >= t.rides ? idx : best), 0);
+  return { tier: TIERS[i], next: TIERS[i + 1] ?? null, ridesToNext: TIERS[i + 1] ? TIERS[i + 1].rides - completedRides : 0 };
+}
+/** The partner's rate now: their own rate plus their tier bonus. */
+export const effectiveRate = (a: Pick<Affiliate, "commission_percent">, completedRides: number) => a.commission_percent + tierFor(completedRides).tier.bonus;
+export async function completedRides(affiliateId: string) {
+  const r = await db().prepare("SELECT COUNT(*) n FROM booking_affiliates ba JOIN bookings b ON b.reference=ba.booking_reference WHERE ba.affiliate_id=? AND b.status='completed'").bind(affiliateId).first<{ n: number }>();
+  return r?.n ?? 0;
+}
+
 export const affiliateDiscount = (fare: number, percent: number) => Math.max(0, Math.round((fare * percent) / 100));
 export const affiliateCommission = (fareAfterDiscount: number, percent: number) => Math.max(0, Math.round((fareAfterDiscount * percent) / 100));
 
@@ -74,12 +91,14 @@ export const isSelfReferral = (a: Affiliate, email?: string | null, phone?: stri
 
 export async function linkBooking(input: { reference: string; affiliate: Affiliate; via: "link" | "code"; fare: number; discount: number }) {
   await ensureAffiliateTables();
-  const commission = affiliateCommission(input.fare - input.discount, input.affiliate.commission_percent);
+  // The rate when the booking is made (own rate + tier bonus) stays with the booking.
+  const rate = effectiveRate(input.affiliate, await completedRides(input.affiliate.id).catch(() => 0));
+  const commission = affiliateCommission(input.fare - input.discount, rate);
   await db().prepare("INSERT INTO booking_affiliates(booking_reference,affiliate_id,via,fare_before_discount,discount,commission_percent,commission,created_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(booking_reference) DO NOTHING")
-    .bind(input.reference, input.affiliate.id, input.via, input.fare, input.discount, input.affiliate.commission_percent, commission, new Date().toISOString()).run();
+    .bind(input.reference, input.affiliate.id, input.via, input.fare, input.discount, rate, commission, new Date().toISOString()).run();
 }
 
-export type AffiliateSummary = Affiliate & { clicks30: number; bookings: number; sales: number; pending: number; earned: number; paid: number };
+export type AffiliateSummary = Affiliate & { clicks30: number; bookings: number; sales: number; pending: number; earned: number; paid: number; completed: number; tier: string; rate: number };
 /** Every partner with clicks (30 days), bookings, sales and commission (pending, earned and unpaid, paid). */
 export async function affiliateSummaries(): Promise<AffiliateSummary[]> {
   await ensureAffiliateTables();
@@ -93,7 +112,8 @@ export async function affiliateSummaries(): Promise<AffiliateSummary[]> {
   return list.results.map((a) => {
     const mine = rows.results.filter((r) => r.affiliate_id === a.id && commissionState(r.status) !== "cancelled" && r.status !== "pending_payment");
     const sum = (f: (r: (typeof mine)[number]) => boolean) => mine.filter(f).reduce((n, r) => n + r.commission, 0);
-    return { ...a, clicks30: clickMap.get(a.id) ?? 0, bookings: mine.length, sales: mine.reduce((n, r) => n + r.sale, 0),
+    const completed = mine.filter((r) => r.status === "completed").length;
+    return { ...a, completed, tier: tierFor(completed).tier.name, rate: effectiveRate(a, completed), clicks30: clickMap.get(a.id) ?? 0, bookings: mine.length, sales: mine.reduce((n, r) => n + r.sale, 0),
       pending: sum((r) => commissionState(r.status) === "pending"), earned: sum((r) => commissionState(r.status) === "earned" && !r.paid_at), paid: sum((r) => Boolean(r.paid_at)) };
   });
 }
@@ -142,6 +162,8 @@ export async function partnerDashboard(a: Affiliate) {
     pending: sum(list.filter((r) => r.state === "pending")),
     paid: sum(list.filter((r) => r.state === "paid")),
     completedRides: list.filter((r) => r.state === "owed" || r.state === "paid").length,
+    ...(() => { const done = list.filter((r) => r.state === "owed" || r.state === "paid").length; const t = tierFor(done);
+      return { tier: t.tier.name, rate: effectiveRate(a, done), next: t.next ? { name: t.next.name, rate: a.commission_percent + t.next.bonus, ridesToNext: t.ridesToNext, progress: Math.round(((done - t.tier.rides) / (t.next.rides - t.tier.rides)) * 100) } : null }; })(),
     recent: list.slice(0, 30).map((r) => ({ date: r.pickup_date, from: r.pickup, to: r.dropoff, via: r.via, commission: r.commission, state: r.state })),
   };
 }
@@ -174,4 +196,26 @@ export async function applyAsAffiliate(a: Application) {
   await db().prepare("INSERT INTO affiliates(id,slug,code,name,email,phone,kind,commission_percent,discount_percent,status,website,audience,pitch,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'applied',?,?,?,?,?)")
     .bind(id, slug, code, a.name, a.email.toLowerCase(), a.phone || null, a.kind, DEFAULT_COMMISSION, DEFAULT_DISCOUNT, a.website || null, a.audience || null, a.pitch || null, now, now).run();
   return { ok: true as const, id, slug, code };
+}
+
+// ---- Monthly payouts: commission for rides completed in a month (by pickup date), not yet paid ----
+
+export async function payoutList(month: string) {
+  if (!/^\d{4}-\d{2}$/.test(month)) return [];
+  await ensureAffiliateTables();
+  const { results } = await db().prepare(`SELECT a.id,a.name,a.email,a.phone,a.notes,COUNT(*) rides,SUM(ba.commission) amount,
+      SUM(CASE WHEN ba.paid_at IS NULL THEN ba.commission ELSE 0 END) unpaid, MAX(ba.paid_at) paid_at
+    FROM booking_affiliates ba JOIN bookings b ON b.reference=ba.booking_reference JOIN affiliates a ON a.id=ba.affiliate_id
+    WHERE b.status='completed' AND b.pickup_date LIKE ? GROUP BY a.id ORDER BY unpaid DESC, amount DESC`).bind(`${month}-%`)
+    .all<{ id: string; name: string; email: string | null; phone: string | null; notes: string | null; rides: number; amount: number; unpaid: number; paid_at: string | null }>();
+  return results;
+}
+
+/** Mark a partner's commission as paid: one month's completed rides, or everything completed so far. */
+export async function markPaid(affiliateId: string, month?: string) {
+  const now = new Date().toISOString();
+  const r = await db().prepare(`UPDATE booking_affiliates SET paid_at=? WHERE affiliate_id=? AND paid_at IS NULL
+    AND booking_reference IN (SELECT reference FROM bookings WHERE status='completed'${month ? " AND pickup_date LIKE ?" : ""})`)
+    .bind(...(month ? [now, affiliateId, `${month}-%`] : [now, affiliateId])).run() as { meta: { changes: number } };
+  return r.meta.changes;
 }

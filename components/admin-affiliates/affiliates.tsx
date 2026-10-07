@@ -2,13 +2,15 @@
 
 import { Check, Copy, Plus, X } from "lucide-react";
 import { Fragment, useCallback, useEffect, useState } from "react";
+import { PartnerQr } from "@/components/partner/tools";
 
 type Row = {
   id: string; slug: string; code: string; name: string; email: string | null; phone: string | null; kind: string;
   commission_percent: number; discount_percent: number; status: string; notes: string | null;
   clicks30: number; bookings: number; sales: number; pending: number; earned: number; paid: number; dashboardUrl: string;
-  website?: string | null; audience?: string | null; pitch?: string | null; created_at?: string;
+  website?: string | null; audience?: string | null; pitch?: string | null; created_at?: string; completed: number; tier: string; rate: number;
 };
+type Payout = { id: string; name: string; email: string | null; phone: string | null; notes: string | null; rides: number; amount: number; unpaid: number; paid_at: string | null };
 type Booking = { booking_reference: string; via: string; fare_before_discount: number; discount: number; commission: number; paid_at: string | null; customer_name: string; pickup_date: string; pickup: string; dropoff: string; state: "pending" | "earned" | "cancelled" };
 
 const thb = (n: number) => `฿${n.toLocaleString("en-US")}`;
@@ -28,6 +30,30 @@ export function AdminAffiliates() {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const [qr, setQr] = useState<Row | null>(null);
+  const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - i); return d.toISOString().slice(0, 7); });
+  const [month, setMonth] = useState(months[1] ?? months[0]);
+  const [payouts, setPayouts] = useState<Payout[] | null>(null);
+  const loadPayouts = useCallback(async (m: string) => {
+    setPayouts(null);
+    const r = await fetch(`/api/admin/affiliates?payouts=${m}`, { cache: "no-store" });
+    setPayouts(r.ok ? ((await r.json()) as { payouts: Payout[] }).payouts : []);
+  }, []);
+  useEffect(() => { const t = window.setTimeout(() => void loadPayouts(month), 0); return () => window.clearTimeout(t); }, [month, loadPayouts]);
+  async function payMonth(p: Payout) {
+    if (!window.confirm(`Mark ${thb(p.unpaid)} as paid to ${p.name} for ${month}?`)) return;
+    await fetch("/api/admin/affiliates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "pay", id: p.id, month }) });
+    void loadPayouts(month); void load();
+  }
+  function csv() {
+    if (!payouts) return;
+    const q = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [["Partner", "Email", "Phone", "Bank / PromptPay notes", "Completed rides", "Commission (THB)", "Unpaid (THB)"].map(q).join(","),
+      ...payouts.map((p) => [p.name, p.email, p.phone, p.notes, p.rides, p.amount, p.unpaid].map(q).join(","))];
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([`\uFEFF${lines.join("\n")}`], { type: "text/csv;charset=utf-8" }));
+    a.download = `waydidi-partner-payouts-${month}.csv`; a.click();
+  }
 
   const load = useCallback(async () => {
     const r = await fetch("/api/admin/affiliates", { cache: "no-store" });
@@ -111,10 +137,11 @@ export function AdminAffiliates() {
               <td className="px-4 py-3"><p className="font-semibold">{a.name}{a.status === "paused" && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">Paused</span>}</p><p className="text-[12px] text-slate-500">{KINDS.find(([k]) => k === a.kind)?.[1] ?? a.kind}{a.email ? ` · ${a.email}` : ""}</p></td>
               <td><span className="flex items-center gap-1 font-mono text-[12.5px]">waydidi.com/?ref={a.slug}<CopyButton text={`https://waydidi.com/?ref=${a.slug}`} /></span><span className="flex items-center gap-1 font-mono text-[12.5px] text-[#C96100]">{a.code}<CopyButton text={a.code} /></span>
                 <span className="flex items-center gap-1 text-[12px] text-slate-500">Dashboard link<CopyButton text={a.dashboardUrl} /><button type="button" onClick={() => void newLink(a)} className="font-semibold underline underline-offset-2 hover:text-[#C96100]">New</button></span></td>
-              <td className="text-[12.5px]">{a.commission_percent}% to them<br /><span className="text-slate-500">{a.discount_percent}% off with code</span></td>
+              <td className="text-[12.5px]"><span className="font-semibold">{a.tier} · {a.rate}%</span> to them<br /><span className="text-slate-500">{a.discount_percent}% off with code · {a.completed} rides</span></td>
               <td>{a.clicks30}</td><td>{a.bookings}</td><td>{thb(a.sales)}</td>
               <td className="font-semibold text-emerald-700">{thb(a.earned)}</td><td className="text-amber-700">{thb(a.pending)}</td>
               <td className="whitespace-nowrap pr-4 text-right">
+                <button type="button" onClick={() => setQr(a)} className="rounded-lg px-2 py-1 font-semibold text-slate-600 hover:bg-slate-100">QR</button>
                 <button type="button" onClick={() => void showBookings(a.id)} className="rounded-lg px-2 py-1 font-semibold text-[#C96100] hover:bg-[#FFF6EC]">{open === a.id ? "Hide" : "Bookings"}</button>
                 <button type="button" onClick={() => { setForm({ id: a.id, name: a.name, slug: a.slug, code: a.code, email: a.email ?? "", phone: a.phone ?? "", kind: a.kind, commissionPercent: String(a.commission_percent), discountPercent: String(a.discount_percent), status: a.status, notes: a.notes ?? "" }); setError(""); }} className="rounded-lg px-2 py-1 font-semibold text-slate-600 hover:bg-slate-100">Edit</button>
                 {a.earned > 0 && <button type="button" onClick={() => void pay(a)} className="ml-1 rounded-lg bg-[#211726] px-2.5 py-1 font-semibold text-white">Mark paid</button>}
@@ -132,6 +159,36 @@ export function AdminAffiliates() {
           </Fragment>)}</tbody>
         </table></div>}
     </section>
+    <section className={box}>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+        <h2 className="text-[15px] font-bold">Monthly payouts</h2>
+        <div className="flex items-center gap-2">
+          <select value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" className="h-9 rounded-lg border border-slate-300 px-2 text-[13.5px]">{months.map((m) => <option key={m} value={m}>{new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })}</option>)}</select>
+          <button type="button" onClick={csv} disabled={!payouts?.length} className="h-9 rounded-lg border border-slate-300 px-3 text-[13px] font-semibold disabled:opacity-50">Download CSV</button>
+        </div>
+      </div>
+      {payouts === null ? <p className="p-4 text-slate-500">Loading…</p> : payouts.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No completed partner rides in this month.</p> :
+        <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-[13.5px]">
+          <thead className="text-[12px] text-slate-500"><tr><th className="px-4 py-2">Partner</th><th>Pay to (notes)</th><th>Rides</th><th>Commission</th><th>Unpaid</th><th className="pr-4" /></tr></thead>
+          <tbody className="divide-y divide-slate-100">{payouts.map((p) => <tr key={p.id}>
+            <td className="px-4 py-3"><p className="font-semibold">{p.name}</p><p className="text-[12px] text-slate-500">{p.email ?? ""}{p.phone ? ` · ${p.phone}` : ""}</p></td>
+            <td className="max-w-[260px] whitespace-pre-line text-[12.5px] text-slate-600">{p.notes || <span className="text-slate-400">No bank details yet (add with Edit)</span>}</td>
+            <td>{p.rides}</td><td>{thb(p.amount)}</td>
+            <td className={p.unpaid ? "font-semibold text-emerald-700" : "text-slate-400"}>{p.unpaid ? thb(p.unpaid) : "Paid"}</td>
+            <td className="pr-4 text-right">{p.unpaid > 0 && <button type="button" onClick={() => void payMonth(p)} className="rounded-lg bg-[#211726] px-3 py-1.5 font-semibold text-white">Mark paid</button>}</td>
+          </tr>)}</tbody>
+        </table></div>}
+      <p className="border-t border-slate-100 px-4 py-2 text-[12px] text-slate-500">Rides count in the month of their pickup date, once completed. Tiers: Silver after 10 completed rides (+2%), Gold after 30 (+4%), on top of each partner&apos;s own rate; the rate is fixed on each booking when it&apos;s made.</p>
+    </section>
+
+    {qr && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#211726]/50 p-4" role="dialog" aria-modal="true" aria-label={`QR for ${qr.name}`} onClick={(e) => e.target === e.currentTarget && setQr(null)}>
+      <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+        <button type="button" onClick={() => setQr(null)} aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></button>
+        <h2 className="text-[18px] font-bold">{qr.name}</h2><p className="mb-3 text-[13px] text-slate-500">waydidi.com/?ref={qr.slug}</p>
+        <PartnerQr url={`https://waydidi.com/?ref=${qr.slug}`} name={qr.name} code={qr.code} discount={qr.discount_percent} />
+      </div>
+    </div>}
+
     <p className="text-[12.5px] text-slate-500">Commission is earned when the ride is completed, on what the customer actually paid. Cancelled rides earn nothing. A partner link is remembered for 30 days (the last link clicked wins); a partner&apos;s code also gives the customer their discount. Partners can&apos;t earn on their own bookings, and store (QR) bookings don&apos;t count.</p>
 
     {form && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#211726]/50 p-4" role="dialog" aria-modal="true" aria-labelledby="aff-form">

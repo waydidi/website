@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { affiliateForDashboard, partnerDashboard } from "@/lib/affiliates";
-import { CopyRow, LinkBuilder } from "@/components/partner/tools";
+import { TIERS, affiliateForDashboard, partnerDashboard } from "@/lib/affiliates";
+import { CopyRow, LinkBuilder, PartnerQr } from "@/components/partner/tools";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +21,7 @@ export default async function PartnerDashboard({ params }: { params: Promise<{ i
   const a = await affiliateForDashboard(id, key);
   if (!a) notFound();
   const d = await partnerDashboard(a);
+  const TIER_ROWS = TIERS.map((t) => [t.name, t.rides ? `${t.rides} rides · ${a.commission_percent + t.bonus}%` : `${a.commission_percent}%`]);
   const card = "rounded-2xl bg-white p-5 shadow-[0_2px_12px_rgba(33,23,38,.06)]";
   return <main className="font-home min-h-dvh bg-[#F4F5F8] text-[#211726]">
     <div className="bg-[linear-gradient(180deg,#FE8B05,#FFA94D)] px-4 pb-20 pt-[calc(18px+env(safe-area-inset-top))] text-white">
@@ -39,12 +40,22 @@ export default async function PartnerDashboard({ params }: { params: Promise<{ i
       </section>
 
       <section className={card}>
+        <div className="flex items-baseline justify-between gap-3"><h2 className="text-[18px] font-bold">{d.tier} partner</h2><p className="text-[15px] font-semibold text-[#C96100]">You earn {d.rate}%</p></div>
+        {d.next ? <>
+          <p className="mt-1 text-[14px] text-slate-600">{d.next.ridesToNext} more completed {d.next.ridesToNext === 1 ? "ride" : "rides"} to reach <b>{d.next.name} · {d.next.rate}%</b></p>
+          <div className="mt-3 h-2.5 rounded-full bg-slate-100"><div className="h-2.5 rounded-full bg-[#FE8B05]" style={{ width: `${Math.max(4, Math.min(100, d.next.progress))}%` }} /></div>
+        </> : <p className="mt-1 text-[14px] text-slate-600">You&apos;re at the top tier. Thank you for sending us so many travellers!</p>}
+        <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[12.5px]">{TIER_ROWS.map(([n, r]) => <div key={n} className={`rounded-xl p-2 ${n === d.tier ? "border border-[#FE8B05] bg-[#FFF0DF] font-semibold text-[#C96100]" : "bg-slate-50 text-slate-600"}`}>{n}<br />{r}</div>)}</div>
+      </section>
+
+      <section className={card}>
         <h2 className="text-[18px] font-bold">Your link and code</h2>
         <p className="mt-1 text-[14px] text-slate-600">You earn <b>{a.commission_percent}%</b> of what the customer pays when the ride is completed. With your code, your customers get <b>{a.discount_percent}% off</b>.</p>
         <div className="mt-3 grid gap-2">
           <CopyRow label="waydidi.com/?ref=" value={`https://waydidi.com/?ref=${a.slug}`} shown={<><span className="text-slate-500">waydidi.com/?ref=</span><b className="text-[#C96100]">{a.slug}</b></>} />
           <CopyRow label="Code" value={a.code} shown={<><span className="text-slate-500">Code </span><b className="text-[#C96100]">{a.code}</b><span className="text-slate-500"> · {a.discount_percent}% off for your customers</span></>} />
         </div>
+        <div className="mt-3"><PartnerQr url={`https://waydidi.com/?ref=${a.slug}`} name={a.name} code={a.code} discount={a.discount_percent} /></div>
         <h3 className="mt-5 text-[15px] font-bold">Link builder</h3>
         <p className="mb-2 text-[13px] text-slate-500">Make a link with the route already filled in, e.g. for a post about Phuket airport to Patong.</p>
         <LinkBuilder slug={a.slug} />

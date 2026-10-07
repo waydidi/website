@@ -550,3 +550,25 @@ test('Partner applications: apply (free link/code, no duplicates), approve sends
   assert.equal((await db.prepare("SELECT status FROM affiliates WHERE id=?").bind(r3.id).first()).status,'declined');
  }finally{globalThis.fetch=real;delete env.WAYDIDI_ADMIN_SESSION_SECRET;delete env.RESEND_API_KEY;delete env.BOOKING_FROM_EMAIL;}
 });
+test('Affiliate tiers and monthly payouts',async()=>{
+ const af=await vite.ssrLoadModule('/lib/affiliates.ts');
+ assert.deepEqual([af.tierFor(0).tier.name,af.tierFor(9).ridesToNext,af.tierFor(10).tier.name,af.tierFor(30).tier.name,af.tierFor(30).next],['Starter',1,'Silver','Gold',null]);
+ assert.equal(af.effectiveRate({commission_percent:8},12),10);assert.equal(af.effectiveRate({commission_percent:5},35),9,'bonus on top of a custom rate');
+ const now=new Date().toISOString();
+ await db.prepare("INSERT INTO affiliates(id,slug,code,name,notes,commission_percent,discount_percent,status,created_at,updated_at) VALUES('t1','tier','TIER5','Tier Co','PromptPay 0812345678',8,5,'active',?,?)").bind(now,now).run();
+ const a=await af.affiliateBySlug('tier');
+ // 10 completed rides in September → Silver; the next booking earns 10%.
+ for(let i=0;i<10;i++){
+  await db.prepare("INSERT INTO bookings(reference,customer_name,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES(?,'X','A','B',?,'09:00',1,1,'economy_sedan','card',1000,'completed')").bind(`T${i}`,`2026-09-${String(10+i).padStart(2,'0')}`).run();
+  await af.linkBooking({reference:`T${i}`,affiliate:a,via:'link',fare:1000,discount:0});
+ }
+ await db.prepare("INSERT INTO bookings(reference,customer_name,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES('T10','X','A','B','2026-10-02','09:00',1,1,'economy_sedan','card',1000,'completed')").run();
+ await af.linkBooking({reference:'T10',affiliate:a,via:'link',fare:1000,discount:0});
+ assert.equal((await db.prepare("SELECT commission FROM booking_affiliates WHERE booking_reference='T10'").first()).commission,100,'Silver 10%');
+ const [sep]=(await af.payoutList('2026-09')).filter((p)=>p.id==='t1');
+ assert.deepEqual([sep.rides,sep.amount,sep.unpaid,sep.notes],[10,800,800,'PromptPay 0812345678']);
+ assert.equal(await af.markPaid('t1','2026-09'),10);
+ const [sep2]=(await af.payoutList('2026-09')).filter((p)=>p.id==='t1');assert.equal(sep2.unpaid,0);
+ const [oct]=(await af.payoutList('2026-10')).filter((p)=>p.id==='t1');assert.equal(oct.unpaid,100,'October not touched');
+ const [s]=(await af.affiliateSummaries()).filter((x)=>x.id==='t1');assert.deepEqual([s.tier,s.rate,s.completed],['Silver',10,11]);
+});
