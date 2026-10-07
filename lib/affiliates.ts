@@ -11,6 +11,7 @@ export const REF_DAYS = 30;
 export type Affiliate = {
   id: string; slug: string; code: string; name: string; email: string | null; phone: string | null; kind: string;
   commission_percent: number; discount_percent: number; status: string; notes: string | null; created_at: string; updated_at: string; link_version?: number;
+  website?: string | null; audience?: string | null; pitch?: string | null; decided_at?: string | null; decided_by?: string | null;
 };
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<unknown> };
 const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
@@ -27,7 +28,8 @@ export function ensureAffiliateTables() {
       "CREATE INDEX IF NOT EXISTS idx_booking_affiliates_affiliate ON booking_affiliates(affiliate_id)",
     ]) await db().prepare(sql).run();
     // Added later: bumping it gives the partner a new dashboard link (the old one stops working).
-    await db().prepare("ALTER TABLE affiliates ADD COLUMN link_version INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
+    for (const col of ["link_version INTEGER NOT NULL DEFAULT 0", "website TEXT", "audience TEXT", "pitch TEXT", "decided_at TEXT", "decided_by TEXT"])
+      await db().prepare(`ALTER TABLE affiliates ADD COLUMN ${col}`).run().catch(() => undefined);
   })().catch((e) => { ready = null; throw e; });
   return ready;
 }
@@ -142,4 +144,34 @@ export async function partnerDashboard(a: Affiliate) {
     completedRides: list.filter((r) => r.state === "owed" || r.state === "paid").length,
     recent: list.slice(0, 30).map((r) => ({ date: r.pickup_date, from: r.pickup, to: r.dropoff, via: r.via, commission: r.commission, state: r.state })),
   };
+}
+
+// ---- Applications from the public join page (waydidi.com/partners) ----
+
+export const DEFAULT_COMMISSION = 8;
+export const DEFAULT_DISCOUNT = 5;
+
+/** A free link name and code for a new partner, based on what they asked for or their name. */
+async function freeSlugAndCode(wanted: string, name: string) {
+  const base = (cleanSlug(wanted) || cleanSlug(name.replace(/\s+/g, "-")) || "partner").replace(/^-+|-+$/g, "").slice(0, 30) || "partner";
+  for (let i = 0; i < 50; i++) {
+    const slug = i ? `${base}-${i + 1}` : base;
+    const code = cleanCode(`${slug.replace(/-/g, "").slice(0, 12)}${i ? i + 1 : ""}${DEFAULT_DISCOUNT}`);
+    const taken = await db().prepare("SELECT 1 x FROM affiliates WHERE slug=? OR code=? UNION SELECT 1 FROM promo_codes WHERE UPPER(code)=?").bind(slug, code, code).first().catch(() => null);
+    if (!taken && isSlug(slug) && code.length >= 3) return { slug, code };
+  }
+  const r = crypto.randomUUID().slice(0, 6);
+  return { slug: `partner-${r}`, code: cleanCode(`P${r}${DEFAULT_DISCOUNT}`) };
+}
+
+export type Application = { name: string; email: string; phone: string; kind: string; website: string; audience: string; pitch: string; wanted: string };
+export async function applyAsAffiliate(a: Application) {
+  await ensureAffiliateTables();
+  const dup = await db().prepare("SELECT status FROM affiliates WHERE LOWER(email)=? AND status IN ('applied','active','paused')").bind(a.email.toLowerCase()).first<{ status: string }>();
+  if (dup) return { ok: false as const, reason: dup.status === "applied" ? "We already have your application. We'll reply by email soon." : "This email is already a Waydidi partner." };
+  const { slug, code } = await freeSlugAndCode(a.wanted, a.name);
+  const id = crypto.randomUUID(), now = new Date().toISOString();
+  await db().prepare("INSERT INTO affiliates(id,slug,code,name,email,phone,kind,commission_percent,discount_percent,status,website,audience,pitch,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'applied',?,?,?,?,?)")
+    .bind(id, slug, code, a.name, a.email.toLowerCase(), a.phone || null, a.kind, DEFAULT_COMMISSION, DEFAULT_DISCOUNT, a.website || null, a.audience || null, a.pitch || null, now, now).run();
+  return { ok: true as const, id, slug, code };
 }

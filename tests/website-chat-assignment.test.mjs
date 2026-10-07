@@ -526,3 +526,27 @@ test('Partner dashboard: signed private link, New link revokes the old one, numb
   assert.equal((await af.affiliateForDashboard(pid,key2)).slug,'dash');
  }finally{delete env.WAYDIDI_ADMIN_SESSION_SECRET;}
 });
+test('Partner applications: apply (free link/code, no duplicates), approve sends welcome email, decline',async()=>{
+ const af=await vite.ssrLoadModule('/lib/affiliates.ts');
+ const env=globalThis.__chatTest.env;Object.assign(env,{WAYDIDI_ADMIN_SESSION_SECRET:'s'.repeat(40),RESEND_API_KEY:'re_x',BOOKING_FROM_EMAIL:'Waydidi <hi@waydidi.com>'});
+ try{ await db.exec("CREATE TABLE IF NOT EXISTS promo_codes(id TEXT PRIMARY KEY,code TEXT)"); }catch{}
+ const real=globalThis.fetch;const mails=[];
+ globalThis.fetch=async(url,init)=>{if(String(url).includes('resend'))mails.push(JSON.parse(init.body));return new Response(JSON.stringify({id:'m1'}),{status:200});};
+ try{
+  const app={name:'Koh Chang Guide',email:'Guide@KC.co',phone:'',kind:'guide',website:'kcguide.com',audience:'5k',pitch:'Tours',wanted:'Mint'};
+  const r1=await af.applyAsAffiliate(app);
+  assert.equal(r1.ok,true);assert.equal(r1.slug,'mint-2','"mint" was taken by an earlier test partner');assert.match(r1.code,/^MINT\d+5$/);
+  const r2=await af.applyAsAffiliate(app);assert.equal(r2.ok,false,'same email can only apply once');
+  const r3=await af.applyAsAffiliate({...app,email:'new@kc.co',wanted:'',name:'Sea Breeze Hotel'});assert.equal(r3.slug,'sea-breeze-hotel');
+  assert.equal(await af.affiliateBySlug('mint-2'),null,'applied partners have no working link yet');
+  const api=await vite.ssrLoadModule('/app/api/admin/affiliates/route.ts');
+  const post=(body)=>api.POST(new Request('https://example.invalid/api/admin/affiliates',{method:'POST',headers:{'content-type':'application/json',origin:'https://example.invalid'},body:JSON.stringify(body)}));
+  const ok=await (await post({action:'approve',id:r1.id})).json();
+  assert.equal(ok.ok,true);
+  assert.equal((await af.affiliateBySlug('mint-2')).status,'active');
+  assert.equal(mails.length,1);assert.equal(mails[0].to[0],'guide@kc.co');assert.match(mails[0].text,/ref=mint-2/);assert.match(mails[0].text,/\/partner\/[0-9a-f-]{36}\/[0-9a-f]{32}/);
+  assert.equal((await post({action:'approve',id:r1.id})).status,409,'only once');
+  await post({action:'decline',id:r3.id});
+  assert.equal((await db.prepare("SELECT status FROM affiliates WHERE id=?").bind(r3.id).first()).status,'declined');
+ }finally{globalThis.fetch=real;delete env.WAYDIDI_ADMIN_SESSION_SECRET;delete env.RESEND_API_KEY;delete env.BOOKING_FROM_EMAIL;}
+});

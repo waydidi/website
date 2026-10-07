@@ -7,6 +7,7 @@ type Row = {
   id: string; slug: string; code: string; name: string; email: string | null; phone: string | null; kind: string;
   commission_percent: number; discount_percent: number; status: string; notes: string | null;
   clicks30: number; bookings: number; sales: number; pending: number; earned: number; paid: number; dashboardUrl: string;
+  website?: string | null; audience?: string | null; pitch?: string | null; created_at?: string;
 };
 type Booking = { booking_reference: string; via: string; fare_before_discount: number; discount: number; commission: number; paid_at: string | null; customer_name: string; pickup_date: string; pickup: string; dropoff: string; state: "pending" | "earned" | "cancelled" };
 
@@ -50,6 +51,14 @@ export function AdminAffiliates() {
     const r = await fetch(`/api/admin/affiliates?id=${encodeURIComponent(id)}`, { cache: "no-store" });
     setBookings(r.ok ? ((await r.json()) as { bookings: Booking[] }).bookings : []);
   }
+  async function decide(a: Row, action: "approve" | "decline") {
+    if (action === "decline" && !window.confirm(`Decline ${a.name}'s application?`)) return;
+    const r = await fetch("/api/admin/affiliates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, id: a.id }) });
+    const d = await r.json().catch(() => ({})) as { emailed?: boolean; error?: string };
+    if (!r.ok) window.alert(d.error ?? "Couldn't update.");
+    else if (action === "approve") window.alert(d.emailed ? `${a.name} is approved. We emailed them their link, code and dashboard.` : `${a.name} is approved, but the welcome email couldn't be sent. Copy their dashboard link from the list and send it yourself.`);
+    void load();
+  }
   async function newLink(a: Row) {
     if (!window.confirm(`Make a new dashboard link for ${a.name}? The old link stops working.`)) return;
     await fetch("/api/admin/affiliates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "new-link", id: a.id }) });
@@ -61,7 +70,9 @@ export function AdminAffiliates() {
     void load(); if (open === a.id) { setOpen(null); }
   }
 
-  const totals = (rows ?? []).reduce((t, r) => ({ bookings: t.bookings + r.bookings, sales: t.sales + r.sales, owed: t.owed + r.earned, pending: t.pending + r.pending }), { bookings: 0, sales: 0, owed: 0, pending: 0 });
+  const applied = (rows ?? []).filter((r) => r.status === "applied");
+  const partners = (rows ?? []).filter((r) => r.status === "active" || r.status === "paused");
+  const totals = partners.reduce((t, r) => ({ bookings: t.bookings + r.bookings, sales: t.sales + r.sales, owed: t.owed + r.earned, pending: t.pending + r.pending }), { bookings: 0, sales: 0, owed: 0, pending: 0 });
   const field = "h-10 w-full rounded-lg border border-slate-300 px-3 text-[14px] outline-none focus:border-[#FE8B05]";
 
   return <div className="grid gap-4">
@@ -70,15 +81,32 @@ export function AdminAffiliates() {
         <div key={k} className={`${box} p-4`}><p className="text-[12.5px] text-slate-500">{k}</p><p className="mt-1 text-[22px] font-bold">{v}</p></div>)}
     </div>
 
+    {applied.length > 0 && <section className={`${box} border-[#F6B46E]`}>
+      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3"><h2 className="text-[15px] font-bold">New applications</h2><span className="rounded-full bg-[#FFF0DF] px-2 py-0.5 text-[12px] font-bold text-[#C96100]">{applied.length} waiting</span></div>
+      <ul className="divide-y divide-slate-100">{applied.map((a) => <li key={a.id} className="grid gap-2 px-4 py-3 text-[13.5px] sm:grid-cols-[1fr_auto] sm:items-start">
+        <div className="min-w-0">
+          <p className="font-semibold">{a.name} <span className="font-normal text-slate-500">· {KINDS.find(([k]) => k === a.kind)?.[1] ?? a.kind}{a.audience ? ` · ${a.audience}` : ""}</span></p>
+          <p className="text-slate-600">{a.email}{a.phone ? ` · ${a.phone}` : ""}{a.website ? <> · <a href={/^https?:\/\//.test(a.website) ? a.website : `https://${a.website}`} target="_blank" rel="noreferrer" className="text-[#C96100] underline">{a.website}</a></> : null}</p>
+          {a.pitch && <p className="mt-1 whitespace-pre-line rounded-lg bg-slate-50 p-2 text-slate-700">{a.pitch}</p>}
+          <p className="mt-1 text-[12px] text-slate-500">Will get: waydidi.com/?ref={a.slug} · code {a.code} · {a.commission_percent}% / {a.discount_percent}% off (change with Edit before approving)</p>
+        </div>
+        <div className="flex gap-1.5 sm:justify-end">
+          <button type="button" onClick={() => void decide(a, "approve")} className="rounded-lg bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700">Approve</button>
+          <button type="button" onClick={() => { setForm({ id: a.id, name: a.name, slug: a.slug, code: a.code, email: a.email ?? "", phone: a.phone ?? "", kind: a.kind, commissionPercent: String(a.commission_percent), discountPercent: String(a.discount_percent), status: "applied", notes: a.notes ?? "" }); setError(""); }} className="rounded-lg px-3 py-1.5 font-semibold text-slate-600 hover:bg-slate-100">Edit</button>
+          <button type="button" onClick={() => void decide(a, "decline")} className="rounded-lg px-3 py-1.5 font-semibold text-red-600 hover:bg-red-50">Decline</button>
+        </div>
+      </li>)}</ul>
+    </section>}
+
     <section className={box}>
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <h2 className="text-[15px] font-bold">Affiliate partners</h2>
         <button type="button" onClick={() => { setForm({ ...EMPTY }); setError(""); }} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#FE8B05] px-4 text-[13.5px] font-semibold text-white hover:bg-[#E67900]"><Plus size={16} />Add partner</button>
       </div>
-      {rows === null ? <p className="p-4 text-slate-500">Loading…</p> : rows.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No partners yet. Add your first one: they get a link like waydidi.com/?ref=name and a code for their followers.</p> :
+      {rows === null ? <p className="p-4 text-slate-500">Loading…</p> : partners.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No partners yet. Add your first one: they get a link like waydidi.com/?ref=name and a code for their followers.</p> :
         <div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-[13.5px]">
           <thead className="text-[12px] text-slate-500"><tr><th className="px-4 py-2">Partner</th><th>Link · code</th><th>Rate</th><th>Clicks (30d)</th><th>Bookings</th><th>Sales</th><th>Owed</th><th>Pending</th><th className="pr-4" /></tr></thead>
-          <tbody className="divide-y divide-slate-100">{rows.map((a) => <Fragment key={a.id}>
+          <tbody className="divide-y divide-slate-100">{partners.map((a) => <Fragment key={a.id}>
             <tr className="align-middle">
               <td className="px-4 py-3"><p className="font-semibold">{a.name}{a.status === "paused" && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">Paused</span>}</p><p className="text-[12px] text-slate-500">{KINDS.find(([k]) => k === a.kind)?.[1] ?? a.kind}{a.email ? ` · ${a.email}` : ""}</p></td>
               <td><span className="flex items-center gap-1 font-mono text-[12.5px]">waydidi.com/?ref={a.slug}<CopyButton text={`https://waydidi.com/?ref=${a.slug}`} /></span><span className="flex items-center gap-1 font-mono text-[12.5px] text-[#C96100]">{a.code}<CopyButton text={a.code} /></span>
@@ -119,7 +147,7 @@ export function AdminAffiliates() {
           <label className="grid gap-1 text-[13px] font-semibold">Email<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={field} /></label>
           <label className="grid gap-1 text-[13px] font-semibold">Phone<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={field} /></label>
           <label className="grid gap-1 text-[13px] font-semibold">Type<select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} className={field}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
-          <label className="grid gap-1 text-[13px] font-semibold">Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={field}><option value="active">Active</option><option value="paused">Paused (link and code stop working)</option></select></label>
+          <label className="grid gap-1 text-[13px] font-semibold">Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={field}>{form.status === "applied" && <option value="applied">Waiting for approval</option>}<option value="active">Active</option><option value="paused">Paused (link and code stop working)</option></select></label>
           <label className="grid gap-1 text-[13px] font-semibold sm:col-span-2">Notes (bank / PromptPay, agreement…)<textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className="w-full rounded-lg border border-slate-300 p-3 text-[14px] outline-none focus:border-[#FE8B05]" /></label>
         </div>
         {error && <p role="alert" className="mt-3 text-[14px] text-red-600">{error}</p>}

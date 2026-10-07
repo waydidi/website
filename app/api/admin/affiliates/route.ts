@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
-import { affiliateBookings, affiliateSummaries, cleanCode, cleanSlug, dashboardPath, ensureAffiliateTables, isSlug } from "@/lib/affiliates";
+import { affiliateBookings, affiliateSummaries, cleanCode, cleanSlug, dashboardPath, ensureAffiliateTables, isSlug, type Affiliate } from "@/lib/affiliates";
+import { sendTripEmail } from "@/lib/email";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
@@ -31,6 +32,27 @@ export async function POST(request: Request) {
   const b = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!b) return reply("Nothing to save.");
   const now = new Date().toISOString();
+  if ((b.action === "approve" || b.action === "decline") && typeof b.id === "string") {
+    const a = await db().prepare("SELECT * FROM affiliates WHERE id=? AND status='applied'").bind(b.id).first<Affiliate>();
+    if (!a) return reply("This application was already handled.", 409);
+    const status = b.action === "approve" ? "active" : "declined";
+    await db().prepare("UPDATE affiliates SET status=?,decided_at=?,decided_by=?,updated_at=? WHERE id=? AND status='applied'").bind(status, now, staff.displayName, now, a.id).run();
+    let emailed = false;
+    if (status === "active" && a.email) {
+      // Welcome email: their link, code, rate and private dashboard link.
+      const origin = new URL(request.url).origin;
+      const r = await sendTripEmail({
+        to: a.email, kicker: "Waydidi Partners", title: "Welcome to Waydidi Partners",
+        intro: `Hi ${a.name}, your partner account is ready. Share your link or code: you earn ${a.commission_percent}% of every completed ride, and your customers get ${a.discount_percent}% off with your code.`,
+        rows: [["Your link", `https://waydidi.com/?ref=${a.slug}`], ["Your code", a.code], ["You earn", `${a.commission_percent}% per completed ride`], ["Customer discount", `${a.discount_percent}% with your code`]],
+        cta: "Open my partner dashboard", link: `${origin}${await dashboardPath(a)}`,
+        footer: "Keep the dashboard link private: it opens your account without a password. Questions? WhatsApp +66 63 206 4884.",
+        tag: `partner-welcome-${a.id}`,
+      }).catch(() => null);
+      emailed = r?.status === "sent";
+    }
+    return NextResponse.json({ ok: true, emailed }, { headers });
+  }
   if (b.action === "new-link" && typeof b.id === "string") {
     await db().prepare("UPDATE affiliates SET link_version=COALESCE(link_version,0)+1,updated_at=? WHERE id=?").bind(now, b.id).run();
     return NextResponse.json({ ok: true }, { headers });
@@ -49,7 +71,8 @@ export async function POST(request: Request) {
   if (code.length < 3) return reply("Code: at least 3 letters or numbers, e.g. MINT5.");
   if (!(commission >= 0 && commission <= 30)) return reply("Commission must be 0–30%.");
   if (!(discount >= 0 && discount <= 30)) return reply("Customer discount must be 0–30%.");
-  const status = b.status === "paused" ? "paused" : "active";
+  // Editing an application keeps it waiting; it becomes active only through Approve.
+  const status = b.status === "applied" ? "applied" : b.status === "declined" ? "declined" : b.status === "paused" ? "paused" : "active";
   const kind = ["creator", "hotel", "guide", "business", "other"].includes(String(b.kind)) ? String(b.kind) : "other";
   const email = String(b.email ?? "").trim().toLowerCase().slice(0, 254) || null;
   const phone = String(b.phone ?? "").trim().slice(0, 40) || null;
