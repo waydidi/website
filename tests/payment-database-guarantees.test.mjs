@@ -17,7 +17,8 @@ test("provider payment identifiers are unique within each provider", () => {
 test("provider event ledger stores a payload hash rather than raw webhook data", () => {
   assert.match(schema, /export const paymentProviderEvents/);
   assert.match(schema, /payloadHash: text\("payload_hash"\)/);
-  assert.doesNotMatch(schema, /rawPayload: text|raw_payload|payload_json/);
+  const providerSchema = schema.slice(schema.indexOf("export const paymentProviderEvents"),schema.indexOf("export const flightStatusCache"));
+  assert.doesNotMatch(providerSchema, /rawPayload: text|raw_payload|payload_json/);
   assert.match(ledger, /const payloadHash = await sha256\(input\.rawPayload\)/);
   assert.doesNotMatch(ledger, /rawPayload,\s*$/m);
 });

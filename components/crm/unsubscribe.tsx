@@ -1,0 +1,3 @@
+"use client";
+import {useState} from 'react';
+export function Unsubscribe({token}:{token:string}){const [done,setDone]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');return done?<p role="status">You have unsubscribed from promotional emails.</p>:<><button className="rounded-full bg-[#FE8B05] px-6 py-3 font-semibold text-white" disabled={busy} onClick={async()=>{setBusy(true);try{const r=await fetch('/api/marketing/'+token,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}),d=await r.json();if(!r.ok)throw new Error(d.error);setDone(true);}catch(e){setError(e instanceof Error?e.message:'Please try again.');}finally{setBusy(false);}}}>Unsubscribe</button>{error&&<p role="alert" className="mt-3 text-red-600">{error}</p>}</>;}

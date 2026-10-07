@@ -1,3 +1,4 @@
+import { AgencyTeam } from "@/components/agency/team";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Download } from "lucide-react";
@@ -73,6 +74,7 @@ export default async function AgencyPortalPage() {
         </ul>
       </section>}
 
+      <AgencyTeam/>
       <section className="overflow-hidden rounded-[24px] bg-white">
         <h2 className="px-5 pt-5 text-[20px] font-semibold">Your bookings</h2>
         <div className="overflow-x-auto">
