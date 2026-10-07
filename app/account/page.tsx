@@ -51,7 +51,7 @@ export default async function AccountOverview() {
     <h1 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Hi{customer.name ? `, ${customer.name}` : ""}</h1>
     <p className="mt-2 text-slate-600">{upcoming.length ? `You have ${upcoming.length} upcoming ${upcoming.length === 1 ? "trip" : "trips"}.` : "No upcoming trips yet."}</p>
 
-    {agency && <Link href="/agency" className="mt-6 flex items-center justify-between gap-4 rounded-[22px] bg-[#FF8A05] p-5 text-white hover:bg-[#E67900]">
+    {agency && <Link href="/agency" className="mt-6 flex items-center justify-between gap-4 rounded-[22px] bg-brand p-5 text-white hover:bg-brand-strong">
       <span><span className="block text-[13px] font-semibold uppercase tracking-[.14em] text-white/80">Agency portal</span><span className="block text-[20px] font-bold">{agency.agencyName}</span><span className="block text-[14px] text-white/90">Your bookings, confirmations and new ride requests</span></span>
       <span className="text-[26px]" aria-hidden="true">→</span>
     </Link>}
@@ -63,15 +63,15 @@ export default async function AccountOverview() {
 
     <section className="mt-7" aria-labelledby="next-trip">
       <h2 id="next-trip" className="mb-3 text-lg font-black">Next trip</h2>
-      {next ? <TripCard trip={next.trip} bucket="upcoming" driverStatus={statuses.get(next.trip.reference)} featured /> : <div className="rounded-[22px] bg-white p-7 text-center"><p className="font-bold">Where are you heading next?</p><p className="mt-1 text-slate-600">Book a private ride and it will appear here.</p><Link href="/#booking-search" className="mt-5 inline-flex rounded-full bg-[#FF8A05] px-6 py-3 font-black text-white">Search rides</Link></div>}
+      {next ? <TripCard trip={next.trip} bucket="upcoming" driverStatus={statuses.get(next.trip.reference)} featured /> : <div className="rounded-[22px] bg-white p-7 text-center"><p className="font-bold">Where are you heading next?</p><p className="mt-1 text-slate-600">Book a private ride and it will appear here.</p><Link href="/#booking-search" className="mt-5 inline-flex rounded-full bg-brand px-6 py-3 font-black text-white">Search rides</Link></div>}
     </section>
 
     <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Quick actions">
-      {actions.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className="rounded-[20px] bg-white p-5 font-bold transition hover:shadow-md"><Icon className="text-[#FF8A05]" /><span className="mt-3 block">{label}</span></Link>)}
+      {actions.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className="rounded-[20px] bg-white p-5 font-bold transition hover:shadow-md"><Icon className="text-brand" /><span className="mt-3 block">{label}</span></Link>)}
     </section>
 
     {recent.length ? <section className="mt-8" aria-labelledby="recent-trips">
-      <div className="mb-3 flex items-center justify-between"><h2 id="recent-trips" className="text-lg font-black">Recent trips</h2><Link href="/account/trips" className="text-sm font-black text-[#C96100] hover:underline">See all</Link></div>
+      <div className="mb-3 flex items-center justify-between"><h2 id="recent-trips" className="text-lg font-black">Recent trips</h2><Link href="/account/trips" className="text-sm font-black text-brand-darker hover:underline">See all</Link></div>
       <div className="grid gap-3">{recent.map(({ trip, bucket }) => <TripCard key={trip.reference} trip={trip} bucket={bucket} />)}</div>
     </section> : null}
   </AccountShell>;

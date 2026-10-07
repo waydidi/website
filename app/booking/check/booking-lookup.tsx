@@ -188,7 +188,7 @@ export default function BookingLookup() {
   }
   if (!data)
     return (
-      <main className="min-h-[calc(100vh-102px)] bg-slate-50 px-5 py-12 text-[#211726]">
+      <main className="min-h-[calc(100vh-102px)] bg-slate-50 px-5 py-12 text-plum">
         <section className="mx-auto max-w-md rounded-[28px] border border-slate-200 bg-white p-7 shadow-sm">
           <h1 className="text-center text-3xl font-black tracking-[-.04em]">
             Manage your booking
@@ -205,7 +205,7 @@ export default function BookingLookup() {
                 onChange={(e) => setReference(e.target.value.toUpperCase())}
                 placeholder="A7K9Q2"
                 maxLength={15}
-                className="mt-2 h-13 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-base uppercase outline-none focus:border-[#FF8A05]"
+                className="mt-2 h-13 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-base uppercase outline-none focus:border-brand"
               />
             </label>
             <label className="block text-sm font-bold">
@@ -215,7 +215,7 @@ export default function BookingLookup() {
                 value={surname}
                 onChange={(e) => setSurname(e.target.value)}
                 placeholder="Family name"
-                className="mt-2 h-13 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-base outline-none focus:border-[#FF8A05]"
+                className="mt-2 h-13 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-base outline-none focus:border-brand"
               />
             </label>
             {error && (
@@ -228,7 +228,7 @@ export default function BookingLookup() {
             )}
             <button
               disabled={loading}
-              className="flex h-13 w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] font-bold text-white disabled:opacity-60"
+              className="flex h-13 w-full items-center justify-center gap-2 rounded-full bg-brand font-bold text-white disabled:opacity-60"
             >
               <Search size={18} />
               {loading ? "Opening…" : "Open booking"}
@@ -253,11 +253,11 @@ export default function BookingLookup() {
         : "This booking is cancelled."
       : "";
   return (
-    <main className="min-h-[calc(100vh-102px)] bg-[#f4f6f8] px-4 py-8 text-[#211726] sm:px-6 lg:py-12">
+    <main className="min-h-[calc(100vh-102px)] bg-[#f4f6f8] px-4 py-8 text-plum sm:px-6 lg:py-12">
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-black uppercase tracking-[.15em] text-[#D96F00]">
+            <p className="text-sm font-black uppercase tracking-[.15em] text-brand-text">
               Booking {b.reference}
             </p>
             <h1 className="mt-1 text-3xl font-black tracking-[-.04em] sm:text-4xl">
@@ -287,7 +287,7 @@ export default function BookingLookup() {
           </div>
         )}
         <div className="grid gap-6 lg:grid-cols-[270px_1fr]">
-          <aside className="rounded-3xl bg-[#211726] p-3 text-white lg:sticky lg:top-[126px] lg:self-start">
+          <aside className="rounded-3xl bg-plum p-3 text-white lg:sticky lg:top-[126px] lg:self-start">
             <div className="mb-2 rounded-2xl bg-white/10 p-4">
               <p className="text-xs font-bold uppercase tracking-wider text-white/60">
                 Current status
@@ -305,7 +305,7 @@ export default function BookingLookup() {
                     setError("");
                     setMessage("");
                   }}
-                  className={`flex shrink-0 items-center gap-3 rounded-2xl px-4 py-3.5 text-left font-bold ${tab === id ? "bg-[#FF8A05]" : "text-white/75 hover:bg-white/10"}`}
+                  className={`flex shrink-0 items-center gap-3 rounded-2xl px-4 py-3.5 text-left font-bold ${tab === id ? "bg-brand" : "text-white/75 hover:bg-white/10"}`}
                 >
                   <Icon size={19} />
                   {label}
@@ -318,7 +318,7 @@ export default function BookingLookup() {
               <>
                 <Heading icon={CarFront} title="Booking details" />
                 {b.status === "confirmed" && (
-                  <a href={`/trip/${encodeURIComponent(b.reference)}${b.tripKey ? `?key=${b.tripKey}` : ""}`} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-[#211726] px-6 font-bold text-white">
+                  <a href={`/trip/${encodeURIComponent(b.reference)}${b.tripKey ? `?key=${b.tripKey}` : ""}`} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-plum px-6 font-bold text-white">
                     Track your trip
                   </a>
                 )}
@@ -411,7 +411,7 @@ export default function BookingLookup() {
                 {routeInfo && !fareQuote && (
                   <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-orange-50 p-4 text-sm font-semibold text-[#8A4700]">
                     <span>Route selected. Calculate again after changing the date or time.</span>
-                    <button type="button" onClick={() => calculateChangedRoute(routeInfo)} disabled={loading} className="min-h-11 rounded-full bg-[#21140A] px-5 text-white disabled:opacity-50">
+                    <button type="button" onClick={() => calculateChangedRoute(routeInfo)} disabled={loading} className="min-h-11 rounded-full bg-ink px-5 text-white disabled:opacity-50">
                       {loading ? "Calculating…" : "Calculate revised fare"}
                     </button>
                   </div>
@@ -438,7 +438,7 @@ export default function BookingLookup() {
                     data.changeRequests[0]?.status === "pending"
                   }
                   onClick={submitJourneyChange}
-                  className="mt-7 flex h-13 items-center gap-2 rounded-full bg-[#FF8A05] px-7 font-bold text-white disabled:opacity-40"
+                  className="mt-7 flex h-13 items-center gap-2 rounded-full bg-brand px-7 font-bold text-white disabled:opacity-40"
                 >
                   <RefreshCw size={18} />
                   {loading ? "Submitting…" : "Submit change request"}
@@ -457,7 +457,7 @@ export default function BookingLookup() {
                     </p>
                     <a
                       href={`mailto:support@waydidi.com?subject=${encodeURIComponent(`Cancel booking ${b.reference}`)}&body=${encodeURIComponent(`Booking reference: ${b.reference}\nPickup: ${b.pickupDate} ${b.pickupTime}\nReason:\n`)}`}
-                      className="mt-6 inline-flex h-13 items-center rounded-full bg-[#211726] px-7 font-bold text-white"
+                      className="mt-6 inline-flex h-13 items-center rounded-full bg-plum px-7 font-bold text-white"
                     >
                       Email support@waydidi.com
                     </a>
@@ -480,7 +480,7 @@ function Heading({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="grid size-12 place-items-center rounded-full bg-orange-50 text-[#D96F00]">
+      <span className="grid size-12 place-items-center rounded-full bg-orange-50 text-brand-text">
         <Icon />
       </span>
       <h2 className="text-2xl font-black">{title}</h2>

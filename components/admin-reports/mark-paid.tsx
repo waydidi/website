@@ -18,7 +18,7 @@ export function MarkPaid({ driverId, week, amount }: { driverId: string; week: s
     setOpen(false);
     router.refresh();
   }
-  if (!open) return <button type="button" onClick={() => setOpen(true)} className="rounded-full bg-[#FF8A05] px-4 py-2 text-[13px] font-bold text-white hover:bg-[#F07A00]">Mark as paid</button>;
+  if (!open) return <button type="button" onClick={() => setOpen(true)} className="rounded-full bg-brand px-4 py-2 text-[13px] font-bold text-white hover:bg-[#F07A00]">Mark as paid</button>;
   return <div className="flex flex-wrap items-center gap-2">
     <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Transfer reference (optional)" className="h-9 w-56 rounded-lg border border-slate-300 px-3 text-[13px]" />
     <button type="button" disabled={busy} onClick={confirm} className="rounded-full bg-emerald-600 px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60">{busy ? "Saving…" : `Confirm ${amount} paid`}</button>

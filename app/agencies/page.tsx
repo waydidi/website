@@ -91,7 +91,7 @@ export default async function AgenciesPage({ searchParams }: { searchParams: Pro
             <p className="mt-4 text-[13px] leading-5 text-[#555] sm:text-[15px] sm:leading-6">{text}</p>
           </li>)}
         </ul>
-        <a href="#apply" className="mt-12 inline-flex h-12 items-center rounded-full bg-[#FF8A05] px-9 text-[15px] font-bold text-[#111] hover:bg-[#F07A00]">Join Now!</a>
+        <a href="#apply" className="mt-12 inline-flex h-12 items-center rounded-full bg-brand px-9 text-[15px] font-bold text-[#111] hover:bg-[#F07A00]">Join Now!</a>
         <p className="mt-6 text-[14px] leading-[21px] text-[#555] sm:text-[16px] sm:leading-7">Ready to make Thailand transfers simple? Join the agencies booking their clients&apos; rides with Waydidi.</p>
       </section>
 
@@ -137,7 +137,7 @@ export default async function AgenciesPage({ searchParams }: { searchParams: Pro
       <section className="py-24 text-center" aria-labelledby="safe-heading">
         <h2 id="safe-heading" className="text-[18px] font-bold sm:text-[20px] tracking-[-.02em] sm:text-[32px]">Your customers in safe hands</h2>
         <p className="mx-auto mt-4 max-w-[560px] text-[14px] leading-[23px] text-[#555] sm:text-[17px] sm:leading-7">Look after your clients&apos; rides in Thailand with a partner built for travel agencies.</p>
-        <a href="#apply" className="mt-9 inline-flex h-12 items-center rounded-full bg-[#FF8A05] px-9 text-[15px] font-bold text-[#111] hover:bg-[#F07A00]">Join Now!</a>
+        <a href="#apply" className="mt-9 inline-flex h-12 items-center rounded-full bg-brand px-9 text-[15px] font-bold text-[#111] hover:bg-[#F07A00]">Join Now!</a>
       </section>
     </div>
 

@@ -13,7 +13,7 @@ export default async function ChatPayPage({ params }: { params: Promise<{ id: st
   if (!link) return <main className="font-home min-h-dvh bg-[#F6F7F9] px-4 pt-10"><div className={`${box} mx-auto max-w-[520px]`}><h1 className="text-[22px] font-bold">Payment link not found</h1><p className="mt-2 text-slate-600">Please ask in the chat for a new link.</p></div></main>;
   const d = JSON.parse(link.details_json) as Details;
   const car = VEHICLES[link.vehicle as VehicleId]?.name ?? link.vehicle;
-  return <main className="font-home min-h-dvh bg-[#F6F7F9] px-4 pb-16 pt-6 text-[#1C1C1C]">
+  return <main className="font-home min-h-dvh bg-[#F6F7F9] px-4 pb-16 pt-6 text-charcoal">
     <div className="mx-auto grid max-w-[520px] gap-4">
       <h1 className="text-[26px] font-bold tracking-[-.02em]">Pay for your booking</h1>
       <section className={box}>

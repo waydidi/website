@@ -23,7 +23,7 @@ const FACTS = [
 
 const PERKS = [
   { icon: Repeat2, tone: "bg-[#EAF1FF] text-[#3155D6]", title: "Fewer empty drives home", text: "Where we can, we offer you a return booking from your drop-off area, so you're not burning fuel on an empty trip back." },
-  { icon: CalendarCheck2, tone: "bg-[#FFF1E0] text-[#C96100]", title: "Plan ahead with pre-scheduled trips", text: "Customers book days or weeks in advance, so you see your trips early and can plan your week with ease." },
+  { icon: CalendarCheck2, tone: "bg-[#FFF1E0] text-brand-darker", title: "Plan ahead with pre-scheduled trips", text: "Customers book days or weeks in advance, so you see your trips early and can plan your week with ease." },
   { icon: Headphones, tone: "bg-[#E8F7EE] text-[#0E8A55]", title: "A real team when you need help", text: "Talk to a real person in our operations team about flight delays, changes or anything on the road." },
 ];
 
@@ -68,7 +68,7 @@ export default function DriversPage() {
       <div className="mx-auto max-w-[1180px] px-5 pb-12 pt-24 sm:pb-20 sm:pt-32 lg:px-0">
         <h1 className="max-w-[720px] text-[30px] font-medium leading-[1.15] tracking-[-.02em] sm:text-[48px]">Earn more on every trip. Drive airport and intercity routes with Waydidi.</h1>
         <p className="mt-3 max-w-[640px] text-[15px] leading-[22px] text-white/85 sm:text-[18px] sm:leading-8">Pre-booked private transfers with the fare shown up front. Become a Waydidi driver and plan your work with ease.</p>
-        <a href="#apply" className="mt-7 flex h-12 w-full items-center justify-center rounded-full bg-[#FF8A05] text-[16px] font-semibold text-white hover:bg-[#F07A00] sm:w-auto sm:max-w-[320px]">Become a driver</a>
+        <a href="#apply" className="mt-7 flex h-12 w-full items-center justify-center rounded-full bg-brand text-[16px] font-semibold text-white hover:bg-[#F07A00] sm:w-auto sm:max-w-[320px]">Become a driver</a>
       </div>
     </section>
 
@@ -105,7 +105,7 @@ export default function DriversPage() {
               <span className="absolute left-2 top-4 grid h-[110px] w-[150px] -rotate-6 place-items-center rounded-xl bg-white shadow-md"><IdCard size={54} className="text-[#3155D6]" /></span>
               <span className="absolute right-2 top-10 grid h-[110px] w-[110px] rotate-6 place-items-center rounded-xl bg-white shadow-md"><FileCheck2 size={46} className="text-[#0E8A55]" /></span>
             </div>}
-            {i === 2 && <div className="grid size-[120px] place-items-center rounded-full bg-white shadow-md"><Headphones size={54} className="text-[#C96100]" /></div>}
+            {i === 2 && <div className="grid size-[120px] place-items-center rounded-full bg-white shadow-md"><Headphones size={54} className="text-brand-darker" /></div>}
           </div>
           <div className="p-6">
             <span className="rounded-full bg-white px-3 py-1 text-[13px]">Step {i + 1}</span>
@@ -114,7 +114,7 @@ export default function DriversPage() {
           </div>
         </li>)}
       </ol>
-      <div className="mt-8 text-center"><a href="#apply" className="inline-flex h-12 items-center rounded-full bg-[#FF8A05] px-8 text-[16px] font-semibold text-white hover:bg-[#F07A00]">Get started</a></div>
+      <div className="mt-8 text-center"><a href="#apply" className="inline-flex h-12 items-center rounded-full bg-brand px-8 text-[16px] font-semibold text-white hover:bg-[#F07A00]">Get started</a></div>
     </section>
 
     {/* Every step */}
@@ -137,7 +137,7 @@ export default function DriversPage() {
       <h2 id="needs-heading" className="text-[22px] font-medium leading-[1.3] tracking-[-.01em] sm:text-[32px]">Be one of our drivers.<br />Here&apos;s what you&apos;ll need.</h2>
       <ul className="mt-6 grid gap-3 sm:grid-cols-2">
         {NEEDS.map(({ icon: Icon, text }) => <li key={text} className="flex items-center gap-4 rounded-[20px] border border-[#E3E5EA] bg-white p-5">
-          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#FFF1E0] text-[#C96100]"><Icon size={22} aria-hidden="true" /></span>
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#FFF1E0] text-brand-darker"><Icon size={22} aria-hidden="true" /></span>
           <span className="text-[15px] leading-6">{text}</span>
         </li>)}
       </ul>
@@ -152,10 +152,10 @@ export default function DriversPage() {
 
     {/* Join today */}
     <section className="mx-auto max-w-[1180px] px-5 pb-16 lg:px-0">
-      <div className="rounded-[28px] bg-gradient-to-br from-[#FF9A1F] via-[#FF8A05] to-[#E06A00] px-6 py-12 text-center text-white">
+      <div className="rounded-[28px] bg-gradient-to-br from-[#FF9A1F] via-brand to-[#E06A00] px-6 py-12 text-center text-white">
         <h2 className="mx-auto max-w-[520px] text-[24px] font-medium leading-[1.2] tracking-[-.01em] sm:text-[34px]">Start earning with Waydidi. Join today.</h2>
         <p className="mx-auto mt-2 max-w-[560px] text-[15px] leading-[21px] text-white/90 sm:text-[18px] sm:leading-7">Drive airport and intercity routes. Accept pre-booked trips with the fare shown up front.</p>
-        <a href="#apply" className="mt-7 inline-flex h-12 items-center rounded-full bg-white px-8 text-[16px] font-semibold text-[#C96100] hover:bg-white/90">Become a Waydidi driver</a>
+        <a href="#apply" className="mt-7 inline-flex h-12 items-center rounded-full bg-white px-8 text-[16px] font-semibold text-brand-darker hover:bg-white/90">Become a Waydidi driver</a>
       </div>
     </section>
 

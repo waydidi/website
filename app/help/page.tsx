@@ -68,15 +68,15 @@ export default async function HelpPage() {
   const signedIn = Boolean(await currentCustomer());
 
   const card = "rounded-xl bg-white shadow-[0_2px_12px_rgb(15_23_42/0.06)]";
-  const rowLink = `${card} flex items-center gap-3 px-5 py-5 text-xl font-medium text-[#211726] hover:bg-slate-50`;
+  const rowLink = `${card} flex items-center gap-3 px-5 py-5 text-xl font-medium text-plum hover:bg-slate-50`;
 
-  return <main className="bg-[#F5F6F8] text-[#211726]">
+  return <main className="bg-canvas text-plum">
     {/* Hero */}
-    <section className="relative overflow-hidden bg-[#FF8A05] px-5 pb-24 pt-6 text-white">
+    <section className="relative overflow-hidden bg-brand px-5 pb-24 pt-6 text-white">
       <div aria-hidden="true" className="absolute -right-16 -top-10 size-72 rounded-full border-[48px] border-white/10" />
       <div className="relative mx-auto flex max-w-[960px] items-end justify-between gap-6">
         <div>
-          <h1 className="text-[38px] font-bold leading-tight tracking-[-.02em] sm:text-5xl">Customer support<span className="text-[#211726]">.</span></h1>
+          <h1 className="text-[38px] font-bold leading-tight tracking-[-.02em] sm:text-5xl">Customer support<span className="text-plum">.</span></h1>
           <p className="mt-3 inline-flex items-center gap-2 rounded-md bg-black/10 px-3 py-2 text-[17px]"><BadgeCheck size={22} aria-hidden="true" />Real people, before, during and after your ride</p>
         </div>
         <div aria-hidden="true" className="hidden shrink-0 place-items-center rounded-full bg-white/15 p-6 sm:grid"><Headphones size={72} strokeWidth={1.5} /></div>
@@ -88,8 +88,8 @@ export default async function HelpPage() {
       <section className={`${card} px-5 py-6 text-center`} aria-labelledby="upcoming">
         <h2 id="upcoming" className="text-xl font-medium">Need help with your upcoming trip?</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <Link href="/booking/manage" className="flex h-12 items-center justify-center rounded-md border border-[#FF8A05] text-[17px] text-[#C96100] hover:bg-orange-50">Search bookings</Link>
-          <Link href={signedIn ? "/account/trips" : "/account/sign-in?next=%2Faccount%2Ftrips"} className="flex h-12 items-center justify-center rounded-md bg-[#FF8A05] text-[17px] text-white hover:bg-[#F07F00]">{signedIn ? "My trips" : "Sign in or register"}</Link>
+          <Link href="/booking/manage" className="flex h-12 items-center justify-center rounded-md border border-brand text-[17px] text-brand-darker hover:bg-orange-50">Search bookings</Link>
+          <Link href={signedIn ? "/account/trips" : "/account/sign-in?next=%2Faccount%2Ftrips"} className="flex h-12 items-center justify-center rounded-md bg-brand text-[17px] text-white hover:bg-[#F07F00]">{signedIn ? "My trips" : "Sign in or register"}</Link>
         </div>
       </section>
 
@@ -98,7 +98,7 @@ export default async function HelpPage() {
         <h2 id="questions" className="mb-4 text-2xl font-medium">Common questions</h2>
         <HelpTopics topics={TOPICS} chatHref={chatHref} />
         <h3 className="mt-7 text-lg font-medium">More help topics</h3>
-        <div className="mt-3 flex flex-wrap gap-2">{MORE.map((m) => <Link key={m.href} href={m.href} className="rounded-md bg-[#F5F6F8] px-4 py-2.5 text-base hover:bg-slate-200">{m.label}</Link>)}</div>
+        <div className="mt-3 flex flex-wrap gap-2">{MORE.map((m) => <Link key={m.href} href={m.href} className="rounded-md bg-canvas px-4 py-2.5 text-base hover:bg-slate-200">{m.label}</Link>)}</div>
       </section>
 
       {/* Contact */}
@@ -108,9 +108,9 @@ export default async function HelpPage() {
       <EmergencyCard />
 
       {/* Reassurance */}
-      <section className="rounded-xl bg-gradient-to-r from-[#FFF0DF] to-white px-5 py-6" aria-labelledby="worry-free">
-        <h2 id="worry-free" className="flex items-center gap-3 text-xl font-medium"><ShieldCheck size={26} className="text-[#FF8A05]" aria-hidden="true" />Travel worry-free with Waydidi</h2>
-        <p className="mt-3 text-base leading-7 text-slate-600">Every ride has one booking record with your route, pickup time, vehicle and price, and our operations team follows it from driver assignment to drop-off. <Link href="/safety-driver-standards" className="text-[#C96100] hover:underline">Learn more</Link></p>
+      <section className="rounded-xl bg-gradient-to-r from-brand-tint to-white px-5 py-6" aria-labelledby="worry-free">
+        <h2 id="worry-free" className="flex items-center gap-3 text-xl font-medium"><ShieldCheck size={26} className="text-brand" aria-hidden="true" />Travel worry-free with Waydidi</h2>
+        <p className="mt-3 text-base leading-7 text-slate-600">Every ride has one booking record with your route, pickup time, vehicle and price, and our operations team follows it from driver assignment to drop-off. <Link href="/safety-driver-standards" className="text-brand-darker hover:underline">Learn more</Link></p>
       </section>
 
       <section className="px-1 pt-4" aria-labelledby="rely">
@@ -121,8 +121,8 @@ export default async function HelpPage() {
             { icon: Wallet, title: "Price you see before you book", text: "A fixed total for your route and vehicle, with no haggling at the curb.", href: "/a-to-b-transfer" },
             { icon: BadgeCheck, title: "Clear rules when plans change", text: "Date changes up to three days before pickup; cancellations handled personally by email.", href: "/refund-policy" },
           ].map(({ icon: Icon, title, text, href }) => <li key={title} className="flex gap-4">
-            <Icon size={28} className="mt-0.5 shrink-0 text-[#FF8A05]" aria-hidden="true" />
-            <div><h3 className="text-xl font-medium">{title}</h3><p className="mt-1 text-base leading-7 text-slate-600">{text} <Link href={href} className="text-[#C96100] hover:underline">Learn more</Link></p></div>
+            <Icon size={28} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+            <div><h3 className="text-xl font-medium">{title}</h3><p className="mt-1 text-base leading-7 text-slate-600">{text} <Link href={href} className="text-brand-darker hover:underline">Learn more</Link></p></div>
           </li>)}
         </ul>
       </section>

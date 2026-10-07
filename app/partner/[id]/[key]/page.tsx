@@ -12,7 +12,7 @@ const thb = (n: number) => `฿${n.toLocaleString("en-US")}`;
 // Only the first part of an address (e.g. "Suvarnabhumi Airport", "Patong"): no customer details.
 const short = (place: string) => place.split(",")[0].replace(/\s*\([A-Z]{3}\)$/, "").slice(0, 40);
 const STATE: Record<string, [string, string]> = {
-  pending: ["Pending", "bg-amber-50 text-amber-800"], owed: ["Earned", "bg-[#FFF0DF] text-[#C96100]"],
+  pending: ["Pending", "bg-amber-50 text-amber-800"], owed: ["Earned", "bg-brand-tint text-brand-darker"],
   paid: ["Paid", "bg-emerald-50 text-emerald-700"], cancelled: ["Cancelled", "bg-slate-100 text-slate-500 line-through"],
 };
 
@@ -24,7 +24,7 @@ export default async function PartnerDashboard({ params }: { params: Promise<{ i
   const [d, prices] = await Promise.all([partnerDashboard(a), kitPrices()]);
   const TIER_ROWS = TIERS.map((t) => [t.name, t.rides ? `${t.rides} rides · ${a.commission_percent + t.bonus}%` : `${a.commission_percent}%`]);
   const card = "rounded-2xl bg-white p-5 shadow-[0_2px_12px_rgba(33,23,38,.06)]";
-  return <main className="font-home min-h-dvh bg-[#F4F5F8] text-[#211726]">
+  return <main className="font-home min-h-dvh bg-[#F4F5F8] text-plum">
     <div className="bg-[linear-gradient(180deg,#FE8B05,#FFA94D)] px-4 pb-20 pt-[calc(18px+env(safe-area-inset-top))] text-white">
       <div className="mx-auto max-w-[720px]">
         <WaydidiLogo className="h-[34px] w-auto text-white" />
@@ -37,24 +37,24 @@ export default async function PartnerDashboard({ params }: { params: Promise<{ i
       <section className={`${card} grid grid-cols-2 gap-3 sm:grid-cols-4`}>
         {[["Link clicks", String(d.month.clicks), ""], ["Bookings", String(d.month.bookings), ""], ["Earned (to be paid)", thb(d.owed), "text-[#2F7A6B]"], ["Pending (upcoming rides)", thb(d.pending), "text-amber-700"]].map(([k, v, c]) =>
           <div key={k} className="rounded-xl bg-slate-50 p-3"><p className="text-[12px] text-slate-500">{k}</p><p className={`mt-1 text-[22px] font-bold ${c}`}>{v}</p></div>)}
-        <p className="col-span-full text-[13px] text-slate-500">Paid to you so far: <b className="text-[#211726]">{thb(d.paid)}</b> · Completed rides: <b className="text-[#211726]">{d.completedRides}</b></p>
+        <p className="col-span-full text-[13px] text-slate-500">Paid to you so far: <b className="text-plum">{thb(d.paid)}</b> · Completed rides: <b className="text-plum">{d.completedRides}</b></p>
       </section>
 
       <section className={card}>
-        <div className="flex items-baseline justify-between gap-3"><h2 className="text-[18px] font-bold">{d.tier} partner</h2><p className="text-[15px] font-semibold text-[#C96100]">You earn {d.rate}%</p></div>
+        <div className="flex items-baseline justify-between gap-3"><h2 className="text-[18px] font-bold">{d.tier} partner</h2><p className="text-[15px] font-semibold text-brand-darker">You earn {d.rate}%</p></div>
         {d.next ? <>
           <p className="mt-1 text-[14px] text-slate-600">{d.next.ridesToNext} more completed {d.next.ridesToNext === 1 ? "ride" : "rides"} to reach <b>{d.next.name} · {d.next.rate}%</b></p>
-          <div className="mt-3 h-2.5 rounded-full bg-slate-100"><div className="h-2.5 rounded-full bg-[#FE8B05]" style={{ width: `${Math.max(4, Math.min(100, d.next.progress))}%` }} /></div>
+          <div className="mt-3 h-2.5 rounded-full bg-slate-100"><div className="h-2.5 rounded-full bg-brand" style={{ width: `${Math.max(4, Math.min(100, d.next.progress))}%` }} /></div>
         </> : <p className="mt-1 text-[14px] text-slate-600">You&apos;re at the top tier. Thank you for sending us so many travellers!</p>}
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[12.5px]">{TIER_ROWS.map(([n, r]) => <div key={n} className={`rounded-xl p-2 ${n === d.tier ? "border border-[#FE8B05] bg-[#FFF0DF] font-semibold text-[#C96100]" : "bg-slate-50 text-slate-600"}`}>{n}<br />{r}</div>)}</div>
+        <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[12.5px]">{TIER_ROWS.map(([n, r]) => <div key={n} className={`rounded-xl p-2 ${n === d.tier ? "border border-brand bg-brand-tint font-semibold text-brand-darker" : "bg-slate-50 text-slate-600"}`}>{n}<br />{r}</div>)}</div>
       </section>
 
       <section className={card}>
         <h2 className="text-[18px] font-bold">Your link and code</h2>
         <p className="mt-1 text-[14px] text-slate-600">You earn <b>{a.commission_percent}%</b> of what the customer pays when the ride is completed. With your code, your customers get <b>{a.discount_percent}% off</b>.</p>
         <div className="mt-3 grid gap-2">
-          <CopyRow label="waydidi.com/?ref=" value={`https://waydidi.com/?ref=${a.slug}`} shown={<><span className="text-slate-500">waydidi.com/?ref=</span><b className="text-[#C96100]">{a.slug}</b></>} />
-          <CopyRow label="Code" value={a.code} shown={<><span className="text-slate-500">Code </span><b className="text-[#C96100]">{a.code}</b><span className="text-slate-500"> · {a.discount_percent}% off for your customers</span></>} />
+          <CopyRow label="waydidi.com/?ref=" value={`https://waydidi.com/?ref=${a.slug}`} shown={<><span className="text-slate-500">waydidi.com/?ref=</span><b className="text-brand-darker">{a.slug}</b></>} />
+          <CopyRow label="Code" value={a.code} shown={<><span className="text-slate-500">Code </span><b className="text-brand-darker">{a.code}</b><span className="text-slate-500"> · {a.discount_percent}% off for your customers</span></>} />
         </div>
         <div className="mt-3"><PartnerQr url={`https://waydidi.com/?ref=${a.slug}`} name={a.name} code={a.code} discount={a.discount_percent} /></div>
         <h3 className="mt-5 text-[15px] font-bold">Link builder</h3>

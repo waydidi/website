@@ -12,7 +12,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   if (await currentCustomer()) redirect(safeNextPath(next));
   // Social buttons appear only for providers whose credentials are configured.
   const providers = configuredProviders(env as unknown as Record<string, string | undefined>);
-  return <main className="bg-gradient-to-b from-[#FFF0DF] via-white to-white px-5 pt-10 text-[#0F294D] sm:pt-16">
+  return <main className="bg-gradient-to-b from-brand-tint via-white to-white px-5 pt-10 text-navy sm:pt-16">
     <div className="mx-auto max-w-[460px]">
       <SignInForm next={next ?? null} initialEmail={typeof email === "string" ? email.slice(0, 254) : undefined} providers={providers} providerError={typeof error === "string" ? error : undefined} />
     </div>

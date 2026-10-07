@@ -16,12 +16,12 @@ type Store = {
 };
 
 const thb = (n: number) => `THB ${Math.round(n).toLocaleString("en-US")}`;
-const field = "mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]";
+const field = "mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand";
 const label = "block text-[13px] font-medium text-slate-600";
 const STATE: Record<Booking["state"], [string, string]> = { pending: ["Upcoming", "bg-sky-100 text-sky-800"], earned: ["Earned", "bg-emerald-100 text-emerald-800"], cancelled: ["Cancelled", "bg-slate-200 text-slate-600"] };
 
 function StatCard({ title, value, sub }: { title: string; value: string; sub: string }) {
-  return <div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-[14px] text-slate-500">{title}</p><p className="mt-1 text-[26px] font-semibold text-[#15161C]">{value}</p><p className="text-[13px] text-slate-500">{sub}</p></div>;
+  return <div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-[14px] text-slate-500">{title}</p><p className="mt-1 text-[26px] font-semibold text-night">{value}</p><p className="text-[13px] text-slate-500">{sub}</p></div>;
 }
 
 function Balance({ value }: { value: number }) {
@@ -60,10 +60,10 @@ function QrDialog({ store, onClose }: { store: Store | null; onClose: () => void
     <DialogContent showCloseButton={false} className="rounded-[28px] border-0 bg-white p-6 sm:max-w-md">
       <DialogHeader className="flex-row items-center justify-between text-left"><div><DialogTitle className="text-[22px]">{store?.name} QR code</DialogTitle><DialogDescription>Customers scan this to book with the store&apos;s special price.</DialogDescription></div>
         <button type="button" onClick={onClose} aria-label="Close" className="grid size-10 place-items-center rounded-full bg-slate-100"><X size={20} /></button></DialogHeader>
-      <div className="mx-auto mt-2 w-64 rounded-2xl border-4 border-[#FF8A05] p-3" dangerouslySetInnerHTML={{ __html: svg }} />
+      <div className="mx-auto mt-2 w-64 rounded-2xl border-4 border-brand p-3" dangerouslySetInnerHTML={{ __html: svg }} />
       <p className="mt-3 break-all text-center font-mono text-[13px] text-slate-600">{url}</p>
       <div className="mt-4 flex flex-wrap justify-center gap-2">
-        <button type="button" disabled={!svg} onClick={() => store && printPoster(store, url, svg)} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#FF8A05] px-5 font-semibold text-white"><Printer size={17} />Print A4 poster</button>
+        <button type="button" disabled={!svg} onClick={() => store && printPoster(store, url, svg)} className="inline-flex h-11 items-center gap-2 rounded-full bg-brand px-5 font-semibold text-white"><Printer size={17} />Print A4 poster</button>
         <button type="button" onClick={() => void navigator.clipboard?.writeText(url)} className="inline-flex h-11 items-center rounded-full border border-slate-200 px-5 font-medium">Copy link</button>
         <a href={url} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center rounded-full border border-slate-200 px-5 font-medium">Open form</a>
       </div>
@@ -103,10 +103,10 @@ function EditDialog({ store, open, onClose }: { store: Store | null; open: boole
         <label className={label}>Contact name<input className={field} value={f.contactName} onChange={(e) => setF({ ...f, contactName: e.target.value })} /></label>
         <label className={label}>Phone<input className={field} value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></label>
         <label className={`${label} sm:col-span-2`}>Area<PlaceInput className={field} value={f.area} onChange={(v) => setF((cur) => ({ ...cur, area: v }))} placeholder="Search Google Maps, e.g. Sukhumvit, Bangkok" /></label>
-        <label className="flex items-center gap-2 text-[14px] font-medium sm:col-span-2"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} className="size-4 accent-[#FF8A05]" />QR code active (customers can book)</label>
+        <label className="flex items-center gap-2 text-[14px] font-medium sm:col-span-2"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} className="size-4 accent-brand" />QR code active (customers can book)</label>
       </div>
       {error && <p className="mt-3 rounded-xl bg-red-50 p-3 text-[14px] text-red-700">{error}</p>}
-      <button type="button" onClick={() => void save()} disabled={busy || f.name.trim().length < 2} className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-6 font-semibold text-white disabled:opacity-50">{busy && <LoaderCircle size={16} className="animate-spin" />}{store ? "Save" : "Add storefront"}</button>
+      <button type="button" onClick={() => void save()} disabled={busy || f.name.trim().length < 2} className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-brand px-6 font-semibold text-white disabled:opacity-50">{busy && <LoaderCircle size={16} className="animate-spin" />}{store ? "Save" : "Add storefront"}</button>
     </DialogContent>
   </Dialog>;
 }
@@ -135,7 +135,7 @@ function DetailDialog({ store, onClose }: { store: Store | null; onClose: () => 
         <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[620px] text-left text-[14px]">
           <thead className="text-slate-500"><tr>{["Booking", "Pickup", "Paid", "Total", "Commission", ""].map((h) => <th key={h} className="px-2 py-2 font-medium">{h}</th>)}</tr></thead>
           <tbody>{store.bookings.length === 0 ? <tr><td colSpan={6} className="px-2 py-8 text-center text-slate-500">No bookings yet.</td></tr> : store.bookings.map((b) => <tr key={b.reference} className="border-t border-slate-100">
-            <td className="px-2 py-2"><Link href={`/admin/journeys/${b.reference}`} className="font-semibold text-[#C96100] hover:underline">{b.reference}</Link><span className="block text-[12px] text-slate-500">{b.customerName}</span></td>
+            <td className="px-2 py-2"><Link href={`/admin/journeys/${b.reference}`} className="font-semibold text-brand-darker hover:underline">{b.reference}</Link><span className="block text-[12px] text-slate-500">{b.customerName}</span></td>
             <td className="px-2">{b.pickupDate} {b.pickupTime}</td>
             <td className="px-2">{b.cashAtStore ? "Cash at store" : "Card"}</td>
             <td className="px-2">{thb(b.total)}</td>
@@ -160,7 +160,7 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
 
   return <div className="grid gap-5 px-4 pb-10 pt-4 sm:px-8">
     <div className="-mt-[52px] -mb-1 flex justify-end">
-      <button type="button" onClick={() => setAdding(true)} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]"><Plus size={17} strokeWidth={2.5} />Add storefront</button>
+      <button type="button" onClick={() => setAdding(true)} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-brand px-4 text-[15px] font-semibold text-white hover:bg-brand-strong"><Plus size={17} strokeWidth={2.5} />Add storefront</button>
     </div>
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <StatCard title="Storefronts" value={String(stores.length)} sub={`${stores.filter((s) => s.active).length} active`} />
@@ -174,7 +174,7 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
         <tbody>
           {stores.length === 0 && <tr><td colSpan={8} className="px-5 py-14 text-center text-slate-500">No storefronts yet. Tap “Add storefront” to create your first QR poster.</td></tr>}
           {stores.map((s) => <tr key={s.id} className="border-t border-slate-100">
-            <td className="h-[68px] px-5"><p className="font-medium text-[#15161C]">{s.name}</p><p className="text-[13px] text-slate-500">/s/{s.slug}{s.area ? ` · ${s.area}` : ""}</p></td>
+            <td className="h-[68px] px-5"><p className="font-medium text-night">{s.name}</p><p className="text-[13px] text-slate-500">/s/{s.slug}{s.area ? ` · ${s.area}` : ""}</p></td>
             <td className="px-5">{s.discountPercent}% off</td>
             <td className="px-5">{s.commissionPercent}%</td>
             <td className="px-5">{s.bookings.length}</td>
@@ -182,9 +182,9 @@ export function StorefrontsWorkspace({ stores }: { stores: Store[] }) {
             <td className="px-5"><Balance value={s.stats.balance} /></td>
             <td className="px-5"><StatusSwitch id={s.id} name={s.name} active={s.active} /></td>
             <td className="px-5"><span className="flex items-center gap-3 text-slate-500">
-              <button type="button" onClick={() => setQr(s)} aria-label={`QR code for ${s.name}`} title="QR poster" className="hover:text-[#C96100]"><QrCode size={19} /></button>
-              <button type="button" onClick={() => setEditing(s)} aria-label={`Edit ${s.name}`} title="Edit" className="hover:text-[#C96100]"><Pencil size={18} /></button>
-              <button type="button" onClick={() => setViewing(s)} aria-label={`Bookings for ${s.name}`} title="Bookings and commission" className="hover:text-[#C96100]"><Eye size={19} /></button>
+              <button type="button" onClick={() => setQr(s)} aria-label={`QR code for ${s.name}`} title="QR poster" className="hover:text-brand-darker"><QrCode size={19} /></button>
+              <button type="button" onClick={() => setEditing(s)} aria-label={`Edit ${s.name}`} title="Edit" className="hover:text-brand-darker"><Pencil size={18} /></button>
+              <button type="button" onClick={() => setViewing(s)} aria-label={`Bookings for ${s.name}`} title="Bookings and commission" className="hover:text-brand-darker"><Eye size={19} /></button>
             </span></td>
           </tr>)}
         </tbody>
@@ -209,7 +209,7 @@ function StatusSwitch({ id, name, active }: { id: string; name: string; active: 
     if (!res?.ok) { setOn(!next); return; }
     router.refresh();
   }
-  return <button type="button" role="switch" aria-checked={on} aria-label={`${name} QR ${on ? "on" : "off"}`} disabled={busy} onClick={(e) => { e.stopPropagation(); void flip(); }} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-70 ${on ? "bg-[#06C755]" : "bg-[#E53935]"}`}>
+  return <button type="button" role="switch" aria-checked={on} aria-label={`${name} QR ${on ? "on" : "off"}`} disabled={busy} onClick={(e) => { e.stopPropagation(); void flip(); }} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-70 ${on ? "bg-line-green" : "bg-[#E53935]"}`}>
     <span className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
   </button>;
 }

@@ -60,7 +60,7 @@ export function DriverPicker({ reference, leg = "outbound", drivers, current, ca
         <div className="mx-auto mt-2.5 h-1.5 w-10 rounded-full bg-slate-200 md:hidden" aria-hidden="true" />
         <div className="flex items-center justify-between px-5 pb-2 pt-3"><h2 className="text-[17px] font-black">Choose driver</h2>
           <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="grid size-9 place-items-center rounded-full hover:bg-slate-100"><X size={18} /></button></div>
-        <label className="mx-5 flex items-center gap-2 rounded-xl border border-slate-200 px-3 focus-within:border-[#FF8A05]">
+        <label className="mx-5 flex items-center gap-2 rounded-xl border border-slate-200 px-3 focus-within:border-brand">
           <Search size={16} className="shrink-0 text-slate-400" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, plate or phone" aria-label="Search drivers" className="h-11 min-w-0 flex-1 bg-transparent text-[15px] outline-none" />
         </label>
@@ -71,17 +71,17 @@ export function DriverPicker({ reference, leg = "outbound", drivers, current, ca
               {d.hasPhoto
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={`/api/admin/driver-images/${encodeURIComponent(d.id)}/profile`} alt="" loading="lazy" className="size-10 shrink-0 rounded-full object-cover" />
-                : <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[13px] font-bold text-[#C96100]" aria-hidden="true">{initials(d.name)}</span>}
+                : <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-tint text-[13px] font-bold text-brand-darker" aria-hidden="true">{initials(d.name)}</span>}
               <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="truncate text-[15px] font-semibold text-slate-900" title={d.name}>{shortName(d.name)}</span>
                 {d.vehicleType && TYPE[d.vehicleType] && <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11.5px] font-semibold text-slate-700">{TYPE[d.vehicleType]}</span>}
               </span>
               <span className="shrink-0 text-[13px] font-semibold text-slate-600">{d.plate || "No plate"}</span>
-              {d.id === current && <Check size={16} className="shrink-0 text-[#FF8A05]" aria-label="Assigned" />}
+              {d.id === current && <Check size={16} className="shrink-0 text-brand" aria-label="Assigned" />}
             </button>
           </li>)}
         </ul>
-        {onAddDriver && <button type="button" onClick={() => { setOpen(false); onAddDriver(); }} className="mx-5 mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-3 text-left text-[14px] font-bold text-[#C96100] hover:underline">+ Add driver</button>}
+        {onAddDriver && <button type="button" onClick={() => { setOpen(false); onAddDriver(); }} className="mx-5 mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-3 text-left text-[14px] font-bold text-brand-darker hover:underline">+ Add driver</button>}
         {error && <p role="alert" className="px-5 pt-2 text-[13px] font-semibold text-red-600">{error}</p>}
       </div>
     </div>, document.body)}

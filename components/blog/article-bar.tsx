@@ -23,7 +23,7 @@ export function ArticleBar({ headings, bookHref }: { headings: { id: string; tex
     </nav>}
     <div className="flex gap-2">
       {headings.length > 0 && <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="inline-flex h-12 items-center gap-2 rounded-full border border-[#D6D3CC] px-4 text-[15px] font-semibold"><List size={18} aria-hidden="true" />Contents</button>}
-      {bookHref && <Link href={bookHref} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#FF8A05] text-[16px] font-semibold text-white">Book this ride <ArrowRight size={18} aria-hidden="true" /></Link>}
+      {bookHref && <Link href={bookHref} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-brand text-[16px] font-semibold text-white">Book this ride <ArrowRight size={18} aria-hidden="true" /></Link>}
     </div>
   </div>;
 }

@@ -45,7 +45,7 @@ export function NotificationBell() {
       {total > 0 && <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-[#D32F2F] px-1 text-[11px] font-bold text-white">{total > 99 ? "99+" : total}</span>}
     </button>
     {open && <div role="menu" className="absolute right-0 top-12 z-50 w-80 overflow-hidden max-sm:fixed max-sm:inset-x-4 max-sm:top-[76px] max-sm:w-auto rounded-2xl border border-slate-200 bg-white text-[14px] shadow-xl">
-      <p className="border-b border-slate-100 px-4 py-3 font-semibold text-[#15161C]">Notifications</p>
+      <p className="border-b border-slate-100 px-4 py-3 font-semibold text-night">Notifications</p>
       {items === null ? <p className="px-4 py-6 text-center text-slate-500">Loading…</p>
         : items.length === 0 ? <p className="px-4 py-6 text-center text-slate-500">You&apos;re all caught up.</p>
         : <ul className="max-h-80 overflow-y-auto">{items.map((i) => <li key={itemKey(i)}>

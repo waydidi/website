@@ -237,10 +237,10 @@ export default function PricingWorkspace({ email }: { email: string }) {
     if (selected) update({ polygons: [...selected.polygons, []] });
   }
   return (
-    <main className="min-h-screen bg-[#f4f6f8] text-[#1f1726]">
+    <main className="min-h-screen bg-[#f4f6f8] text-plum">
       <div className="grid min-h-screen lg:grid-cols-[238px_1fr]">
         <aside className="hidden border-r border-slate-200 bg-white p-5 lg:flex lg:flex-col">
-          <Link href="/" className="inline-flex text-[#FF8A05]">
+          <Link href="/" className="inline-flex text-brand">
             <WaydidiLogo className="h-[62px] w-auto" />
           </Link>
           <nav className="mt-8 space-y-1 text-sm font-semibold">
@@ -267,7 +267,7 @@ export default function PricingWorkspace({ email }: { email: string }) {
             </Link>
             <Link
               href="/admin/pricing"
-              className="flex items-center gap-3 rounded-xl bg-orange-50 px-3 py-3 text-[#D96F00]"
+              className="flex items-center gap-3 rounded-xl bg-orange-50 px-3 py-3 text-brand-text"
             >
               <MapPinned size={18} />
               Pricing areas
@@ -277,7 +277,7 @@ export default function PricingWorkspace({ email }: { email: string }) {
               Analytics
             </span>
           </nav>
-          <div className="mt-auto rounded-2xl bg-[#21140A] p-4 text-white">
+          <div className="mt-auto rounded-2xl bg-ink p-4 text-white">
             <p className="text-xs text-white/60">Signed in as</p>
             <p className="mt-1 truncate text-sm font-bold">{email}</p>
             {/* Handled by the worker, not a page: needs a full page load. */}
@@ -293,14 +293,14 @@ export default function PricingWorkspace({ email }: { email: string }) {
         <section className="min-w-0">
           <header className="flex h-20 items-center justify-between border-b border-slate-200 bg-white px-5 lg:px-8">
             <div>
-              <p className="text-xs font-black uppercase tracking-[.14em] text-[#D96F00]">
+              <p className="text-xs font-black uppercase tracking-[.14em] text-brand-text">
                 Waydidi operations
               </p>
               <h1 className="text-xl font-black">Pricing areas</h1>
             </div>
             <button
               onClick={addArea}
-              className="flex h-11 items-center gap-2 rounded-full bg-[#FF8A05] px-5 text-sm font-bold text-white"
+              className="flex h-11 items-center gap-2 rounded-full bg-brand px-5 text-sm font-bold text-white"
             >
               <Plus size={18} />
               Add area
@@ -319,7 +319,7 @@ export default function PricingWorkspace({ email }: { email: string }) {
                   <button
                     key={area.id}
                     onClick={() => setSelectedId(area.id)}
-                    className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${area.id === selectedId ? "border-[#FF8A05] bg-orange-50" : "border-transparent hover:bg-slate-50"}`}
+                    className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${area.id === selectedId ? "border-brand bg-orange-50" : "border-transparent hover:bg-slate-50"}`}
                   >
                     <span
                       className="size-3 rounded-full"
@@ -365,7 +365,7 @@ export default function PricingWorkspace({ email }: { email: string }) {
                         <div className="flex flex-wrap gap-2">
                           <button
                             onClick={newShape}
-                            className="flex items-center gap-2 rounded-xl bg-[#21140A] px-4 py-2 text-sm font-bold text-white"
+                            className="flex items-center gap-2 rounded-xl bg-ink px-4 py-2 text-sm font-bold text-white"
                           >
                             <MousePointer2 size={16} />
                             New shape
@@ -474,7 +474,7 @@ export default function PricingWorkspace({ email }: { email: string }) {
                                           ),
                                         })
                                       }
-                                      className="h-11 w-32 rounded-xl border border-slate-200 px-3 outline-none focus:border-[#FF8A05]"
+                                      className="h-11 w-32 rounded-xl border border-slate-200 px-3 outline-none focus:border-brand"
                                       disabled={
                                         selected.pricingType === "manual"
                                       }
@@ -570,7 +570,7 @@ export default function PricingWorkspace({ email }: { email: string }) {
                     <button
                       disabled={busy}
                       onClick={() => save("publish")}
-                      className="flex h-12 items-center gap-2 rounded-full bg-[#FF8A05] px-6 font-bold text-white"
+                      className="flex h-12 items-center gap-2 rounded-full bg-brand px-6 font-bold text-white"
                     >
                       <Check size={18} />
                       Publish area
@@ -588,7 +588,7 @@ export default function PricingWorkspace({ email }: { email: string }) {
                       </p>
                     )}
                   </div>
-                  <div className="w-full"><input ref={searchInput} placeholder="Test a hotel, address or destination in Thailand" className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-[#FF8A05]"/>{testResult&&<p className="mt-2 rounded-xl bg-orange-50 px-4 py-3 text-sm font-bold text-orange-950">{testResult}</p>}</div>
+                  <div className="w-full"><input ref={searchInput} placeholder="Test a hotel, address or destination in Thailand" className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-brand"/>{testResult&&<p className="mt-2 rounded-xl bg-orange-50 px-4 py-3 text-sm font-bold text-orange-950">{testResult}</p>}</div>
                 </Tabs>
               ) : (
                 <div className="grid min-h-[620px] place-items-center rounded-3xl border border-dashed border-slate-300 bg-white">

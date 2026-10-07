@@ -77,12 +77,12 @@ export function AgenciesWorkspace({ rows, subscribers }: { rows: AgencyRow[]; su
 
     <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
       <div role="tablist" aria-label="Filter" className="inline-flex flex-wrap rounded-xl bg-[#E8EAEE] p-1">
-        {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`h-9 rounded-lg px-4 text-[15px] ${tab === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}>
+        {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`h-9 rounded-lg px-4 text-[15px] ${tab === id ? "bg-white font-medium text-night shadow-sm" : "text-slate-600 hover:text-night"}`}>
           {label}{id === "new" && count("new") > 0 && <span className="ml-1.5 rounded-full bg-orange-100 px-1.5 text-[12px] font-semibold text-orange-700">{count("new")}</span>}
         </button>)}
       </div>
       <div className="flex items-center gap-2">
-        {searchOpen && <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Agency, contact, email, country" aria-label="Search agencies" className="h-10 w-56 rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-[#FF8A05]" />}
+        {searchOpen && <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Agency, contact, email, country" aria-label="Search agencies" className="h-10 w-56 rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-brand" />}
         <button type="button" onClick={() => { setSearchOpen((v) => !v); if (searchOpen) setQuery(""); }} aria-label={searchOpen ? "Close search" : "Search"} className={iconBtn}>{searchOpen ? <X size={17} /> : <Search size={17} />}</button>
         <button type="button" onClick={() => setOldest((v) => !v)} aria-label={oldest ? "Sort: oldest first" : "Sort: newest first"} title={oldest ? "Oldest first" : "Newest first"} className={iconBtn}><ArrowUpDown size={17} /></button>
       </div>
@@ -95,21 +95,21 @@ export function AgenciesWorkspace({ rows, subscribers }: { rows: AgencyRow[]; su
         <tbody>
           {shown.length === 0 && <tr><td colSpan={8} className="px-5 py-14 text-center text-slate-500">{rows.length ? "No agencies match." : "No applications yet."}</td></tr>}
           {shown.map((r) => <tr key={r.id} className="border-t border-slate-100">
-            <td className="h-[72px] px-5"><p className="font-medium text-[#15161C]">{r.agencyName}</p><p className="text-[12px] text-slate-500">{partnerTypeName(readPartnerApplication(r.message).type)}</p>{r.website && <p className="max-w-[220px] truncate text-[13px] text-slate-500">{r.website.replace(/^https?:\/\//, "")}</p>}</td>
+            <td className="h-[72px] px-5"><p className="font-medium text-night">{r.agencyName}</p><p className="text-[12px] text-slate-500">{partnerTypeName(readPartnerApplication(r.message).type)}</p>{r.website && <p className="max-w-[220px] truncate text-[13px] text-slate-500">{r.website.replace(/^https?:\/\//, "")}</p>}</td>
             <td className="px-5"><p>{r.contactName}</p><p className="text-[13px] text-slate-500">{r.email}</p></td>
             <td className="whitespace-nowrap px-5 tabular-nums">{r.phone}</td>
             <td className="px-5">{r.country}</td>
             <td className="px-5">{r.monthlyTransfers}</td>
             <td className="whitespace-nowrap px-5">{day(r.createdAt)}</td>
             <td className="px-5"><Pill status={r.status} /></td>
-            <td className="px-5"><button type="button" onClick={() => setViewing(r)} aria-label={`Review ${r.agencyName}`} title="Review application" className="text-slate-500 hover:text-[#C96100]"><Eye size={19} /></button></td>
+            <td className="px-5"><button type="button" onClick={() => setViewing(r)} aria-label={`Review ${r.agencyName}`} title="Review application" className="text-slate-500 hover:text-brand-darker"><Eye size={19} /></button></td>
           </tr>)}
         </tbody>
       </table>
     </div>
 
     <Dialog open={viewing != null} onOpenChange={(o) => { if (!o) setViewing(null); }}>
-      <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-[#15161C] sm:max-w-xl">
+      <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-night sm:max-w-xl">
         <DialogHeader className="flex-row items-center justify-between gap-3 text-left">
           <div className="min-w-0"><DialogTitle className="truncate text-[24px] font-semibold">{viewing?.agencyName}</DialogTitle><DialogDescription>{viewing && `${viewing.country} · applied ${day(viewing.createdAt)}`}</DialogDescription></div>
           <button type="button" onClick={() => setViewing(null)} aria-label="Close" className="grid size-11 shrink-0 place-items-center rounded-full bg-slate-100 hover:bg-orange-50"><X size={22} /></button>
@@ -126,7 +126,7 @@ export function AgenciesWorkspace({ rows, subscribers }: { rows: AgencyRow[]; su
             : <>Mark approved to give them the agency portal (sign-in with {viewing.email}).</>}</p>
           <div className="flex flex-wrap gap-2">
             {(["contacted", "approved", "declined"] as const).filter((s) => s !== viewing.status).map((s) =>
-              <button key={s} type="button" disabled={busy} onClick={() => setStatus(viewing, s)} className="h-10 rounded-full border border-slate-200 px-4 font-medium hover:border-[#FF8A05] disabled:opacity-50">Mark {PILL[s][0].toLowerCase()}</button>)}
+              <button key={s} type="button" disabled={busy} onClick={() => setStatus(viewing, s)} className="h-10 rounded-full border border-slate-200 px-4 font-medium hover:border-brand disabled:opacity-50">Mark {PILL[s][0].toLowerCase()}</button>)}
           </div>
         </div>}
       </DialogContent>

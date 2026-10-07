@@ -42,7 +42,7 @@ export default function HourlyWorkspace() {
     setBusy(false); setNote(res?.ok ? "Saved" : out?.error ?? "Could not save.");
   }
 
-  const input = "h-10 w-full min-w-[84px] rounded-lg border border-slate-200 bg-white px-2.5 text-right text-[14px] tabular-nums outline-none focus:border-[#FF8A05]";
+  const input = "h-10 w-full min-w-[84px] rounded-lg border border-slate-200 bg-white px-2.5 text-right text-[14px] tabular-nums outline-none focus:border-brand";
   return <div className="px-4 pb-10 pt-4 sm:px-8">
     <HourlyCityPairs />
     <h2 className="mb-4 mt-8 text-xl font-bold">Local hourly prices</h2>
@@ -50,8 +50,8 @@ export default function HourlyWorkspace() {
       <nav aria-label="Cities" className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
         {(areas ?? HOURLY_AREAS.map((a, i) => ({ slug: a.slug, active: true, sortOrder: i }))).map((a) => {
           const name = HOURLY_AREAS.find((h) => h.slug === a.slug)?.name;
-          return <button key={a.slug} type="button" onClick={() => { setSlug(a.slug); setNote(""); }} className={`flex shrink-0 items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-left text-[14px] font-semibold ${a.slug === slug ? "border-[#FF8A05] bg-[#FFF0DF] text-[#C96100]" : "border-slate-200 bg-white text-slate-700"}`}>
-            {name}<span className={`size-2 rounded-full ${a.active ? "bg-[#06C755]" : "bg-slate-300"}`} aria-label={a.active ? "Offered" : "Off"} />
+          return <button key={a.slug} type="button" onClick={() => { setSlug(a.slug); setNote(""); }} className={`flex shrink-0 items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-left text-[14px] font-semibold ${a.slug === slug ? "border-brand bg-brand-tint text-brand-darker" : "border-slate-200 bg-white text-slate-700"}`}>
+            {name}<span className={`size-2 rounded-full ${a.active ? "bg-line-green" : "bg-slate-300"}`} aria-label={a.active ? "Offered" : "Off"} />
           </button>;
         })}
       </nav>
@@ -60,7 +60,7 @@ export default function HourlyWorkspace() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div><h2 className="text-[20px] font-bold">{geo.name}</h2><p className="text-[13px] text-slate-500">{geo.coverage}</p></div>
           <label className="flex items-center gap-3 text-[14px] font-medium">Offer by the hour
-            <button type="button" role="switch" aria-checked={current.active} onClick={() => edit((a) => ({ ...a, active: !a.active }))} className={`relative h-7 w-12 rounded-full transition-colors ${current.active ? "bg-[#06C755]" : "bg-[#E53935]"}`}><span className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition-all ${current.active ? "left-[22px]" : "left-0.5"}`} /></button>
+            <button type="button" role="switch" aria-checked={current.active} onClick={() => edit((a) => ({ ...a, active: !a.active }))} className={`relative h-7 w-12 rounded-full transition-colors ${current.active ? "bg-line-green" : "bg-[#E53935]"}`}><span className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition-all ${current.active ? "left-[22px]" : "left-0.5"}`} /></button>
           </label>
         </div>
         <div className="mt-4 rounded-xl bg-slate-50 p-3"><BorderPreview area={geo} /><p className="text-center text-[11px] text-slate-400">Border shown to customers · Boundaries: geoBoundaries</p></div>
@@ -70,13 +70,13 @@ export default function HourlyWorkspace() {
             <tbody>{CARS.map(([id, label]) => { const r = current.rates[id]; return <tr key={id} className="border-t border-slate-100">
               <td className="py-2 pr-3 font-medium">{label}</td>
               {COLS.map(([k]) => <td key={k} className="px-1.5 py-2"><input type="number" min={1} inputMode="numeric" aria-label={`${label} ${k}`} className={input} value={r[k] as number} onChange={(e) => edit((a) => { (a.rates[id] as Record<string, unknown>)[k] = Math.max(0, Math.round(Number(e.target.value) || 0)); return a; })} /></td>)}
-              <td className="py-2 pl-3 text-center"><input type="checkbox" checked={r.active} onChange={(e) => edit((a) => { a.rates[id].active = e.target.checked; return a; })} className="size-4 accent-[#FF8A05]" aria-label={`Offer ${label}`} /></td>
+              <td className="py-2 pl-3 text-center"><input type="checkbox" checked={r.active} onChange={(e) => edit((a) => { a.rates[id].active = e.target.checked; return a; })} className="size-4 accent-brand" aria-label={`Offer ${label}`} /></td>
             </tr>; })}</tbody>
           </table>
         </div>
         <p className="mt-3 text-[12px] text-slate-500">Prices in THB. Local bookings start at 3 hours. At 3 hours the hourly rate × 3 applies; from 4 hours the package price applies. BMW is not offered.</p>
         <div className="mt-4 flex items-center gap-3">
-          <button type="button" onClick={() => void save()} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#FF8A05] px-6 font-semibold text-white disabled:opacity-60">{busy ? <LoaderCircle size={16} className="animate-spin" /> : <Check size={16} />}Save {geo.name}</button>
+          <button type="button" onClick={() => void save()} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-full bg-brand px-6 font-semibold text-white disabled:opacity-60">{busy ? <LoaderCircle size={16} className="animate-spin" /> : <Check size={16} />}Save {geo.name}</button>
           {note && <span className={`text-[14px] font-medium ${note === "Saved" ? "text-emerald-700" : "text-red-600"}`}>{note}</span>}
         </div>
       </section>}

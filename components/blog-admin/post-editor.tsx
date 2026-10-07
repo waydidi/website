@@ -45,7 +45,7 @@ function SeoPanel({ post, slug, onKeyword }: { post: EditorPost; slug: string; o
   const dot = { good: "bg-emerald-500", warn: "bg-amber-400", bad: "bg-red-500" };
   return <Panel title={`SEO checklist · ${score}/100`}>
     <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full ${tone}`} style={{ width: `${score}%` }} /></div>
-    <label className="mt-3 block text-sm font-semibold">Focus keyword<input value={post.cover.focusKeyword ?? ""} onChange={(e) => onKeyword(e.target.value)} maxLength={80} placeholder="e.g. Bangkok to Hua Hin" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-[#FF8A05]" /></label>
+    <label className="mt-3 block text-sm font-semibold">Focus keyword<input value={post.cover.focusKeyword ?? ""} onChange={(e) => onKeyword(e.target.value)} maxLength={80} placeholder="e.g. Bangkok to Hua Hin" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-brand" /></label>
     <ul className="mt-3 grid gap-2.5">
       {checks.map((c) => <li key={c.id} className="flex gap-2 text-sm"><span className={`mt-1.5 size-2.5 shrink-0 rounded-full ${dot[c.status]}`} aria-label={c.status} /><span><span className="font-semibold">{c.label}</span><span className="block text-xs leading-5 text-slate-500">{c.hint}</span></span></li>)}
     </ul>
@@ -66,7 +66,7 @@ const newBlock = (type: BlogBlock["type"]): BlogBlock => type === "list" ? { typ
 const slugify = (v: string) => v.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
 const toLocal = (iso: string | null) => (iso ? new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 16) : "");
 const fromLocal = (v: string) => (v ? new Date(`${v}:00+07:00`).toISOString() : null);
-const TONE_SWATCH: Record<CoverTone, string> = { orange: "bg-[#FF8A05]", navy: "bg-[#1E3A8A]", green: "bg-[#0E9F6E]", plum: "bg-[#7C3AED]" };
+const TONE_SWATCH: Record<CoverTone, string> = { orange: "bg-brand", navy: "bg-[#1E3A8A]", green: "bg-[#0E9F6E]", plum: "bg-[#7C3AED]" };
 
 async function uploadImage(file: File) {
   const form = new FormData();
@@ -122,14 +122,14 @@ export function PostEditor({ initial, knownCategories }: { initial: EditorPost; 
     router.refresh();
   }
 
-  const input = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[15px] outline-none focus:border-[#FF8A05] focus:ring-2 focus:ring-orange-100";
+  const input = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[15px] outline-none focus:border-brand focus:ring-2 focus:ring-orange-100";
   const published = post.status === "published";
   const previewPost: BlogPost = { slug, title: post.title || "Post title", excerpt: post.excerpt, date: "", categories: post.categories, cover: { headline: post.cover.headline || post.title || "Cover headline", tone: post.cover.tone, photo: post.featuredImage ?? undefined } };
 
   const addMenu = (at: number) => adding === at ? <div className="my-2 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-lg sm:grid-cols-3">
-    {BLOCK_TYPES.map(({ type, label, icon: Icon, hint }) => <button key={type} type="button" onClick={() => insertBlock(at, type)} className="flex items-start gap-2 rounded-xl p-2.5 text-left hover:bg-orange-50"><Icon size={18} className="mt-0.5 shrink-0 text-[#C96100]" /><span><span className="block text-sm font-bold">{label}</span><span className="block text-xs text-slate-500">{hint}</span></span></button>)}
+    {BLOCK_TYPES.map(({ type, label, icon: Icon, hint }) => <button key={type} type="button" onClick={() => insertBlock(at, type)} className="flex items-start gap-2 rounded-xl p-2.5 text-left hover:bg-orange-50"><Icon size={18} className="mt-0.5 shrink-0 text-brand-darker" /><span><span className="block text-sm font-bold">{label}</span><span className="block text-xs text-slate-500">{hint}</span></span></button>)}
     <button type="button" onClick={() => setAdding(null)} className="col-span-full text-sm font-semibold text-slate-500">Cancel</button>
-  </div> : <div className="group flex justify-center py-1"><button type="button" onClick={() => setAdding(at)} aria-label="Add block" className="grid size-8 place-items-center rounded-full border border-dashed border-slate-300 text-slate-400 opacity-60 transition hover:border-[#FF8A05] hover:text-[#FF8A05] group-hover:opacity-100"><Plus size={16} /></button></div>;
+  </div> : <div className="group flex justify-center py-1"><button type="button" onClick={() => setAdding(at)} aria-label="Add block" className="grid size-8 place-items-center rounded-full border border-dashed border-slate-300 text-slate-400 opacity-60 transition hover:border-brand hover:text-brand group-hover:opacity-100"><Plus size={16} /></button></div>;
 
   return <div className="pb-24">
     {/* Top bar */}
@@ -140,7 +140,7 @@ export function PostEditor({ initial, knownCategories }: { initial: EditorPost; 
       <div className="ml-auto flex flex-wrap gap-2">
         {!published && <button disabled={busy} onClick={() => save("draft")} className="rounded-full px-4 py-2 text-sm font-bold text-slate-700 hover:bg-white disabled:opacity-50">Save draft</button>}
         <button disabled={busy} onClick={() => save(published ? "published" : "draft", true)} className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 disabled:opacity-50">Preview</button>
-        <button disabled={busy || !post.title.trim()} onClick={() => save("published")} className="rounded-full bg-[#FF8A05] px-5 py-2 text-sm font-bold text-white hover:bg-[#F07A00] disabled:opacity-50">{busy ? "Saving…" : published ? "Update" : schedule ? "Schedule" : "Publish"}</button>
+        <button disabled={busy || !post.title.trim()} onClick={() => save("published")} className="rounded-full bg-brand px-5 py-2 text-sm font-bold text-white hover:bg-[#F07A00] disabled:opacity-50">{busy ? "Saving…" : published ? "Update" : schedule ? "Schedule" : "Publish"}</button>
       </div>
     </div>
 
@@ -170,16 +170,16 @@ export function PostEditor({ initial, knownCategories }: { initial: EditorPost; 
               {block.type === "heading" && <input value={block.text} onChange={(e) => setBlock(i, { ...block, text: e.target.value })} placeholder="Heading" className="w-full bg-transparent text-[22px] font-bold outline-none placeholder:text-slate-300" />}
               {block.type === "tip" && <MarkupTextarea rows={2} value={block.text} onChange={(text) => setBlock(i, { ...block, text })} placeholder="A helpful tip for travellers" className="w-full resize-y rounded-xl bg-[#EEF9F2] p-3 text-[15px] leading-6 text-[#17563A] outline-none placeholder:text-emerald-700/40" />}
               {block.type === "list" && <div className="grid gap-2">
-                {block.items.map((item, j) => <div key={j} className="flex items-center gap-2"><span className="text-[#FF8A05]">✓</span><input value={item} onChange={(e) => setBlock(i, { ...block, items: block.items.map((x, k) => (k === j ? e.target.value : x)) })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setBlock(i, { ...block, items: [...block.items.slice(0, j + 1), "", ...block.items.slice(j + 1)] }); } }} placeholder="List item" className="w-full border-b border-slate-100 bg-transparent py-1 text-[16px] outline-none" /><button type="button" onClick={() => setBlock(i, { ...block, items: block.items.filter((_, k) => k !== j) })} aria-label="Remove item" className="text-slate-300 hover:text-red-500"><X size={15} /></button></div>)}
-                <button type="button" onClick={() => setBlock(i, { ...block, items: [...block.items, ""] })} className="w-fit text-sm font-semibold text-[#C96100]">+ Add item</button>
+                {block.items.map((item, j) => <div key={j} className="flex items-center gap-2"><span className="text-brand">✓</span><input value={item} onChange={(e) => setBlock(i, { ...block, items: block.items.map((x, k) => (k === j ? e.target.value : x)) })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setBlock(i, { ...block, items: [...block.items.slice(0, j + 1), "", ...block.items.slice(j + 1)] }); } }} placeholder="List item" className="w-full border-b border-slate-100 bg-transparent py-1 text-[16px] outline-none" /><button type="button" onClick={() => setBlock(i, { ...block, items: block.items.filter((_, k) => k !== j) })} aria-label="Remove item" className="text-slate-300 hover:text-red-500"><X size={15} /></button></div>)}
+                <button type="button" onClick={() => setBlock(i, { ...block, items: [...block.items, ""] })} className="w-fit text-sm font-semibold text-brand-darker">+ Add item</button>
               </div>}
               {block.type === "image" && <ImageBlock block={block} onChange={(b) => setBlock(i, b)} />}
               {block.type === "faq" && <div className="grid gap-3">
                 {block.items.map((f, j) => <div key={j} className="rounded-xl border border-slate-200 p-3">
-                  <div className="flex items-center gap-2"><span className="text-sm font-bold text-[#C96100]">Q</span><input value={f.q} onChange={(e) => setBlock(i, { ...block, items: block.items.map((x, k) => (k === j ? { ...x, q: e.target.value } : x)) })} placeholder="Question travellers ask" className="w-full bg-transparent text-[16px] font-semibold outline-none" /><button type="button" onClick={() => setBlock(i, { ...block, items: block.items.filter((_, k) => k !== j) })} aria-label="Remove question" className="text-slate-300 hover:text-red-500"><X size={15} /></button></div>
+                  <div className="flex items-center gap-2"><span className="text-sm font-bold text-brand-darker">Q</span><input value={f.q} onChange={(e) => setBlock(i, { ...block, items: block.items.map((x, k) => (k === j ? { ...x, q: e.target.value } : x)) })} placeholder="Question travellers ask" className="w-full bg-transparent text-[16px] font-semibold outline-none" /><button type="button" onClick={() => setBlock(i, { ...block, items: block.items.filter((_, k) => k !== j) })} aria-label="Remove question" className="text-slate-300 hover:text-red-500"><X size={15} /></button></div>
                   <textarea rows={2} value={f.a} onChange={(e) => setBlock(i, { ...block, items: block.items.map((x, k) => (k === j ? { ...x, a: e.target.value } : x)) })} placeholder="Short, clear answer" className="mt-2 w-full resize-y bg-transparent text-[15px] leading-6 outline-none" />
                 </div>)}
-                <button type="button" onClick={() => setBlock(i, { ...block, items: [...block.items, { q: "", a: "" }] })} className="w-fit text-sm font-semibold text-[#C96100]">+ Add question</button>
+                <button type="button" onClick={() => setBlock(i, { ...block, items: [...block.items, { q: "", a: "" }] })} className="w-fit text-sm font-semibold text-brand-darker">+ Add question</button>
               </div>}
               {block.type === "booking" && <div className="rounded-xl border border-[#FFD8AE] bg-[#FFF6EB] p-4 text-sm text-[#8A4B00]">{post.route?.pickup ? <>Booking card for <strong>{post.route.label || `${post.route.pickup} → ${post.route.dropoff}`}</strong> with a “See prices” button.</> : <>Set the route in <strong>Booking card</strong> on the right to show this card.</>}</div>}
             </div>
@@ -191,18 +191,18 @@ export function PostEditor({ initial, knownCategories }: { initial: EditorPost; 
       {/* Sidebar */}
       <aside className="h-fit overflow-hidden rounded-3xl bg-white shadow-sm lg:sticky lg:top-[150px]">
         <Panel title="Publish">
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={schedule} onChange={(e) => { setSchedule(e.target.checked); if (!e.target.checked) set("publishedAt", null); }} className="size-4 accent-[#FF8A05]" />Schedule for later</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={schedule} onChange={(e) => { setSchedule(e.target.checked); if (!e.target.checked) set("publishedAt", null); }} className="size-4 accent-brand" />Schedule for later</label>
           {schedule ? <input type="datetime-local" value={toLocal(post.publishedAt)} onChange={(e) => set("publishedAt", fromLocal(e.target.value))} className={`${input} mt-2`} /> : <p className="mt-2 text-sm text-slate-500">{published && post.publishedAt ? `Published ${new Date(post.publishedAt).toLocaleString("en-GB", { timeZone: "Asia/Bangkok", dateStyle: "medium", timeStyle: "short" })}` : "Publishes immediately."}</p>}
           <label className="mt-3 block text-sm font-semibold">Author<input value={post.author} onChange={(e) => set("author", e.target.value)} className={`${input} mt-1`} /></label>
           {published && <button disabled={busy} onClick={() => save("draft")} className="mt-3 text-sm font-semibold text-slate-600 underline">Switch to draft</button>}
         </Panel>
         <Panel title="Categories">
-          <div className="grid gap-2">{categories.map((c) => <label key={c} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={post.categories.includes(c)} onChange={(e) => set("categories", e.target.checked ? [...post.categories, c] : post.categories.filter((x) => x !== c))} className="size-4 accent-[#FF8A05]" />{categoryLabel(c)}</label>)}</div>
+          <div className="grid gap-2">{categories.map((c) => <label key={c} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={post.categories.includes(c)} onChange={(e) => set("categories", e.target.checked ? [...post.categories, c] : post.categories.filter((x) => x !== c))} className="size-4 accent-brand" />{categoryLabel(c)}</label>)}</div>
           <div className="mt-3 flex gap-2"><input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="New category" className={input} /><button type="button" onClick={() => { const c = newCategory.trim(); if (!c) return; setCategories((all) => all.includes(c) ? all : [...all, c]); set("categories", post.categories.includes(c) ? post.categories : [...post.categories, c]); setNewCategory(""); }} className="shrink-0 rounded-xl bg-slate-100 px-3 text-sm font-bold">Add</button></div>
         </Panel>
         <Panel title="Featured image">
-          {post.featuredImage ? <div><img src={post.featuredImage} alt="" className="aspect-video w-full rounded-xl object-cover" /><div className="mt-2 flex gap-3 text-sm font-semibold"><button onClick={() => featuredInput.current?.click()} className="text-[#C96100]">Replace</button><button onClick={() => set("featuredImage", null)} className="text-red-600">Remove</button></div></div>
-            : <button type="button" onClick={() => featuredInput.current?.click()} className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-500 hover:border-[#FF8A05] hover:text-[#C96100]"><Upload size={20} />Set featured image</button>}
+          {post.featuredImage ? <div><img src={post.featuredImage} alt="" className="aspect-video w-full rounded-xl object-cover" /><div className="mt-2 flex gap-3 text-sm font-semibold"><button onClick={() => featuredInput.current?.click()} className="text-brand-darker">Replace</button><button onClick={() => set("featuredImage", null)} className="text-red-600">Remove</button></div></div>
+            : <button type="button" onClick={() => featuredInput.current?.click()} className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-500 hover:border-brand hover:text-brand-darker"><Upload size={20} />Set featured image</button>}
           <input ref={featuredInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (!file) return; try { set("featuredImage", await uploadImage(file)); } catch (err) { setMessage({ tone: "error", text: (err as Error).message }); } }} />
           <p className="mt-2 text-xs text-slate-500">Shown on the right half of the cover. JPG, PNG or WebP, up to 5 MB.</p>
         </Panel>
@@ -210,7 +210,7 @@ export function PostEditor({ initial, knownCategories }: { initial: EditorPost; 
           <BlogCover post={previewPost} size="medium" />
           <label className="mt-3 block text-sm font-semibold">Cover headline<textarea rows={2} value={post.cover.headline} onChange={(e) => set("cover", { ...post.cover, headline: e.target.value })} placeholder="Short and bold, e.g. BKK → Pattaya the easy way" className={`${input} mt-1 resize-none`} /></label>
           <p className="mt-3 text-sm font-semibold">Colour</p>
-          <div className="mt-1 flex gap-2">{COVER_TONES.map((tone) => <button key={tone} type="button" onClick={() => set("cover", { ...post.cover, tone })} aria-label={tone} aria-pressed={post.cover.tone === tone} className={`size-9 rounded-full ${TONE_SWATCH[tone]} ${post.cover.tone === tone ? "ring-2 ring-offset-2 ring-[#1C1C1C]" : ""}`} />)}</div>
+          <div className="mt-1 flex gap-2">{COVER_TONES.map((tone) => <button key={tone} type="button" onClick={() => set("cover", { ...post.cover, tone })} aria-label={tone} aria-pressed={post.cover.tone === tone} className={`size-9 rounded-full ${TONE_SWATCH[tone]} ${post.cover.tone === tone ? "ring-2 ring-offset-2 ring-charcoal" : ""}`} />)}</div>
         </Panel>
         <Panel title="Excerpt" open={false}>
           <textarea rows={3} value={post.excerpt} onChange={(e) => set("excerpt", e.target.value)} maxLength={400} placeholder="One or two sentences shown in lists and search results" className={`${input} resize-none`} />
@@ -227,7 +227,7 @@ export function PostEditor({ initial, knownCategories }: { initial: EditorPost; 
           </div>
         </Panel>
         <Panel title="Blog homepage" open={false}>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={post.featured} onChange={(e) => set("featured", e.target.checked)} className="size-4 accent-[#FF8A05]" />Show in “Featured articles”</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={post.featured} onChange={(e) => set("featured", e.target.checked)} className="size-4 accent-brand" />Show in “Featured articles”</label>
           <label className="mt-3 block text-sm font-semibold">Position in “Popular articles”<select value={post.popularRank ?? ""} onChange={(e) => set("popularRank", e.target.value ? Number(e.target.value) : null)} className={`${input} mt-1`}><option value="">Not listed</option>{Array.from({ length: 10 }, (_, i) => <option key={i} value={i + 1}>#{i + 1}</option>)}</select></label>
         </Panel>
         <SeoPanel post={post} slug={slug} onKeyword={(focusKeyword) => set("cover", { ...post.cover, focusKeyword })} />
@@ -246,13 +246,13 @@ function ImageBlock({ block, onChange }: { block: Extract<BlogBlock, { type: "im
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   return <div>
-    {block.src ? <img src={block.src} alt={block.alt} className="w-full rounded-xl object-cover" /> : <button type="button" disabled={busy} onClick={() => ref.current?.click()} className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-500 hover:border-[#FF8A05]"><Upload size={20} />{busy ? "Uploading…" : "Upload image"}</button>}
+    {block.src ? <img src={block.src} alt={block.alt} className="w-full rounded-xl object-cover" /> : <button type="button" disabled={busy} onClick={() => ref.current?.click()} className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-500 hover:border-brand"><Upload size={20} />{busy ? "Uploading…" : "Upload image"}</button>}
     <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (!file) return; setBusy(true); setError(""); try { onChange({ ...block, src: await uploadImage(file) }); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } }} />
     {error && <p className="mt-1 text-sm font-semibold text-red-600">{error}</p>}
     <div className="mt-2 grid gap-2 sm:grid-cols-2">
-      <input value={block.alt} onChange={(e) => onChange({ ...block, alt: e.target.value })} placeholder="Alt text (describe the photo)" className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#FF8A05]" />
-      <input value={block.caption ?? ""} onChange={(e) => onChange({ ...block, caption: e.target.value })} placeholder="Caption (optional)" className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#FF8A05]" />
+      <input value={block.alt} onChange={(e) => onChange({ ...block, alt: e.target.value })} placeholder="Alt text (describe the photo)" className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand" />
+      <input value={block.caption ?? ""} onChange={(e) => onChange({ ...block, caption: e.target.value })} placeholder="Caption (optional)" className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand" />
     </div>
-    {block.src && <button type="button" onClick={() => ref.current?.click()} className="mt-2 text-sm font-semibold text-[#C96100]">Replace image</button>}
+    {block.src && <button type="button" onClick={() => ref.current?.click()} className="mt-2 text-sm font-semibold text-brand-darker">Replace image</button>}
   </div>;
 }

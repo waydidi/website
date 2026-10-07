@@ -28,10 +28,10 @@ export function GiftsTable({ rows }: { rows: GiftRow[] }) {
   return <>
     <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
       <div role="tablist" aria-label="Filter" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
-        {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`h-9 rounded-lg px-4 text-[15px] ${tab === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}>{label}</button>)}
+        {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`h-9 rounded-lg px-4 text-[15px] ${tab === id ? "bg-white font-medium text-night shadow-sm" : "text-slate-600 hover:text-night"}`}>{label}</button>)}
       </div>
       <div className="flex items-center gap-2">
-        {searchOpen && <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Member, gift or booking" aria-label="Search gifts" className="h-10 w-56 rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-[#FF8A05]" />}
+        {searchOpen && <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Member, gift or booking" aria-label="Search gifts" className="h-10 w-56 rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-brand" />}
         <button type="button" onClick={() => { setSearchOpen((v) => !v); if (searchOpen) setQuery(""); }} aria-label={searchOpen ? "Close search" : "Search"} className={iconBtn}>{searchOpen ? <X size={17} /> : <Search size={17} />}</button>
         <button type="button" onClick={() => setOldest((v) => !v)} aria-label={oldest ? "Sort: oldest first" : "Sort: newest first"} title={oldest ? "Oldest first" : "Newest first"} className={iconBtn}><ArrowUpDown size={17} /></button>
       </div>
@@ -42,7 +42,7 @@ export function GiftsTable({ rows }: { rows: GiftRow[] }) {
         <tbody>
           {shown.length === 0 && <tr><td colSpan={7} className="px-5 py-14 text-center text-slate-500">{rows.length ? "No gifts match." : "No gifts issued yet."}</td></tr>}
           {shown.map((r) => <tr key={r.id} className="border-t border-slate-100">
-            <td className="h-[72px] px-5 font-medium text-[#15161C]">{r.member}</td>
+            <td className="h-[72px] px-5 font-medium text-night">{r.member}</td>
             <td className="px-5">{r.gift}</td>
             <td className="px-5">{r.badge}</td>
             <td className="whitespace-nowrap px-5">{day(r.issuedAt)}</td>

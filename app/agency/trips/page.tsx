@@ -9,5 +9,5 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   const { blocked } = await requireAgencyPage("/agency/trips");
   if (blocked) return blocked;
   const { view } = await searchParams;
-  return <div className="min-h-screen bg-[#F5F6F8]"><TripsList mode="agency" view={view === "templates" ? "templates" : "trips"} /></div>;
+  return <div className="min-h-screen bg-canvas"><TripsList mode="agency" view={view === "templates" ? "templates" : "trips"} /></div>;
 }

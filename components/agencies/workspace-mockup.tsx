@@ -13,7 +13,7 @@ function Frame({ active, children }: { active: string; children: React.ReactNode
       <span className="flex gap-1"><i className="size-2 rounded-full bg-[#FF5F57]" /><i className="size-2 rounded-full bg-[#FEBC2E]" /><i className="size-2 rounded-full bg-[#28C840]" /></span>
       <span className="mx-auto rounded bg-white px-8 py-0.5 text-[7px] text-[#999]">{new URL(SITE_URL).host}/agency</span>
     </div>
-    <div className="flex items-center justify-between bg-black px-3 py-1.5 text-[8px] font-bold text-white"><span className="text-[#FF8A05]">Waydidi</span><span className="rounded bg-white px-1.5 py-0.5 text-[6px] text-black">Siam Travel Co.</span></div>
+    <div className="flex items-center justify-between bg-black px-3 py-1.5 text-[8px] font-bold text-white"><span className="text-brand">Waydidi</span><span className="rounded bg-white px-1.5 py-0.5 text-[6px] text-black">Siam Travel Co.</span></div>
     <div className="flex min-h-[210px] sm:min-h-[300px]">
       <div className="flex w-[22%] shrink-0 flex-col gap-1 border-r border-[#EEE] p-2">
         <p className="mb-1 rounded bg-[#F4F4F4] p-1 text-[6px] font-bold">Siam Travel Co.<span className="block font-normal text-[#999]">Travel agency · partner rate</span></p>

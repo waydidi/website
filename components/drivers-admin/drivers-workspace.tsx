@@ -88,7 +88,7 @@ export function DriversWorkspace({ data, initialTab }: { data: DriverManagement;
     {/* Actions */}
     <div className="-mt-[52px] mb-6 flex justify-end gap-2">
       <button type="button" onClick={exportCsv} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-[15px] text-slate-800 hover:bg-slate-50"><Download size={16} />Export</button>
-      <button type="button" onClick={() => setAdding(true)} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]"><Plus size={17} strokeWidth={2.5} />Add driver</button>
+      <button type="button" onClick={() => setAdding(true)} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-brand px-4 text-[15px] font-semibold text-white hover:bg-brand-strong"><Plus size={17} strokeWidth={2.5} />Add driver</button>
     </div>
 
     {/* Numbers */}
@@ -102,12 +102,12 @@ export function DriversWorkspace({ data, initialTab }: { data: DriverManagement;
     {/* Tabs + tools */}
     <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
       <div role="tablist" aria-label="Filter" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
-        {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`h-9 rounded-lg px-4 text-[15px] ${tab === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}>
+        {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`h-9 rounded-lg px-4 text-[15px] ${tab === id ? "bg-white font-medium text-night shadow-sm" : "text-slate-600 hover:text-night"}`}>
           {label}{id === "applications" && stats.toReview > 0 && <span className="ml-1.5 rounded-full bg-orange-100 px-1.5 text-[12px] font-semibold text-orange-700">{stats.toReview}</span>}
         </button>)}
       </div>
       <div className="flex items-center gap-2">
-        {searchOpen && <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, phone, email, area" aria-label="Search drivers" className="h-10 w-56 rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-[#FF8A05]" />}
+        {searchOpen && <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, phone, email, area" aria-label="Search drivers" className="h-10 w-56 rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-brand" />}
         <button type="button" onClick={() => { setSearchOpen((v) => !v); if (searchOpen) setQuery(""); }} aria-label={searchOpen ? "Close search" : "Search"} className={iconBtn}>{searchOpen ? <X size={17} /> : <Search size={17} />}</button>
         <button type="button" onClick={() => setSort((s) => (s + 1) % SORTS.length)} aria-label={`Sort: ${SORTS[sort][1]}`} title={`Sort: ${SORTS[sort][1]}`} className={iconBtn}><ArrowUpDown size={17} /></button>
       </div>
@@ -126,8 +126,8 @@ export function DriversWorkspace({ data, initialTab }: { data: DriverManagement;
             <td className="h-[72px] px-5"><div className="flex items-center gap-3">{r.kind === "driver" && (r.hasPhoto
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={`/api/admin/driver-images/${r.id}/profile`} alt="" loading="lazy" className="size-10 shrink-0 rounded-full object-cover" />
-              : <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[13px] font-bold text-[#C96100]" aria-hidden="true">{r.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}</span>)}
-              <div className="min-w-0"><p className="font-medium text-[#15161C]">{r.name}</p>{r.email && <p className="text-[13px] text-slate-500">{r.email}</p>}</div></div></td>
+              : <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-tint text-[13px] font-bold text-brand-darker" aria-hidden="true">{r.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}</span>)}
+              <div className="min-w-0"><p className="font-medium text-night">{r.name}</p>{r.email && <p className="text-[13px] text-slate-500">{r.email}</p>}</div></div></td>
             <td className="px-5 whitespace-nowrap">{day(r.joined)}</td>
             <td className="px-5 whitespace-nowrap tabular-nums">{r.phone}</td>
             <td className="px-5">{r.area || "N/A"}</td>
@@ -138,12 +138,12 @@ export function DriversWorkspace({ data, initialTab }: { data: DriverManagement;
             <td className="px-5">
               {r.kind === "driver"
                 ? <div className="flex items-center gap-3 text-slate-500">
-                    <a href={`/api/admin/driver-images/${r.id}/identity`} target="_blank" rel="noreferrer" aria-label={`ID card of ${r.name}`} title="ID card" className={r.hasId ? "hover:text-[#C96100]" : "pointer-events-none opacity-30"}><IdCard size={19} /></a>
-                    <a href={`/api/admin/driver-images/${r.id}/vehicle`} target="_blank" rel="noreferrer" aria-label={`Car photo of ${r.name}`} title="Car photo" className={r.hasCar ? "hover:text-[#C96100]" : "pointer-events-none opacity-30"}><Car size={19} /></a>
+                    <a href={`/api/admin/driver-images/${r.id}/identity`} target="_blank" rel="noreferrer" aria-label={`ID card of ${r.name}`} title="ID card" className={r.hasId ? "hover:text-brand-darker" : "pointer-events-none opacity-30"}><IdCard size={19} /></a>
+                    <a href={`/api/admin/driver-images/${r.id}/vehicle`} target="_blank" rel="noreferrer" aria-label={`Car photo of ${r.name}`} title="Car photo" className={r.hasCar ? "hover:text-brand-darker" : "pointer-events-none opacity-30"}><Car size={19} /></a>
                     <DriverProfileButton driverId={r.id} driverName={r.name} vehicleType={r.vehicleType} onSaved={() => router.refresh()} />
                     <DriverDeleteButton driverId={r.id} driverName={r.name} onDeleted={() => router.refresh()} />
                   </div>
-                : <button type="button" onClick={() => setViewing(r)} aria-label={`Review ${r.name}`} title="Review application" className="text-slate-500 hover:text-[#C96100]"><Eye size={19} /></button>}
+                : <button type="button" onClick={() => setViewing(r)} aria-label={`Review ${r.name}`} title="Review application" className="text-slate-500 hover:text-brand-darker"><Eye size={19} /></button>}
             </td>
           </tr>)}
         </tbody>
@@ -160,7 +160,7 @@ export function DriversWorkspace({ data, initialTab }: { data: DriverManagement;
 
     {/* Application details */}
     <Dialog open={viewing != null} onOpenChange={(o) => { if (!o) setViewing(null); }}>
-      <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-[#15161C] sm:max-w-xl">
+      <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-night sm:max-w-xl">
         <DialogHeader className="flex-row items-center justify-between gap-3 text-left">
           <div className="min-w-0"><DialogTitle className="truncate text-[24px] font-semibold">{viewing?.name}</DialogTitle><DialogDescription>{viewing && `${viewing.applicantType === "fleet" ? "Fleet owner" : "Individual driver"} · applied ${day(viewing.joined)}`}</DialogDescription></div>
           <button type="button" onClick={() => setViewing(null)} aria-label="Close" className="grid size-11 shrink-0 place-items-center rounded-full bg-slate-100 hover:bg-orange-50"><X size={22} /></button>
@@ -174,8 +174,8 @@ export function DriversWorkspace({ data, initialTab }: { data: DriverManagement;
           <div className="flex flex-wrap items-center gap-2"><span className="text-[13px] text-slate-500">Status</span><Pill status={viewing.status} /></div>
           <div className="flex flex-wrap gap-2">
             {(["reviewed", "approved", "declined"] as const).filter((s) => s !== viewing.status).map((s) =>
-              <button key={s} type="button" disabled={busy} onClick={() => setStatus(viewing, s)} className="h-10 rounded-full border border-slate-200 px-4 font-medium hover:border-[#FF8A05] disabled:opacity-50">Mark {PILL[s][0].toLowerCase()}</button>)}
-            {viewing.status === "approved" && <button type="button" onClick={() => { setViewing(null); setAdding(true); }} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 font-semibold text-white"><Plus size={16} />Add as driver</button>}
+              <button key={s} type="button" disabled={busy} onClick={() => setStatus(viewing, s)} className="h-10 rounded-full border border-slate-200 px-4 font-medium hover:border-brand disabled:opacity-50">Mark {PILL[s][0].toLowerCase()}</button>)}
+            {viewing.status === "approved" && <button type="button" onClick={() => { setViewing(null); setAdding(true); }} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-brand px-4 font-semibold text-white"><Plus size={16} />Add as driver</button>}
           </div>
         </div>}
       </DialogContent>

@@ -83,7 +83,7 @@ export function PrivacyChoices() {
                   <ChevronRight size={16} className={`text-slate-300 transition ${expanded === c.id ? "rotate-90" : ""}`} aria-hidden="true" />{c.title}
                 </button>
                 {c.always && <span className="font-semibold text-[#008000]">Always Active</span>}
-                {c.toggle && <button type="button" role="switch" aria-checked={choices[c.toggle]} aria-label={c.title} onClick={() => setChoices({ ...choices, [c.toggle!]: !choices[c.toggle!] })} className={`relative h-6 w-11 shrink-0 rounded-full transition ${choices[c.toggle] ? "bg-[#FF8A05]" : "bg-[#D0D5D2]"}`}>
+                {c.toggle && <button type="button" role="switch" aria-checked={choices[c.toggle]} aria-label={c.title} onClick={() => setChoices({ ...choices, [c.toggle!]: !choices[c.toggle!] })} className={`relative h-6 w-11 shrink-0 rounded-full transition ${choices[c.toggle] ? "bg-brand" : "bg-[#D0D5D2]"}`}>
                   <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${choices[c.toggle] ? "left-[22px]" : "left-0.5"}`} />
                 </button>}
               </div>

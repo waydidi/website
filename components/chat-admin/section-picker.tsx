@@ -22,12 +22,12 @@ export function ChatSectionPicker() {
   const current = CHAT_SECTIONS.find(([k]) => k === tab) ?? CHAT_SECTIONS[0];
   return <div ref={ref} className="relative">
     <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} aria-label={`Chat section: ${current[1]}`}
-      className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FFF0DF] px-4 text-[14px] font-semibold text-[#C96100] hover:bg-[#FFE6CC]">
+      className="inline-flex h-10 items-center gap-1.5 rounded-full bg-brand-tint px-4 text-[14px] font-semibold text-brand-darker hover:bg-[#FFE6CC]">
       {current[1]}<ChevronDown size={16} className={`transition ${open ? "rotate-180" : ""}`} />
     </button>
     {open && <nav role="menu" aria-label="Chat sections" className="absolute left-0 top-[calc(100%+6px)] z-40 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1.5 shadow-lg">
       {CHAT_SECTIONS.map(([k, l]) => <Link key={k} role="menuitem" href={k ? `/admin/chat?tab=${k}` : "/admin/chat"} onClick={() => setOpen(false)} aria-current={k === current[0] ? "page" : undefined}
-        className={`flex items-center justify-between px-4 py-2.5 text-[14px] ${k === current[0] ? "font-semibold text-[#C96100]" : "text-slate-700 hover:bg-slate-50"}`}>{l}{k === current[0] && <Check size={16} />}</Link>)}
+        className={`flex items-center justify-between px-4 py-2.5 text-[14px] ${k === current[0] ? "font-semibold text-brand-darker" : "text-slate-700 hover:bg-slate-50"}`}>{l}{k === current[0] && <Check size={16} />}</Link>)}
     </nav>}
   </div>;
 }

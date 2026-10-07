@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function StorefrontPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const store = await storefrontBySlug(slug);
-  if (!store) return <main className="grid min-h-dvh place-items-center bg-[#FF8A05] px-6 text-center text-white">
+  if (!store) return <main className="grid min-h-dvh place-items-center bg-brand px-6 text-center text-white">
     <div><Image src="/waydidi-logo.png" alt="Waydidi" width={180} height={68} className="mx-auto mb-8 h-auto w-40" />
       <h1 className="text-[28px] font-bold">This QR code isn&apos;t active</h1>
       <p className="mt-3 text-[17px] text-white/90">You can still <Link href="/" className="underline">book on Waydidi</Link>.</p></div>

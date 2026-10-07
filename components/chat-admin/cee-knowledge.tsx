@@ -78,7 +78,7 @@ export function CeeKnowledge() {
       </div>
       <fieldset className="rounded-2xl border border-slate-200 bg-white p-5 text-[14px]" disabled={!data.owner || busy}>
         <legend className="px-1 text-[13px] font-semibold text-slate-500">AI model{data.owner ? "" : " (owner only)"}</legend>
-        {MODES.map(([k, l, d]) => <label key={k} className="mt-2 flex gap-2"><input type="radio" name="cee-mode" checked={data.cee.mode === k} onChange={() => void post({ action: "mode", mode: k }, "Model updated.")} className="mt-1 accent-[#FE8B05]" /><span><b>{l}</b><br /><span className="text-[12.5px] text-slate-500">{d}</span></span></label>)}
+        {MODES.map(([k, l, d]) => <label key={k} className="mt-2 flex gap-2"><input type="radio" name="cee-mode" checked={data.cee.mode === k} onChange={() => void post({ action: "mode", mode: k }, "Model updated.")} className="mt-1 accent-brand" /><span><b>{l}</b><br /><span className="text-[12.5px] text-slate-500">{d}</span></span></label>)}
       </fieldset>
     </section>
 
@@ -102,7 +102,7 @@ export function CeeKnowledge() {
             <p className="mt-1.5 line-clamp-4 whitespace-pre-wrap text-slate-700">{n.body}</p>
             <div className="mt-2 flex flex-wrap gap-4 text-[12.5px] text-slate-500">
               <span>{n.source === "chat" ? "From a chat" : n.source === "markdown" ? "Imported" : "Added"}{n.created_by ? ` by ${n.created_by}` : ""} · {new Date(n.updated_at).toLocaleDateString()}</span>
-              <button type="button" onClick={() => setForm({ id: n.id, title: n.title, kind: n.kind, city: n.city ?? "", body: n.body, active: Boolean(n.active) })} className="font-semibold text-[#C96100]">Edit</button>
+              <button type="button" onClick={() => setForm({ id: n.id, title: n.title, kind: n.kind, city: n.city ?? "", body: n.body, active: Boolean(n.active) })} className="font-semibold text-brand-darker">Edit</button>
               {!n.active && <button type="button" disabled={busy} onClick={() => void post({ action: "save", id: n.id, title: n.title, kind: n.kind, city: n.city, body: n.body, active: true }, "Note is live.")} className="font-semibold text-emerald-700">Make live</button>}
               <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Delete “${n.title}”?`)) void post({ action: "delete", id: n.id }, "Deleted."); }} className="font-semibold text-red-700">Delete</button>
             </div>
@@ -119,8 +119,8 @@ export function CeeKnowledge() {
             <label className="grid gap-1 font-semibold">City (optional)<input maxLength={60} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="bangkok" className={input} /></label>
           </div>
           <label className="grid gap-1 font-semibold">What Non should know<textarea required maxLength={4000} rows={6} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Child and baby seats: ฿300 each. Ask the age and weight. Add them on the booking page under Extras." className="rounded-lg border border-slate-200 p-3 font-normal" /></label>
-          <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="accent-[#FE8B05]" />Live (Non uses it)</label>
-          <div className="flex gap-2"><button disabled={busy} className="h-10 flex-1 rounded-full bg-[#FE8B05] font-bold text-white">{form.id ? "Save changes" : "Add note"}</button>{form.id && <button type="button" onClick={() => setForm(EMPTY)} className="h-10 rounded-full border border-slate-200 px-4 font-semibold">Cancel</button>}</div>
+          <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="accent-brand" />Live (Non uses it)</label>
+          <div className="flex gap-2"><button disabled={busy} className="h-10 flex-1 rounded-full bg-brand font-bold text-white">{form.id ? "Save changes" : "Add note"}</button>{form.id && <button type="button" onClick={() => setForm(EMPTY)} className="h-10 rounded-full border border-slate-200 px-4 font-semibold">Cancel</button>}</div>
         </form>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 text-[13px]">
           <h3 className="text-[15px] font-bold">Import from Obsidian / Markdown</h3>

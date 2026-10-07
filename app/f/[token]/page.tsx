@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Your ride details | Waydidi", robots
 export const dynamic = "force-dynamic";
 
 function Notice({ title, text }: { title: string; text: string }) {
-  return <main className="grid min-h-dvh place-items-center bg-[#FF8A05] px-6 text-white">
+  return <main className="grid min-h-dvh place-items-center bg-brand px-6 text-white">
     <div className="max-w-md text-center">
       <Image src="/waydidi-logo.png" alt="Waydidi" width={180} height={68} className="mx-auto mb-8 h-auto w-40" />
       <h1 className="text-[30px] font-bold leading-tight">{title}</h1>

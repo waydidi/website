@@ -8,7 +8,7 @@ type Ticket = { id: string; member: string; tier: string; prizeName: string | nu
 
 const KINDS: [PrizeKind, string][] = [["coupon", "THB off coupon"], ["child_seat", "Free child seat"], ["exchange_stop", "Free exchange stop"], ["airport_transfer", "Free airport transfer"], ["partner_ticket", "Partner ticket (cruise, buffet…)"]];
 const TIER_LABEL = { gold: "Gold", diamond: "Diamond", platinum: "Platinum" } as const;
-const input = "w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-[#FF8A05]";
+const input = "w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-brand";
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—");
 const blank: Prize = { id: "", name: "", description: "", emoji: "🎁", kind: "coupon", value: 200, weights: {}, stock: null, issued: 0, active: true, validDays: 90, terms: "" };
 
@@ -43,7 +43,7 @@ function PrizeForm({ prize, isNew, onDone }: { prize: Prize; isNew: boolean; onD
     <label className="text-xs font-semibold">Valid for (days)<input type="number" min={1} className={input} value={p.validDays} onChange={(e) => set("validDays", Number(e.target.value))} /></label>
     <label className="text-xs font-semibold sm:col-span-2">Terms<input className={input} value={p.terms} onChange={(e) => set("terms", e.target.value)} placeholder="Subject to availability. Book 3 days ahead." /></label>
     <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={p.active} onChange={(e) => set("active", e.target.checked)} />Active</label>
-    <div className="flex items-center justify-end gap-2">{error && <span className="text-xs font-semibold text-red-600">{error}</span>}<button type="button" onClick={onDone} className="rounded-full px-3 py-1.5 text-sm font-bold text-slate-600">Cancel</button><button type="button" disabled={busy} onClick={save} className="rounded-full bg-[#FF8A05] px-4 py-1.5 text-sm font-bold text-white">{busy ? "Saving…" : "Save prize"}</button></div>
+    <div className="flex items-center justify-end gap-2">{error && <span className="text-xs font-semibold text-red-600">{error}</span>}<button type="button" onClick={onDone} className="rounded-full px-3 py-1.5 text-sm font-bold text-slate-600">Cancel</button><button type="button" disabled={busy} onClick={save} className="rounded-full bg-brand px-4 py-1.5 text-sm font-bold text-white">{busy ? "Saving…" : "Save prize"}</button></div>
   </div>;
 }
 
@@ -62,8 +62,8 @@ export function RewardsAdmin({ prizes, codeCounts, tickets }: { prizes: Prize[];
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h2 className="text-lg font-black">Mystery box prizes</h2><p className="text-sm text-slate-600">Each badge&apos;s box draws one prize using these weights. Sold-out prizes drop out automatically.</p></div>
         <div className="flex gap-2">
-          {prizes.length === 0 && <button type="button" onClick={() => run({ action: "loadDefaults" }, "Added {n} suggested prizes.")} className="rounded-full border border-[#FF8A05] px-4 py-2 text-sm font-bold text-[#C96100]">Load suggested prizes</button>}
-          <button type="button" onClick={() => setEditing("new")} className="rounded-full bg-[#FF8A05] px-4 py-2 text-sm font-bold text-white">+ Add prize</button>
+          {prizes.length === 0 && <button type="button" onClick={() => run({ action: "loadDefaults" }, "Added {n} suggested prizes.")} className="rounded-full border border-brand px-4 py-2 text-sm font-bold text-brand-darker">Load suggested prizes</button>}
+          <button type="button" onClick={() => setEditing("new")} className="rounded-full bg-brand px-4 py-2 text-sm font-bold text-white">+ Add prize</button>
         </div>
       </div>
       {message && <p className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{message}</p>}
@@ -76,7 +76,7 @@ export function RewardsAdmin({ prizes, codeCounts, tickets }: { prizes: Prize[];
             <td className="p-3"><p className="font-semibold">{p.emoji} {p.name}{!p.active && " (off)"}</p><p className="text-xs text-slate-500">{KINDS.find(([k]) => k === p.kind)?.[1]}{p.kind === "partner_ticket" && ` · codes left: ${codeCounts[p.id]?.left ?? 0}`}</p></td>
             {BOX_TIERS.map((t) => <td key={t} className="p-3">{odds[t].get(p.id) ? `${odds[t].get(p.id)}%` : "—"}</td>)}
             <td className="p-3">{p.issued} / {p.stock ?? "∞"}</td>
-            <td className="p-3 text-right"><button type="button" onClick={() => setEditing(p.id)} className="font-bold text-[#C96100]">Edit</button>{p.kind === "partner_ticket" && <button type="button" onClick={() => setCodesFor(p.id)} className="ml-3 font-bold text-[#C96100]">Add codes</button>}</td>
+            <td className="p-3 text-right"><button type="button" onClick={() => setEditing(p.id)} className="font-bold text-brand-darker">Edit</button>{p.kind === "partner_ticket" && <button type="button" onClick={() => setCodesFor(p.id)} className="ml-3 font-bold text-brand-darker">Add codes</button>}</td>
           </>}
         </tr>)}</tbody>
       </table></div>
@@ -84,7 +84,7 @@ export function RewardsAdmin({ prizes, codeCounts, tickets }: { prizes: Prize[];
         <p className="text-sm font-bold">Voucher codes for {prizes.find((p) => p.id === codesFor)?.name}</p>
         <p className="text-xs text-slate-500">One per line, from the partner. Each winner gets the next unused code; without codes, the ticket shows as &quot;To arrange&quot; below.</p>
         <textarea rows={5} className={`${input} mt-2 font-mono`} value={codes} onChange={(e) => setCodes(e.target.value)} />
-        <div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => setCodesFor(null)} className="rounded-full px-3 py-1.5 text-sm font-bold text-slate-600">Cancel</button><button type="button" onClick={() => run({ action: "addCodes", prizeId: codesFor, codes: codes.split(/\n+/).map((c) => c.trim()).filter(Boolean) }, "Added {n} codes.")} className="rounded-full bg-[#FF8A05] px-4 py-1.5 text-sm font-bold text-white">Add codes</button></div>
+        <div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => setCodesFor(null)} className="rounded-full px-3 py-1.5 text-sm font-bold text-slate-600">Cancel</button><button type="button" onClick={() => run({ action: "addCodes", prizeId: codesFor, codes: codes.split(/\n+/).map((c) => c.trim()).filter(Boolean) }, "Added {n} codes.")} className="rounded-full bg-brand px-4 py-1.5 text-sm font-bold text-white">Add codes</button></div>
       </div>}
     </section>
 

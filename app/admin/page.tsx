@@ -26,7 +26,7 @@ export default async function AdminOverviewPage() {
   if(access.user.role!=="owner" && access.user.role!=="operations") redirect(access.user.role==="finance"?"/admin/payments":access.user.role==="editor"?"/admin/blog":"/admin/chat");
   const o = await adminOverview();
 
-  return <main className="min-h-screen bg-[#F6F7F9] px-4 py-6 text-[#1f1726] sm:px-8">
+  return <main className="min-h-screen bg-[#F6F7F9] px-4 py-6 text-plum sm:px-8">
     <div className="mx-auto grid max-w-[1200px] gap-6">
 
 
@@ -47,7 +47,7 @@ export default async function AdminOverviewPage() {
 
       {/* Quick links */}
       <nav aria-label="Quick links" className="flex flex-wrap gap-2 pb-6">
-        {[["Bookings", "/admin/bookings"], ["Booking operations", "/admin/operations"], ["Fare management", "/admin/pricing"], ["Promotions", "/admin/promotions"], ["Giveaways", "/admin/gifts"], ["Blog", "/admin/blog"]].map(([l, h]) => <Link key={h} href={h} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[13px] font-bold hover:border-[#FF8A05]">{l}</Link>)}
+        {[["Bookings", "/admin/bookings"], ["Booking operations", "/admin/operations"], ["Fare management", "/admin/pricing"], ["Promotions", "/admin/promotions"], ["Giveaways", "/admin/gifts"], ["Blog", "/admin/blog"]].map(([l, h]) => <Link key={h} href={h} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[13px] font-bold hover:border-brand">{l}</Link>)}
       </nav>
     </div>
   </main>;

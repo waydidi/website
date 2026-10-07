@@ -109,6 +109,20 @@
      illustrations, so they sit on the card without a visible box. */
   --surface: #f3f3f3;
   --ink: #21140a;
+  /* Shared UI colours, so a colour change is a one-line edit here. */
+  --brand-strong: #e67900;
+  --brand-text: #d96f00;
+  --brand-darker: #c96100;
+  --brand-tint: #fff0df;
+  --brand-wash: #fff6ec;
+  --plum: #211726;
+  --charcoal: #1c1c1c;
+  --night: #15161c;
+  --grey-text: #6b6b6b;
+  --grey-soft: #8a8a8a;
+  --canvas: #f5f6f8;
+  --navy: #0f294d;
+  --line-green: #06c755;
 }
 
 @theme inline {
@@ -150,6 +164,19 @@
   --color-cream: var(--cream);
   --color-surface: var(--surface);
   --color-ink: var(--ink);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-text: var(--brand-text);
+  --color-brand-darker: var(--brand-darker);
+  --color-brand-tint: var(--brand-tint);
+  --color-brand-wash: var(--brand-wash);
+  --color-plum: var(--plum);
+  --color-charcoal: var(--charcoal);
+  --color-night: var(--night);
+  --color-grey-text: var(--grey-text);
+  --color-grey-soft: var(--grey-soft);
+  --color-canvas: var(--canvas);
+  --color-navy: var(--navy);
+  --color-line-green: var(--line-green);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

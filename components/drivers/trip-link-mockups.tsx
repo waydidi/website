@@ -22,7 +22,7 @@ export function TripLinkMockups() {
     <Phone className="absolute right-0 top-14">
       <div className="border-b border-[#EEE] px-3 py-2 text-center text-[10px] font-semibold">Trip status</div>
       <div className="grid gap-1.5 px-3 py-2.5 text-[9px]">
-        {[["On the way", true], ["Waiting at pickup", false], ["PIN verified", false], ["On trip", false], ["Arrived", false]].map(([label, done]) => <p key={String(label)} className={`rounded-lg px-2.5 py-2 font-semibold ${done ? "bg-[#FF8A05] text-white" : "bg-[#F2F3F7] text-[#555]"}`}>{done ? "✓ " : ""}{label}</p>)}
+        {[["On the way", true], ["Waiting at pickup", false], ["PIN verified", false], ["On trip", false], ["Arrived", false]].map(([label, done]) => <p key={String(label)} className={`rounded-lg px-2.5 py-2 font-semibold ${done ? "bg-brand text-white" : "bg-[#F2F3F7] text-[#555]"}`}>{done ? "✓ " : ""}{label}</p>)}
       </div>
     </Phone>
   </div>;

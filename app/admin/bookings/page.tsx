@@ -105,18 +105,18 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const pendingRefunds = activeRows.filter((row) => row.refundStatus === "awaiting_approval").length;
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-[#1f1726] sm:px-8">
+    <main className="min-h-screen bg-slate-50 px-4 py-8 text-plum sm:px-8">
       <div className="mx-auto max-w-[1500px]">
         <header className="flex flex-wrap items-end justify-between gap-5">
           <div>
             <Link
               href="/"
-              className="mb-6 inline-flex text-[#FF8A05]"
+              className="mb-6 inline-flex text-brand"
               aria-label="Waydidi home"
             >
               <WaydidiLogo className="h-[88px] w-auto" />
             </Link>
-            <p className="text-sm font-black uppercase tracking-[.16em] text-[#D96F00]">
+            <p className="text-sm font-black uppercase tracking-[.16em] text-brand-text">
               Waydidi operations
             </p>
             <h1 className="mt-2 text-4xl font-black tracking-[-.04em]">
@@ -156,7 +156,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           </Link>
           <Link
             href="/admin/bookings"
-            className="flex items-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-[#D96F00]"
+            className="flex items-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-brand-text"
           >
             <BookOpen size={17} />
             Bookings
@@ -181,14 +181,14 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
         {/* Transfer / By the hour, each with a list or calendar view. */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div role="tablist" aria-label="Service" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
-            {([["transfer", "Transfer"], ["hourly", "By the hour"], ["tour", "Tour"]] as const).map(([id, label]) => <Link key={id} role="tab" aria-selected={type === id} href={`/admin/bookings?type=${id}&mode=${mode}`} className={`h-9 rounded-lg px-4 text-[15px] leading-9 ${type === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}>{label}</Link>)}
+            {([["transfer", "Transfer"], ["hourly", "By the hour"], ["tour", "Tour"]] as const).map(([id, label]) => <Link key={id} role="tab" aria-selected={type === id} href={`/admin/bookings?type=${id}&mode=${mode}`} className={`h-9 rounded-lg px-4 text-[15px] leading-9 ${type === id ? "bg-white font-medium text-night shadow-sm" : "text-slate-600 hover:text-night"}`}>{label}</Link>)}
           </div>
           <div className="flex flex-wrap items-center gap-2">
           <div role="tablist" aria-label="View" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
-            {([["list", "List", List], ["calendar", "Calendar", CalendarDays], ["board", "Board", Columns3]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-[#15161C] shadow-sm" : "text-slate-600 hover:text-[#15161C]"}`}><Icon size={16} />{label}</Link>)}
+            {([["list", "List", List], ["calendar", "Calendar", CalendarDays], ["board", "Board", Columns3]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-night shadow-sm" : "text-slate-600 hover:text-night"}`}><Icon size={16} />{label}</Link>)}
           </div>
-          <Link href={view === "forms" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=forms`} aria-current={view === "forms" ? "page" : undefined} className={`flex h-11 items-center gap-1.5 rounded-xl px-4 text-[15px] font-semibold ${view === "forms" ? "bg-[#211726] text-white" : "bg-[#E8EAEE] text-slate-700 hover:text-slate-950"}`}><FileText size={16} aria-hidden="true" />Forms{formsReceived > 0 && <span className="rounded-full bg-[#D32F2F] px-2 text-[12px] text-white">{formsReceived}</span>}</Link>
-          <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} className={`flex h-11 items-center gap-1.5 rounded-xl px-4 text-[15px] font-semibold ${view === "bin" ? "bg-[#211726] text-white" : "bg-[#E8EAEE] text-slate-700 hover:text-slate-950"}`}><Trash2 size={16} aria-hidden="true" />Bin & restore{binRows.length > 0 && <span className={`rounded-full px-2 text-[12px] ${view === "bin" ? "bg-white/20" : "bg-white"}`}>{binRows.length}</span>}</Link>
+          <Link href={view === "forms" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=forms`} aria-current={view === "forms" ? "page" : undefined} className={`flex h-11 items-center gap-1.5 rounded-xl px-4 text-[15px] font-semibold ${view === "forms" ? "bg-plum text-white" : "bg-[#E8EAEE] text-slate-700 hover:text-slate-950"}`}><FileText size={16} aria-hidden="true" />Forms{formsReceived > 0 && <span className="rounded-full bg-[#D32F2F] px-2 text-[12px] text-white">{formsReceived}</span>}</Link>
+          <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} className={`flex h-11 items-center gap-1.5 rounded-xl px-4 text-[15px] font-semibold ${view === "bin" ? "bg-plum text-white" : "bg-[#E8EAEE] text-slate-700 hover:text-slate-950"}`}><Trash2 size={16} aria-hidden="true" />Bin & restore{binRows.length > 0 && <span className={`rounded-full px-2 text-[12px] ${view === "bin" ? "bg-white/20" : "bg-white"}`}>{binRows.length}</span>}</Link>
           </div>
         </div>
         {view === "forms" ? <FormsTable service={type} openForm={q.form} /> : mode !== "list" && view !== "bin" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> :
@@ -204,14 +204,14 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                   const cash = !paid && row.paymentMethod === "cash";
                   const tax = taxByBooking.get(row.reference);
                   return <tr key={row.reference} className="align-middle hover:bg-orange-50/40">
-                    <td className="px-4 py-4"><Link href={`/admin/journeys/${encodeURIComponent(row.reference)}`} className="font-semibold text-slate-900 hover:text-[#C96100]">{row.reference}</Link>{viaPartner.has(row.reference) && <span className="ml-1.5 rounded-full bg-violet-50 px-2 py-0.5 text-[11.5px] font-semibold text-violet-700">via {viaPartner.get(row.reference)}</span>}{row.status !== "confirmed" && <p className="mt-0.5 text-[12px] capitalize text-slate-500">{row.status.replaceAll("_", " ")}</p>}</td>
+                    <td className="px-4 py-4"><Link href={`/admin/journeys/${encodeURIComponent(row.reference)}`} className="font-semibold text-slate-900 hover:text-brand-darker">{row.reference}</Link>{viaPartner.has(row.reference) && <span className="ml-1.5 rounded-full bg-violet-50 px-2 py-0.5 text-[11.5px] font-semibold text-violet-700">via {viaPartner.get(row.reference)}</span>}{row.status !== "confirmed" && <p className="mt-0.5 text-[12px] capitalize text-slate-500">{row.status.replaceAll("_", " ")}</p>}</td>
                     <td className="px-4 py-4"><p className="font-medium text-slate-900">{row.customerName}</p><p className="text-[12px] text-slate-500">{row.customerPhone}</p>{tax && <p className="mt-1 text-[12px] font-medium text-amber-700">Tax invoice requested</p>}</td>
                     <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${row.pickupDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{row.pickupTime}{row.returnDate && row.returnTime ? ` · return ${row.returnDate} ${row.returnTime}` : ""}</p></td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.pickup}</p></td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.serviceType === "hourly" ? `${row.bookedHours ?? ""} hours${row.pricingArea ? ` · ${row.pricingArea}` : ""}` : row.dropoff}</p></td>
-                    <td className="px-4 py-4"><p className="text-slate-900">{row.vehicle.replaceAll("_", " ")}</p><p className="text-[12px] text-slate-500">{row.passengers} people · {row.luggage} bags</p>{bookingAddonLabels(row).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{bookingAddonLabels(row).map((l) => <span key={l} className="whitespace-nowrap rounded-full bg-[#FFF0DF] px-2 py-0.5 text-[11px] font-semibold text-[#B85D00]">+ {l}</span>)}</div>}</td>
+                    <td className="px-4 py-4"><p className="text-slate-900">{row.vehicle.replaceAll("_", " ")}</p><p className="text-[12px] text-slate-500">{row.passengers} people · {row.luggage} bags</p>{bookingAddonLabels(row).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{bookingAddonLabels(row).map((l) => <span key={l} className="whitespace-nowrap rounded-full bg-brand-tint px-2 py-0.5 text-[11px] font-semibold text-[#B85D00]">+ {l}</span>)}</div>}</td>
                     <td className="whitespace-nowrap px-4 py-4">
-                      {paid ? <span className="inline-flex rounded-full bg-[#06C755] px-2.5 py-0.5 text-[13px] font-medium text-white">Paid</span>
+                      {paid ? <span className="inline-flex rounded-full bg-line-green px-2.5 py-0.5 text-[13px] font-medium text-white">Paid</span>
                         : cash && cashAtStore.has(row.reference) ? <span className="inline-flex rounded-full bg-[#F59E0B] px-2.5 py-0.5 text-[13px] font-medium text-white">Cash at store</span>
                         : cash ? <span className="inline-flex rounded-full bg-[#E53935] px-2.5 py-0.5 text-[13px] font-medium text-white">Pay in cash</span>
                         : <span className="inline-flex rounded-full bg-slate-200 px-2.5 py-0.5 text-[13px] font-medium text-slate-700">{row.paymentStatus.replaceAll("_", " ")}</span>}

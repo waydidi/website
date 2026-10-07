@@ -34,7 +34,7 @@ export function YourDay({ token, words }: { token: string; words?: TripWords }) 
     ...(live.driver ? [{ id: "driver", lat: live.driver.lat, lng: live.driver.lng, label: "🚗", title: "Your driver", kind: "driver" as const }] : []),
   ];
   return <section className="overflow-hidden rounded-3xl bg-white shadow-sm" aria-live="polite">
-    <div className="bg-[#211726] p-5 text-white">
+    <div className="bg-plum p-5 text-white">
       <p className="text-[13px] font-bold uppercase tracking-[.14em] text-white/70">{w.yourDay}</p>
       {live.state === "before" && <><p className="mt-1 text-[20px] font-bold">{fill(w.pickupToday, { time: live.startTime })}</p><p className="text-white/80">{fill(w.driverSoon, { place: live.pickupText })}</p></>}
       {live.state === "done" && <p className="mt-1 flex items-center gap-2 text-[20px] font-bold"><CheckCircle2 size={20} />{w.finished}</p>}
@@ -48,11 +48,11 @@ export function YourDay({ token, words }: { token: string; words?: TripWords }) 
     {live.state === "live" && points.length > 0 && <RouteMap points={points} selected={live.driver ? "driver" : null} className="h-[260px] rounded-none" />}
     <ol className="grid gap-1 p-5 text-[15px]">
       {live.stops.map((s) => <li key={s.id} className={`flex items-center gap-3 rounded-xl px-3 py-2 ${s.status === "current" ? "bg-orange-50 font-bold" : ""} ${s.status === "done" || s.status === "skipped" ? "text-slate-400" : ""}`}>
-        {s.status === "done" ? <CheckCircle2 size={17} className="text-emerald-600" /> : s.status === "current" ? <MapPin size={17} className="text-[#D96F00]" /> : <Clock size={17} className="text-slate-400" />}
+        {s.status === "done" ? <CheckCircle2 size={17} className="text-emerald-600" /> : s.status === "current" ? <MapPin size={17} className="text-brand-text" /> : <Clock size={17} className="text-slate-400" />}
         <span className="w-12 tabular-nums">{hhmm(s.status === "done" ? s.plannedStart : s.projectedStart)}</span>
         <span className={s.status === "skipped" ? "line-through" : ""}>{s.name}</span>
       </li>)}
     </ol>
-    {live.state !== "done" && live.packing.length > 0 && <details className="border-t border-slate-100 px-5 py-4"><summary className="flex cursor-pointer items-center gap-2 font-semibold"><Backpack size={17} className="text-[#D96F00]" />{w.whatToBring}</summary><ul className="mt-2 grid gap-1 text-[14px] text-slate-700">{live.packing.map((p) => <li key={p}>• {p}</li>)}</ul></details>}
+    {live.state !== "done" && live.packing.length > 0 && <details className="border-t border-slate-100 px-5 py-4"><summary className="flex cursor-pointer items-center gap-2 font-semibold"><Backpack size={17} className="text-brand-text" />{w.whatToBring}</summary><ul className="mt-2 grid gap-1 text-[14px] text-slate-700">{live.packing.map((p) => <li key={p}>• {p}</li>)}</ul></details>}
   </section>;
 }

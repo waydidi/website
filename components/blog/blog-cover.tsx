@@ -2,9 +2,9 @@ import Image from "next/image";
 import { categoryLabel, type BlogPost } from "@/lib/blog-posts";
 
 const TONES: Record<BlogPost["cover"]["tone"], string> = {
-  orange: "from-[#FF8A05] to-[#FF5C1F]",
+  orange: "from-brand to-[#FF5C1F]",
   navy: "from-[#1E3A8A] to-[#3B5BDB]",
-  green: "from-[#0E9F6E] to-[#06C755]",
+  green: "from-[#0E9F6E] to-line-green",
   plum: "from-[#7C3AED] to-[#C026D3]",
 };
 

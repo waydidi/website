@@ -39,17 +39,17 @@ export default async function BlogCategory({ params }: { params: Promise<{ slug:
     { "@type": "ListItem", position: 2, name: "Travel guides", item: `${SITE_URL}/blog` },
     { "@type": "ListItem", position: 3, name: data.label, item: `${SITE_URL}/blog/category/${slug}` },
   ] };
-  return <main className="font-home bg-white text-[#1C1C1C]">
+  return <main className="font-home bg-white text-charcoal">
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
     <div className="mx-auto max-w-[1180px] px-5 pb-16 pt-6 lg:px-0">
-      <nav aria-label="Breadcrumb"><ol className="flex items-center gap-1 text-[14px] text-[#6B6B6B]">
-        <li><Link href="/" className="hover:text-[#1C1C1C]">Home</Link></li>
+      <nav aria-label="Breadcrumb"><ol className="flex items-center gap-1 text-[14px] text-grey-text">
+        <li><Link href="/" className="hover:text-charcoal">Home</Link></li>
         <li aria-hidden="true"><ChevronRight size={14} /></li>
-        <li><Link href="/blog" className="hover:text-[#1C1C1C]">Travel guides</Link></li>
+        <li><Link href="/blog" className="hover:text-charcoal">Travel guides</Link></li>
       </ol></nav>
       <h1 className="mt-4 text-[32px] font-bold tracking-[-.02em]">{data.label}</h1>
-      <p className="mt-2 text-[16px] text-[#6B6B6B]">{data.posts.length} guide{data.posts.length === 1 ? "" : "s"}</p>
-      <hr className="mt-4 border-t-[3px] border-[#1C1C1C]" />
+      <p className="mt-2 text-[16px] text-grey-text">{data.posts.length} guide{data.posts.length === 1 ? "" : "s"}</p>
+      <hr className="mt-4 border-t-[3px] border-charcoal" />
       <LatestList posts={data.posts} initial={20} />
     </div>
     <PublicFooter />

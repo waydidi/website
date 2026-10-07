@@ -54,7 +54,7 @@ export function ChatAlerts() {
           <p className="mt-1 whitespace-pre-wrap text-slate-700">{a.message}</p>
           <p className="mt-1 text-[12.5px] text-slate-500">{a.areas || "Everywhere"} · {a.starts_at.slice(0, 10)} → {a.ends_at ? a.ends_at.slice(0, 10) : "until ended"}{a.created_by ? ` · ${a.created_by}` : ""}</p>
           <div className="mt-2 flex gap-4 text-[13px] font-semibold">
-            <button type="button" onClick={() => setForm({ id: a.id, title: a.title, message: a.message, areas: a.areas, effect: a.effect, startsAt: a.starts_at.slice(0, 10), endsAt: a.ends_at?.slice(0, 10) ?? "", sourceUrl: a.source_url ?? "" })} className="text-[#C96100]">Edit</button>
+            <button type="button" onClick={() => setForm({ id: a.id, title: a.title, message: a.message, areas: a.areas, effect: a.effect, startsAt: a.starts_at.slice(0, 10), endsAt: a.ends_at?.slice(0, 10) ?? "", sourceUrl: a.source_url ?? "" })} className="text-brand-darker">Edit</button>
             {a.active ? <button type="button" disabled={busy} onClick={() => { if (window.confirm(`End “${a.title}” now?`)) void post({ action: "end", id: a.id }, "Alert ended."); }} className="text-red-700">End now</button> : null}
           </div>
         </article>)}
@@ -66,14 +66,14 @@ export function ChatAlerts() {
           <label className="grid gap-1 font-semibold">What customers should know<textarea required maxLength={800} rows={4} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="Some roads near the old city are flooded. Trips are running but may take longer; the team will confirm the route." className="rounded-lg border border-slate-200 p-2 font-normal" /></label>
           <label className="grid gap-1 font-semibold">Areas or places (comma separated, empty = everywhere)<input value={form.areas} onChange={(e) => setForm({ ...form, areas: e.target.value })} placeholder="Ayutthaya, Bang Pa-in" className={input} /></label>
           <fieldset className="grid gap-1.5"><legend className="mb-1 font-semibold">Effect</legend>
-            {EFFECTS.map(([k, l, d]) => <label key={k} className="flex gap-2"><input type="radio" name="effect" checked={form.effect === k} onChange={() => setForm({ ...form, effect: k })} className="mt-1 accent-[#FF8A05]" /><span><b>{l}</b><br /><span className="text-slate-500">{d}</span></span></label>)}
+            {EFFECTS.map(([k, l, d]) => <label key={k} className="flex gap-2"><input type="radio" name="effect" checked={form.effect === k} onChange={() => setForm({ ...form, effect: k })} className="mt-1 accent-brand" /><span><b>{l}</b><br /><span className="text-slate-500">{d}</span></span></label>)}
           </fieldset>
           <div className="grid grid-cols-2 gap-2">
             <label className="grid gap-1 font-semibold">Starts<input type="date" required value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} className={input} /></label>
             <label className="grid gap-1 font-semibold">Ends (optional)<input type="date" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} className={input} /></label>
           </div>
           <label className="grid gap-1 font-semibold">Official source (optional)<input type="url" value={form.sourceUrl} onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })} placeholder="https://…" className={input} /></label>
-          <div className="flex gap-2"><button disabled={busy} className="h-10 flex-1 rounded-full bg-[#FE8B05] font-bold text-white">{form.id ? "Save changes" : "Add alert"}</button>{form.id && <button type="button" onClick={() => setForm(EMPTY)} className="h-10 rounded-full border border-slate-200 px-4 font-semibold">Cancel</button>}</div>
+          <div className="flex gap-2"><button disabled={busy} className="h-10 flex-1 rounded-full bg-brand font-bold text-white">{form.id ? "Save changes" : "Add alert"}</button>{form.id && <button type="button" onClick={() => setForm(EMPTY)} className="h-10 rounded-full border border-slate-200 px-4 font-semibold">Cancel</button>}</div>
         </form>
         {limits && <form onSubmit={(e) => { e.preventDefault(); void post({ action: "limits", limits }, "Limits saved."); }} className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-[13px]">
           <h3 className="text-[15px] font-bold">Limits {data.owner ? "" : "(owner only)"}</h3>

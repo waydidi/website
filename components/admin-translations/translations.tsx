@@ -46,7 +46,7 @@ export function SiteTranslations() {
     <PageTranslator onDone={() => void load()} />
     <nav className="flex flex-wrap gap-2" aria-label="Languages">
       {LANGS.map((l) => { const c = count(l.code); return <button key={l.code} type="button" onClick={() => { setLang(l.code); setPage(0); }} aria-pressed={lang === l.code}
-        className={`rounded-full px-3 py-1.5 font-semibold ${lang === l.code ? "bg-[#FFF0DF] text-[#C96100]" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"}`}>{l.label}{c ? <span className="ml-1 font-normal text-slate-500">{c.reviewed}/{c.total}</span> : null}</button>; })}
+        className={`rounded-full px-3 py-1.5 font-semibold ${lang === l.code ? "bg-brand-tint text-brand-darker" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"}`}>{l.label}{c ? <span className="ml-1 font-normal text-slate-500">{c.reviewed}/{c.total}</span> : null}</button>; })}
     </nav>
     <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-3 text-[13px]">
       <label className="grid flex-1 gap-1 font-semibold">Search<input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="English or translated text" className={input} /></label>
@@ -61,7 +61,7 @@ export function SiteTranslations() {
           <textarea value={v} rows={Math.min(6, Math.ceil(v.length / 60) + 1)} onChange={(e) => setEdits({ ...edits, [r.hash]: e.target.value })} className="rounded-lg border border-slate-200 p-2" aria-label="Translation" />
           <div className="flex flex-wrap items-center gap-3 text-[12.5px]">
             <span className={`rounded-full px-2 py-0.5 font-semibold ${r.status === "reviewed" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{r.status === "reviewed" ? `Checked${r.updated_by ? ` by ${r.updated_by}` : ""}` : "AI, not checked"}</span>
-            {v !== r.text && <button type="button" onClick={() => void post({ action: "save", hash: r.hash, text: v }, "Saved.").then((ok) => ok && setEdits((e) => { const n = { ...e }; delete n[r.hash]; return n; }))} className="font-semibold text-[#C96100]">Save</button>}
+            {v !== r.text && <button type="button" onClick={() => void post({ action: "save", hash: r.hash, text: v }, "Saved.").then((ok) => ok && setEdits((e) => { const n = { ...e }; delete n[r.hash]; return n; }))} className="font-semibold text-brand-darker">Save</button>}
             {r.status !== "reviewed" && v === r.text && <button type="button" onClick={() => void post({ action: "approve", hash: r.hash }, "Marked checked.")} className="font-semibold text-emerald-700">Looks right</button>}
             <button type="button" onClick={() => { if (window.confirm("Translate this line again with AI next time it's viewed?")) void post({ action: "retranslate", hash: r.hash }, "It will be translated again."); }} className="font-semibold text-slate-500">Translate again</button>
           </div>
@@ -79,7 +79,7 @@ export function SiteTranslations() {
         <textarea required value={add.source} onChange={(e) => setAdd({ ...add, source: e.target.value })} placeholder="English" rows={2} className="rounded-lg border border-slate-200 p-2" />
         <textarea required value={add.text} onChange={(e) => setAdd({ ...add, text: e.target.value })} placeholder="Translation" rows={2} className="rounded-lg border border-slate-200 p-2" />
       </div>
-      <button className="h-10 w-fit rounded-full bg-[#FE8B05] px-5 font-bold text-white">Save translation</button>
+      <button className="h-10 w-fit rounded-full bg-brand px-5 font-bold text-white">Save translation</button>
     </form>
   </section>;
 }

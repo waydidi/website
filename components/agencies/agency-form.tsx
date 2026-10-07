@@ -45,19 +45,19 @@ export function AgencyForm({ partnerType = "travel-agent", initialEmail, initial
     <label className={label}>Work email<input name="email" type="email" required defaultValue={initialEmail} readOnly={Boolean(initialEmail)} autoComplete="email" className={field} /></label>
     <label className={label}>Phone / WhatsApp<input name="phone" type="tel" required autoComplete="tel" className={field} /></label>
     <label className={label}>Country<input name="country" required autoComplete="country-name" className={field} /></label>
-    <label className={label}>Website <span className="font-normal text-[#8A8A8A]">(optional)</span><input name="website" type="url" placeholder="https://" className={field} /></label>
+    <label className={label}>Website <span className="font-normal text-grey-soft">(optional)</span><input name="website" type="url" placeholder="https://" className={field} /></label>
     <label className={`${label} sm:col-span-2`}>Transfers per month for Thailand
       <select name="monthlyTransfers" defaultValue="1-10" className={field}>
         <option value="1-10">1–10</option><option value="11-50">11–50</option><option value="51-200">51–200</option><option value="200+">More than 200</option>
       </select>
     </label>
-    <label className={`${label} sm:col-span-2`}>Anything we should know? <span className="font-normal text-[#8A8A8A]">(optional)</span><textarea name="message" rows={4} className={`${field} h-auto py-3`} placeholder="Main routes, group sizes, how you'd like to pay…" /></label>
+    <label className={`${label} sm:col-span-2`}>Anything we should know? <span className="font-normal text-grey-soft">(optional)</span><textarea name="message" rows={4} className={`${field} h-auto py-3`} placeholder="Main routes, group sizes, how you'd like to pay…" /></label>
     {/* Hidden from people; bots fill it in. */}
     <input name="company" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
     {error && <p className="rounded-xl bg-red-50 p-3 text-[14px] font-semibold text-red-700 sm:col-span-2" role="alert">{error.text}</p>}
     <div className="sm:col-span-2">
-      <button type="submit" disabled={busy} className="h-14 rounded-full bg-[#FF8A05] px-10 text-[15px] font-bold text-[#111] hover:bg-[#F07A00] disabled:opacity-60">{busy ? "Sending…" : "Send application"}</button>
-      <p className="mt-3 text-[13px] text-[#8A8A8A]">We use these details only to review your application and contact you. See our <Link href="/privacy" className="underline">privacy policy</Link>.</p>
+      <button type="submit" disabled={busy} className="h-14 rounded-full bg-brand px-10 text-[15px] font-bold text-[#111] hover:bg-[#F07A00] disabled:opacity-60">{busy ? "Sending…" : "Send application"}</button>
+      <p className="mt-3 text-[13px] text-grey-soft">We use these details only to review your application and contact you. See our <Link href="/privacy" className="underline">privacy policy</Link>.</p>
     </div>
     {turnstile.widget}
   </form>;

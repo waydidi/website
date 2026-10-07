@@ -11,10 +11,10 @@ export function RichText({ text }: { text: string }) {
   for (const m of text.matchAll(TOKEN)) {
     const i = m.index ?? 0;
     if (i > last) out.push(text.slice(last, i));
-    if (m[1]) out.push(<strong key={i} className="font-semibold text-[#1C1C1C]">{m[1]}</strong>);
+    if (m[1]) out.push(<strong key={i} className="font-semibold text-charcoal">{m[1]}</strong>);
     else {
       const [label, href] = [m[2], m[3]];
-      const cls = "font-medium text-[#C96100] underline underline-offset-2 hover:text-[#E07400]";
+      const cls = "font-medium text-brand-darker underline underline-offset-2 hover:text-[#E07400]";
       if (href.startsWith("/") && !href.startsWith("//")) out.push(<Link key={i} href={href} className={cls}>{label}</Link>);
       else if (/^https?:\/\//i.test(href)) out.push(<a key={i} href={href} target="_blank" rel="noopener noreferrer" className={cls}>{label}</a>);
       else out.push(label);
