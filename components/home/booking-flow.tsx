@@ -27,6 +27,7 @@ import {
   X,
   Wallet,
   Gift,
+  CalendarCheck,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -1359,7 +1360,7 @@ export function BookingFlow({
                       className="flex h-full min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-1.5 text-left md:gap-4 md:px-5 lg:gap-3"
                       aria-expanded={dateOpen}
                     >
-                      {departureSelected ? <DepartureIcon /> : <CalendarDays className="shrink-0 text-slate-950" size={20} />}
+                      {departureSelected ? <CalendarCheck className="shrink-0 text-charcoal max-[359px]:hidden" size={20} aria-hidden="true" /> : <CalendarDays className="shrink-0 text-slate-950" size={20} />}
                       {!compact && <span className="hidden min-w-0 md:block">
                         <span className="block text-[17px]/[24px] text-slate-500 lg:text-[13px]/[20px]">{t("hero.pickupDate")}</span>
                         <span className={`mt-1 block truncate text-[19px]/[26px] lg:mt-0 lg:text-[15px]/[22px] ${departureSelected ? "font-semibold text-slate-950" : "text-slate-400"}`}>{departureSelected ? `${shortDate(booking.date, locale)} · ${formatTimeLabel(booking.time, locale)}` : t("hero.departure")}</span>
@@ -1654,7 +1655,7 @@ export function BookingFlow({
                   <ChevronDown aria-hidden="true" />
                 </button>
                 <button type="button" onClick={() => { setTripEditOpen(false); setReturnToTripEdit(true); setDateOpen(true); }} className="flex min-h-14 w-full items-center gap-3 rounded-[14px] border border-slate-200 bg-white px-4 py-2 text-left">
-                  <DepartureIcon />
+                  <CalendarCheck className="shrink-0 text-charcoal max-[359px]:hidden" size={20} aria-hidden="true" />
                   <span className="min-w-0 text-slate-950">
                     <span className="block text-[16px] leading-[21px]">{shortDate(booking.date, locale)}</span>
                     <span className="block text-[14px] leading-[18px]">{formatTimeLabel(booking.time, locale)}</span>
@@ -2249,13 +2250,6 @@ function shortDate(value: string, locale: Locale) {
 }
 
 // Calendar with a departing arrow, shown once a departure is chosen.
-function DepartureIcon() {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1C1C1C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 max-[359px]:hidden">
-    <path d="M8 2v4M16 2v4M3 10h18" />
-    <path d="M12 21H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7" />
-    <path d="M15 18h7m-3-3 3 3-3 3" />
-  </svg>;
-}
 
 function SheetCounter({
   label,
