@@ -502,3 +502,27 @@ test('Affiliates: link click, code discount, commission on completed rides, no s
  assert.equal((await r.json()).paid,1);
  const [s2]=(await af.affiliateSummaries()).filter((x)=>x.id==='a1');assert.deepEqual([s2.earned,s2.paid,s2.pending],[0,152,80]);
 });
+test('Partner dashboard: signed private link, New link revokes the old one, numbers without customer names',async()=>{
+ const af=await vite.ssrLoadModule('/lib/affiliates.ts');
+ const env=globalThis.__chatTest.env;env.WAYDIDI_ADMIN_SESSION_SECRET='s'.repeat(40);
+ try{
+  await af.ensureAffiliateTables();
+  const id='11111111-2222-3333-4444-555555555555';const now=new Date().toISOString();
+  await db.prepare("INSERT INTO affiliates(id,slug,code,name,commission_percent,discount_percent,status,created_at,updated_at) VALUES(?,'dash','DASH5','Dash',8,5,'active',?,?)").bind(id,now,now).run();
+  const path=await af.dashboardPath({id,link_version:0});
+  const [, , pid, key]=path.split('/');
+  assert.equal((await af.affiliateForDashboard(pid,key)).slug,'dash');
+  assert.equal(await af.affiliateForDashboard(pid,key.replace(/.$/,(c)=>c==='0'?'1':'0')),null,'wrong key');
+  await db.prepare("INSERT INTO bookings(reference,customer_name,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES('DB1','Secret Name','Suvarnabhumi Airport (BKK), Bangkok','Hilton Pattaya, Beach Rd','2026-10-25','09:00',2,2,'economy_sedan','card',2000,'completed')").run();
+  const a=await af.affiliateForDashboard(pid,key);
+  await af.linkBooking({reference:'DB1',affiliate:a,via:'link',fare:2000,discount:0});
+  const d=await af.partnerDashboard(a);
+  assert.deepEqual([d.owed,d.pending,d.paid,d.completedRides,d.month.bookings],[160,0,0,1,1]);
+  assert.ok(!JSON.stringify(d).includes('Secret Name'),'no customer names');
+  // New link: old key stops working.
+  await db.prepare("UPDATE affiliates SET link_version=1 WHERE id=?").bind(id).run();
+  assert.equal(await af.affiliateForDashboard(pid,key),null);
+  const [, , , key2]=(await af.dashboardPath({id,link_version:1})).split('/');
+  assert.equal((await af.affiliateForDashboard(pid,key2)).slug,'dash');
+ }finally{delete env.WAYDIDI_ADMIN_SESSION_SECRET;}
+});

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
-import { affiliateBookings, affiliateSummaries, cleanCode, cleanSlug, ensureAffiliateTables, isSlug } from "@/lib/affiliates";
+import { affiliateBookings, affiliateSummaries, cleanCode, cleanSlug, dashboardPath, ensureAffiliateTables, isSlug } from "@/lib/affiliates";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
@@ -15,7 +15,11 @@ export async function GET(request: Request) {
   if (!staff) return reply("Staff access required.", 403);
   const id = new URL(request.url).searchParams.get("id");
   if (id) return NextResponse.json({ bookings: await affiliateBookings(id) }, { headers });
-  return NextResponse.json({ affiliates: await affiliateSummaries().catch(() => []) }, { headers });
+  const list = await affiliateSummaries().catch(() => []);
+  // Each partner's private dashboard link (signed; "New link" replaces it).
+  const origin = new URL(request.url).origin;
+  const affiliates = await Promise.all(list.map(async (a) => ({ ...a, dashboardUrl: `${origin}${await dashboardPath(a).catch(() => "")}` })));
+  return NextResponse.json({ affiliates }, { headers });
 }
 
 /** Create or update a partner; or mark their earned commission as paid. */
@@ -27,6 +31,10 @@ export async function POST(request: Request) {
   const b = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!b) return reply("Nothing to save.");
   const now = new Date().toISOString();
+  if (b.action === "new-link" && typeof b.id === "string") {
+    await db().prepare("UPDATE affiliates SET link_version=COALESCE(link_version,0)+1,updated_at=? WHERE id=?").bind(now, b.id).run();
+    return NextResponse.json({ ok: true }, { headers });
+  }
   if (b.action === "pay" && typeof b.id === "string") {
     // Everything earned (ride completed) and not yet paid.
     const r = await db().prepare("UPDATE booking_affiliates SET paid_at=? WHERE affiliate_id=? AND paid_at IS NULL AND booking_reference IN (SELECT reference FROM bookings WHERE status='completed')").bind(now, b.id).run();

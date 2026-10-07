@@ -146,7 +146,7 @@ const worker = {
 };
 
 // Paths that stay open in maintenance mode. Anything with a file extension (images, scripts) is open too.
-const MAINTENANCE_OPEN = /^\/(admin|admin-setup|api|driver|drivers\/portal|trip|booking|pay|chat-pay|f|maintenance|_vinext|_next|assets)(\/|$)|\.[a-z0-9]{2,5}$/i;
+const MAINTENANCE_OPEN = /^\/(admin|admin-setup|api|driver|partner|drivers\/portal|trip|booking|pay|chat-pay|f|maintenance|_vinext|_next|assets)(\/|$)|\.[a-z0-9]{2,5}$/i;
 let maintenanceCache = { on: false, at: 0 };
 /** Read from D1 at most every 20 seconds per worker. */
 async function maintenanceOn(env: Env) {

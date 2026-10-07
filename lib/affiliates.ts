@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { commissionState } from "@/lib/storefront";
+import { tripSecretHmacHex } from "@/lib/trip-secret";
 
 // Affiliates: partners (bloggers, hotels, guides) who send customers with their own link
 // (waydidi.com/?ref=mint, remembered for 30 days) or code (MINT5, gives the customer a discount).
@@ -9,7 +10,7 @@ export const REF_COOKIE = "wd_ref";
 export const REF_DAYS = 30;
 export type Affiliate = {
   id: string; slug: string; code: string; name: string; email: string | null; phone: string | null; kind: string;
-  commission_percent: number; discount_percent: number; status: string; notes: string | null; created_at: string; updated_at: string;
+  commission_percent: number; discount_percent: number; status: string; notes: string | null; created_at: string; updated_at: string; link_version?: number;
 };
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<unknown> };
 const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
@@ -25,6 +26,8 @@ export function ensureAffiliateTables() {
       "CREATE TABLE IF NOT EXISTS booking_affiliates (booking_reference TEXT PRIMARY KEY, affiliate_id TEXT NOT NULL, via TEXT NOT NULL, fare_before_discount INTEGER NOT NULL, discount INTEGER NOT NULL DEFAULT 0, commission_percent REAL NOT NULL, commission INTEGER NOT NULL, paid_at TEXT, created_at TEXT NOT NULL)",
       "CREATE INDEX IF NOT EXISTS idx_booking_affiliates_affiliate ON booking_affiliates(affiliate_id)",
     ]) await db().prepare(sql).run();
+    // Added later: bumping it gives the partner a new dashboard link (the old one stops working).
+    await db().prepare("ALTER TABLE affiliates ADD COLUMN link_version INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
   })().catch((e) => { ready = null; throw e; });
   return ready;
 }
@@ -97,4 +100,46 @@ export async function affiliateBookings(affiliateId: string) {
   const { results } = await db().prepare(`SELECT ba.*,b.customer_name,b.pickup_date,b.pickup,b.dropoff,b.status FROM booking_affiliates ba JOIN bookings b ON b.reference=ba.booking_reference
     WHERE ba.affiliate_id=? ORDER BY ba.created_at DESC LIMIT 200`).bind(affiliateId).all<{ booking_reference: string; via: string; fare_before_discount: number; discount: number; commission: number; paid_at: string | null; customer_name: string; pickup_date: string; pickup: string; dropoff: string; status: string }>();
   return results.map((r) => ({ ...r, state: commissionState(r.status) }));
+}
+
+// ---- Partner dashboard: a private link per partner (waydidi.com/partner/<id>/<key>), no password ----
+
+const dashKey = async (a: Pick<Affiliate, "id" | "link_version">) => (await tripSecretHmacHex(`aff-dash:${a.id}:${a.link_version ?? 0}`)).slice(0, 32);
+export async function dashboardPath(a: Pick<Affiliate, "id" | "link_version">) { return `/partner/${a.id}/${await dashKey(a)}`; }
+
+/** The partner for a dashboard link, or null if the link is wrong or has been replaced. */
+export async function affiliateForDashboard(id: string, key: string) {
+  if (!/^[0-9a-f-]{36}$/.test(id) || !/^[0-9a-f]{32}$/.test(key)) return null;
+  await ensureAffiliateTables().catch(() => undefined);
+  const a = await db().prepare("SELECT * FROM affiliates WHERE id=?").bind(id).first<Affiliate>().catch(() => null);
+  if (!a) return null;
+  const expected = await dashKey(a);
+  let diff = 0;
+  for (let i = 0; i < 32; i++) diff |= expected.charCodeAt(i) ^ key.charCodeAt(i);
+  return diff === 0 ? a : null;
+}
+
+/** Everything a partner sees: this month's numbers, totals, and recent bookings (no customer names). */
+export async function partnerDashboard(a: Affiliate) {
+  const bkk = new Date(Date.now() + 7 * 3600_000).toISOString();
+  const monthStart = `${bkk.slice(0, 7)}-01`;
+  const [clicks, rows] = await Promise.all([
+    db().prepare("SELECT COALESCE(SUM(clicks),0) n FROM affiliate_clicks WHERE affiliate_id=? AND day>=?").bind(a.id, monthStart).first<{ n: number }>(),
+    db().prepare(`SELECT ba.booking_reference,ba.via,ba.fare_before_discount,ba.discount,ba.commission,ba.paid_at,ba.created_at,b.pickup_date,b.pickup,b.dropoff,b.status
+      FROM booking_affiliates ba JOIN bookings b ON b.reference=ba.booking_reference WHERE ba.affiliate_id=? AND b.status<>'pending_payment' ORDER BY ba.created_at DESC LIMIT 300`).bind(a.id)
+      .all<{ booking_reference: string; via: string; fare_before_discount: number; discount: number; commission: number; paid_at: string | null; created_at: string; pickup_date: string; pickup: string; dropoff: string; status: string }>(),
+  ]);
+  const list = rows.results.map((r) => ({ ...r, state: r.paid_at ? "paid" as const : commissionState(r.status) === "earned" ? "owed" as const : commissionState(r.status) }));
+  const live = list.filter((r) => r.state !== "cancelled");
+  const sum = (xs: typeof list) => xs.reduce((n, r) => n + r.commission, 0);
+  const thisMonth = live.filter((r) => (new Date(Date.parse(r.created_at) + 7 * 3600_000).toISOString()) >= monthStart);
+  return {
+    monthName: new Date(`${monthStart}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" }),
+    month: { clicks: clicks?.n ?? 0, bookings: thisMonth.length },
+    owed: sum(list.filter((r) => r.state === "owed")),
+    pending: sum(list.filter((r) => r.state === "pending")),
+    paid: sum(list.filter((r) => r.state === "paid")),
+    completedRides: list.filter((r) => r.state === "owed" || r.state === "paid").length,
+    recent: list.slice(0, 30).map((r) => ({ date: r.pickup_date, from: r.pickup, to: r.dropoff, via: r.via, commission: r.commission, state: r.state })),
+  };
 }

@@ -6,7 +6,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 type Row = {
   id: string; slug: string; code: string; name: string; email: string | null; phone: string | null; kind: string;
   commission_percent: number; discount_percent: number; status: string; notes: string | null;
-  clicks30: number; bookings: number; sales: number; pending: number; earned: number; paid: number;
+  clicks30: number; bookings: number; sales: number; pending: number; earned: number; paid: number; dashboardUrl: string;
 };
 type Booking = { booking_reference: string; via: string; fare_before_discount: number; discount: number; commission: number; paid_at: string | null; customer_name: string; pickup_date: string; pickup: string; dropoff: string; state: "pending" | "earned" | "cancelled" };
 
@@ -50,6 +50,11 @@ export function AdminAffiliates() {
     const r = await fetch(`/api/admin/affiliates?id=${encodeURIComponent(id)}`, { cache: "no-store" });
     setBookings(r.ok ? ((await r.json()) as { bookings: Booking[] }).bookings : []);
   }
+  async function newLink(a: Row) {
+    if (!window.confirm(`Make a new dashboard link for ${a.name}? The old link stops working.`)) return;
+    await fetch("/api/admin/affiliates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "new-link", id: a.id }) });
+    void load();
+  }
   async function pay(a: Row) {
     if (!window.confirm(`Mark ${thb(a.earned)} as paid to ${a.name}? (all completed rides not yet paid)`)) return;
     await fetch("/api/admin/affiliates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "pay", id: a.id }) });
@@ -76,7 +81,8 @@ export function AdminAffiliates() {
           <tbody className="divide-y divide-slate-100">{rows.map((a) => <Fragment key={a.id}>
             <tr className="align-middle">
               <td className="px-4 py-3"><p className="font-semibold">{a.name}{a.status === "paused" && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">Paused</span>}</p><p className="text-[12px] text-slate-500">{KINDS.find(([k]) => k === a.kind)?.[1] ?? a.kind}{a.email ? ` · ${a.email}` : ""}</p></td>
-              <td><span className="flex items-center gap-1 font-mono text-[12.5px]">waydidi.com/?ref={a.slug}<CopyButton text={`https://waydidi.com/?ref=${a.slug}`} /></span><span className="flex items-center gap-1 font-mono text-[12.5px] text-[#C96100]">{a.code}<CopyButton text={a.code} /></span></td>
+              <td><span className="flex items-center gap-1 font-mono text-[12.5px]">waydidi.com/?ref={a.slug}<CopyButton text={`https://waydidi.com/?ref=${a.slug}`} /></span><span className="flex items-center gap-1 font-mono text-[12.5px] text-[#C96100]">{a.code}<CopyButton text={a.code} /></span>
+                <span className="flex items-center gap-1 text-[12px] text-slate-500">Dashboard link<CopyButton text={a.dashboardUrl} /><button type="button" onClick={() => void newLink(a)} className="font-semibold underline underline-offset-2 hover:text-[#C96100]">New</button></span></td>
               <td className="text-[12.5px]">{a.commission_percent}% to them<br /><span className="text-slate-500">{a.discount_percent}% off with code</span></td>
               <td>{a.clicks30}</td><td>{a.bookings}</td><td>{thb(a.sales)}</td>
               <td className="font-semibold text-emerald-700">{thb(a.earned)}</td><td className="text-amber-700">{thb(a.pending)}</td>
