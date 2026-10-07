@@ -123,7 +123,7 @@ export function WebsiteChat() {
   const launcher = open || /^\/((th|zh)\/?)?$|^\/(th\/|zh\/)?(destinations\/[^/]+|account)(\/|$)/.test(path ?? "/");
   return <>
     {mounted && open && <ChatPanel info={info} messages={messages} loadError={loadError} onRetryLoad={() => void sync().catch(() => setLoadError(true))}
-      onSend={send} onClose={() => setOpen(false)} onReviewed={() => void sync().catch(() => undefined)}
+      onSend={send} onClose={() => { setOpen(false); window.setTimeout(() => document.querySelector<HTMLElement>("[data-chat-launcher]")?.focus(), 0); }} onReviewed={() => void sync().catch(() => undefined)}
       onNewConversation={() => { fresh.current = true; setMessages([]); setInfo((i) => (i ? { ...i, status: "new", agent: null, review: null } : i)); }} />}
     {launcher && <button type="button" data-chat-launcher onClick={() => { setMounted(true); setOpen((v) => !v); }} aria-label={open ? "Close chat" : unread ? `Ask Waydidi, ${unread} new ${unread === 1 ? "message" : "messages"}` : "Ask Waydidi"} aria-expanded={open}
       className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 z-[85] grid place-items-center rounded-full text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:right-6 ${open ? "size-14 bg-brand shadow-[0_8px_24px_rgba(254,139,5,.35)] hover:bg-brand-strong max-sm:hidden" : "h-[86px] w-[127px] rounded-2xl hover:scale-105"}`}>

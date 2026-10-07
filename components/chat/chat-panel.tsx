@@ -2,6 +2,7 @@
 
 import { ArrowDown, ArrowLeft, CircleHelp, ExternalLink, Minus, RotateCw, SendHorizontal, Star, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import { WaydidiMark } from "@/components/waydidi-logo";
 import { RichCard } from "@/components/chat/rich-card";
 import type { ChatInfo, ChatMsg, ChatReview, Context } from "@/components/website-chat";
@@ -51,7 +52,7 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
       window.scrollTo(0, y);
     };
   }, []);
-  useEffect(() => { if (window.matchMedia("(hover: hover)").matches) input.current?.focus(); const esc = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", esc); return () => document.removeEventListener("keydown", esc); }, [onClose]);
+  useEffect(() => { if (window.matchMedia("(hover: hover)").matches) input.current?.focus(); }, []);
 
   // New messages: follow along when the reader is at the bottom; otherwise offer "New message".
   useLayoutEffect(() => {
@@ -82,13 +83,16 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
   const subtitle = info?.agent ? `${info.agent} is helping you` : "We're here to help";
   const started = messages.length > 0;
 
-  return <section ref={panel} role="dialog" aria-modal="false" aria-labelledby="ask-waydidi-title"
+  // Non-modal Radix Dialog: the page stays usable behind it, Esc closes it, focus returns to the chat button.
+  return <DialogPrimitive.Root open modal={false}>
+  <DialogPrimitive.Content asChild aria-describedby={undefined} onOpenAutoFocus={(e) => e.preventDefault()} onEscapeKeyDown={() => onClose()} onInteractOutside={(e) => e.preventDefault()}>
+  <section ref={panel}
     className="fixed inset-0 z-[90] flex flex-col overflow-hidden bg-white text-night sm:inset-auto sm:bottom-[calc(6.5rem+env(safe-area-inset-bottom))] sm:right-6 sm:h-[min(640px,calc(100dvh-8.5rem))] sm:w-[390px] sm:rounded-[22px] sm:border sm:border-slate-200 sm:shadow-[0_24px_60px_rgba(15,23,42,.18)] motion-safe:animate-in motion-safe:fade-in">
     {/* Header */}
     <header className="flex items-center gap-3 bg-brand px-4 pb-3.5 pt-[max(14px,env(safe-area-inset-top))] text-white">
       <button type="button" onClick={onClose} aria-label="Close chat" className="-ml-1 grid size-9 place-items-center rounded-full hover:bg-white/15 sm:hidden"><ArrowLeft size={20} /></button>
       <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white"><WaydidiMark className="size-6 text-brand" /></span>
-      <div className="min-w-0 flex-1"><h2 id="ask-waydidi-title" className="text-[16px] font-bold leading-tight">Ask Waydidi</h2><p className="truncate text-[13px] text-white/90">{subtitle}</p></div>
+      <div className="min-w-0 flex-1"><DialogPrimitive.Title className="text-[16px] font-bold leading-tight">Ask Waydidi</DialogPrimitive.Title><p className="truncate text-[13px] text-white/90">{subtitle}</p></div>
       <button type="button" onClick={onClose} aria-label="Minimise chat" className="hidden size-9 place-items-center rounded-full hover:bg-white/15 sm:grid"><Minus size={18} /></button>
       <button type="button" onClick={onClose} aria-label="Close chat" className="hidden size-9 place-items-center rounded-full hover:bg-white/15 sm:grid"><X size={18} /></button>
     </header>
@@ -140,7 +144,9 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
       <p className="mt-1 text-center text-[11px] text-slate-400">Please don&apos;t share card numbers or passwords in chat.</p>
     </form>
     </>}
-  </section>;
+  </section>
+  </DialogPrimitive.Content>
+  </DialogPrimitive.Root>;
 }
 
 function Bubble({ side, who, at, tight, children }: { side: "left"; who: string | null; at?: string; tight?: boolean; children: React.ReactNode }) {
