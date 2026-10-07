@@ -87,6 +87,10 @@ export function allowedStaffRoute(role: StaffRole, path: string, method: string)
   if(path==="/admin" || path==="/api/admin/overview") return role==="operations";
   const section=path.replace(/^\/(?:api\/)?admin\/?/,"").split("/")[0];
   if(path==="/api/admin/cee/alerts") return ["operations","support"].includes(role);
+  if(section==="search") return ["operations","support","finance","editor"].includes(role) && method==="GET";
+  if(section==="notifications") return ["operations","support"].includes(role);
+  if(section==="crm") return ["operations","support"].includes(role);
+  if(section==="users") return ["operations","support"].includes(role) && method==="GET";
   if(section==="chat") return ["operations","support"].includes(role);
   if(["staff","settings"].includes(section)) return false;
   if(["payments","refunds","finance","reports","payouts"].includes(section)) return role==="finance";

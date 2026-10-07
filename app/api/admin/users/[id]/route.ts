@@ -6,7 +6,7 @@ import { isJsonRequest, sameOrigin } from "@/lib/security";
 // Admin-only: permanently delete a member account (bookings are kept).
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   const admin = await getWaydidiAdmin();
-  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!admin || admin.role !== "owner") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!sameOrigin(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
   const { id } = await context.params;
   if (!(await deleteCustomerAccount(id))) return NextResponse.json({ error: "User not found." }, { status: 404 });
@@ -18,7 +18,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 // A booking already in another account is only moved when the admin confirms it (move: true).
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const admin = await getWaydidiAdmin();
-  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!admin || admin.role !== "owner") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
   const { id } = await context.params;
   const input = await request.json().catch(() => ({})) as { reference?: unknown; move?: unknown };

@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { crmAction,crmDb } from "@/lib/crm";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
   if (!sameOrigin(request) || !isJsonRequest(request)) return reply("Request blocked.", 403);
   const staff = await getWaydidiAdmin();
   if (!staff || !allowed(staff.role)) return reply("Support staff access required.", 403);
-  const input = await request.json().catch(() => null) as { action?: unknown; id?: unknown; message?: unknown; status?: unknown; staffId?: unknown; messageId?: unknown; on?: unknown } | null;
+  const input = await request.json().catch(() => null) as { action?: unknown; id?: unknown; message?: unknown; status?: unknown; staffId?: unknown; messageId?: unknown; on?: unknown; dueAt?: unknown; ownerId?: unknown } | null;
   // Global Non switch: owner only.
   if (input?.action === "cee_enabled") {
     if (staff.role !== "owner") return reply("Only the owner can switch Non on or off.", 403);
@@ -117,13 +118,21 @@ export async function POST(request: Request) {
       break;
     // Quiet chat: finish it, or keep it for a later follow-up (customer still deciding).
     case "complete":
+      await crmDb().prepare("UPDATE crm_tasks SET status='completed',completed_at=?,updated_at=? WHERE conversation_id=? AND status='open'").bind(new Date().toISOString(),new Date().toISOString(),c.id).run();
       await env.DB.prepare("UPDATE website_conversations SET follow_up_at=NULL WHERE id=?").bind(c.id).run();
       await setStatus(c.id, "closed");
       break;
-    case "follow_up":
-      await env.DB.prepare("UPDATE website_conversations SET follow_up_at=? WHERE id=?").bind(new Date().toISOString(), c.id).run();
+    case "follow_up": {
+      if(typeof input.dueAt!=="string" || !Number.isFinite(Date.parse(input.dueAt)))return reply("Choose a follow-up date and time.",400);
+      const source=await crmDb().prepare("SELECT contact_id FROM crm_sources WHERE kind='chat' AND source_id=?").bind(c.id).first<{contact_id:string}>();
+      if(!source)return reply("Customer record unavailable.",409);
+      const existingTask=await crmDb().prepare("SELECT id FROM crm_tasks WHERE conversation_id=? AND status='open'").bind(c.id).first<{id:string}>();
+      try { await crmAction('task',{id:existingTask?.id,contactId:source.contact_id,conversationId:c.id,title:`Follow up chat ${c.public_id}`,dueAt:input.dueAt,ownerId:typeof input.ownerId==='string'?input.ownerId:staff.id},staff.id,staff.role); }
+      catch {return reply("Choose an active staff member and valid due date.",400);}
+      await env.DB.prepare("UPDATE website_conversations SET follow_up_at=? WHERE id=?").bind(new Date(input.dueAt).toISOString(), c.id).run();
       await setStatus(c.id, "pending");
       break;
+    }
     case "cee_pause": await pauseBot(c.id, true); break;
     case "cee_resume": await pauseBot(c.id, false); break;
     default: return reply("Unknown chat action.", 400);

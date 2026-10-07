@@ -2,7 +2,8 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookings, customerBookingLinks, customers, memberRewardEmails } from "@/db/schema";
 import { listMemberBoxes } from "@/lib/boxes";
-import { sendRewardEmail } from "@/lib/email";
+import { enqueueCrmEmail } from "@/lib/crm-email-queue";
+import type { sendRewardEmail } from "@/lib/email";
 import { GIFTS, listMemberGifts, nearNextTier, TIER_GIFTS } from "@/lib/gifts";
 import { memberTierStatus } from "@/lib/member-tier";
 
@@ -19,16 +20,17 @@ export async function sendRewardEmails(at = new Date()) {
     .innerJoin(bookings, eq(bookings.reference, customerBookingLinks.bookingReference))
     .where(and(eq(bookings.status, "completed"), gte(bookings.pickupDate, since)))
     .orderBy(sql`random()`).limit(PER_RUN);
-  let sent = 0;
+  const sent = 0;
   const year = at.getUTCFullYear();
 
-  async function once(customerId: string, key: string, kind: string, send: () => Promise<{ status: string }>) {
+  async function once(customerId: string, key: string, kind: string, data: Parameters<typeof sendRewardEmail>[0]) {
     const stamp = at.toISOString();
-    const claimed = await db.insert(memberRewardEmails).values({ dedupeKey: key, customerId, kind, status: "processing", createdAt: stamp }).onConflictDoNothing().returning({ key: memberRewardEmails.dedupeKey });
-    if (!claimed.length) return;
-    const result = await send().catch(() => ({ status: "failed" }));
-    await db.update(memberRewardEmails).set({ status: result.status === "sent" ? "sent" : "failed" }).where(eq(memberRewardEmails.dedupeKey, key));
-    if (result.status === "sent") sent += 1;
+    const [existing] = await db.select().from(memberRewardEmails).where(eq(memberRewardEmails.dedupeKey,key)).limit(1);
+    if(existing?.status === "sent") return;
+    await db.insert(memberRewardEmails).values({dedupeKey:key,customerId,kind,status:"pending",createdAt:stamp}).onConflictDoNothing();
+    const source=await import("@/lib/crm").then(m=>m.crmDb().prepare("SELECT contact_id FROM crm_sources WHERE kind='member' AND source_id=?").bind(customerId).first<{contact_id:string}>());
+    await enqueueCrmEmail(`reward:${key}`,data.to,{kind:"reward",data,rewardKey:key,customerId,promotional:kind==='near'},source?.contact_id??null);
+    if(existing && ['processing','failed'].includes(existing.status) && Date.parse(stamp)-Date.parse(existing.createdAt)>23*3600000) await import("@/lib/crm").then(m=>m.crmDb().prepare("UPDATE crm_outbox SET status='needs_review' WHERE dedupe_key=? AND status='pending'").bind(`reward:${key}`).run());
   }
 
   for (const m of members) {
@@ -40,16 +42,16 @@ export async function sendRewardEmails(at = new Date()) {
 
     for (const box of boxes.filter((b) => !b.openedAt)) {
       const name = box.tier[0].toUpperCase() + box.tier.slice(1);
-      await once(m.id, `box:${box.id}`, "badge", () => sendRewardEmail({ to: m.email, kicker: "New badge", title: `You're now a ${name} member 🎉`, intro: `${hi} thanks for riding with Waydidi. Your ${name} badge comes with a gift and a mystery box. Open it to see what you won.`, cta: "Open my mystery box", path: "/account/coupons", tag: `reward-box-${box.id}` }));
+      await once(m.id, `box:${box.id}`, "badge", { to: m.email, kicker: "New badge", title: `You're now a ${name} member 🎉`, intro: `${hi} thanks for riding with Waydidi. Your ${name} badge comes with a gift and a mystery box. Open it to see what you won.`, cta: "Open my mystery box", path: "/account/coupons", tag: `reward-box-${box.id}` });
     }
     // The nudge is promotional, so only for members who opted in to offers.
     if (m.marketing && status.next && nearNextTier(status)) {
       const gift = TIER_GIFTS[status.next.id];
       const left = status.ridesToNext <= 1 ? "1 more ride" : `THB ${status.spendToNext.toLocaleString("en-US")} more`;
-      await once(m.id, `near:${status.next.id}:${year}`, "near", () => sendRewardEmail({ to: m.email, kicker: "Almost there", title: `${left} to ${status.next!.name}`, intro: `${hi} you're close to your ${status.next!.name} badge: ${status.next!.percent}% off every ride${gift ? `, plus a ${GIFTS[gift].name.toLowerCase()} and a mystery box` : ""}.`, cta: "Book a ride", path: "/#booking-search", tag: `reward-near-${m.id}-${status.next!.id}` }));
+      await once(m.id, `near:${status.next.id}:${year}`, "near", { to: m.email, kicker: "Almost there", title: `${left} to ${status.next!.name}`, intro: `${hi} you're close to your ${status.next!.name} badge: ${status.next!.percent}% off every ride${gift ? `, plus a ${GIFTS[gift].name.toLowerCase()} and a mystery box` : ""}.`, cta: "Book a ride", path: "/#booking-search", tag: `reward-near-${m.id}-${status.next!.id}` });
     }
     for (const g of gifts.filter((x) => x.status === "available" && new Date(x.expiresAt).getTime() - at.getTime() < 14 * DAY)) {
-      await once(m.id, `expiry:${g.id}`, "expiry", () => sendRewardEmail({ to: m.email, kicker: "Gift expiring", title: `Your ${g.name.toLowerCase()} expires soon`, intro: `${hi} your ${g.name.toLowerCase()} expires on ${new Date(g.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}. It's applied automatically when you book signed in.`, cta: "Use it now", path: "/#booking-search", tag: `reward-expiry-${g.id}` }));
+      await once(m.id, `expiry:${g.id}`, "expiry", { to: m.email, kicker: "Gift expiring", title: `Your ${g.name.toLowerCase()} expires soon`, intro: `${hi} your ${g.name.toLowerCase()} expires on ${new Date(g.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}. It's applied automatically when you book signed in.`, cta: "Use it now", path: "/#booking-search", tag: `reward-expiry-${g.id}` });
     }
   }
   return sent;

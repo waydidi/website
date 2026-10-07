@@ -1,3 +1,4 @@
+import { crmDb } from "@/lib/crm";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { adminOverview } from "@/lib/admin-overview";
@@ -6,9 +7,14 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 // What needs the admin's attention, for the bell in the top bar.
 export async function GET() {
-  if (!(await getWaydidiAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const staff=await getWaydidiAdmin();
+  if (!staff) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const due=await crmDb().prepare("SELECT count(*) n FROM crm_tasks WHERE status='open' AND due_at<=? AND (?='owner' OR owner_id=?)").bind(new Date().toISOString(),staff.role,staff.id).first<{n:number}>();
+  const reminder={n:due?.n??0,text:'CRM follow-ups due',href:'/admin/crm?view=tasks',urgent:true};
+  if(staff.role==='support')return NextResponse.json({items:reminder.n?[reminder]:[]},{headers:{'Cache-Control':'no-store'}});
   const { alerts: a } = await adminOverview();
   const items = [
+    reminder,
     { n: a.unassignedSoon, text: `${plural(a.unassignedSoon, "ride", "rides")} in the next 24h with no driver`, href: "/admin/operations", urgent: true },
     { n: a.attention, text: `${plural(a.attention, "booking", "bookings")} flagged as needing attention`, href: "/admin/operations", urgent: true },
     { n: a.operationsAlerts, text: `open operations ${plural(a.operationsAlerts, "alert", "alerts")}`, href: "/admin/operations", urgent: true },
