@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FlightMap } from "@/components/flights/flight-map";
 import { airportByCode } from "@/lib/thai-flights";
+import { Dialog as DialogPrimitive } from "radix-ui";
 
 export type FlightPoint = { iata: string | null; airport: string | null; city: string | null; scheduled: string | null; revised: string | null; actual: string | null; terminal: string | null; gate: string | null; belt: string | null; lat: number | null; lon: number | null; checkIn?: string | null };
 export type FlightResult = { flightNumber: string; date: string; status: string; airline: string | null; aircraft: string | null; departure: FlightPoint; arrival: FlightPoint; position: { lat: number; lon: number; track: number | null } | null; checkedAt: string };
@@ -202,7 +203,12 @@ export function FlightDetail({ flights: raw, onClose }: { flights: FlightResult[
     return () => { window.clearTimeout(t); window.removeEventListener("popstate", back); document.documentElement.style.overflow = ""; };
   }, [onClose]);
   const r = flights[Math.min(leg, flights.length - 1)];
-  return <div className={`fixed inset-0 z-[90] flex flex-col bg-[#EEF0F4] transition-transform duration-300 ease-out ${shown ? "translate-x-0" : "translate-x-full"}`} role="dialog" aria-modal="true" aria-label={`Flight ${r.flightNumber}`}>
+  // Radix Dialog: focus stays inside, Esc goes back like the back arrow, focus returns to the search afterwards.
+  return <DialogPrimitive.Root open>
+    <DialogPrimitive.Portal>
+    <DialogPrimitive.Content aria-describedby={undefined} onEscapeKeyDown={(e) => { e.preventDefault(); window.history.back(); }} onPointerDownOutside={(e) => e.preventDefault()}
+      className={`fixed inset-0 z-[90] flex flex-col bg-[#EEF0F4] outline-none transition-transform duration-300 ease-out ${shown ? "translate-x-0" : "translate-x-full"}`}>
+    <DialogPrimitive.Title className="sr-only">Flight {r.flightNumber}</DialogPrimitive.Title>
     <header className="shrink-0 bg-[linear-gradient(180deg,#FE8B05,#FFA33D)] px-3 pb-3 pt-[calc(10px+env(safe-area-inset-top))] text-white">
       <div className="mx-auto flex max-w-[720px] items-start gap-2">
         <button type="button" onClick={() => window.history.back()} aria-label="Back to search" className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-white/15"><ChevronLeft size={30} strokeWidth={1.8} /></button>
@@ -220,5 +226,7 @@ export function FlightDetail({ flights: raw, onClose }: { flights: FlightResult[
     <div className="flex-1 overflow-y-auto overscroll-contain">
       <div className="mx-auto max-w-[720px] px-3 pb-[calc(24px+env(safe-area-inset-bottom))] pt-3 sm:px-4"><Card key={leg} r={r} /></div>
     </div>
-  </div>;
+    </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  </DialogPrimitive.Root>;
 }

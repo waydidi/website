@@ -32,3 +32,15 @@ test("header Transfer menu opens with the keyboard and lists its links", async (
   await expect(menu).toBeHidden();
   await expect(trigger).toBeFocused();
 });
+
+test("chat window opens, closes with Esc and returns focus to the chat button", async ({ page }) => {
+  await page.goto("/account/sign-in");
+  await page.waitForLoadState("networkidle");
+  const launcher = page.getByRole("button", { name: "Ask Waydidi" });
+  await launcher.click();
+  const chat = page.getByRole("dialog", { name: "Ask Waydidi" });
+  await expect(chat).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(chat).toBeHidden();
+  await expect(launcher).toBeFocused();
+});

@@ -7,7 +7,7 @@ import {
   Truck,
   Users, UserRound,
   Newspaper,
-  TicketPercent, Gift, Route, Building2, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Plane, Search, Settings } from "lucide-react";
+  TicketPercent, Gift, Route, Building2, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Plane, Search, Settings, Contrast } from "lucide-react";
 import Link from "next/link";
 import { ChatSectionPicker } from "@/components/chat-admin/section-picker";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -233,13 +233,6 @@ function PageSearch() {
 
 
 // Light/dark icon: a circle split into a white half and a black half.
-function ThemeIcon({ size = 18 }: { size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="12" cy="12" r="10" fill="#FFFFFF" stroke="#15161C" strokeWidth="1.8" />
-    <path d="M12 2a10 10 0 0 1 0 20Z" fill="#15161C" />
-  </svg>;
-}
-
 export default function AdminShell({
   children,role="owner",
 }: {
@@ -330,7 +323,7 @@ export default function AdminShell({
         </nav>
         <div className={`flex items-center gap-1 border-t border-slate-200/70 p-3 ${collapsed ? "flex-col" : ""}`}>
           <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_SETTINGS_EVENT))} title="Settings" className={`flex h-10 min-w-0 flex-1 items-center gap-3 rounded-[10px] px-3 text-[15px] ${collapsed ? "w-full justify-center" : ""} ${pathname.startsWith("/admin/settings") ? "bg-brand-tint font-semibold text-brand-darker" : "text-slate-700 hover:bg-slate-100/80"}`}><Settings size={18} className="shrink-0" />{!collapsed && "Settings"}</button>
-          <button type="button" onClick={toggleDark} aria-pressed={dark} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"} className="grid size-10 shrink-0 place-items-center rounded-[10px] text-slate-700 hover:bg-slate-100/80"><ThemeIcon /></button>
+          <button type="button" onClick={toggleDark} aria-pressed={dark} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"} className="grid size-10 shrink-0 place-items-center rounded-[10px] text-slate-700 hover:bg-slate-100/80"><Contrast size={18} aria-hidden="true" /></button>
         </div>
       </aside>
       <div className="min-w-0 flex-1 overflow-x-clip">
