@@ -17,3 +17,18 @@ test("maintenance sign-in popup works with the keyboard", async ({ page }) => {
   await dialog.getByRole("button", { name: "Close" }).click();
   await expect(dialog).toBeHidden();
 });
+
+test("header Transfer menu opens with the keyboard and lists its links", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the phone header uses the side menu instead");
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const trigger = page.getByRole("navigation").getByRole("button", { name: "Transfer" });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  const menu = page.getByRole("menu", { name: "Transfer" });
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Airport transfer" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(trigger).toBeFocused();
+});

@@ -2,7 +2,8 @@
 
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { DropdownMenu } from "radix-ui";
 import type { MessageKey } from "@/lib/i18n";
 
 export const navMenus = [
@@ -40,58 +41,35 @@ export function NavDropdown({
   links: readonly { label: string; href: string }[];
 }) {
   const [open, setOpen] = useState(false);
-  const container = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!container.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
 
   return (
-    <div className="relative" ref={container}>
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        className="flex cursor-pointer items-center gap-2 rounded-full px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-      >
+    <DropdownMenu.Root open={open} onOpenChange={setOpen} modal={false}>
+      <DropdownMenu.Trigger className="flex cursor-pointer items-center gap-2 rounded-full px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80">
         {label}
         <ChevronDown
           className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           size={18}
         />
-      </button>
-      {open && (
-        <div
-          role="menu"
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="start"
+          sideOffset={20}
           aria-label={label}
-          className="absolute left-0 top-full z-50 mt-5 w-64 rounded-2xl bg-white p-2 text-ink shadow-xl"
+          className="z-50 w-64 rounded-2xl bg-white p-2 font-home font-semibold text-ink shadow-xl"
         >
           {links.map((link) => (
-            <Link
-              key={link.href}
-              role="menuitem"
-              href={link.href}
-              onClick={() => setOpen(false)}
-              className="block rounded-xl px-4 py-3 hover:bg-orange-50 focus-visible:outline-none focus-visible:bg-orange-50"
-            >
-              {link.label}
-            </Link>
+            <DropdownMenu.Item key={link.href} asChild>
+              <Link
+                href={link.href}
+                className="block rounded-xl px-4 py-3 outline-none data-[highlighted]:bg-orange-50"
+              >
+                {link.label}
+              </Link>
+            </DropdownMenu.Item>
           ))}
-        </div>
-      )}
-    </div>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }
