@@ -199,7 +199,7 @@ export function AdminAffiliates() {
       <div className="flex items-center gap-3 border-t border-slate-100 px-4 py-3"><button type="button" onClick={() => void saveKit()} className="h-9 rounded-lg bg-plum px-4 text-[13px] font-semibold text-white">Save prices</button>{kitMsg && <span className="text-[13px] font-semibold text-brand-darker">{kitMsg}</span>}</div>
     </section>
 
-    <Modal open={!!qr} onClose={() => setQr(null)} className="max-w-sm rounded-2xl p-6">
+    <Modal open={!!qr} onClose={() => setQr(null)} className="max-w-sm rounded-2xl p-6 shadow-2xl">
       {qr && <>
         <ModalClose aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></ModalClose>
         <ModalTitle className="text-[18px] font-bold">{qr.name}</ModalTitle><p className="mb-3 text-[13px] text-slate-500">waydidi.com/?ref={qr.slug}</p>
@@ -210,7 +210,7 @@ export function AdminAffiliates() {
     <p className="text-[12.5px] text-slate-500">Commission is earned when the ride is completed, on what the customer actually paid. Cancelled rides earn nothing. A partner link is remembered for 30 days (the last link clicked wins); a partner&apos;s code also gives the customer their discount. Partners can&apos;t earn on their own bookings, and store (QR) bookings don&apos;t count.</p>
 
     {form && <Modal open onClose={() => setForm(null)} locked={busy} onInteractOutside={(e) => e.preventDefault()} asChild>
-      <form onSubmit={save} className="max-h-[92dvh] max-w-lg overflow-y-auto rounded-2xl p-6">
+      <form onSubmit={save} className="max-h-[92dvh] max-w-lg overflow-y-auto rounded-2xl p-6 shadow-2xl">
         <ModalClose aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></ModalClose>
         <ModalTitle className="text-[20px] font-bold">{form.id ? "Edit partner" : "Add partner"}</ModalTitle>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">

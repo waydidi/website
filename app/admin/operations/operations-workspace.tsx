@@ -24,6 +24,7 @@ import Link from "next/link";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AddDriverDialog } from "@/components/admin-overview/upcoming-rides";
 import { DriverPicker } from "@/components/bookings-admin/driver-picker";
+import { Modal, ModalTitle } from "@/components/ui/modal";
 
 // The side panel with journey details is switched off for now (bookings open on their
 // own page). Typed as boolean so the hidden code is still type-checked.
@@ -651,11 +652,11 @@ function EvidenceSheet({ reference, events, onClose }: { reference: string; even
     .filter((e) => statuses.includes(e.status))
     .sort((x, y) => y.createdAt.localeCompare(x.createdAt))[0];
   const time = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
-  return <div role="dialog" aria-modal="true" aria-labelledby="evidence-title" className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+  return <Modal open onClose={() => onClose()} sheet overlayClassName="z-[70] bg-black/40 sm:items-end sm:p-0" asChild>
     <div className="max-h-[88dvh] w-full max-w-lg animate-in slide-in-from-bottom overflow-y-auto rounded-t-[28px] bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] duration-300">
       <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-200" />
       <div className="flex items-center justify-between">
-        <h3 id="evidence-title" className="text-lg font-black">Evidence · {reference}</h3>
+        <ModalTitle id="evidence-title" className="text-lg font-black">Evidence · {reference}</ModalTitle>
         <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
       </div>
       <ul className="mt-3 grid gap-4">
@@ -675,5 +676,5 @@ function EvidenceSheet({ reference, events, onClose }: { reference: string; even
         })}
       </ul>
     </div>
-  </div>;
+  </Modal>;
 }

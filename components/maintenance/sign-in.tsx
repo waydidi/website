@@ -34,7 +34,7 @@ export function MaintenanceSignIn() {
   return <>
     <button type="button" onClick={() => setOpen(true)} className="absolute bottom-[calc(16px+env(safe-area-inset-bottom))] right-5 z-20 rounded-full px-3 py-1.5 text-[14px] font-semibold text-[#7A3A06] hover:bg-white/40">Sign in</button>
     <Modal open={open} onClose={() => setOpen(false)} asChild>
-      <form onSubmit={submit} className="max-w-sm rounded-2xl p-6 text-left text-plum">
+      <form onSubmit={submit} className="max-w-sm rounded-2xl p-6 text-left text-plum shadow-2xl">
         <ModalClose aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></ModalClose>
         <ModalTitle className="text-[22px] font-bold">Admin sign in</ModalTitle>
         <p className="mt-1 text-[14px] text-slate-500">{mfa ? "Enter the six-digit code from your authenticator app." : "Sign in to the Waydidi admin panel."}</p>
