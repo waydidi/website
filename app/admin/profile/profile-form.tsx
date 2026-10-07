@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, LoaderCircle } from "lucide-react";
 import { SignOutButton } from "@/components/admin-settings/sign-out";
+import { ThemeToggle } from "@/components/admin-settings/theme-toggle";
 
 export function ProfileForm({ displayName, email, username, role }: { displayName: string; email: string; username: string; role: string }) {
   const router = useRouter();
@@ -61,6 +62,7 @@ export function ProfileForm({ displayName, email, username, role }: { displayNam
         <button type="submit" disabled={busy} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-50 sm:justify-self-start">{busy && <LoaderCircle size={16} className="animate-spin" />}Save changes</button>
       </form>
     </section>
+    <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div><h2 className="font-semibold">Appearance</h2><p className="mt-1 text-sm text-slate-500">Light or dark admin panel. Remembered on this device.</p></div><ThemeToggle /></section>
     <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div><h2 className="font-semibold">Sign out</h2><p className="mt-1 text-sm text-slate-500">End your session on this device.</p></div><SignOutButton /></section>
   </div>;
 }

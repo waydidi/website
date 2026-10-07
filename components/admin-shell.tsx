@@ -271,9 +271,18 @@ export default function AdminShell({
     document.documentElement.classList.toggle("admin-dark", dark);
     return () => document.documentElement.classList.remove("admin-dark");
   }, [dark]);
-  function toggleDark() {
-    setDark((d) => { try { window.localStorage.setItem("waydidi-admin-theme", d ? "light" : "dark"); } catch { /* storage blocked */ } return !d; });
+  function setTheme(next: boolean) {
+    try { window.localStorage.setItem("waydidi-admin-theme", next ? "dark" : "light"); } catch { /* storage blocked */ }
+    setDark(next);
   }
+  function toggleDark() { setTheme(!dark); }
+  // The Profile page's Light/Dark switch asks through an event; every change is announced back.
+  useEffect(() => {
+    const onSet = (e: Event) => setTheme((e as CustomEvent<boolean>).detail);
+    window.addEventListener("waydidi:set-theme", onSet);
+    return () => window.removeEventListener("waydidi:set-theme", onSet);
+  }, []);
+  useEffect(() => { window.dispatchEvent(new CustomEvent("waydidi:theme", { detail: dark })); }, [dark]);
   function toggleSidebar() {
     setCollapsed((current) => {
       const next = !current;
