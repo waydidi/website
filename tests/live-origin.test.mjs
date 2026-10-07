@@ -9,7 +9,7 @@ const paths = globSync(`${root}/dist/server/**/*.js`).sort((a, b) => a === `${ro
 const mf = new Miniflare({ modules: paths.map((path) => ({ type: "ESModule", path })), compatibilityDate: "2026-05-15", compatibilityFlags: ["nodejs_compat"], d1Databases: ["DB"], assets: { directory: `${root}/dist/client`, routerConfig: { has_user_worker: true } } });
 after(() => mf.dispose());
 
-const origin = "https://waydidi.com";
+const origin = "https://waydidi-website.contact-waydidi.workers.dev";
 
 test("the production hostname serves canonical metadata without a blanket noindex header", async () => {
   const response = await mf.dispatchFetch(origin + "/");
@@ -35,11 +35,11 @@ test("robots points search engines to the only live sitemap", async () => {
   assert.ok(robots.includes("Disallow: /admin/"));
 });
 
-test("the old workers.dev address and www send page visits to waydidi.com, but keep API calls working", async () => {
-  for (const host of ["https://waydidi-website.contact-waydidi.workers.dev", "https://www.waydidi.com"]) {
+test("custom-domain aliases send page visits to the Workers live site, but keep API calls working", async () => {
+  for (const host of ["https://waydidi.com", "https://www.waydidi.com"]) {
     const page = await mf.dispatchFetch(host + "/help?x=1", { redirect: "manual" });
     assert.equal(page.status, 301);
-    assert.equal(page.headers.get("Location"), "https://waydidi.com/help?x=1");
+    assert.equal(page.headers.get("Location"), origin + "/help?x=1");
     await page.text();
   }
   const api = await mf.dispatchFetch("https://waydidi-website.contact-waydidi.workers.dev/api/chat", { redirect: "manual" });

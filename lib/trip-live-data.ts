@@ -1,15 +1,18 @@
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookings, journeyLocations, smartTrips, smartTripVersions } from "@/db/schema";
 import { tripSnapshot, type TripRow, type TripSnapshot } from "@/lib/smart-trips";
+import { activeAssignment } from "@/lib/trip-access";
 import { liveStatus } from "@/lib/trip-live";
 
-/** Latest driver position for the trip's booking, if reported in the last 15 minutes. */
-export async function driverPosition(reference: string | null) {
+/** Recent, usable GPS from the current outbound assignment only. */
+export async function driverPosition(reference: string | null, now = new Date()) {
   if (!reference) return null;
-  const since = new Date(Date.now() - 15 * 60_000).toISOString();
+  const assignment = await activeAssignment(reference);
+  if (!assignment || assignment.tokenExpiresAt <= now.toISOString() || !["going_to_standby", "standby", "passenger_verified", "trip_started", "passenger_picked_up"].includes(assignment.currentStatus)) return null;
+  const since = new Date(now.getTime() - 90_000).toISOString();
   const [row] = await getDb().select({ lat: journeyLocations.latitude, lng: journeyLocations.longitude, at: journeyLocations.serverTimestamp })
-    .from(journeyLocations).where(and(eq(journeyLocations.bookingReference, reference), gte(journeyLocations.serverTimestamp, since)))
+    .from(journeyLocations).innerJoin(bookings, eq(bookings.reference, journeyLocations.bookingReference)).where(and(eq(bookings.status, "confirmed"), eq(journeyLocations.bookingReference, reference), eq(journeyLocations.assignmentId, assignment.id), eq(journeyLocations.driverId, assignment.driverId), eq(journeyLocations.quality, "good"), lte(journeyLocations.accuracyMetres, 200), gte(journeyLocations.serverTimestamp, since), lte(journeyLocations.serverTimestamp, now.toISOString())))
     .orderBy(desc(journeyLocations.serverTimestamp)).limit(1);
   return row ? { lat: row.lat, lng: row.lng, updatedAt: row.at } : null;
 }
@@ -17,7 +20,7 @@ export async function driverPosition(reference: string | null) {
 export async function liveFor(trip: TripRow, now = new Date()) {
   const snap = tripSnapshot(trip);
   if (!snap) return null;
-  const driver = await driverPosition(trip.bookingReference);
+  const driver = await driverPosition(trip.bookingReference, now);
   return { snap, live: liveStatus(snap, now, driver, snap.liveSkipped ?? []) };
 }
 

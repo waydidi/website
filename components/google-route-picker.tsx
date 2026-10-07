@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { attachPlaceAutocomplete, loadMaps, type SelectedPlace } from "@/lib/google-places";
 import { MapPin, Route } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n-provider";
@@ -66,35 +67,7 @@ export function GoogleRoutePicker({
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      const response = await fetch("/api/maps/config", { cache: "no-store" });
-      const { apiKey } = (await response.json()) as { apiKey?: string };
-      if (!apiKey || cancelled) return;
-      if (window.google?.maps) {
-        setMapReady(true);
-        return;
-      }
-      const existing = document.querySelector<HTMLScriptElement>(
-        "script[data-waydidi-google-maps]",
-      );
-      if (existing) {
-        existing.addEventListener(
-          "load",
-          () => !cancelled && setMapReady(true),
-          { once: true },
-        );
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&v=weekly`;
-      script.async = true;
-      script.dataset.waydidiGoogleMaps = "true";
-      script.addEventListener("load", () => !cancelled && setMapReady(true), {
-        once: true,
-      });
-      document.head.appendChild(script);
-    }
-    load().catch(() => undefined);
+    void loadMaps().then((ok) => { if (!cancelled) setMapReady(ok); });
     return () => {
       cancelled = true;
     };
@@ -122,18 +95,6 @@ export function GoogleRoutePicker({
       polylineOptions: { strokeColor: "#FF8A05", strokeWeight: 5 },
     }) : null;
     const service = new maps.DirectionsService();
-    const options = {
-      componentRestrictions: { country: "th" },
-      fields: ["formatted_address", "geometry", "name"],
-    };
-    const pickupAutocomplete = new maps.places.Autocomplete(
-      pickupRef.current,
-      options,
-    );
-    const dropoffAutocomplete = dropoffRef.current
-      ? new maps.places.Autocomplete(dropoffRef.current, options)
-      : null;
-    autocompletesRef.current = [pickupAutocomplete, dropoffAutocomplete].filter(Boolean);
     const calculate = () => {
       if (!pickupRef.current?.value || !dropoffRef.current?.value) return;
       service.route(
@@ -167,40 +128,41 @@ export function GoogleRoutePicker({
       );
     };
     calculateRef.current = calculate;
-    const selectPickup = () => {
-      const place = pickupAutocomplete.getPlace();
-      pickupPlaceIdRef.current = place.place_id ?? "";
-      onPickupPlaceChange?.(pickupPlaceIdRef.current, place.geometry?.location ? { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() } : null);
+    const selectPickup = (place: SelectedPlace) => {
+      pickupPlaceIdRef.current = place.placeId ?? "";
+      onPickupPlaceChange?.(pickupPlaceIdRef.current, place.location);
       onPickupChange(
-        place.formatted_address || place.name || pickupRef.current?.value || "",
+        place.address || pickupRef.current?.value || "",
       );
       if (!pickupOnly) window.setTimeout(calculate, 0);
     };
-    const selectDropoff = () => {
-      const place = dropoffAutocomplete.getPlace();
-      dropoffPlaceIdRef.current = place.place_id ?? "";
+    const selectDropoff = (place: SelectedPlace) => {
+      dropoffPlaceIdRef.current = place.placeId ?? "";
       onDropoffChange(
-        place.formatted_address ||
-          place.name ||
+        place.address ||
           dropoffRef.current?.value ||
           "",
       );
-      onDropoffPlaceChange?.(dropoffPlaceIdRef.current, place.geometry?.location ? { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() } : null);
+      onDropoffPlaceChange?.(dropoffPlaceIdRef.current, place.location);
       if (!pickupOnly) window.setTimeout(calculate, 0);
     };
-    pickupAutocomplete.addListener("place_changed", selectPickup);
-    dropoffAutocomplete?.addListener("place_changed", selectDropoff);
+    const pickupAutocomplete = attachPlaceAutocomplete(pickupRef.current, selectPickup);
+    const dropoffAutocomplete = dropoffRef.current ? attachPlaceAutocomplete(dropoffRef.current, selectDropoff) : null;
+    autocompletesRef.current = [pickupAutocomplete, dropoffAutocomplete].filter(Boolean);
     calculate();
     return () => {
-      maps.event.clearInstanceListeners(pickupAutocomplete);
-      if (dropoffAutocomplete) maps.event.clearInstanceListeners(dropoffAutocomplete);
+      pickupAutocomplete.dispose();
+      dropoffAutocomplete?.dispose();
+      renderer?.setMap(null);
+      calculateRef.current = null;
+      autocompletesRef.current = [];
     };
   }, [mapReady, pickupOnly, showPreviewMap, optionalDropoff]);
 
   // Hourly: suggestions favour the chosen area (anywhere is still allowed).
   useEffect(() => {
     if (!mapReady || !window.google?.maps) return;
-    for (const a of autocompletesRef.current) a.setBounds(bounds ? new window.google.maps.LatLngBounds({ lat: bounds.south, lng: bounds.west }, { lat: bounds.north, lng: bounds.east }) : undefined);
+    for (const a of autocompletesRef.current) a.setBounds(bounds ?? undefined);
   }, [mapReady, bounds, optionalDropoff, pickupOnly]);
 
   // Apply prefilled place IDs once Maps is ready and the new text has rendered.
@@ -231,7 +193,7 @@ export function GoogleRoutePicker({
             ref={pickupRef}
             required
             value={pickup}
-            onChange={(event) => onPickupChange(event.target.value)}
+            onChange={(event) => { pickupPlaceIdRef.current = ""; onPickupPlaceChange?.("", null); setRouteInfo(null); onRouteChange(null); onPickupChange(event.target.value); }}
             className={`${fieldClass} ${connectedMobile ? "md:mt-1 md:text-[19px] md:font-semibold lg:mt-0 lg:text-[15px]" : ""}`}
             placeholder={t("route.pickupPlaceholder")}
             aria-label={t("route.pickupLabel")}
@@ -248,7 +210,7 @@ export function GoogleRoutePicker({
             ref={dropoffRef}
             required={!optionalDropoff}
             value={dropoff}
-            onChange={(event) => onDropoffChange(event.target.value)}
+            onChange={(event) => { dropoffPlaceIdRef.current = ""; onDropoffPlaceChange?.("", null); setRouteInfo(null); onRouteChange(null); onDropoffChange(event.target.value); }}
             className={`${fieldClass} ${connectedMobile ? "md:mt-1 md:text-[19px] md:font-semibold lg:mt-0 lg:text-[15px]" : ""}`}
             placeholder={optionalDropoff ? "Same as pickup if empty" : t("route.dropoffPlaceholder")}
             aria-label={t("route.dropoffLabel")}

@@ -1,3 +1,4 @@
+import { migrationStatements } from './helpers/migrations.mjs';
 import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
 import { Miniflare } from 'miniflare';
@@ -9,7 +10,7 @@ const mf = new Miniflare({ modules: true, script: 'export default {fetch(){retur
 const d1 = await mf.getD1Database('DB');
 for (const name of (await readdir(root + '/drizzle')).filter(n => n.endsWith('.sql')).sort()) {
     const source = await readFile(root + '/drizzle/' + name, 'utf8');
-    const statements = source.replace(/--[^\n]*/g, '').split(';').map(s => s.trim()).filter(Boolean);
+    const statements = migrationStatements(source).map(s => s.trim()).filter(Boolean);
     if (statements.length)
         await d1.batch(statements.map(s => d1.prepare(s)));
 }

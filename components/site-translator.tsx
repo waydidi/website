@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { approvedTranslationText } from "@/lib/site-translation-policy";
 import { LANG_COOKIE, SITE_LANGS, TX_ATTRS, TX_SKIP, isSiteLang, legalPath, untranslatedPath, usableText, type SiteLang } from "@/lib/site-languages";
 
 // Shows every public page in the visitor's language. The page is rendered in English; this swaps
@@ -34,7 +35,7 @@ export function SiteTranslator() {
     document.documentElement.lang = info.htmlLang;
 
     let cache: Record<string, string> = {};
-    const key = `wd-tx2:${lang}`; // v2: earlier versions saved untranslated text here
+    const key = `wd-tx3:${lang}`; // v2: earlier versions saved untranslated text here
     try { cache = JSON.parse(sessionStorage.getItem(key) ?? "{}"); } catch { cache = {}; }
     const textOrig = new WeakMap<Text, { src: string; shown: string }>();
     const attrOrig = new WeakMap<Element, Record<string, { src: string; shown: string }>>();
@@ -42,11 +43,11 @@ export function SiteTranslator() {
     const pending = new Set<string>();
     // Texts that couldn't be translated yet: shown in English for now and tried again shortly (not saved).
     const skip = new Set<string>();
-    let retries = 0;
+    let retries = 0, retryTimer = 0;
     let timer = 0, stopped = false, firstDone = false;
     let titleSrc = document.title, titleShown = "";
 
-    const usable = usableText;
+    const usable = (s: string) => { const text = usableText(s); return text && approvedTranslationText(text) ? text : null; };
     // A function replacer, so "$&" or "$1" in a translation is shown as written.
     const wrap = (full: string, core: string, tr: string) => full.replace(core, () => tr);
     const skipped = (el: Element | null) => !el || Boolean(el.closest(SKIP));
@@ -107,7 +108,7 @@ export function SiteTranslator() {
       if (stopped) return;
       const missed = texts.filter((t) => cache[t] === undefined);
       for (const t of missed) skip.add(t);
-      if (missed.length && retries < 3) { retries++; window.setTimeout(() => { if (stopped) return; skip.clear(); observer.disconnect(); walk(document.body); applyTitle(); observe(); schedule(); }, 8000 * retries); }
+      if (missed.length && retries < 3) { retries++; retryTimer = window.setTimeout(() => { if (stopped) return; skip.clear(); observer.disconnect(); walk(document.body); applyTitle(); observe(); schedule(); }, 8000 * retries); }
       observer.disconnect(); walk(document.body); applyTitle(); observe();
       if (!firstDone) { firstDone = true; done(); }
     }
@@ -131,7 +132,7 @@ export function SiteTranslator() {
 
     return () => {
       // Back to English (language switched off, "Show original", or a staff page).
-      stopped = true; observer.disconnect(); if (timer) window.clearTimeout(timer);
+      stopped = true; observer.disconnect(); if (timer) window.clearTimeout(timer); if (retryTimer) window.clearTimeout(retryTimer);
       for (const n of touchedText) { const r = textOrig.get(n); if (r && n.nodeValue === r.shown) n.nodeValue = r.src; }
       for (const el of touchedAttr) for (const [a, r] of Object.entries(attrOrig.get(el) ?? {})) if (el.getAttribute(a) === r.shown) el.setAttribute(a, r.src);
       if (titleShown && document.title === titleShown) document.title = titleSrc;

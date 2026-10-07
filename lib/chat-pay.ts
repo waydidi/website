@@ -1,3 +1,4 @@
+import { paysoPaymentProvider } from "@/lib/payments/payso-provider";
 import { env } from "cloudflare:workers";
 import { uniqueBookingReference } from "@/lib/booking-reference-server";
 import { quoteHourly, quoteTransfer } from "@/lib/cee/quotes";
@@ -13,15 +14,16 @@ import { cardText, type ConfirmedCard, type PaymentCard } from "@/lib/chat-cards
 //
 // Payment provider: Pay Solutions plugs in at paysoCheckoutUrl() once its API details and keys
 // are known. Until then, PAYSO_TEST_MODE=1 (Cloudflare) shows a "test payment" button so the
-// whole flow can be tried without charging anyone. With neither set, links aren't offered.
+// whole flow can be tried without charging anyone. Real links stay unavailable until the payment adapter is implemented and verified.
 
 export const LINK_MINUTES = 30;
 type Vars = Record<string, string | undefined>;
 const vars = () => env as unknown as Vars;
-type Db = { prepare: (s: string) => { bind: (...v: unknown[]) => { first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> } } };
+type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
+type Db = { prepare: (s: string) => Stmt; batch: (s: Stmt[]) => Promise<{ meta: { changes: number } }[]> };
 const db = () => env.DB as unknown as Db;
 
-export const paysoConfigured = () => Boolean(vars().PAYSO_MERCHANT_ID && vars().PAYSO_SECRET_KEY);
+export const paysoConfigured = () => Boolean(paysoPaymentProvider.enabled && vars().PAYSO_MERCHANT_ID && vars().PAYSO_SECRET_KEY);
 export const chatPaymentTestMode = () => vars().PAYSO_TEST_MODE === "1";
 export const chatPaymentsEnabled = () => paysoConfigured() || chatPaymentTestMode();
 
@@ -80,7 +82,7 @@ export async function chatPaymentLink(id: string) {
 /** Where the customer pays. Pay Solutions' hosted payment page goes here once connected. */
 export async function paysoCheckoutUrl(_link: LinkRow): Promise<string | null> {
   if (!paysoConfigured()) return null;
-  throw new Error("PAYSO_NOT_CONNECTED"); // filled in from Pay Solutions' API documentation
+  return null; // Enable only after the adapter supports verified payment creation and callbacks.
 }
 
 /**
@@ -88,26 +90,23 @@ export async function paysoCheckoutUrl(_link: LinkRow): Promise<string | null> {
  * booking once, and tells the customer and the team.
  */
 export async function markChatPaymentPaid(id: string, provider: "payso" | "test") {
+  if (provider === "payso" ? !paysoConfigured() : !chatPaymentTestMode()) return { ok: false as const, reason: "Payment provider unavailable." };
   const link = await chatPaymentLink(id);
   if (!link || link.status !== "pending") return { ok: false as const, reason: link?.status === "paid" ? "Already paid." : "This payment link has expired." };
-  const claimed = await db().prepare("UPDATE chat_payment_links SET status='paying' WHERE id=? AND status='pending'").bind(id).run();
-  if (!claimed.meta.changes) return { ok: false as const, reason: "Already being paid." };
   const d = JSON.parse(link.details_json) as Details;
-  let reference: string;
-  const now = new Date().toISOString();
-  try {
-    reference = await uniqueBookingReference();
-  await db().prepare(`INSERT INTO bookings(reference,customer_name,customer_email,customer_phone,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status,payment_status,amount_paid,access_token_hash,service_type,booked_hours,created_at,updated_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'confirmed','paid',?,?,?,?,?,?)`)
-    .bind(reference, link.customer_name, link.customer_email, link.customer_phone, d.pickup, d.dropoff, d.date, d.time, d.passengers, d.bags, link.vehicle,
-      provider === "test" ? "test" : "payso", link.amount, link.amount, await sha256(token()), link.kind, d.hours, now, now).run();
-  await db().prepare("INSERT OR IGNORE INTO booking_sources(booking_reference,source,created_at) VALUES(?,?,?)").bind(reference, "chat", now).run().catch(() => undefined);
-  await db().prepare("UPDATE chat_payment_links SET status='paid',booking_reference=?,provider=?,paid_at=? WHERE id=?").bind(reference, provider, now, id).run();
-  } catch (error) {
-    // Nothing was booked: let the payment be tried again.
-    await db().prepare("UPDATE chat_payment_links SET status='pending' WHERE id=? AND status='paying'").bind(id).run();
-    throw error;
-  }
+  const reference = await uniqueBookingReference(), now = new Date().toISOString();
+  // D1 batches are transactions. A failed insert or final update rolls back the claim too.
+  // Every insert is conditional on this request's reference, so a concurrent retry cannot book twice.
+  const results = await db().batch([
+    db().prepare("UPDATE chat_payment_links SET status='paying',booking_reference=? WHERE id=? AND status='pending' AND expires_at>?").bind(reference, id, now),
+    db().prepare(`INSERT INTO bookings(reference,customer_name,customer_email,customer_phone,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status,payment_status,amount_paid,access_token_hash,service_type,booked_hours,created_at,updated_at)
+      SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,'confirmed','paid',?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM chat_payment_links WHERE id=? AND status='paying' AND booking_reference=?)`)
+      .bind(reference, link.customer_name, link.customer_email, link.customer_phone, d.pickup, d.dropoff, d.date, d.time, d.passengers, d.bags, link.vehicle,
+        provider === "test" ? "test" : "payso", link.amount, link.amount, await sha256(token()), link.kind, d.hours, now, now, id, reference),
+    db().prepare("INSERT OR IGNORE INTO booking_sources(booking_reference,source,created_at) SELECT ?,'chat',? WHERE EXISTS(SELECT 1 FROM chat_payment_links WHERE id=? AND status='paying' AND booking_reference=?)").bind(reference, now, id, reference),
+    db().prepare("UPDATE chat_payment_links SET status='paid',provider=?,paid_at=? WHERE id=? AND status='paying' AND booking_reference=?").bind(provider, now, id, reference),
+  ]);
+  if (!results[0].meta.changes) return { ok: false as const, reason: "Already paid or expired." };
   const car = VEHICLES[link.vehicle as VehicleId]?.name ?? link.vehicle;
   const confirmed: ConfirmedCard = { type: "confirmed", reference: reference!, amount: link.amount, test: provider === "test",
     rows: [["From", d.pickup], [d.hours ? "Service" : "To", d.dropoff], ["Date", d.date], ["Pickup time", d.time], ["Car", car], ["Lead passenger", link.customer_name]] };

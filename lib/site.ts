@@ -1,4 +1,4 @@
-// Waydidi's public address. The old workers.dev address and www. redirect here (worker/index.ts).
-export const SITE_URL = "https://waydidi.com";
-/** Earlier address: still answers webhooks and API calls, page visits are sent to SITE_URL. */
-export const LEGACY_HOSTS = ["waydidi-website.contact-waydidi.workers.dev", "www.waydidi.com"];
+// The single public origin used by pages, confirmation links and integrations.
+export const SITE_URL = "https://waydidi-website.contact-waydidi.workers.dev";
+/** Earlier custom-domain aliases redirect page visits to the single live site. */
+export const LEGACY_HOSTS = ["waydidi.com", "www.waydidi.com"];

@@ -13,8 +13,9 @@ export async function receiveChannelMessage(m: { channel: Exclude<Channel, "web"
     channel: m.channel, channelUserId: m.userId, name: m.name ?? null, phone: m.phone ?? null, sourceTitle: CHANNEL_LABEL[m.channel], topic: CHANNEL_LABEL[m.channel],
   });
   const saved = await addVisitorMessage(c, text, `${m.channel}:${m.messageId}`.slice(0, 120));
-  if (saved.duplicate) return; // Meta and LINE retry webhooks; each message is handled once.
+  // Resume scheduling/token persistence after a partial webhook failure. runCee guards
+  // against answering the same visitor message twice.
   if (m.lineReplyToken) await saveLineReplyToken(c.id, m.lineReplyToken);
-  await showTyping(m.channel, m.userId, m.messageId).catch(() => undefined);
+  if (!saved.duplicate) await showTyping(m.channel, m.userId, m.messageId).catch(() => undefined);
   await scheduleNon(c.id).catch(() => undefined);
 }

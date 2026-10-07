@@ -63,7 +63,7 @@ export async function createCustomerSession(customerId: string, userAgent: strin
 // was made as a guest with the email address the customer has verified.
 function ownedBy(customer: Customer) {
   const linked = getDb().select({ reference: customerBookingLinks.bookingReference }).from(customerBookingLinks).where(eq(customerBookingLinks.customerId, customer.id));
-  return or(inArray(bookings.reference, linked), sql`lower(${bookings.customerEmail}) = ${customer.email}`);
+  return or(inArray(bookings.reference, linked), sql`lower(${bookings.customerEmail}) = ${customer.email} and not exists (select 1 from customer_booking_links l where l.booking_reference = ${bookings.reference})`);
 }
 
 export async function customerBookings(customer: Customer) {

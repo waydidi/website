@@ -49,20 +49,20 @@ export async function POST(request: Request) {
   const attempt = await env.DB.prepare("INSERT INTO security_rate_windows(fingerprint,window,attempts) VALUES(?,?,1) ON CONFLICT(fingerprint,window) DO UPDATE SET attempts=attempts+1 WHERE attempts<60 RETURNING attempts").bind(fingerprint, window).first();
   if (!attempt) return fail("Please wait a few minutes before sending more messages.", 429);
 
+  const signedIn = await customerFromRequest(request);
   let c = await current(request), token: string | null = null;
   // A finished (closed) chat stays as it was rated; a new message starts a fresh conversation.
   const previous = c?.status === "closed" ? c : null;
   if (previous) c = null;
   if (!c) {
     token = secureToken();
-    const signedIn = await customerFromRequest(request).catch(() => null);
     const account = signedIn?.customer;
     const source = text(input.sourceUrl, 300);
     // An email is required to start a chat, so staff can always follow up.
     const email = text(input.email, 254) ?? previous?.customer_email ?? account?.email ?? null;
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) return fail("Enter your email address to start the chat.", 400);
     c = await createConversation(await sha256(token), {
-      customerId: account?.id ?? previous?.customer_id ?? null,
+      customerId: account?.id ?? null,
       phone: text(input.phone, 40) ?? previous?.customer_phone ?? account?.phone ?? null,
       name: text(input.name, 100) ?? previous?.customer_name ?? (account ? `${account.name ?? ""} ${account.surname ?? ""}`.trim() || null : null),
       email,
@@ -72,9 +72,14 @@ export async function POST(request: Request) {
       country: /^[A-Z]{2}$/.test(request.headers.get("cf-ipcountry") ?? "") && !["XX", "T1"].includes(request.headers.get("cf-ipcountry")!) ? request.headers.get("cf-ipcountry") : null,
     });
   }
+  // Refresh verified identity for every message; a contact email or old chat
+  // must not retain account access after sign-out or an account switch.
+  const customerId = signedIn?.customer.id ?? null;
+  await env.DB.prepare("UPDATE website_conversations SET customer_id=? WHERE id=?").bind(customerId, c.id).run();
+  c = { ...c, customer_id: customerId };
   const result = await addVisitorMessage(c, message, clientId);
   // Non answers in the background (after a 5 s pause for more messages), so sending never waits on it.
-  if (!result.duplicate) await scheduleNon(c.id).catch(() => undefined);
+  await scheduleNon(c.id).catch(() => undefined);
   const response = NextResponse.json({ ok: true, duplicate: result.duplicate, conversation: view(c) }, { headers });
   if (token) response.cookies.set(COOKIE, token, { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 30 * 86400 });
   return response;
