@@ -604,3 +604,17 @@ test('Friend referrals: personal code, friend discount on first ride only, not o
  assert.ok(await db.prepare("SELECT 1 FROM member_coupons WHERE customer_id='c1' AND code=?").bind(mails[0][2]).first(),'saved to her coupons');
  assert.deepEqual(await rf.referralSummary('c1'),{waiting:0,rewarded:1,earned:100});
 });
+test('Partner content kit: captions in 3 languages with the partner code/link; price line only once set',async()=>{
+ const kit=await vite.ssrLoadModule('/lib/partner-kit.ts');
+ const af=await vite.ssrLoadModule('/lib/affiliates.ts');
+ assert.equal(kit.KIT_ROUTES.length,8);
+ const r=kit.KIT_ROUTES.find((x)=>x.id==='hkt-patong');
+ for(const lang of ['en','th','zh']){
+  const t=kit.kitCaption(r,lang,{link:'https://waydidi.com/?ref=mint',code:'MINT5',discount:5});
+  assert.ok(t.includes('MINT5')&&t.includes('ref=mint')&&!/[{}]/.test(t),lang);
+  assert.ok(!t.includes('฿'),'no price until set');
+ }
+ assert.match(kit.kitCaption(r,'th',{link:'L',code:'C',discount:5,price:1200}),/เริ่มต้น ฿1,200 ต่อคัน/);
+ await af.saveKitPrices({'hkt-patong':1200},'test');
+ assert.deepEqual(await af.kitPrices(),{'hkt-patong':1200});
+});

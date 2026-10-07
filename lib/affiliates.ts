@@ -219,3 +219,14 @@ export async function markPaid(affiliateId: string, month?: string) {
     .bind(...(month ? [now, affiliateId, `${month}-%`] : [now, affiliateId])).run() as { meta: { changes: number } };
   return r.meta.changes;
 }
+
+// ---- Content kit "from" prices (set in admin; shown in the partners' captions once set) ----
+export async function kitPrices(): Promise<Record<string, number>> {
+  const row = await db().prepare("SELECT value FROM site_settings WHERE key='partner_kit_prices'").first<{ value: string }>().catch(() => null);
+  try { return row ? JSON.parse(row.value) as Record<string, number> : {}; } catch { return {}; }
+}
+export async function saveKitPrices(prices: Record<string, number>, by: string) {
+  await db().prepare("CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_by TEXT, updated_at TEXT)").run();
+  await db().prepare("INSERT INTO site_settings(key,value,updated_by,updated_at) VALUES('partner_kit_prices',?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_by=excluded.updated_by,updated_at=excluded.updated_at")
+    .bind(JSON.stringify(prices), by, new Date().toISOString()).run();
+}

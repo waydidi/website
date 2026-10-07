@@ -1,8 +1,9 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
-import { affiliateBookings, affiliateSummaries, cleanCode, cleanSlug, dashboardPath, ensureAffiliateTables, isSlug, markPaid, payoutList, type Affiliate } from "@/lib/affiliates";
+import { affiliateBookings, affiliateSummaries, cleanCode, cleanSlug, dashboardPath, ensureAffiliateTables, isSlug, kitPrices, markPaid, payoutList, saveKitPrices, type Affiliate } from "@/lib/affiliates";
 import { sendTripEmail } from "@/lib/email";
+import { KIT_ROUTES } from "@/lib/partner-kit";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
   const staff = await getWaydidiAdmin();
   if (!staff) return reply("Staff access required.", 403);
   const params = new URL(request.url).searchParams;
+  if (params.get("kit")) return NextResponse.json({ prices: await kitPrices() }, { headers });
   const payouts = params.get("payouts");
   if (payouts) return NextResponse.json({ payouts: await payoutList(payouts) }, { headers });
   const id = params.get("id");
@@ -59,6 +61,13 @@ export async function POST(request: Request) {
   if (b.action === "new-link" && typeof b.id === "string") {
     await db().prepare("UPDATE affiliates SET link_version=COALESCE(link_version,0)+1,updated_at=? WHERE id=?").bind(now, b.id).run();
     return NextResponse.json({ ok: true }, { headers });
+  }
+  if (b.action === "kit-prices" && b.prices && typeof b.prices === "object") {
+    // "From" prices for the content kit captions (empty = not shown).
+    const prices: Record<string, number> = {};
+    for (const r of KIT_ROUTES) { const v = Math.round(Number((b.prices as Record<string, unknown>)[r.id])); if (v > 0 && v < 1_000_000) prices[r.id] = v; }
+    await saveKitPrices(prices, staff.displayName);
+    return NextResponse.json({ ok: true, prices }, { headers });
   }
   if (b.action === "pay" && typeof b.id === "string") {
     // One month's completed rides (Monthly payouts), or everything completed so far.

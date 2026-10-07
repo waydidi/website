@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { TIERS, affiliateForDashboard, partnerDashboard } from "@/lib/affiliates";
+import { TIERS, affiliateForDashboard, kitPrices, partnerDashboard } from "@/lib/affiliates";
+import { ContentKit } from "@/components/partner/content-kit";
 import { CopyRow, LinkBuilder, PartnerQr } from "@/components/partner/tools";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 
@@ -20,7 +21,7 @@ export default async function PartnerDashboard({ params }: { params: Promise<{ i
   const { id, key } = await params;
   const a = await affiliateForDashboard(id, key);
   if (!a) notFound();
-  const d = await partnerDashboard(a);
+  const [d, prices] = await Promise.all([partnerDashboard(a), kitPrices()]);
   const TIER_ROWS = TIERS.map((t) => [t.name, t.rides ? `${t.rides} rides · ${a.commission_percent + t.bonus}%` : `${a.commission_percent}%`]);
   const card = "rounded-2xl bg-white p-5 shadow-[0_2px_12px_rgba(33,23,38,.06)]";
   return <main className="font-home min-h-dvh bg-[#F4F5F8] text-[#211726]">
@@ -59,6 +60,12 @@ export default async function PartnerDashboard({ params }: { params: Promise<{ i
         <h3 className="mt-5 text-[15px] font-bold">Link builder</h3>
         <p className="mb-2 text-[13px] text-slate-500">Make a link with the route already filled in, e.g. for a post about Phuket airport to Patong.</p>
         <LinkBuilder slug={a.slug} />
+      </section>
+
+      <section className={card}>
+        <h2 className="text-[18px] font-bold">Content kit</h2>
+        <p className="mb-4 mt-1 text-[14px] text-slate-600">Photos and ready-made captions in English, Thai and Chinese, already with your code and your link (route filled in). Copy, paste, post.</p>
+        <ContentKit slug={a.slug} code={a.code} discount={a.discount_percent} prices={prices} />
       </section>
 
       <section className={card}>
