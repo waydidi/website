@@ -50,6 +50,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@cloudflare/vite-plugin": "1.37.1",
     "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "4.2.1",
