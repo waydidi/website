@@ -6,6 +6,7 @@ import { toSatang } from "@/lib/money";
 import { payPageUrl } from "@/lib/stripe";
 import { NextResponse } from "next/server";
 import { storeCommission, storeDiscount, storefrontBySlug } from "@/lib/storefront";
+import { recordReferral } from "@/lib/referrals";
 import { affiliateByCode, affiliateBySlug, affiliateDiscount, isSelfReferral, linkBooking, refFromRequest, type Affiliate } from "@/lib/affiliates";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { bookingContacts, bookingFreeAddons, bookingMemberDiscounts, bookingSources, bookingStorefronts, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
@@ -582,6 +583,8 @@ export async function POST(request: Request) {
       customerEmail: input.customerEmail, customerPhone: input.customerPhone,
       originalTotal: storeApplied.fare, discount: storeApplied.discount, finalTotal: storeApplied.fare - storeApplied.discount, createdAt: now,
     }).onConflictDoNothing().catch(() => undefined);
+    // Friend invite: remembered so the member gets their thank-you coupon once this ride is completed.
+    if (promoApplied?.promoId.startsWith("referral:")) await recordReferral(reference, promoApplied.promoId.slice(9), input.customerEmail, input.customerPhone).catch((error) => console.error("referral record failed", error));
     if (affiliate) {
       // Commission on what the customer finally pays.
       await linkBooking({ reference, affiliate, via: affiliateVia, fare: total + affiliateDiscountThb, discount: affiliateDiscountThb }).catch((error) => console.error("affiliate link failed", error));

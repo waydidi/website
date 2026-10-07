@@ -572,3 +572,35 @@ test('Affiliate tiers and monthly payouts',async()=>{
  const [oct]=(await af.payoutList('2026-10')).filter((p)=>p.id==='t1');assert.equal(oct.unpaid,100,'October not touched');
  const [s]=(await af.affiliateSummaries()).filter((x)=>x.id==='t1');assert.deepEqual([s.tier,s.rate,s.completed],['Silver',10,11]);
 });
+test('Friend referrals: personal code, friend discount on first ride only, not own code, reward coupon once ride completed',async()=>{
+ const rf=await vite.ssrLoadModule('/lib/referrals.ts');
+ await db.exec("CREATE TABLE IF NOT EXISTS customers(id TEXT PRIMARY KEY,email TEXT,name TEXT,surname TEXT,phone TEXT)");
+ await db.exec("DROP TABLE IF EXISTS promo_codes");
+ await db.exec("CREATE TABLE promo_codes(id TEXT PRIMARY KEY,code TEXT UNIQUE,title TEXT,discount_type TEXT,discount_value INTEGER,max_discount INTEGER,min_fare INTEGER DEFAULT 0,starts_at TEXT,ends_at TEXT,max_uses INTEGER,per_customer_limit INTEGER DEFAULT 1,first_booking_only INTEGER DEFAULT 0,service TEXT DEFAULT 'any',vehicles_json TEXT,offer_terms_json TEXT,show_on_homepage INTEGER DEFAULT 0,status TEXT,created_at TEXT,updated_at TEXT)");
+ await db.exec("CREATE TABLE IF NOT EXISTS member_coupons(customer_id TEXT,code TEXT,collected_at TEXT,PRIMARY KEY(customer_id,code))");
+ await db.prepare("INSERT INTO customers(id,email,name,phone) VALUES('c1','anna@x.co','Anna','081 111 2222')").run();
+ const code=await rf.referralCode({id:'c1',name:'Anna'});
+ assert.match(code,/^FRIENDANNA\d{2}$/);assert.equal(await rf.referralCode({id:'c1',name:'Anna'}),code,'same code every time');
+ assert.equal(await rf.checkReferral({code:'MINT5',total:1000}),null,'not a friend code');
+ assert.match((await rf.checkReferral({code,total:1000,email:'ANNA@x.co'})).reason,/own invite/);
+ assert.match((await rf.checkReferral({code,total:400,email:'bob@y.co'})).reason,/from ฿500/);
+ const ok=await rf.checkReferral({code,total:1500,email:'bob@y.co',phone:'0899999999'});
+ assert.deepEqual([ok.ok,ok.discount,ok.finalTotal,ok.referrerId],[true,100,1400,'c1']);
+ // Someone who already rode with Waydidi can't use it.
+ for(const c of ['customer_email TEXT','customer_phone TEXT'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
+ await db.prepare("INSERT INTO bookings(reference,customer_name,customer_email,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES('OLD1','Old','old@y.co','A','B','2026-01-01','09:00',1,1,'economy_sedan','card',900,'completed')").run();
+ assert.match((await rf.checkReferral({code,total:1500,email:'old@y.co'})).reason,/first ride/);
+ // Friend books; reward only after the ride is completed.
+ await db.prepare("INSERT INTO bookings(reference,customer_name,customer_email,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES('FR1','Bob','bob@y.co','A','B','2026-11-01','09:00',1,1,'economy_sedan','card',1400,'confirmed'),('FR2','Cy','cy@y.co','A','B','2026-11-02','09:00',1,1,'economy_sedan','card',1400,'cancelled')").run();
+ await rf.recordReferral('FR1','c1','bob@y.co');await rf.recordReferral('FR2','c1','cy@y.co');
+ const mails=[];const send=async(to,name,c)=>{mails.push([to,name,c]);};
+ assert.equal(await rf.issueReferralRewards(send),0,'FR1 not completed yet; FR2 cancelled → void');
+ await db.prepare("UPDATE bookings SET status='completed' WHERE reference='FR1'").run();
+ assert.equal(await rf.issueReferralRewards(send),1);
+ assert.equal(await rf.issueReferralRewards(send),0,'only once');
+ assert.equal(mails.length,1);assert.equal(mails[0][0],'anna@x.co');
+ const coupon=await db.prepare("SELECT * FROM promo_codes WHERE code=?").bind(mails[0][2]).first();
+ assert.deepEqual([coupon.discount_type,coupon.discount_value,coupon.max_uses,coupon.status],['fixed',100,1,'active']);
+ assert.ok(await db.prepare("SELECT 1 FROM member_coupons WHERE customer_id='c1' AND code=?").bind(mails[0][2]).first(),'saved to her coupons');
+ assert.deepEqual(await rf.referralSummary('c1'),{waiting:0,rewarded:1,earned:100});
+});

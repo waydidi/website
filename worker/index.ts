@@ -135,6 +135,8 @@ const worker = {
       ctx.waitUntil(import("../lib/chat-idle").then(async (m) => { const at = new Date(controller.scheduledTime); await m.sendIdleNudges(at); await m.closeIdleChats(at); await import("../lib/telegram/handover").then((h) => h.remindWaiting(at)); }).catch((e) => console.error("chat check-in failed", e)));
       // Once a day (after 02:00 Thailand time): yesterday's flight stats for /flights.
       ctx.waitUntil(import("../lib/aerodatabox").then((m) => m.dailyStatsIfDue(new Date(controller.scheduledTime))).catch(() => undefined));
+      // Every 30 minutes: thank-you coupons for members whose invited friend has completed a ride.
+      ctx.waitUntil(import("../lib/referrals").then((m) => m.referralRewardsIfDue(new Date(controller.scheduledTime))).catch((e) => console.error("referral rewards failed", e)));
       // Every 15 minutes: flights of upcoming airport pickups; the team is told about delays in Telegram.
       ctx.waitUntil(import("../lib/flight-watch").then((m) => m.watchBookingFlights(new Date(controller.scheduledTime))).catch((e) => console.error("flight watch failed", e)));
       return;

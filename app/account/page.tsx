@@ -14,6 +14,8 @@ import { TierCard } from "@/components/account/tier-badge";
 import { customerBookings, driverStatuses, requireCustomer } from "@/lib/customer-auth";
 import { tripBucket } from "@/lib/customer-account";
 import { agencyForCustomer } from "@/lib/agency";
+import { FRIEND_DISCOUNT, MIN_FARE, REFERRER_REWARD, referralCode, referralSummary } from "@/lib/referrals";
+import { ReferralCard } from "@/components/account/referral-card";
 
 export const metadata: Metadata = { title: "My account · Waydidi", robots: { index: false, follow: false } };
 
@@ -44,6 +46,7 @@ export default async function AccountOverview() {
     { href: "/contact", label: "Get help", icon: Headphones },
   ];
   const agency = await agencyForCustomer(customer).catch(() => null);
+  const invite = await Promise.all([referralCode(customer), referralSummary(customer.id)]).catch(() => null);
   return <AccountShell name={customer.name} email={customer.email}>
     <h1 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Hi{customer.name ? `, ${customer.name}` : ""}</h1>
     <p className="mt-2 text-slate-600">{upcoming.length ? `You have ${upcoming.length} upcoming ${upcoming.length === 1 ? "trip" : "trips"}.` : "No upcoming trips yet."}</p>
@@ -56,6 +59,7 @@ export default async function AccountOverview() {
     {boxes.length > 0 && <div className="mt-4"><MysteryBoxes boxes={boxes} /></div>}
     {gifts.length > 0 && <div className="mt-4"><GiftWallet gifts={gifts} /></div>}
     {loyalty && <div className="mt-4"><LoyaltyCard status={loyalty} /></div>}
+    {invite && <div className="mt-4"><ReferralCard code={invite[0]} friendDiscount={FRIEND_DISCOUNT} reward={REFERRER_REWARD} minFare={MIN_FARE} {...invite[1]} /></div>}
 
     <section className="mt-7" aria-labelledby="next-trip">
       <h2 id="next-trip" className="mb-3 text-lg font-black">Next trip</h2>
