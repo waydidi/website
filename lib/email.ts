@@ -5,7 +5,7 @@ import { VEHICLES } from "@/lib/vehicles";
 import { includesKohChangFerry } from "@/lib/booking-form";
 import { env } from "cloudflare:workers";
 
-import { SITE_URL } from "@/lib/site";
+import { publicSiteUrl } from "@/lib/site";
 
 type ConfirmationEmailInput = {
   to: string;
@@ -51,7 +51,7 @@ function escapeHtml(value: string) {
 }
 
 function siteUrl() {
-  return (env.WAYDIDI_PUBLIC_URL || SITE_URL).replace(/\/$/, "");
+  return publicSiteUrl(env.WAYDIDI_PUBLIC_URL);
 }
 
 function displayDate(date: string, time: string) {

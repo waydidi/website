@@ -1,3 +1,4 @@
+import { publicSiteUrl } from "@/lib/site";
 import { and, eq, isNull } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db";
@@ -5,7 +6,7 @@ import { smartTrips } from "@/db/schema";
 import { pushLine } from "@/lib/line";
 import { inputFromRow, planFor } from "@/lib/smart-trips";
 
-const siteUrl = () => ((env as unknown as Record<string, string | undefined>).WAYDIDI_PUBLIC_URL || "https://waydidi.com").replace(/\/$/, "");
+const siteUrl = () => publicSiteUrl((env as unknown as Record<string, string | undefined>).WAYDIDI_PUBLIC_URL);
 
 /**
  * The day before each booked trip (from 16:00 Bangkok time): re-check it against the

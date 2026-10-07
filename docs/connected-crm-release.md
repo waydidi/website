@@ -4,7 +4,7 @@ Waydidi's `/admin/crm` connects guest and registered customer records, enquiries
 
 ## Deploy
 
-The CRM and reliability changes from PRs #30 and #31 are merged. This follow-up adds the CRM review fixes; apply only migrations that are still pending. The only live origin is `https://waydidi-website.contact-waydidi.workers.dev`.
+The CRM and reliability changes from PRs #30 and #31 are merged. This follow-up adds the CRM review fixes; apply only migrations that are still pending. The only live origin is `https://waydidi.com`.
 
 1. Take a D1 backup/export before upgrading. Apply pending migrations in numeric order, including 0092, 0093, 0094 **0095_connected_crm.sql** and **0096_crm_review_fixes.sql**. Use the actual production D1 database binding/name from Cloudflare.
    After building the reviewed commit, the existing release configuration supports:

@@ -9,7 +9,7 @@ A clean full-stack starter running on [vinext](https://github.com/cloudflare/vin
 
 ## Production deployment
 
-Waydidi’s only live site is [https://waydidi-website.contact-waydidi.workers.dev](https://waydidi-website.contact-waydidi.workers.dev). GitHub `main` is the source for the Cloudflare Worker `waydidi-website`. Use Cloudflare Workers Builds for deployment; pushing a review branch alone does not publish it. Keep `WAYDIDI_PUBLIC_URL` in the Worker settings equal to this origin. Do not publish this repository to the former ChatGPT Sites address.
+Waydidi’s only live site is [https://waydidi.com](https://waydidi.com). GitHub `main` is the source for the Cloudflare Worker `waydidi-website`. Use Cloudflare Workers Builds for deployment; pushing a review branch alone does not publish it. Keep `WAYDIDI_PUBLIC_URL` in the Worker settings equal to this origin. Do not publish this repository to the former ChatGPT Sites address.
 
 Canonical URLs, structured data, sitemap and robots metadata use `lib/site.ts`. The historical `.openai/hosting.json` is retained for build compatibility and logical bindings; it is not a deployment target.
 

@@ -1,6 +1,6 @@
 # Payment and journey operations release
 
-Live Worker: https://waydidi-website.contact-waydidi.workers.dev
+Live Worker: https://waydidi.com
 
 This release adds guarded payment recovery, independent outbound/return dispatch and tracking, `/admin/payments`, split journey driver costs, and flight-change assistance in Operations.
 
