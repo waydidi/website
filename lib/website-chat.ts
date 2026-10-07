@@ -56,7 +56,7 @@ export const messagesFor = (conversationId: string, afterRowid = 0, limit = 200)
 export async function addVisitorMessage(c: Conversation, body: string, clientId: string | null) {
   const now = nowIso(), id = crypto.randomUUID();
   const [inserted] = await db().batch([db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,client_id,telegram_status)
-    VALUES(?,?,'visitor',?,?,?,?) ON CONFLICT(conversation_id,client_id) DO NOTHING`).bind(id, c.id, body, now, clientId, telegramConfigured() ? "pending" : null),
+    VALUES(?,?,'visitor',?,?,?,?) ON CONFLICT(conversation_id,client_id) DO NOTHING`).bind(id, c.id, body, now, clientId, "pending"),
     db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=?,status=CASE WHEN status='closed' THEN 'open' ELSE status END WHERE id=? AND EXISTS(SELECT 1 FROM website_chat_messages WHERE id=?)").bind(now, now, c.id, id),
   ]) as { meta: { changes: number } }[];
   if (!inserted.meta.changes) return { duplicate: true as const };
@@ -70,8 +70,9 @@ export async function deliverVisitorMessage(conversationId: string, messageId: s
   const c = await conversationById(conversationId);
   const m = await db().prepare("SELECT body,created_at,telegram_status FROM website_chat_messages WHERE id=?").bind(messageId).first<{ body: string; created_at: string; telegram_status: string | null }>();
   if (!c || !m || m.telegram_status === "sent") return;
-  // While Non (the AI) is handling the chat the group isn't notified; it hears only about handovers.
-  if (!c.assigned_name && (await nonAnswering(c))) {
+  // Website questions always notify the team, including while Non is answering.
+  // External AI-managed channels keep their existing handover-only notifications.
+  if ((c.channel ?? "web") !== "web" && !c.assigned_name && (await nonAnswering(c))) {
     await db().prepare("UPDATE website_chat_messages SET telegram_status='skipped' WHERE id=? AND telegram_status='pending'").bind(messageId).run();
     return;
   }
