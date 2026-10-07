@@ -8,7 +8,7 @@ const columns = [
   {title:"Help",links:[["Help centre","/help"],["Contact support","/contact"],["Frequently asked questions","/faq"],["Manage booking","/booking/manage"],["Airport pickup guide","/airport-pickup-instructions"],["Check flights","/flights"],["Travel agencies","/agencies"],["Become a partner","/partners"],["Drive with Waydidi","/drivers"]]},
 ];
 
-export function PublicFooter(){return <footer className="bg-[#FF8A05] text-white">
+export function PublicFooter(){return <footer className="bg-brand text-white">
   <div className="mx-auto max-w-[1240px] px-5 py-14 lg:px-8">
     <div className="grid gap-10 lg:grid-cols-[1.25fr_2fr]">
       <div><Link href="/" className="inline-flex text-white" aria-label="Waydidi home"><WaydidiWordmark className="h-[40px] w-[156px]"/></Link><p className="mt-5 max-w-sm text-base leading-7 text-white/90">Private transfers across Thailand with clear booking details and local driver operations.</p></div>

@@ -20,7 +20,7 @@ const example = (hours: number) => customerRefundMinor(300000, refundPercent("cu
 const cards = [
   { when: "More than 48 hours before pickup", result: "100% refund", text: "Cancel more than 48 hours before your scheduled service to receive a full refund, unless different conditions were stated for your booking.", tone: "border-emerald-200 bg-emerald-50", accent: "text-emerald-700" },
   { when: "24–48 hours before pickup", result: "50% refund", text: "Cancel between 24 and 48 hours before your scheduled service to receive a 50% refund, unless different booking conditions apply.", tone: "border-amber-200 bg-amber-50", accent: "text-amber-700" },
-  { when: "Less than 24 hours before pickup", result: "Non-refundable", text: "Bookings cancelled less than 24 hours before the scheduled service are non-refundable.", tone: "border-slate-200 bg-[#F5F6F8]", accent: "text-slate-700" },
+  { when: "Less than 24 hours before pickup", result: "Non-refundable", text: "Bookings cancelled less than 24 hours before the scheduled service are non-refundable.", tone: "border-slate-200 bg-canvas", accent: "text-slate-700" },
 ];
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -31,10 +31,10 @@ function Section({ id, title, children }: { id: string; title: string; children:
 
 export default function RefundPolicyPage() {
   const crumbs = [{ name: "Home", path: "/" }, { name: "Refund & Cancellation Policy", path: URL_PATH }];
-  return <main className="bg-white text-[#211726]">
+  return <main className="bg-white text-plum">
     <JsonLd data={breadcrumbSchema(crumbs)} />
     {/* Compact hero, no photo */}
-    <section className="bg-[#FFF6EC]"><div className="mx-auto max-w-[1080px] px-5 pb-10 pt-8 sm:pt-12 lg:px-8">
+    <section className="bg-brand-wash"><div className="mx-auto max-w-[1080px] px-5 pb-10 pt-8 sm:pt-12 lg:px-8">
       <Breadcrumbs crumbs={crumbs} className="text-slate-600" />
       <h1 className="mt-4 text-[34px] font-black leading-[1.05] tracking-[-.04em] sm:text-5xl">Refund &amp; Cancellation Policy</h1>
       <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-700">Travel plans can change. Our cancellation policy is designed to clearly explain when your booking can be changed, cancelled, or refunded.</p>
@@ -52,14 +52,14 @@ export default function RefundPolicyPage() {
             <p className="mt-2 text-[15px] leading-6 text-slate-700">{text}</p>
           </li>)}
         </ul>
-        <p className="mt-5 rounded-2xl border-l-4 border-[#FE8B05] bg-[#FFF6EC] p-4 text-[15px] leading-6 text-slate-700">Some tours, attraction tickets, boat trips, activities, and third-party services may have different cancellation conditions. Where specific conditions are shown before booking, those conditions take precedence over this general policy.</p>
+        <p className="mt-5 rounded-2xl border-l-4 border-brand bg-brand-wash p-4 text-[15px] leading-6 text-slate-700">Some tours, attraction tickets, boat trips, activities, and third-party services may have different cancellation conditions. Where specific conditions are shown before booking, those conditions take precedence over this general policy.</p>
       </section>
 
       <Section id="customer-cancellation" title="Customer cancellation">
         <p>Unless otherwise stated on the specific service or booking:</p>
-        <div className="overflow-x-auto rounded-2xl border border-slate-200"><table className="w-full min-w-[420px] text-left text-[15px]">
+        <div tabIndex={0} role="region" aria-label="Refund amounts" className="overflow-x-auto rounded-2xl border border-slate-200"><table className="w-full min-w-[420px] text-left text-[15px]">
           <caption className="sr-only">Refund by cancellation time</caption>
-          <thead className="bg-[#F5F6F8] text-slate-600"><tr><th scope="col" className="px-4 py-3 font-semibold">Cancellation time</th><th scope="col" className="px-4 py-3 font-semibold">Refund</th></tr></thead>
+          <thead className="bg-canvas text-slate-600"><tr><th scope="col" className="px-4 py-3 font-semibold">Cancellation time</th><th scope="col" className="px-4 py-3 font-semibold">Refund</th></tr></thead>
           <tbody className="divide-y divide-slate-100">
             {[["More than 48 hours before scheduled service", "100% refund"], ["24–48 hours before scheduled service", "50% refund"], ["Less than 24 hours before scheduled service", "No refund"], ["No-show", "No refund"]].map(([a, b]) => <tr key={a}><th scope="row" className="px-4 py-3 font-medium">{a}</th><td className="px-4 py-3 font-bold">{b}</td></tr>)}
           </tbody>
@@ -84,7 +84,7 @@ export default function RefundPolicyPage() {
 
       <Section id="refund-payment" title="How refunds are paid">
         <p>Approved refunds are normally returned to your original payment method. Depending on the cancellation conditions, a refund may be full or partial.</p>
-        <p className="rounded-2xl bg-[#F5F6F8] p-4">Once Waydidi submits an approved refund, the time it takes to appear in your account depends on the payment provider, card network, payment method, and your bank. We can&apos;t guarantee an exact posting date.</p>
+        <p className="rounded-2xl bg-canvas p-4">Once Waydidi submits an approved refund, the time it takes to appear in your account depends on the payment provider, card network, payment method, and your bank. We can&apos;t guarantee an exact posting date.</p>
         <p>Cash bookings have no prepaid amount to refund.</p>
       </Section>
 
@@ -113,13 +113,13 @@ export default function RefundPolicyPage() {
       </Section>
 
       {/* Request a refund */}
-      <section id="request" aria-labelledby="request-h" className="my-12 grid gap-6 rounded-[28px] bg-[#211726] p-7 text-white md:grid-cols-[1fr_auto] md:items-center md:p-10">
+      <section id="request" aria-labelledby="request-h" className="my-12 grid gap-6 rounded-[28px] bg-plum p-7 text-white md:grid-cols-[1fr_auto] md:items-center md:p-10">
         <div>
           <h2 id="request-h" className="text-3xl font-black tracking-[-.035em]">Request a cancellation or refund</h2>
           <p className="mt-3 text-white/80">Message us on WhatsApp at {WHATSAPP} with your <strong className="text-white">booking number, name, service date and reason for cancelling</strong>.</p>
           <p className="mt-3 text-sm text-white/70">Waydidi will never ask for your full card number, CVV, banking password, OTP or payment-provider password.</p>
         </div>
-        <a href={waLink} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#FE8B05] px-6 font-bold text-white hover:bg-[#E67900] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Contact Waydidi</a>
+        <a href={waLink} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand px-6 font-bold text-white hover:bg-brand-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Contact Waydidi</a>
       </section>
     </div>
     <PublicFooter />

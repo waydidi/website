@@ -22,12 +22,12 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
     <PageTitle title="My trips" subtitle="Every booking made with your email, including ones made as a guest." />
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <nav className="inline-flex rounded-full bg-white p-1" aria-label="Trip status">
-        {tabs.map((t) => <Link key={t.id} href={`/account/trips?tab=${t.id}`} aria-current={t.id === tab ? "page" : undefined} className={`rounded-full px-4 py-2 text-sm font-black ${t.id === tab ? "bg-[#FF8A05] text-white" : "text-slate-600 hover:text-[#211726]"}`}>{t.label} <span className="opacity-70">{counts[t.id]}</span></Link>)}
+        {tabs.map((t) => <Link key={t.id} href={`/account/trips?tab=${t.id}`} aria-current={t.id === tab ? "page" : undefined} className={`rounded-full px-4 py-2 text-sm font-black ${t.id === tab ? "bg-brand text-white" : "text-slate-600 hover:text-plum"}`}>{t.label} <span className="opacity-70">{counts[t.id]}</span></Link>)}
       </nav>
-      <form className="flex gap-2" role="search"><input type="hidden" name="tab" value={tab} /><input name="q" defaultValue={params.q ?? ""} placeholder="Reference or place" aria-label="Search trips" className="w-full rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#FF8A05] sm:w-56" /><button className="rounded-full bg-[#211726] px-4 text-sm font-black text-white">Search</button></form>
+      <form className="flex gap-2" role="search"><input type="hidden" name="tab" value={tab} /><input name="q" defaultValue={params.q ?? ""} placeholder="Reference or place" aria-label="Search trips" className="w-full rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-brand sm:w-56" /><button className="rounded-full bg-plum px-4 text-sm font-black text-white">Search</button></form>
     </div>
     <div className="mt-6 grid gap-3">
-      {list.length ? list.map(({ trip, bucket }) => <TripCard key={trip.reference} trip={trip} bucket={bucket} driverStatus={statuses.get(trip.reference)} />) : <div className="rounded-[22px] bg-white p-8 text-center text-slate-600">{query ? "No trips match your search." : `No ${tab} trips.`}{tab === "upcoming" && !query ? <div><Link href="/#booking-search" className="mt-4 inline-flex rounded-full bg-[#FF8A05] px-6 py-3 font-black text-white">Book a ride</Link></div> : null}</div>}
+      {list.length ? list.map(({ trip, bucket }) => <TripCard key={trip.reference} trip={trip} bucket={bucket} driverStatus={statuses.get(trip.reference)} />) : <div className="rounded-[22px] bg-white p-8 text-center text-slate-600">{query ? "No trips match your search." : `No ${tab} trips.`}{tab === "upcoming" && !query ? <div><Link href="/#booking-search" className="mt-4 inline-flex rounded-full bg-brand px-6 py-3 font-black text-white">Book a ride</Link></div> : null}</div>}
     </div>
   </AccountShell>;
 }

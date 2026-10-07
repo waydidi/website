@@ -37,5 +37,5 @@ export function AgencyTeam() {
             finally {
                 setBusy(false);
             }
-        }}><input className="rounded-xl border p-3" aria-label="Colleague email" name="email" type="email" required placeholder="Colleague email"/><select className="rounded-xl border p-3" name="role" aria-label="Agency role"><option value="booker">Booker</option><option value="manager">Manager</option></select><label className="flex items-center gap-2"><input name="active" type="checkbox" defaultChecked/>Active</label><button className="rounded-xl bg-[#FE8B05] text-white p-3 font-semibold" disabled={busy}>Save access</button></form>{error && <p role="alert" className="mt-3 text-red-600">{error}</p>}</section>;
+        }}><input className="rounded-xl border p-3" aria-label="Colleague email" name="email" type="email" required placeholder="Colleague email"/><select className="rounded-xl border p-3" name="role" aria-label="Agency role"><option value="booker">Booker</option><option value="manager">Manager</option></select><label className="flex items-center gap-2"><input name="active" type="checkbox" defaultChecked/>Active</label><button className="rounded-xl bg-brand text-white p-3 font-semibold" disabled={busy}>Save access</button></form>{error && <p role="alert" className="mt-3 text-red-600">{error}</p>}</section>;
 }

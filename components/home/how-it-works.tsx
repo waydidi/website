@@ -33,8 +33,8 @@ function MeetVisual() {
     </div>
     <div className="relative mx-auto -mt-3 w-[72%] rotate-2 rounded-xl bg-white px-4 py-3 text-center shadow-[0_14px_28px_rgba(0,0,0,.14)]">
       <p className="text-[10px] font-bold tracking-wide text-brand">WAYDIDI</p>
-      <p className="text-[24px] font-bold leading-tight text-[#1C1C1C]">M. Johnson</p>
-      <p className="text-[10px] text-[#6B6B6B]">TG921 · Arrivals, Gate 3</p>
+      <p className="text-[24px] font-bold leading-tight text-charcoal">M. Johnson</p>
+      <p className="text-[10px] text-grey-text">TG921 · Arrivals, Gate 3</p>
     </div>
   </div>;
 }
@@ -65,8 +65,8 @@ function RideVisual() {
       </circle>
     </svg>
     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#F1F0EC] via-[#F1F0EC]/95 to-transparent px-5 pb-5 pt-10">
-      <p className="text-[20px] font-bold text-[#1C1C1C]">Hilton Pattaya</p>
-      <p className="text-[12px] text-[#6B6B6B]">1 h 27 min · 122 km</p>
+      <p className="text-[20px] font-bold text-charcoal">Hilton Pattaya</p>
+      <p className="text-[12px] text-grey-text">1 h 27 min · 122 km</p>
     </div>
   </div>;
 }
@@ -77,16 +77,16 @@ export function HowItWorks() {
   const { t } = useI18n();
   return <section aria-labelledby="how-heading" className="font-home bg-white py-10">
     <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
-      <h2 id="how-heading" className="text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-[#1C1C1C]">{t("how.title")}</h2>
+      <h2 id="how-heading" className="text-[28px] font-bold leading-[1.1] tracking-[-.03em] text-charcoal">{t("how.title")}</h2>
       <p className="mt-2 text-[15px] text-[#4A4A4A]">{t("how.subtitle")}</p>
     </div>
     {/* Free horizontal scroll: no snap, so cards stop wherever the swipe ends. */}
-    <ol className="mx-auto mt-6 flex max-w-[1180px] gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] lg:px-0 [&::-webkit-scrollbar]:hidden">
+    <ol tabIndex={0} className="mx-auto mt-6 flex max-w-[1180px] gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] lg:px-0 [&::-webkit-scrollbar]:hidden">
       {VISUALS.map((visual, i) => <li key={i} className="w-[82%] max-w-[340px] shrink-0">
         <div className="relative grid aspect-[10/11] place-items-center overflow-hidden rounded-3xl border border-[#E6E4DE] bg-gradient-to-b from-[#F6F5F2] to-[#EDECE8]">
           {visual}
         </div>
-        <h3 className="mt-5 text-[20px] font-bold text-[#1C1C1C]"><span className="text-[#8A8A8A]">{i + 1}.</span> {t(`how.step${i + 1}.title` as MessageKey)}</h3>
+        <h3 className="mt-5 text-[20px] font-bold text-charcoal"><span className="text-grey-soft">{i + 1}.</span> {t(`how.step${i + 1}.title` as MessageKey)}</h3>
         <p className="mt-1.5 text-[14px] leading-6 text-[#4A4A4A]">{t(`how.step${i + 1}.text` as MessageKey)}</p>
       </li>)}
     </ol>

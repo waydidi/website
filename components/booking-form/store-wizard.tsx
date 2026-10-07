@@ -135,10 +135,10 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
 
   const last = step === "review";
 
-  return <main className="flex min-h-dvh flex-col bg-white text-[#1F1726]" onKeyDown={(e) => {
+  return <main className="flex min-h-dvh flex-col bg-white text-plum" onKeyDown={(e) => {
     if (e.key === "Enter" && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof Element && e.target.closest("[role=dialog]"))) { e.preventDefault(); void next(); }
   }}>
-    <header className="sticky top-0 z-20 bg-[#FF8A05] pb-3 text-white">
+    <header className="sticky top-0 z-20 bg-brand pb-3 text-white">
       <div className="mx-auto flex h-16 w-full max-w-xl items-center gap-2 px-5">
         <WaydidiLogo className="mr-auto h-11 w-auto text-white" />
         <button type="button" onClick={() => go(index - 1)} disabled={index === 0} className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[15px] font-medium text-white transition hover:bg-white/15 disabled:invisible"><ArrowLeft size={18} />Back</button>
@@ -149,7 +149,7 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
 
     <section className="flex flex-1 items-start px-5 pb-36 pt-6 sm:items-center sm:pb-24">
       <div key={step} className={`mx-auto w-full max-w-xl animate-in fade-in duration-300 ease-out motion-reduce:animate-none ${direction === 1 ? "slide-in-from-right-6" : "slide-in-from-left-6"}`}>
-        {index === 0 && <p className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#FFF0DF] px-3 py-1.5 text-[14px] font-semibold text-[#B85E00]"><Store size={16} />{store.name}{store.discountPercent > 0 ? ` · ${store.discountPercent}% off special price` : ""}</p>}
+        {index === 0 && <p className="mb-5 inline-flex items-center gap-2 rounded-full bg-brand-tint px-3 py-1.5 text-[14px] font-semibold text-[#B85E00]"><Store size={16} />{store.name}{store.discountPercent > 0 ? ` · ${store.discountPercent}% off special price` : ""}</p>}
 
         {step === "name" && <>
           <h1 className={heading}>What&apos;s your name?</h1>
@@ -175,7 +175,7 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
           <h1 className={heading}>Do you need a return trip?</h1>
           <p className="mt-2 text-[17px] text-[#6B6170]">From {a.dropoff || "your destination"} back to {a.pickup || "your pickup"}.</p>
           <div className="mt-7 grid gap-3 sm:grid-cols-2">
-            {([[true, "Yes, add a return"], [false, "No, one way"]] as const).map(([value, text]) => <button key={text} type="button" onClick={() => set("returnTrip", value)} className={`flex h-16 items-center gap-3 rounded-2xl border-2 px-4 text-left text-[17px] font-semibold transition ${a.returnTrip === value ? "border-[#FF8A05] bg-[#FFF0DF]" : "border-[#F0E3D4] bg-white"}`}>{text}{a.returnTrip === value && <Check size={20} className="ml-auto text-[#FF8A05]" />}</button>)}
+            {([[true, "Yes, add a return"], [false, "No, one way"]] as const).map(([value, text]) => <button key={text} type="button" onClick={() => set("returnTrip", value)} className={`flex h-16 items-center gap-3 rounded-2xl border-2 px-4 text-left text-[17px] font-semibold transition ${a.returnTrip === value ? "border-brand bg-brand-tint" : "border-[#F0E3D4] bg-white"}`}>{text}{a.returnTrip === value && <Check size={20} className="ml-auto text-brand" />}</button>)}
           </div>
           {a.returnTrip && <div className="mt-7 grid grid-cols-2 gap-5 animate-in fade-in">
             <div className={smallLabel}>Return date & time<DateField kind="return" min={a.date || today()} className={smallInput} value={a.returnDate} onChange={(v) => set("returnDate", v)} time={a.returnTime} onTimeChange={(v) => set("returnTime", v)} /></div>
@@ -193,12 +193,12 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
               const fare = fareFor(id);
               const fits = vehicleFits(id, a.passengers, a.luggage) && Boolean(fare);
               const picked = a.vehicle === id;
-              return <button key={id} type="button" disabled={!fits} onClick={() => { set("vehicle", id); setCarPicked(true); }} className={`relative rounded-2xl border-2 p-3 text-left transition disabled:opacity-35 ${picked && carPicked ? "border-[#FF8A05] bg-[#FFF7EE]" : "border-[#F0E3D4] bg-white"}`}>
+              return <button key={id} type="button" disabled={!fits} onClick={() => { set("vehicle", id); setCarPicked(true); }} className={`relative rounded-2xl border-2 p-3 text-left transition disabled:opacity-35 ${picked && carPicked ? "border-brand bg-[#FFF7EE]" : "border-[#F0E3D4] bg-white"}`}>
                 <Image src={`/vehicle-${id.replace(/_/g, "-")}.webp`} alt="" width={200} height={110} unoptimized className="h-16 w-full object-contain" />
                 <span className="mt-1 block text-[15px] font-semibold">{VEHICLES[id].name}</span>
                 <span className="block text-[13px] text-[#6B6170]">Up to {VEHICLES[id].passengers} people · {VEHICLES[id].bags} bags</span>
                 {fare && <span className="mt-1 block"><b className="text-[17px]">{thb(fare.price)}</b>{fare.off > 0 && <s className="ml-1.5 text-[13px] text-[#9A8F86]">{thb(fare.full)}</s>}</span>}
-                {picked && carPicked && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-[#FF8A05] text-white"><Check size={15} strokeWidth={3} /></span>}
+                {picked && carPicked && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-brand text-white"><Check size={15} strokeWidth={3} /></span>}
               </button>;
             })}
           </div>
@@ -207,7 +207,7 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
           <ul className="mt-2 divide-y divide-[#F0E3D4] rounded-2xl border border-[#F0E3D4] bg-white px-4">
             {ferry && <li className="flex items-center gap-3 py-3"><Image src="/ferry-3d.webp" alt="" width={44} height={44} unoptimized className="size-11 object-contain" /><span className="flex-1"><span className="block font-medium">Ferry &amp; Hotel transfer</span><span className="text-[13px] text-[#6B6170]">+{thb(FERRY_HOTEL_THB)} per person</span></span><Stepper value={a.ferryPeople} set={(n) => set("ferryPeople", n)} min={0} max={a.passengers} label="ferry tickets" /></li>}
             <li className="flex items-center gap-3 py-3"><Image src="/addon-child-seat.webp" alt="" width={44} height={44} unoptimized className="size-11 object-contain" /><span className="flex-1"><span className="block font-medium">Child seat</span><span className="text-[13px] text-[#6B6170]">+{thb(CHILD_SEAT_THB)} each</span></span><Stepper value={a.childSeats} set={(n) => set("childSeats", n)} min={0} max={Math.min(4, a.passengers)} label="child seats" /></li>
-            <li><label className="flex cursor-pointer items-center gap-3 py-3"><Image src="/addon-currency-exchange.webp" alt="" width={44} height={44} unoptimized className="size-11 object-contain" /><span className="flex-1"><span className="block font-medium">Currency exchange stop</span><span className="text-[13px] text-[#6B6170]">+{thb(EXCHANGE_STOP_THB)}</span></span><input type="checkbox" checked={a.exchangeStop} onChange={(e) => set("exchangeStop", e.target.checked)} className="size-5 accent-[#FF8A05]" /></label></li>
+            <li><label className="flex cursor-pointer items-center gap-3 py-3"><Image src="/addon-currency-exchange.webp" alt="" width={44} height={44} unoptimized className="size-11 object-contain" /><span className="flex-1"><span className="block font-medium">Currency exchange stop</span><span className="text-[13px] text-[#6B6170]">+{thb(EXCHANGE_STOP_THB)}</span></span><input type="checkbox" checked={a.exchangeStop} onChange={(e) => set("exchangeStop", e.target.checked)} className="size-5 accent-brand" /></label></li>
           </ul>
           </div>}
         </>}
@@ -225,20 +225,20 @@ export function StoreWizard({ store, cardEnabled }: { store: { slug: string; nam
           </div>
           <p className="mt-6 text-[16px] font-semibold">How would you like to pay?</p>
           <div className="mt-2 grid gap-3">
-            <button type="button" onClick={() => set("payment", "cash")} className={`flex items-center gap-3 rounded-2xl border-2 p-4 text-left ${a.payment === "cash" ? "border-[#FF8A05] bg-[#FFF0DF]" : "border-[#F0E3D4] bg-white"}`}><Banknote className="text-[#FF8A05]" /><span className="flex-1"><b className="block">Cash at the counter</b><span className="text-[14px] text-[#6B6170]">Pay the staff at {store.name} now</span></span>{a.payment === "cash" && <Check className="text-[#FF8A05]" />}</button>
-            <button type="button" disabled={!cardEnabled} onClick={() => set("payment", "card")} className={`flex items-center gap-3 rounded-2xl border-2 p-4 text-left disabled:opacity-45 ${a.payment === "card" ? "border-[#FF8A05] bg-[#FFF0DF]" : "border-[#F0E3D4] bg-white"}`}><CreditCard className="text-[#FF8A05]" /><span className="flex-1"><b className="block">Credit or debit card</b><span className="text-[14px] text-[#6B6170]">{cardEnabled ? "Secure online payment" : "Coming soon"}</span></span>{a.payment === "card" && <Check className="text-[#FF8A05]" />}</button>
+            <button type="button" onClick={() => set("payment", "cash")} className={`flex items-center gap-3 rounded-2xl border-2 p-4 text-left ${a.payment === "cash" ? "border-brand bg-brand-tint" : "border-[#F0E3D4] bg-white"}`}><Banknote className="text-brand" /><span className="flex-1"><b className="block">Cash at the counter</b><span className="text-[14px] text-[#6B6170]">Pay the staff at {store.name} now</span></span>{a.payment === "cash" && <Check className="text-brand" />}</button>
+            <button type="button" disabled={!cardEnabled} onClick={() => set("payment", "card")} className={`flex items-center gap-3 rounded-2xl border-2 p-4 text-left disabled:opacity-45 ${a.payment === "card" ? "border-brand bg-brand-tint" : "border-[#F0E3D4] bg-white"}`}><CreditCard className="text-brand" /><span className="flex-1"><b className="block">Credit or debit card</b><span className="text-[14px] text-[#6B6170]">{cardEnabled ? "Secure online payment" : "Coming soon"}</span></span>{a.payment === "card" && <Check className="text-brand" />}</button>
           </div>
-          <label className="mt-5 flex items-start gap-3 text-[15px]"><input type="checkbox" checked={a.terms} onChange={(e) => set("terms", e.target.checked)} className="mt-1 size-5 accent-[#FF8A05]" /><span>I agree to the <a href="/terms" target="_blank" className="font-semibold text-[#D96F00] underline">booking terms</a> and <a href="/refund-policy" target="_blank" className="font-semibold text-[#D96F00] underline">cancellation policy</a>.</span></label>
+          <label className="mt-5 flex items-start gap-3 text-[15px]"><input type="checkbox" checked={a.terms} onChange={(e) => set("terms", e.target.checked)} className="mt-1 size-5 accent-brand" /><span>I agree to the <a href="/terms" target="_blank" className="font-semibold text-brand-text underline">booking terms</a> and <a href="/refund-policy" target="_blank" className="font-semibold text-brand-text underline">cancellation policy</a>.</span></label>
         </>}
 
         {error && <p key={error} role="alert" className="mt-5 flex items-center gap-2 rounded-xl bg-[#FFE9E6] px-4 py-2.5 text-[15px] font-medium text-[#B42318]"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-[#B42318] text-[12px] font-bold text-white">!</span>{error}</p>}
         <div className="mt-8 hidden sm:block">
-          <button type="button" onClick={() => void next()} disabled={busy} className="inline-flex h-14 items-center gap-2 rounded-2xl bg-[#FF8A05] px-8 text-[18px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(255,138,5,.7)] hover:bg-[#E67900] disabled:opacity-60">{busy && <LoaderCircle size={20} className="animate-spin" />}{last ? `Book now${chosen ? ` · ${thb(chosen.price + addons)}` : ""}` : "Continue"}</button>
+          <button type="button" onClick={() => void next()} disabled={busy} className="inline-flex h-14 items-center gap-2 rounded-2xl bg-brand px-8 text-[18px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(255,138,5,.7)] hover:bg-brand-strong disabled:opacity-60">{busy && <LoaderCircle size={20} className="animate-spin" />}{last ? `Book now${chosen ? ` · ${thb(chosen.price + addons)}` : ""}` : "Continue"}</button>
         </div>
       </div>
     </section>
     <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#F0E3D4] bg-white/95 px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:hidden">
-      <button type="button" onClick={() => void next()} disabled={busy} className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#FF8A05] text-[18px] font-semibold text-white disabled:opacity-60">{busy && <LoaderCircle size={20} className="animate-spin" />}{last ? `Book now${chosen ? ` · ${thb(chosen.price + addons)}` : ""}` : "Continue"}</button>
+      <button type="button" onClick={() => void next()} disabled={busy} className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[18px] font-semibold text-white disabled:opacity-60">{busy && <LoaderCircle size={20} className="animate-spin" />}{last ? `Book now${chosen ? ` · ${thb(chosen.price + addons)}` : ""}` : "Continue"}</button>
     </div>
   </main>;
 }

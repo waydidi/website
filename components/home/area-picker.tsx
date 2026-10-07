@@ -33,10 +33,10 @@ export function AreaPicker({ areas, value, onChange, className, label = "Area" }
         <ul className="-mx-2 mt-2 min-h-0 flex-1 overflow-y-auto">
           {list.length === 0 && <li className="px-3 py-6 text-center text-slate-500">No city matches.</li>}
           {list.map((a) => <li key={a.slug}>
-            <button type="button" onClick={() => { onChange(a.slug); setOpen(false); setQuery(""); }} className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition ${a.slug === value ? "bg-[#FFF0DF]" : "hover:bg-slate-50"}`}>
+            <button type="button" onClick={() => { onChange(a.slug); setOpen(false); setQuery(""); }} className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition ${a.slug === value ? "bg-brand-tint" : "hover:bg-slate-50"}`}>
               <span className="size-2.5 shrink-0 rounded-full bg-brand" aria-hidden="true" />
-              <span className="min-w-0 flex-1"><span className={`block text-[16px] ${a.slug === value ? "font-bold text-[#D96F00]" : "font-semibold"}`}>{a.name}</span><span className="block truncate text-[12.5px] text-slate-500">{a.coverage}</span></span>
-              {a.slug === value && <Check size={18} className="shrink-0 text-[#D96F00]" />}
+              <span className="min-w-0 flex-1"><span className={`block text-[16px] ${a.slug === value ? "font-bold text-brand-text" : "font-semibold"}`}>{a.name}</span><span className="block truncate text-[12.5px] text-slate-500">{a.coverage}</span></span>
+              {a.slug === value && <Check size={18} className="shrink-0 text-brand-text" />}
             </button>
           </li>)}
         </ul>

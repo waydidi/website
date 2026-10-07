@@ -15,26 +15,26 @@ const FLEET: Record<string, { label: string; models: string; image: string }> = 
   premium_minivan: { label: "Premium Minivan", models: "Toyota Commuter or similar", image: "/vehicle-premium-minivan.webp" },
 };
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
-const shell = "w-[94%] max-w-[350px] overflow-hidden rounded-[18px] border border-slate-200 bg-white text-[#15161C] shadow-sm";
+const shell = "w-[94%] max-w-[350px] overflow-hidden rounded-[18px] border border-slate-200 bg-white text-night shadow-sm";
 
 export function RichCard({ card, onShareLocation }: { card: ChatCard; onShareLocation?: (text: string) => void }) {
   if (card.type === "location") return <LocationAsk text={card.text} onShare={onShareLocation} />;
   if (card.type === "booking") {
     // Waydidi orange header; "Confirmed" in the same green as the "Best value" badge.
-    const tone = card.status === "confirmed" || card.status === "completed" ? "bg-[#06C755] text-white" : card.status === "cancelled" ? "bg-white text-red-700" : "bg-white text-amber-800";
+    const tone = card.status === "confirmed" || card.status === "completed" ? "bg-line-green text-white" : card.status === "cancelled" ? "bg-white text-red-700" : "bg-white text-amber-800";
     return <div className={shell}>
-      <div className="flex items-center justify-between gap-2 bg-[#FE8B05] px-4 py-[19.5px] text-white"><p className="text-[15px] font-bold">Booking {card.reference}</p><span className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${tone}`}>{card.statusText}</span></div>
+      <div className="flex items-center justify-between gap-2 bg-brand px-4 py-[19.5px] text-white"><p className="text-[15px] font-bold">Booking {card.reference}</p><span className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${tone}`}>{card.statusText}</span></div>
       <dl className="grid gap-1.5 px-4 py-3 text-[13px]">
         {card.rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt>
           {k === "No. of passenger" && card.people
-            ? <dd className="inline-flex items-center gap-[3px] text-[#6B6B6B]"><Users size={16} className="text-[#1C1C1C]" aria-label="passengers" />{card.people}<Luggage size={16} className="ml-[5px] text-[#1C1C1C]" aria-label="bags" />{card.bags ?? 0}</dd>
-            : <dd className="text-right font-medium">{v.endsWith("(Paid)") ? <>{v.slice(0, -6)}<span className="text-[#06C755]">(Paid)</span></> : v}</dd>}
+            ? <dd className="inline-flex items-center gap-[3px] text-grey-text"><Users size={16} className="text-charcoal" aria-label="passengers" />{card.people}<Luggage size={16} className="ml-[5px] text-charcoal" aria-label="bags" />{card.bags ?? 0}</dd>
+            : <dd className="text-right font-medium">{v.endsWith("(Paid)") ? <>{v.slice(0, -6)}<span className="text-line-green">(Paid)</span></> : v}</dd>}
         </div>)}
       </dl>
 
       <div className="grid gap-2 border-t border-slate-100 px-4 py-3">
-        {card.rideUrl && <a href={card.rideUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 w-full items-center justify-center rounded-full bg-[#FE8B05] text-[13px] font-bold text-white hover:bg-[#E67900]">Open your ride status</a>}
-        <a href={card.manageUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 w-full items-center justify-center rounded-full border border-[#FE8B05] text-[13px] font-bold text-[#C96100] hover:bg-orange-50">Manage booking</a>
+        {card.rideUrl && <a href={card.rideUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 w-full items-center justify-center rounded-full bg-brand text-[13px] font-bold text-white hover:bg-brand-strong">Open your ride status</a>}
+        <a href={card.manageUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 w-full items-center justify-center rounded-full border border-brand text-[13px] font-bold text-brand-darker hover:bg-orange-50">Manage booking</a>
       </div>
     </div>;
   }
@@ -55,11 +55,11 @@ export function RichCard({ card, onShareLocation }: { card: ChatCard; onShareLoc
           <div className="min-w-0 flex-1">
             <p className="text-[14.5px] font-bold leading-tight">{v ? v.label : c.name}{cheapest && <span className="ml-1.5 inline-block rounded-full bg-emerald-50 px-1.5 py-px align-[1px] text-[10.5px] font-bold text-emerald-700">Best price</span>}</p>
             {v && <p className="mt-0.5 truncate text-[12px] text-slate-500">{v.models}</p>}
-            <p className="mt-1 flex items-center gap-[3px] text-[13px] text-[#6B6B6B]"><span>{c.seats}</span><Users size={16} className="text-[#1C1C1C]" aria-label="passengers" /><span className="ml-[5px]">{c.bags}</span><Luggage size={16} className="text-[#1C1C1C]" aria-label="bags" /></p>
+            <p className="mt-1 flex items-center gap-[3px] text-[13px] text-grey-text"><span>{c.seats}</span><Users size={16} className="text-charcoal" aria-label="passengers" /><span className="ml-[5px]">{c.bags}</span><Luggage size={16} className="text-charcoal" aria-label="bags" /></p>
           </div>
           <div className="shrink-0 text-right">
             <p className="text-[14.5px] font-bold">{thb(c.price)}</p>
-            <a href={c.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex h-8 items-center rounded-full bg-[#FE8B05] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#E67900]">Book</a>
+            <a href={c.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex h-8 items-center rounded-full bg-brand px-3.5 text-[12.5px] font-bold text-white hover:bg-brand-strong">Book</a>
           </div>
         </li>;
       })}
@@ -78,14 +78,14 @@ export function RichCard({ card, onShareLocation }: { card: ChatCard; onShareLoc
         <div className="min-w-0 flex-1">
           <p className="text-[14.5px] font-bold leading-tight">{p.name}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-slate-600">
-            {p.rating !== null && <span className="inline-flex items-center gap-0.5 font-semibold text-[#15161C]"><Star size={13} className="fill-[#FFB400] text-[#FFB400]" aria-hidden="true" />{p.rating.toFixed(1)}<span className="font-normal text-slate-500">({(p.reviews ?? 0).toLocaleString("en-US")})</span></span>}
+            {p.rating !== null && <span className="inline-flex items-center gap-0.5 font-semibold text-night"><Star size={13} className="fill-[#FFB400] text-[#FFB400]" aria-hidden="true" />{p.rating.toFixed(1)}<span className="font-normal text-slate-500">({(p.reviews ?? 0).toLocaleString("en-US")})</span></span>}
             {p.kind && <span>· {p.kind}</span>}{p.price && <span>· {p.price}</span>}{typeof p.distanceKm === "number" && <span>· {p.distanceKm < 1 ? `${Math.round(p.distanceKm * 1000)} m` : `${p.distanceKm} km`} away</span>}
           </p>
           <p className="mt-0.5 truncate text-[12px] text-slate-500">{p.address}</p>
           {p.alert && <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-[11.5px] font-semibold text-amber-800">⚠️ Waydidi notice: {p.alert}</p>}
           <div className="mt-1.5 flex items-center gap-2">
             {p.openNow !== null && <span className={`rounded-full px-1.5 py-px text-[11px] font-bold ${p.openNow ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{p.openNow ? "Open now" : "Closed now"}</span>}
-            <a href={p.mapsUrl} target="_blank" rel="noreferrer" className="inline-flex h-7 items-center rounded-full border border-[#FE8B05] px-2.5 text-[12px] font-bold text-[#C96100] hover:bg-orange-50">Map</a>
+            <a href={p.mapsUrl} target="_blank" rel="noreferrer" className="inline-flex h-7 items-center rounded-full border border-brand px-2.5 text-[12px] font-bold text-brand-darker hover:bg-orange-50">Map</a>
           </div>
         </div>
       </li>)}
@@ -99,7 +99,7 @@ export function RichCard({ card, onShareLocation }: { card: ChatCard; onShareLoc
     </dl>
     <div className="flex items-baseline justify-between border-t border-slate-100 px-4 py-3"><span className="text-[13px] font-semibold">Total</span><span className="text-[19px] font-bold">{thb(card.amount)}</span></div>
     <div className="px-4 pb-4">
-      <a href={card.url} target="_blank" rel="noreferrer" className="flex h-11 items-center justify-center rounded-full bg-[#FE8B05] text-[15px] font-bold text-white hover:bg-[#E67900]">Pay {thb(card.amount)}</a>
+      <a href={card.url} target="_blank" rel="noreferrer" className="flex h-11 items-center justify-center rounded-full bg-brand text-[15px] font-bold text-white hover:bg-brand-strong">Pay {thb(card.amount)}</a>
       <p className="mt-2 flex items-center justify-center gap-1 text-[11.5px] text-slate-500"><Clock size={12} aria-hidden="true" />Valid until {new Date(card.expiresAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })} · secure payment page</p>
     </div>
   </div>;
@@ -129,13 +129,13 @@ function LocationAsk({ text, onShare }: { text: string; onShare?: (text: string)
   }
   return <div className={shell}>
     <div className="flex gap-3 px-4 py-3.5">
-      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#FFF0DF] text-[#D96F00]"><MapPin size={20} /></span>
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-tint text-brand-text"><MapPin size={20} /></span>
       <p className="text-[13.5px] leading-snug text-slate-700">{text}</p>
     </div>
     <div className="border-t border-slate-100 px-4 py-3">
       {state === "sent" ? <p className="text-[13px] font-semibold text-emerald-700">Location shared. Looking nearby…</p>
         : state === "denied" ? <p className="text-[13px] text-slate-600">Location isn&apos;t available. Just type your hotel or area instead.</p>
-        : <button type="button" disabled={state === "asking"} onClick={share} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[#FE8B05] text-[14px] font-bold text-white hover:bg-[#E67900] disabled:opacity-60"><MapPin size={16} />{state === "asking" ? "Waiting for permission…" : "Share my location"}</button>}
+        : <button type="button" disabled={state === "asking"} onClick={share} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-brand text-[14px] font-bold text-white hover:bg-brand-strong disabled:opacity-60"><MapPin size={16} />{state === "asking" ? "Waiting for permission…" : "Share my location"}</button>}
     </div>
   </div>;
 }

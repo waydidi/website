@@ -40,7 +40,7 @@ export function TelegramTeam() {
         {data.webhook?.lastError && <li className="text-[13px] text-red-600">Last Telegram error: {data.webhook.lastError}</li>}
       </ul>
       {data.canEdit && <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" disabled={busy || !(data.secrets.TELEGRAM_BOT_TOKEN && data.secrets.TELEGRAM_WEBHOOK_SECRET)} onClick={() => void post({ action: "connect" }, "Webhook connected. Telegram will now send replies here.")} className="h-10 rounded-full bg-[#FE8B05] px-4 text-[14px] font-semibold text-white disabled:opacity-50">{connected ? "Reconnect webhook" : "Connect webhook"}</button>
+        <button type="button" disabled={busy || !(data.secrets.TELEGRAM_BOT_TOKEN && data.secrets.TELEGRAM_WEBHOOK_SECRET)} onClick={() => void post({ action: "connect" }, "Webhook connected. Telegram will now send replies here.")} className="h-10 rounded-full bg-brand px-4 text-[14px] font-semibold text-white disabled:opacity-50">{connected ? "Reconnect webhook" : "Connect webhook"}</button>
         <button type="button" disabled={busy || !ready} onClick={() => void post({ action: "test" }, "Test message sent to the Telegram group.")} className="h-10 rounded-full border border-slate-200 px-4 text-[14px] font-semibold disabled:opacity-50">Send test message</button>
       </div>}
     </section>
@@ -55,10 +55,10 @@ export function TelegramTeam() {
           {data.canEdit ? <>
             <button type="button" role="switch" aria-checked={Boolean(m.enabled)} aria-label={`${m.display_name}: ${m.enabled ? "active" : "disabled"}`} disabled={busy} onClick={() => void post({ action: "toggle", id: m.id }, m.enabled ? "Disabled." : "Active again.")}
               className="flex items-center gap-2 text-[13px] font-semibold text-slate-600">
-              <span className={`relative h-6 w-11 rounded-full transition ${m.enabled ? "bg-[#06C755]" : "bg-slate-300"}`}><span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${m.enabled ? "left-[22px]" : "left-0.5"}`} /></span>
+              <span className={`relative h-6 w-11 rounded-full transition ${m.enabled ? "bg-line-green" : "bg-slate-300"}`}><span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${m.enabled ? "left-[22px]" : "left-0.5"}`} /></span>
               {m.enabled ? "Active" : "Disabled"}
             </button>
-            <button type="button" disabled={busy} onClick={() => setEditing({ id: m.id, displayName: m.display_name, username: m.telegram_username ?? "" })} className="text-[13px] font-semibold text-[#C96100]">Edit</button>
+            <button type="button" disabled={busy} onClick={() => setEditing({ id: m.id, displayName: m.display_name, username: m.telegram_username ?? "" })} className="text-[13px] font-semibold text-brand-darker">Edit</button>
             <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Remove ${m.display_name} from the Telegram team?`)) void post({ action: "remove", id: m.id }, "Removed."); }} aria-label={`Remove ${m.display_name}`} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
           </> : <span className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${m.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{m.enabled ? "Active" : "Disabled"}</span>}
         </li>)}
@@ -66,16 +66,16 @@ export function TelegramTeam() {
       {editing && <div role="dialog" aria-modal="true" aria-label="Edit team member" className="fixed inset-0 z-[90] grid place-items-center bg-black/40 p-4" onClick={(e) => { if (e.target === e.currentTarget) setEditing(null); }}>
         <form onSubmit={(e) => { e.preventDefault(); void post({ action: "edit", ...editing }, "Saved.").then((ok) => { if (ok) setEditing(null); }); }} className="grid w-full max-w-sm gap-3 rounded-2xl bg-white p-5 text-[14px] shadow-xl">
           <h3 className="text-[17px] font-bold">Edit team member</h3>
-          <label className="grid gap-1 font-semibold">Name customers see<input required autoFocus maxLength={60} value={editing.displayName} onChange={(e) => setEditing({ ...editing, displayName: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 font-normal outline-none focus:border-[#FE8B05]" /></label>
-          <label className="grid gap-1 font-semibold">Telegram username<input maxLength={61} value={editing.username} onChange={(e) => setEditing({ ...editing, username: e.target.value })} placeholder="@username (optional)" className="h-10 rounded-xl border border-slate-200 px-3 font-normal outline-none focus:border-[#FE8B05]" /></label>
-          <div className="flex justify-end gap-2"><button type="button" onClick={() => setEditing(null)} className="h-10 rounded-full border border-slate-200 px-4 font-semibold">Cancel</button><button disabled={busy} className="h-10 rounded-full bg-[#FE8B05] px-5 font-bold text-white">Save</button></div>
+          <label className="grid gap-1 font-semibold">Name customers see<input required autoFocus maxLength={60} value={editing.displayName} onChange={(e) => setEditing({ ...editing, displayName: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 font-normal outline-none focus:border-brand" /></label>
+          <label className="grid gap-1 font-semibold">Telegram username<input maxLength={61} value={editing.username} onChange={(e) => setEditing({ ...editing, username: e.target.value })} placeholder="@username (optional)" className="h-10 rounded-xl border border-slate-200 px-3 font-normal outline-none focus:border-brand" /></label>
+          <div className="flex justify-end gap-2"><button type="button" onClick={() => setEditing(null)} className="h-10 rounded-full border border-slate-200 px-4 font-semibold">Cancel</button><button disabled={busy} className="h-10 rounded-full bg-brand px-5 font-bold text-white">Save</button></div>
         </form>
       </div>}
       {data.canEdit && <form onSubmit={add} className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
-        <input required inputMode="numeric" placeholder="Telegram ID" aria-label="Telegram ID" value={form.telegramUserId} onChange={(e) => setForm({ ...form, telegramUserId: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:border-[#FE8B05]" />
-        <input required placeholder="Name customers see" aria-label="Display name" value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:border-[#FE8B05]" />
-        <input placeholder="@username (optional)" aria-label="Telegram username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:border-[#FE8B05]" />
-        <button disabled={busy} className="h-10 rounded-full bg-[#15161C] px-4 text-[14px] font-semibold text-white">Add</button>
+        <input required inputMode="numeric" placeholder="Telegram ID" aria-label="Telegram ID" value={form.telegramUserId} onChange={(e) => setForm({ ...form, telegramUserId: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:border-brand" />
+        <input required placeholder="Name customers see" aria-label="Display name" value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:border-brand" />
+        <input placeholder="@username (optional)" aria-label="Telegram username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:border-brand" />
+        <button disabled={busy} className="h-10 rounded-full bg-night px-4 text-[14px] font-semibold text-white">Add</button>
       </form>}
     </section>
   </section>;

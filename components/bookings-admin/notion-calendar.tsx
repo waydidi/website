@@ -45,7 +45,7 @@ function FilterChip({ label, options, selected, onChange }: { label: string; opt
   const active = selected.length > 0;
   const summary = active ? selected.map((v) => options.find((o) => o[0] === v)?.[1] ?? v).join(", ") : "";
   return <div ref={ref} className="relative">
-    <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className={`inline-flex max-w-[260px] items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] ${active ? "border-transparent bg-[#FFF0DF] text-[#C96100]" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}>
+    <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className={`inline-flex max-w-[260px] items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] ${active ? "border-transparent bg-brand-tint text-brand-darker" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}>
       <span className="truncate">{label}{active ? `: ${summary}` : ""}</span>
       {active ? <X size={13} onClick={(e) => { e.stopPropagation(); onChange([]); }} aria-label={`Clear ${label}`} /> : <ChevronDown size={13} />}
     </button>
@@ -53,7 +53,7 @@ function FilterChip({ label, options, selected, onChange }: { label: string; opt
       <p className="px-2 pb-1 pt-0.5 text-[12px] text-slate-400">{label} is</p>
       <div className="max-h-64 overflow-y-auto">
         {options.map(([value, text, tag]) => { const on = selected.includes(value); return <button key={value} type="button" onClick={() => onChange(on ? selected.filter((v) => v !== value) : [...selected, value])} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[14px] hover:bg-slate-50">
-          <span className={`grid size-3.5 shrink-0 place-items-center rounded-[3px] border ${on ? "border-[#FF8A05] bg-[#FF8A05] text-white" : "border-slate-400"}`}>{on && <Check size={10} strokeWidth={3.5} />}</span>
+          <span className={`grid size-3.5 shrink-0 place-items-center rounded-[3px] border ${on ? "border-brand bg-brand text-white" : "border-slate-400"}`}>{on && <Check size={10} strokeWidth={3.5} />}</span>
           <span className={tag ? `rounded-[3px] px-1.5 text-[12.5px] ${tag}` : ""}>{text}</span>
         </button>; })}
       </div>
@@ -131,7 +131,7 @@ export function NotionCalendar({ serviceType, view = "calendar" }: { serviceType
       <FilterChip label="Payment" selected={payment} onChange={setPayment} options={[["Card", "Card"], ["Cash", "Cash"]]} />
       {anyFilter && <button type="button" onClick={() => { setStatus([]); setDrivers([]); setPayment([]); setQuery(""); setSearchOpen(false); }} className="px-2 text-[13px] text-slate-500 hover:text-slate-800">Clear</button>}
       <div className="ml-auto flex items-center gap-1">
-        {searchOpen && <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Reference, customer, place" aria-label="Search bookings" className="h-8 w-52 rounded-md border border-slate-200 px-2.5 text-[13px] outline-none focus:border-[#FF8A05]" />}
+        {searchOpen && <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Reference, customer, place" aria-label="Search bookings" className="h-8 w-52 rounded-md border border-slate-200 px-2.5 text-[13px] outline-none focus:border-brand" />}
         <button type="button" onClick={() => { setSearchOpen((v) => !v); if (searchOpen) setQuery(""); }} aria-label={searchOpen ? "Close search" : "Search"} className="grid size-8 place-items-center rounded-md text-slate-500 hover:bg-slate-100">{searchOpen ? <X size={16} /> : <Search size={16} />}</button>
       </div>
     </div>
@@ -154,7 +154,7 @@ export function NotionCalendar({ serviceType, view = "calendar" }: { serviceType
           {c.items.map((b) => card(b, true))}
           {c.items.length === 0 && <p className="rounded border border-dashed border-slate-200 px-2 py-4 text-center text-[12px] text-slate-400">No bookings</p>}
         </section>)}
-        {!data && !error && <div className="absolute inset-0 grid place-items-center bg-white/60"><LoaderCircle className="animate-spin text-[#FF8A05]" size={26} /></div>}
+        {!data && !error && <div className="absolute inset-0 grid place-items-center bg-white/60"><LoaderCircle className="animate-spin text-brand" size={26} /></div>}
       </div>
     </div> :
     <div className="mt-2 overflow-x-auto">
@@ -170,7 +170,7 @@ export function NotionCalendar({ serviceType, view = "calendar" }: { serviceType
             {list.length > 3 && <button type="button" onClick={() => setExpanded(expanded === day ? null : day)} className="px-1 text-left text-[12px] text-slate-400 hover:text-slate-700">{expanded === day ? "Show less" : `${list.length - 3} more`}</button>}
           </div>;
         })}
-        {!data && !error && <div className="absolute inset-0 grid place-items-center bg-white/60"><LoaderCircle className="animate-spin text-[#FF8A05]" size={26} /></div>}
+        {!data && !error && <div className="absolute inset-0 grid place-items-center bg-white/60"><LoaderCircle className="animate-spin text-brand" size={26} /></div>}
       </div>
     </div>}
   </div>;

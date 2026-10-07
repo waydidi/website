@@ -216,7 +216,7 @@ function PageSearch() {
         if (e.key === "Escape") (e.target as HTMLInputElement).blur();
       }}
       placeholder="Search bookings, customers, drivers, pages…" aria-label="Search the admin panel" autoComplete="off" role="combobox" aria-expanded={open && results.length > 0} aria-controls="admin-search-results"
-      className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-14 text-[15px] outline-none placeholder:text-slate-500 focus:border-[#FF8A05] focus:ring-2 focus:ring-[#FF8A05]/15" />
+      className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-14 text-[15px] outline-none placeholder:text-slate-500 focus:border-brand focus:ring-2 focus:ring-brand/15" />
     <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[12px] text-slate-500">/</kbd>
     {open && term && <ul id="admin-search-results" role="listbox" className="absolute inset-x-0 top-12 z-50 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
       {results.length === 0 && <li className="px-4 py-3 text-[14px] text-slate-500">{term.length < 2 ? "Keep typing…" : "No matches"}</li>}
@@ -292,13 +292,13 @@ export default function AdminShell({
   const active = tabs.find((t) => isActive(pathname, t.href)) ?? tabs[0];
   const title = isFinancialsPath(pathname) ? "Financials" : pathname.startsWith("/admin/settings") ? "Settings" : pathname === "/admin/gifts" ? "Tier gifts" : pathname.startsWith("/admin/gifts/mystery") ? "Mystery gifts" : pathname.startsWith("/admin/journeys") ? "Journey details" : pathname.startsWith("/admin/calendar") ? "Calendar" : active.title;
   return (
-    <div className="flex min-h-screen bg-[#F4F5F7] text-[#15161C] admin-root">
+    <div className="flex min-h-screen bg-[#F4F5F7] text-night admin-root">
       <aside className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-slate-200/80 bg-[#FBFBFC] transition-[width] duration-300 md:flex ${collapsed ? "w-[76px]" : "w-[272px]"}`}>
         <div className={`flex h-[72px] items-center border-b border-slate-200/70 ${collapsed ? "justify-center px-2" : "justify-between px-5"}`}>
-          {collapsed ? <WaydidiMark className="admin-logo size-[37px] text-[#FF8A05]" /> : <WaydidiLogo className="admin-logo h-[46px] w-auto text-[#FF8A05]" />}
-          {!collapsed && <button onClick={toggleSidebar} aria-label="Collapse sidebar" title="Collapse sidebar" className="grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#15161C]"><ChevronLeft size={16} /></button>}
+          {collapsed ? <WaydidiMark className="admin-logo size-[37px] text-brand" /> : <WaydidiLogo className="admin-logo h-[46px] w-auto text-brand" />}
+          {!collapsed && <button onClick={toggleSidebar} aria-label="Collapse sidebar" title="Collapse sidebar" className="grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-night"><ChevronLeft size={16} /></button>}
         </div>
-        {collapsed && <button onClick={toggleSidebar} aria-label="Expand sidebar" title="Expand sidebar" className="mx-auto mt-3 grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#15161C]"><ChevronRight size={16} /></button>}
+        {collapsed && <button onClick={toggleSidebar} aria-label="Expand sidebar" title="Expand sidebar" className="mx-auto mt-3 grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-night"><ChevronRight size={16} /></button>}
         <nav aria-label="Admin sections" className="flex-1 overflow-y-auto px-3 py-4">
           {SECTIONS.map(section=>({...section,items:section.items.filter(item=>allowedStaffRoute(role,item.href.split("?")[0],"GET"))})).filter(section=>section.items.length).map((section, si) => <div key={si} className={si ? "mt-5" : ""}>
             {section.title && !collapsed && <p className="mb-1.5 px-3 text-[14px] font-semibold text-slate-800">{section.title}</p>}
@@ -307,7 +307,7 @@ export default function AdminShell({
               {section.items.map((g) => {
                 const Icon = g.icon ?? BookOpen;
                 const on = groupActive(g, pathname, tab);
-                const row = `flex h-10 w-full items-center gap-3 rounded-[10px] px-3 text-[15px] transition-colors ${on ? "bg-[#FFF0DF] font-semibold text-[#C96100]" : "text-slate-700 hover:bg-slate-100/80 hover:text-[#15161C]"} ${collapsed ? "justify-center" : ""}`;
+                const row = `flex h-10 w-full items-center gap-3 rounded-[10px] px-3 text-[15px] transition-colors ${on ? "bg-brand-tint font-semibold text-brand-darker" : "text-slate-700 hover:bg-slate-100/80 hover:text-night"} ${collapsed ? "justify-center" : ""}`;
                 if (!g.children || collapsed) return <li key={g.href}><Link href={g.children ? g.children[0].href : g.href} prefetch aria-current={on ? "page" : undefined} title={g.label} className={row}><span className="relative shrink-0"><Icon size={18} strokeWidth={on ? 2.4 : 1.9} />{collapsed && g.href === "/admin/chat" && chatUnread > 0 && <span className="absolute -right-1 -top-1 size-2.5 rounded-full bg-[#E53935] ring-2 ring-white" aria-hidden="true" />}</span>{!collapsed && <span className="flex-1 truncate">{g.label}</span>}
                   {!collapsed && g.href === "/admin/chat" && chatUnread > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-[#E53935] px-1.5 text-[11.5px] font-bold leading-none text-white" aria-label={`${chatUnread} unread`}>{chatUnread > 99 ? "99+" : chatUnread}</span>}</Link></li>;
                 const open = isOpen(g);
@@ -320,7 +320,7 @@ export default function AdminShell({
                   </button>
                   <ul id={id} hidden={!open} className="relative mb-1 ml-[21px] mt-0.5 grid gap-0.5 border-l border-slate-200 pl-3">
                     {g.children.map((c) => { const cOn = linkActive(c, pathname, tab); return <li key={c.href}>
-                      <Link href={c.href} prefetch aria-current={cOn ? "page" : undefined} className={`flex h-9 items-center rounded-lg px-3 text-[14.5px] ${cOn ? "font-semibold text-[#15161C]" : "text-slate-600 hover:text-[#15161C]"}`}>{cOn && <span className="-ml-[19px] mr-3 h-5 w-[3px] rounded-full bg-[#FF8A05]" aria-hidden="true" />}{c.label}</Link>
+                      <Link href={c.href} prefetch aria-current={cOn ? "page" : undefined} className={`flex h-9 items-center rounded-lg px-3 text-[14.5px] ${cOn ? "font-semibold text-night" : "text-slate-600 hover:text-night"}`}>{cOn && <span className="-ml-[19px] mr-3 h-5 w-[3px] rounded-full bg-brand" aria-hidden="true" />}{c.label}</Link>
                     </li>; })}
                   </ul>
                 </li>;
@@ -329,14 +329,14 @@ export default function AdminShell({
           </div>)}
         </nav>
         <div className={`flex items-center gap-1 border-t border-slate-200/70 p-3 ${collapsed ? "flex-col" : ""}`}>
-          <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_SETTINGS_EVENT))} title="Settings" className={`flex h-10 min-w-0 flex-1 items-center gap-3 rounded-[10px] px-3 text-[15px] ${collapsed ? "w-full justify-center" : ""} ${pathname.startsWith("/admin/settings") ? "bg-[#FFF0DF] font-semibold text-[#C96100]" : "text-slate-700 hover:bg-slate-100/80"}`}><Settings size={18} className="shrink-0" />{!collapsed && "Settings"}</button>
+          <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_SETTINGS_EVENT))} title="Settings" className={`flex h-10 min-w-0 flex-1 items-center gap-3 rounded-[10px] px-3 text-[15px] ${collapsed ? "w-full justify-center" : ""} ${pathname.startsWith("/admin/settings") ? "bg-brand-tint font-semibold text-brand-darker" : "text-slate-700 hover:bg-slate-100/80"}`}><Settings size={18} className="shrink-0" />{!collapsed && "Settings"}</button>
           <button type="button" onClick={toggleDark} aria-pressed={dark} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"} className="grid size-10 shrink-0 place-items-center rounded-[10px] text-slate-700 hover:bg-slate-100/80"><ThemeIcon /></button>
         </div>
       </aside>
       <div className="min-w-0 flex-1 overflow-x-clip">
         <header className="relative z-30 flex h-[72px] items-center gap-4 border-b border-slate-200/70 bg-white/95 px-4 backdrop-blur sm:px-8">
           {/* Phones: the logo sits where desktop has the sidebar; the title is shown large below, like desktop. */}
-          <Link href="/admin" aria-label="Waydidi admin home" className="shrink-0 md:hidden"><WaydidiLogo className="admin-logo h-[46px] w-auto text-[#FF8A05]" /></Link>
+          <Link href="/admin" aria-label="Waydidi admin home" className="shrink-0 md:hidden"><WaydidiLogo className="admin-logo h-[46px] w-auto text-brand" /></Link>
           <div className="hidden flex-1 md:block"><PageSearch /></div>
           <NotificationBell />
           <SettingsDialog dark={dark} onToggleDark={toggleDark} />
@@ -348,7 +348,7 @@ export default function AdminShell({
           {isPartnersPath(pathname) && <nav aria-label="Partner categories" className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
             {PARTNER_TABS.filter(t => allowedStaffRoute(role, t.href, "GET")).map(t => {
               const selected = pathname === t.href || pathname.startsWith(`${t.href}/`);
-              return <Link key={t.href} href={t.href} aria-current={selected ? "page" : undefined} className={`rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors sm:px-4 ${selected ? "bg-[#FFF0DF] text-[#C96100]" : "text-slate-600 hover:bg-slate-50"}`}>{t.label}</Link>;
+              return <Link key={t.href} href={t.href} aria-current={selected ? "page" : undefined} className={`rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors sm:px-4 ${selected ? "bg-brand-tint text-brand-darker" : "text-slate-600 hover:bg-slate-50"}`}>{t.label}</Link>;
             })}
           </nav>}
         </div>
@@ -384,7 +384,7 @@ function MobileTabBar({ pathname }: { pathname: string }) {
   const main = MAIN.map((href) => phoneTabs.find((tab) => tab.href === href)!).filter(Boolean);
   const more = phoneTabs.filter((tab) => !MAIN.includes(tab.href));
   const moreActive = more.find((tab) => isActive(pathname, tab.href));
-  const item = (selected: boolean) => `flex min-w-0 select-none flex-col items-center justify-center gap-1 rounded-[21px] px-1 py-2.5 text-[10px] font-black transition-all duration-200 [-webkit-touch-callout:none] ${selected ? "bg-[#FFF0DF] text-[#D96F00]" : "text-slate-600 active:bg-slate-100"}`;
+  const item = (selected: boolean) => `flex min-w-0 select-none flex-col items-center justify-center gap-1 rounded-[21px] px-1 py-2.5 text-[10px] font-black transition-all duration-200 [-webkit-touch-callout:none] ${selected ? "bg-brand-tint text-brand-text" : "text-slate-600 active:bg-slate-100"}`;
   function swap(slot: number, href: string) {
     const next = [...MAIN];
     const other = next.indexOf(href);
@@ -397,7 +397,7 @@ function MobileTabBar({ pathname }: { pathname: string }) {
     const selected = isActive(pathname, href);
     const holdable = slot !== undefined;
     return <Link key={href} href={href} prefetch aria-current={selected ? "page" : undefined}
-      className={`${item(selected)} ${holdable && editing === slot ? "ring-2 ring-[#FF8A05]" : ""}`}
+      className={`${item(selected)} ${holdable && editing === slot ? "ring-2 ring-brand" : ""}`}
       onContextMenu={holdable ? (e) => e.preventDefault() : undefined}
       onPointerDown={holdable ? () => { hold.current.fired = false; hold.current.timer = window.setTimeout(() => { hold.current.fired = true; navigator.vibrate?.(15); setOpen(false); setEditing(slot); }, 500); } : undefined}
       onPointerUp={holdable ? () => window.clearTimeout(hold.current.timer) : undefined}
@@ -415,7 +415,7 @@ function MobileTabBar({ pathname }: { pathname: string }) {
       {editing !== null && <div className="mb-1 border-b border-slate-100 pb-2">
         <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
           <p className="text-[12px] font-bold text-slate-500">Replace {main[editing]?.mobileLabel} with…</p>
-          <button type="button" onClick={() => { setMain(DEFAULT_MAIN); setEditing(null); try { localStorage.removeItem(MAIN_KEY); } catch { /* ignore */ } }} className="text-[12px] font-bold text-[#C96100]">Reset</button>
+          <button type="button" onClick={() => { setMain(DEFAULT_MAIN); setEditing(null); try { localStorage.removeItem(MAIN_KEY); } catch { /* ignore */ } }} className="text-[12px] font-bold text-brand-darker">Reset</button>
         </div>
         <div className="grid grid-cols-5 gap-1">{phoneTabs.filter((t) => t.href !== MAIN[editing]).map(({ href, mobileLabel, icon: Icon }) => <button key={href} type="button" onClick={() => swap(editing, href)} className={item(false)}><Icon size={21} strokeWidth={2.1} /><span className="w-full truncate text-center">{mobileLabel}</span></button>)}</div>
       </div>}

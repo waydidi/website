@@ -8,5 +8,5 @@ export const metadata: Metadata = { title: "New trip · Agency portal", robots: 
 export default async function Page() {
   const { blocked } = await requireAgencyPage("/agency/trips/new");
   if (blocked) return blocked;
-  return <div className="min-h-screen bg-[#F5F6F8]"><TripWorkspace mode="agency" /></div>;
+  return <div className="min-h-screen bg-canvas"><TripWorkspace mode="agency" /></div>;
 }

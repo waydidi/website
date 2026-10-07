@@ -71,11 +71,11 @@ export async function ReportsSection({ searchParams }: { searchParams: Promise<{
   })() : null;
   const payoutTotals = payouts.reduce((a, g) => ({ owed: a.owed + g.owed, paid: a.paid + g.paid, unpaid: a.unpaid + g.unpaid, missing: a.missing + g.costMissing }), { owed: 0, paid: 0, unpaid: 0, missing: 0 });
 
-  return <main className="min-h-screen bg-[#F6F7F9] px-4 py-6 text-[#1f1726] sm:px-8">
+  return <main className="min-h-screen bg-[#F6F7F9] px-4 py-6 text-plum sm:px-8">
     <div className="mx-auto grid max-w-[1200px] gap-5">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 pt-2">
-        {list.map((p) => <Link key={p.id} href={`?${new URLSearchParams({ range: p.id, by, tab })}#reports`} className={`rounded-full px-4 py-2 text-[13px] font-bold ${!custom && p.id === preset.id ? "bg-[#1f1726] text-white" : "border border-slate-200 bg-white"}`}>{p.label}</Link>)}
+        {list.map((p) => <Link key={p.id} href={`?${new URLSearchParams({ range: p.id, by, tab })}#reports`} className={`rounded-full px-4 py-2 text-[13px] font-bold ${!custom && p.id === preset.id ? "bg-plum text-white" : "border border-slate-200 bg-white"}`}>{p.label}</Link>)}
         <form className="flex flex-wrap items-center gap-2" action="#reports">
           <input type="hidden" name="by" value={by} /><input type="hidden" name="tab" value={tab} />
           <input type="date" name="from" defaultValue={from} className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-[13px]" aria-label="From" />
@@ -87,7 +87,7 @@ export async function ReportsSection({ searchParams }: { searchParams: Promise<{
       <p className="-mt-2 text-[13px] text-slate-500">{nice(from)} – {nice(to)} · by trip date · confirmed and completed trips only</p>
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["revenue", "payouts", "discounts"] as const).map((t) => <Link key={t} href={`?${qs({ tab: t })}#reports`} className={`-mb-px border-b-2 px-4 py-2 text-[14px] font-bold ${tab === t ? "border-[#FF8A05] text-[#1f1726]" : "border-transparent text-slate-500"}`}>{t === "revenue" ? "Revenue" : t === "payouts" ? "Driver payouts" : "Discounts"}</Link>)}
+        {(["revenue", "payouts", "discounts"] as const).map((t) => <Link key={t} href={`?${qs({ tab: t })}#reports`} className={`-mb-px border-b-2 px-4 py-2 text-[14px] font-bold ${tab === t ? "border-brand text-plum" : "border-transparent text-slate-500"}`}>{t === "revenue" ? "Revenue" : t === "payouts" ? "Driver payouts" : "Discounts"}</Link>)}
       </div>
 
       {tab === "discounts" && discounts ? <>
@@ -99,7 +99,7 @@ export async function ReportsSection({ searchParams }: { searchParams: Promise<{
         </div>
         <div className="grid gap-3 sm:grid-cols-3">{discounts.byGroup.map((g) => <div key={g.group} className="rounded-2xl border border-slate-200 bg-white p-4">
           <p className="text-[13px] font-semibold text-slate-500">{g.group}</p><p className="mt-1 text-[20px] font-black">{thb(g.cost)}</p>
-          <div className="mt-2 h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#FF8A05]" style={{ width: `${discounts.cost ? Math.round((g.cost / discounts.cost) * 100) : 0}%` }} /></div>
+          <div className="mt-2 h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand" style={{ width: `${discounts.cost ? Math.round((g.cost / discounts.cost) * 100) : 0}%` }} /></div>
           <p className="mt-1 text-[12px] text-slate-500">{discounts.cost ? Math.round((g.cost / discounts.cost) * 100) : 0}% of discount cost</p>
         </div>)}</div>
         <div className="flex justify-end"><a href={`/api/admin/reports/export?${new URLSearchParams({ type: "discounts", from, to })}`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-2 text-[13px] font-bold"><Download size={15} aria-hidden="true" />Export discounts (CSV)</a></div>
@@ -119,7 +119,7 @@ export async function ReportsSection({ searchParams }: { searchParams: Promise<{
         {total.costMissing > 0 && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[13px] font-semibold text-amber-900">{total.costMissing} trip{total.costMissing === 1 ? " has" : "s have"} no driver cost set yet, so driver cost and margin are incomplete. Set costs in each journey&apos;s Driver information (<Link href="/admin/operations" className="underline">Operations</Link> → eye icon).</p>}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex gap-1">{(["day", "month"] as const).map((b) => <Link key={b} href={`?${qs({ by: b })}#reports`} className={`rounded-full px-3 py-1.5 text-[13px] font-bold ${by === b ? "bg-[#FFF0DF] text-[#C96100]" : "text-slate-500"}`}>By {b}</Link>)}</div>
+          <div className="flex gap-1">{(["day", "month"] as const).map((b) => <Link key={b} href={`?${qs({ by: b })}#reports`} className={`rounded-full px-3 py-1.5 text-[13px] font-bold ${by === b ? "bg-brand-tint text-brand-darker" : "text-slate-500"}`}>By {b}</Link>)}</div>
           <a href={`/api/admin/reports/export?${new URLSearchParams({ type: "revenue", from, to })}`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-2 text-[13px] font-bold"><Download size={15} aria-hidden="true" />Export trips (CSV)</a>
         </div>
         {chart && chart.length > 1 && <div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[14px] font-bold">Revenue per day</p><div className="mt-2"><RevenueChart data={chart} /></div></div>}

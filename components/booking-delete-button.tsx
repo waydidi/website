@@ -53,7 +53,7 @@ export function BookingDeleteButton({ reference, binned = false, purgeAfter }: {
             <input type="text" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} data-1p-ignore data-lpignore="true" data-form-type="other"
               autoFocus required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin password" aria-label="Admin password"
               style={show ? undefined : ({ WebkitTextSecurity: "disc" } as React.CSSProperties)}
-              className="h-11 w-full rounded-xl border border-slate-200 pl-3 pr-11 text-[15px] outline-none focus:border-[#FF8A05]" />
+              className="h-11 w-full rounded-xl border border-slate-200 pl-3 pr-11 text-[15px] outline-none focus:border-brand" />
             <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? "Hide password" : "Show password"} aria-pressed={show}
               className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800">
               {show ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}

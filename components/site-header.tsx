@@ -84,9 +84,9 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
 
   return (
     <header
-      className={`z-40 flex h-[79px] w-full items-center justify-between px-5 transition-[background-color,color,box-shadow] duration-300 lg:h-[107px] lg:px-8 ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-[#FF8A05] text-white" : "bg-transparent text-white"}`}
+      className={`z-40 flex h-[79px] w-full items-center justify-between px-5 transition-[background-color,color,box-shadow] duration-300 lg:h-[107px] lg:px-8 ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-brand text-white" : "bg-transparent text-white"}`}
     >
-      <Link href="/" className={`inline-flex shrink-0 transition-colors duration-300 ${light ? "text-[#FF8A05]" : "text-white"}`} aria-label={t("nav.home")}>
+      <Link href="/" className={`inline-flex shrink-0 transition-colors duration-300 ${light ? "text-brand" : "text-white"}`} aria-label={t("nav.home")}>
         {/* Explicit widths (logo is 810:308): Safari collapses a width-less
             mask span to 0px when its container is allowed to shrink. */}
         <WaydidiLogo className="h-[40px] w-[105px] min-[360px]:h-[53px] min-[360px]:w-[139px] sm:h-[68px] sm:w-[179px] lg:h-[91px] lg:w-[240px]" />
@@ -114,7 +114,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         </Link>
         <Link
           href="/booking/manage"
-          className={`flex h-12 items-center gap-2 rounded-full px-6 font-bold transition-colors duration-300 ${light ? "bg-[#FF8A05] text-white hover:bg-[#E67900]" : "bg-white text-[#D96F00] hover:bg-orange-50"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#FF8A05]`}
+          className={`flex h-12 items-center gap-2 rounded-full px-6 font-bold transition-colors duration-300 ${light ? "bg-brand text-white hover:bg-brand-strong" : "bg-white text-brand-text hover:bg-orange-50"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand`}
         >
           <CarFront size={20} /> {t("nav.checkBooking")}
         </Link>
@@ -139,14 +139,14 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           <nav
             id="mobile-menu"
             aria-label={t("nav.mobileNav")}
-            className="absolute inset-y-0 right-0 flex w-[82vw] max-w-[340px] flex-col overflow-y-auto bg-white text-[#211726] shadow-2xl animate-in slide-in-from-right duration-300 motion-reduce:animate-none"
+            className="absolute inset-y-0 right-0 flex w-[82vw] max-w-[340px] flex-col overflow-y-auto bg-white text-plum shadow-2xl animate-in slide-in-from-right duration-300 motion-reduce:animate-none"
           >
             <div className="flex justify-end px-5 pt-[calc(1rem+env(safe-area-inset-top))]">
-              <button type="button" onClick={closeMenu} className="flex items-center gap-1 rounded-full px-2 py-1 text-[17px] font-semibold text-[#E57A00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A05]">
+              <button type="button" onClick={closeMenu} className="flex items-center gap-1 rounded-full px-2 py-1 text-[17px] font-semibold text-[#E57A00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
                 Hide <ChevronRight size={22} strokeWidth={2.25} />
               </button>
             </div>
-            <div className="px-5 pt-3 text-[#211726]"><LocalePicker /></div>
+            <div className="px-5 pt-3 text-plum"><LocalePicker /></div>
             <ul className="px-5 pt-5">
               {navMenus.map((menu) => (
                 <li key={menu.labelKey} className="mb-4">
@@ -171,10 +171,10 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
               ))}
             </ul>
             <div className="mt-auto grid justify-items-start gap-3 px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-8">
-              <Link href={accountHref} onClick={closeMenu} className="flex items-center gap-2 rounded-full bg-[#FFF0DF] px-5 py-3 text-[16px] font-semibold text-[#E57A00]">
+              <Link href={accountHref} onClick={closeMenu} className="flex items-center gap-2 rounded-full bg-brand-tint px-5 py-3 text-[16px] font-semibold text-[#E57A00]">
                 <UserRound size={20} /> {account?.signedIn ? t("nav.myAccount") : t("nav.signIn")}
               </Link>
-              <Link href="/booking/manage" onClick={closeMenu} className="flex items-center gap-2 rounded-full bg-[#FF8A05] px-5 py-3 text-[16px] font-semibold text-white">
+              <Link href="/booking/manage" onClick={closeMenu} className="flex items-center gap-2 rounded-full bg-brand px-5 py-3 text-[16px] font-semibold text-white">
                 <CarFront size={20} /> {t("nav.checkBooking")}
               </Link>
             </div>

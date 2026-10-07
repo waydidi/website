@@ -44,7 +44,7 @@ export function PayForm({ reference, token, sessionId }: { reference: string; to
     return () => { cancelled = true; checkout?.destroy(); };
   }, [reference, token, sessionId]);
   return <><aside className="mt-5 rounded-2xl border bg-white p-5" aria-label="Your journey and cancellation terms">{journey?<><p className="font-bold">{journey.pickup} → {journey.dropoff}</p><p className="mt-2">{journey.date} · {journey.time} (Thailand time)</p><p>{VEHICLES[journey.vehicle as VehicleId]?.name??journey.vehicle} · {journey.passengers} passengers · {journey.luggage} checked bags</p>{journey.returnDate&&<p>Return: {journey.returnDate} · {journey.returnTime}</p>}<div className="mt-3 border-t pt-3"><CancellationTerms date={journey.date} time={journey.time}/></div></>:<p role="status">Loading your journey…</p>}</aside><div className="mt-5 overflow-hidden rounded-3xl bg-white p-2 shadow-sm">
-    {loading && <p className="flex items-center justify-center gap-2 py-16 text-[15px] text-[#6B6B6B]"><LoaderCircle size={18} className="animate-spin" />Loading secure payment…</p>}
+    {loading && <p className="flex items-center justify-center gap-2 py-16 text-[15px] text-grey-text"><LoaderCircle size={18} className="animate-spin" />Loading secure payment…</p>}
     {error && <p role="alert" className="p-6 text-center text-[15px] font-semibold text-red-700">{error}</p>}
     <div ref={box} />
   </div></>;

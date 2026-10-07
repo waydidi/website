@@ -2,11 +2,11 @@
 
 import type { ReactNode } from "react";
 
-export const inputCls = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]";
-export const selectCls = "h-11 rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]";
-export const areaCls = "min-h-20 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[15px] outline-none focus:border-[#FF8A05]";
-export const btnPrimary = "inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900] disabled:opacity-60";
-export const btnQuiet = "inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-[14px] font-semibold text-slate-700 hover:border-[#FF8A05] hover:text-[#C96100] disabled:opacity-60";
+export const inputCls = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand";
+export const selectCls = "h-11 rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand";
+export const areaCls = "min-h-20 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[15px] outline-none focus:border-brand";
+export const btnPrimary = "inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-brand px-4 text-[15px] font-semibold text-white hover:bg-brand-strong disabled:opacity-60";
+export const btnQuiet = "inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-[14px] font-semibold text-slate-700 hover:border-brand hover:text-brand-darker disabled:opacity-60";
 
 export function Field({ label, hint, children, className = "" }: { label: string; hint?: string; children: ReactNode; className?: string }) {
   return <label className={`grid gap-1 text-[13px] font-semibold text-slate-800 ${className}`}>{label}{children}{hint && <span className="text-[12px] font-normal text-slate-500">{hint}</span>}</label>;

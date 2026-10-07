@@ -37,8 +37,8 @@ export function PlaceAutocomplete({ id, onPick }: { id: string; onPick: (place: 
   }, []);
 
   return <div>
-    <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 focus-within:border-[#FF8A05] focus-within:ring-4 focus-within:ring-orange-100">
-      <MapPin size={18} className="shrink-0 text-[#D96F00]" />
+    <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 focus-within:border-brand focus-within:ring-4 focus-within:ring-orange-100">
+      <MapPin size={18} className="shrink-0 text-brand-text" />
       <input id={id} ref={input} onChange={() => onPickRef.current(null)} disabled={status === "unavailable"} placeholder="Search hotel, address or airport" className="w-full bg-transparent py-3 outline-none disabled:cursor-not-allowed" autoComplete="off" />
     </div>
     {status === "unavailable" ? <p className="mt-2 text-sm text-red-600">Address search is not available right now. Please try again later.</p> : null}

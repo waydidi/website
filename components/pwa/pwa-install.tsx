@@ -34,11 +34,11 @@ export function PwaInstall({ locale = "en" }: { locale?: Locale }) {
     <dialog ref={dialog} aria-labelledby={`pwa-title-${locale}`} aria-describedby={`pwa-description-${locale}`} className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border-0 bg-white p-6 text-slate-900 shadow-xl backdrop:bg-black/50">
       <div className="flex items-start justify-between gap-4">
         <h2 id={`pwa-title-${locale}`} className="text-xl font-bold">{messages["pwa.title"]}</h2>
-        <button type="button" onClick={() => dialog.current?.close()} aria-label={messages["pwa.close"]} className="rounded-full p-2 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-[#FE8B05]"><X size={20} aria-hidden="true" /></button>
+        <button type="button" onClick={() => dialog.current?.close()} aria-label={messages["pwa.close"]} className="rounded-full p-2 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-brand"><X size={20} aria-hidden="true" /></button>
       </div>
       <p id={`pwa-description-${locale}`} className="mt-4 text-sm leading-relaxed">{messages[`pwa.${platform}`]}</p>
       <p className="mt-4 rounded-xl bg-orange-50 p-3 text-sm leading-relaxed">{messages["pwa.onlineRequired"]}</p>
-      <button type="button" onClick={() => dialog.current?.close()} className="mt-5 w-full rounded-full bg-slate-900 px-5 py-3 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FE8B05]">{messages["pwa.done"]}</button>
+      <button type="button" onClick={() => dialog.current?.close()} className="mt-5 w-full rounded-full bg-slate-900 px-5 py-3 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">{messages["pwa.done"]}</button>
     </dialog>
   </div>;
 }

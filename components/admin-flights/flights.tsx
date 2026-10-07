@@ -53,7 +53,7 @@ export function AdminFlights() {
     {!data.configured && <p className="rounded-xl bg-amber-50 p-4 text-amber-900">The flight data key isn&apos;t set. Add <strong>AERODATABOX_KEY</strong> as a Secret in Cloudflare.</p>}
 
     <div className="grid gap-4 sm:grid-cols-3">
-      <div className={box}><p className="text-sm text-slate-500">Calls today (UTC)</p><p className="mt-1 text-3xl font-black">{todayCalls}<span className="text-base font-semibold text-slate-400"> / {data.settings.dailyCap}</span></p><div className="mt-3 h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-[#FE8B05]" style={{ width: `${Math.min(100, (todayCalls / Math.max(1, data.settings.dailyCap)) * 100)}%` }} /></div></div>
+      <div className={box}><p className="text-sm text-slate-500">Calls today (UTC)</p><p className="mt-1 text-3xl font-black">{todayCalls}<span className="text-base font-semibold text-slate-400"> / {data.settings.dailyCap}</span></p><div className="mt-3 h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-brand" style={{ width: `${Math.min(100, (todayCalls / Math.max(1, data.settings.dailyCap)) * 100)}%` }} /></div></div>
       <div className={box}><p className="text-sm text-slate-500">Calls this month</p><p className="mt-1 text-3xl font-black">{monthCalls}</p><p className="mt-1 text-sm text-slate-500">Estimated cost: <strong>{cost(monthCalls)}</strong></p></div>
       <div className={box}><p className="text-sm text-slate-500">Last 30 days</p><p className="mt-1 text-3xl font-black">{data.days.reduce((n, d) => n + d.calls, 0)}</p><p className="mt-1 text-sm text-slate-500">Estimated cost: <strong>{cost(data.days.reduce((n, d) => n + d.calls, 0))}</strong></p></div>
     </div>
@@ -61,7 +61,7 @@ export function AdminFlights() {
     <section className={box}>
       <h2 className="text-lg font-bold">Calls per day</h2>
       {data.days.length ? <ul className="mt-3 grid gap-1.5">{data.days.map((d) => <li key={d.day} className="grid grid-cols-[92px_1fr_44px] items-center gap-3 text-sm">
-        <span className="text-slate-500">{d.day.slice(5)}</span><span className="h-3 rounded-full bg-slate-100"><span className="block h-3 rounded-full bg-[#FE8B05]" style={{ width: `${(d.calls / max) * 100}%` }} /></span><span className="text-right font-semibold">{d.calls}</span>
+        <span className="text-slate-500">{d.day.slice(5)}</span><span className="h-3 rounded-full bg-slate-100"><span className="block h-3 rounded-full bg-brand" style={{ width: `${(d.calls / max) * 100}%` }} /></span><span className="text-right font-semibold">{d.calls}</span>
       </li>)}</ul> : <p className="mt-2 text-sm text-slate-500">No calls yet.</p>}
       <p className="mt-3 text-xs text-slate-500">Each call to AeroDataBox is counted. Repeat searches use saved results and aren&apos;t counted. A route search and each airport in the daily stats use 2 calls.</p>
     </section>
@@ -71,7 +71,7 @@ export function AdminFlights() {
       <div className="mt-3 grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
         <label className="grid gap-1 text-sm"><span className="text-slate-600">Daily call limit</span><input value={cap} onChange={(e) => setCap(e.target.value)} inputMode="numeric" className="h-11 rounded-lg border border-slate-300 px-3" /></label>
         <label className="grid gap-1 text-sm"><span className="text-slate-600">Price per call (US$)</span><input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="e.g. 0.002" className="h-11 rounded-lg border border-slate-300 px-3" /></label>
-        <button type="button" disabled={busy} onClick={() => void post({ dailyCap: Number(cap), usdPerCall: Number(price) })} className="h-11 rounded-lg bg-[#211726] px-5 font-semibold text-white disabled:opacity-60">Save</button>
+        <button type="button" disabled={busy} onClick={() => void post({ dailyCap: Number(cap), usdPerCall: Number(price) })} className="h-11 rounded-lg bg-plum px-5 font-semibold text-white disabled:opacity-60">Save</button>
       </div>
       <p className="mt-2 text-xs text-slate-500">When the limit is reached, searches show &quot;busy&quot; until midnight UTC (07:00 Thailand). Price per call = your plan&apos;s monthly price ÷ its included calls.{data.settings.updatedAt ? ` Last changed by ${data.settings.updatedBy ?? "staff"}, ${when(data.settings.updatedAt)}.` : ""}</p>
     </section>
@@ -103,6 +103,6 @@ export function AdminFlights() {
       <ul className="mt-3 flex flex-wrap gap-2">{data.searches.map((s) => <li key={s.flight_number} className="rounded-full bg-slate-100 px-3 py-1 text-sm"><strong>{s.flight_number}</strong> · {s.searches}</li>)}</ul>
     </section>}
 
-    {msg && <p role="status" className="text-sm font-semibold text-[#C96100]">{msg}</p>}
+    {msg && <p role="status" className="text-sm font-semibold text-brand-darker">{msg}</p>}
   </div>;
 }

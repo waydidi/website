@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 // App-style page like Trip.com: no site header or footer, just a back arrow, the title and the search card.
 export default function FlightsPage() {
   const crumbs = [{ name: "Home", path: "/" }, { name: "Flight status", path: URL_PATH }];
-  return <main className="font-home min-h-dvh bg-white bg-[linear-gradient(180deg,#FE8B05_0px,#FFA33D_200px,#FFE3C2_360px,#FFFFFF_480px)] bg-no-repeat text-[#211726]">
+  return <main className="font-home min-h-dvh bg-white bg-[linear-gradient(180deg,#FE8B05_0px,#FFA33D_200px,#FFE3C2_360px,#FFFFFF_480px)] bg-no-repeat text-plum">
     <JsonLd data={breadcrumbSchema(crumbs)} />
     <div className="mx-auto max-w-[720px] px-4 pb-12 pt-[calc(14px+env(safe-area-inset-top))] sm:px-6">
       <div className="flex h-12 items-center gap-3">

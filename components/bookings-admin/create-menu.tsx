@@ -41,11 +41,11 @@ export function CreateMenu({ service, waiting = 0 }: { service: FormService; wai
       copy.then(() => setMade({ kind: id, url, copied: true })).catch(() => undefined);
     }).catch((e: unknown) => setMade({ kind: id, error: e instanceof Error ? e.message : "The link could not be created." }));
   }
-  const choice = "flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-7 text-[15px] font-bold text-slate-900 transition hover:border-[#FF8A05] hover:bg-orange-50/50";
-  const icon = "grid size-14 place-items-center rounded-2xl bg-[#FFF0DF] text-[#D96F00]";
+  const choice = "flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-7 text-[15px] font-bold text-slate-900 transition hover:border-brand hover:bg-orange-50/50";
+  const icon = "grid size-14 place-items-center rounded-2xl bg-brand-tint text-brand-text";
 
   return <>
-    <button type="button" onClick={() => { setStep("choose"); setOpen(true); }} className="relative inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]">
+    <button type="button" onClick={() => { setStep("choose"); setOpen(true); }} className="relative inline-flex h-10 items-center gap-1.5 rounded-full bg-brand px-4 text-[15px] font-semibold text-white hover:bg-brand-strong">
       <Plus size={17} strokeWidth={2.5} />Create
       {waiting > 0 && <span className="absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full bg-[#D32F2F] px-1 text-[11px] font-bold text-white">{waiting}</span>}
     </button>
@@ -56,15 +56,15 @@ export function CreateMenu({ service, waiting = 0 }: { service: FormService; wai
         {step !== "choose" ? <div className="mt-2 grid gap-3">
           {([["transfer", "Transfer", Car], ["hourly", "By the hour", Clock], ["tour", "Tour", MapIcon]] as const).map(([id, label, Icon]) => {
             const mine = step === "form" && made?.kind === id ? made : null;
-            return <div key={id} className={`overflow-hidden rounded-2xl border bg-white transition ${mine ? "border-[#FF8A05]" : "border-slate-200 hover:border-[#FF8A05]"}`}>
-              <button type="button" onClick={() => { if (step === "form") { makeLink(id); return; } setKind(id); setOpen(false); setBookingSignal((n) => n + 1); }} aria-expanded={step === "form" ? Boolean(mine) : undefined} className="flex w-full items-center gap-4 p-4 text-left text-[16px] font-bold text-slate-900 hover:bg-orange-50/50"><span className="grid size-12 place-items-center rounded-2xl bg-[#FFF0DF] text-[#D96F00]"><Icon size={24} /></span>{label}{step === "form" && <ChevronDown size={20} className={`ml-auto text-slate-400 transition ${mine ? "rotate-180" : ""}`} />}</button>
+            return <div key={id} className={`overflow-hidden rounded-2xl border bg-white transition ${mine ? "border-brand" : "border-slate-200 hover:border-brand"}`}>
+              <button type="button" onClick={() => { if (step === "form") { makeLink(id); return; } setKind(id); setOpen(false); setBookingSignal((n) => n + 1); }} aria-expanded={step === "form" ? Boolean(mine) : undefined} className="flex w-full items-center gap-4 p-4 text-left text-[16px] font-bold text-slate-900 hover:bg-orange-50/50"><span className="grid size-12 place-items-center rounded-2xl bg-brand-tint text-brand-text"><Icon size={24} /></span>{label}{step === "form" && <ChevronDown size={20} className={`ml-auto text-slate-400 transition ${mine ? "rotate-180" : ""}`} />}</button>
               {mine && <div className="border-t border-slate-100 bg-orange-50/40 px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1">
                 {mine.busy ? <p className="flex items-center gap-2 text-[14px] text-slate-600"><LoaderCircle size={16} className="animate-spin" />Creating link…</p>
                   : mine.error ? <p role="alert" className="text-[14px] font-semibold text-red-600">{mine.error}</p>
                   : mine.url && <>
                     <div className="flex items-center gap-2">
-                      <a href={mine.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-mono text-[13px] text-[#C96100] underline-offset-2 hover:underline">{mine.url}</a>
-                      <button type="button" onClick={() => { void navigator.clipboard?.writeText(mine.url!).then(() => setMade({ ...mine, copied: true })); }} aria-label="Copy link" className="grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white hover:border-[#FF8A05]">{mine.copied ? <Check size={17} className="text-emerald-600" /> : <Copy size={17} />}</button>
+                      <a href={mine.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-mono text-[13px] text-brand-darker underline-offset-2 hover:underline">{mine.url}</a>
+                      <button type="button" onClick={() => { void navigator.clipboard?.writeText(mine.url!).then(() => setMade({ ...mine, copied: true })); }} aria-label="Copy link" className="grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white hover:border-brand">{mine.copied ? <Check size={17} className="text-emerald-600" /> : <Copy size={17} />}</button>
                     </div>
                     <div className="mt-2.5 flex items-center gap-2 text-[13px]">
                       <span className={`font-semibold ${mine.copied ? "text-emerald-700" : "text-slate-500"}`}>{mine.copied ? "Link copied" : "Tap the copy button to copy"}</span>
@@ -108,7 +108,7 @@ function ShareLink({ url }: { url: string }) {
     <button type="button" onClick={() => {
       if (typeof navigator.share === "function") { void navigator.share({ title: "Waydidi ride details", text, url }).catch(() => undefined); return; }
       setMenu((m) => !m);
-    }} className="inline-flex items-center gap-1.5 rounded-full bg-[#FF8A05] px-3 py-1.5 font-semibold text-white hover:bg-[#E67900]"><Share2 size={14} />Share</button>
+    }} className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 font-semibold text-white hover:bg-brand-strong"><Share2 size={14} />Share</button>
     {menu && <span className="absolute right-0 top-9 z-10 grid w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
       {apps.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" onClick={() => setMenu(false)} className="px-3 py-2 text-[13px] font-medium text-slate-800 hover:bg-orange-50">{label}</a>)}
     </span>}
@@ -138,14 +138,14 @@ function SavedLinks({ links, loading, current }: { links: SavedLink[]; loading: 
         const [label, tone] = expired ? ["Expired", "bg-slate-100 text-slate-500"] : STATUS[l.status];
         return <li key={l.token} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[13px] ring-1 ring-slate-200">
           <div className="min-w-0 flex-1">
-            <a href={url} target="_blank" rel="noreferrer" className="block truncate font-mono text-[#C96100] hover:underline">/f/{l.token}</a>
+            <a href={url} target="_blank" rel="noreferrer" className="block truncate font-mono text-brand-darker hover:underline">/f/{l.token}</a>
             <span className="text-[12px] text-slate-500">{new Date(l.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })}{l.bookingReference ? ` · ${l.bookingReference}` : ""}{l.note ? ` · ${l.note}` : ""}</span>
           </div>
           <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone}`}>{label}</span>
-          <button type="button" onClick={() => { void navigator.clipboard?.writeText(url).then(() => { setCopied(l.token); setTimeout(() => setCopied(""), 1500); }); }} aria-label="Copy link" className="grid size-8 shrink-0 place-items-center rounded-lg border border-slate-200 hover:border-[#FF8A05]">{copied === l.token ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}</button>
+          <button type="button" onClick={() => { void navigator.clipboard?.writeText(url).then(() => { setCopied(l.token); setTimeout(() => setCopied(""), 1500); }); }} aria-label="Copy link" className="grid size-8 shrink-0 place-items-center rounded-lg border border-slate-200 hover:border-brand">{copied === l.token ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}</button>
         </li>;
       })}
     </ul>
-    {rest.length > 5 && <button type="button" onClick={() => setAll((v) => !v)} className="mt-2 text-[13px] font-semibold text-[#C96100]">{all ? "Show fewer" : `Show all ${rest.length}`}</button>}
+    {rest.length > 5 && <button type="button" onClick={() => setAll((v) => !v)} className="mt-2 text-[13px] font-semibold text-brand-darker">{all ? "Show fewer" : `Show all ${rest.length}`}</button>}
   </div>;
 }

@@ -21,7 +21,7 @@ export function NewsletterForm({ source }: { source: string }) {
     <label className="sr-only" htmlFor="newsletter-email">Email address</label>
     <input id="newsletter-email" name="email" type="email" required autoComplete="email" placeholder="Enter your email address" className="h-14 w-full min-w-0 rounded-2xl border border-white/20 bg-[#161616] px-6 text-[16px] text-white outline-none placeholder:text-white/50 focus:border-white/60" />
     {error && <p className="text-[14px] font-semibold text-red-300" role="alert">{error}</p>}
-    <button type="submit" disabled={state === "busy"} className="h-14 rounded-2xl bg-[#FF8A05] text-[16px] font-bold text-[#111] hover:bg-[#F07A00] disabled:opacity-60">{state === "busy" ? "Subscribing…" : "Subscribe"}</button>
+    <button type="submit" disabled={state === "busy"} className="h-14 rounded-2xl bg-brand text-[16px] font-bold text-[#111] hover:bg-[#F07A00] disabled:opacity-60">{state === "busy" ? "Subscribing…" : "Subscribe"}</button>
     {turnstile.widget}
   </form>;
 }

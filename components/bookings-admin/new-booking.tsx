@@ -13,7 +13,7 @@ type Service = "transfer" | "hourly" | "tour";
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 const bangkokToday = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 
-const field = "mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-[#FF8A05]";
+const field = "mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-brand";
 const label = "block text-[13px] font-medium text-slate-600";
 
 function Stepper({ value, set, max, labelText }: { value: number; set: (n: number) => void; max: number; labelText: string }) {
@@ -94,8 +94,8 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
 
   return <>
     {openSignal !== undefined ? null : trigger
-      ? <button type="button" onClick={() => { setF(blank()); setOpen(true); }} className="inline-flex h-9 items-center rounded-full bg-[#FF8A05] px-4 text-[14px] font-semibold text-white hover:bg-[#E67900]">{trigger}</button>
-      : <button type="button" onClick={() => { setF(blank()); setOpen(true); }} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 text-[15px] font-semibold text-white hover:bg-[#E67900]"><Plus size={17} strokeWidth={2.5} />New booking</button>}
+      ? <button type="button" onClick={() => { setF(blank()); setOpen(true); }} className="inline-flex h-9 items-center rounded-full bg-brand px-4 text-[14px] font-semibold text-white hover:bg-brand-strong">{trigger}</button>
+      : <button type="button" onClick={() => { setF(blank()); setOpen(true); }} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-brand px-4 text-[15px] font-semibold text-white hover:bg-brand-strong"><Plus size={17} strokeWidth={2.5} />New booking</button>}
     <Dialog open={open} onOpenChange={close}>
       <DialogContent showCloseButton={false} className="max-h-[92dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-slate-900 sm:max-w-2xl">
         <DialogHeader className="flex-row items-center justify-between gap-3 text-left">
@@ -106,9 +106,9 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
         {done ? <div className="grid gap-4 pt-2">
           <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-emerald-900"><CheckCircle2 className="shrink-0" /><div><p className="text-[18px] font-semibold">{done.reference}</p><p className="text-[14px]">Total {thb(done.total)} · {done.emailStatus === "sent" ? "Confirmation emailed to the customer" : done.emailStatus === "not_sent" ? "Not emailed" : "Email not sent (check email settings)"}</p></div></div>
           <div className="flex flex-wrap gap-2">
-            {done.confirmationUrl && <a href={done.confirmationUrl} className="inline-flex h-11 items-center rounded-full bg-[#211726] px-5 font-semibold text-white">Open confirmation page</a>}
-            <a href={`/api/admin/bookings/${done.reference}/confirmation`} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#FF8A05] px-5 font-semibold text-white"><Download size={17} />Download PDF</a>
-            <Link href={`/admin/journeys/${done.reference}`} className="inline-flex h-11 items-center rounded-full border border-slate-200 px-5 font-medium hover:border-[#FF8A05]">Open booking</Link>
+            {done.confirmationUrl && <a href={done.confirmationUrl} className="inline-flex h-11 items-center rounded-full bg-plum px-5 font-semibold text-white">Open confirmation page</a>}
+            <a href={`/api/admin/bookings/${done.reference}/confirmation`} className="inline-flex h-11 items-center gap-2 rounded-full bg-brand px-5 font-semibold text-white"><Download size={17} />Download PDF</a>
+            <Link href={`/admin/journeys/${done.reference}`} className="inline-flex h-11 items-center rounded-full border border-slate-200 px-5 font-medium hover:border-brand">Open booking</Link>
             <button type="button" onClick={() => { setDone(null); setF(blank()); }} className="inline-flex h-11 items-center rounded-full px-4 font-medium text-slate-600 hover:bg-slate-50">Add another</button>
           </div>
         </div> : <form onSubmit={(e) => { e.preventDefault(); }} className="grid gap-5 pt-2">
@@ -125,7 +125,7 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
               <label className={label}>Pickup time<input type="time" className={field} value={f.pickupTime} onChange={(e) => set("pickupTime", e.target.value)} /></label>
             </div>
             {f.serviceType === "transfer" && <>
-              <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={f.returnOn} onChange={(e) => set("returnOn", e.target.checked)} className="size-4 accent-[#FF8A05]" />Add return trip</label>
+              <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={f.returnOn} onChange={(e) => set("returnOn", e.target.checked)} className="size-4 accent-brand" />Add return trip</label>
               {f.returnOn && <div className="grid gap-3 sm:grid-cols-2">
                 <label className={label}>Return date<input type="date" className={field} value={f.returnDate} min={f.pickupDate} onChange={(e) => set("returnDate", e.target.value)} /></label>
                 <label className={label}>Return time<input type="time" className={field} value={f.returnTime} onChange={(e) => set("returnTime", e.target.value)} /></label>
@@ -161,7 +161,7 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
             </div>
             <div className="grid gap-2 rounded-2xl bg-slate-50 p-3 text-[14px]">
               <div className="flex items-center justify-between gap-3"><span>Child seat · {thb(CHILD_SEAT_THB)} each</span><Stepper value={f.childSeats} set={(n) => set("childSeats", n)} max={4} labelText="child seats" /></div>
-              <label className="flex items-center justify-between gap-3"><span>Currency exchange stop · {thb(EXCHANGE_STOP_THB)}</span><input type="checkbox" checked={f.exchangeStop} onChange={(e) => set("exchangeStop", e.target.checked)} className="size-5 accent-[#FF8A05]" /></label>
+              <label className="flex items-center justify-between gap-3"><span>Currency exchange stop · {thb(EXCHANGE_STOP_THB)}</span><input type="checkbox" checked={f.exchangeStop} onChange={(e) => set("exchangeStop", e.target.checked)} className="size-5 accent-brand" /></label>
               <div className="flex items-center justify-between gap-3"><span>Ferry &amp; hotel transfer · {thb(FERRY_HOTEL_THB)} per person</span><Stepper value={f.ferryPeople} set={(n) => set("ferryPeople", n)} max={f.passengers} labelText="ferry tickets" /></div>
             </div>
             <label className={label}>Exclusive discount (THB, optional)<input type="number" min={0} inputMode="numeric" className={field} value={f.discount} onChange={(e) => set("discount", e.target.value)} placeholder="0" /></label>
@@ -180,8 +180,8 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
 
           {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-[14px] font-medium text-red-700">{error}</p>}
           <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
-            <button type="button" disabled={busy || !ready} onClick={() => save(false)} className="inline-flex h-11 items-center gap-2 rounded-full border border-slate-200 px-5 font-medium hover:border-[#FF8A05] disabled:opacity-40">{busy && <LoaderCircle size={16} className="animate-spin" />}Save booking</button>
-            <button type="button" disabled={busy || !ready} onClick={() => save(true)} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#FF8A05] px-5 font-semibold text-white disabled:opacity-40">{busy && <LoaderCircle size={16} className="animate-spin" />}Save &amp; email customer</button>
+            <button type="button" disabled={busy || !ready} onClick={() => save(false)} className="inline-flex h-11 items-center gap-2 rounded-full border border-slate-200 px-5 font-medium hover:border-brand disabled:opacity-40">{busy && <LoaderCircle size={16} className="animate-spin" />}Save booking</button>
+            <button type="button" disabled={busy || !ready} onClick={() => save(true)} className="inline-flex h-11 items-center gap-2 rounded-full bg-brand px-5 font-semibold text-white disabled:opacity-40">{busy && <LoaderCircle size={16} className="animate-spin" />}Save &amp; email customer</button>
           </div>
         </form>}
       </DialogContent>

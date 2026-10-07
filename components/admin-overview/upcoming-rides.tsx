@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, ImagePlus, LoaderCircle, Luggage, Users, X } from "lucide-react";
+import { Modal, ModalTitle } from "@/components/ui/modal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -42,7 +43,7 @@ function PriceRow({ r }: { r: UpcomingRide }) {
     <dt className="shrink-0 text-slate-500">
       Price
     </dt>
-    <dd className="flex items-center justify-end gap-1.5 text-right font-semibold"><button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="What's included" className="grid size-[18px] place-items-center rounded-full bg-[#FE8B05] text-[11px] font-black leading-none text-white hover:bg-[#E67900]">!</button>{r.total ? `THB ${r.total.toLocaleString("en-US")}` : "Not set"}</dd>
+    <dd className="flex items-center justify-end gap-1.5 text-right font-semibold"><button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="What's included" className="grid size-[18px] place-items-center rounded-full bg-brand text-[11px] font-black leading-none text-white hover:bg-brand-strong">!</button>{r.total ? `THB ${r.total.toLocaleString("en-US")}` : "Not set"}</dd>
     {open && <div role="dialog" aria-label="What's included" className="absolute right-0 top-[calc(100%+6px)] z-20 w-[260px] rounded-xl border border-slate-200 bg-white p-3 text-[13px] shadow-lg">
       <p className="mb-1.5 font-bold">What&apos;s included</p>
       <ul className="grid gap-1">{items.map((i) => <li key={i} className={`flex gap-1.5 ${i.startsWith("Koh Chang") ? "font-semibold text-[#2F7A6B]" : "text-slate-700"}`}><span aria-hidden>✓</span>{i}</li>)}</ul>
@@ -60,7 +61,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
   return <section aria-labelledby="upcoming-heading" className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
     <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
       <h2 id="upcoming-heading" className="text-[15px] font-black">Upcoming rides</h2>
-      <Link href="/admin/bookings" className="text-[13px] font-bold text-[#C96100] hover:underline">See all →</Link>
+      <Link href="/admin/bookings" className="text-[13px] font-bold text-brand-darker hover:underline">See all →</Link>
     </div>
     {rides.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No upcoming rides.</p> : <ul className="divide-y divide-slate-100">
       {rides.slice(0, shown).map((r) => <li key={r.reference} className="grid gap-3 px-4 py-3">
@@ -72,7 +73,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
             <span className="inline-flex items-center gap-1.5" aria-label={`${r.passengers} passengers`}><Users size={16} className="shrink-0 text-slate-500" aria-hidden="true" />{r.passengers}</span>
             <span className="inline-flex items-center gap-1.5" aria-label={`${r.luggage} bags`}><Luggage size={16} className="shrink-0 text-slate-500" aria-hidden="true" />{r.luggage}</span>
             <span className="truncate">{r.vehicle.replace(/_/g, " ")}</span>
-            <button type="button" aria-expanded={open === r.reference} onClick={() => setOpen(open === r.reference ? null : r.reference)} className="ml-auto shrink-0 font-semibold text-[#C96100] underline underline-offset-4">{open === r.reference ? "Hide details" : "See details"}</button>
+            <button type="button" aria-expanded={open === r.reference} onClick={() => setOpen(open === r.reference ? null : r.reference)} className="ml-auto shrink-0 font-semibold text-brand-darker underline underline-offset-4">{open === r.reference ? "Hide details" : "See details"}</button>
           </div>
           {open === r.reference && <dl className="mt-3 grid gap-2 rounded-2xl bg-slate-50 p-4 text-[13.5px]">
             {([
@@ -84,7 +85,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
               ["Price", null],
               ["Payment", <span key="pay" className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold ${payment(r.paymentStatus)[1]}`}>{payment(r.paymentStatus)[0]}</span>],
             ] as [string, React.ReactNode][]).map(([k, v]) => k === "Price" ? <PriceRow key={k} r={r} /> : <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
-            <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="mt-1 justify-self-end text-[13px] font-semibold text-[#C96100] hover:underline">Open booking →</Link>
+            <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="mt-1 justify-self-end text-[13px] font-semibold text-brand-darker hover:underline">Open booking →</Link>
           </dl>}
         </div>
         <div className="flex min-w-0 items-center justify-between gap-2">
@@ -94,7 +95,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
       </li>)}
     </ul>}
     {left > 0 && <div className="flex justify-center border-t border-slate-100 py-2.5">
-      <button type="button" onClick={() => setShown((n) => n + Math.min(2, left))} className="rounded-full px-4 py-1.5 text-[13.5px] font-bold text-[#C96100] hover:bg-[#FFF6EC]">Show more ({left} more {left === 1 ? "ride" : "rides"})</button>
+      <button type="button" onClick={() => setShown((n) => n + Math.min(2, left))} className="rounded-full px-4 py-1.5 text-[13.5px] font-bold text-brand-darker hover:bg-brand-wash">Show more ({left} more {left === 1 ? "ride" : "rides"})</button>
     </div>}
     {adding && <AddDriverDialog reference={adding} onClose={() => setAdding(null)} />}
   </section>;
@@ -103,7 +104,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
 function ImageField({ name, label, optional }: { name: string; label: string; optional?: boolean }) {
   const [preview, setPreview] = useState("");
   return <label className="grid gap-1 text-[13px] font-semibold">{label}
-    <span className="relative flex h-28 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-[#FF8A05]">
+    <span className="relative flex h-28 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-brand">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {preview ? <img src={preview} alt="" className="h-full w-full object-cover" /> : <span className="flex flex-col items-center gap-1 text-[12px] font-medium"><ImagePlus size={20} />Upload image</span>}
       <input type="file" name={name} accept="image/jpeg,image/png,image/webp" required={!optional} className="absolute inset-0 opacity-0" onChange={(e) => { const f = e.target.files?.[0]; setPreview(f ? URL.createObjectURL(f) : ""); }} />
@@ -116,7 +117,7 @@ export function AddDriverDialog({ reference, leg = "outbound", onClose, onDone }
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const input = "h-10 rounded-lg border border-slate-200 px-3 text-[14px] font-normal outline-none focus:border-[#FF8A05]";
+  const input = "h-10 rounded-lg border border-slate-200 px-3 text-[14px] font-normal outline-none focus:border-brand";
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -136,10 +137,10 @@ export function AddDriverDialog({ reference, leg = "outbound", onClose, onDone }
     finally { setBusy(false); }
   }
 
-  return <div role="dialog" aria-modal="true" aria-labelledby="add-driver-title" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
-    <form onSubmit={submit} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl">
+  return <Modal open onClose={onClose} locked={busy} sheet overlayClassName="bg-black/40" asChild>
+    <form onSubmit={submit} className="max-h-[92vh] max-w-lg overflow-y-auto rounded-t-2xl p-5 shadow-none sm:rounded-2xl">
       <div className="flex items-start justify-between gap-3">
-        <div><h3 id="add-driver-title" className="text-[18px] font-black">Add driver</h3><p className="text-[12.5px] text-slate-500">Temporary outsourced driver for {reference}</p></div>
+        <div><ModalTitle className="text-[18px] font-black">Add driver</ModalTitle><p className="text-[12.5px] text-slate-500">Temporary outsourced driver for {reference}</p></div>
         <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -153,7 +154,7 @@ export function AddDriverDialog({ reference, leg = "outbound", onClose, onDone }
         <ImageField name="carImage" label="Car picture" />
       </div>
       {error && <p role="alert" className="mt-3 text-[13px] font-semibold text-red-600">{error}</p>}
-      <button type="submit" disabled={busy} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#FF8A05] text-[14px] font-bold text-white disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Save & assign driver</button>
+      <button type="submit" disabled={busy} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand text-[14px] font-bold text-white disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Save & assign driver</button>
     </form>
-  </div>;
+  </Modal>;
 }

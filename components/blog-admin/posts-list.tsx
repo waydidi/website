@@ -38,7 +38,7 @@ export function BlogPostsAdmin({ posts }: { posts: Post[] }) {
   return <div>
     <div className="flex flex-wrap items-center gap-3">
       <h1 className="text-3xl font-black">Posts</h1>
-      <Link href="/admin/blog/new" className="inline-flex items-center gap-1.5 rounded-full bg-[#FF8A05] px-4 py-2 text-sm font-bold text-white hover:bg-[#F07A00]"><Plus size={16} />Add New Post</Link>
+      <Link href="/admin/blog/new" className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-bold text-white hover:bg-[#F07A00]"><Plus size={16} />Add New Post</Link>
       <Link href="/blog" target="_blank" className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900">View blog <ExternalLink size={14} /></Link>
     </div>
 
@@ -50,7 +50,7 @@ export function BlogPostsAdmin({ posts }: { posts: Post[] }) {
 
     <div className="mt-6 flex flex-wrap items-center gap-3">
       <div className="flex flex-wrap gap-1 rounded-full bg-white p-1 shadow-sm">
-        {TABS.map(([id, label]) => <button key={id} onClick={() => setTab(id)} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === id ? "bg-[#1C1C1C] text-white" : "text-slate-600 hover:bg-slate-100"}`}>{label} <span className={tab === id ? "text-white/70" : "text-slate-400"}>({counts[id]})</span></button>)}
+        {TABS.map(([id, label]) => <button key={id} onClick={() => setTab(id)} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === id ? "bg-charcoal text-white" : "text-slate-600 hover:bg-slate-100"}`}>{label} <span className={tab === id ? "text-white/70" : "text-slate-400"}>({counts[id]})</span></button>)}
       </div>
       <label className="ml-auto flex h-10 w-full items-center gap-2 rounded-full bg-white px-4 shadow-sm sm:w-72"><Search size={16} className="text-slate-400" /><span className="sr-only">Search posts</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search posts" className="w-full bg-transparent text-sm outline-none" /></label>
     </div>
@@ -61,7 +61,7 @@ export function BlogPostsAdmin({ posts }: { posts: Post[] }) {
       {shown.map((p) => <li key={p.id} className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/admin/blog/${p.id}`} className="text-[17px] font-bold hover:text-[#C96100]">{p.title}</Link>
+            <Link href={`/admin/blog/${p.id}`} className="text-[17px] font-bold hover:text-brand-darker">{p.title}</Link>
             {p.status === "draft" && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700">Draft</span>}
             {p.status === "published" && p.publishedAt && p.publishedAt > new Date().toISOString() && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-800">Scheduled</span>}
             {p.featured && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800"><Star size={11} />Featured</span>}
@@ -76,7 +76,7 @@ export function BlogPostsAdmin({ posts }: { posts: Post[] }) {
             <button disabled={busy} onClick={() => setStatus(p, "draft")} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-slate-700 hover:bg-slate-100"><RotateCcw size={15} />Restore</button>
             <button disabled={busy} onClick={() => { if (confirm(`Delete "${p.title}" permanently?`)) void call({ action: "delete", id: p.id }); }} className="rounded-full px-3 py-1.5 text-sm font-bold text-red-600 hover:bg-red-50">Delete permanently</button>
           </> : <>
-            <Link href={`/admin/blog/${p.id}`} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-[#C96100] hover:bg-orange-50"><Pencil size={15} />Edit</Link>
+            <Link href={`/admin/blog/${p.id}`} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-brand-darker hover:bg-orange-50"><Pencil size={15} />Edit</Link>
             <Link href={`/blog/${p.slug}${p.status === "published" ? "" : "?preview=1"}`} target="_blank" className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-slate-700 hover:bg-slate-100"><ExternalLink size={15} />{p.status === "published" ? "View" : "Preview"}</Link>
             <button disabled={busy} onClick={() => setStatus(p, "trash")} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-red-600 hover:bg-red-50"><Trash2 size={15} />Trash</button>
           </>}

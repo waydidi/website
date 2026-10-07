@@ -8,7 +8,7 @@ import { AddDriverDialog } from "@/components/admin-overview/upcoming-rides";
 import { VEHICLES, type VehicleId } from "@/lib/vehicles";
 
 export type EditableTrip = { pickupDate: string; pickupTime: string; returnDate: string | null; returnTime: string | null; vehicle: string; passengers: number; luggage: number };
-const field = "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-[#FF8A05]";
+const field = "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-[14px] outline-none focus:border-brand";
 
 // "Edit" in the bookings list: trip details (date, time, car class, passengers, luggage) and the driver.
 export function EditDriverButton({ reference, drivers, current, canAssign, trip }: { reference: string; drivers: PickerDriver[]; current: string | null; canAssign: boolean; trip?: EditableTrip }) {
@@ -35,7 +35,7 @@ export function EditDriverButton({ reference, drivers, current, canAssign, trip 
   const car = form ? VEHICLES[form.vehicle as VehicleId] : undefined;
 
   return <>
-    <button type="button" onClick={() => { setForm(trip); setNote(null); setOpen(true); }} className="text-[14px] font-semibold text-[#C96100] hover:underline">Edit</button>
+    <button type="button" onClick={() => { setForm(trip); setNote(null); setOpen(true); }} className="text-[14px] font-semibold text-brand-darker hover:underline">Edit</button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto rounded-[24px] border-0 bg-white p-6 text-slate-900 sm:max-w-md">
         <DialogTitle className="text-[20px] font-semibold">Edit {reference}</DialogTitle>
@@ -61,7 +61,7 @@ export function EditDriverButton({ reference, drivers, current, canAssign, trip 
           {car && (form.passengers > car.passengers || form.luggage > car.bags) && <p className="text-red-600">The {car.name} carries up to {car.passengers} people and {car.bags} bags.</p>}
           <p className="text-slate-500">The price stays the same. Change it separately if the new trip costs more or less.</p>
           {note && <p role={note.ok ? "status" : "alert"} className={note.ok ? "font-semibold text-emerald-700" : "font-semibold text-red-600"}>{note.text}</p>}
-          <button disabled={busy} className="h-10 rounded-full bg-[#FF8A05] font-semibold text-white disabled:opacity-60">{busy ? "Saving…" : "Save trip details"}</button>
+          <button disabled={busy} className="h-10 rounded-full bg-brand font-semibold text-white disabled:opacity-60">{busy ? "Saving…" : "Save trip details"}</button>
         </form>}
         <div className="mt-3 border-t border-slate-100 pt-3"><span className="mb-1.5 block text-[13px] font-medium text-slate-600">Driver</span>
           {canAssign ? null : <p className="mb-1.5 text-[13px] text-slate-500">Drivers can only be assigned to confirmed bookings.</p>}

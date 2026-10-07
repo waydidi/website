@@ -474,22 +474,22 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
 
   if (loading)
     return (
-      <main className="grid min-h-screen place-items-center bg-[#FF8A05] text-white">
+      <main className="grid min-h-screen place-items-center bg-brand text-white">
         <LoaderCircle className="animate-spin" size={42} />
       </main>
     );
   if (!trip)
     return (
-      <main className="grid min-h-screen place-items-center bg-slate-100 p-5 text-[#211726]">
+      <main className="grid min-h-screen place-items-center bg-slate-100 p-5 text-plum">
         <div className="max-w-md rounded-[28px] bg-white p-8 text-center shadow-xl">
-          <CircleAlert className="mx-auto text-[#D96F00]" size={44} />
+          <CircleAlert className="mx-auto text-brand-text" size={44} />
           <h1 className="mt-5 text-2xl font-black">Driver link unavailable</h1>
           <p className="mt-3 text-slate-600">
             {error || "Ask Waydidi operations for a new driver link."}
           </p>
           <button
             onClick={load}
-            className="mt-6 inline-flex h-12 items-center gap-2 rounded-full bg-[#FF8A05] px-6 font-bold text-white"
+            className="mt-6 inline-flex h-12 items-center gap-2 rounded-full bg-brand px-6 font-bold text-white"
           >
             <RefreshCw size={18} /> Try again
           </button>
@@ -503,8 +503,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   );
   const completionVerified = completionEvent?.verificationStatus === "verified";
   return (
-    <main className="min-h-screen bg-[#f3f5f8] pb-32 text-[#211726]">
-      <header className="bg-[#FF8A05] px-5 pb-8 pt-5 text-white">
+    <main className="min-h-screen bg-[#f3f5f8] pb-32 text-plum">
+      <header className="bg-brand px-5 pb-8 pt-5 text-white">
         <div className="mx-auto max-w-xl">
           <div className="flex items-center justify-between">
             <Link
@@ -540,7 +540,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
         <section className="rounded-[26px] bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <span className="inline-flex rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-[#D96F00]">
+              <span className="inline-flex rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-brand-text">
                 {trip.booking.pickupDate} · {trip.booking.pickupTime}
               </span>
               <h2 className="mt-3 text-xl font-black">
@@ -553,7 +553,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             </div>
             <a
               href={`tel:${trip.booking.customerPhone}`}
-              className="grid size-12 shrink-0 place-items-center rounded-full bg-[#211726] text-white"
+              className="grid size-12 shrink-0 place-items-center rounded-full bg-plum text-white"
               aria-label="Call passenger"
             >
               <Phone size={20} />
@@ -561,7 +561,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
           </div>
           <div className="mt-5 rounded-2xl bg-slate-50 p-4">
             <div className="flex gap-3">
-              <MapPin className="mt-0.5 shrink-0 text-[#FF8A05]" size={19} />
+              <MapPin className="mt-0.5 shrink-0 text-brand" size={19} />
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Pickup
@@ -573,7 +573,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             </div>
             <div className="my-3 ml-[9px] h-5 border-l-2 border-dotted border-slate-300" />
             <div className="flex gap-3">
-              <Route className="mt-0.5 shrink-0 text-[#FF8A05]" size={19} />
+              <Route className="mt-0.5 shrink-0 text-brand" size={19} />
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Drop-off
@@ -588,7 +588,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             href={mapsUrl}
             target="_blank"
             rel="noreferrer"
-            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full border border-orange-200 font-bold text-[#D96F00]"
+            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full border border-orange-200 font-bold text-brand-text"
           >
             <Navigation size={18} /> เปิด Google Maps <ExternalLink size={15} />
           </a>
@@ -613,7 +613,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
                   <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
                     <select value={stopReason} onChange={(event) => setStopReason(event.target.value)} className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3 font-bold"><option value="">เลือกเหตุผล</option><option value="rest_stop">พักรถ</option><option value="fuel">เติมน้ำมัน</option><option value="passenger_request">ผู้โดยสารขอหยุด</option><option value="traffic_police">การจราจร / ตำรวจ</option><option value="other">อื่น ๆ</option></select>
                     <input value={stopNote} onChange={(event) => setStopNote(event.target.value)} maxLength={300} placeholder="หมายเหตุ (ถ้ามี)" className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3" />
-                    <button type="button" disabled={stopBusy || !stopReason || (stopReason === "other" && stopNote.trim().length < 3)} onClick={() => updateStop("declare")} className="h-12 rounded-full bg-[#211726] px-5 font-black text-white disabled:opacity-40">แจ้งหยุด</button>
+                    <button type="button" disabled={stopBusy || !stopReason || (stopReason === "other" && stopNote.trim().length < 3)} onClick={() => updateStop("declare")} className="h-12 rounded-full bg-plum px-5 font-black text-white disabled:opacity-40">แจ้งหยุด</button>
                   </div>
                 </div>
               )}
@@ -636,19 +636,19 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
                 >
                   <div className="flex flex-col items-center">
                     <span
-                      className={`grid size-9 place-items-center rounded-full border-2 ${done ? "border-[#FF8A05] bg-[#FF8A05] text-white" : active ? "border-[#FF8A05] bg-orange-50 text-[#D96F00]" : "border-slate-200 text-slate-300"}`}
+                      className={`grid size-9 place-items-center rounded-full border-2 ${done ? "border-brand bg-brand text-white" : active ? "border-brand bg-orange-50 text-brand-text" : "border-slate-200 text-slate-300"}`}
                     >
                       {done ? <Check size={18} strokeWidth={3} /> : index + 1}
                     </span>
                     {index < steps.length - 1 && (
                       <span
-                        className={`min-h-10 w-0.5 flex-1 ${done ? "bg-[#FF8A05]" : "bg-slate-200"}`}
+                        className={`min-h-10 w-0.5 flex-1 ${done ? "bg-brand" : "bg-slate-200"}`}
                       />
                     )}
                   </div>
                   <div className="pb-7">
                     <p
-                      className={`font-black ${active || done ? "text-[#211726]" : "text-slate-400"}`}
+                      className={`font-black ${active || done ? "text-plum" : "text-slate-400"}`}
                     >
                       {step.thai}
                     </p>
@@ -709,7 +709,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             onSubmit={submit}
             className="rounded-[26px] bg-white p-5 shadow-sm"
           >
-            <span className="inline-flex rounded-full bg-[#FFF0DE] px-3 py-1 text-xs font-black text-[#D96F00]">
+            <span className="inline-flex rounded-full bg-[#FFF0DE] px-3 py-1 text-xs font-black text-brand-text">
               Next step
             </span>
             <h2 className="mt-3 text-2xl font-black">{next.thai}</h2>
@@ -727,7 +727,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
                   ) : position ? (
                     <CheckCircle2 size={20} />
                   ) : (
-                    <LocateFixed className="text-[#D96F00]" size={20} />
+                    <LocateFixed className="text-brand-text" size={20} />
                   )}
                   <span>
                     {locationBusy
@@ -753,7 +753,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
                     className="size-20 rounded-xl object-cover"
                   />
                 ) : (
-                  <span className="grid size-14 shrink-0 place-items-center rounded-full bg-white text-[#D96F00]">
+                  <span className="grid size-14 shrink-0 place-items-center rounded-full bg-white text-brand-text">
                     <Camera size={24} />
                   </span>
                 )}
@@ -786,7 +786,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
                 maxLength={500}
                 rows={3}
                 placeholder="รายละเอียดจุดรับหรือเหตุการณ์เพิ่มเติม"
-                className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-base outline-none focus:border-[#FF8A05]"
+                className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-base outline-none focus:border-brand"
               />
             </label>
             {error && (
@@ -811,7 +811,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
                   Boolean(needsEvidence && !photo) ||
                   Boolean(needsLocation && !position)
                 }
-                className="mx-auto flex min-h-14 w-full max-w-xl items-center justify-center gap-2 rounded-full bg-[#FF8A05] px-6 text-base font-black text-white shadow-lg shadow-orange-500/20 disabled:cursor-not-allowed disabled:opacity-45"
+                className="mx-auto flex min-h-14 w-full max-w-xl items-center justify-center gap-2 rounded-full bg-brand px-6 text-base font-black text-white shadow-lg shadow-orange-500/20 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {busy ? (
                   <LoaderCircle className="animate-spin" size={20} />
@@ -858,7 +858,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
               <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">ไม่สามารถคำนวณเวลารอได้ กรุณาติดต่อฝ่ายปฏิบัติการ</p>
             ) : noShowMinutesLeft > 0 ? (
               <p className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700">
-                <Clock3 size={18} className="shrink-0 text-[#D96F00]" />
+                <Clock3 size={18} className="shrink-0 text-brand-text" />
                 แจ้งได้ในอีก {noShowMinutesLeft} นาที · {new Date(noShowEligibleAt!).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })} น.
               </p>
             ) : !noShowOpen ? (
@@ -869,7 +869,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
               <form onSubmit={reportNoShow} className="mt-4 space-y-3">
                 <p className="text-sm text-slate-600">ต้องอยู่ห่างจากจุดรับไม่เกิน {trip.noShow.maxDistanceMetres / 1000} กม. ระบบจะอ่านตำแหน่งตอนกดส่ง</p>
                 <label className={`flex min-h-20 cursor-pointer items-center gap-4 rounded-2xl border border-dashed p-3 ${noShowPhoto ? "border-emerald-300 bg-emerald-50" : "border-slate-300 bg-slate-50"}`}>
-                  <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white text-[#D96F00]"><Camera size={22} /></span>
+                  <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white text-brand-text"><Camera size={22} /></span>
                   <span className="min-w-0">
                     <span className="block truncate font-bold">{noShowPhoto ? noShowPhoto.name : "ถ่ายรูปจุดรับ / ป้ายชื่อ"}</span>
                     <span className="mt-1 block text-sm text-slate-500">JPG, PNG หรือ WebP · ไม่เกิน 8 MB</span>
@@ -878,7 +878,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
                 </label>
                 <label className="block text-sm font-bold">
                   หมายเหตุ <span className="font-normal text-slate-400">(บังคับ)</span>
-                  <textarea value={noShowNote} onChange={(event) => setNoShowNote(event.target.value)} maxLength={500} rows={3} required placeholder="เช่น โทร 3 ครั้งไม่รับสาย รอที่ประตู 3 พร้อมป้ายชื่อ" className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-base outline-none focus:border-[#FF8A05]" />
+                  <textarea value={noShowNote} onChange={(event) => setNoShowNote(event.target.value)} maxLength={500} rows={3} required placeholder="เช่น โทร 3 ครั้งไม่รับสาย รอที่ประตู 3 พร้อมป้ายชื่อ" className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-base outline-none focus:border-brand" />
                 </label>
                 {error && <p role="alert" className="rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
                 <div className="grid gap-3 sm:grid-cols-2">

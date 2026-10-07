@@ -174,12 +174,12 @@ export default function JourneyDetails({ reference }: { reference: string }) {
     margin = (booking?.total ?? 0) - totalCost;
   if (!booking)
     return (
-      <main className="min-h-screen bg-[#f3f5f8] p-8 text-[#211726]">
+      <main className="min-h-screen bg-[#f3f5f8] p-8 text-plum">
         <p>{error || "Loading journey…"}</p>
       </main>
     );
   return (
-    <main className="min-h-screen bg-[#f3f5f8] px-4 py-6 text-[#211726] sm:px-8">
+    <main className="min-h-screen bg-[#f3f5f8] px-4 py-6 text-plum sm:px-8">
       <div className="mx-auto max-w-6xl">
         <Link
           href="/admin/operations"
@@ -196,7 +196,7 @@ export default function JourneyDetails({ reference }: { reference: string }) {
         )}
         <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
           <section className="rounded-[28px] bg-white p-6 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[.16em] text-[#D96F00]">
+            <p className="text-xs font-black uppercase tracking-[.16em] text-brand-text">
               Journey details
             </p>
             <div className="mt-2 flex items-start justify-between gap-4">
@@ -207,11 +207,11 @@ export default function JourneyDetails({ reference }: { reference: string }) {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-              <a href={`/api/admin/bookings/${encodeURIComponent(booking.reference)}/confirmation`} className="inline-flex h-12 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-bold hover:border-[#FF8A05]"><Download size={17} />PDF</a>
-              <button type="button" disabled={busy} onClick={async () => { setBusy(true); setError(""); const r = await fetch(`/api/admin/bookings/${encodeURIComponent(booking.reference)}/confirmation`, { method: "POST" }).catch(() => null); const out = await r?.json().catch(() => ({})) as { error?: string } | undefined; setBusy(false); if (!r?.ok) setError(out?.error ?? "The email could not be sent."); else setNotice("Confirmation emailed to the customer."); }} className="inline-flex h-12 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-bold hover:border-[#FF8A05] disabled:opacity-50"><Mail size={17} />Email</button>
+              <a href={`/api/admin/bookings/${encodeURIComponent(booking.reference)}/confirmation`} className="inline-flex h-12 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-bold hover:border-brand"><Download size={17} />PDF</a>
+              <button type="button" disabled={busy} onClick={async () => { setBusy(true); setError(""); const r = await fetch(`/api/admin/bookings/${encodeURIComponent(booking.reference)}/confirmation`, { method: "POST" }).catch(() => null); const out = await r?.json().catch(() => ({})) as { error?: string } | undefined; setBusy(false); if (!r?.ok) setError(out?.error ?? "The email could not be sent."); else setNotice("Confirmation emailed to the customer."); }} className="inline-flex h-12 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-bold hover:border-brand disabled:opacity-50"><Mail size={17} />Email</button>
               <a
                 href={`tel:${booking.customerPhone}`}
-                className="grid size-12 place-items-center rounded-full bg-[#211726] text-white"
+                className="grid size-12 place-items-center rounded-full bg-plum text-white"
               >
                 <Phone size={20} />
               </a>
@@ -219,12 +219,12 @@ export default function JourneyDetails({ reference }: { reference: string }) {
             </div>
             <div className="mt-6 rounded-2xl bg-slate-50 p-5">
               <p className="flex gap-3 font-bold">
-                <MapPin className="text-[#FF8A05]" />
+                <MapPin className="text-brand" />
                 {booking.pickup}
               </p>
               <div className="my-2 ml-3 h-5 border-l-2 border-dotted border-slate-300" />
               <p className="flex gap-3 font-bold">
-                <Route className="text-[#FF8A05]" />
+                <Route className="text-brand" />
                 {booking.dropoff}
               </p>
             </div>
@@ -247,7 +247,7 @@ export default function JourneyDetails({ reference }: { reference: string }) {
                       <option value="">Choose driver</option>
                       {drivers.filter((d) => (d.status ?? "active") === "active").map((d) => <option key={d.id} value={d.id}>{d.fullName} · {d.phone}</option>)}
                     </select>
-                    <button disabled={busy || !chosenDriver} onClick={async () => { await review({ action: "assign", bookingReference: booking.reference, driverId: chosenDriver }); setChosenDriver(""); }} className="rounded-full bg-[#FF8A05] px-5 font-bold text-white disabled:opacity-40">Assign</button>
+                    <button disabled={busy || !chosenDriver} onClick={async () => { await review({ action: "assign", bookingReference: booking.reference, driverId: chosenDriver }); setChosenDriver(""); }} className="rounded-full bg-brand px-5 font-bold text-white disabled:opacity-40">Assign</button>
                   </div>
                 ) : <p className="mt-1 text-sm text-amber-900">Drivers can be assigned once the booking is confirmed.</p>}
               </div>
@@ -363,7 +363,7 @@ export default function JourneyDetails({ reference }: { reference: string }) {
                   notes: cost.notes,
                 })
               }
-              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] font-bold text-white"
+              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand font-bold text-white"
             >
               <Save size={17} />
               Save cost record

@@ -34,7 +34,7 @@ function tripStarted(tripDate: string | null) {
 }
 
 function Unavailable({ title, text, home }: { title: string; text: string; home: string }) {
-  return <main className="grid min-h-[70vh] place-items-center bg-[#F5F6F8] px-5"><div className="max-w-md rounded-[24px] bg-white p-8 text-center"><h1 className="text-[24px] font-bold">{title}</h1><p className="mt-3 text-slate-600">{text}</p><Link href="/" className="mt-5 inline-flex h-11 items-center rounded-full bg-[#FF8A05] px-5 font-semibold text-white">{home}</Link></div></main>;
+  return <main className="grid min-h-[70vh] place-items-center bg-canvas px-5"><div className="max-w-md rounded-[24px] bg-white p-8 text-center"><h1 className="text-[24px] font-bold">{title}</h1><p className="mt-3 text-slate-600">{text}</p><Link href="/" className="mt-5 inline-flex h-11 items-center rounded-full bg-brand px-5 font-semibold text-white">{home}</Link></div></main>;
 }
 
 export default async function ItineraryPage({ params }: { params: Promise<{ token: string }> }) {
@@ -59,8 +59,8 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const travellers = s.adults + s.children;
   const leadToken = trip.token;
 
-  return <main className="bg-[#F5F6F8] pb-16 text-[#211726]">
-    <section className="bg-[#FF8A05] px-5 pb-10 pt-8 text-white">
+  return <main className="bg-canvas pb-16 text-plum">
+    <section className="bg-brand px-5 pb-10 pt-8 text-white">
       <div className="mx-auto max-w-[880px]">
         <p className="text-[13px] font-bold uppercase tracking-[.16em] text-white/80">{agency ? fill(w.preparedBy, { agency: agency.name }) : multi ? fill(w.multiDay, { n: days.length }) : w.privateTrip}</p>
         <h1 className="mt-2 text-[32px] font-black leading-tight tracking-[-.03em] sm:text-[42px]">{s.title}</h1>
@@ -82,11 +82,11 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
       {paid && tripStarted(s.tripDate) && <TripFeedback token={leadToken} rating={trip.feedbackRating} reviewUrl={reviewUrl()} words={w} />}
       {trip.status === "changes_requested" && <div className="rounded-3xl bg-amber-50 p-5 text-amber-900 shadow-sm"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
 
-      {multi && <nav aria-label="Days" className="flex gap-2 overflow-x-auto rounded-3xl bg-white p-3 shadow-sm">{days.map((d) => <a key={d.trip.id} href={`#day-${d.trip.dayNumber}`} className="shrink-0 rounded-full border border-slate-200 px-4 py-2 text-[14px] font-semibold hover:border-[#FF8A05]">{fill(w.day, { n: d.trip.dayNumber })} · {d.snap.tripDate ? new Date(`${d.snap.tripDate}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { day: "numeric", month: "short", timeZone: "UTC" }) : ""}</a>)}</nav>}
+      {multi && <nav aria-label="Days" className="flex gap-2 overflow-x-auto rounded-3xl bg-white p-3 shadow-sm">{days.map((d) => <a key={d.trip.id} href={`#day-${d.trip.dayNumber}`} className="shrink-0 rounded-full border border-slate-200 px-4 py-2 text-[14px] font-semibold hover:border-brand">{fill(w.day, { n: d.trip.dayNumber })} · {d.snap.tripDate ? new Date(`${d.snap.tripDate}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { day: "numeric", month: "short", timeZone: "UTC" }) : ""}</a>)}</nav>}
 
       {days.map((d) => <DaySection key={d.trip.id} s={d.snap} w={w} title={multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ${longDate(d.snap.tripDate, lang)}` : w.yourDay} id={multi ? `day-${d.trip.dayNumber}` : undefined} />)}
 
-      {packing.length > 0 && <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-7"><h2 className="flex items-center gap-2 text-[20px] font-bold"><Backpack size={20} className="text-[#D96F00]" />{w.whatToBring}</h2>
+      {packing.length > 0 && <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-7"><h2 className="flex items-center gap-2 text-[20px] font-bold"><Backpack size={20} className="text-brand-text" />{w.whatToBring}</h2>
         <ul className="mt-3 grid gap-2 text-[15px] sm:grid-cols-2">{packing.map((p) => <li key={p} className="flex gap-2"><CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-600" />{p}</li>)}</ul></section>}
 
       {s.notes && <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-7"><h2 className="text-[20px] font-bold">{w.notes}</h2><p className="mt-2 whitespace-pre-line text-[15px] text-slate-700">{s.notes}</p></section>}
@@ -106,7 +106,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
           {paid ? null : expired ? <p className="rounded-xl bg-slate-50 p-4 text-[15px] text-slate-700">{w.expired}</p>
             : <ItineraryActions token={leadToken} total={total} name={trip.customerName ?? ""} email={trip.customerEmail ?? ""} phone={trip.customerPhone ?? ""} words={w} />}
         </div>
-        <a href={`/api/itinerary/${leadToken}/pdf`} className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-semibold text-[#C96100] hover:underline"><Download size={16} />{w.downloadPdf}</a>
+        <a href={`/api/itinerary/${leadToken}/pdf`} className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-semibold text-brand-darker hover:underline"><Download size={16} />{w.downloadPdf}</a>
         <p className="mt-2 text-[12px] text-slate-500">{fill(w.refLine, { ref: s.ref, v: s.version })} <Link href="/refund-policy" className="underline">{w.policy}</Link>.</p>
       </section>
     </div>
@@ -131,14 +131,14 @@ function DaySection({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title:
           <span className="pt-1 text-[15px] font-bold tabular-nums">{hhmm(st.start)}</span>
           <div className="border-l-2 border-orange-200 pl-4">
             {st.travelMin > 0 && <p className="-mt-1 mb-2 text-[13px] text-slate-500">{fill(w.drive, { d: dur(st.travelMin) })}</p>}
-            <h3 className="text-[18px] font-bold"><span className="mr-2 inline-grid size-6 place-items-center rounded-full bg-[#FF8A05] text-[12px] text-white">{i + 1}</span>{st.name}</h3>
+            <h3 className="text-[18px] font-bold"><span className="mr-2 inline-grid size-6 place-items-center rounded-full bg-brand text-[12px] text-white">{i + 1}</span>{st.name}</h3>
             <p className="mt-0.5 text-[14px] text-slate-600">{hhmm(st.start)}–{hhmm(st.end)}{st.program ? ` · ${st.program}` : ""}{st.openHours ? ` · ${fill(w.open, { hours: st.openHours })}` : ""}</p>
             {st.checkIn != null && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-[#9A4D00]"><Ticket size={14} />{fill(w.sessionCheckIn, { time: st.sessionTime ?? "", checkIn: hhmm(st.checkIn) })}</p>}
             {st.cover && <img src={st.cover} alt={st.name} className="mt-3 aspect-[16/9] w-full rounded-2xl object-cover" loading="lazy" />}
             {st.description && <p className="mt-3 text-[15px] leading-7 text-slate-700">{st.description}</p>}
             {st.highlights.length > 0 && <ul className="mt-2 grid gap-1 text-[14px] text-slate-700">{st.highlights.map((h) => <li key={h}>• {h}</li>)}</ul>}
             {st.gallery.length > 0 && <div className="mt-3 flex gap-2 overflow-x-auto">{st.gallery.slice(0, 6).map((g) => <img key={g} src={g} alt="" className="h-24 w-32 shrink-0 rounded-xl object-cover" loading="lazy" />)}</div>}
-            {st.dressCode && <p className="mt-2 flex items-center gap-1.5 text-[14px] font-semibold"><Shirt size={15} className="text-[#D96F00]" />{st.dressCode}</p>}
+            {st.dressCode && <p className="mt-2 flex items-center gap-1.5 text-[14px] font-semibold"><Shirt size={15} className="text-brand-text" />{st.dressCode}</p>}
             {st.fee && <p className="mt-1 text-[13px] text-slate-500">{st.fee.included ? w.ticketsIncluded : `${fill(w.feeOnDay, { adult: thb(st.fee.adult) })}${st.fee.child ? fill(w.feeChild, { child: thb(st.fee.child) }) : ""}.`}</p>}
             {st.note && <p className="mt-2 rounded-xl bg-slate-50 p-3 text-[14px] text-slate-700">{st.note}</p>}
           </div>
@@ -152,5 +152,5 @@ function DaySection({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title:
 
 function Row({ time, title, sub, dot }: { time: string; title: string; sub: string; dot: string }) {
   return <li className="grid grid-cols-[64px_1fr] gap-3 pb-6"><span className="pt-0.5 text-[15px] font-bold tabular-nums">{time}</span>
-    <div className="border-l-2 border-orange-200 pl-4"><p className="flex items-center gap-2 text-[16px] font-bold"><span className="grid size-6 place-items-center rounded-full bg-[#211726] text-[12px] text-white">{dot}</span>{title}</p><p className="mt-0.5 flex items-start gap-1 text-[14px] text-slate-600"><MapPin size={14} className="mt-0.5 shrink-0" />{sub}</p></div></li>;
+    <div className="border-l-2 border-orange-200 pl-4"><p className="flex items-center gap-2 text-[16px] font-bold"><span className="grid size-6 place-items-center rounded-full bg-plum text-[12px] text-white">{dot}</span>{title}</p><p className="mt-0.5 flex items-start gap-1 text-[14px] text-slate-600"><MapPin size={14} className="mt-0.5 shrink-0" />{sub}</p></div></li>;
 }

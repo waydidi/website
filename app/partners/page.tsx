@@ -31,14 +31,14 @@ const FAQ = [
 
 export default function PartnersPage() {
   const crumbs = [{ name: "Home", path: "/" }, { name: "Partners", path: URL_PATH }];
-  return <main className="font-home bg-white text-[#211726]">
+  return <main className="font-home bg-white text-plum">
     <JsonLd data={[breadcrumbSchema(crumbs), faqSchema(FAQ)]} />
     <section className="bg-[linear-gradient(180deg,#FE8B05,#FFA94D)] text-white">
       <div className="mx-auto max-w-[1080px] px-4 pb-16 pt-10 sm:px-6 sm:pt-14 lg:px-8">
         <p className="text-[15px] font-semibold opacity-95">Waydidi Partners</p>
         <h1 className="mt-2 max-w-2xl text-[34px] font-bold leading-[1.1] sm:text-[48px]">Earn {DEFAULT_COMMISSION}% on every ride you send us</h1>
         <p className="mt-4 max-w-xl text-[17px] leading-7 opacity-95">For travel bloggers, hotels, guides and local businesses in Thailand. Free to join, paid monthly, and your customers save {DEFAULT_DISCOUNT}%.</p>
-        <a href="#apply" className="mt-7 inline-flex h-12 items-center rounded-full bg-white px-7 font-semibold text-[#C96100] hover:bg-[#FFF6EC]">Apply to join</a>
+        <a href="#apply" className="mt-7 inline-flex h-12 items-center rounded-full bg-white px-7 font-semibold text-brand-darker hover:bg-brand-wash">Apply to join</a>
       </div>
     </section>
 
@@ -46,14 +46,14 @@ export default function PartnersPage() {
       <section className="py-12">
         <h2 className="text-[28px] font-bold">How it works</h2>
         <ol className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{STEPS.map(([t, d], i) => <li key={t} className="rounded-2xl border border-slate-200 p-5">
-          <span className="grid size-9 place-items-center rounded-full bg-[#FE8B05] font-bold text-white">{i + 1}</span>
+          <span className="grid size-9 place-items-center rounded-full bg-brand font-bold text-white">{i + 1}</span>
           <p className="mt-3 text-[17px] font-semibold">{t}</p><p className="mt-1 text-[15px] leading-6 text-slate-600">{d}</p>
         </li>)}</ol>
       </section>
 
       <section className="pb-12">
         <h2 className="text-[28px] font-bold">Who it&apos;s for</h2>
-        <ul className="mt-6 grid gap-4 sm:grid-cols-2">{WHO.map(([t, d]) => <li key={t} className="rounded-2xl bg-[#FFF6EC] p-5"><p className="text-[17px] font-semibold">{t}</p><p className="mt-1 text-[15px] text-slate-700">{d}</p></li>)}</ul>
+        <ul className="mt-6 grid gap-4 sm:grid-cols-2">{WHO.map(([t, d]) => <li key={t} className="rounded-2xl bg-brand-wash p-5"><p className="text-[17px] font-semibold">{t}</p><p className="mt-1 text-[15px] text-slate-700">{d}</p></li>)}</ul>
       </section>
 
       <section id="apply" className="scroll-mt-24 pb-12">

@@ -15,7 +15,7 @@ export function DriverDayPlan({ token }: { token: string }) {
   if (!days.length) return null;
   return <section className="mx-auto max-w-[680px] px-4 pb-10">
     {days.map((d) => <div key={d.ref} className="mt-4 rounded-3xl border border-slate-200 bg-white p-5">
-      <p className="text-[12px] font-bold uppercase tracking-[.14em] text-[#D96F00]">Day plan{days.length > 1 ? ` · Day ${d.dayNumber}` : ""} · {d.date}</p>
+      <p className="text-[12px] font-bold uppercase tracking-[.14em] text-brand-text">Day plan{days.length > 1 ? ` · Day ${d.dayNumber}` : ""} · {d.date}</p>
       <h2 className="mt-1 text-[20px] font-bold">{d.title}</h2>
       <p className="mt-1 text-[14px] text-slate-600">{d.guests}</p>
       {d.notes && <p className="mt-2 rounded-xl bg-slate-50 p-3 text-[14px]">{d.notes}</p>}
@@ -27,7 +27,7 @@ export function DriverDayPlan({ token }: { token: string }) {
           {s.tickets && <p className="mt-1 flex items-center gap-1.5 text-[13px] text-slate-600"><Ticket size={14} />{s.tickets}</p>}
           {s.contact && <p className="mt-1 flex items-center gap-1.5 text-[13px] text-slate-600"><Phone size={14} />{s.contact}</p>}
           {s.note && <p className="mt-1 text-[13px] text-slate-600">{s.note}</p>}
-          {s.lat != null && s.lng != null && <a href={`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-[#C96100]"><MapPin size={14} />Navigate</a>}
+          {s.lat != null && s.lng != null && <a href={`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-darker"><MapPin size={14} />Navigate</a>}
         </li>)}
         <li><b className="tabular-nums">{d.returnAt}</b> Drop-off · {d.end}</li>
       </ol>

@@ -43,7 +43,7 @@ export function MysteryBoxes({ boxes }: { boxes: MemberBox[] }) {
           <button type="button" onClick={() => open(b.id)} disabled={Boolean(opening)} className="flex w-full items-center gap-4 rounded-[20px] bg-gradient-to-br from-[#2B1B5E] to-[#5B2EA6] p-5 text-left text-white shadow-sm">
             <span className={`grid size-14 shrink-0 place-items-center rounded-2xl bg-white/15 text-3xl ${opening === b.id ? "animate-[wiggle_.25s_ease-in-out_infinite]" : ""}`} aria-hidden="true">🎁</span>
             <span className="min-w-0 flex-1"><span className="block text-[17px] font-black">{tierName(b.tier)} mystery box</span><span className="mt-0.5 block text-sm text-white/80">{opening === b.id ? "Opening…" : "You reached a new badge. Tap to see what's inside!"}</span></span>
-            <span className="shrink-0 rounded-full bg-[#FF8A05] px-4 py-2 text-sm font-bold">Open</span>
+            <span className="shrink-0 rounded-full bg-brand px-4 py-2 text-sm font-bold">Open</span>
           </button>
         </li>;
         const name = shown?.name ?? b.prizeName ?? "Prize";

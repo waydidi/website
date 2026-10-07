@@ -9,5 +9,5 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const { id } = await params;
   const { blocked } = await requireAgencyPage(`/agency/trips/${id}`);
   if (blocked) return blocked;
-  return <div className="min-h-screen bg-[#F5F6F8]"><TripWorkspace key={id} mode="agency" tripId={id} /></div>;
+  return <div className="min-h-screen bg-canvas"><TripWorkspace key={id} mode="agency" tripId={id} /></div>;
 }

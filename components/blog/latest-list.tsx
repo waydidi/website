@@ -19,13 +19,13 @@ export function LatestList({ posts, initial = 5, filters = false }: { posts: Blo
     words.every((w) => `${p.title} ${p.excerpt} ${p.categories.map(categoryLabel).join(" ")}`.toLowerCase().includes(w)));
   const filtering = Boolean(words.length || category);
   const visible = filtering ? list : list.slice(0, shown);
-  const chip = (active: boolean) => `h-9 shrink-0 rounded-full border px-4 text-[14px] font-medium ${active ? "border-[#1C1C1C] bg-[#1C1C1C] text-white" : "border-[#D6D3CC] text-[#1C1C1C] hover:bg-slate-50"}`;
+  const chip = (active: boolean) => `h-9 shrink-0 rounded-full border px-4 text-[14px] font-medium ${active ? "border-charcoal bg-charcoal text-white" : "border-[#D6D3CC] text-charcoal hover:bg-slate-50"}`;
   return <>
     {filters && <div className="mt-5">
       <label className="relative block">
         <span className="sr-only">Search guides</span>
-        <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8A8A8A]" aria-hidden="true" />
-        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search guides, e.g. Pattaya, airport" className="h-12 w-full rounded-full border border-[#D6D3CC] bg-white pl-11 pr-11 text-[16px] outline-none focus:border-[#FF8A05]" />
+        <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-grey-soft" aria-hidden="true" />
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search guides, e.g. Pattaya, airport" className="h-12 w-full rounded-full border border-[#D6D3CC] bg-white pl-11 pr-11 text-[16px] outline-none focus:border-brand" />
         {query && <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full hover:bg-slate-100"><X size={16} /></button>}
       </label>
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Filter by category">
@@ -39,13 +39,13 @@ export function LatestList({ posts, initial = 5, filters = false }: { posts: Blo
         <Link href={`/blog/${post.slug}`} className="grid grid-cols-[42%_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
           <BlogCover post={post} size="thumb" />
           <span className="min-w-0">
-            <span className="line-clamp-2 text-[16px] font-semibold leading-snug text-[#1C1C1C]">{post.title}</span>
+            <span className="line-clamp-2 text-[16px] font-semibold leading-snug text-charcoal">{post.title}</span>
             <span className="mt-1.5 flex flex-wrap gap-x-3 text-[14px] italic text-[#E07400]">{post.categories.map((c) => <span key={c}>{categoryLabel(c)}</span>)}</span>
-            <span className="mt-1.5 block text-[14px] text-[#8A8A8A]">{formatBlogDate(post.date)}</span>
+            <span className="mt-1.5 block text-[14px] text-grey-soft">{formatBlogDate(post.date)}</span>
           </span>
         </Link>
       </li>)}
     </ul>
-    {!filtering && shown < list.length && <button type="button" onClick={() => setShown(list.length)} className="mt-6 h-12 w-full rounded-xl border-2 border-[#1C1C1C] text-[16px] font-semibold text-[#1C1C1C] hover:bg-slate-50">See more</button>}
+    {!filtering && shown < list.length && <button type="button" onClick={() => setShown(list.length)} className="mt-6 h-12 w-full rounded-xl border-2 border-charcoal text-[16px] font-semibold text-charcoal hover:bg-slate-50">See more</button>}
   </>;
 }

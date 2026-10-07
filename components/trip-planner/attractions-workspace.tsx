@@ -91,10 +91,10 @@ export function AttractionsWorkspace() {
             <td className="px-4 py-3">{i.area || "—"}</td>
             <td className="whitespace-nowrap px-4 py-3">{i.openTime && i.closeTime ? `${i.openTime}–${i.closeTime}` : "Any time"}{i.closedDays.length > 0 && <p className="text-[12px] text-slate-500">Closed {i.closedDays.map((d) => DAYS[d]).join(", ")}</p>}</td>
             <td className="px-4 py-3"><p className={stale ? "font-semibold text-amber-700" : "text-slate-700"}>{fmtDate(i.verifiedAt)}</p>{i.verifiedBy && <p className="text-[12px] text-slate-500">{i.verifiedBy}</p>}
-              <button type="button" onClick={() => void verify(i.id)} className="mt-1 inline-flex items-center gap-1 text-[12px] font-semibold text-[#C96100] hover:underline"><BadgeCheck size={13} />Mark as verified</button></td>
+              <button type="button" onClick={() => void verify(i.id)} className="mt-1 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-darker hover:underline"><BadgeCheck size={13} />Mark as verified</button></td>
             <td className="px-4 py-3">{i.usedIn} trip{i.usedIn === 1 ? "" : "s"}</td>
             <td className="px-4 py-3"><div className="flex justify-end gap-1">
-              <button type="button" onClick={() => { setError(""); setDraft(toDraft(i)); }} aria-label={`Edit ${i.name}`} className="grid size-9 place-items-center rounded-full text-slate-500 hover:bg-orange-50 hover:text-[#C96100]"><Pencil size={16} /></button>
+              <button type="button" onClick={() => { setError(""); setDraft(toDraft(i)); }} aria-label={`Edit ${i.name}`} className="grid size-9 place-items-center rounded-full text-slate-500 hover:bg-orange-50 hover:text-brand-darker"><Pencil size={16} /></button>
               {i.status === "active" && <button type="button" onClick={() => void hide(i)} aria-label={`Hide ${i.name}`} className="grid size-9 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>}
             </div></td>
           </tr>; })}
@@ -147,7 +147,7 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
             <PlacePicker value={draft.address ?? ""} onChange={(p) => set({ address: p.text, ...(p.lat != null ? { latitude: p.lat, longitude: p.lng, googlePlaceId: p.placeId } : {}) })} className={inputCls} placeholder="Search Google Maps" /></Field>
           <div>
             <p className="text-[13px] font-semibold">Tags <span className="font-normal text-slate-500">(build the customer&apos;s packing list)</span></p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">{PACKING_TAGS.map((t) => { const on = draft.tags.includes(t); return <button key={t} type="button" onClick={() => set({ tags: on ? draft.tags.filter((x) => x !== t) : [...draft.tags, t] })} className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-[#FF8A05] bg-orange-50 font-semibold text-[#C96100]" : "border-slate-200 text-slate-600"}`}>{t}</button>; })}</div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">{PACKING_TAGS.map((t) => { const on = draft.tags.includes(t); return <button key={t} type="button" onClick={() => set({ tags: on ? draft.tags.filter((x) => x !== t) : [...draft.tags, t] })} className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-brand bg-orange-50 font-semibold text-brand-darker" : "border-slate-200 text-slate-600"}`}>{t}</button>; })}</div>
           </div>
         </Section>
 
@@ -164,8 +164,8 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
             <Field label="Arrive early by (minutes)"><input type="number" min={0} max={180} value={draft.arrivalBufferMin} onChange={(e) => set({ arrivalBufferMin: num(e.target.value) })} className={inputCls} /></Field>
           </div>
           <div className="flex flex-wrap gap-4 text-[14px]">
-            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.bookingRequired} onChange={(e) => set({ bookingRequired: e.target.checked })} className="size-4 accent-[#FF8A05]" />Booking required</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.weatherSensitive} onChange={(e) => set({ weatherSensitive: e.target.checked })} className="size-4 accent-[#FF8A05]" />Weather sensitive</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.bookingRequired} onChange={(e) => set({ bookingRequired: e.target.checked })} className="size-4 accent-brand" />Booking required</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.weatherSensitive} onChange={(e) => set({ weatherSensitive: e.target.checked })} className="size-4 accent-brand" />Weather sensitive</label>
           </div>
         </Section>
 
@@ -183,16 +183,16 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
               <Field label="Child THB"><input type="number" min={0} value={p.feeChild ?? 0} onChange={(e) => setProgram(i, { feeChild: num(e.target.value) })} className={inputCls} /></Field>
             </div>
             <div className="flex flex-wrap gap-4 text-[14px]">
-              <label className="flex items-center gap-2"><input type="checkbox" checked={p.feeIncluded ?? false} onChange={(e) => setProgram(i, { feeIncluded: e.target.checked })} className="size-4 accent-[#FF8A05]" />Ticket included in our price</label>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={p.bookingRequired ?? false} onChange={(e) => setProgram(i, { bookingRequired: e.target.checked })} className="size-4 accent-[#FF8A05]" />Needs a reservation</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={p.feeIncluded ?? false} onChange={(e) => setProgram(i, { feeIncluded: e.target.checked })} className="size-4 accent-brand" />Ticket included in our price</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={p.bookingRequired ?? false} onChange={(e) => setProgram(i, { bookingRequired: e.target.checked })} className="size-4 accent-brand" />Needs a reservation</label>
             </div>
             <div><p className="flex items-center gap-1.5 text-[13px] font-semibold"><Clock size={14} />Sessions</p>
               {p.sessions.map((s, k) => <div key={k} className="mt-2 flex flex-wrap items-center gap-2">
                 <input type="time" required value={s.time} onChange={(e) => setProgram(i, { sessions: p.sessions.map((x, m) => (m === k ? { ...x, time: e.target.value } : x)) })} className={`${inputCls} w-32`} aria-label="Session time" />
-                {DAYS.map((d, di) => { const on = !s.days?.length || s.days.includes(di); return <button key={d} type="button" onClick={() => { const all = s.days?.length ? s.days : [0, 1, 2, 3, 4, 5, 6]; const next = on ? all.filter((x) => x !== di) : [...all, di].sort(); setProgram(i, { sessions: p.sessions.map((x, m) => (m === k ? { ...x, days: next.length === 7 ? undefined : next } : x)) }); }} className={`h-8 w-10 rounded-md border text-[12px] ${on ? "border-[#FF8A05] bg-orange-50 text-[#C96100]" : "border-slate-200 text-slate-400"}`}>{d}</button>; })}
+                {DAYS.map((d, di) => { const on = !s.days?.length || s.days.includes(di); return <button key={d} type="button" onClick={() => { const all = s.days?.length ? s.days : [0, 1, 2, 3, 4, 5, 6]; const next = on ? all.filter((x) => x !== di) : [...all, di].sort(); setProgram(i, { sessions: p.sessions.map((x, m) => (m === k ? { ...x, days: next.length === 7 ? undefined : next } : x)) }); }} className={`h-8 w-10 rounded-md border text-[12px] ${on ? "border-brand bg-orange-50 text-brand-darker" : "border-slate-200 text-slate-400"}`}>{d}</button>; })}
                 <button type="button" onClick={() => setProgram(i, { sessions: p.sessions.filter((_, m) => m !== k) })} aria-label="Remove session" className="text-slate-400 hover:text-red-600"><X size={16} /></button>
               </div>)}
-              <button type="button" onClick={() => setProgram(i, { sessions: [...p.sessions, { time: "09:30" }] })} className="mt-2 text-[13px] font-semibold text-[#C96100] hover:underline">+ Add session</button></div>
+              <button type="button" onClick={() => setProgram(i, { sessions: [...p.sessions, { time: "09:30" }] })} className="mt-2 text-[13px] font-semibold text-brand-darker hover:underline">+ Add session</button></div>
           </div>)}
           <button type="button" onClick={() => set({ programs: [...draft.programs, { id: "", name: "", durationMin: draft.durationMin, arrivalBufferMin: draft.arrivalBufferMin, feeAdult: 0, feeChild: 0, feeIncluded: false, bookingRequired: false, sessions: [] }] })} className={btnQuiet}><Plus size={16} />Add program</button>
         </Section>
@@ -206,7 +206,7 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
               <Field label="Applies to"><select value={x.programId ?? ""} onChange={(e) => setException(i, { programId: e.target.value || undefined })} className={inputCls}><option value="">Whole attraction</option>{draft.programs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
               <button type="button" onClick={() => set({ exceptions: draft.exceptions.filter((_, j) => j !== i) })} aria-label="Remove exception" className="grid size-11 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>
             </div>
-            <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={x.closed ?? false} onChange={(e) => setException(i, { closed: e.target.checked })} className="size-4 accent-[#FF8A05]" /><CalendarX2 size={15} />Closed on these dates</label>
+            <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={x.closed ?? false} onChange={(e) => setException(i, { closed: e.target.checked })} className="size-4 accent-brand" /><CalendarX2 size={15} />Closed on these dates</label>
             {!x.closed && <Field label="Session times on these dates" hint="Comma separated, e.g. 09:00, 10:30, 13:30"><input value={(x.sessions ?? []).join(", ")} onChange={(e) => setException(i, { sessions: toList(e.target.value).filter((t) => /^\d{2}:\d{2}$/.test(t)) })} className={inputCls} /></Field>}
             <input value={x.note ?? ""} onChange={(e) => setException(i, { note: e.target.value })} placeholder="Note (e.g. Songkran)" className={inputCls} aria-label="Note" />
           </div>)}
@@ -237,9 +237,9 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
             <Field label="Average spend per person (THB)"><input type="number" min={0} value={draft.avgSpend ?? ""} onChange={(e) => set({ avgSpend: e.target.value ? Math.max(0, Math.round(Number(e.target.value))) : null })} className={inputCls} /></Field>
           </div>
           <div><p className="text-[13px] font-semibold">Meal slots <span className="font-normal text-slate-500">(cafés and restaurants)</span></p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">{MEAL_SLOTS.map((m) => { const on = draft.mealSlots.includes(m); return <button key={m} type="button" onClick={() => set({ mealSlots: toggle(draft.mealSlots, m) as Draft["mealSlots"] })} className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-[#FF8A05] bg-orange-50 font-semibold text-[#C96100]" : "border-slate-200 text-slate-600"}`}>{m}</button>; })}</div></div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">{MEAL_SLOTS.map((m) => { const on = draft.mealSlots.includes(m); return <button key={m} type="button" onClick={() => set({ mealSlots: toggle(draft.mealSlots, m) as Draft["mealSlots"] })} className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-brand bg-orange-50 font-semibold text-brand-darker" : "border-slate-200 text-slate-600"}`}>{m}</button>; })}</div></div>
           <div><p className="text-[13px] font-semibold">Good for</p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">{VIBES.map((v) => { const on = draft.vibes.includes(v); return <button key={v} type="button" onClick={() => set({ vibes: toggle(draft.vibes, v) as Draft["vibes"] })} className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-[#FF8A05] bg-orange-50 font-semibold text-[#C96100]" : "border-slate-200 text-slate-600"}`}>{v}</button>; })}</div></div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">{VIBES.map((v) => { const on = draft.vibes.includes(v); return <button key={v} type="button" onClick={() => set({ vibes: toggle(draft.vibes, v) as Draft["vibes"] })} className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-brand bg-orange-50 font-semibold text-brand-darker" : "border-slate-200 text-slate-600"}`}>{v}</button>; })}</div></div>
           <Field label="One-line pitch" hint="Shown on package cards, e.g. “Riverside coffee facing Wat Arun”"><input maxLength={160} value={draft.shortLine ?? ""} onChange={(e) => set({ shortLine: e.target.value })} className={inputCls} /></Field>
           <Field label="Drop-off note for the driver" hint="Where the car stops and how far to walk"><input value={draft.dropoffNote ?? ""} onChange={(e) => set({ dropoffNote: e.target.value })} className={inputCls} /></Field>
           <Field label="Reservation or queue warning"><input value={draft.reservationNote ?? ""} onChange={(e) => set({ reservationNote: e.target.value })} className={inputCls} placeholder="Book 2 days ahead; queues after 11:00" /></Field>
@@ -249,7 +249,7 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
               <input value={draft.i18n[l]?.shortLine ?? ""} onChange={(e) => set({ i18n: { ...draft.i18n, [l]: { ...draft.i18n[l], shortLine: e.target.value } } })} placeholder="One-line pitch" className={inputCls} aria-label={`${l} pitch`} />
               <textarea value={draft.i18n[l]?.description ?? ""} onChange={(e) => set({ i18n: { ...draft.i18n, [l]: { ...draft.i18n[l], description: e.target.value } } })} placeholder="Description" className={areaCls} aria-label={`${l} description`} /></div>)}
           </details>
-          <label className="flex items-start gap-2 text-[14px]"><input type="checkbox" checked={draft.published} onChange={(e) => set({ published: e.target.checked })} className="mt-1 size-4 accent-[#FF8A05]" /><span>Show on the website and in sellable packages{!verified && <span className="block text-[12px] font-semibold text-amber-700">Check hours, prices, location and photos and press “Mark as verified” first.</span>}</span></label>
+          <label className="flex items-start gap-2 text-[14px]"><input type="checkbox" checked={draft.published} onChange={(e) => set({ published: e.target.checked })} className="mt-1 size-4 accent-brand" /><span>Show on the website and in sellable packages{!verified && <span className="block text-[12px] font-semibold text-amber-700">Check hours, prices, location and photos and press “Mark as verified” first.</span>}</span></label>
         </Section>
 
         <Section title="Supplier and internal notes">
@@ -259,7 +259,7 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
             <Field label="Phone"><input value={draft.phone ?? ""} onChange={(e) => set({ phone: e.target.value })} className={inputCls} /></Field>
           </div>
           <Field label="Internal notes" hint="Only staff see these"><textarea value={draft.internalNotes ?? ""} onChange={(e) => set({ internalNotes: e.target.value })} className={areaCls} /></Field>
-          <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={draft.status === "active"} onChange={(e) => set({ status: e.target.checked ? "active" : "hidden" })} className="size-4 accent-[#FF8A05]" />Available in the planner</label>
+          <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={draft.status === "active"} onChange={(e) => set({ status: e.target.checked ? "active" : "hidden" })} className="size-4 accent-brand" />Available in the planner</label>
         </Section>
       </div>
       {error && <p role="alert" className="mt-4 text-[13px] font-semibold text-red-600">{error}</p>}

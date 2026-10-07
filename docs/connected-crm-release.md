@@ -79,6 +79,8 @@ CRM merges are operational consolidation, not login-account merges. Duplicate gu
 
 `node --test tests/crm.test.mjs` covers concurrent member merges, verified-link consolidation, booking detail synchronization, rebooking cancellation, isolated quote conversion failures and literal CSV search/filter matching. CSV streams use 100-row keyset pages, respect consumer demand and cancellation, and do not recalculate dashboard totals. Exported data reflects live records during consumption rather than a database snapshot.
 
+GitHub CI runs these CRM component workflows alongside the desktop/mobile browser and accessibility suites. Playwright and its test runner are pinned to the same version. The local browser server binds to `127.0.0.1`.
+
 For the Chromium component workflows, run `npx playwright install chromium --with-deps`, then `npm run test:crm:browser`. These tests mount the actual CRM workspace with mocked API responses, including delayed and failed enquiry loads. They verify quote revision, task rescheduling, customer switching and prevention of accidental enquiry unlinking. They do not contact production or send emails. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can select an existing compatible Chromium binary.
 
 Migration 0096 preserves imported contacts with notes or CRM history for human review, while hiding empty imported shells after verified association. Member compatibility is checked at write time. Scheduler failures are logged individually, and email recovery runs independently of quote and retention scheduling.

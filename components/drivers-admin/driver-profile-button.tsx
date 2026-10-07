@@ -1,6 +1,7 @@
 "use client";
 
 import { LoaderCircle, Pencil, X } from "lucide-react";
+import { Modal, ModalTitle } from "@/components/ui/modal";
 import { FormEvent, useState } from "react";
 
 // Profile photo and vehicle type for a driver already in the list.
@@ -22,13 +23,13 @@ export function DriverProfileButton({ driverId, driverName, vehicleType, onSaved
   }
 
   return <>
-    <button type="button" onClick={() => setOpen(true)} aria-label={`Edit photo and vehicle type of ${driverName}`} title="Photo and vehicle type" className="hover:text-[#C96100]"><Pencil size={18} /></button>
-    {open && <div role="dialog" aria-modal="true" aria-labelledby={`edit-${driverId}`} className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) setOpen(false); }}>
-      <form onSubmit={save} className="w-full max-w-md rounded-t-[24px] bg-white p-5 text-[#15161C] sm:rounded-[24px]">
-        <div className="flex items-start justify-between gap-3"><h2 id={`edit-${driverId}`} className="text-[18px] font-black">{driverName}</h2>
+    <button type="button" onClick={() => setOpen(true)} aria-label={`Edit photo and vehicle type of ${driverName}`} title="Photo and vehicle type" className="hover:text-brand-darker"><Pencil size={18} /></button>
+    <Modal open={open} onClose={() => setOpen(false)} locked={busy} sheet overlayClassName="z-[80] bg-slate-900/40" asChild>
+      <form onSubmit={save} className="max-w-md rounded-t-[24px] p-5 text-night shadow-none sm:rounded-[24px]">
+        <div className="flex items-start justify-between gap-3"><ModalTitle className="text-[18px] font-black">{driverName}</ModalTitle>
           <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button></div>
         <label className="mt-4 grid gap-1 text-[13px] font-semibold">Vehicle type
-          <select name="vehicleType" required defaultValue={vehicleType ?? ""} className="h-11 rounded-xl border border-slate-200 px-3 text-[15px] font-normal outline-none focus:border-[#FF8A05]">
+          <select name="vehicleType" required defaultValue={vehicleType ?? ""} className="h-11 rounded-xl border border-slate-200 px-3 text-[15px] font-normal outline-none focus:border-brand">
             <option value="" disabled>Choose</option><option value="sedan">Sedan</option><option value="suv">SUV</option><option value="minivan">Minivan</option>
           </select></label>
         <label className="mt-3 grid gap-1 text-[13px] font-semibold">Profile photo
@@ -38,8 +39,8 @@ export function DriverProfileButton({ driverId, driverName, vehicleType, onSaved
             <input name="profilePhoto" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { const f = e.target.files?.[0]; setPreview(f ? URL.createObjectURL(f) : ""); }} className="min-w-0 text-[13px] font-normal file:mr-2 file:rounded-full file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:font-semibold" />
           </span></label>
         {error && <p role="alert" className="mt-3 text-[13px] font-semibold text-red-600">{error}</p>}
-        <button type="submit" disabled={busy} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#FF8A05] font-bold text-white disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Save</button>
+        <button type="submit" disabled={busy} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-brand font-bold text-white disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Save</button>
       </form>
-    </div>}
+    </Modal>
   </>;
 }

@@ -22,11 +22,11 @@ export function MaintenanceToggle() {
   if (!state) return null;
   return <section className="rounded-2xl border border-slate-200 bg-white p-5">
     <div className="flex items-center justify-between gap-4">
-      <div><h2 className="text-[16px] font-bold">Maintenance mode</h2><p className="mt-1 text-[14px] text-slate-600">Visitors see a &quot;We&apos;ll be right back&quot; page. Signed-in staff, admin, driver links and customers&apos; ride and payment links keep working. <a href="/maintenance" target="_blank" className="font-semibold text-[#C96100] hover:underline">Preview</a></p></div>
-      <button type="button" role="switch" aria-checked={state.on} disabled={busy} onClick={() => void flip()} className={`relative h-7 w-12 shrink-0 rounded-full transition ${state.on ? "bg-[#FE8B05]" : "bg-slate-300"} disabled:opacity-60`}>
+      <div><h2 className="text-[16px] font-bold">Maintenance mode</h2><p className="mt-1 text-[14px] text-slate-600">Visitors see a &quot;We&apos;ll be right back&quot; page. Signed-in staff, admin, driver links and customers&apos; ride and payment links keep working. <a href="/maintenance" target="_blank" className="font-semibold text-brand-darker hover:underline">Preview</a></p></div>
+      <button type="button" role="switch" aria-checked={state.on} disabled={busy} onClick={() => void flip()} className={`relative h-7 w-12 shrink-0 rounded-full transition ${state.on ? "bg-brand" : "bg-slate-300"} disabled:opacity-60`}>
         <span className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition ${state.on ? "left-[22px]" : "left-0.5"}`} />
       </button>
     </div>
-    {msg && <p role="status" className="mt-2 text-[13px] font-semibold text-[#C96100]">{msg}</p>}
+    {msg && <p role="status" className="mt-2 text-[13px] font-semibold text-brand-darker">{msg}</p>}
   </section>;
 }

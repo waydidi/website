@@ -54,14 +54,14 @@ export function DriverForm() {
     </label>
     {type === "fleet"
       ? <label className={label}>Number of vehicles<input name="fleetSize" inputMode="numeric" className={field} /></label>
-      : <label className={label}>Vehicle year <span className="font-normal text-[#8A8A8A]">(optional)</span><input name="vehicleYear" inputMode="numeric" maxLength={4} placeholder="2021" className={field} /></label>}
-    <label className={`${label} sm:col-span-2`}>Languages you speak <span className="font-normal text-[#8A8A8A]">(optional)</span><input name="languages" placeholder="Thai, English…" className={field} /></label>
-    <label className={`${label} sm:col-span-2`}>Anything else? <span className="font-normal text-[#8A8A8A]">(optional)</span><textarea name="message" rows={3} className={`${field} h-auto py-3`} placeholder="Years of driving experience, airports you know well…" /></label>
+      : <label className={label}>Vehicle year <span className="font-normal text-grey-soft">(optional)</span><input name="vehicleYear" inputMode="numeric" maxLength={4} placeholder="2021" className={field} /></label>}
+    <label className={`${label} sm:col-span-2`}>Languages you speak <span className="font-normal text-grey-soft">(optional)</span><input name="languages" placeholder="Thai, English…" className={field} /></label>
+    <label className={`${label} sm:col-span-2`}>Anything else? <span className="font-normal text-grey-soft">(optional)</span><textarea name="message" rows={3} className={`${field} h-auto py-3`} placeholder="Years of driving experience, airports you know well…" /></label>
     <input name="company" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
     {error && <p className="rounded-xl bg-red-50 p-3 text-[14px] font-semibold text-red-700 sm:col-span-2" role="alert">{error}</p>}
     <div className="sm:col-span-2">
-      <button type="submit" disabled={busy} className="h-12 w-full rounded-full bg-[#FF8A05] text-[16px] font-bold text-white hover:bg-[#F07A00] disabled:opacity-60 sm:w-auto sm:px-10">{busy ? "Sending…" : "Apply to drive"}</button>
-      <p className="mt-3 text-[12px] text-[#8A8A8A]">We use these details only to review your application. See our <Link href="/privacy" className="underline">privacy policy</Link>.</p>
+      <button type="submit" disabled={busy} className="h-12 w-full rounded-full bg-brand text-[16px] font-bold text-white hover:bg-[#F07A00] disabled:opacity-60 sm:w-auto sm:px-10">{busy ? "Sending…" : "Apply to drive"}</button>
+      <p className="mt-3 text-[12px] text-grey-soft">We use these details only to review your application. See our <Link href="/privacy" className="underline">privacy policy</Link>.</p>
     </div>
     {turnstile.widget}
   </form>;

@@ -35,7 +35,7 @@ function prefillFrom(form: FormRow): NewBookingPrefill {
 
 function CopyButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
-  return <button type="button" onClick={() => { void navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1600); }); }} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 px-3 text-[14px] font-medium hover:border-[#FF8A05]">
+  return <button type="button" onClick={() => { void navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1600); }); }} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 px-3 text-[14px] font-medium hover:border-brand">
     {copied ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}{copied ? "Copied" : "Copy link"}
   </button>;
 }
@@ -110,7 +110,7 @@ export function FormRequestsButton({ openForm, openSignal, openKind, onWaiting }
   const link = (token: string) => `${origin}/f/${token}`;
 
   return <>
-    {openSignal === undefined && <button type="button" onClick={() => { setOpen(true); setFresh(""); void load(); }} className="relative inline-flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-[15px] font-semibold text-slate-800 hover:border-[#FF8A05]">
+    {openSignal === undefined && <button type="button" onClick={() => { setOpen(true); setFresh(""); void load(); }} className="relative inline-flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-[15px] font-semibold text-slate-800 hover:border-brand">
       <Send size={16} />Form links
       {waitingAnswers > 0 && <span className="absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full bg-[#D32F2F] px-1 text-[11px] font-bold text-white">{waitingAnswers}</span>}
     </button>}
@@ -125,28 +125,28 @@ export function FormRequestsButton({ openForm, openSignal, openKind, onWaiting }
           <fieldset>
             <legend className="text-[13px] font-medium text-slate-600">Service <span className="text-red-600">*</span></legend>
             <div role="radiogroup" aria-required="true" className="mt-1 grid grid-cols-3 gap-2">
-              {(Object.keys(SERVICE_NAMES) as FormService[]).map((id) => <button key={id} type="button" role="radio" aria-checked={kind === id} onClick={() => setKind(id)} className={`flex h-11 items-center justify-center whitespace-nowrap rounded-xl border px-1 text-[14px] font-semibold ${kind === id ? "border-[#FF8A05] bg-orange-50 text-[#C96100]" : "border-slate-200 bg-white text-slate-700 hover:border-[#FF8A05]"}`}>{SERVICE_NAMES[id]}</button>)}
+              {(Object.keys(SERVICE_NAMES) as FormService[]).map((id) => <button key={id} type="button" role="radio" aria-checked={kind === id} onClick={() => setKind(id)} className={`flex h-11 items-center justify-center whitespace-nowrap rounded-xl border px-1 text-[14px] font-semibold ${kind === id ? "border-brand bg-orange-50 text-brand-darker" : "border-slate-200 bg-white text-slate-700 hover:border-brand"}`}>{SERVICE_NAMES[id]}</button>)}
             </div>
           </fieldset>
-          <label className="block text-[13px] font-medium text-slate-600">Note for yourself (optional)<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. Agency Sunny Tours, special price" className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
-          {agencies.length > 0 && <label className="block text-[13px] font-medium text-slate-600">For agency (optional)<select value={agencyId} onChange={(e) => setAgencyId(e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]">
+          <label className="block text-[13px] font-medium text-slate-600">Note for yourself (optional)<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. Agency Sunny Tours, special price" className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand" /></label>
+          {agencies.length > 0 && <label className="block text-[13px] font-medium text-slate-600">For agency (optional)<select value={agencyId} onChange={(e) => setAgencyId(e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand">
             <option value="">No agency, direct customer</option>
             {agencies.map((ag) => <option key={ag.id} value={ag.id}>{ag.name}</option>)}
           </select></label>}
-          <label className="flex items-center gap-2 text-[14px] font-medium text-slate-700"><input type="checkbox" checked={showPreset} onChange={(e) => setShowPreset(e.target.checked)} className="size-4 accent-[#FF8A05]" />Pre-fill trip details and price (the customer can&apos;t change them)</label>
+          <label className="flex items-center gap-2 text-[14px] font-medium text-slate-700"><input type="checkbox" checked={showPreset} onChange={(e) => setShowPreset(e.target.checked)} className="size-4 accent-brand" />Pre-fill trip details and price (the customer can&apos;t change them)</label>
           {showPreset && <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-[13px] font-medium text-slate-600">Pickup<input value={preset.pickup} onChange={(e) => setPreset({ ...preset, pickup: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
+            <label className="block text-[13px] font-medium text-slate-600">Pickup<input value={preset.pickup} onChange={(e) => setPreset({ ...preset, pickup: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand" /></label>
             {kind === "hourly"
-              ? <label className="block text-[13px] font-medium text-slate-600">Hours<input type="number" min={1} max={24} value={preset.hours} onChange={(e) => setPreset({ ...preset, hours: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
-              : <label className="block text-[13px] font-medium text-slate-600">{kind === "tour" ? "Tour" : "Drop-off"}<input value={preset.dropoff} onChange={(e) => setPreset({ ...preset, dropoff: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>}
-            <label className="block text-[13px] font-medium text-slate-600">Date<input type="date" value={preset.date} onChange={(e) => setPreset({ ...preset, date: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
-            <label className="block text-[13px] font-medium text-slate-600">Time<input type="time" value={preset.time} onChange={(e) => setPreset({ ...preset, time: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
-            <label className="block text-[13px] font-medium text-slate-600">Car<select value={preset.vehicle} onChange={(e) => setPreset({ ...preset, vehicle: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]"><option value="">Customer chooses</option>{Object.entries(VEHICLES).map(([id, v]) => <option key={id} value={id}>{v.name}</option>)}</select></label>
-            <label className="block text-[13px] font-medium text-slate-600">Price (THB, shown to customer)<input type="number" min={0} inputMode="numeric" value={preset.price} onChange={(e) => setPreset({ ...preset, price: e.target.value })} placeholder="Leave empty to set later" className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-[#FF8A05]" /></label>
+              ? <label className="block text-[13px] font-medium text-slate-600">Hours<input type="number" min={1} max={24} value={preset.hours} onChange={(e) => setPreset({ ...preset, hours: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand" /></label>
+              : <label className="block text-[13px] font-medium text-slate-600">{kind === "tour" ? "Tour" : "Drop-off"}<input value={preset.dropoff} onChange={(e) => setPreset({ ...preset, dropoff: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand" /></label>}
+            <label className="block text-[13px] font-medium text-slate-600">Date<input type="date" value={preset.date} onChange={(e) => setPreset({ ...preset, date: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand" /></label>
+            <label className="block text-[13px] font-medium text-slate-600">Time<input type="time" value={preset.time} onChange={(e) => setPreset({ ...preset, time: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand" /></label>
+            <label className="block text-[13px] font-medium text-slate-600">Car<select value={preset.vehicle} onChange={(e) => setPreset({ ...preset, vehicle: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand"><option value="">Customer chooses</option>{Object.entries(VEHICLES).map(([id, v]) => <option key={id} value={id}>{v.name}</option>)}</select></label>
+            <label className="block text-[13px] font-medium text-slate-600">Price (THB, shown to customer)<input type="number" min={0} inputMode="numeric" value={preset.price} onChange={(e) => setPreset({ ...preset, price: e.target.value })} placeholder="Leave empty to set later" className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand" /></label>
             <p className="text-[12px] text-slate-500 sm:col-span-2">Leave any box empty and the customer fills it in.</p>
           </div>}
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => void create()} disabled={busy || !kind} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#FF8A05] px-5 font-semibold text-white hover:bg-[#E67900] disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Create link</button>
+            <button type="button" onClick={() => void create()} disabled={busy || !kind} className="inline-flex h-10 items-center gap-2 rounded-full bg-brand px-5 font-semibold text-white hover:bg-brand-strong disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Create link</button>
             {error && <span className="text-[14px] text-red-600">{error}</span>}
           </div>
           {fresh && <div className="flex flex-wrap items-center gap-2 rounded-xl bg-emerald-50 p-3 text-emerald-900">
@@ -179,7 +179,7 @@ export function FormRequestsButton({ openForm, openSignal, openKind, onWaiting }
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{a?.name ?? SERVICE_NAMES[form.serviceType]}</span>
                 {form.status === "booked" && form.bookingReference
-                  ? <Link href={`/admin/journeys/${form.bookingReference}`} onClick={(e) => e.stopPropagation()} className="shrink-0 font-mono text-[13px] font-semibold text-[#D96F00] hover:underline">{form.bookingReference}</Link>
+                  ? <Link href={`/admin/journeys/${form.bookingReference}`} onClick={(e) => e.stopPropagation()} className="shrink-0 font-mono text-[13px] font-semibold text-brand-text hover:underline">{form.bookingReference}</Link>
                   : <span className="shrink-0 text-[12px] text-slate-400">{when(form.submittedAt ?? form.createdAt)}</span>}
               </div>
               {open && <dl className="mt-1 grid gap-1.5 rounded-xl bg-slate-50 p-3 text-[13px]">
@@ -241,7 +241,7 @@ export function FormsTable({ service, openForm }: { service: FormService; openFo
               <td className="px-4 py-4"><p className={a ? "font-medium text-slate-900" : "text-slate-400"}>{a?.name ?? "Not filled in yet"}</p><p className="text-[12px] text-slate-500">{form.note || form.agencyName || `Sent ${when(form.createdAt)}`}</p></td>
               <td className="max-w-[340px] px-4 py-4">{route ? <p className="line-clamp-2 text-slate-900">{route}</p> : <span className="text-slate-400">—</span>}{a?.date && <p className="text-[12px] text-slate-500">{dateTime(a.date, a.time)}</p>}</td>
               <td className="whitespace-nowrap px-4 py-4"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-[13px] font-medium ${STATUS_STYLE[state]}`}>{state === "submitted" ? "Received" : state === "booked" ? "Booked" : state === "expired" ? "Expired" : "Waiting"}</span>
-                {form.status === "booked" && form.bookingReference && <Link href={`/admin/journeys/${form.bookingReference}`} className="ml-2 font-mono text-[13px] font-semibold text-[#D96F00] hover:underline">{form.bookingReference}</Link>}</td>
+                {form.status === "booked" && form.bookingReference && <Link href={`/admin/journeys/${form.bookingReference}`} className="ml-2 font-mono text-[13px] font-semibold text-brand-text hover:underline">{form.bookingReference}</Link>}</td>
               <td className="px-4 py-4"><div className="flex items-center justify-end gap-2">
                 {form.status === "waiting" && !expired && origin && <CopyButton url={`${origin}/f/${form.token}`} />}
                 {form.status === "submitted" && <NewBookingButton service={form.serviceType} prefill={prefillFrom(form)} formToken={form.token} trigger="Create booking" autoOpen={form.token === openForm} />}

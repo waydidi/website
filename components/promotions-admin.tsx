@@ -57,11 +57,11 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
     finally { setSaving(false); }
   }
 
-  const input = "mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 outline-none focus:border-[#FF8A05]";
+  const input = "mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 outline-none focus:border-brand";
   return <>
     <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
       <span />
-      <button type="button" onClick={() => { setError(""); setForm({ ...EMPTY }); }} className="rounded-full bg-[#FF8A05] px-5 py-2.5 text-sm font-bold text-white">New promotion</button>
+      <button type="button" onClick={() => { setError(""); setForm({ ...EMPTY }); }} className="rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-white">New promotion</button>
     </div>
     <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table className="w-full min-w-[860px] text-left text-sm">
@@ -83,7 +83,7 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
             </td>
             <td className="px-4 py-3 text-right">
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setViewing(p)} aria-label={`Period and uses for ${p.code}`} title="Period and uses" className="grid size-8 place-items-center rounded-full border border-slate-300 text-slate-600 hover:border-[#FF8A05] hover:text-[#C96100]"><Eye size={15} /></button>
+                <button type="button" onClick={() => setViewing(p)} aria-label={`Period and uses for ${p.code}`} title="Period and uses" className="grid size-8 place-items-center rounded-full border border-slate-300 text-slate-600 hover:border-brand hover:text-brand-darker"><Eye size={15} /></button>
                 <button type="button" onClick={() => { setError(""); setForm(toForm(p)); }} className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-bold">Edit</button>
               </div>
             </td>
@@ -93,7 +93,7 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
     </div>
 
     <Dialog open={viewing != null} onOpenChange={(open) => { if (!open) setViewing(null); }}>
-      <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-[#15161C] sm:max-w-xl">
+      <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-night sm:max-w-xl">
         <DialogHeader className="flex-row items-center justify-between gap-3 text-left">
           <div className="min-w-0">
             <DialogTitle className="truncate text-[26px] font-semibold tracking-[-.03em]">{viewing?.code}</DialogTitle>
@@ -126,16 +126,16 @@ export function PromotionsAdmin({ promotions }: { promotions: Row[] }) {
           <label className="text-sm font-semibold">Uses per customer<input type="number" min={1} value={form.perCustomerLimit} onChange={(e) => set("perCustomerLimit", e.target.value)} className={input} /></label>
           <label className="text-sm font-semibold">Service<select value={form.service} onChange={(e) => set("service", e.target.value as Form["service"])} className={input}><option value="any">Transfers and hourly</option><option value="transfer">Transfers only</option><option value="hourly">Hourly driver only</option><option value="return">Round trip transfers only</option></select></label>
           <fieldset className="text-sm font-semibold sm:col-span-2"><legend>Cars (none ticked = all cars)</legend>
-            <div className="mt-2 flex flex-wrap gap-3 font-normal">{VEHICLES.map(([id, name]) => <label key={id} className="flex items-center gap-2"><input type="checkbox" checked={form.vehicles.includes(id)} onChange={(e) => set("vehicles", e.target.checked ? [...form.vehicles, id] : form.vehicles.filter((v) => v !== id))} className="size-4 accent-[#FF8A05]" />{name}</label>)}</div>
+            <div className="mt-2 flex flex-wrap gap-3 font-normal">{VEHICLES.map(([id, name]) => <label key={id} className="flex items-center gap-2"><input type="checkbox" checked={form.vehicles.includes(id)} onChange={(e) => set("vehicles", e.target.checked ? [...form.vehicles, id] : form.vehicles.filter((v) => v !== id))} className="size-4 accent-brand" />{name}</label>)}</div>
           </fieldset>
-          <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={form.firstBookingOnly} onChange={(e) => set("firstBookingOnly", e.target.checked)} className="size-4 accent-[#FF8A05]" />First booking only</label>
-          <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={form.showOnHomepage} onChange={(e) => set("showOnHomepage", e.target.checked)} className="size-4 accent-[#FF8A05]" />Show on homepage</label>
-          <label className="text-sm font-semibold sm:col-span-2">Extra terms (one per line, shown in T&amp;C)<textarea value={form.offerTerms} onChange={(e) => set("offerTerms", e.target.value)} rows={3} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#FF8A05]" /></label>
+          <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={form.firstBookingOnly} onChange={(e) => set("firstBookingOnly", e.target.checked)} className="size-4 accent-brand" />First booking only</label>
+          <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={form.showOnHomepage} onChange={(e) => set("showOnHomepage", e.target.checked)} className="size-4 accent-brand" />Show on homepage</label>
+          <label className="text-sm font-semibold sm:col-span-2">Extra terms (one per line, shown in T&amp;C)<textarea value={form.offerTerms} onChange={(e) => set("offerTerms", e.target.value)} rows={3} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-brand" /></label>
         </div>
         {error && <p role="alert" className="mt-4 text-sm font-semibold text-red-700">{error}</p>}
         <div className="mt-6 flex justify-end gap-3">
           <button type="button" onClick={() => setForm(null)} className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-bold">Cancel</button>
-          <button type="submit" disabled={saving} className="rounded-full bg-[#FF8A05] px-6 py-2.5 text-sm font-bold text-white disabled:opacity-60">{saving ? "Saving…" : "Save"}</button>
+          <button type="submit" disabled={saving} className="rounded-full bg-brand px-6 py-2.5 text-sm font-bold text-white disabled:opacity-60">{saving ? "Saving…" : "Save"}</button>
         </div>
       </form>
     </div>}

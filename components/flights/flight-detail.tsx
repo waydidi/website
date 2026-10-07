@@ -104,7 +104,7 @@ function Weather({ p }: { p: FlightPoint }) {
   }, [p.lat, p.lon, day]);
   if (!w || (!w.now && !w.day)) return null;
   const row = (code: number, title: string, sub: string) => { const [text, Icon] = weatherLabel(code); return <div className="flex items-center gap-4 rounded-xl bg-[#F4F5F8] p-4">
-    <Icon size={34} strokeWidth={1.6} className="shrink-0 text-[#211726]" />
+    <Icon size={34} strokeWidth={1.6} className="shrink-0 text-plum" />
     <div className="min-w-0"><p className="text-[17px] font-semibold">{title.replace("{w}", text)}</p><p className="text-sm text-slate-500">{sub}</p></div>
   </div>; };
   return <section className="rounded-2xl bg-white p-5">
@@ -118,7 +118,7 @@ function Weather({ p }: { p: FlightPoint }) {
 
 function Box({ label, value, sub }: { label: string; value: string | null; sub?: string }) {
   return <div className="grid min-h-[110px] place-items-center rounded-xl border border-slate-200 bg-white px-2 py-3 text-center shadow-[0_2px_8px_rgba(33,23,38,.05)]">
-    <p className="text-[15px] text-[#211726]">{label}</p>
+    <p className="text-[15px] text-plum">{label}</p>
     <p className="text-[24px] font-semibold">{value ?? "–"}</p>
     {sub ? <p className="text-xs text-slate-500">{sub}</p> : <span />}
   </div>;
@@ -137,7 +137,7 @@ function Card({ r }: { r: FlightResult }) {
   const guide = [dep, arr].filter((p) => p.iata && airportByCode(p.iata));
   return <div className="grid gap-4">
     <section className="overflow-hidden rounded-2xl bg-white">
-      <div className={`px-5 py-4 ${b.tone}`}><p className="text-[24px] font-semibold">{b.title}</p><p className="mt-1 text-[15px] text-[#211726]/80">{b.text}</p></div>
+      <div className={`px-5 py-4 ${b.tone}`}><p className="text-[24px] font-semibold">{b.title}</p><p className="mt-1 text-[15px] text-plum/80">{b.text}</p></div>
       <div className="px-5 pb-5 pt-5">
         <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
           <p className="text-[34px] font-semibold leading-none">{hhmm(dep.actual ?? dep.revised ?? dep.scheduled)}</p>
@@ -156,10 +156,10 @@ function Card({ r }: { r: FlightResult }) {
     {(dep.lat !== null && arr.lat !== null) && <section className="overflow-hidden rounded-2xl bg-white p-5 pt-1"><FlightMap from={dep} to={arr} position={r.position} /></section>}
 
     {link && <section className="rounded-2xl bg-white p-5 text-center">
-      <span className="mx-auto grid size-14 place-items-center rounded-full bg-[#FFF6EC] text-[#FE8B05]"><Plane size={26} className="fill-[#FE8B05]" /></span>
+      <span className="mx-auto grid size-14 place-items-center rounded-full bg-brand-wash text-brand"><Plane size={26} className="fill-brand" /></span>
       <h2 className="mt-3 text-[22px] font-semibold">{link.title}</h2>
       <p className="mx-auto mt-2 max-w-md text-[15px] text-slate-600">{link.text}</p>
-      <a href={link.href} className="mt-5 flex h-[52px] items-center justify-center rounded-lg bg-[#FE8B05] text-[17px] font-semibold text-white hover:bg-[#E67900]">{link.button}</a>
+      <a href={link.href} className="mt-5 flex h-[52px] items-center justify-center rounded-lg bg-brand text-[17px] font-semibold text-white hover:bg-brand-strong">{link.button}</a>
     </section>}
 
     <Weather p={arr} />
@@ -174,7 +174,7 @@ function Card({ r }: { r: FlightResult }) {
       <p className="mt-1 text-[15px] text-slate-500">Meeting your driver, terminals and more</p>
       <ul className="mt-3 divide-y divide-slate-200">{guide.map((p) => { const Icon = p === dep ? PlaneTakeoff : PlaneLanding; return <li key={p.iata}>
         <Link href="/airport-pickup-instructions" className="flex items-center gap-4 py-4">
-          <span className="grid size-11 place-items-center rounded-lg bg-[#F4F5F8]"><Icon size={22} className="text-[#211726]" /></span>
+          <span className="grid size-11 place-items-center rounded-lg bg-[#F4F5F8]"><Icon size={22} className="text-plum" /></span>
           <span className="flex-1 text-[17px]">{p.airport ?? airportByCode(p.iata!)?.name}</span><ChevronRight size={20} className="text-slate-400" />
         </Link>
       </li>; })}</ul>
@@ -213,8 +213,8 @@ export function FlightDetail({ flights: raw, onClose }: { flights: FlightResult[
           <p className="mt-1 text-[15px] font-medium underline underline-offset-2">{niceDate(r.date)} | {r.flightNumber}</p>
         </div>
       </div>
-      {legsOpen && <ul className="mx-auto mt-3 max-w-[720px] overflow-hidden rounded-xl bg-white text-[#211726]">{flights.map((f, i) => <li key={i}>
-        <button type="button" onClick={() => { setLeg(i); setLegsOpen(false); }} className={`flex w-full justify-between px-4 py-3 text-left ${i === leg ? "font-semibold text-[#C96100]" : ""}`}><span>{place(f.departure)} – {place(f.arrival)}</span><span>{hhmm(f.departure.scheduled)}</span></button>
+      {legsOpen && <ul className="mx-auto mt-3 max-w-[720px] overflow-hidden rounded-xl bg-white text-plum">{flights.map((f, i) => <li key={i}>
+        <button type="button" onClick={() => { setLeg(i); setLegsOpen(false); }} className={`flex w-full justify-between px-4 py-3 text-left ${i === leg ? "font-semibold text-brand-darker" : ""}`}><span>{place(f.departure)} – {place(f.arrival)}</span><span>{hhmm(f.departure.scheduled)}</span></button>
       </li>)}</ul>}
     </header>
     <div className="flex-1 overflow-y-auto overscroll-contain">

@@ -25,10 +25,10 @@ function splitPhone(phone: string) {
 }
 
 const field = (invalid: boolean) =>
-  `h-14 w-full rounded-xl px-4 text-base text-[#1C1C1C] outline-none placeholder:text-[#8A8A8A] focus:ring-2 focus:ring-brand ${invalid ? "bg-red-50 ring-1 ring-red-300" : "bg-[#F4F4F2]"}`;
+  `h-14 w-full rounded-xl px-4 text-base text-charcoal outline-none placeholder:text-grey-soft focus:ring-2 focus:ring-brand ${invalid ? "bg-red-50 ring-1 ring-red-300" : "bg-[#F4F4F2]"}`;
 
 function OptionPill({ icon: Icon, label, open, onClick }: { icon: typeof Plus; label: string; open: boolean; onClick: () => void }) {
-  return <button type="button" onClick={onClick} aria-expanded={open} className={`inline-flex min-h-12 items-center gap-3 rounded-full border px-5 text-[16px] text-[#1C1C1C] transition ${open ? "border-brand bg-orange-50" : "border-[#D9D9D9] bg-white hover:border-[#BDBDBD]"}`}>
+  return <button type="button" onClick={onClick} aria-expanded={open} className={`inline-flex min-h-12 items-center gap-3 rounded-full border px-5 text-[16px] text-charcoal transition ${open ? "border-brand bg-orange-50" : "border-[#D9D9D9] bg-white hover:border-[#BDBDBD]"}`}>
     {open ? <Icon size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}{label}
   </button>;
 }
@@ -78,21 +78,21 @@ export function BookingDetailsStep({ quoteRequired = false, booking, change, fie
   return <section className="bg-[#F6F5F2] pb-40">
     <div className="mx-auto max-w-[640px] px-4 py-6 sm:py-10">
       <div className="rounded-[20px] border border-[#E6E4DF] bg-white px-5 py-6 sm:px-7">
-        <h2 className="text-[26px] font-semibold tracking-[-.02em] text-[#1C1C1C]">Booking details</h2>
+        <h2 className="text-[26px] font-semibold tracking-[-.02em] text-charcoal">Booking details</h2>
         <div className="mt-5 flex min-w-0 flex-col items-start gap-3">
           <OptionPill icon={Plane} label={airport ? "Add flight number" : "Add flight or train number"} open={open.flight} onClick={() => toggle("flight")} />
           {open.flight && <div className="w-full">
             <input value={booking.flightNumber} onChange={(e) => change("flightNumber", e.target.value)} maxLength={30} placeholder="Flight number, e.g. TG 123" className={`${field(false)} uppercase placeholder:normal-case`} autoFocus />
-            <p className="mt-2 text-sm text-[#6B6B6B]">We use it to follow arrival changes and the right terminal.</p>
+            <p className="mt-2 text-sm text-grey-text">We use it to follow arrival changes and the right terminal.</p>
           </div>}
           <OptionPill icon={NotebookPen} label="Add notes for the driver" open={open.notes} onClick={() => toggle("notes")} />
-          {open.notes && <textarea value={booking.specialRequests} onChange={(e) => change("specialRequests", e.target.value)} maxLength={500} rows={3} placeholder="Accessibility needs, meeting point or other requests" className="w-full resize-none rounded-xl bg-[#F4F4F2] px-4 py-3 text-base outline-none placeholder:text-[#8A8A8A] focus:ring-2 focus:ring-brand" />}
+          {open.notes && <textarea value={booking.specialRequests} onChange={(e) => change("specialRequests", e.target.value)} maxLength={500} rows={3} placeholder="Accessibility needs, meeting point or other requests" className="w-full resize-none rounded-xl bg-[#F4F4F2] px-4 py-3 text-base outline-none placeholder:text-grey-soft focus:ring-2 focus:ring-brand" />}
         </div>
 
         <hr className="my-7 border-[#E6E4DF]" />
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[26px] font-semibold tracking-[-.02em] text-[#1C1C1C]">Lead passenger</h2>
+          <h2 className="text-[26px] font-semibold tracking-[-.02em] text-charcoal">Lead passenger</h2>
           {savedTravellers.length > 0 && <label className="flex items-center gap-2 text-sm text-[#4A4A4A]">
             <UsersRound size={17} aria-hidden="true" /><span className="sr-only">Saved traveller</span>
             <select defaultValue="" onChange={(e) => { const t = savedTravellers.find((x) => x.id === e.target.value); if (t) applyTraveller(t); }} className="rounded-full border border-[#D9D9D9] bg-white px-3 py-2 text-base outline-none focus:border-brand">
@@ -109,14 +109,14 @@ export function BookingDetailsStep({ quoteRequired = false, booking, change, fie
           </div>)}
           <div>
             <div className={`rounded-xl px-4 pb-2 pt-2.5 ${fieldErrors.phone ? "bg-red-50 ring-1 ring-red-300" : "bg-[#F4F4F2]"} focus-within:ring-2 focus-within:ring-brand`}>
-              <label htmlFor="lead-phone" className="block text-[13px] text-[#6B6B6B]">Mobile number (WhatsApp if possible)</label>
+              <label htmlFor="lead-phone" className="block text-[13px] text-grey-text">Mobile number (WhatsApp if possible)</label>
               <div className="mt-0.5 flex items-center gap-2">
                 <button type="button" onClick={() => setDialOpen(true)} aria-label={`Country code ${phone.code}. Change`} className="flex shrink-0 items-center gap-1.5 py-1">
                   <Flag country={MAIN_COUNTRY[phone.code] ?? DIAL_CODES.find(([, c]) => c === phone.code)?.[0] ?? "th"} size={26} />
-                  <ChevronDown size={16} className="text-[#6B6B6B]" aria-hidden="true" />
+                  <ChevronDown size={16} className="text-grey-text" aria-hidden="true" />
                 </button>
-                <span className="shrink-0 text-[17px] text-[#1C1C1C]">{phone.code}</span>
-                <input id="lead-phone" data-booking-field="phone" type="tel" autoComplete="tel-national" inputMode="tel" value={phone.local} onChange={(e) => change("phone", `${phone.code} ${e.target.value}`.trim())} placeholder="81 234 5678" size={1} aria-invalid={Boolean(fieldErrors.phone)} className="w-0 min-w-0 flex-1 bg-transparent py-1 text-[17px] outline-none placeholder:text-[#8A8A8A]" />
+                <span className="shrink-0 text-[17px] text-charcoal">{phone.code}</span>
+                <input id="lead-phone" data-booking-field="phone" type="tel" autoComplete="tel-national" inputMode="tel" value={phone.local} onChange={(e) => change("phone", `${phone.code} ${e.target.value}`.trim())} placeholder="81 234 5678" size={1} aria-invalid={Boolean(fieldErrors.phone)} className="w-0 min-w-0 flex-1 bg-transparent py-1 text-[17px] outline-none placeholder:text-grey-soft" />
               </div>
             </div>
             {fieldErrors.phone && <p className="mt-1.5 text-sm font-medium text-red-700">{fieldErrors.phone}</p>}
@@ -125,18 +125,18 @@ export function BookingDetailsStep({ quoteRequired = false, booking, change, fie
             <div className="relative">
               <label className="sr-only" htmlFor="lead-sign">Meet &amp; Greet sign name</label>
               <input id="lead-sign" value={booking.pickupSign} onChange={(e) => { setSignEdited(e.target.value !== "" && e.target.value !== autoSign); change("pickupSign", e.target.value); }} maxLength={80} placeholder="Meet & Greet name (optional)" className={`${field(false)} pr-12`} />
-              <button type="button" onClick={() => setSignHelp(!signHelp)} aria-expanded={signHelp} aria-label="About Meet & Greet" className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-[#6B6B6B]"><CircleHelp size={20} /></button>
+              <button type="button" onClick={() => setSignHelp(!signHelp)} aria-expanded={signHelp} aria-label="About Meet & Greet" className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-grey-text"><CircleHelp size={20} /></button>
             </div>
-            {signHelp && <p className="mt-2 flex gap-2 text-sm text-[#6B6B6B]"><Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />The name your driver shows on the sign at the meeting point. Leave empty to use the lead passenger&apos;s name.</p>}
+            {signHelp && <p className="mt-2 flex gap-2 text-sm text-grey-text"><Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />The name your driver shows on the sign at the meeting point. Leave empty to use the lead passenger&apos;s name.</p>}
           </div>
           {/* Tax invoice: ticking the box reveals the billing fields. */}
           <div className="rounded-xl border border-[#E6E6E6] p-4">
-            <label className="flex cursor-pointer items-center gap-3 text-[16px] text-[#1C1C1C]">
-              <input type="checkbox" checked={Boolean(booking.taxInvoice)} onChange={(e) => change("taxInvoice", e.target.checked)} className="size-5 shrink-0 accent-[#FF8A05]" />
+            <label className="flex cursor-pointer items-center gap-3 text-[16px] text-charcoal">
+              <input type="checkbox" checked={Boolean(booking.taxInvoice)} onChange={(e) => change("taxInvoice", e.target.checked)} className="size-5 shrink-0 accent-brand" />
               {t("tax.request")}
             </label>
             {booking.taxInvoice && <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-3">
-              <p className="text-sm text-[#6B6B6B]">{t("tax.note")}</p>
+              <p className="text-sm text-grey-text">{t("tax.note")}</p>
               {savedBilling.length > 0 && <label className="block text-sm text-[#4A4A4A]">
                 <span className="sr-only">Use saved billing details</span>
                 <select defaultValue="" onChange={(e) => { const p = savedBilling.find((x) => x.id === e.target.value); if (!p) return; change("taxName", p.name); change("taxId", p.taxId); change("taxBranch", p.branch); change("taxAddress", p.address); }} className="w-full rounded-xl border border-[#D9D9D9] bg-white px-3 py-3 text-base outline-none focus:border-brand">
@@ -159,7 +159,7 @@ export function BookingDetailsStep({ quoteRequired = false, booking, change, fie
                 {fieldErrors.taxAddress && <p className="mt-1.5 text-sm font-medium text-red-700">{fieldErrors.taxAddress}</p>}
               </div>
               {signedIn && onSaveBillingChange && <label className="flex cursor-pointer items-center gap-3 text-sm text-[#4A4A4A]">
-                <input type="checkbox" checked={saveBilling} onChange={(e) => onSaveBillingChange(e.target.checked)} className="size-4 shrink-0 accent-[#FF8A05]" />
+                <input type="checkbox" checked={saveBilling} onChange={(e) => onSaveBillingChange(e.target.checked)} className="size-4 shrink-0 accent-brand" />
                 {t("tax.save")}
               </label>}
             </div>}
@@ -172,7 +172,7 @@ export function BookingDetailsStep({ quoteRequired = false, booking, change, fie
     <DialogPrimitive.Root open={dialOpen} onOpenChange={(open) => { setDialOpen(open); if (!open) setDialQuery(""); }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[80dvh] flex-col rounded-t-[20px] bg-white text-[#0F294D] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
+        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[80dvh] flex-col rounded-t-[20px] bg-white text-navy shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
           <div className="flex items-center justify-between border-b border-[#EEF1F6] px-6 py-5">
             <DialogPrimitive.Title className="text-lg font-bold">Country code</DialogPrimitive.Title>
             <DialogPrimitive.Close className="grid size-9 place-items-center rounded-full hover:bg-slate-100" aria-label="Close"><X size={24} /></DialogPrimitive.Close>
@@ -180,18 +180,18 @@ export function BookingDetailsStep({ quoteRequired = false, booking, change, fie
           <DialogPrimitive.Description className="sr-only">Choose the country code for your mobile number</DialogPrimitive.Description>
           <div className="px-4 pt-3">
             <label className="flex h-12 items-center gap-2 rounded-xl bg-[#F4F4F2] px-4 focus-within:ring-2 focus-within:ring-brand">
-              <Search size={18} className="shrink-0 text-[#6B6B6B]" aria-hidden="true" />
+              <Search size={18} className="shrink-0 text-grey-text" aria-hidden="true" />
               <span className="sr-only">Search country or code</span>
               {/* 16px text so iPhone Safari does not zoom in on focus. */}
-              <input type="search" value={dialQuery} onChange={(e) => setDialQuery(e.target.value)} placeholder="Search country or code" className="w-full bg-transparent text-base outline-none placeholder:text-[#8A8A8A]" />
+              <input type="search" value={dialQuery} onChange={(e) => setDialQuery(e.target.value)} placeholder="Search country or code" className="w-full bg-transparent text-base outline-none placeholder:text-grey-soft" />
             </label>
           </div>
           <ul className="flex-1 overflow-y-auto px-4 py-3">
-            {dialMatches.length === 0 && <li className="px-3 py-6 text-center text-[#6B6B6B]">No countries match &ldquo;{dialQuery}&rdquo;.</li>}
+            {dialMatches.length === 0 && <li className="px-3 py-6 text-center text-grey-text">No countries match &ldquo;{dialQuery}&rdquo;.</li>}
             {dialMatches.map(([country, code, name]) => {
               const selected = code === phone.code;
               return <li key={country}><button type="button" onClick={() => { change("phone", `${code} ${phone.local}`.trim()); setDialOpen(false); setDialQuery(""); }} aria-current={selected || undefined} className={`flex min-h-14 w-full items-center gap-4 rounded-xl px-3 text-left text-base transition ${selected ? "bg-[#F5F7FA] font-medium text-[#3264FF]" : "hover:bg-[#F5F7FA]"}`}>
-                <Flag country={country} size={32} /><span className="flex-1">{name}</span><span className="text-[#6B6B6B]">{code}</span>
+                <Flag country={country} size={32} /><span className="flex-1">{name}</span><span className="text-grey-text">{code}</span>
               </button></li>;
             })}
           </ul>
@@ -203,9 +203,9 @@ export function BookingDetailsStep({ quoteRequired = false, booking, change, fie
     {mounted && createPortal(
     <div className="font-home fixed inset-x-0 bottom-0 z-40 border-t border-[#E6E4DF] bg-white px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgb(33_20_10/0.06)]">
       <div className="mx-auto max-w-[640px]">
-        <p className="flex items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="text-[20px] font-semibold text-[#1C1C1C]">{total}</strong></p>
+        <p className="flex items-baseline gap-2"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="text-[20px] font-semibold text-charcoal">{total}</strong></p>
         <div className="mt-2.5 flex gap-3">
-          <button type="button" onClick={onBack} aria-label="Back to cars" className="grid h-[52px] w-16 shrink-0 place-items-center rounded-xl border-2 border-[#1C1C1C] text-[#1C1C1C]"><ArrowLeft size={20} /></button>
+          <button type="button" onClick={onBack} aria-label="Back to cars" className="grid h-[52px] w-16 shrink-0 place-items-center rounded-xl border-2 border-charcoal text-charcoal"><ArrowLeft size={20} /></button>
           <button type="button" onClick={onContinue} className="h-[52px] flex-1 rounded-xl bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover">{quoteRequired ? "Request a quote" : "Continue"}</button>
         </div>
       </div>

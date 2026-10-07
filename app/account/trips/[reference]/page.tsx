@@ -35,7 +35,7 @@ export default async function TripDetailPage({ params }: { params: Promise<{ ref
   const payment = trip.paymentMethod === "cash" ? "Cash to driver" : "Card";
 
   return <AccountShell name={customer.name} email={customer.email}>
-    <Link href="/account/trips" className="inline-flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-[#D96F00]"><ArrowLeft size={16} /> My trips</Link>
+    <Link href="/account/trips" className="inline-flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-brand-text"><ArrowLeft size={16} /> My trips</Link>
     <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
       <div><p className="text-sm font-bold text-slate-500">Booking reference</p><h1 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">{trip.reference}</h1></div>
       <span className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${bucket === "cancelled" ? "bg-red-50 text-red-700" : bucket === "completed" ? "bg-slate-200 text-slate-700" : "bg-emerald-50 text-emerald-700"}`}>{bucket}</span>
@@ -48,7 +48,7 @@ export default async function TripDetailPage({ params }: { params: Promise<{ ref
           <p className="mt-1 text-sm text-slate-600">{trip.status === "completed" ? "This trip is complete. Thank you for riding with Waydidi." : driverStatusLabel(driverStatus)}</p>
           <ol className="mt-5 grid gap-3 sm:grid-cols-5">
             {steps.map((step, i) => <li key={step.key} className="flex items-center gap-2 sm:flex-col sm:items-start">
-              <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-black ${i <= progress ? "bg-[#FF8A05] text-white" : "bg-slate-100 text-slate-400"}`}>{i <= progress ? <Check size={15} /> : i + 1}</span>
+              <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-black ${i <= progress ? "bg-brand text-white" : "bg-slate-100 text-slate-400"}`}>{i <= progress ? <Check size={15} /> : i + 1}</span>
               <span className={`text-sm font-bold ${i <= progress ? "" : "text-slate-400"}`}>{step.label}</span>
             </li>)}
           </ol>
@@ -80,7 +80,7 @@ export default async function TripDetailPage({ params }: { params: Promise<{ ref
 
       <aside className="grid content-start gap-5">
         <div className="rounded-[22px] bg-white p-5"><TripActions reference={trip.reference} canManage={bucket === "upcoming" && canManageStatus(trip.status)} hasReceipt={trip.status === "confirmed" || trip.status === "completed"} canReturn={trip.serviceType !== "hourly" && !trip.returnDate} /></div>
-        <p className="px-1 text-sm leading-6 text-slate-500">Date changes are made online; cancellations are handled by email under the <Link href="/refund-policy" className="font-bold text-[#C96100] hover:underline">cancellation policy</Link>. Meeting instructions are in your confirmation email.</p>
+        <p className="px-1 text-sm leading-6 text-slate-500">Date changes are made online; cancellations are handled by email under the <Link href="/refund-policy" className="font-bold text-brand-darker hover:underline">cancellation policy</Link>. Meeting instructions are in your confirmation email.</p>
       </aside>
     </div>
   </AccountShell>;
