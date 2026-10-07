@@ -1,4 +1,4 @@
-import { desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, like } from "drizzle-orm";
 import {
   BookOpen,
   CalendarDays,
@@ -10,7 +10,7 @@ import {
   FileText,
 } from "lucide-react";
 import { getDb } from "@/db";
-import { bookingAssignments, bookingCosts, bookings, bookingStorefronts, bookingTaxInvoices, bookingForms, drivers } from "@/db/schema";
+import { bookingAssignments, bookingCosts, bookings, bookingSources, bookingStorefronts, bookingTaxInvoices, bookingForms, drivers } from "@/db/schema";
 import { EditDriverButton } from "@/components/bookings-admin/edit-driver";
 import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
@@ -71,6 +71,9 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const refs = rows.map((r) => r.reference).slice(0, 100);
   const storeLinks = refs.length ? await getDb().select({ ref: bookingStorefronts.bookingReference, cash: bookingStorefronts.cashAtStore }).from(bookingStorefronts).where(inArray(bookingStorefronts.bookingReference, refs)).catch(() => []) : [];
   const cashAtStore = new Set(storeLinks.filter((l) => l.cash).map((l) => l.ref));
+  // Bookings sent by an affiliate partner (link or code): shown as "via name".
+  const partnerSources = refs.length ? await getDb().select({ ref: bookingSources.bookingReference, source: bookingSources.source }).from(bookingSources).where(and(inArray(bookingSources.bookingReference, refs), like(bookingSources.source, "aff:%"))).catch(() => []) : [];
+  const viaPartner = new Map(partnerSources.map((p) => [p.ref, p.source.slice(4)]));
   // Customer trip status page links for bookings that have a driver.
   const origin = (() => { const h = requestHeaders.get("host"); return h ? `${h.startsWith("localhost") ? "http" : "https"}://${h}` : ""; })();
   const tripLinks = new Map(await Promise.all(rows.filter((r) => assigned.has(r.reference)).map(async (r) => [r.reference, await rideUrl(origin, r)] as const)));
@@ -201,7 +204,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                   const cash = !paid && row.paymentMethod === "cash";
                   const tax = taxByBooking.get(row.reference);
                   return <tr key={row.reference} className="align-middle hover:bg-orange-50/40">
-                    <td className="px-4 py-4"><Link href={`/admin/journeys/${encodeURIComponent(row.reference)}`} className="font-semibold text-slate-900 hover:text-[#C96100]">{row.reference}</Link>{row.status !== "confirmed" && <p className="mt-0.5 text-[12px] capitalize text-slate-500">{row.status.replaceAll("_", " ")}</p>}</td>
+                    <td className="px-4 py-4"><Link href={`/admin/journeys/${encodeURIComponent(row.reference)}`} className="font-semibold text-slate-900 hover:text-[#C96100]">{row.reference}</Link>{viaPartner.has(row.reference) && <span className="ml-1.5 rounded-full bg-violet-50 px-2 py-0.5 text-[11.5px] font-semibold text-violet-700">via {viaPartner.get(row.reference)}</span>}{row.status !== "confirmed" && <p className="mt-0.5 text-[12px] capitalize text-slate-500">{row.status.replaceAll("_", " ")}</p>}</td>
                     <td className="px-4 py-4"><p className="font-medium text-slate-900">{row.customerName}</p><p className="text-[12px] text-slate-500">{row.customerPhone}</p>{tax && <p className="mt-1 text-[12px] font-medium text-amber-700">Tax invoice requested</p>}</td>
                     <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${row.pickupDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{row.pickupTime}{row.returnDate && row.returnTime ? ` · return ${row.returnDate} ${row.returnTime}` : ""}</p></td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.pickup}</p></td>

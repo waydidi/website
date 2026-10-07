@@ -17,7 +17,7 @@ import { NotificationBell } from "@/components/admin-settings/notification-bell"
 import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings/settings-dialog";
 
 // "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
-const PARTNER_TABS = [{ href: "/admin/drivers", label: "Drivers" }, { href: "/admin/storefronts", label: "Stores" }, { href: "/admin/agencies", label: "Agencies" }];
+const PARTNER_TABS = [{ href: "/admin/drivers", label: "Drivers" }, { href: "/admin/storefronts", label: "Stores" }, { href: "/admin/agencies", label: "Agencies" }, { href: "/admin/affiliates", label: "Affiliates" }];
 const isPartnersPath = (pathname: string) => pathname === "/admin/partners" || PARTNER_TABS.some(t => pathname === t.href || pathname.startsWith(`${t.href}/`));
 const FINANCIAL_TABS = [{ href: "/admin/payments", label: "Payments" }, { href: "/admin/reports", label: "Reports" }, { href: "/admin/trips/commissions", label: "Commissions" }];
 const isFinancialsPath = (pathname: string) => pathname === "/admin/financials" || FINANCIAL_TABS.some(t => pathname === t.href || pathname.startsWith(`${t.href}/`));

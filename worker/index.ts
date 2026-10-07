@@ -112,7 +112,16 @@ const worker = {
       const hit = await edgeCache.match(url.toString()).catch(() => undefined);
       if (hit) return withSecurityHeaders(hit, url);
     }
-    const response = await handler.fetch(request, env, ctx);
+    let response = await handler.fetch(request, env, ctx);
+    // Affiliate link (?ref=mint): remember the partner for 30 days (the last link clicked wins) and count the click.
+    const ref = request.method === "GET" && !accessPath.startsWith("/api/") && !accessPath.startsWith("/admin") ? url.searchParams.get("ref") : null;
+    if (ref && /^[a-z0-9][a-z0-9-]{1,39}$/.test(ref) && response.status === 200) {
+      const known = await import("../lib/affiliates").then((m) => m.countClick(ref)).catch(() => false);
+      if (known) {
+        response = new Response(response.body, response);
+        response.headers.append("Set-Cookie", `wd_ref=${ref}; Path=/; Max-Age=${30 * 86400}; SameSite=Lax; Secure; HttpOnly`);
+      }
+    }
     if (ttl && edgeCache && response.status === 200 && !response.headers.has("Set-Cookie")) {
       const copy = new Response(response.clone().body, response);
       copy.headers.set("Cache-Control", `public, max-age=0, s-maxage=${ttl}`);

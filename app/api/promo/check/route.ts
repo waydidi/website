@@ -4,6 +4,7 @@ import { z } from "zod";
 import { currentCustomer, overRateLimit } from "@/lib/customer-auth";
 import { isCodeShape, normalizeCode } from "@/lib/promo";
 import { checkPromo } from "@/lib/promo-db";
+import { affiliateByCode, affiliateDiscount, isSelfReferral } from "@/lib/affiliates";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 const input = z.object({
@@ -29,6 +30,13 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ ok: false, reason: "Enter a promo code." }, { status: 400 });
   const code = normalizeCode(parsed.data.code);
   if (!isCodeShape(code)) return NextResponse.json({ ok: false, reason: "This promo code isn't valid." });
+  // A partner's code: their discount (checked again at checkout).
+  const partner = await affiliateByCode(code);
+  if (partner) {
+    if (isSelfReferral(partner, parsed.data.email, parsed.data.phone)) return NextResponse.json({ ok: false, reason: "Partner codes can't be used on your own bookings." }, { headers: { "Cache-Control": "no-store" } });
+    const discount = affiliateDiscount(parsed.data.total, partner.discount_percent);
+    return NextResponse.json({ ok: true, code, title: `${partner.name} · ${partner.discount_percent}% off`, discount, finalTotal: parsed.data.total - discount }, { headers: { "Cache-Control": "no-store" } });
+  }
   const customer = await currentCustomer().catch(() => null);
   const result = await checkPromo({ ...parsed.data, code, customerId: customer?.id ?? null }).catch(() => ({ ok: false as const, reason: "Promo codes are unavailable right now." }));
   if (!result.ok) return NextResponse.json({ ok: false, reason: result.reason }, { headers: { "Cache-Control": "no-store" } });

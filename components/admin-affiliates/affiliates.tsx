@@ -1,0 +1,124 @@
+"use client";
+
+import { Check, Copy, Plus, X } from "lucide-react";
+import { Fragment, useCallback, useEffect, useState } from "react";
+
+type Row = {
+  id: string; slug: string; code: string; name: string; email: string | null; phone: string | null; kind: string;
+  commission_percent: number; discount_percent: number; status: string; notes: string | null;
+  clicks30: number; bookings: number; sales: number; pending: number; earned: number; paid: number;
+};
+type Booking = { booking_reference: string; via: string; fare_before_discount: number; discount: number; commission: number; paid_at: string | null; customer_name: string; pickup_date: string; pickup: string; dropoff: string; state: "pending" | "earned" | "cancelled" };
+
+const thb = (n: number) => `฿${n.toLocaleString("en-US")}`;
+const KINDS: [string, string][] = [["creator", "Blogger / creator"], ["hotel", "Hotel / stay"], ["guide", "Guide / tours"], ["business", "Local business"], ["other", "Other"]];
+const EMPTY = { id: "", name: "", slug: "", code: "", email: "", phone: "", kind: "creator", commissionPercent: "8", discountPercent: "5", status: "active", notes: "" };
+const box = "rounded-2xl border border-slate-200 bg-white";
+
+function CopyButton({ text }: { text: string }) {
+  const [done, setDone] = useState(false);
+  return <button type="button" onClick={() => { void navigator.clipboard.writeText(text).then(() => { setDone(true); window.setTimeout(() => setDone(false), 1500); }); }} aria-label={`Copy ${text}`} className="grid size-7 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">{done ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}</button>;
+}
+
+export function AdminAffiliates() {
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [form, setForm] = useState<typeof EMPTY | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
+  const [bookings, setBookings] = useState<Booking[] | null>(null);
+
+  const load = useCallback(async () => {
+    const r = await fetch("/api/admin/affiliates", { cache: "no-store" });
+    setRows(r.ok ? ((await r.json()) as { affiliates: Row[] }).affiliates : []);
+  }, []);
+  useEffect(() => { const t = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(t); }, [load]);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form) return;
+    setBusy(true); setError("");
+    const r = await fetch("/api/admin/affiliates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    const d = await r.json().catch(() => ({})) as { error?: string };
+    setBusy(false);
+    if (!r.ok) { setError(d.error ?? "Couldn't save."); return; }
+    setForm(null); void load();
+  }
+  async function showBookings(id: string) {
+    if (open === id) { setOpen(null); return; }
+    setOpen(id); setBookings(null);
+    const r = await fetch(`/api/admin/affiliates?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+    setBookings(r.ok ? ((await r.json()) as { bookings: Booking[] }).bookings : []);
+  }
+  async function pay(a: Row) {
+    if (!window.confirm(`Mark ${thb(a.earned)} as paid to ${a.name}? (all completed rides not yet paid)`)) return;
+    await fetch("/api/admin/affiliates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "pay", id: a.id }) });
+    void load(); if (open === a.id) { setOpen(null); }
+  }
+
+  const totals = (rows ?? []).reduce((t, r) => ({ bookings: t.bookings + r.bookings, sales: t.sales + r.sales, owed: t.owed + r.earned, pending: t.pending + r.pending }), { bookings: 0, sales: 0, owed: 0, pending: 0 });
+  const field = "h-10 w-full rounded-lg border border-slate-300 px-3 text-[14px] outline-none focus:border-[#FE8B05]";
+
+  return <div className="grid gap-4">
+    <div className="grid gap-3 sm:grid-cols-4">
+      {[["Bookings via partners", String(totals.bookings)], ["Sales", thb(totals.sales)], ["Commission owed (completed)", thb(totals.owed)], ["Pending (upcoming rides)", thb(totals.pending)]].map(([k, v]) =>
+        <div key={k} className={`${box} p-4`}><p className="text-[12.5px] text-slate-500">{k}</p><p className="mt-1 text-[22px] font-bold">{v}</p></div>)}
+    </div>
+
+    <section className={box}>
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+        <h2 className="text-[15px] font-bold">Affiliate partners</h2>
+        <button type="button" onClick={() => { setForm({ ...EMPTY }); setError(""); }} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#FE8B05] px-4 text-[13.5px] font-semibold text-white hover:bg-[#E67900]"><Plus size={16} />Add partner</button>
+      </div>
+      {rows === null ? <p className="p-4 text-slate-500">Loading…</p> : rows.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No partners yet. Add your first one: they get a link like waydidi.com/?ref=name and a code for their followers.</p> :
+        <div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-[13.5px]">
+          <thead className="text-[12px] text-slate-500"><tr><th className="px-4 py-2">Partner</th><th>Link · code</th><th>Rate</th><th>Clicks (30d)</th><th>Bookings</th><th>Sales</th><th>Owed</th><th>Pending</th><th className="pr-4" /></tr></thead>
+          <tbody className="divide-y divide-slate-100">{rows.map((a) => <Fragment key={a.id}>
+            <tr className="align-middle">
+              <td className="px-4 py-3"><p className="font-semibold">{a.name}{a.status === "paused" && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">Paused</span>}</p><p className="text-[12px] text-slate-500">{KINDS.find(([k]) => k === a.kind)?.[1] ?? a.kind}{a.email ? ` · ${a.email}` : ""}</p></td>
+              <td><span className="flex items-center gap-1 font-mono text-[12.5px]">waydidi.com/?ref={a.slug}<CopyButton text={`https://waydidi.com/?ref=${a.slug}`} /></span><span className="flex items-center gap-1 font-mono text-[12.5px] text-[#C96100]">{a.code}<CopyButton text={a.code} /></span></td>
+              <td className="text-[12.5px]">{a.commission_percent}% to them<br /><span className="text-slate-500">{a.discount_percent}% off with code</span></td>
+              <td>{a.clicks30}</td><td>{a.bookings}</td><td>{thb(a.sales)}</td>
+              <td className="font-semibold text-emerald-700">{thb(a.earned)}</td><td className="text-amber-700">{thb(a.pending)}</td>
+              <td className="whitespace-nowrap pr-4 text-right">
+                <button type="button" onClick={() => void showBookings(a.id)} className="rounded-lg px-2 py-1 font-semibold text-[#C96100] hover:bg-[#FFF6EC]">{open === a.id ? "Hide" : "Bookings"}</button>
+                <button type="button" onClick={() => { setForm({ id: a.id, name: a.name, slug: a.slug, code: a.code, email: a.email ?? "", phone: a.phone ?? "", kind: a.kind, commissionPercent: String(a.commission_percent), discountPercent: String(a.discount_percent), status: a.status, notes: a.notes ?? "" }); setError(""); }} className="rounded-lg px-2 py-1 font-semibold text-slate-600 hover:bg-slate-100">Edit</button>
+                {a.earned > 0 && <button type="button" onClick={() => void pay(a)} className="ml-1 rounded-lg bg-[#211726] px-2.5 py-1 font-semibold text-white">Mark paid</button>}
+              </td>
+            </tr>
+            {open === a.id && <tr><td colSpan={9} className="bg-slate-50 px-4 py-3">
+              {bookings === null ? <p className="text-slate-500">Loading…</p> : bookings.length === 0 ? <p className="text-slate-500">No bookings yet.</p> :
+                <table className="w-full text-[13px]"><thead className="text-slate-500"><tr><th className="py-1 text-left">Booking</th><th className="text-left">Ride</th><th className="text-left">Via</th><th className="text-left">Paid by customer</th><th className="text-left">Commission</th></tr></thead>
+                  <tbody>{bookings.map((b) => <tr key={b.booking_reference} className="border-t border-slate-200">
+                    <td className="py-1.5 font-mono">{b.booking_reference}</td><td>{b.pickup_date} · {b.customer_name} · {b.pickup} → {b.dropoff}</td><td>{b.via === "code" ? "Code" : "Link"}</td>
+                    <td>{thb(b.fare_before_discount - b.discount)}{b.discount > 0 && <span className="text-slate-500"> ({thb(b.discount)} off)</span>}</td>
+                    <td><span className={`rounded-full px-2 py-0.5 text-[11.5px] font-bold ${b.state === "cancelled" ? "bg-slate-100 text-slate-500 line-through" : b.paid_at ? "bg-emerald-50 text-emerald-700" : b.state === "earned" ? "bg-[#FFF0DF] text-[#C96100]" : "bg-amber-50 text-amber-800"}`}>{thb(b.commission)} {b.state === "cancelled" ? "cancelled" : b.paid_at ? "paid" : b.state === "earned" ? "owed" : "pending"}</span></td>
+                  </tr>)}</tbody></table>}
+            </td></tr>}
+          </Fragment>)}</tbody>
+        </table></div>}
+    </section>
+    <p className="text-[12.5px] text-slate-500">Commission is earned when the ride is completed, on what the customer actually paid. Cancelled rides earn nothing. A partner link is remembered for 30 days (the last link clicked wins); a partner&apos;s code also gives the customer their discount. Partners can&apos;t earn on their own bookings, and store (QR) bookings don&apos;t count.</p>
+
+    {form && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#211726]/50 p-4" role="dialog" aria-modal="true" aria-labelledby="aff-form">
+      <form onSubmit={save} className="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <button type="button" onClick={() => setForm(null)} aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></button>
+        <h2 id="aff-form" className="text-[20px] font-bold">{form.id ? "Edit partner" : "Add partner"}</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-[13px] font-semibold sm:col-span-2">Name<input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={field} placeholder="e.g. Mint Travels" /></label>
+          <label className="grid gap-1 text-[13px] font-semibold">Link name<input required value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })} className={field} placeholder="mint" /><span className="font-normal text-slate-500">waydidi.com/?ref={form.slug || "…"}</span></label>
+          <label className="grid gap-1 text-[13px] font-semibold">Code<input required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })} className={field} placeholder="MINT5" /><span className="font-normal text-slate-500">Typed in the promo code box</span></label>
+          <label className="grid gap-1 text-[13px] font-semibold">Commission to partner (%)<input required inputMode="decimal" value={form.commissionPercent} onChange={(e) => setForm({ ...form, commissionPercent: e.target.value })} className={field} /></label>
+          <label className="grid gap-1 text-[13px] font-semibold">Customer discount with code (%)<input required inputMode="decimal" value={form.discountPercent} onChange={(e) => setForm({ ...form, discountPercent: e.target.value })} className={field} /></label>
+          <label className="grid gap-1 text-[13px] font-semibold">Email<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={field} /></label>
+          <label className="grid gap-1 text-[13px] font-semibold">Phone<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={field} /></label>
+          <label className="grid gap-1 text-[13px] font-semibold">Type<select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} className={field}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+          <label className="grid gap-1 text-[13px] font-semibold">Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={field}><option value="active">Active</option><option value="paused">Paused (link and code stop working)</option></select></label>
+          <label className="grid gap-1 text-[13px] font-semibold sm:col-span-2">Notes (bank / PromptPay, agreement…)<textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className="w-full rounded-lg border border-slate-300 p-3 text-[14px] outline-none focus:border-[#FE8B05]" /></label>
+        </div>
+        {error && <p role="alert" className="mt-3 text-[14px] text-red-600">{error}</p>}
+        <button type="submit" disabled={busy} className="mt-5 h-11 w-full rounded-xl bg-[#FE8B05] font-semibold text-white hover:bg-[#E67900] disabled:opacity-60">{busy ? "Saving…" : "Save partner"}</button>
+      </form>
+    </div>}
+  </div>;
+}
