@@ -7,7 +7,7 @@ import { bookingExtras } from "@/lib/booking-extras";
 import { createConfirmationPdf } from "@/lib/confirmation-pdf";
 import { sendConfirmationEmail } from "@/lib/email";
 import { sha256 } from "@/lib/security";
-import { SITE_URL } from "@/lib/site";
+import { SITE_URL, publicSiteUrl } from "@/lib/site";
 import { rideUrl } from "@/lib/trip-access";
 type Booking=typeof bookings.$inferSelect;
 type Delivery={id:string;channel:string;recipient:string|null;attempts:number};
@@ -19,7 +19,7 @@ export async function fulfillBooking(booking:Booking,paymentIntentId?:string|nul
  const [confirmed]=await getDb().update(bookings).set({status:"confirmed",paymentIntentId:paymentIntentId??booking.paymentIntentId,updatedAt:now}).where(and(eq(bookings.reference,booking.reference),inArray(bookings.status,["pending_payment","expired","confirmed"]),or(inArray(bookings.paymentStatus,["paid","partially_refunded"]),and(eq(bookings.paymentMethod,"cash"),eq(bookings.paymentStatus,"cash_due"))))).returning();
  if(!confirmed) return {emailStatus:booking.emailStatus,pdfKey:booking.pdfKey};
  booking=confirmed;
- await import("@/lib/trip-booking").then((m)=>m.markTripPaid(booking.reference,(env.WAYDIDI_PUBLIC_URL||"https://waydidi.com").replace(/\/$/,""))).catch((error)=>console.error("smart trip close failed",error));
+ await import("@/lib/trip-booking").then((m)=>m.markTripPaid(booking.reference,publicSiteUrl(env.WAYDIDI_PUBLIC_URL))).catch((error)=>console.error("smart trip close failed",error));
  await import("@/lib/telegram/bookings").then((m)=>m.notifyBookingTelegram(booking.reference)).catch((error)=>console.error("telegram booking card failed",error instanceof Error?error.message:"unknown"));
  const legacy=booking.fulfillmentStatus==="complete";
  const channels=[{channel:"confirmation",recipient:null},{channel:"pdf",recipient:null},{channel:"customer_email",recipient:booking.customerEmail},{channel:"office_email",recipient:env.BOOKING_ALERT_EMAIL??null},...(await contactEmails(booking.reference)).filter(to=>to.toLowerCase()!==booking.customerEmail.toLowerCase()).map(recipient=>({channel:"copy_email",recipient}))];

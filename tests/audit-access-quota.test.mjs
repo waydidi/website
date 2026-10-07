@@ -28,7 +28,7 @@ for(const [id,customerId,channel] of [['anonymous',null,'web'],['old-owner','ali
 
 test('chat lookup requires verified ownership and never issues a bearer tracking key',async()=>{
  for(const id of ['anonymous','old-owner','external'])assert.equal((await lookup.checkBooking(id,'ABCD23','Traveller')).ok,false,id);
- const r=await lookup.checkBooking('owner','ABCD23','Traveller');assert.equal(r.ok,true);assert.equal(r.booking.rideUrl,'https://waydidi-website.contact-waydidi.workers.dev/account/trips/ABCD23');assert.doesNotMatch(r.booking.rideUrl,/ride=|key=|token=/);
+ const r=await lookup.checkBooking('owner','ABCD23','Traveller');assert.equal(r.ok,true);assert.equal(r.booking.rideUrl,'https://waydidi.com/account/trips/ABCD23');assert.doesNotMatch(r.booking.rideUrl,/ride=|key=|token=/);
  assert.equal(await auth.customerBooking({id:'alice',email:'alice@example.invalid'},'ABCD23'),null);
  assert.ok(await auth.customerBooking({id:'bob',email:'bob@example.invalid'},'ABCD23'));
 });

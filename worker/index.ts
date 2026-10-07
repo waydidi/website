@@ -51,7 +51,7 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-    // Page visits on earlier custom-domain aliases move to the single live origin. API and
+    // Page visits on alternate hostnames move to the primary domain. API and
     // webhook calls (Stripe, Telegram, LINE, WhatsApp) keep working there until they are re-pointed.
     if (LEGACY_HOSTS.includes(url.hostname) && (request.method === "GET" || request.method === "HEAD") && !url.pathname.startsWith("/api/")) {
       return Response.redirect(new URL(url.pathname + url.search, SITE_URL).toString(), 301);
