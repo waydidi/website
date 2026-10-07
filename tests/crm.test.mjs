@@ -163,3 +163,88 @@ test('concurrent quote conversions cannot attach the enquiry to another booking'
     const other = quote.booking_reference === 'CONVERTA' ? 'CONVERTB' : 'CONVERTA';
     assert.notEqual((await d1.prepare("SELECT contact_id FROM crm_sources WHERE kind='booking' AND source_id=?").bind(other).first()).contact_id, c.id);
 });
+
+test('regression: linked booking leaves an empty searchable guest contact', async () => {
+ await d1.prepare("INSERT INTO customers(id,email,name,created_at,updated_at) VALUES('review-member','review@example.invalid','Review member',?,?)").bind(now,now).run();
+ await book('REVIEWLINK','review@example.invalid');
+ await db.insert(schema.customerBookingLinks).values({bookingReference:'REVIEWLINK',customerId:'review-member',createdAt:now});
+ const rows=(await crm.crmList('customers','review@example.invalid',1,'')).items;
+ assert.equal(rows.length,1,'one verified customer should have one active profile');
+});
+test('regression: concurrent different member merges into one guest', async () => {
+ await d1.batch(['a','b'].map(x=>d1.prepare('INSERT INTO customers(id,email,name,created_at,updated_at) VALUES(?,?,?,?,?)').bind('review-'+x,'review-'+x+'@example.invalid','Review '+x,now,now)));
+ const target=await create('Review merge target');
+ const outcomes=await Promise.allSettled(['a','b'].map(x=>crm.crmAction('merge',{id:'member:review-'+x,targetId:target.id},'owner','owner')));
+ assert.equal(outcomes.filter(o=>o.status==='fulfilled').length,1);
+ const memberSources=(await d1.prepare("SELECT source_id FROM crm_sources WHERE kind='member' AND contact_id=?").bind(target.id).all()).results;
+ assert.equal(memberSources.length,1,'distinct registered accounts must not share the merged profile');
+});
+test('regression: booking price updates refresh pipeline',async()=>{
+ await book('REVIEWPRICE','price@example.invalid');
+ await d1.prepare("UPDATE bookings SET total=3500,dropoff='Koh Chang' WHERE reference='REVIEWPRICE'").run();
+ const lead=await d1.prepare("SELECT title,value_minor FROM crm_leads WHERE booking_reference='REVIEWPRICE'").first();
+ assert.equal(lead.value_minor,350000);
+});
+test('regression: rebooking cancels existing retention task',async()=>{
+ const automation=await vite.ssrLoadModule('/lib/crm-automation.ts');
+ await book('REVIEWOLD','retention-review@example.invalid','completed');
+ await d1.prepare("UPDATE bookings SET pickup_date=? WHERE reference='REVIEWOLD'").bind(new Date(Date.now()-60*86400000).toISOString().slice(0,10)).run();
+ const rule=await crm.crmAction('retention',{title:'Review win-back',kind:'inactive',days:30,ownerId:'owner',channel:'task',message:'',enabled:true},'owner','owner');
+ await d1.prepare("DELETE FROM crm_sync_state WHERE id='automation'").run();
+ await automation.runCrmAutomation();
+ await book('REVIEWNEW','retention-review@example.invalid','confirmed');
+ await automation.runCrmAutomation(new Date(Date.now()+6*60000));
+ const task=await d1.prepare('SELECT status,lead_id FROM crm_tasks WHERE dedupe_key=?').bind('retention:'+rule.id+':REVIEWOLD').first();
+ assert.equal(task.status,'cancelled');
+});
+
+test('regression: one conflicting quote must not block the email queue',async()=>{
+ const automation=await vite.ssrLoadModule('/lib/crm-automation.ts');
+ const c=await create('Review conflicting quotes');
+ const l=await crm.crmAction('lead',{contactId:c.id,title:'Two quote alternatives',valueMinor:200000},'owner','owner');
+ for(const x of ['A','B']){
+   const q=await crm.crmAction('quote',{contactId:c.id,leadId:l.id,title:'Alternative '+x,pickup:'Bangkok',dropoff:'Pattaya',tripDate:future,tripTime:'09:00',vehicle:'economy_sedan',amountMinor:200000,expiresAt:new Date(Date.now()+86400000).toISOString()},'owner','owner');
+   const share=await crm.crmAction('quote_share',{id:q.id},'owner','owner');
+   const accepted=await crm.acceptQuote(share.url.split('/').at(-1));
+   await book('REVIEWQUOTE'+x,'quotes@example.invalid');
+   await d1.prepare('UPDATE booking_forms SET booking_reference=? WHERE token=?').bind('REVIEWQUOTE'+x,accepted.path.split('/').at(-1)).run();
+ }
+ await queue.enqueueCrmEmail('review-independent-email','independent@example.invalid',{kind:'reward',data:{to:'independent@example.invalid',title:'Gift',kicker:'Gift',intro:'Hello',cta:'Open',path:'/account',tag:'review-independent-email'}});
+ await d1.prepare("DELETE FROM crm_sync_state WHERE id='automation'").run();
+ let failure; try{await automation.runCrmAutomation();}catch(e){failure=e.message;}
+ assert.equal(failure,undefined);
+ const state=await d1.prepare("SELECT status FROM crm_outbox WHERE dedupe_key='review-independent-email'").first();
+ assert.equal(state.status,'sent','one invalid quote should not block unrelated email delivery');
+});
+test('regression: export matches literal CRM search',async()=>{
+ const listed=await crm.crmList('customers','%',1,'');
+ const csv=await new Response(await crm.exportContacts('%')).text();
+ assert.equal(csv.trim().split('\r\n').length-1,listed.total);
+});
+
+test('CSV exports fetch bounded pages only on demand and cancel without aggregate queries',async()=>{
+ const queries=[];
+ globalThis.__crmEnv.DB={prepare(sql){queries.push(sql);return d1.prepare(sql);},batch:statements=>d1.batch(statements)};
+ try{
+  for(const make of [()=>members.memberCsv('', 'all', 'newest'),()=>crm.exportContacts('')]){
+   queries.length=0;const stream=await make(),reader=stream.getReader();
+   assert.equal(queries.length,0);await reader.read();assert.equal(queries.length,0,'header needs no database query');
+   const chunk=await reader.read();assert.equal(queries.length,1);assert.ok(queries[0].includes('LIMIT 100'));assert.ok(!queries[0].includes('sum(c.created_at'));
+   assert.ok(new TextDecoder().decode(chunk.value).trim().split('\r\n').length<=100);
+   await reader.cancel();assert.equal(queries.length,1);
+  }
+ }finally{globalThis.__crmEnv.DB=d1;}
+});
+test('CSV cursors preserve all members across every supported sort and CRM filters',async()=>{
+ const count=(await members.memberPage('',1)).total;
+ for(const sort of ['newest','oldest','name','trips']){
+  const csv=await new Response(await members.memberCsv('','all',sort)).text();
+  const emails=csv.trim().split('\r\n').slice(1).map(row=>row.split(',')[1]);
+  assert.equal(emails.length,count);assert.equal(new Set(emails).size,count);
+ }
+ for(const filter of ['members','guests']){
+  const expected=(await crm.crmList('customers','review@example.invalid',1,filter)).total;
+  const csv=await new Response(await crm.exportContacts('review@example.invalid',filter)).text();
+  assert.equal(csv.trim().split('\r\n').length-1,expected);
+ }
+});

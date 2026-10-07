@@ -2,6 +2,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingEvents, bookings, customerBookingLinks, customers } from "@/db/schema";
 import { crmDb } from "@/lib/crm";
+import { csvStream } from "@/lib/csv-stream";
 import { csvCell } from "@/lib/crm-rules";
 import { ACCOUNT_VISIBLE_STATUSES } from "@/lib/customer-account";
 
@@ -88,26 +89,37 @@ export async function linkBookingToCustomer(customerId: string, reference: strin
   return { ok: true as const, reference, already: false, guest: `${booking.name} ${booking.surname ?? ""}`.trim() };
 }
 
-export async function memberPage(search:string,page=1,filter="all",sort="newest") {
-  const db=crmDb(),term=search.trim().toLowerCase().slice(0,100),q=`%${term.replace(/[\\%_]/g,"\\$&")}%`;
+function memberQuery(search: string, filter: string, sort: string) {
+  const term=search.trim().toLowerCase().slice(0,100),q=`%${term.replace(/[%_^]/g,"^$&")}%`;
   const statuses=ACCOUNT_VISIBLE_STATUSES.map(s=>`'${s}'`).join(',');
   const tripSql=`(select count(*) from bookings b where b.status in (${statuses}) and (exists(select 1 from customer_booking_links l where l.booking_reference=b.reference and l.customer_id=c.id) or (lower(b.customer_email)=c.email and not exists(select 1 from customer_booking_links l where l.booking_reference=b.reference))))`;
   const now=Date.now(),bkk=new Date(now+7*3600000),monthStart=new Date(Date.UTC(bkk.getUTCFullYear(),bkk.getUTCMonth(),1)-7*3600000).toISOString(),activeSince=new Date(now-30*86400000).toISOString();
-  let where="(c.email LIKE ? ESCAPE '\\' or lower(coalesce(c.name,'') || ' ' || coalesce(c.surname,'')) LIKE ? ESCAPE '\\' or coalesce(c.phone,'') LIKE ? ESCAPE '\\')";const args:unknown[]=[q,q,q];
+  let where="(c.email LIKE ? ESCAPE '^' or lower(coalesce(c.name,'') || ' ' || coalesce(c.surname,'')) LIKE ? ESCAPE '^' or coalesce(c.phone,'') LIKE ? ESCAPE '^')";const args:unknown[]=[q,q,q];
   if(filter==='booked')where+=` AND ${tripSql}>0`;if(filter==='none')where+=` AND ${tripSql}=0`;if(filter==='new'){where+=' AND c.created_at>=?';args.push(monthStart);}
-  const order=sort==='name'?"coalesce(c.name,'') ASC,c.id ASC":sort==='oldest'?'c.created_at ASC,c.id ASC':sort==='trips'?`${tripSql} DESC,c.id ASC`:'c.created_at DESC,c.id DESC';
+  const key=sort==='name'?"coalesce(c.name,'')":sort==='trips'?tripSql:'c.created_at';
+  const direction=sort==='name'||sort==='oldest'?'ASC':'DESC';
+  // Trips break ties ascending by ID, matching the member directory.
+  const idDirection=sort==='trips'?'ASC':direction;
+  const order=`${key} ${direction},c.id ${idDirection}`;
+  const select=`SELECT c.id,c.email,c.name,c.surname,c.phone,c.marketing_opt_in marketingOptIn,c.created_at createdAt,c.last_seen_at lastSeenAt,${tripSql} trips,(select group_concat(provider) from customer_identities i where i.customer_id=c.id) providers`;
+  return {where,args,key,direction,idDirection,order,select,tripSql,monthStart,activeSince};
+}
+export async function memberPage(search:string,page=1,filter="all",sort="newest") {
+  const db=crmDb(),{where,args,order,select,tripSql,monthStart,activeSince}=memberQuery(search,filter,sort);
   const [items,count,stats]=await Promise.all([
-    db.prepare(`SELECT c.id,c.email,c.name,c.surname,c.phone,c.marketing_opt_in marketingOptIn,c.created_at createdAt,c.last_seen_at lastSeenAt,${tripSql} trips,(select group_concat(provider) from customer_identities i where i.customer_id=c.id) providers FROM customers c WHERE ${where} ORDER BY ${order} LIMIT 50 OFFSET ?`).bind(...args,(Math.max(1,page)-1)*50).all(),
+    db.prepare(`${select} FROM customers c WHERE ${where} ORDER BY ${order} LIMIT 50 OFFSET ?`).bind(...args,(Math.max(1,page)-1)*50).all(),
     db.prepare(`SELECT count(*) total FROM customers c WHERE ${where}`).bind(...args).first<{total:number}>(),
     db.prepare(`SELECT count(*) total,sum(c.created_at>=?) newThisMonth,sum(c.last_seen_at>=?) active30,sum(c.marketing_opt_in) optIn,sum(${tripSql}>0) booked FROM customers c`).bind(monthStart,activeSince).first(),
   ]);
   return {items:items.results,total:count?.total??0,page,stats};
 }
 export async function memberCsv(search:string,filter:string,sort:string){
- const encoder=new TextEncoder();
- return new ReadableStream<Uint8Array>({async start(controller){
-  try{controller.enqueue(encoder.encode(['Name','Email','Phone','Trips','Joined','Last active','Offers'].map(csvCell).join(',')+'\r\n'));
-   let page=1;while(true){const data=await memberPage(search,page,filter,sort);for(const item of data.items){const u=item as Record<string,unknown>;controller.enqueue(encoder.encode([`${u.name??''} ${u.surname??''}`.trim(),u.email,u.phone,u.trips,u.createdAt,u.lastSeenAt,u.marketingOptIn?'Yes':'No'].map(csvCell).join(',')+'\r\n'));}if(page*50>=data.total)break;page++;}controller.close();
-  }catch(error){controller.error(error);}
- }});
+  const db=crmDb(),{where,args,key,direction,idDirection,order,select}=memberQuery(search,filter,sort);
+  let cursor:{id:string;value:unknown}|null=null;
+  return csvStream(['Name','Email','Phone','Trips','Joined','Last active','Offers'].map(csvCell).join(',')+'\r\n',async()=>{
+    const after=cursor?` AND (${key}${direction==='ASC'?'>':'<'}? OR (${key}=? AND c.id${idDirection==='ASC'?'>':'<'}?))`:'';
+    const batch=(await db.prepare(`${select},${key} csv_sort_key FROM customers c WHERE ${where}${after} ORDER BY ${order} LIMIT 100`).bind(...args,...(cursor?[cursor.value,cursor.value,cursor.id]:[])).all<Record<string,unknown>>()).results;
+    const last=batch.at(-1);if(last)cursor={id:String(last.id),value:last.csv_sort_key};
+    return {text:batch.map(u=>[`${u.name??''} ${u.surname??''}`.trim(),u.email,u.phone,u.trips,u.createdAt,u.lastSeenAt,u.marketingOptIn?'Yes':'No'].map(csvCell).join(',')+'\r\n').join(''),done:batch.length<100};
+  });
 }

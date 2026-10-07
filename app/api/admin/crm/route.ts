@@ -16,7 +16,7 @@ export async function GET(request: Request) {
         if (view === 'export') {
             if (staff.role === 'support')
                 return Response.json({ error: 'Export access required' }, { status: 403, headers });
-            return new Response(await exportContacts(q), { headers: { ...headers, 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="waydidi-customers.csv"' } });
+            return new Response(await exportContacts(q, u.searchParams.get('filter') ?? ''), { headers: { ...headers, 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="waydidi-customers.csv"' } });
         }
         if (view === 'partner_detail') {
             if (staff.role === 'support')

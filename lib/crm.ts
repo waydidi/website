@@ -1,3 +1,4 @@
+import { csvStream } from "./csv-stream";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { contactInput, taskInput, quoteInput, STAGES, normalizePhone, csvCell } from "./crm-rules";
@@ -68,6 +69,10 @@ async function staffExists(id: string) {
     if (!await first("SELECT id FROM staff_accounts WHERE id=? AND active=1 AND role IN ('owner','operations','support')", id))
         throw new CrmError("Choose an active CRM staff member.");
 }
+const contactSearch = (search: string, filter: string) => ({
+    where: "c.merged_into IS NULL AND (c.name LIKE ? ESCAPE '^' OR coalesce(c.email,'') LIKE ? ESCAPE '^' OR coalesce(c.phone,'') LIKE ? ESCAPE '^')" + (filter === 'members' ? ' AND c.member_id IS NOT NULL' : filter === 'guests' ? ' AND c.member_id IS NULL' : ''),
+    args: Array(3).fill(`%${search.replace(/[%_^]/g, "^$&")}%`) as string[],
+});
 export async function crmList(view: string, search: string, page: number, filter: string) {
     const offset = (page - 1) * 25, q = `%${search.replace(/[%_^]/g, "^$&")}%`;
     const contactSelect = `SELECT c.*,(SELECT count(*) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN ('confirmed','completed')) trips,(SELECT coalesce(sum(b.total),0) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN ('confirmed','completed')) spend FROM crm_contacts c`;
@@ -124,10 +129,7 @@ export async function crmList(view: string, search: string, page: number, filter
         args = [q];
         select = 'SELECT t.* FROM ' + from;
     }
-    if (view === 'customers' && filter === 'members')
-        where += ' AND c.member_id IS NOT NULL';
-    if (view === 'customers' && filter === 'guests')
-        where += ' AND c.member_id IS NULL';
+    if (view === 'customers') ({ where, args } = contactSearch(search, filter));
     const [items, total, team] = await Promise.all([rows(select + ' WHERE ' + where + ' ORDER BY ' + (view === 'tasks' ? 't.due_at ASC' : view === 'pipeline' ? 'l.updated_at DESC' : view === 'partners' ? 't.created_at DESC' : view === 'customers' ? 'c.updated_at DESC' : 't.created_at DESC') + ' LIMIT 25 OFFSET ?', ...args, offset), first<{
             n: number;
         }>('SELECT count(*) n FROM ' + from + ' WHERE ' + where, ...args), rows("SELECT id,display_name name FROM staff_accounts WHERE active=1 AND role IN ('owner','operations','support') ORDER BY display_name")]);
@@ -186,7 +188,7 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
             throw new CrmError('Choose two different records.');
         if (source.member_id && target.member_id && source.member_id !== target.member_id)
             throw new CrmError('Two registered accounts cannot be merged.');
-        // Conditional CAS claims both records; D1 batch rolls back on conflict. Merges move CRM references only.
+        // Database guards validate current source/target identities inside the D1 batch.
         await db.batch([db.prepare("UPDATE crm_contacts SET merged_into=?,marketing_opt_in=0,updated_at=? WHERE id=?").bind(target.id, stamp, id), ...['crm_sources', 'crm_leads', 'crm_tasks', 'crm_quotes', 'crm_events', 'crm_outbox', 'crm_marketing_tokens'].map(t => db.prepare(`UPDATE ${t} SET contact_id=? WHERE contact_id=?`).bind(target.id, id)), db.prepare("UPDATE crm_contacts SET member_id=coalesce(member_id,?),marketing_opt_in=0,updated_at=? WHERE id=?").bind(source.member_id, stamp, target.id), eventStatement(target.id, id, 'merge', `Merged ${source.name} (${id}); sign-in and booking permissions unchanged`, staffId)]);
         return { id: target.id };
     }
@@ -331,7 +333,15 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
     }
     throw new CrmError('Unknown CRM action.');
 }
-export async function exportContacts(search: string) { const q = `%${search}%`; const result = await rows<Contact>("SELECT * FROM crm_contacts WHERE merged_into IS NULL AND (name LIKE ? OR email LIKE ? OR phone LIKE ?) ORDER BY id", q, q, q); return [['Name', 'Email', 'Phone', 'Member', 'Marketing opt-in'], ...result.map(c => [c.name, c.email, c.phone, c.member_id ? 'Yes' : 'No', c.marketing_opt_in ? 'Yes' : 'No'])].map(r => r.map(csvCell).join(',')).join('\r\n'); }
+export async function exportContacts(search: string, filter = '') {
+    const { where, args } = contactSearch(search, filter);
+    let cursor: string | null = null;
+    return csvStream(['Name', 'Email', 'Phone', 'Member', 'Marketing opt-in'].map(csvCell).join(',') + '\r\n', async () => {
+        const batch = await rows<Contact>(`SELECT c.id,c.name,c.email,c.phone,c.member_id,c.marketing_opt_in FROM crm_contacts c WHERE ${where}${cursor === null ? '' : ' AND c.id>?'} ORDER BY c.id LIMIT 100`, ...args, ...(cursor === null ? [] : [cursor]));
+        cursor = batch.at(-1)?.id ?? cursor;
+        return { text: batch.map(c => [c.name,c.email,c.phone,c.member_id ? 'Yes' : 'No',c.marketing_opt_in ? 'Yes' : 'No'].map(csvCell).join(',') + '\r\n').join(''), done: batch.length < 100 };
+    });
+}
 export async function publicQuote(token: string) {
     if (!/^[a-f0-9]{48,128}$/.test(token))
         return null;

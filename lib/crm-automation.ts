@@ -1,11 +1,23 @@
 import { crmDb } from "./crm";
 import { enqueueCrmEmail, recoverCrmEmails } from "./crm-email-queue";
 export async function runCrmAutomation(at = new Date()) {
+    try { await scanCrmAutomation(at); }
+    catch (error) { console.error('CRM scheduling failed', error); }
+    return recoverCrmEmails(at);
+}
+async function scanCrmAutomation(at: Date) {
     const db = crmDb(), stamp = at.toISOString();
     // Atomic five-minute scheduler lease avoids concurrent scans.
     const lease = await db.prepare("INSERT INTO crm_sync_state(id,last_run_at) VALUES('automation',?) ON CONFLICT(id) DO UPDATE SET last_run_at=excluded.last_run_at WHERE crm_sync_state.last_run_at<?").bind(stamp, new Date(at.getTime() - 5 * 60000).toISOString()).run();
     if (!lease.meta.changes)
         return 0;
+    // Rebooking invalidates already-created retention tasks as well as future candidates.
+    await db.prepare(`UPDATE crm_tasks SET status='cancelled',updated_at=? WHERE status='open' AND dedupe_key LIKE 'retention:%' AND EXISTS(
+        SELECT 1 FROM crm_retention_rules r JOIN bookings b ON crm_tasks.dedupe_key='retention:'||r.id||':'||b.reference
+        JOIN bookings n ON n.reference<>b.reference AND n.status IN ('confirmed','completed') AND n.pickup_date>=b.pickup_date
+        WHERE lower(n.customer_email)=lower((SELECT email FROM crm_contacts WHERE id=crm_tasks.contact_id))
+        OR EXISTS(SELECT 1 FROM crm_sources s WHERE s.kind='booking' AND s.source_id=n.reference AND s.contact_id=crm_tasks.contact_id)
+    )`).bind(stamp).run();
     const due = (await db.prepare("SELECT t.id,t.title,a.display_name FROM crm_tasks t JOIN staff_accounts a ON a.id=t.owner_id WHERE t.status='open' AND t.due_at<=? AND t.reminded_at IS NULL ORDER BY t.due_at LIMIT 30").bind(stamp).all<{
         id: string;
         title: string;
@@ -34,8 +46,13 @@ export async function runCrmAutomation(at = new Date()) {
         booking_reference: string;
         total: number;
     }>()).results;
-    for (const q of converted)
-        await db.prepare("UPDATE crm_quotes SET status='converted',booking_reference=?,token_hash=NULL,updated_at=? WHERE id=? AND status='accepted'").bind(q.booking_reference, stamp, q.id).run();
+    for (const q of converted) {
+        try {
+            await db.prepare("UPDATE crm_quotes SET status='converted',booking_reference=?,token_hash=NULL,updated_at=? WHERE id=? AND status='accepted'").bind(q.booking_reference, stamp, q.id).run();
+        } catch (error) {
+            console.error('CRM quote reconciliation failed', { quoteId: q.id, error });
+        }
+    }
     const rules = (await db.prepare("SELECT * FROM crm_retention_rules WHERE enabled=1 LIMIT 30").all<{
         id: string;
         title: string;
@@ -67,5 +84,5 @@ export async function runCrmAutomation(at = new Date()) {
                 await db.prepare("INSERT OR IGNORE INTO crm_tasks(id,contact_id,title,due_at,owner_id,dedupe_key,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(), c.id, `${rule.title} · ${c.reference}`, stamp, rule.owner_id, key, stamp, stamp).run();
         }
     }
-    return recoverCrmEmails(at);
+    return 0;
 }

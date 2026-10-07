@@ -4,14 +4,14 @@ Waydidi's `/admin/crm` connects guest and registered customer records, enquiries
 
 ## Deploy
 
-This branch includes the reliability changes from PR #30. Merge that PR first, or merge this complete branch once; do not apply migrations from overlapping branches twice. The only live origin is `https://waydidi-website.contact-waydidi.workers.dev`.
+The CRM and reliability changes from PRs #30 and #31 are merged. This follow-up adds the CRM review fixes; apply only migrations that are still pending. The only live origin is `https://waydidi-website.contact-waydidi.workers.dev`.
 
-1. Take a D1 backup/export before upgrading. Apply pending migrations in numeric order, including 0092, 0093, 0094 and **0095_connected_crm.sql**. Use the actual production D1 database binding/name from Cloudflare.
+1. Take a D1 backup/export before upgrading. Apply pending migrations in numeric order, including 0092, 0093, 0094 **0095_connected_crm.sql** and **0096_crm_review_fixes.sql**. Use the actual production D1 database binding/name from Cloudflare.
    After building the reviewed commit, the existing release configuration supports:
    ```sh
    npx wrangler d1 execute waydidi-website-db --remote --config dist/server/wrangler.json --file drizzle/0095_connected_crm.sql
    ```
-   Run this migration once after all preceding migrations. Its triggers and indexes are required for safe quote conversion and identity associations.
+   Apply `drizzle/0096_crm_review_fixes.sql` with the same command after 0095. Run each migration once after all preceding migrations. Its triggers and indexes are required for safe quote conversion and identity associations.
 2. Deploy this commit through the existing Cloudflare Worker workflow. Do not serve the new CRM code against an unmigrated database.
 3. Sign in as owner. Open `/admin/crm`, `/admin/users` and `/agency` with a verified agency manager email.
 4. Confirm the existing operations cron remains enabled: it now runs CRM scheduling, quote reconciliation and queued email recovery. Email requires the existing `RESEND_API_KEY` and verified `BOOKING_FROM_EMAIL`. Telegram reminders use existing `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` when configured; the admin notification bell also shows due tasks.
@@ -53,3 +53,11 @@ For a broader personal-data erasure request, operations must review retained tra
 ## Scope and limitations
 
 CRM merges are operational consolidation, not login-account merges. Duplicate guest records require human review. Quote acceptance uses the existing transfer request/booking workflow; it does not implement a new payment gateway. PaySolutions remains disabled until its real provider integration is completed. Partner agreed rates are recorded notes rather than dynamic pricing. CRM conversion reporting uses recorded enquiry/booking sources, not advertising attribution. The release does not send bulk campaigns to unconsented guests.
+
+## Review regression checks
+
+`node --test tests/crm.test.mjs` covers concurrent member merges, verified-link consolidation, booking detail synchronization, rebooking cancellation, isolated quote conversion failures and literal CSV search/filter matching. CSV streams use 100-row keyset pages, respect consumer demand and cancellation, and do not recalculate dashboard totals. Exported data reflects live records during consumption rather than a database snapshot.
+
+For the Chromium component workflows, run `npx playwright install chromium --with-deps`, then `npm run test:crm:browser`. These tests mount the actual CRM workspace with mocked API responses, including delayed and failed enquiry loads. They verify quote revision, task rescheduling, customer switching and prevention of accidental enquiry unlinking. They do not contact production or send emails. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can select an existing compatible Chromium binary.
+
+Migration 0096 preserves imported contacts with notes or CRM history for human review, while hiding empty imported shells after verified association. Member compatibility is checked at write time. Scheduler failures are logged individually, and email recovery runs independently of quote and retention scheduling.
