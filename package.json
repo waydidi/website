@@ -12,6 +12,9 @@
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
     "test:booking": "node --test tests/booking-critical-paths.test.mjs",
+    "typecheck": "tsc --noEmit -p .",
+    "e2e": "playwright test",
+    "check": "npm run lint && npm run typecheck && npm test && npm run e2e",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
   },
@@ -48,6 +51,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
+    "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/qrcode": "^1.5.6",
