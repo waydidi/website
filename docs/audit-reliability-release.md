@@ -1,6 +1,6 @@
 # Audit reliability release
 
-Production remains https://waydidi-website.contact-waydidi.workers.dev.
+Production remains https://waydidi.com.
 
 ## Release order
 
