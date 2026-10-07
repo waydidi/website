@@ -219,16 +219,34 @@ test('scheduling hands the chat to its Durable Object and shows typing at once',
  assert.deepEqual(seen,[[id,id]]);assert.ok((await db.prepare('SELECT bot_thinking_at t FROM website_conversations WHERE id=?').bind(id).first()).t);
  delete globalThis.__ceeTest.env.NON_AGENT;assert.equal(schedule.WAIT_MS,5000);
 });
-test('while Non answers, the group gets nothing (no customer messages, no Non replies); staff replies are still mirrored; waits out a short 429',async()=>{
+test('website questions notify Telegram while Non answers; AI replies stay quiet and staff replies are mirrored',async()=>{
  Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
  const id=await conversation('hi');tgCalls.length=0;
  await chat.addVisitorMessage(await db.prepare('SELECT * FROM website_conversations WHERE id=?').bind(id).first(),'How much to Pattaya?','c-skip-1');
- assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,0);
- assert.equal((await db.prepare("SELECT telegram_status FROM website_chat_messages WHERE client_id='c-skip-1'").first()).telegram_status,'skipped');
- await chat.addBotMessage(id,'Hello from Non');assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,0);
+ assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,1);
+ assert.equal((await db.prepare("SELECT telegram_status FROM website_chat_messages WHERE client_id='c-skip-1'").first()).telegram_status,'sent');
+ assert.ok(tgCalls.some(c=>c.method==='sendMessage' && c.body.text.includes('How much to Pattaya?')));
+ await chat.addVisitorMessage(await chat.conversationById(id),'How much to Pattaya?','c-skip-1');
+ assert.equal(tgCalls.filter(c=>c.method==='sendMessage').length,1);
+ await chat.addVisitorMessage(await chat.conversationById(id),'Can I add a child seat?','c-notify-2');
+ assert.equal(tgCalls.filter(c=>c.method==='sendMessage').length,2);
+ await chat.addBotMessage(id,'Hello from Non');assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,2);
  await db.prepare('UPDATE website_conversations SET telegram_message_id=500 WHERE id=?').bind(id).run();
  tg429=1;await chat.addStaffMessage(id,'Anna here',{name:'Anna',staffId:'anna'},'dashboard');
  assert.ok(tgCalls.some((c)=>c.method==='sendMessage'&&/Anna here/.test(c.body.text)));
+ delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
+});
+test('website messages stay pending without Telegram configuration and recover when connected',async()=>{
+ delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
+ const id=await conversation('hello'),c=await chat.conversationById(id);tgCalls.length=0;
+ const message=await chat.addVisitorMessage(c,'Please arrange an airport pickup','waiting-for-telegram');
+ assert.equal((await db.prepare('SELECT telegram_status FROM website_chat_messages WHERE id=?').bind(message.id).first()).telegram_status,'pending');
+ assert.equal(tgCalls.length,0);
+ await db.prepare('UPDATE website_chat_messages SET created_at=? WHERE id=?').bind(new Date(Date.now()-120000).toISOString(),message.id).run();
+ Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
+ await chat.retryFailedTelegram(200);
+ assert.equal((await db.prepare('SELECT telegram_status FROM website_chat_messages WHERE id=?').bind(message.id).first()).telegram_status,'sent');
+ assert.ok(tgCalls.some(c=>c.method==='sendMessage' && c.body.text.includes('Please arrange an airport pickup')));
  delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
 });
 test('the Telegram card is refreshed at most every 30 s, except for status and assignment changes',async()=>{
