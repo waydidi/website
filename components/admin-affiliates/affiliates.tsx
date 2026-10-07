@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Copy, Plus, X } from "lucide-react";
+import { Modal, ModalClose, ModalTitle } from "@/components/ui/modal";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { PartnerQr } from "@/components/partner/tools";
 import { KIT_ROUTES } from "@/lib/partner-kit";
@@ -198,20 +199,20 @@ export function AdminAffiliates() {
       <div className="flex items-center gap-3 border-t border-slate-100 px-4 py-3"><button type="button" onClick={() => void saveKit()} className="h-9 rounded-lg bg-plum px-4 text-[13px] font-semibold text-white">Save prices</button>{kitMsg && <span className="text-[13px] font-semibold text-brand-darker">{kitMsg}</span>}</div>
     </section>
 
-    {qr && <div className="fixed inset-0 z-50 flex items-center justify-center bg-plum/50 p-4" role="dialog" aria-modal="true" aria-label={`QR for ${qr.name}`} onClick={(e) => e.target === e.currentTarget && setQr(null)}>
-      <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-        <button type="button" onClick={() => setQr(null)} aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></button>
-        <h2 className="text-[18px] font-bold">{qr.name}</h2><p className="mb-3 text-[13px] text-slate-500">waydidi.com/?ref={qr.slug}</p>
+    <Modal open={!!qr} onClose={() => setQr(null)} className="max-w-sm rounded-2xl p-6">
+      {qr && <>
+        <ModalClose aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></ModalClose>
+        <ModalTitle className="text-[18px] font-bold">{qr.name}</ModalTitle><p className="mb-3 text-[13px] text-slate-500">waydidi.com/?ref={qr.slug}</p>
         <PartnerQr url={`https://waydidi.com/?ref=${qr.slug}`} name={qr.name} code={qr.code} discount={qr.discount_percent} />
-      </div>
-    </div>}
+      </>}
+    </Modal>
 
     <p className="text-[12.5px] text-slate-500">Commission is earned when the ride is completed, on what the customer actually paid. Cancelled rides earn nothing. A partner link is remembered for 30 days (the last link clicked wins); a partner&apos;s code also gives the customer their discount. Partners can&apos;t earn on their own bookings, and store (QR) bookings don&apos;t count.</p>
 
-    {form && <div className="fixed inset-0 z-50 flex items-center justify-center bg-plum/50 p-4" role="dialog" aria-modal="true" aria-labelledby="aff-form">
-      <form onSubmit={save} className="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-        <button type="button" onClick={() => setForm(null)} aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></button>
-        <h2 id="aff-form" className="text-[20px] font-bold">{form.id ? "Edit partner" : "Add partner"}</h2>
+    {form && <Modal open onClose={() => setForm(null)} locked={busy} onInteractOutside={(e) => e.preventDefault()} asChild>
+      <form onSubmit={save} className="max-h-[92dvh] max-w-lg overflow-y-auto rounded-2xl p-6">
+        <ModalClose aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></ModalClose>
+        <ModalTitle className="text-[20px] font-bold">{form.id ? "Edit partner" : "Add partner"}</ModalTitle>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-[13px] font-semibold sm:col-span-2">Name<input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={field} placeholder="e.g. Mint Travels" /></label>
           <label className="grid gap-1 text-[13px] font-semibold">Link name<input required value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })} className={field} placeholder="mint" /><span className="font-normal text-slate-500">waydidi.com/?ref={form.slug || "…"}</span></label>
@@ -227,6 +228,6 @@ export function AdminAffiliates() {
         {error && <p role="alert" className="mt-3 text-[14px] text-red-600">{error}</p>}
         <button type="submit" disabled={busy} className="mt-5 h-11 w-full rounded-xl bg-brand font-semibold text-white hover:bg-brand-strong disabled:opacity-60">{busy ? "Saving…" : "Save partner"}</button>
       </form>
-    </div>}
+    </Modal>}
   </div>;
 }

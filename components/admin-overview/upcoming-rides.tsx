@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, ImagePlus, LoaderCircle, Luggage, Users, X } from "lucide-react";
+import { Modal, ModalTitle } from "@/components/ui/modal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -136,10 +137,10 @@ export function AddDriverDialog({ reference, leg = "outbound", onClose, onDone }
     finally { setBusy(false); }
   }
 
-  return <div role="dialog" aria-modal="true" aria-labelledby="add-driver-title" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
-    <form onSubmit={submit} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl">
+  return <Modal open onClose={onClose} locked={busy} sheet overlayClassName="bg-black/40" asChild>
+    <form onSubmit={submit} className="max-h-[92vh] max-w-lg overflow-y-auto rounded-t-2xl p-5 shadow-none sm:rounded-2xl">
       <div className="flex items-start justify-between gap-3">
-        <div><h3 id="add-driver-title" className="text-[18px] font-black">Add driver</h3><p className="text-[12.5px] text-slate-500">Temporary outsourced driver for {reference}</p></div>
+        <div><ModalTitle className="text-[18px] font-black">Add driver</ModalTitle><p className="text-[12.5px] text-slate-500">Temporary outsourced driver for {reference}</p></div>
         <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -155,5 +156,5 @@ export function AddDriverDialog({ reference, leg = "outbound", onClose, onDone }
       {error && <p role="alert" className="mt-3 text-[13px] font-semibold text-red-600">{error}</p>}
       <button type="submit" disabled={busy} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand text-[14px] font-bold text-white disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Save & assign driver</button>
     </form>
-  </div>;
+  </Modal>;
 }
