@@ -5,6 +5,7 @@ import { LoaderCircle, Mail, MessageCircle, Pencil, Phone, Plus, Search, Trash2,
 import { useCallback, useEffect, useState } from "react";
 import type { SupplierRow } from "@/lib/attractions";
 import { api, areaCls, btnPrimary, btnQuiet, Field, inputCls } from "./ui";
+import { Modal, ModalTitle } from "@/components/ui/modal";
 
 type Supplier = SupplierRow & { attractions: { id: string; name: string }[] };
 type Draft = { id?: string; name: string; kind: string; contactName: string; phone: string; lineId: string; whatsapp: string; email: string; notes: string };
@@ -58,9 +59,9 @@ export function SuppliersWorkspace() {
         {s.attractions.length > 0 && <p className="mt-3 text-[13px] text-slate-500">For: {s.attractions.map((a) => a.name).join(", ")}</p>}
       </article>)}
     </div>
-    {draft && <div role="dialog" aria-modal="true" aria-labelledby="supplier-title" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget && !busy) setDraft(null); }}>
+    {draft && <Modal open onClose={() => setDraft(null)} locked={busy} sheet overlayClassName="z-50 bg-black/40" asChild>
       <form onSubmit={save} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-        <div className="flex items-center justify-between"><h2 id="supplier-title" className="text-[20px] font-bold">{draft.id ? "Edit supplier" : "Add supplier"}</h2><button type="button" onClick={() => setDraft(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
+        <div className="flex items-center justify-between"><ModalTitle id="supplier-title" className="text-[20px] font-bold">{draft.id ? "Edit supplier" : "Add supplier"}</ModalTitle><button type="button" onClick={() => setDraft(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
         <div className="mt-4 grid gap-3">
           <Field label="Name"><input required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className={inputCls} /></Field>
           <div className="grid grid-cols-2 gap-3">
@@ -76,6 +77,6 @@ export function SuppliersWorkspace() {
         {error && <p role="alert" className="mt-3 text-[13px] font-semibold text-red-600">{error}</p>}
         <button type="submit" disabled={busy} className={`${btnPrimary} mt-4 w-full`}>{busy && <LoaderCircle size={16} className="animate-spin" />}Save supplier</button>
       </form>
-    </div>}
+    </Modal>}
   </main>;
 }

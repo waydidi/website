@@ -25,7 +25,7 @@ export function DriverProfileButton({ driverId, driverName, vehicleType, onSaved
   return <>
     <button type="button" onClick={() => setOpen(true)} aria-label={`Edit photo and vehicle type of ${driverName}`} title="Photo and vehicle type" className="hover:text-brand-darker"><Pencil size={18} /></button>
     <Modal open={open} onClose={() => setOpen(false)} locked={busy} sheet overlayClassName="z-[80] bg-slate-900/40" asChild>
-      <form onSubmit={save} className="max-w-md rounded-t-[24px] p-5 text-night shadow-none sm:rounded-[24px]">
+      <form onSubmit={save} className="max-w-md rounded-t-[24px] p-5 text-night sm:rounded-[24px]">
         <div className="flex items-start justify-between gap-3"><ModalTitle className="text-[18px] font-black">{driverName}</ModalTitle>
           <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button></div>
         <label className="mt-4 grid gap-1 text-[13px] font-semibold">Vehicle type

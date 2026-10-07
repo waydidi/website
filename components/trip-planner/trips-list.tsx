@@ -9,6 +9,7 @@ import { VEHICLES } from "@/lib/vehicles";
 import { PlacePicker } from "./place-picker";
 import { STATUS_LABEL } from "./trip-workspace";
 import { api, selectCls, btnPrimary, btnQuiet, Field, inputCls } from "./ui";
+import { Modal, ModalTitle } from "@/components/ui/modal";
 
 type Row = TripRow & { stopCount: number; agencyName: string | null; shared?: boolean };
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
@@ -113,9 +114,9 @@ function QuickQuote({ base, home, preset, presetId, label, templates: known, onC
       router.push(`${home}/${r.id}`);
     } catch (e) { setError((e as Error).message); setBusy(false); }
   }
-  return <div role="dialog" aria-modal="true" aria-labelledby="qq-title" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+  return <Modal open onClose={() => onClose()} locked={busy} sheet overlayClassName="z-50 bg-black/40" asChild>
     <form onSubmit={(e) => { e.preventDefault(); void create(true); }} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-      <div className="flex items-center justify-between"><h2 id="qq-title" className="flex items-center gap-2 text-[20px] font-bold"><Zap size={19} className="text-brand-text" />Quick quote</h2><button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
+      <div className="flex items-center justify-between"><ModalTitle id="qq-title" className="flex items-center gap-2 text-[20px] font-bold"><Zap size={19} className="text-brand-text" />Quick quote</ModalTitle><button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
       <div className="mt-4 grid gap-3">
         <Field label={label}><select required value={template?.id ?? ""} onChange={(e) => { const t = templates?.find((x) => x.id === e.target.value) ?? null; setTemplate(t); if (t) setF((v) => ({ ...v, startTime: t.startTime })); }} className={inputCls}><option value="">{templates ? "Choose a ready-made day" : "Loading…"}</option>{templates?.map((t) => <option key={t.id} value={t.id}>{t.templateName || t.title} · {t.durationHours} hr · THB {t.total.toLocaleString("en-US")}</option>)}</select></Field>
         <div className="grid grid-cols-2 gap-3">
@@ -141,5 +142,5 @@ function QuickQuote({ base, home, preset, presetId, label, templates: known, onC
       </div>
       <p className="mt-2 text-[12px] text-slate-500">Times are re-checked for the new date and hotel. “Create and send” emails the customer when an email is given.</p>
     </form>
-  </div>;
+  </Modal>;
 }

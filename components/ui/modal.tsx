@@ -30,7 +30,7 @@ export function Modal({ open, onClose, locked = false, sheet = false, overlayCla
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className={cn("fixed inset-0 z-50 flex justify-center overflow-y-auto bg-plum/50",
         sheet ? "items-end p-0 sm:items-center sm:p-4" : "items-center p-4", overlayClassName)}>
-        <DialogPrimitive.Content aria-describedby={undefined} className={cn("relative w-full bg-white shadow-2xl outline-none", className)} {...props}
+        <DialogPrimitive.Content aria-describedby={undefined} className={cn("relative w-full bg-white outline-none", className)} {...props}
           onCloseAutoFocus={(e) => { props.onCloseAutoFocus?.(e); if (!e.defaultPrevented && opener.current?.isConnected) { e.preventDefault(); opener.current.focus(); } }}>
           {children}
         </DialogPrimitive.Content>
