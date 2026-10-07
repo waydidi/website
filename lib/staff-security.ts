@@ -89,13 +89,15 @@ export function allowedStaffRoute(role: StaffRole, path: string, method: string)
   if(path==="/api/admin/cee/alerts") return ["operations","support"].includes(role);
   if(section==="search") return ["operations","support","finance","editor"].includes(role) && method==="GET";
   if(section==="notifications") return ["operations","support"].includes(role);
+  if(section==="affiliates") return ["operations","finance"].includes(role) && ["GET","POST"].includes(method);
+  if(section==="storefronts" && role==="finance") return method==="PATCH" || method==="GET";
   if(section==="crm") return ["operations","support"].includes(role);
   if(section==="users") return ["operations","support"].includes(role) && method==="GET";
   if(section==="chat") return ["operations","support"].includes(role);
   if(["staff","settings"].includes(section)) return false;
   if(["payments","refunds","finance","reports","payouts"].includes(section)) return role==="finance";
   if(["blog","posts","content"].includes(section)) return role==="editor";
-  if(role==="operations") return ["bookings","calendar","drivers","assignments","alerts","operations","flights","routes","vehicles","dashboard","manual-booking","journeys","notifications","automation","evidence","driver-images","driver-applications","forms","trips","attractions","suppliers"].includes(section);
+  if(role==="operations") return ["bookings","calendar","drivers","assignments","alerts","operations","flights","routes","vehicles","dashboard","manual-booking","journeys","notifications","automation","evidence","driver-images","driver-applications","forms","trips","attractions","suppliers","agency-applications","agencies","storefronts"].includes(section);
   if(role==="support") return method==="GET" && ["bookings","customers"].includes(section);
   return false;
 }

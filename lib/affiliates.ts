@@ -145,24 +145,28 @@ export async function affiliateForDashboard(id: string, key: string) {
 export async function partnerDashboard(a: Affiliate) {
   const bkk = new Date(Date.now() + 7 * 3600_000).toISOString();
   const monthStart = `${bkk.slice(0, 7)}-01`;
-  const [clicks, rows] = await Promise.all([
+  const [clicks, rows, totals] = await Promise.all([
     db().prepare("SELECT COALESCE(SUM(clicks),0) n FROM affiliate_clicks WHERE affiliate_id=? AND day>=?").bind(a.id, monthStart).first<{ n: number }>(),
     db().prepare(`SELECT ba.booking_reference,ba.via,ba.fare_before_discount,ba.discount,ba.commission,ba.paid_at,ba.created_at,b.pickup_date,b.pickup,b.dropoff,b.status
       FROM booking_affiliates ba JOIN bookings b ON b.reference=ba.booking_reference WHERE ba.affiliate_id=? AND b.status<>'pending_payment' ORDER BY ba.created_at DESC LIMIT 300`).bind(a.id)
       .all<{ booking_reference: string; via: string; fare_before_discount: number; discount: number; commission: number; paid_at: string | null; created_at: string; pickup_date: string; pickup: string; dropoff: string; status: string }>(),
+    db().prepare(`SELECT
+      coalesce(sum(CASE WHEN b.status='completed' AND ba.paid_at IS NULL THEN ba.commission ELSE 0 END),0) owed,
+      coalesce(sum(CASE WHEN b.status NOT IN ('completed','cancelled','no_show','binned','pending_payment') AND ba.paid_at IS NULL THEN ba.commission ELSE 0 END),0) pending,
+      coalesce(sum(CASE WHEN ba.paid_at IS NOT NULL THEN ba.commission ELSE 0 END),0) paid,
+      coalesce(sum(b.status='completed'),0) completed,
+      coalesce(sum(b.status NOT IN ('cancelled','no_show','binned','pending_payment') AND datetime(ba.created_at,'+7 hours')>=datetime(?)),0) month_bookings
+      FROM booking_affiliates ba JOIN bookings b ON b.reference=ba.booking_reference WHERE ba.affiliate_id=?`).bind(monthStart,a.id).first<{owed:number;pending:number;paid:number;completed:number;month_bookings:number}>(),
   ]);
   const list = rows.results.map((r) => ({ ...r, state: r.paid_at ? "paid" as const : commissionState(r.status) === "earned" ? "owed" as const : commissionState(r.status) }));
-  const live = list.filter((r) => r.state !== "cancelled");
-  const sum = (xs: typeof list) => xs.reduce((n, r) => n + r.commission, 0);
-  const thisMonth = live.filter((r) => (new Date(Date.parse(r.created_at) + 7 * 3600_000).toISOString()) >= monthStart);
   return {
     monthName: new Date(`${monthStart}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" }),
-    month: { clicks: clicks?.n ?? 0, bookings: thisMonth.length },
-    owed: sum(list.filter((r) => r.state === "owed")),
-    pending: sum(list.filter((r) => r.state === "pending")),
-    paid: sum(list.filter((r) => r.state === "paid")),
-    completedRides: list.filter((r) => r.state === "owed" || r.state === "paid").length,
-    ...(() => { const done = list.filter((r) => r.state === "owed" || r.state === "paid").length; const t = tierFor(done);
+    month: { clicks: clicks?.n ?? 0, bookings: totals?.month_bookings ?? 0 },
+    owed: totals?.owed ?? 0,
+    pending: totals?.pending ?? 0,
+    paid: totals?.paid ?? 0,
+    completedRides: totals?.completed ?? 0,
+    ...(() => { const done = totals?.completed ?? 0; const t = tierFor(done);
       return { tier: t.tier.name, rate: effectiveRate(a, done), next: t.next ? { name: t.next.name, rate: a.commission_percent + t.next.bonus, ridesToNext: t.ridesToNext, progress: Math.round(((done - t.tier.rides) / (t.next.rides - t.tier.rides)) * 100) } : null }; })(),
     recent: list.slice(0, 30).map((r) => ({ date: r.pickup_date, from: r.pickup, to: r.dropoff, via: r.via, commission: r.commission, state: r.state })),
   };

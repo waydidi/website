@@ -1,3 +1,4 @@
+import { csvStream } from "./csv-stream";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { contactInput, taskInput, quoteInput, STAGES, normalizePhone, csvCell } from "./crm-rules";
@@ -68,6 +69,10 @@ async function staffExists(id: string) {
     if (!await first("SELECT id FROM staff_accounts WHERE id=? AND active=1 AND role IN ('owner','operations','support')", id))
         throw new CrmError("Choose an active CRM staff member.");
 }
+const contactSearch = (search: string, filter: string) => ({
+    where: "c.merged_into IS NULL AND (c.name LIKE ? ESCAPE '^' OR coalesce(c.email,'') LIKE ? ESCAPE '^' OR coalesce(c.phone,'') LIKE ? ESCAPE '^')" + (filter === 'members' ? ' AND c.member_id IS NOT NULL' : filter === 'guests' ? ' AND c.member_id IS NULL' : ''),
+    args: Array(3).fill(`%${search.replace(/[%_^]/g, "^$&")}%`) as string[],
+});
 export async function crmList(view: string, search: string, page: number, filter: string) {
     const offset = (page - 1) * 25, q = `%${search.replace(/[%_^]/g, "^$&")}%`;
     const contactSelect = `SELECT c.*,(SELECT count(*) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN ('confirmed','completed')) trips,(SELECT coalesce(sum(b.total),0) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN ('confirmed','completed')) spend FROM crm_contacts c`;
@@ -124,10 +129,7 @@ export async function crmList(view: string, search: string, page: number, filter
         args = [q];
         select = 'SELECT t.* FROM ' + from;
     }
-    if (view === 'customers' && filter === 'members')
-        where += ' AND c.member_id IS NOT NULL';
-    if (view === 'customers' && filter === 'guests')
-        where += ' AND c.member_id IS NULL';
+    if (view === 'customers') ({ where, args } = contactSearch(search, filter));
     const [items, total, team] = await Promise.all([rows(select + ' WHERE ' + where + ' ORDER BY ' + (view === 'tasks' ? 't.due_at ASC' : view === 'pipeline' ? 'l.updated_at DESC' : view === 'partners' ? 't.created_at DESC' : view === 'customers' ? 'c.updated_at DESC' : 't.created_at DESC') + ' LIMIT 25 OFFSET ?', ...args, offset), first<{
             n: number;
         }>('SELECT count(*) n FROM ' + from + ' WHERE ' + where, ...args), rows("SELECT id,display_name name FROM staff_accounts WHERE active=1 AND role IN ('owner','operations','support') ORDER BY display_name")]);
@@ -186,7 +188,7 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
             throw new CrmError('Choose two different records.');
         if (source.member_id && target.member_id && source.member_id !== target.member_id)
             throw new CrmError('Two registered accounts cannot be merged.');
-        // Conditional CAS claims both records; D1 batch rolls back on conflict. Merges move CRM references only.
+        // Database guards validate current source/target identities inside the D1 batch.
         await db.batch([db.prepare("UPDATE crm_contacts SET merged_into=?,marketing_opt_in=0,updated_at=? WHERE id=?").bind(target.id, stamp, id), ...['crm_sources', 'crm_leads', 'crm_tasks', 'crm_quotes', 'crm_events', 'crm_outbox', 'crm_marketing_tokens'].map(t => db.prepare(`UPDATE ${t} SET contact_id=? WHERE contact_id=?`).bind(target.id, id)), db.prepare("UPDATE crm_contacts SET member_id=coalesce(member_id,?),marketing_opt_in=0,updated_at=? WHERE id=?").bind(source.member_id, stamp, target.id), eventStatement(target.id, id, 'merge', `Merged ${source.name} (${id}); sign-in and booking permissions unchanged`, staffId)]);
         return { id: target.id };
     }
@@ -210,10 +212,12 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
             throw new CrmError('Add a lost reason.');
         if (p.stage === 'won')
             throw new CrmError('Link a confirmed booking to mark this enquiry booked.');
-        const result = await db.prepare('UPDATE crm_leads SET stage=?,loss_reason=?,version=version+1,updated_at=? WHERE id=? AND version=?').bind(p.stage, p.lossReason ?? null, stamp, id, p.version).run();
-        if (!result.meta.changes)
+        const result = await db.batch([
+            db.prepare("INSERT INTO crm_events(id,contact_id,entity_id,kind,body,staff_id,created_at) SELECT ?,contact_id,id,'stage',?,?,? FROM crm_leads WHERE id=? AND version=?").bind(crypto.randomUUID(), `${lead.stage} → ${p.stage}${p.lossReason ? ': ' + p.lossReason : ''}`, staffId, stamp, id, p.version),
+            db.prepare('UPDATE crm_leads SET stage=?,loss_reason=?,version=version+1,updated_at=? WHERE id=? AND version=?').bind(p.stage,p.lossReason ?? null,stamp,id,p.version),
+        ]);
+        if (!result[1].meta.changes)
             throw new CrmError('This enquiry changed. Refresh and try again.', 409);
-        await eventStatement(lead.contact_id, id, 'stage', `${lead.stage} → ${p.stage}${p.lossReason ? ': ' + p.lossReason : ''}`, staffId).run();
         return { id };
     }
     if (action === 'task') {
@@ -222,13 +226,14 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
         await staffExists(p.ownerId);
         if (p.leadId && !await first('SELECT id FROM crm_leads WHERE id=? AND contact_id=?', p.leadId, p.contactId))
             throw new CrmError('Enquiry does not belong to this customer.');
-        const old = id ? await first<{
-            contact_id: string;
-        }>('SELECT contact_id FROM crm_tasks WHERE id=?', id) : null;
+        const old = id ? await first<{contact_id: string;conversation_id: string | null}>('SELECT contact_id,conversation_id FROM crm_tasks WHERE id=?', id) : null;
         if (id && (!old || old.contact_id !== p.contactId))
             throw new CrmError('This task does not belong to the selected customer.');
+        const conversationId = old?.conversation_id ?? p.conversationId;
+        if (conversationId && !await first("SELECT source_id FROM crm_sources WHERE kind='chat' AND source_id=? AND contact_id=?", conversationId,p.contactId))
+            throw new CrmError('Chat does not belong to this customer.');
         const tid = id || crypto.randomUUID();
-        await db.batch([old ? db.prepare("UPDATE crm_tasks SET lead_id=?,title=?,due_at=?,owner_id=?,status='open',completed_at=NULL,reminded_at=NULL,updated_at=? WHERE id=?").bind(p.leadId ?? null, p.title, new Date(p.dueAt).toISOString(), p.ownerId, stamp, tid) : db.prepare('INSERT INTO crm_tasks(id,contact_id,lead_id,conversation_id,title,due_at,owner_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)').bind(tid, p.contactId, p.leadId ?? null, p.conversationId ?? null, p.title, new Date(p.dueAt).toISOString(), p.ownerId, stamp, stamp), eventStatement(p.contactId, tid, 'task', `Scheduled: ${p.title}`, staffId)]);
+        await db.batch([old ? db.prepare("UPDATE crm_tasks SET lead_id=?,title=?,due_at=?,owner_id=?,status='open',completed_at=NULL,reminded_at=NULL,reminder_claimed_at=NULL,reminder_attempts=0,reminder_error=NULL,updated_at=? WHERE id=?").bind(p.leadId ?? null, p.title, new Date(p.dueAt).toISOString(), p.ownerId, stamp, tid) : db.prepare('INSERT INTO crm_tasks(id,contact_id,lead_id,conversation_id,title,due_at,owner_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)').bind(tid, p.contactId, p.leadId ?? null, p.conversationId ?? null, p.title, new Date(p.dueAt).toISOString(), p.ownerId, stamp, stamp), eventStatement(p.contactId, tid, 'task', `Scheduled: ${p.title}`, staffId)]);
         return { id: tid };
     }
     if (action === 'task_status') {
@@ -239,7 +244,7 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
         }>('SELECT contact_id,title FROM crm_tasks WHERE id=?', id);
         if (!t)
             throw new CrmError('Task not found.', 404);
-        await db.batch([db.prepare('UPDATE crm_tasks SET status=?,completed_at=?,reminded_at=NULL,updated_at=? WHERE id=?').bind(status, status === 'completed' ? stamp : null, stamp, id), eventStatement(t.contact_id, id, 'task', `${t.title}: ${status}`, staffId)]);
+        await db.batch([db.prepare('UPDATE crm_tasks SET status=?,completed_at=?,reminded_at=NULL,reminder_claimed_at=NULL,reminder_attempts=0,reminder_error=NULL,updated_at=? WHERE id=?').bind(status, status === 'completed' ? stamp : null, stamp, id), eventStatement(t.contact_id, id, 'task', `${t.title}: ${status}`, staffId)]);
         return { id };
     }
     if (action === 'quote') {
@@ -295,10 +300,13 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
         if (!['owner', 'operations'].includes(role))
             throw new CrmError('Partner management access required.', 403);
         const p = z.object({ agencyId: z.string(), ownerId: z.string().nullable().optional(), rateNotes: z.string().max(4000), email: z.string().trim().toLowerCase().email().or(z.literal('')).optional(), memberRole: z.enum(['manager', 'booker']).optional(), active: z.boolean().optional() }).parse(input);
-        if (!await first("SELECT id FROM agency_applications WHERE id=? AND status='approved'", p.agencyId))
+        const approvedAgency = await first<{id:string;email:string}>("SELECT id,email FROM agency_applications WHERE id=? AND status='approved'", p.agencyId);
+        if (!approvedAgency)
             throw new CrmError('Choose an approved agency.');
         if (p.ownerId)
             await staffExists(p.ownerId);
+        if (p.email === approvedAgency.email.toLowerCase())
+            throw new CrmError('The primary agency email cannot be changed as a team member. Change the agency approval status to revoke its portal access.');
         if (p.email && await first("SELECT id FROM agency_applications WHERE lower(email)=? AND id<>? AND status='approved'", p.email, p.agencyId))
             throw new CrmError('This email is the primary contact for another agency.');
         await db.batch([db.prepare('INSERT INTO crm_partner_accounts(agency_id,owner_id,rate_notes,updated_at) VALUES(?,?,?,?) ON CONFLICT(agency_id) DO UPDATE SET owner_id=excluded.owner_id,rate_notes=excluded.rate_notes,updated_at=excluded.updated_at').bind(p.agencyId, p.ownerId ?? null, p.rateNotes, stamp), ...(p.email ? [db.prepare('INSERT INTO agency_members(agency_id,email,role,active,created_at) VALUES(?,?,?,?,?) ON CONFLICT(agency_id,email) DO UPDATE SET role=excluded.role,active=excluded.active').bind(p.agencyId, p.email, p.memberRole ?? 'booker', Number(p.active ?? true), stamp)] : []), eventStatement(null, p.agencyId, 'partner', 'Partner account updated', staffId)]);
@@ -331,7 +339,15 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
     }
     throw new CrmError('Unknown CRM action.');
 }
-export async function exportContacts(search: string) { const q = `%${search}%`; const result = await rows<Contact>("SELECT * FROM crm_contacts WHERE merged_into IS NULL AND (name LIKE ? OR email LIKE ? OR phone LIKE ?) ORDER BY id", q, q, q); return [['Name', 'Email', 'Phone', 'Member', 'Marketing opt-in'], ...result.map(c => [c.name, c.email, c.phone, c.member_id ? 'Yes' : 'No', c.marketing_opt_in ? 'Yes' : 'No'])].map(r => r.map(csvCell).join(',')).join('\r\n'); }
+export async function exportContacts(search: string, filter = '') {
+    const { where, args } = contactSearch(search, filter);
+    let cursor: string | null = null;
+    return csvStream(['Name', 'Email', 'Phone', 'Member', 'Marketing opt-in'].map(csvCell).join(',') + '\r\n', async () => {
+        const batch = await rows<Contact>(`SELECT c.id,c.name,c.email,c.phone,c.member_id,c.marketing_opt_in FROM crm_contacts c WHERE ${where}${cursor === null ? '' : ' AND c.id>?'} ORDER BY c.id LIMIT 100`, ...args, ...(cursor === null ? [] : [cursor]));
+        cursor = batch.at(-1)?.id ?? cursor;
+        return { text: batch.map(c => [c.name,c.email,c.phone,c.member_id ? 'Yes' : 'No',c.marketing_opt_in ? 'Yes' : 'No'].map(csvCell).join(',') + '\r\n').join(''), done: batch.length < 100 };
+    });
+}
 export async function publicQuote(token: string) {
     if (!/^[a-f0-9]{48,128}$/.test(token))
         return null;

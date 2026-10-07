@@ -4,6 +4,7 @@ import { Check, Copy, Plus, X } from "lucide-react";
 import { Modal, ModalClose, ModalTitle } from "@/components/ui/modal";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { PartnerQr } from "@/components/partner/tools";
+import { csvCell } from "@/lib/crm-rules";
 import { KIT_ROUTES } from "@/lib/partner-kit";
 
 type Row = {
@@ -27,6 +28,7 @@ function CopyButton({ text }: { text: string }) {
 
 export function AdminAffiliates() {
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [canPay, setCanPay] = useState(false);
   const [form, setForm] = useState<typeof EMPTY | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -57,7 +59,7 @@ export function AdminAffiliates() {
   }
   function csv() {
     if (!payouts) return;
-    const q = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const q = csvCell;
     const lines = [["Partner", "Email", "Phone", "Bank / PromptPay notes", "Completed rides", "Commission (THB)", "Unpaid (THB)"].map(q).join(","),
       ...payouts.map((p) => [p.name, p.email, p.phone, p.notes, p.rides, p.amount, p.unpaid].map(q).join(","))];
     const a = document.createElement("a");
@@ -67,7 +69,8 @@ export function AdminAffiliates() {
 
   const load = useCallback(async () => {
     const r = await fetch("/api/admin/affiliates", { cache: "no-store" });
-    setRows(r.ok ? ((await r.json()) as { affiliates: Row[] }).affiliates : []);
+    const data = r.ok ? await r.json() as {affiliates:Row[];canPay:boolean} : {affiliates:[],canPay:false};
+    setRows(data.affiliates); setCanPay(data.canPay);
   }, []);
   useEffect(() => { const t = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(t); }, [load]);
 
@@ -154,7 +157,7 @@ export function AdminAffiliates() {
                 <button type="button" onClick={() => setQr(a)} className="rounded-lg px-2 py-1 font-semibold text-slate-600 hover:bg-slate-100">QR</button>
                 <button type="button" onClick={() => void showBookings(a.id)} className="rounded-lg px-2 py-1 font-semibold text-brand-darker hover:bg-brand-wash">{open === a.id ? "Hide" : "Bookings"}</button>
                 <button type="button" onClick={() => { setForm({ id: a.id, name: a.name, slug: a.slug, code: a.code, email: a.email ?? "", phone: a.phone ?? "", kind: a.kind, commissionPercent: String(a.commission_percent), discountPercent: String(a.discount_percent), status: a.status, notes: a.notes ?? "" }); setError(""); }} className="rounded-lg px-2 py-1 font-semibold text-slate-600 hover:bg-slate-100">Edit</button>
-                {a.earned > 0 && <button type="button" onClick={() => void pay(a)} className="ml-1 rounded-lg bg-plum px-2.5 py-1 font-semibold text-white">Mark paid</button>}
+                {canPay && a.earned > 0 && <button type="button" onClick={() => void pay(a)} className="ml-1 rounded-lg bg-plum px-2.5 py-1 font-semibold text-white">Mark paid</button>}
               </td>
             </tr>
             {open === a.id && <tr><td colSpan={9} className="bg-slate-50 px-4 py-3">
@@ -185,7 +188,7 @@ export function AdminAffiliates() {
             <td className="max-w-[260px] whitespace-pre-line text-[12.5px] text-slate-600">{p.notes || <span className="text-slate-400">No bank details yet (add with Edit)</span>}</td>
             <td>{p.rides}</td><td>{thb(p.amount)}</td>
             <td className={p.unpaid ? "font-semibold text-emerald-700" : "text-slate-400"}>{p.unpaid ? thb(p.unpaid) : "Paid"}</td>
-            <td className="pr-4 text-right">{p.unpaid > 0 && <button type="button" onClick={() => void payMonth(p)} className="rounded-lg bg-plum px-3 py-1.5 font-semibold text-white">Mark paid</button>}</td>
+            <td className="pr-4 text-right">{canPay && p.unpaid > 0 && <button type="button" onClick={() => void payMonth(p)} className="rounded-lg bg-plum px-3 py-1.5 font-semibold text-white">Mark paid</button>}</td>
           </tr>)}</tbody>
         </table></div>}
       <p className="border-t border-slate-100 px-4 py-2 text-[12px] text-slate-500">Rides count in the month of their pickup date, once completed. Tiers: Silver after 10 completed rides (+2%), Gold after 30 (+4%), on top of each partner&apos;s own rate; the rate is fixed on each booking when it&apos;s made.</p>

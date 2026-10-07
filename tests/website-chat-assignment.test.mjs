@@ -12,8 +12,9 @@ await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT
 await db.exec("CREATE TABLE drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT,vehicle TEXT,car_plate TEXT,driver_type TEXT,status TEXT,base_location TEXT DEFAULT '',created_at TEXT,updated_at TEXT);");
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
 for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql','0088_flight_tracked.sql','0089_flight_watch.sql','0090_flight_settings.sql','0091_site_settings.sql','0092_translation_claims.sql','0096_affiliates.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
-for(const sql of migrationStatements(await readFile(root+'/drizzle/0095_connected_crm.sql','utf8')).filter(s=>/^CREATE TABLE (crm_contacts|crm_sources|crm_leads|crm_tasks|crm_events)\(/.test(s)))await db.prepare(sql).run();
+for(const sql of migrationStatements(await readFile(root+'/drizzle/0095_connected_crm.sql','utf8')).filter(s=>/^CREATE TABLE (crm_contacts|crm_sources|crm_leads|crm_tasks|crm_events|crm_outbox)\(/.test(s)))await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
+for(const sql of migrationStatements(await readFile(root+'/drizzle/0097_crm_security_reliability.sql','utf8')).filter(s=>/^ALTER TABLE crm_tasks/.test(s)))await db.prepare(sql).run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
 after(async()=>{await vite.close();await mf.dispose();delete globalThis.__chatTest;});
@@ -476,6 +477,7 @@ test('Admin → Flights: owner/operations only; daily limit and price saved and 
  }finally{user.role=role;}
 });
 test('Affiliates: link click, code discount, commission on completed rides, no self-referral, paid',async()=>{
+ globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'owner'};
  const af=await vite.ssrLoadModule('/lib/affiliates.ts');
  const now=new Date().toISOString();
  await db.prepare("INSERT INTO affiliates(id,slug,code,name,email,phone,commission_percent,discount_percent,status,created_at,updated_at) VALUES('a1','mint','MINT5','Mint','mint@x.co','081 234 5678',8,5,'active',?,?),('a2','gone','GONE5','Gone',null,null,8,5,'paused',?,?)").bind(now,now,now,now).run();
@@ -527,6 +529,7 @@ test('Partner dashboard: signed private link, New link revokes the old one, numb
  }finally{delete env.WAYDIDI_ADMIN_SESSION_SECRET;}
 });
 test('Partner applications: apply (free link/code, no duplicates), approve sends welcome email, decline',async()=>{
+ globalThis.__chatTest.user={id:'alice',displayName:'Alice',role:'owner'};
  const af=await vite.ssrLoadModule('/lib/affiliates.ts');
  const env=globalThis.__chatTest.env;Object.assign(env,{WAYDIDI_ADMIN_SESSION_SECRET:'s'.repeat(40),RESEND_API_KEY:'re_x',BOOKING_FROM_EMAIL:'Waydidi <hi@waydidi.com>'});
  try{ await db.exec("CREATE TABLE IF NOT EXISTS promo_codes(id TEXT PRIMARY KEY,code TEXT)"); }catch{}
@@ -593,15 +596,14 @@ test('Friend referrals: personal code, friend discount on first ride only, not o
  // Friend books; reward only after the ride is completed.
  await db.prepare("INSERT INTO bookings(reference,customer_name,customer_email,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status) VALUES('FR1','Bob','bob@y.co','A','B','2026-11-01','09:00',1,1,'economy_sedan','card',1400,'confirmed'),('FR2','Cy','cy@y.co','A','B','2026-11-02','09:00',1,1,'economy_sedan','card',1400,'cancelled')").run();
  await rf.recordReferral('FR1','c1','bob@y.co');await rf.recordReferral('FR2','c1','cy@y.co');
- const mails=[];const send=async(to,name,c)=>{mails.push([to,name,c]);};
- assert.equal(await rf.issueReferralRewards(send),0,'FR1 not completed yet; FR2 cancelled → void');
+ assert.equal(await rf.issueReferralRewards(),0,'confirmed rides do not issue a reward');
  await db.prepare("UPDATE bookings SET status='completed' WHERE reference='FR1'").run();
- assert.equal(await rf.issueReferralRewards(send),1);
- assert.equal(await rf.issueReferralRewards(send),0,'only once');
- assert.equal(mails.length,1);assert.equal(mails[0][0],'anna@x.co');
- const coupon=await db.prepare("SELECT * FROM promo_codes WHERE code=?").bind(mails[0][2]).first();
+ assert.equal(await rf.issueReferralRewards(),1);assert.equal(await rf.issueReferralRewards(),0,'cannot reward the same ride twice');
+ const reward=await db.prepare("SELECT reward_code FROM referral_uses WHERE booking_reference='FR1'").first();
+ const coupon=await db.prepare("SELECT * FROM promo_codes WHERE code=?").bind(reward.reward_code).first();
  assert.deepEqual([coupon.discount_type,coupon.discount_value,coupon.max_uses,coupon.status],['fixed',100,1,'active']);
- assert.ok(await db.prepare("SELECT 1 FROM member_coupons WHERE customer_id='c1' AND code=?").bind(mails[0][2]).first(),'saved to her coupons');
+ assert.ok(await db.prepare("SELECT 1 FROM member_coupons WHERE customer_id='c1' AND code=?").bind(reward.reward_code).first(),'saved to her coupons');
+ const mail=await db.prepare("SELECT email,status,payload_json FROM crm_outbox WHERE dedupe_key='referral-reward:FR1'").first();assert.equal(mail.email,'anna@x.co');assert.equal(mail.status,'pending');assert.equal(JSON.parse(mail.payload_json).customerId,'c1');
  assert.deepEqual(await rf.referralSummary('c1'),{waiting:0,rewarded:1,earned:100});
 });
 test('Partner content kit: captions in 3 languages with the partner code/link; price line only once set',async()=>{

@@ -14,7 +14,7 @@ const reply = (error: string, status = 400) => NextResponse.json({ error }, { st
 /** Admin → Partners → Affiliates: list (with clicks, bookings, commission) or one partner's bookings (?id=). */
 export async function GET(request: Request) {
   const staff = await getWaydidiAdmin();
-  if (!staff) return reply("Staff access required.", 403);
+  if (!staff || !["owner","operations","finance"].includes(staff.role)) return reply("Staff access required.", 403);
   const params = new URL(request.url).searchParams;
   if (params.get("kit")) return NextResponse.json({ prices: await kitPrices() }, { headers });
   const payouts = params.get("payouts");
@@ -25,17 +25,18 @@ export async function GET(request: Request) {
   // Each partner's private dashboard link (signed; "New link" replaces it).
   const origin = new URL(request.url).origin;
   const affiliates = await Promise.all(list.map(async (a) => ({ ...a, dashboardUrl: `${origin}${await dashboardPath(a).catch(() => "")}` })));
-  return NextResponse.json({ affiliates }, { headers });
+  return NextResponse.json({ affiliates, canPay: ["owner","finance"].includes(staff.role) }, { headers });
 }
 
 /** Create or update a partner; or mark their earned commission as paid. */
 export async function POST(request: Request) {
   if (!sameOrigin(request) || !isJsonRequest(request)) return reply("Request blocked", 403);
   const staff = await getWaydidiAdmin();
-  if (!staff) return reply("Staff access required.", 403);
+  if (!staff || !["owner","operations","finance"].includes(staff.role)) return reply("Staff access required.", 403);
   await ensureAffiliateTables();
   const b = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!b) return reply("Nothing to save.");
+  if (b.action === "pay" ? !["owner","finance"].includes(staff.role) : staff.role === "finance") return reply("Forbidden",403);
   const now = new Date().toISOString();
   if ((b.action === "approve" || b.action === "decline") && typeof b.id === "string") {
     const a = await db().prepare("SELECT * FROM affiliates WHERE id=? AND status='applied'").bind(b.id).first<Affiliate>();

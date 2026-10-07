@@ -21,5 +21,5 @@ export default async function StorefrontsPage() {
     const bookings = all.filter((b) => b.storefrontId === s.id);
     return { ...s, bookings, stats: storeBalance(bookings), revenue: bookings.filter((b) => b.state !== "cancelled").reduce((n, b) => n + b.total, 0) };
   });
-  return <StorefrontsWorkspace stores={rows} />;
+  return <StorefrontsWorkspace stores={rows} canEdit={["owner", "operations"].includes(access.user.role)} canSettle={["owner", "finance"].includes(access.user.role)} />;
 }

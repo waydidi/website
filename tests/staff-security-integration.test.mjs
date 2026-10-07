@@ -101,3 +101,12 @@ test('parallel login requests cannot exceed IP or email-code issuance limits',as
  const route=await vite.ssrLoadModule('/app/api/account/code/route.ts');const originalFetch=globalThis.fetch;globalThis.fetch=async()=>Response.json({id:'test-only-email'});
  try{const responses=await Promise.all(Array.from({length:12},(_,i)=>route.POST(new Request('https://example.invalid/api/account/code',{method:'POST',headers:{'cf-connecting-ip':`test-code-${i}`,'content-type':'application/json',origin:'https://example.invalid'},body:JSON.stringify({email:'issuance@example.invalid'})}))));assert.equal(responses.filter(r=>r.status===200).length,5);assert.equal(responses.filter(r=>r.status===429).length,7);assert.equal((await d1.prepare("SELECT COUNT(*) count FROM customer_login_codes WHERE email='issuance@example.invalid'").first()).count,5);}finally{globalThis.fetch=originalFetch;}
 });
+
+test('partner management routes are usable by operations while financial writes remain restricted',()=>{
+ for(const path of ['/admin/storefronts','/admin/agencies','/api/admin/agency-applications','/api/admin/storefronts']) assert.equal(security.allowedStaffRoute('operations',path,'GET'),true);
+ assert.equal(security.allowedStaffRoute('operations','/api/admin/agency-applications','PATCH'),true);
+ assert.equal(security.allowedStaffRoute('finance','/api/admin/storefronts','PATCH'),true);
+ assert.equal(security.allowedStaffRoute('finance','/api/admin/storefronts','POST'),false);
+ assert.equal(security.allowedStaffRoute('support','/api/admin/storefronts','PATCH'),false);
+ assert.equal(security.allowedStaffRoute('editor','/api/admin/agency-applications','PATCH'),false);
+});

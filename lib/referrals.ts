@@ -10,7 +10,7 @@ export const MIN_FARE = 500;
 export const MAX_REWARDS_PER_YEAR = 20;
 
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<{ meta: { changes: number } }> };
-const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
+const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt; batch: (statements: Stmt[]) => Promise<{meta:{changes:number}}[]> };
 
 let ready: Promise<unknown> | null = null;
 export function ensureReferralTables() {
@@ -45,7 +45,7 @@ export async function referralCode(customer: { id: string; name?: string | null 
 export async function checkReferral(input: { code: string; total: number; email?: string; phone?: string; customerId?: string | null }) {
   if (!isReferralShape(input.code)) return null;
   await ensureReferralTables().catch(() => undefined);
-  const owner = await db().prepare("SELECT r.customer_id,c.email,c.phone FROM referral_codes r LEFT JOIN customers c ON c.id=r.customer_id WHERE r.code=?").bind(input.code)
+  const owner = await db().prepare("SELECT r.customer_id,c.email,c.phone FROM referral_codes r JOIN customers c ON c.id=r.customer_id WHERE r.code=?").bind(input.code)
     .first<{ customer_id: string; email: string | null; phone: string | null }>().catch(() => null);
   if (!owner) return null;
   const email = (input.email ?? "").trim().toLowerCase(), phone = digits(input.phone);
@@ -54,7 +54,7 @@ export async function checkReferral(input: { code: string; total: number; email?
   if (input.total < MIN_FARE) return { ok: false as const, reason: `Friend invites work on rides from ฿${MIN_FARE}.` };
   if (email || phone) {
     const before = await db().prepare(`SELECT 1 x FROM bookings WHERE status IN ('confirmed','completed') AND (LOWER(customer_email)=? OR substr(replace(replace(replace(customer_phone,' ',''),'-',''),'+',''),-9)=?) LIMIT 1`)
-      .bind(email || "-", phone.length >= 8 ? phone : "-").first().catch(() => null);
+      .bind(email || "-", phone.length >= 8 ? phone : "-").first();
     if (before) return { ok: false as const, reason: "Friend invites are for a first ride with Waydidi." };
   }
   const discount = Math.min(FRIEND_DISCOUNT, input.total);
@@ -73,7 +73,7 @@ const randomCode = () => `THANKS${Array.from(crypto.getRandomValues(new Uint8Arr
  * Run from the scheduled job: for each friend's ride now completed, give the member a ฿100 thank-you
  * coupon (one use, 6 months). Cancelled rides earn nothing; at most 20 rewards a year per member.
  */
-export async function issueReferralRewards(sendEmail?: (to: string, name: string, code: string, expires: string) => Promise<unknown>) {
+export async function issueReferralRewards() {
   await ensureReferralTables();
   const { results } = await db().prepare(`SELECT u.booking_reference,u.referrer_id,b.status,c.email,c.name FROM referral_uses u JOIN bookings b ON b.reference=u.booking_reference
     LEFT JOIN customers c ON c.id=u.referrer_id WHERE u.status='pending' AND b.status IN ('completed','cancelled','no_show','binned') LIMIT 50`)
@@ -82,17 +82,21 @@ export async function issueReferralRewards(sendEmail?: (to: string, name: string
   for (const r of results) {
     const now = new Date().toISOString();
     if (r.status !== "completed") { await db().prepare("UPDATE referral_uses SET status='void' WHERE booking_reference=?").bind(r.booking_reference).run(); continue; }
-    const year = await db().prepare("SELECT COUNT(*) n FROM referral_uses WHERE referrer_id=? AND status='rewarded' AND rewarded_at>?").bind(r.referrer_id, new Date(Date.now() - 365 * 86400_000).toISOString()).first<{ n: number }>();
-    if ((year?.n ?? 0) >= MAX_REWARDS_PER_YEAR) { await db().prepare("UPDATE referral_uses SET status='capped' WHERE booking_reference=?").bind(r.booking_reference).run(); continue; }
-    // Claim it first, so a reward is only ever issued once.
-    const claimed = await db().prepare("UPDATE referral_uses SET status='rewarding' WHERE booking_reference=? AND status='pending'").bind(r.booking_reference).run();
-    if (!claimed.meta.changes) continue;
+    if (!r.email) { await db().prepare("UPDATE referral_uses SET status='void' WHERE booking_reference=? AND status='pending'").bind(r.booking_reference).run(); continue; }
     const code = randomCode(), expires = new Date(Date.now() + 182 * 86400_000).toISOString();
-    await db().prepare(`INSERT INTO promo_codes(id,code,title,discount_type,discount_value,min_fare,ends_at,max_uses,per_customer_limit,first_booking_only,service,show_on_homepage,status,created_at,updated_at)
-      VALUES(?,?,?,'fixed',?,?,?,1,1,0,'any',0,'active',?,?)`).bind(crypto.randomUUID(), code, `Thank you for inviting a friend · ฿${REFERRER_REWARD} off`, REFERRER_REWARD, MIN_FARE, expires, now, now).run();
-    await db().prepare("INSERT INTO member_coupons(customer_id,code,collected_at) VALUES(?,?,?) ON CONFLICT DO NOTHING").bind(r.referrer_id, code, now).run().catch(() => undefined);
-    await db().prepare("UPDATE referral_uses SET status='rewarded',reward_code=?,rewarded_at=? WHERE booking_reference=?").bind(code, now, r.booking_reference).run();
-    if (sendEmail && r.email) await sendEmail(r.email, r.name ?? "", code, expires).catch(() => undefined);
+    const cutoff = new Date(Date.now() - 365 * 86400_000).toISOString();
+    const payload = {kind:'reward',customerId:r.referrer_id,data:{to:r.email,kicker:'Waydidi friends',title:`Thank you for inviting a friend · ฿${REFERRER_REWARD}`,intro:`Your friend's ride is complete. Coupon ${code} gives ฿${REFERRER_REWARD} off a ride from ฿${MIN_FARE}, valid until ${expires.slice(0,10)}.`,cta:'See my coupons',path:'/account/coupons',tag:`referral-reward-${code}`}};
+    // One D1 transaction serializes the annual cap, coupon, membership and delivery record.
+    // A failed write rolls back to pending; no irreversible pre-send claim is left behind.
+    const results = await db().batch([
+      db().prepare("UPDATE referral_uses SET status='capped' WHERE booking_reference=? AND status='pending' AND (SELECT count(*) FROM referral_uses WHERE referrer_id=? AND status='rewarded' AND rewarded_at>?)>=?").bind(r.booking_reference,r.referrer_id,cutoff,MAX_REWARDS_PER_YEAR),
+      db().prepare("UPDATE referral_uses SET status='rewarded',reward_code=?,rewarded_at=? WHERE booking_reference=? AND status='pending' AND EXISTS(SELECT 1 FROM customers WHERE id=?) AND EXISTS(SELECT 1 FROM bookings WHERE reference=? AND status='completed')").bind(code,now,r.booking_reference,r.referrer_id,r.booking_reference),
+      db().prepare("INSERT INTO promo_codes(id,code,title,discount_type,discount_value,min_fare,ends_at,max_uses,per_customer_limit,first_booking_only,service,show_on_homepage,status,created_at,updated_at) SELECT ?,?,?,'fixed',?,?,?,1,1,0,'any',0,'active',?,? FROM referral_uses WHERE booking_reference=? AND reward_code=? AND status='rewarded'").bind(crypto.randomUUID(),code,`Thank you for inviting a friend · ฿${REFERRER_REWARD} off`,REFERRER_REWARD,MIN_FARE,expires,now,now,r.booking_reference,code),
+      db().prepare("INSERT INTO member_coupons(customer_id,code,collected_at) SELECT ?,?,? FROM referral_uses WHERE booking_reference=? AND reward_code=? AND status='rewarded'").bind(r.referrer_id,code,now,r.booking_reference,code),
+      db().prepare("INSERT INTO crm_outbox(id,dedupe_key,email,payload_json,created_at) SELECT ?,?,?,?,? FROM referral_uses WHERE booking_reference=? AND reward_code=? AND status='rewarded' ON CONFLICT(dedupe_key) DO NOTHING").bind(crypto.randomUUID(),`referral-reward:${r.booking_reference}`,r.email,JSON.stringify(payload),now,r.booking_reference,code),
+    ]);
+    if (!results[1].meta.changes) continue;
+
     issued++;
   }
   return issued;
@@ -108,13 +112,5 @@ export async function referralSummary(customerId: string) {
 /** Every 30 minutes (from the scheduled job): thank-you coupons for completed friend rides, by email. */
 export async function referralRewardsIfDue(at: Date) {
   if (at.getUTCMinutes() % 30 !== 7) return 0;
-  const { sendTripEmail } = await import("@/lib/email");
-  return issueReferralRewards((to, name, code, expires) => sendTripEmail({
-    to, kicker: "Waydidi friends", title: `Your friend rode with Waydidi: here's ฿${REFERRER_REWARD} for you`,
-    intro: `Hi${name ? ` ${name}` : ""}, thank you for inviting a friend. Their ride is complete, so here's your thank-you coupon.`,
-    rows: [["Coupon code", code], ["Value", `฿${REFERRER_REWARD} off a ride from ฿${MIN_FARE}`], ["Valid until", expires.slice(0, 10)]],
-    cta: "See my coupons", link: "https://waydidi.com/account/coupons",
-    footer: "It's also saved in your Waydidi account. Keep inviting friends: there's a coupon for every friend's first ride.",
-    tag: `referral-reward-${code}`,
-  }));
+  return issueReferralRewards();
 }
