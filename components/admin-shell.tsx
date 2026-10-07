@@ -9,8 +9,9 @@ import {
   Newspaper,
   TicketPercent, Gift, Route, Building2, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Plane, Search, Settings } from "lucide-react";
 import Link from "next/link";
+import { ChatSectionPicker } from "@/components/chat-admin/section-picker";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
 import { NotificationBell } from "@/components/admin-settings/notification-bell";
 import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings/settings-dialog";
@@ -341,6 +342,7 @@ export default function AdminShell({
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 pt-5 sm:px-8 md:pt-6">
           {/* Areas, Hourly and Seasons have their own page headings, so "Fare management" isn't repeated above them. */}
           {!["/admin/pricing", "/admin/hourly", "/admin/seasons"].some((p) => pathname === p || pathname.startsWith(`${p}/`)) && <h1 className="text-[26px] font-semibold tracking-[-.02em] md:text-[28px]">{title}</h1>}
+          {pathname === "/admin/chat" && <Suspense fallback={null}><ChatSectionPicker /></Suspense>}
           {isPartnersPath(pathname) && <nav aria-label="Partner categories" className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
             {PARTNER_TABS.filter(t => allowedStaffRoute(role, t.href, "GET")).map(t => {
               const selected = pathname === t.href || pathname.startsWith(`${t.href}/`);
