@@ -2,6 +2,7 @@
 
 import { CalendarRange, LoaderCircle, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { Modal, ModalTitle } from "@/components/ui/modal";
 
 type Season = { id: string; name: string; startsOn: string; endsOn: string; repeatsYearly: boolean; adjustmentType: "percent" | "fixed"; adjustment: number; service: "all" | "transfer" | "hourly"; areaIds: string | null; reason: string | null; active: boolean };
 type Draft = Omit<Season, "areaIds" | "reason" | "id"> & { id?: string; areaIds: string[]; reason: string };
@@ -106,9 +107,9 @@ export default function SeasonsWorkspace() {
       </table></div>
     </section>
 
-    {draft && <div role="dialog" aria-modal="true" aria-labelledby="season-title" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget && !busy) setDraft(null); }}>
+    {draft && <Modal open onClose={() => setDraft(null)} locked={busy} sheet overlayClassName="z-50 bg-black/40" asChild>
       <form onSubmit={async (e) => { e.preventDefault(); if (await save(draft)) setDraft(null); }} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-        <div className="flex items-center justify-between"><h2 id="season-title" className="text-[20px] font-bold">{draft.id ? "Edit season" : "Add season"}</h2><button type="button" onClick={() => setDraft(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button></div>
+        <div className="flex items-center justify-between"><ModalTitle id="season-title" className="text-[20px] font-bold">{draft.id ? "Edit season" : "Add season"}</ModalTitle><button type="button" onClick={() => setDraft(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button></div>
         <div className="mt-4 grid gap-3">
           <label className="grid gap-1 text-[13px] font-semibold">Name<input required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Songkran" className={input} /></label>
           <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={draft.repeatsYearly} onChange={(e) => setDraft({ ...draft, repeatsYearly: e.target.checked, startsOn: "", endsOn: "" })} className="size-4 accent-brand" />Same dates every year</label>
@@ -134,6 +135,6 @@ export default function SeasonsWorkspace() {
         {error && <p role="alert" className="mt-3 text-[13px] font-semibold text-red-600">{error}</p>}
         <button type="submit" disabled={busy} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand font-bold text-white disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}Save season</button>
       </form>
-    </div>}
+    </Modal>}
   </main>;
 }

@@ -11,6 +11,7 @@ import { VEHICLES } from "@/lib/vehicles";
 import { PlacePicker } from "./place-picker";
 import { RouteMap, type MapPoint } from "./route-map";
 import { api, areaCls, btnPrimary, btnQuiet, Field, inputCls } from "./ui";
+import { Modal, ModalTitle } from "@/components/ui/modal";
 
 type Mode = "admin" | "agency";
 type PlanResult = {
@@ -356,9 +357,9 @@ function AttractionPicker({ attractions, date, area, onClose, onAdd }: { attract
   const list = attractions.filter((a) => (!onlyArea || !area || a.area === area) && `${a.name} ${a.customerName ?? ""} ${a.category} ${a.tags.join(" ")}`.toLowerCase().includes(q.toLowerCase()));
   const program = chosen?.programs.find((p) => p.id === programId);
   const sessions = chosen && program ? sessionsOn(chosen as never, program, date) : [];
-  return <div role="dialog" aria-modal="true" aria-labelledby="pick-title" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+  return <Modal open onClose={() => onClose()} sheet overlayClassName="z-50 bg-black/40" asChild>
     <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-      <div className="flex items-center justify-between"><h2 id="pick-title" className="text-[20px] font-bold">{chosen ? chosen.customerName || chosen.name : "Add attraction"}</h2><button type="button" onClick={chosen ? () => setChosen(null) : onClose} aria-label={chosen ? "Back" : "Close"} className="rounded-full p-1.5 hover:bg-slate-100">{chosen ? <ArrowLeft size={20} /> : <X size={20} />}</button></div>
+      <div className="flex items-center justify-between"><ModalTitle id="pick-title" className="text-[20px] font-bold">{chosen ? chosen.customerName || chosen.name : "Add attraction"}</ModalTitle><button type="button" onClick={chosen ? () => setChosen(null) : onClose} aria-label={chosen ? "Back" : "Close"} className="rounded-full p-1.5 hover:bg-slate-100">{chosen ? <ArrowLeft size={20} /> : <X size={20} />}</button></div>
       {!chosen ? <>
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search attractions" className={`${inputCls} mt-3`} />
         {area && <label className="mt-2 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={onlyArea} onChange={(e) => setOnlyArea(e.target.checked)} className="size-4 accent-brand" />Only {area}</label>}
@@ -379,21 +380,21 @@ function AttractionPicker({ attractions, date, area, onClose, onAdd }: { attract
         <button type="button" onClick={() => onAdd(chosen, programId || null, session || null, priority)} className={btnPrimary}><Plus size={16} />Add to trip</button>
       </div>}
     </div>
-  </div>;
+  </Modal>;
 }
 
 function SendDialog({ hasEmail, errors, onClose, onSend }: { hasEmail: boolean; errors: number; onClose: () => void; onSend: (note: string, notify: boolean) => Promise<void> }) {
   const [note, setNote] = useState("");
   const [notify, setNotify] = useState(hasEmail);
   const [busy, setBusy] = useState(false);
-  return <div role="dialog" aria-modal="true" aria-labelledby="send-title" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+  return <Modal open onClose={() => onClose()} locked={busy} sheet overlayClassName="z-50 bg-black/40" asChild>
     <form onSubmit={async (e) => { e.preventDefault(); setBusy(true); await onSend(note, notify); setBusy(false); }} className="w-full max-w-md rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-      <h2 id="send-title" className="text-[20px] font-bold">Send to the customer</h2>
+      <ModalTitle id="send-title" className="text-[20px] font-bold">Send to the customer</ModalTitle>
       <p className="mt-1 text-[14px] text-slate-600">This saves a new version the customer sees on their itinerary page. Earlier versions are kept.</p>
       {errors > 0 && <p className="mt-3 rounded-xl bg-red-50 p-3 text-[13px] font-semibold text-red-700">{errors} check(s) are failing. You can still send, but fix them first if you can.</p>}
       <Field label="What changed (for the version history)" className="mt-3"><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Added Promthep Cape" className={inputCls} /></Field>
       <label className="mt-3 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={notify} disabled={!hasEmail} onChange={(e) => setNotify(e.target.checked)} className="size-4 accent-brand" />Email the link to the customer{!hasEmail && " (add an email first)"}</label>
       <div className="mt-4 flex gap-2"><button type="button" onClick={onClose} className={`${btnQuiet} flex-1`}>Back</button><button type="submit" disabled={busy} className={`${btnPrimary} flex-1`}>{busy && <LoaderCircle size={16} className="animate-spin" />}Send</button></div>
     </form>
-  </div>;
+  </Modal>;
 }

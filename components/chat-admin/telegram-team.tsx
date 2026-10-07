@@ -2,6 +2,7 @@
 
 import { CheckCircle2, CircleAlert, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Modal } from "@/components/ui/modal";
 
 type Member = { id: string; telegram_user_id: string; telegram_username: string | null; display_name: string; enabled: number; staff_name: string | null };
 type Data = { canEdit: boolean; secrets: Record<string, boolean>; webhook: { url: string; pending: number; lastError: string | null } | null; team: Member[] };
@@ -63,14 +64,14 @@ export function TelegramTeam() {
           </> : <span className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${m.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{m.enabled ? "Active" : "Disabled"}</span>}
         </li>)}
       </ul>
-      {editing && <div role="dialog" aria-modal="true" aria-label="Edit team member" className="fixed inset-0 z-[90] grid place-items-center bg-black/40 p-4" onClick={(e) => { if (e.target === e.currentTarget) setEditing(null); }}>
+      {editing && <Modal open onClose={() => setEditing(null)} overlayClassName="z-[90] bg-black/40" aria-label="Edit team member" asChild>
         <form onSubmit={(e) => { e.preventDefault(); void post({ action: "edit", ...editing }, "Saved.").then((ok) => { if (ok) setEditing(null); }); }} className="grid w-full max-w-sm gap-3 rounded-2xl bg-white p-5 text-[14px] shadow-xl">
           <h3 className="text-[17px] font-bold">Edit team member</h3>
           <label className="grid gap-1 font-semibold">Name customers see<input required autoFocus maxLength={60} value={editing.displayName} onChange={(e) => setEditing({ ...editing, displayName: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 font-normal outline-none focus:border-brand" /></label>
           <label className="grid gap-1 font-semibold">Telegram username<input maxLength={61} value={editing.username} onChange={(e) => setEditing({ ...editing, username: e.target.value })} placeholder="@username (optional)" className="h-10 rounded-xl border border-slate-200 px-3 font-normal outline-none focus:border-brand" /></label>
           <div className="flex justify-end gap-2"><button type="button" onClick={() => setEditing(null)} className="h-10 rounded-full border border-slate-200 px-4 font-semibold">Cancel</button><button disabled={busy} className="h-10 rounded-full bg-brand px-5 font-bold text-white">Save</button></div>
         </form>
-      </div>}
+      </Modal>}
       {data.canEdit && <form onSubmit={add} className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
         <input required inputMode="numeric" placeholder="Telegram ID" aria-label="Telegram ID" value={form.telegramUserId} onChange={(e) => setForm({ ...form, telegramUserId: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:border-brand" />
         <input required placeholder="Name customers see" aria-label="Display name" value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:border-brand" />

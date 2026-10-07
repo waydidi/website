@@ -138,7 +138,7 @@ export function AddDriverDialog({ reference, leg = "outbound", onClose, onDone }
   }
 
   return <Modal open onClose={onClose} locked={busy} sheet overlayClassName="bg-black/40" asChild>
-    <form onSubmit={submit} className="max-h-[92vh] max-w-lg overflow-y-auto rounded-t-2xl p-5 shadow-none sm:rounded-2xl">
+    <form onSubmit={submit} className="max-h-[92vh] max-w-lg overflow-y-auto rounded-t-2xl p-5 sm:rounded-2xl">
       <div className="flex items-start justify-between gap-3">
         <div><ModalTitle className="text-[18px] font-black">Add driver</ModalTitle><p className="text-[12.5px] text-slate-500">Temporary outsourced driver for {reference}</p></div>
         <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>

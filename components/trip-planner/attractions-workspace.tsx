@@ -8,6 +8,7 @@ import { BEST_TIMES, MEAL_SLOTS, PLACE_TYPE_LABEL, PLACE_TYPES, PRICE_LEVEL, VIB
 import { PACKING_TAGS, type Program, type ScheduleException } from "@/lib/trip-plan";
 import { PlacePicker } from "./place-picker";
 import { api, selectCls, areaCls, btnPrimary, btnQuiet, DAYS, Field, inputCls, toList, uploadImage } from "./ui";
+import { Modal, ModalTitle } from "@/components/ui/modal";
 
 type Item = AttractionView & { usedIn: number };
 type Draft = Omit<AttractionView, "createdAt" | "updatedAt" | "verifiedAt" | "verifiedBy" | "tagsJson" | "closedDaysJson" | "highlightsJson" | "bringJson" | "galleryJson" | "programsJson" | "exceptionsJson" | "mealSlotsJson" | "vibesJson" | "i18nJson" | "seedKey" | "id"> & { id?: string };
@@ -131,9 +132,9 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
   }
   const num = (v: string) => Math.max(0, Math.round(Number(v) || 0));
 
-  return <div role="dialog" aria-modal="true" aria-labelledby="attraction-title" className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={(e) => { if (e.target === e.currentTarget && !busy) setDraft(null); }}>
+  return <Modal open onClose={() => setDraft(null)} locked={busy} overlayClassName="z-50 bg-black/40 justify-end items-stretch p-0" asChild>
     <form onSubmit={(e) => { e.preventDefault(); onSave(draft); }} className="h-full w-full max-w-2xl overflow-y-auto bg-white p-5 sm:p-7">
-      <div className="flex items-center justify-between"><h2 id="attraction-title" className="text-[22px] font-bold">{draft.id ? "Edit attraction" : "Add attraction"}</h2>
+      <div className="flex items-center justify-between"><ModalTitle id="attraction-title" className="text-[22px] font-bold">{draft.id ? "Edit attraction" : "Add attraction"}</ModalTitle>
         <button type="button" onClick={() => setDraft(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
       <div className="mt-4 grid gap-5">
         <Section title="Basics">
@@ -265,5 +266,5 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
       {error && <p role="alert" className="mt-4 text-[13px] font-semibold text-red-600">{error}</p>}
       <div className="sticky bottom-0 -mx-5 mt-5 border-t border-slate-100 bg-white px-5 py-3 sm:-mx-7 sm:px-7"><button type="submit" disabled={busy || uploading} className={`${btnPrimary} w-full`}>{busy && <LoaderCircle size={16} className="animate-spin" />}Save attraction</button></div>
     </form>
-  </div>;
+  </Modal>;
 }
