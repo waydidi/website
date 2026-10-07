@@ -11,6 +11,7 @@ export function MaintenanceSignIn() {
   const [mfa, setMfa] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -19,7 +20,7 @@ export function MaintenanceSignIn() {
     if (busy) return;
     setBusy(true); setError("");
     try {
-      const res = await fetch("/api/admin/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mfa ? { code } : { username, password: key }) });
+      const res = await fetch("/api/admin/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mfa ? { code, remember } : { username, password: key }) });
       const data = await res.json().catch(() => null) as { error?: string; mfaRequired?: boolean; enrollmentSecret?: string } | null;
       if (!res.ok) { setError(data?.error ?? "The admin ID or admin key is incorrect."); setKey(""); setCode(""); return; }
       if (data?.mfaRequired) { setMfa(true); setSecret(data.enrollmentSecret ?? null); setKey(""); return; }
@@ -47,6 +48,10 @@ export function MaintenanceSignIn() {
           {secret && <div className="mb-3 rounded-xl bg-amber-50 p-3 text-[13px]"><p>Add this secret to your authenticator app, then enter its code.</p><code className="mt-1 block break-all select-all">{secret}</code></div>}
           <input autoFocus value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required placeholder="123456" aria-label="Authenticator code" className="w-full rounded-xl border border-slate-300 p-3 text-center text-[20px] tracking-[.3em]" />
         </div>}
+        <label className="mt-4 flex items-center gap-2 text-[14px] font-semibold text-slate-700">
+          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="size-4 accent-[#FE8B05]" />
+          Stay signed in for 30 days
+        </label>
         {error && <p role="alert" className="mt-3 text-[14px] text-red-600">{error}</p>}
         <button type="submit" disabled={busy} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#FE8B05] font-semibold text-white hover:bg-[#E67900] disabled:opacity-60">{busy && <LoaderCircle size={18} className="animate-spin" />}{mfa ? "Verify" : "Sign in"}</button>
       </form>
