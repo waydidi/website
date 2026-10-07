@@ -37,9 +37,13 @@ let lastCallAt = 0;
 /** The API allows about one request per second: space calls out, and retry once after a 429. */
 async function politeFetch(url: string, headers: Record<string, string>) {
   for (let attempt = 0; ; attempt++) {
-    const wait = lastCallAt + 1100 - Date.now();
+    if (!await claimCall()) throw new Error("FLIGHT_API_LIMIT");
+    // Reserve this isolate's slot before waiting, so concurrent requests do not
+    // all wake together. Every HTTP attempt, including a 429 retry, is counted.
+    const slot = Math.max(lastCallAt + 1100, Date.now());
+    lastCallAt = slot;
+    const wait = slot - Date.now();
     if (wait > 0) await sleep(wait);
-    lastCallAt = Date.now();
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });
     if (res.status !== 429 || attempt >= 1) return res;
     await sleep(1500);
@@ -51,7 +55,7 @@ async function claimCall() {
   const day = new Date().toISOString().slice(0, 10);
   // The cap is set in Admin → Flights (default 300 calls a day).
   const cap = (await db().prepare("SELECT daily_cap FROM flight_settings WHERE id=1").first<{ daily_cap: number }>().catch(() => null))?.daily_cap ?? DEFAULT_CAP;
-  const row = await db().prepare("INSERT INTO flight_api_usage(day,calls) VALUES(?,1) ON CONFLICT(day) DO UPDATE SET calls=calls+1 WHERE calls<? RETURNING calls").bind(day, cap).first<{ calls: number }>();
+  const row = await db().prepare("INSERT INTO flight_api_usage(day,calls) SELECT ?,1 WHERE ?>0 ON CONFLICT(day) DO UPDATE SET calls=calls+1 WHERE calls<? RETURNING calls").bind(day, cap, cap).first<{ calls: number }>();
   return Boolean(row);
 }
 
@@ -88,7 +92,6 @@ export async function flightStatus(flightNumber: string, date: string): Promise<
     return r;
   }
   if (!flightApiConfigured()) throw new Error("FLIGHT_API_NOT_CONFIGURED");
-  if (!await claimCall()) throw new Error("FLIGHT_API_LIMIT");
   const { url, headers } = endpoint(`/flights/number/${encodeURIComponent(flightNumber)}/${date}?withAircraftImage=false&withLocation=true`);
   const res = await politeFetch(url, headers);
   const now = new Date().toISOString();
@@ -131,7 +134,6 @@ export async function airportBoard(iata: string, direction: "Departure" | "Arriv
   if (!flightApiConfigured()) throw new Error("FLIGHT_API_NOT_CONFIGURED");
   const items: FidsItem[] = [];
   for (const [from, to] of [["00:00", "11:59"], ["12:00", "23:59"]]) {
-    if (!await claimCall()) throw new Error("FLIGHT_API_LIMIT");
     const { url, headers } = endpoint(`/flights/airports/iata/${iata}/${date}T${from}/${date}T${to}?direction=${direction}&withLeg=false&withCancelled=true&withCodeshared=false&withCargo=false&withPrivate=false`);
     const res = await politeFetch(url, headers);
     if (res.status === 429) { lastBoardError = "HTTP 429: rate limited"; throw new Error("FLIGHT_API_LIMIT"); }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { ChevronLeft } from "lucide-react";
 import { FlightStatusSearch } from "@/components/flights/flight-status";
@@ -18,7 +19,7 @@ export default function FlightsPage() {
     <JsonLd data={breadcrumbSchema(crumbs)} />
     <div className="mx-auto max-w-[720px] px-4 pb-12 pt-[calc(14px+env(safe-area-inset-top))] sm:px-6">
       <div className="flex h-12 items-center gap-3">
-        <a href="/" aria-label="Back to homepage" className="-ml-2 grid size-10 place-items-center rounded-full text-white hover:bg-white/15"><ChevronLeft size={30} strokeWidth={1.8} /></a>
+        <Link href="/" aria-label="Back to homepage" className="-ml-2 grid size-10 place-items-center rounded-full text-white hover:bg-white/15"><ChevronLeft size={30} strokeWidth={1.8} /></Link>
         <h1 className="text-[22px] font-semibold text-white">Flight status</h1>
       </div>
       <div className="mt-12"><FlightStatusSearch /></div>

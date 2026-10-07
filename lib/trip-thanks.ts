@@ -1,3 +1,4 @@
+import { publicSiteUrl } from "@/lib/site";
 import { and, asc, eq, isNotNull, isNull, lte } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db";
@@ -6,7 +7,7 @@ import { sendTripEmail } from "@/lib/email";
 import { groupDays, tripSnapshot } from "@/lib/smart-trips";
 import { fill, tripWords } from "@/lib/trip-i18n";
 
-const siteUrl = () => ((env as unknown as Record<string, string | undefined>).WAYDIDI_PUBLIC_URL || "https://waydidi.com").replace(/\/$/, "");
+const siteUrl = () => publicSiteUrl((env as unknown as Record<string, string | undefined>).WAYDIDI_PUBLIC_URL);
 /** Public review page (e.g. Google Business "write a review" link). Optional. */
 export const reviewUrl = () => (env as unknown as Record<string, string | undefined>).WAYDIDI_REVIEW_URL || null;
 

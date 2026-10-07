@@ -1,3 +1,4 @@
+import { migrationStatements } from './helpers/migrations.mjs';
 import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
 import { createServer } from 'vite';
@@ -10,7 +11,8 @@ const db=await mf.getD1Database('DB');
 await db.exec('CREATE TABLE staff_accounts(id TEXT PRIMARY KEY,display_name TEXT,active INTEGER,role TEXT);');
 await db.exec("CREATE TABLE drivers(id TEXT PRIMARY KEY,full_name TEXT,phone TEXT,vehicle TEXT,car_plate TEXT,driver_type TEXT,status TEXT,base_location TEXT DEFAULT '',created_at TEXT,updated_at TEXT);");
 await db.exec('CREATE TABLE security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
-for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql','0088_flight_tracked.sql','0089_flight_watch.sql','0090_flight_settings.sql','0091_site_settings.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const file of ['0061_website_chat.sql','0069_chat_telegram.sql','0070_support_reviews.sql','0071_chat_country.sql','0072_cee_bot.sql','0073_cee_knowledge_channels.sql','0074_non_scaling.sql','0075_chat_read_receipts.sql','0076_chat_idle.sql','0077_telegram_prompt_user.sql','0078_telegram_dm.sql','0079_chat_payment_links.sql','0080_chat_cards.sql','0081_telegram_booking_tasks.sql','0082_telegram_request_cards.sql','0083_site_translations.sql','0084_chat_alerts_limits.sql','0085_booking_links.sql','0086_flight_status.sql','0087_flight_stats.sql','0088_flight_tracked.sql','0089_flight_watch.sql','0090_flight_settings.sql','0091_site_settings.sql','0092_translation_claims.sql'])for(const sql of (await readFile(root+'/drizzle/'+file,'utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+for(const sql of migrationStatements(await readFile(root+'/drizzle/0095_connected_crm.sql','utf8')).filter(s=>/^CREATE TABLE (crm_contacts|crm_sources|crm_leads|crm_tasks|crm_events)\(/.test(s)))await db.prepare(sql).run();
 await db.prepare("INSERT INTO staff_accounts VALUES('alice','Alice',1,'support'),('bob','Bob',1,'support')").run();
 globalThis.__chatTest={env:{DB:db},user:{id:'alice',displayName:'Alice',role:'support'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'chat-boundaries',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0chat-env';if(id==='@/lib/admin'||id===root+'/lib/admin')return '\0chat-admin';},load(id){if(id==='\0chat-env')return 'export const env=globalThis.__chatTest.env';if(id==='\0chat-admin')return 'export async function getWaydidiAdmin(){return globalThis.__chatTest.user}';}}],server:{middlewareMode:true}});
@@ -172,10 +174,15 @@ test('a quiet customer gets one polite check-in after 10 minutes; quiet chats ca
  await idle.sendIdleNudges(new Date(t0+11*60000));assert.equal(await count(),1); // never twice in a row
  await db.prepare("UPDATE website_chat_messages SET created_at=? WHERE conversation_id='idle-1' AND body=?").bind(iso(20),idle.NUDGE_TEXT).run();await db.prepare("UPDATE website_conversations SET last_message_at=? WHERE id='idle-1'").bind(iso(20)).run();
  const detail=await (await admin.GET(new Request('https://example.invalid/api/admin/chat?id=idle-1'))).json();assert.equal(detail.conversation.quiet,true);
- assert.equal((await admin.POST(post({id:'idle-1',action:'follow_up'}))).status,200);
+ assert.equal((await admin.POST(post({id:'idle-1',action:'follow_up'}))).status,400,'a selected date is required');
+ await db.prepare("INSERT INTO crm_contacts(id,name,created_at,updated_at) VALUES('idle-contact','Idle guest',?,?)").bind(now,now).run();
+ await db.prepare("INSERT INTO crm_sources(kind,source_id,contact_id) VALUES('chat','idle-1','idle-contact')").run();
+ const dueAt=new Date(Date.now()+86400000).toISOString();
+ assert.equal((await admin.POST(post({id:'idle-1',action:'follow_up',dueAt}))).status,200);
+ const task=await db.prepare("SELECT * FROM crm_tasks WHERE conversation_id='idle-1'").first();assert.equal(task.due_at,dueAt);assert.equal(task.owner_id,'alice');
  let row=await db.prepare("SELECT status,follow_up_at FROM website_conversations WHERE id='idle-1'").first();assert.equal(row.status,'pending');assert.ok(row.follow_up_at);
  assert.equal((await admin.POST(post({id:'idle-1',action:'complete'}))).status,200);
- row=await db.prepare("SELECT status,follow_up_at FROM website_conversations WHERE id='idle-1'").first();assert.equal(row.status,'closed');assert.equal(row.follow_up_at,null);
+ row=await db.prepare("SELECT status,follow_up_at FROM website_conversations WHERE id='idle-1'").first();assert.equal(row.status,'closed');assert.equal(row.follow_up_at,null);assert.equal((await db.prepare("SELECT status FROM crm_tasks WHERE conversation_id='idle-1'").first()).status,'completed');
 });
 test('website chats idle for 30 minutes end automatically and stay in the inbox; follow-ups are kept open',async()=>{
  const idle=await vite.ssrLoadModule('/lib/chat-idle.ts');const t0=Date.now();const iso=(m)=>new Date(t0-m*60000).toISOString();
@@ -355,13 +362,13 @@ test('site translation: cached lines come from D1, new lines are translated once
  globalThis.fetch=async(url,init)=>{if(String(url).includes('anthropic.com')){calls++;const texts=JSON.parse(JSON.parse(init.body).messages[0].content);return new Response(JSON.stringify({id:'m',type:'message',role:'assistant',model:'x',content:[{type:'text',text:JSON.stringify(Object.fromEntries(Object.entries(texts).map(([k,t])=>[k,'[ko] '+t])))}],stop_reason:'end_turn',usage:{input_tokens:10,output_tokens:10}}),{headers:{'content-type':'application/json'}});}return real(url,init);};
  const ask=(body)=>tr.POST(new Request('https://example.invalid/api/translate',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json','cf-connecting-ip':'tx-test'},body:JSON.stringify(body)})).then((r)=>r.json());
  try{
-  const a=await ask({lang:'ko',path:'/help',texts:['Book a ride','Free cancellation']});
-  assert.deepEqual(a.translations,{'Book a ride':'[ko] Book a ride','Free cancellation':'[ko] Free cancellation'});assert.equal(calls,1);
+  const a=await ask({lang:'ko',path:'/help',texts:['Book a ride','Free cancellation up to 48 hours']});
+  assert.deepEqual(a.translations,{'Book a ride':'[ko] Book a ride','Free cancellation up to 48 hours':'[ko] Free cancellation up to 48 hours'});assert.equal(calls,1);
   await ask({lang:'ko',path:'/help',texts:['Book a ride']});assert.equal(calls,1); // cached
   assert.deepEqual((await ask({lang:'ko',path:'/admin/bookings',texts:['Book a ride']})).translations,{}); // staff pages never
   assert.equal((await ask({lang:'xx',texts:['Hi']})).error,'Unsupported language.');
   await env().DB.prepare("UPDATE site_translations SET text='예약하기',status='reviewed' WHERE lang='ko' AND hash=?").bind(await lib.textHash('Book a ride')).run();
-  assert.equal((await ask({lang:'ko',texts:['Book a ride']})).translations['Book a ride'],'예약하기');
+  assert.equal((await ask({lang:'ko',path:'/help',texts:['Book a ride']})).translations['Book a ride'],'예약하기');
  }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.ANTHROPIC_API_KEY;}
 });
 const env=()=>globalThis.__chatTest.env;

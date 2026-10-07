@@ -25,6 +25,7 @@ const isActive = (pathname: string, href: string) => href === "/admin/trips" && 
 
 const DESKTOP_ONLY = ["/admin/pricing", "/admin/translations", "/admin/flights", "/admin/trips/packages", "/admin/trips/live", "/admin/trips", "/admin/attractions", "/admin/suppliers"];
 const tabs = [
+  { href: "/admin/crm", label: "CRM", mobileLabel: "CRM", title: "Customer management", icon: Users },
   { href: "/admin/financials", label: "Financials", mobileLabel: "Financials", title: "Financials", icon: BarChart3 },
   { href: "/admin/chat", label: "Website chat", mobileLabel: "Chat", title: "Website chat", icon: Users },
   { href: "/admin/profile", label: "Profile", mobileLabel: "Profile", title: "Profile", icon: UserRound },
@@ -110,6 +111,7 @@ type NavGroup = NavLink & { children?: NavLink[] };
 // Sidebar: groups with sub-pages open as dropdowns (ShopZen-style).
 const SECTIONS: { title?: string; items: NavGroup[] }[] = [
   { items: [
+    { href: "/admin/crm", label: "CRM", icon: Users },
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/bookings", label: "Bookings", icon: BookOpen, children: [
       { href: "/admin/bookings?type=transfer", label: "Transfer", match: (p, t) => p.startsWith("/admin/bookings") && t !== "hourly" && t !== "tour" },

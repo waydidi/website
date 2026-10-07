@@ -1,13 +1,15 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { bookingEvents, bookings, customerBookingLinks, customerIdentities, customerLoginCodes, customerSavedPassengers, customerSavedPlaces, customers, customerSessions } from "@/db/schema";
+import { bookingEvents, bookings, customerBookingLinks, customers } from "@/db/schema";
+import { crmDb } from "@/lib/crm";
+import { csvCell } from "@/lib/crm-rules";
 import { ACCOUNT_VISIBLE_STATUSES } from "@/lib/customer-account";
 
 /**
  * Registered members for the admin Users tab, newest first. Trips count
  * bookings made with the member's email or while signed in.
  */
-export async function listCustomers(search: string) {
+export async function listCustomers(search: string, page = 1, pageSize = 50) {
   const term = search.trim().toLowerCase().slice(0, 100);
   const statuses = sql.join(ACCOUNT_VISIBLE_STATUSES.map((s) => sql`${s}`), sql`, `);
   return getDb().select({
@@ -22,12 +24,12 @@ export async function listCustomers(search: string) {
     // Outer columns are written as "customers"."…" explicitly: an interpolated
     // column renders unqualified, and inside a subquery SQLite would resolve
     // a bare "id" to the inner table's own id.
-    trips: sql<number>`(select count(*) from bookings b where b.status in (${statuses}) and (lower(b.customer_email) = "customers"."email" or b.reference in (select l.booking_reference from customer_booking_links l where l.customer_id = "customers"."id")))`,
+    trips: sql<number>`(select count(*) from bookings b where b.status in (${statuses}) and ((lower(b.customer_email) = "customers"."email" and not exists (select 1 from customer_booking_links l where l.booking_reference=b.reference)) or b.reference in (select l.booking_reference from customer_booking_links l where l.customer_id = "customers"."id")))`,
     providers: sql<string | null>`(select group_concat(i.provider) from customer_identities i where i.customer_id = "customers"."id")`,
   }).from(customers)
     .where(term ? sql`(${customers.email} like ${`%${term}%`} or lower(coalesce(${customers.name}, '') || ' ' || coalesce(${customers.surname}, '')) like ${`%${term}%`} or coalesce(${customers.phone}, '') like ${`%${term}%`})` : undefined)
     .orderBy(desc(customers.createdAt))
-    .limit(500);
+    .limit(Math.min(100, Math.max(1, pageSize))).offset((Math.max(1,page)-1)*Math.min(100,Math.max(1,pageSize)));
 }
 
 /**
@@ -40,14 +42,23 @@ export async function deleteCustomerAccount(customerId: string) {
   const db = getDb();
   const [customer] = await db.select({ email: customers.email }).from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) return false;
-  await db.batch([
-    db.delete(customerBookingLinks).where(eq(customerBookingLinks.customerId, customerId)),
-    db.delete(customerIdentities).where(eq(customerIdentities.customerId, customerId)),
-    db.delete(customerSavedPlaces).where(eq(customerSavedPlaces.customerId, customerId)),
-    db.delete(customerSavedPassengers).where(eq(customerSavedPassengers.customerId, customerId)),
-    db.delete(customerSessions).where(eq(customerSessions.customerId, customerId)),
-    db.delete(customerLoginCodes).where(eq(customerLoginCodes.email, customer.email)),
-    db.delete(customers).where(eq(customers.id, customerId)),
+  // Booking and payment evidence is retained; account-only records are erased atomically.
+  const raw = crmDb();
+  const retainedId = `deleted:${crypto.randomUUID()}`;
+  await raw.batch([
+    raw.prepare("UPDATE partner_voucher_codes SET box_id=NULL WHERE box_id IN (SELECT id FROM member_boxes WHERE customer_id=?)").bind(customerId),
+    ...["customer_booking_links","customer_identities","customer_saved_places","customer_saved_passengers","customer_billing_profiles","customer_sessions","member_spins","member_gifts","member_boxes","member_reward_emails","member_coupons"].map(t=>raw.prepare(`DELETE FROM ${t} WHERE customer_id=?`).bind(customerId)),
+    raw.prepare("DELETE FROM customer_login_codes WHERE email=?").bind(customer.email),
+    raw.prepare("UPDATE booking_member_discounts SET customer_id=? WHERE customer_id=?").bind(retainedId,customerId),
+    raw.prepare("UPDATE website_conversations SET customer_id=NULL WHERE customer_id=?").bind(customerId),
+    raw.prepare("UPDATE support_reviews SET customer_id=NULL WHERE customer_id=?").bind(customerId),
+    raw.prepare("UPDATE agency_members SET active=0 WHERE email=?").bind(customer.email),
+    raw.prepare("UPDATE crm_outbox SET status=CASE WHEN status='sent' THEN status ELSE 'cancelled' END,payload_json='{}',email='' WHERE contact_id IN (SELECT id FROM crm_contacts WHERE member_id=?)").bind(customerId),
+    raw.prepare("DELETE FROM crm_marketing_tokens WHERE contact_id IN (SELECT id FROM crm_contacts WHERE member_id=?)").bind(customerId),
+    raw.prepare("DELETE FROM crm_sources WHERE kind='member' AND source_id=?").bind(customerId),
+    raw.prepare("UPDATE crm_contacts SET name='Deleted member',email=NULL,phone=NULL WHERE member_id=? AND NOT EXISTS(SELECT 1 FROM crm_sources s WHERE s.contact_id=crm_contacts.id AND s.kind IN ('booking','chat'))").bind(customerId),
+    raw.prepare("UPDATE crm_contacts SET member_id=NULL,marketing_opt_in=0,consent_at=NULL,consent_source=NULL,notes='',updated_at=? WHERE member_id=?").bind(new Date().toISOString(),customerId),
+    raw.prepare("DELETE FROM customers WHERE id=?").bind(customerId),
   ]);
   return true;
 }
@@ -61,14 +72,42 @@ export async function linkBookingToCustomer(customerId: string, reference: strin
   if (!booking || booking.status === "binned") return { ok: false as const, status: 404, error: "No booking with that reference." };
   const [link] = await db.select().from(customerBookingLinks).where(eq(customerBookingLinks.bookingReference, reference)).limit(1);
   if (link?.customerId === customerId || (!link && (booking.email ?? "").toLowerCase() === customer.email)) return { ok: true as const, reference, already: true };
-  if (link && !move) {
-    const [other] = await db.select({ email: customers.email }).from(customers).where(eq(customers.id, link.customerId)).limit(1);
+  const [emailOwner] = !link && booking.email ? await db.select({ id: customers.id, email: customers.email }).from(customers).where(eq(customers.email, booking.email.toLowerCase())).limit(1) : [];
+  if (!move && (link || (emailOwner && emailOwner.id !== customerId))) {
+    const [other] = link ? await db.select({ email: customers.email }).from(customers).where(eq(customers.id, link.customerId)).limit(1) : [emailOwner];
     return { ok: false as const, status: 409, error: `This booking is in another account (${other?.email ?? "unknown"}). Move it here?`, needsMove: true };
   }
   const now = new Date().toISOString();
-  await db.insert(customerBookingLinks).values({ bookingReference: reference, customerId, createdAt: now })
-    .onConflictDoUpdate({ target: customerBookingLinks.bookingReference, set: { customerId, createdAt: now } });
-  await db.insert(bookingEvents).values({ bookingReference: reference, eventType: "admin_added_to_account", createdAt: now }).catch(() => undefined);
+  const [changed] = await db.batch([
+    db.insert(customerBookingLinks).values({ bookingReference: reference, customerId, createdAt: now })
+      .onConflictDoUpdate({ target: customerBookingLinks.bookingReference, set: { customerId, createdAt: now }, setWhere: move ? undefined : eq(customerBookingLinks.customerId, customerId) }),
+    db.insert(bookingEvents).select(sql`SELECT NULL, ${reference}, 'admin_added_to_account', NULL, ${now} FROM customer_booking_links WHERE booking_reference=${reference} AND customer_id=${customerId}`),
+  ]);
+  if (!changed.meta.changes) return { ok: false as const, status: 409, error: "Booking ownership changed. Review it before moving it.", needsMove: true };
   console.info("Admin added booking to account", { reference, customerId, admin: by });
   return { ok: true as const, reference, already: false, guest: `${booking.name} ${booking.surname ?? ""}`.trim() };
+}
+
+export async function memberPage(search:string,page=1,filter="all",sort="newest") {
+  const db=crmDb(),term=search.trim().toLowerCase().slice(0,100),q=`%${term.replace(/[\\%_]/g,"\\$&")}%`;
+  const statuses=ACCOUNT_VISIBLE_STATUSES.map(s=>`'${s}'`).join(',');
+  const tripSql=`(select count(*) from bookings b where b.status in (${statuses}) and (exists(select 1 from customer_booking_links l where l.booking_reference=b.reference and l.customer_id=c.id) or (lower(b.customer_email)=c.email and not exists(select 1 from customer_booking_links l where l.booking_reference=b.reference))))`;
+  const now=Date.now(),bkk=new Date(now+7*3600000),monthStart=new Date(Date.UTC(bkk.getUTCFullYear(),bkk.getUTCMonth(),1)-7*3600000).toISOString(),activeSince=new Date(now-30*86400000).toISOString();
+  let where="(c.email LIKE ? ESCAPE '\\' or lower(coalesce(c.name,'') || ' ' || coalesce(c.surname,'')) LIKE ? ESCAPE '\\' or coalesce(c.phone,'') LIKE ? ESCAPE '\\')";const args:unknown[]=[q,q,q];
+  if(filter==='booked')where+=` AND ${tripSql}>0`;if(filter==='none')where+=` AND ${tripSql}=0`;if(filter==='new'){where+=' AND c.created_at>=?';args.push(monthStart);}
+  const order=sort==='name'?"coalesce(c.name,'') ASC,c.id ASC":sort==='oldest'?'c.created_at ASC,c.id ASC':sort==='trips'?`${tripSql} DESC,c.id ASC`:'c.created_at DESC,c.id DESC';
+  const [items,count,stats]=await Promise.all([
+    db.prepare(`SELECT c.id,c.email,c.name,c.surname,c.phone,c.marketing_opt_in marketingOptIn,c.created_at createdAt,c.last_seen_at lastSeenAt,${tripSql} trips,(select group_concat(provider) from customer_identities i where i.customer_id=c.id) providers FROM customers c WHERE ${where} ORDER BY ${order} LIMIT 50 OFFSET ?`).bind(...args,(Math.max(1,page)-1)*50).all(),
+    db.prepare(`SELECT count(*) total FROM customers c WHERE ${where}`).bind(...args).first<{total:number}>(),
+    db.prepare(`SELECT count(*) total,sum(c.created_at>=?) newThisMonth,sum(c.last_seen_at>=?) active30,sum(c.marketing_opt_in) optIn,sum(${tripSql}>0) booked FROM customers c`).bind(monthStart,activeSince).first(),
+  ]);
+  return {items:items.results,total:count?.total??0,page,stats};
+}
+export async function memberCsv(search:string,filter:string,sort:string){
+ const encoder=new TextEncoder();
+ return new ReadableStream<Uint8Array>({async start(controller){
+  try{controller.enqueue(encoder.encode(['Name','Email','Phone','Trips','Joined','Last active','Offers'].map(csvCell).join(',')+'\r\n'));
+   let page=1;while(true){const data=await memberPage(search,page,filter,sort);for(const item of data.items){const u=item as Record<string,unknown>;controller.enqueue(encoder.encode([`${u.name??''} ${u.surname??''}`.trim(),u.email,u.phone,u.trips,u.createdAt,u.lastSeenAt,u.marketingOptIn?'Yes':'No'].map(csvCell).join(',')+'\r\n'));}if(page*50>=data.total)break;page++;}controller.close();
+  }catch(error){controller.error(error);}
+ }});
 }

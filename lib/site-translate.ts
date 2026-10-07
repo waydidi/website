@@ -1,7 +1,8 @@
+import { approvedTranslationText } from "@/lib/site-translation-policy";
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "cloudflare:workers";
 import { sha256 } from "@/lib/security";
-import { SITE_LANGS, STYLE, TX_MODEL, type SiteLang } from "@/lib/site-languages";
+import { SITE_LANGS, STYLE, TX_MODEL, untranslatedPath, type SiteLang } from "@/lib/site-languages";
 
 // Site-wide AI translation. Each English text is translated once per language by Claude, stored
 // in D1 and served from there to every visitor. Staff can correct any line (it's then "reviewed"
@@ -50,7 +51,7 @@ Input: a JSON object of numbered texts, e.g. {"1": "Book a ride", "2": "From"}. 
 };
 
 async function callClaude(lang: SiteLang, texts: string[]) {
-  const client = new Anthropic({ apiKey: vars().ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: vars().ANTHROPIC_API_KEY, timeout: 30000, maxRetries: 0 });
   const res = await client.messages.create({
     model: TRANSLATE_MODEL, max_tokens: 16000,
     system: [{ type: "text", text: SYSTEM(lang), cache_control: { type: "ephemeral" } }],
@@ -75,36 +76,45 @@ async function claimBudget(n: number) {
 
 /** Translates and stores the texts that aren't cached yet. Returns the new translations. */
 export async function translateMissing(lang: SiteLang, texts: string[], path: string | null) {
-  const done = new Map<string, string>();
+  if (!path || untranslatedPath(path)) return new Map<string, string>();
+  texts = [...new Set(texts.filter(approvedTranslationText))];
+  const done = await cachedTranslations(lang, texts);
   if (!translationConfigured() || !texts.length) return done;
+  const missing = texts.filter((text) => !done.has(text));
   const batches: string[][] = [];
-  for (let i = 0; i < texts.length; i += BATCH) batches.push(texts.slice(i, i + BATCH));
-  // Up to 4 batches at a time, so a whole page is ready in a few seconds.
+  for (let i = 0; i < missing.length; i += BATCH) batches.push(missing.slice(i, i + BATCH));
   for (let k = 0; k < batches.length; k += 4) {
-    await Promise.all(batches.slice(k, k + 4).map(async (part) => {
-      if (!await claimBudget(part.length)) return;
-      let result: { out: (string | null)[]; usd: number } | null = null;
-      try { result = await callClaude(lang, part); } catch (e) { console.error("translation failed", e instanceof Error ? e.message : "unknown"); }
-      if (!result) return;
-      // One retry for items the model skipped.
-      const skipped = part.filter((_, j) => !result!.out[j]);
-      if (skipped.length && skipped.length < part.length) {
-        const again = await callClaude(lang, skipped).catch(() => null);
-        if (again) { let n = 0; result.out = result.out.map((t) => t ?? again.out[n++] ?? null); result.usd += again.usd; }
-      }
-      const now = new Date().toISOString();
-      const stmts: Stmt[] = [];
-      for (let j = 0; j < part.length; j++) {
-        const text = result.out[j];
-        if (!text) continue;
-        done.set(part[j], text);
-        // A staff correction ("reviewed") is never overwritten.
-        stmts.push(db().prepare("INSERT INTO site_translations(lang,hash,source,text,status,path,created_at,updated_at) VALUES(?,?,?,?,'machine',?,?,?) ON CONFLICT(lang,hash) DO NOTHING")
-          .bind(lang, await textHash(part[j]), part[j], text, path, now, now));
-      }
-      stmts.push(db().prepare("UPDATE site_translation_usage SET usd=usd+? WHERE day=?").bind(result.usd, today()));
-      await db().batch(stmts);
+    await Promise.all(batches.slice(k, k + 4).map(async (batch) => {
+      const owner = crypto.randomUUID(), now = new Date().toISOString();
+      const expires = new Date(Date.now() + 120000).toISOString();
+      const part: string[] = [], hashes: string[] = [];
+      try {
+        for (const text of batch) {
+          const hash = await textHash(text);
+          const claimed = await db().prepare(`INSERT INTO site_translation_claims(lang,hash,owner,expires_at)
+            SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM site_translations WHERE lang=? AND hash=?)
+            ON CONFLICT(lang,hash) DO UPDATE SET owner=excluded.owner,expires_at=excluded.expires_at WHERE expires_at<=? RETURNING owner`)
+            .bind(lang, hash, owner, expires, lang, hash, now).first<{ owner: string }>();
+          if (claimed?.owner === owner) { part.push(text); hashes.push(hash); }
+        }
+        if (!part.length || !await claimBudget(part.length)) return;
+        const result = await callClaude(lang, part);
+        // A missing result stays uncached and may be retried by the browser.
+        const at = new Date().toISOString();
+        const stmts: Stmt[] = [];
+        for (let j = 0; j < part.length; j++) {
+          if (!result.out[j]) continue;
+          stmts.push(db().prepare(`INSERT INTO site_translations(lang,hash,source,text,status,path,created_at,updated_at)
+            SELECT ?,?,?,?,'machine',?,?,? WHERE EXISTS(SELECT 1 FROM site_translation_claims WHERE lang=? AND hash=? AND owner=?)
+            ON CONFLICT(lang,hash) DO NOTHING`).bind(lang, hashes[j], part[j], result.out[j], path, at, at, lang, hashes[j], owner));
+        }
+        stmts.push(db().prepare("UPDATE site_translation_usage SET usd=usd+? WHERE day=?").bind(result.usd, today()));
+        await db().batch(stmts);
+      } catch (e) { console.error("translation failed", e instanceof Error ? e.message : "unknown"); }
+      finally { await db().prepare("DELETE FROM site_translation_claims WHERE owner=?").bind(owner).run(); }
     }));
   }
+  // Never replace a staff correction that won during the model request.
+  for (const [source, text] of await cachedTranslations(lang, texts)) done.set(source, text);
   return done;
 }

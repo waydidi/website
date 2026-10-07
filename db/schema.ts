@@ -1186,6 +1186,10 @@ export const memberRewardEmails = sqliteTable("member_reward_emails", {
   kind: text("kind").notNull(),
   status: text("status").notNull(),
   createdAt: text("created_at").notNull(),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  lastAttemptAt: text("last_attempt_at"),
+  nextAttemptAt: text("next_attempt_at"),
+  sentAt: text("sent_at"),
 });
 
 // Travel agency partner applications from /agencies.
@@ -1456,3 +1460,138 @@ export const tripPackages = sqliteTable("trip_packages", {
  coverImage:text("cover_image"), pricesJson:text("prices_json").notNull().default("{}"), minNoticeHours:integer("min_notice_hours").notNull().default(24), published:integer("published",{mode:"boolean"}).notNull().default(false),
  sortOrder:integer("sort_order").notNull().default(0), i18nJson:text("i18n_json").notNull().default("{}"), createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(),
 },t=>[index("trip_packages_city").on(t.city,t.published,t.sortOrder)]);
+
+// Staff-only CRM records; contact consolidation does not alter account ownership.
+export const crmContacts = sqliteTable("crm_contacts", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  memberId: text("member_id"),
+  ownerId: text("owner_id"),
+  language: text("language").notNull().default("en"),
+  notes: text("notes").notNull().default(""),
+  marketingOptIn: integer("marketing_opt_in").notNull().default(0),
+  consentAt: text("consent_at"),
+  consentSource: text("consent_source"),
+  mergedInto: text("merged_into"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+export const crmSources = sqliteTable("crm_sources", {
+  kind: text("kind").notNull(),
+  sourceId: text("source_id").notNull(),
+  contactId: text("contact_id").notNull(),
+}, t => [primaryKey({columns:[t.kind,t.sourceId]})]);
+export const crmLeads = sqliteTable("crm_leads", {
+  id: text("id").primaryKey(),
+  contactId: text("contact_id").notNull(),
+  title: text("title").notNull(),
+  stage: text("stage").notNull().default("new"),
+  valueMinor: integer("value_minor").notNull().default(0),
+  ownerId: text("owner_id"),
+  source: text("source").notNull().default("manual"),
+  bookingReference: text("booking_reference"),
+  lossReason: text("loss_reason"),
+  version: integer("version").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+export const crmTasks = sqliteTable("crm_tasks", {
+  id: text("id").primaryKey(),
+  contactId: text("contact_id"),
+  leadId: text("lead_id"),
+  conversationId: text("conversation_id"),
+  title: text("title").notNull(),
+  dueAt: text("due_at").notNull(),
+  ownerId: text("owner_id").notNull(),
+  status: text("status").notNull().default("open"),
+  completedAt: text("completed_at"),
+  remindedAt: text("reminded_at"),
+  dedupeKey: text("dedupe_key").unique(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+export const crmEvents = sqliteTable("crm_events", {
+  id: text("id").primaryKey(),
+  contactId: text("contact_id"),
+  entityId: text("entity_id"),
+  kind: text("kind").notNull(),
+  body: text("body").notNull(),
+  staffId: text("staff_id"),
+  createdAt: text("created_at").notNull(),
+});
+export const crmQuotes = sqliteTable("crm_quotes", {
+  id: text("id").primaryKey(),
+  contactId: text("contact_id").notNull(),
+  leadId: text("lead_id"),
+  version: integer("version").notNull().default(1),
+  status: text("status").notNull().default("draft"),
+  title: text("title").notNull(),
+  pickup: text("pickup").notNull(),
+  dropoff: text("dropoff").notNull(),
+  tripDate: text("trip_date").notNull(),
+  tripTime: text("trip_time").notNull(),
+  vehicle: text("vehicle").notNull(),
+  amountMinor: integer("amount_minor").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  tokenHash: text("token_hash").unique(),
+  formToken: text("form_token"),
+  bookingReference: text("booking_reference"),
+  acceptedAt: text("accepted_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+export const crmQuoteVersions = sqliteTable("crm_quote_versions", {
+  quoteId: text("quote_id").notNull(),
+  version: integer("version").notNull(),
+  snapshotJson: text("snapshot_json").notNull(),
+  staffId: text("staff_id"),
+  createdAt: text("created_at").notNull(),
+}, t => [primaryKey({columns:[t.quoteId,t.version]})]);
+export const agencyMembers = sqliteTable("agency_members", {
+  agencyId: text("agency_id").notNull(),
+  email: text("email").notNull(),
+  role: text("role").notNull().default("booker"),
+  active: integer("active").notNull().default(1),
+  createdAt: text("created_at").notNull(),
+}, t => [primaryKey({columns:[t.agencyId,t.email]})]);
+export const crmPartnerAccounts = sqliteTable("crm_partner_accounts", {
+  agencyId: text("agency_id").primaryKey(),
+  ownerId: text("owner_id"),
+  rateNotes: text("rate_notes").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});
+export const crmRetentionRules = sqliteTable("crm_retention_rules", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  kind: text("kind").notNull(),
+  days: integer("days").notNull(),
+  enabled: integer("enabled").notNull().default(0),
+  ownerId: text("owner_id").notNull(),
+  message: text("message").notNull().default(""),
+  channel: text("channel").notNull().default("task"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+export const crmOutbox = sqliteTable("crm_outbox", {
+  id: text("id").primaryKey(),
+  contactId: text("contact_id"),
+  ruleId: text("rule_id"),
+  dedupeKey: text("dedupe_key").notNull().unique(),
+  email: text("email").notNull(),
+  payloadJson: text("payload_json").notNull(),
+  status: text("status").notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  attemptedAt: text("attempted_at"),
+  firstAttemptAt: text("first_attempt_at"),
+  nextAttemptAt: text("next_attempt_at"),
+  sentAt: text("sent_at"),
+  createdAt: text("created_at").notNull(),
+});
+export const crmSyncState = sqliteTable("crm_sync_state", {
+  id: text("id").primaryKey(),
+  lastRunAt: text("last_run_at"),
+});
+
+export const crmMarketingTokens=sqliteTable("crm_marketing_tokens",{tokenHash:text("token_hash").primaryKey(),contactId:text("contact_id").notNull().references(()=>crmContacts.id),expiresAt:text("expires_at").notNull(),createdAt:text("created_at").notNull()});

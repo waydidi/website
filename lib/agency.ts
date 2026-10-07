@@ -9,7 +9,7 @@ export type Agency = typeof agencyApplications.$inferSelect;
 export async function agencyForCustomer(customer: Customer | null) {
   if (!customer) return null;
   const [agency] = await getDb().select().from(agencyApplications)
-    .where(and(eq(agencyApplications.status, "approved"), sql`lower(${agencyApplications.email}) = ${customer.email.toLowerCase()}`))
+    .where(and(eq(agencyApplications.status, "approved"), sql`(lower(${agencyApplications.email}) = ${customer.email.toLowerCase()} or exists(select 1 from agency_members m where m.agency_id=${agencyApplications.id} and m.email=${customer.email.toLowerCase()} and m.active=1))`))
     .limit(1);
   return agency ?? null;
 }
@@ -34,4 +34,11 @@ export async function agencyRequests(agency: Agency) {
   return getDb().select().from(bookingForms)
     .where(and(eq(bookingForms.agencyId, agency.id), inArray(bookingForms.status, ["waiting", "submitted"])))
     .orderBy(desc(bookingForms.createdAt)).limit(50);
+}
+
+/** Managers can administer the agency team; bookers only access booking workflows. */
+export async function agencyMemberRole(agency:Agency,customer:Customer){
+ if(agency.email.toLowerCase()===customer.email.toLowerCase())return "manager";
+ const row=await import("./crm").then(m=>m.crmDb().prepare("SELECT role FROM agency_members WHERE agency_id=? AND email=? AND active=1").bind(agency.id,customer.email.toLowerCase()).first<{role:string}>());
+ return row?.role??null;
 }

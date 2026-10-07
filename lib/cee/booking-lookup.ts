@@ -4,12 +4,13 @@ import { legacySurname, normalizeSurname } from "@/lib/booking-reference";
 import { constantTimeEqual, sha256 } from "@/lib/security";
 import { SITE_URL } from "@/lib/site";
 import { VEHICLES } from "@/lib/vehicles";
-import { rideUrl } from "@/lib/trip-access";
+import { customerBooking, type Customer } from "@/lib/customer-auth";
+import { conversationById } from "@/lib/website-chat";
 
-// "Check my booking" in the chat (website, WhatsApp, LINE): the booking reference AND the lead
-// passenger's surname must both match. Wrong guesses are limited per chat so references can't be tried out.
+// Booking details require a verified website account, current ownership, reference
+// and surname. Other channels direct customers to their authenticated account.
 
-const MAX_FAILS = 5; // per chat per day
+const MAX_ATTEMPTS = 5; // lookups per chat per day
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<{ meta: { changes: number } }> };
 const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
 
@@ -22,30 +23,34 @@ const STATUS: Record<string, string> = { confirmed: "Confirmed", pending: "Waiti
 const day = (d: string) => { const [y, m, dd] = d.split("-"); return `${dd}/${m}/${y}`; };
 
 async function failKey(conversationId: string) { return `lookup:${(await sha256(`lookup:${conversationId}`)).slice(0, 32)}`; }
-async function fails(conversationId: string) {
+async function claimAttempt(conversationId: string) {
   const w = Math.floor(Date.now() / 86400_000);
-  return (await db().prepare("SELECT attempts FROM security_rate_windows WHERE fingerprint=? AND window=?").bind(await failKey(conversationId), w).first<{ attempts: number }>())?.attempts ?? 0;
-}
-async function addFail(conversationId: string) {
-  const w = Math.floor(Date.now() / 86400_000);
-  await db().prepare("INSERT INTO security_rate_windows(fingerprint,window,attempts) VALUES(?,?,1) ON CONFLICT(fingerprint,window) DO UPDATE SET attempts=attempts+1").bind(await failKey(conversationId), w).run();
+  return Boolean(await db().prepare("INSERT INTO security_rate_windows(fingerprint,window,attempts) VALUES(?,?,1) ON CONFLICT(fingerprint,window) DO UPDATE SET attempts=attempts+1 WHERE attempts<? RETURNING attempts")
+    .bind(await failKey(conversationId), w, MAX_ATTEMPTS).first());
 }
 
 export async function checkBooking(conversationId: string, referenceIn: string, surnameIn: string): Promise<{ ok: true; booking: BookingStatus } | { ok: false; reason: string }> {
-  if ((await fails(conversationId)) >= MAX_FAILS) return { ok: false, reason: "Too many tries in this chat today. Ask the customer to check the confirmation email, or hand over to the team." };
+  if (!await claimAttempt(conversationId)) return { ok: false, reason: "Too many tries in this chat today. Ask the customer to check the confirmation email, or hand over to the team." };
+  const conversation = await conversationById(conversationId);
+  // Contact email and channel identity never prove ownership. Only a server-bound,
+  // signed-in website account may disclose booking details in this chat.
+  if (!conversation?.customer_id || conversation.channel !== "web") return { ok: false, reason: "Sign in to your Waydidi account to check your booking at " + SITE_URL + "/account/trips. Or ask the team for help." };
+  const customer = await db().prepare("SELECT * FROM customers WHERE id=?").bind(conversation.customer_id).first<Customer>();
   const reference = referenceIn.trim().toUpperCase().replace(/\s+/g, "");
   const surname = normalizeSurname(surnameIn ?? "");
   if (!/^(?:[A-HJ-NP-Z2-9]{6}|WD-[A-F0-9]{12})$/.test(reference)) return { ok: false, reason: "That doesn't look like a booking reference (6 letters/numbers, e.g. MC7Q2P, from the confirmation email). Ask them to check it." };
   if (!surname) return { ok: false, reason: "Ask for the lead passenger's surname (last name) as written on the booking." };
   const b = await db().prepare(`SELECT reference,customer_name,customer_surname,status,pickup,dropoff,pickup_date,pickup_time,return_date,return_time,vehicle,passengers,luggage,flight_number,
     payment_method,payment_status,total,amount_paid,service_type,booked_hours,created_at FROM bookings WHERE reference=?`).bind(reference).first<Row>();
-  const match = b && b.status !== "binned" && constantTimeEqual(await sha256(surname), await sha256(normalizeSurname(b.customer_surname || legacySurname(b.customer_name))));
-  if (!b || !match) { await addFail(conversationId); return { ok: false, reason: "No booking matches that reference and surname. Ask them to check both (as on the confirmation email). Don't say which one is wrong." }; }
+  const owned = customer && await customerBooking(customer, reference);
+  const match = owned && b && b.status !== "binned" && constantTimeEqual(await sha256(surname), await sha256(normalizeSurname(b.customer_surname || legacySurname(b.customer_name))));
+  if (!b || !match) { return { ok: false, reason: "No booking matches that reference and surname. Ask them to check both (as on the confirmation email). Don't say which one is wrong." }; }
 
   // The driver (if assigned); the phone number only from 24 hours before pickup.
   const driver = await db().prepare(`SELECT d.full_name name,d.vehicle car,d.car_plate plate,d.phone phone FROM booking_assignments a JOIN drivers d ON d.id=a.driver_id
     WHERE a.booking_reference=? AND a.revoked_at IS NULL ORDER BY a.assigned_at DESC LIMIT 1`).bind(reference).first<{ name: string; car: string | null; plate: string | null; phone: string | null }>().catch(() => null);
-  const soon = new Date(`${b.pickup_date}T${b.pickup_time}:00+07:00`).getTime() - Date.now() < 24 * 3600_000;
+  const pickupAt = new Date(`${b.pickup_date}T${b.pickup_time}:00+07:00`).getTime();
+  const soon = ["confirmed"].includes(b.status) && pickupAt - Date.now() < 24 * 3600_000 && pickupAt - Date.now() > -2 * 3600_000;
   const car = (VEHICLES as Record<string, { name: string }>)[b.vehicle]?.name ?? b.vehicle;
   const cashDue = b.payment_method === "cash" ? Math.max(0, b.total - (b.amount_paid ?? 0)) : 0;
   const rows: [string, string][] = [
@@ -62,8 +67,8 @@ export async function checkBooking(conversationId: string, referenceIn: string, 
   return { ok: true, booking: {
     reference: b.reference, status: b.status, statusText: STATUS[b.status] ?? b.status, leadName: fullName(b.customer_name, b.customer_surname), rows, people: b.passengers, bags: b.luggage, cashDue,
     driver: driver ? { name: driver.name, car: driver.car, plate: driver.plate, phone: soon ? driver.phone : null } : null,
-    // The booking's own ride-status link (made at booking, same as in the email and account page).
-    rideUrl: await rideUrl(SITE_URL, { reference: b.reference, createdAt: b.created_at }).catch(() => `${SITE_URL}/trip/${encodeURIComponent(b.reference)}`),
+    // Account pages verify the session again; never publish bearer owner keys to chat.
+    rideUrl: `${SITE_URL}/account/trips/${encodeURIComponent(b.reference)}`,
     manageUrl: `${SITE_URL}/account/trips/${encodeURIComponent(b.reference)}`,
   } };
 }

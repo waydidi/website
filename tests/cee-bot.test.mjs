@@ -394,18 +394,17 @@ test('"near me": on the website Non shows a Share my location button; on WhatsAp
  const wa=await ask('whatsapp');assert.equal(wa.cards.length,0);
  const cards=await vite.ssrLoadModule('/lib/chat-cards.ts');assert.ok(cards.parseCard(JSON.stringify(web.cards[0])));
 });
-test('check booking: reference + surname must both match; wrong guesses are limited per chat; card shows status, trip, payment, driver',async()=>{
+test('check booking: unverified chats cannot disclose booking data or tracking keys; attempts are limited',async()=>{
  await db.exec("CREATE TABLE IF NOT EXISTS bookings(reference TEXT PRIMARY KEY,customer_name TEXT,customer_email TEXT,customer_phone TEXT,pickup TEXT,dropoff TEXT,pickup_date TEXT,pickup_time TEXT,passengers INTEGER,luggage INTEGER,vehicle TEXT,payment_method TEXT,total INTEGER,status TEXT,payment_status TEXT,amount_paid INTEGER,access_token_hash TEXT,service_type TEXT,booked_hours INTEGER,created_at TEXT,updated_at TEXT);");
  for(const c of ['customer_surname TEXT','return_date TEXT','return_time TEXT','flight_number TEXT'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
  await db.prepare("INSERT INTO bookings(reference,customer_name,customer_surname,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status,payment_status,amount_paid,service_type) VALUES('MC7Q2P','Mansi','Choksi','Trat airport','Dinso Resort','2026-12-14','12:45',2,2,'economy_sedan','cash',2400,'confirmed','pending',0,'transfer')").run();
  await db.exec('CREATE TABLE IF NOT EXISTS security_rate_windows(fingerprint TEXT,window INTEGER,attempts INTEGER,PRIMARY KEY(fingerprint,window));');
  const lk=await vite.ssrLoadModule('/lib/cee/booking-lookup.ts');
- const ok=await lk.checkBooking('look-1','mc7q2p',' choksi ');assert.equal(ok.ok,true);assert.equal(ok.booking.statusText,'Confirmed');assert.equal(ok.booking.cashDue,2400);
- assert.ok(ok.booking.rows.some(([k,v])=>k==='Date/Time'&&v==='14/12/2026 12:45'));
+ const ok=await lk.checkBooking('look-1','mc7q2p',' choksi ');assert.equal(ok.ok,false);assert.match(ok.reason,/Sign in/);assert.equal(ok.booking,undefined);
  const bad=await lk.checkBooking('look-2','MC7Q2P','Smith');assert.equal(bad.ok,false);assert.doesNotMatch(bad.reason,/surname is wrong/i);
  for(let i=0;i<5;i++)await lk.checkBooking('look-3','ABCDEF','x');
  const locked=await lk.checkBooking('look-3','MC7Q2P','Choksi');assert.equal(locked.ok,false);assert.match(locked.reason,/Too many tries/);
- const out=await bot.ceeTurn([{sender:'visitor',body:'check MC7Q2P Choksi'}],scripted({content:[{type:'tool_use',id:'t',name:'check_booking',input:{reference:'MC7Q2P',surname:'Choksi'}}],stop_reason:'tool_use'},say('Your booking is confirmed.')),{tools,placeGuard:{conversationId:'look-4',actor:'chat:look-4'}});
- assert.equal(out.cards[0].type,'booking');assert.equal(out.cards[0].reference,'MC7Q2P');
- globalThis.__ceeTest.env.WAYDIDI_ADMIN_SESSION_SECRET='s'.repeat(40);const signed=await lk.checkBooking('look-5','MC7Q2P','Choksi');assert.match(signed.booking.rideUrl,/\/trip\/MC7Q2P\?ride=[a-f0-9]{32}$/);delete globalThis.__ceeTest.env.WAYDIDI_ADMIN_SESSION_SECRET;
+ const out=await bot.ceeTurn([{sender:'visitor',body:'check MC7Q2P Choksi'}],scripted({content:[{type:'tool_use',id:'t',name:'check_booking',input:{reference:'MC7Q2P',surname:'Choksi'}}],stop_reason:'tool_use'},say('Please sign in to check your booking.')),{tools,placeGuard:{conversationId:'look-4',actor:'chat:look-4'}});
+ assert.equal(out.cards.length,0);
+ globalThis.__ceeTest.env.WAYDIDI_ADMIN_SESSION_SECRET='s'.repeat(40);const signed=await lk.checkBooking('look-5','MC7Q2P','Choksi');assert.equal(signed.ok,false);assert.equal(signed.booking,undefined);delete globalThis.__ceeTest.env.WAYDIDI_ADMIN_SESSION_SECRET;
 });

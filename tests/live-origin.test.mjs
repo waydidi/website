@@ -35,11 +35,11 @@ test("robots points search engines to the only live sitemap", async () => {
   assert.ok(robots.includes("Disallow: /admin/"));
 });
 
-test("the old workers.dev address and www send page visits to waydidi.com, but keep API calls working", async () => {
-  for (const host of ["https://waydidi-website.contact-waydidi.workers.dev", "https://www.waydidi.com"]) {
+test("alternate hostnames send page visits to waydidi.com, but keep API calls working", async () => {
+  for (const host of ["https://www.waydidi.com", "https://waydidi-website.contact-waydidi.workers.dev"]) {
     const page = await mf.dispatchFetch(host + "/help?x=1", { redirect: "manual" });
     assert.equal(page.status, 301);
-    assert.equal(page.headers.get("Location"), "https://waydidi.com/help?x=1");
+    assert.equal(page.headers.get("Location"), origin + "/help?x=1");
     await page.text();
   }
   const api = await mf.dispatchFetch("https://waydidi-website.contact-waydidi.workers.dev/api/chat", { redirect: "manual" });
