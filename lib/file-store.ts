@@ -36,6 +36,7 @@ export async function getFile(key: string): Promise<Stored | null> {
 }
 
 export async function deleteFile(key: string) {
-  if (env.BUCKET) { await env.BUCKET.delete(key); return; }
+  // A file may predate the R2 binding. Remove D1 fallback parts as well.
+  if (env.BUCKET) await env.BUCKET.delete(key);
   await db().prepare("DELETE FROM stored_file_parts WHERE key = ?").bind(key).run();
 }

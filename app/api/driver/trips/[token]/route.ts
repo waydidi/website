@@ -1,3 +1,5 @@
+import { evidenceDb, evidencePolicy, evidenceOverride, type EvidenceRow } from "@/lib/trip-evidence";
+import { evidenceTypeFor } from "@/lib/evidence-rules";
 import { journeyFor, parseLeg } from "@/lib/journey-legs";
 import { env } from "cloudflare:workers";
 import { and, count, desc, eq, gt, isNull } from "drizzle-orm";
@@ -51,6 +53,8 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     getDb().select().from(driverPayoutDetails).where(eq(driverPayoutDetails.assignmentId, assignment.id)).limit(1),
   ]);
   return NextResponse.json({
+    evidencePolicy: await evidencePolicy(),
+    evidenceOverrides: { pickup: Boolean(await evidenceOverride(assignment.id,"pickup")), dropoff: Boolean(await evidenceOverride(assignment.id,"dropoff")) },
     assignment: { id: assignment.id, currentStatus: assignment.currentStatus === "standby" && assignment.passengerVerifiedAt ? "passenger_verified" : assignment.currentStatus, tokenExpiresAt: assignment.tokenExpiresAt, passengerVerifiedAt: assignment.passengerVerifiedAt, passengerVerificationMethod: assignment.passengerVerificationMethod, passengerVerificationAttemptsRemaining: Math.max(0, 5 - failedAttempts) },
     driver: { fullName: driver.fullName, phone: driver.phone },
     booking: {
@@ -61,7 +65,7 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
       dropoffLatitude: booking.dropoffLatitude, dropoffLongitude: booking.dropoffLongitude,
       status: booking.status,
     },
-    events: events.map(({ evidenceKey, evidenceSha256, ...event }) => ({ ...event, hasEvidence: Boolean(evidenceKey || evidenceSha256) })),
+    events: events.map(({ evidenceKey, evidenceSha256, ...event }) => ({ ...event, hasEvidence: Boolean(evidenceKey || evidenceSha256 || event.tripEvidenceId) })),
     activeStop: activeStop ? { reason: activeStop.reason, note: activeStop.note, declaredAt: activeStop.declaredAt } : null,
     noShow: { eligibleAt: eligibleAtIso(booking), airport: isAirportPickup(booking), freeWaitMinutes: isAirportPickup(booking) ? AIRPORT_FREE_WAIT_MINUTES : STANDARD_FREE_WAIT_MINUTES, maxDistanceMetres: NO_SHOW_MAX_DISTANCE_METRES },
     payoutDetails: payout ? { submittedAt: payout.submittedAt } : null,
@@ -73,6 +77,12 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const { token } = await context.params;
   const trip = await tripForToken(token);
   if (!trip) return NextResponse.json({ error: "This driver link is invalid, expired, or revoked." }, { status: 404 });
+  // Replay is checked before status validation so a lost completion response remains recoverable.
+  if (Number(request.headers.get("content-length")??0)>9*1024*1024) return NextResponse.json({error:"Upload too large"},{status:413});
+  const form = await request.formData();
+  const replayId=String(form.get("clientEventId")??"").toLowerCase();
+  const replay=trip.events.find(event=>event.id===replayId);
+  if(replay) return replay.status===String(form.get("status")) ? NextResponse.json({ok:true,status:replay.status,eventId:replay.id,duplicate:true}) : NextResponse.json({error:"Update id already used"},{status:409});
   if (trip.booking.status !== "confirmed") return NextResponse.json({ error: "This booking is no longer active." }, { status: 409 });
   const storedCurrent = trip.assignment.currentStatus;
   const current = storedCurrent === "standby" && trip.assignment.passengerVerifiedAt ? "passenger_verified" : storedCurrent;
@@ -82,7 +92,6 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const [{ attempts }] = await getDb().select({ attempts: count() }).from(driverStatusEvents).where(and(eq(driverStatusEvents.assignmentId, trip.assignment.id), gt(driverStatusEvents.createdAt, since)));
   if (attempts >= 10) return NextResponse.json({ error: "Too many updates. Wait a few minutes and try again." }, { status: 429 });
 
-  const form = await request.formData();
   const requestedStatus = String(form.get("status") ?? "");
   const clientEventId = String(form.get("clientEventId") ?? "").toLowerCase();
   if (clientEventId && !UUID_PATTERN.test(clientEventId)) return NextResponse.json({ error: "Invalid update id." }, { status: 400 });
@@ -104,10 +113,20 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     if (eligibleAt === null || new Date(occurredAt).getTime() < eligibleAt) return NextResponse.json({ error: "The free waiting time is not over yet.", eligibleAt: eligibleAt === null ? null : new Date(eligibleAt).toISOString() }, { status: 409 });
   }
 
-  const needsEvidence = evidenceRequired(requestedStatus);
-  const needsLocation = locationRequired(requestedStatus);
-  const latitude = Number(form.get("latitude"));
-  const longitude = Number(form.get("longitude"));
+  const type = evidenceTypeFor(requestedStatus);
+  const policy = await evidencePolicy();
+  const override = type ? await evidenceOverride(trip.assignment.id,type) : null;
+  const evidenceId = String(form.get("evidenceId")??"") || null;
+  const storedEvidence = evidenceId ? await evidenceDb().prepare("SELECT * FROM driver_trip_evidence WHERE id=? AND assignment_id=? AND deleted_at IS NULL AND expires_at>?").bind(evidenceId,trip.assignment.id,new Date().toISOString()).first<EvidenceRow>() : null;
+  if(evidenceId && (!storedEvidence || storedEvidence.event_type!==type || storedEvidence.status_event_id)) return NextResponse.json({error:"Photo does not match this trip step. Refresh and retry."},{status:409});
+  const required = requestedStatus === "standby" ? policy.pickup_required : requestedStatus === "completed" ? policy.dropoff_required : 0;
+  if(required && !storedEvidence && !override) return NextResponse.json({error:"Save a photo first, or contact operations for an audited exception."},{status:409});
+  if(storedEvidence && policy.gps_required && !override && (storedEvidence.latitude===null || storedEvidence.accuracy_metres===null || storedEvidence.accuracy_metres>policy.max_accuracy_m)) return NextResponse.json({error:"Photo GPS is unavailable or inaccurate. Retake with GPS, or contact operations."},{status:409});
+  const needsEvidence = requestedStatus === "no_show" && evidenceRequired(requestedStatus);
+  // Evidence GPS is optional by default; existing tracking requirements on other steps remain.
+  const needsLocation = ["standby","completed"].includes(requestedStatus) ? false : locationRequired(requestedStatus);
+  const latitude = form.has("latitude") ? Number(form.get("latitude")) : NaN;
+  const longitude = form.has("longitude") ? Number(form.get("longitude")) : NaN;
   const accuracy = Math.round(Number(form.get("accuracy")));
   const coordinatesValid = Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180 && Number.isFinite(accuracy) && accuracy > 0 && accuracy <= 2_000;
   if (needsLocation && !coordinatesValid) return NextResponse.json({ error: "Allow location access and capture your current position before submitting." }, { status: 400 });
@@ -146,8 +165,8 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const now = new Date(nowMs).toISOString();
   const final = requestedStatus === "completed" || noShow;
   const statements = [
-    env.DB.prepare(`INSERT INTO driver_status_events (id, assignment_id, booking_reference, status, previous_status, latitude, longitude, accuracy_metres, expected_distance_metres, driver_note, evidence_key, evidence_mime, evidence_bytes, evidence_sha256, verification_status, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM booking_assignments WHERE id = ? AND current_status = ? AND revoked_at IS NULL`).bind(id, trip.assignment.id, trip.booking.reference, requestedStatus, current, coordinatesValid ? latitude : null, coordinatesValid ? longitude : null, coordinatesValid ? accuracy : null, expectedDistance, note || null, evidenceKey, evidenceMime, evidenceBytes, evidenceSha256, adminReviewRequired(requestedStatus) ? "pending_review" : "not_required", occurredAt, trip.assignment.id, storedCurrent),
-    env.DB.prepare(`UPDATE booking_assignments SET current_status = ?, completed_at = ?, updated_at = ? WHERE id = ? AND current_status = ? AND revoked_at IS NULL AND EXISTS(SELECT 1 FROM driver_status_events WHERE id = ? AND assignment_id = ?)`).bind(requestedStatus, final ? occurredAt : null, now, trip.assignment.id, storedCurrent, id, trip.assignment.id),
+    env.DB.prepare(`INSERT INTO driver_status_events (id, assignment_id, booking_reference, status, previous_status, latitude, longitude, accuracy_metres, expected_distance_metres, driver_note, evidence_key, evidence_mime, evidence_bytes, evidence_sha256, verification_status, created_at, trip_evidence_id, confirmed_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM booking_assignments WHERE id = ? AND current_status = ? AND revoked_at IS NULL`).bind(id, trip.assignment.id, trip.booking.reference, requestedStatus, current, coordinatesValid ? latitude : null, coordinatesValid ? longitude : null, coordinatesValid ? accuracy : null, expectedDistance, note || null, evidenceKey, evidenceMime, evidenceBytes, evidenceSha256, adminReviewRequired(requestedStatus) ? "pending_review" : "not_required", occurredAt, evidenceId, now, trip.assignment.id, storedCurrent),
+    env.DB.prepare(`UPDATE booking_assignments SET current_status = ?, completed_at = ?, updated_at = ? WHERE id = ? AND current_status = ? AND revoked_at IS NULL AND EXISTS(SELECT 1 FROM driver_status_events WHERE id = ? AND assignment_id = ?)`).bind(requestedStatus, final ? now : null, now, trip.assignment.id, storedCurrent, id, trip.assignment.id),
   ];
   if (occurredAt !== now) {
     statements.push(env.DB.prepare(`INSERT OR IGNORE INTO booking_events (booking_reference, event_type, provider_event_id, created_at) SELECT ?, 'driver_status_sent_late', ?, ? WHERE EXISTS(SELECT 1 FROM driver_status_events WHERE id = ?)`).bind(trip.booking.reference, `driver-status-late:${id}`, now, id));
@@ -167,14 +186,18 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     const result = await env.DB.batch(statements);
     if (!result[0].meta.changes || !result[1].meta.changes) {
       if (evidenceKey) await deleteFile(evidenceKey).catch(() => undefined);
+      const duplicate = await evidenceDb().prepare("SELECT status FROM driver_status_events WHERE id=? AND assignment_id=?").bind(id,trip.assignment.id).first<{status:string}>();
+      if(duplicate?.status===requestedStatus) return NextResponse.json({ok:true,status:requestedStatus,eventId:id,duplicate:true});
       return NextResponse.json({error:"The journey changed while this update was uploading. Refresh and retry."},{status:409});
     }
   } catch (error) {
     if (evidenceKey) await deleteFile(evidenceKey).catch(() => undefined);
-    console.error("Driver status update failed", error);
+    void error;
+    const duplicate = await evidenceDb().prepare("SELECT status FROM driver_status_events WHERE id=? AND assignment_id=?").bind(id,trip.assignment.id).first<{status:string}>();
+    if(duplicate?.status===requestedStatus) return NextResponse.json({ok:true,status:requestedStatus,eventId:id,duplicate:true});
     return NextResponse.json({ error: "The update could not be saved. Please try again." }, { status: 503 });
   }
-  await notifyLineTripStatus({
+  if (!type) await notifyLineTripStatus({
     eventId: id,
     reference: trip.booking.reference,
     driverName: trip.driver.fullName,
