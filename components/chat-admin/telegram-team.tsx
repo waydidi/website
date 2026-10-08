@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Modal } from "@/components/ui/modal";
 
 type Member = { id: string; telegram_user_id: string; telegram_username: string | null; display_name: string; enabled: number; staff_name: string | null };
-type Data = { canEdit: boolean; secrets: Record<string, boolean>; webhook: { url: string; pending: number; lastError: string | null } | null; team: Member[] };
+type Data = { canEdit: boolean; secrets: Record<string, boolean>; webhook: { url: string; pending: number; lastError: string | null } | null; team: Member[]; destination?: { label: string; type: string } | null; connectionError?: string | null; delivery?: { chat: { status: string; count: number }[]; assignments: { status: string; count: number }[] } };
 
 // Approved Telegram admins (only these can reply, assign or close) and the bot connection.
 export function TelegramTeam() {
@@ -30,15 +30,19 @@ export function TelegramTeam() {
   async function add(e: FormEvent) { e.preventDefault(); if (await post({ action: "add", ...form }, "Added to the Telegram team.")) setForm({ telegramUserId: "", displayName: "", username: "" }); }
 
   if (!data) return <p className="text-slate-500">Loading…</p>;
-  const ready = Object.values(data.secrets).every(Boolean);
+  const ready = Boolean(data.secrets.TELEGRAM_BOT_TOKEN && data.secrets.TELEGRAM_CHAT_ID);
   const connected = Boolean(data.webhook?.url?.endsWith("/api/integrations/telegram/webhook"));
   return <section className="grid max-w-3xl gap-4">
     {msg && <p role={msg.ok ? "status" : "alert"} className={`rounded-xl p-3 text-[14px] ${msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>{msg.text}</p>}
     <section className="rounded-2xl border border-slate-200 bg-white p-5">
       <h2 className="text-[16px] font-bold">Connection</h2>
+      <p className="mt-2 text-[13.5px] text-slate-600">Driver links and website chat alerts need the bot token and destination chat. The webhook is needed for replies from Telegram.</p>
       <ul className="mt-3 grid gap-1.5 text-[14px]">{Object.entries(data.secrets).map(([k, v]) => <li key={k} className="flex items-center gap-2">{v ? <CheckCircle2 size={16} className="text-emerald-600" /> : <CircleAlert size={16} className="text-amber-600" />}<code>{k}</code><span className="text-slate-500">{v ? "set" : "missing in Cloudflare"}</span></li>)}
         <li className="flex items-center gap-2">{connected ? <CheckCircle2 size={16} className="text-emerald-600" /> : <CircleAlert size={16} className="text-amber-600" />}Webhook<span className="text-slate-500">{connected ? `connected${data.webhook?.pending ? ` · ${data.webhook.pending} waiting` : ""}` : "not connected"}</span></li>
         {data.webhook?.lastError && <li className="text-[13px] text-red-600">Last Telegram error: {data.webhook.lastError}</li>}
+        {data.connectionError && <li role="alert" className="text-[13px] text-red-600">{data.connectionError}</li>}
+        {data.destination && <li className="text-[13px] text-slate-600">Destination: {data.destination.label} ({data.destination.type})</li>}
+        {data.delivery && [...data.delivery.chat.map(row => ({ ...row, kind: "Website chat" })), ...data.delivery.assignments.map(row => ({ ...row, kind: "Driver assignment" }))].map(row => <li key={`${row.kind}-${row.status}`} className="text-[13px] text-amber-800">{row.kind}: {row.count} {row.status}{row.status === "uncertain" ? " — check Telegram before resending" : ""}</li>)}
       </ul>
       {data.canEdit && <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" disabled={busy || !(data.secrets.TELEGRAM_BOT_TOKEN && data.secrets.TELEGRAM_WEBHOOK_SECRET)} onClick={() => void post({ action: "connect" }, "Webhook connected. Telegram will now send replies here.")} className="h-10 rounded-full bg-brand px-4 text-[14px] font-semibold text-white disabled:opacity-50">{connected ? "Reconnect webhook" : "Connect webhook"}</button>

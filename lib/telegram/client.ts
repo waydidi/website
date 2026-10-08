@@ -10,19 +10,25 @@ export type TelegramUser = { id: number; username?: string; first_name?: string;
 export const telegramConfigured = () => Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID);
 export const telegramChatId = () => String(env.TELEGRAM_CHAT_ID ?? "");
 
+/** A Bot API rejection is safe to retry; a transport failure may have been delivered. */
+export class TelegramDeliveryError extends Error {
+  constructor(message: string, readonly retryable: boolean) { super(message); }
+}
+
 export async function tg<T = unknown>(method: string, payload: Record<string, unknown>, retried = false): Promise<T> {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) throw new Error("TELEGRAM_NOT_CONFIGURED");
-  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+  let res: Response;
+  try { res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: AbortSignal.timeout(8000),
-  });
+  }); } catch { throw new TelegramDeliveryError(`Telegram ${method}: delivery outcome unknown`, false); }
   const data = await res.json().catch(() => ({})) as { ok?: boolean; result?: T; description?: string; parameters?: { retry_after?: number } };
   // Telegram allows about 20 messages a minute per group. A short "slow down" is waited out once;
   // a longer one throws, and failed customer messages are re-sent by the scheduled job.
   const wait = data.parameters?.retry_after;
   if (res.status === 429 && !retried && wait && wait <= 5) { await new Promise((r) => setTimeout(r, wait * 1000)); return tg<T>(method, payload, true); }
   // Never log the URL (it contains the token); only the method and Telegram's description.
-  if (!data.ok) throw new Error(`Telegram ${method} failed: ${data.description ?? res.status}`);
+  if (!data.ok) throw new TelegramDeliveryError(`Telegram ${method} failed: ${String(data.description ?? res.status).replaceAll(token, "[redacted]")}`, res.status >= 400 && res.status < 500);
   return data.result as T;
 }
 

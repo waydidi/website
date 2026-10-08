@@ -1,3 +1,4 @@
+import { assignmentTelegramNotification, deliverAssignmentTelegram } from "@/lib/telegram/assignments";
 import { completeJourney, journeysFor, journeyFor, parseLeg } from "@/lib/journey-legs";
 import { driverTokenForAssignment } from "@/lib/trip-links";
 import { and, count, desc, eq, isNull } from "drizzle-orm";
@@ -131,16 +132,18 @@ export async function POST(request: Request) {
     await getDb().batch([
       getDb().update(bookingAssignments).set({revokedAt:now,updatedAt:now}).where(and(eq(bookingAssignments.bookingReference,bookingReference),eq(bookingAssignments.leg,leg),isNull(bookingAssignments.revokedAt))),
       getDb().insert(bookingAssignments).values(assignment),
+      getDb().insert(bookingNotifications).values(assignmentTelegramNotification(assignment)),
     ]);
     await getDb().insert(bookingEvents).values({ bookingReference, eventType: input.action === "rotate_link" ? "driver_link_rotated" : "driver_assigned", providerEventId: `assignment:${assignment.id}`, createdAt: now });
     const driverUrl = `${safeOrigin(request)}/driver/trip/${token}`;
+    const telegramNotification = await deliverAssignmentTelegram(assignment.id).catch(() => "queued");
     // Day trips from the planner: the stop-by-stop plan goes to the staff LINE group to forward.
     await import("@/lib/trip-driver").then((m) => m.sendDriverPlanToLine(bookingReference, driver.fullName, driverUrl)).catch((error) => console.error("driver plan LINE failed", error));
     if (driver.email && driver.remindersEnabled) {
       const delivery = await sendDriverAssignmentEmail({ to: driver.email, driverName: driver.fullName, driverUrl, reference: booking.reference, pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate, pickupTime: booking.pickupTime, vehicle: booking.vehicle });
       await getDb().insert(bookingNotifications).values({ id: crypto.randomUUID(), bookingReference, assignmentId: assignment.id, notificationType: "driver_assignment", channel: "email", recipient: driver.email, dedupeKey: `driver-assignment:${assignment.id}`, scheduledFor: now, status: delivery.status === "sent" ? "sent" : "failed", attemptCount: 1, lastAttemptAt: now, sentAt: delivery.status === "sent" ? now : null, errorMessage: delivery.status === "sent" ? null : delivery.status, createdAt: now, updatedAt: now });
     }
-    return NextResponse.json({ assignment: { id: assignment.id, bookingReference, driverId, currentStatus: assignment.currentStatus, assignedAt: now, tokenExpiresAt: expiry }, driverUrl });
+    return NextResponse.json({ assignment: { id: assignment.id, bookingReference, driverId, currentStatus: assignment.currentStatus, assignedAt: now, tokenExpiresAt: expiry }, driverUrl, telegramNotification });
   }
 
   if (input.action === "revoke") {
