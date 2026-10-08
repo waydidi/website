@@ -34,6 +34,13 @@ test('unpaid cash and misleading paid labels cannot produce receipts; test and d
   const b=await seed(overrides);await assert.rejects(()=>receiptForBooking(b));
  }
 });
+test('authorized eligible download initializes missing receipt storage; migration remains idempotent',async()=>{
+ await d1.prepare('DROP TABLE booking_receipt_documents').run();
+ const b=await seed();const r=await receiptForBooking(b);assert.match(r.number,/^R-/);
+ const sql=await readFile(root+'/drizzle/0099_booking_receipt_documents.sql','utf8');
+ await d1.batch(migrationStatements(sql).map(x=>d1.prepare(x)));
+ assert.equal((await receiptForBooking(b)).number,r.number);
+});
 test('exact satang breakdown, partial payment, discounts, overtime, refunds and inclusive VAT',async()=>{
  const b=await seed();
  const full={booking:b,extras:{...extras,discount:{code:'PROMO',amount:100},addons:[{label:'Child seat',amount:200}]},issuer};
