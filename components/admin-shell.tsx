@@ -15,6 +15,7 @@ import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
 import { NotificationBell } from "@/components/admin-settings/notification-bell";
 import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings/settings-dialog";
+import { useScrollHidden } from "@/components/use-scroll-hidden";
 
 // "/admin" (Overview) only matches itself; other tabs also match their sub-pages.
 const PARTNER_TABS = [{ href: "/admin/drivers", label: "Drivers" }, { href: "/admin/storefronts", label: "Stores" }, { href: "/admin/agencies", label: "Agencies" }, { href: "/admin/affiliates", label: "Affiliates" }];
@@ -372,6 +373,8 @@ function MobileTabBar({ pathname }: { pathname: string }) {
   const [open, setOpen] = useState(false);
   const [MAIN, setMain] = useState(DEFAULT_MAIN);
   const [editing, setEditing] = useState<number | null>(null);
+  const [focused, setFocused] = useState(false);
+  const hidden = useScrollHidden(pathname, open || editing !== null || focused);
   const hold = useRef<{ timer?: number; fired?: boolean }>({});
   // Desktop-only sections are left out of the phone menu: fare management, translations, flight data and the trip planner pages.
   const phoneTabs = tabs.filter((tab) => !DESKTOP_ONLY.includes(tab.href));
@@ -413,7 +416,11 @@ function MobileTabBar({ pathname }: { pathname: string }) {
   const MoreIcon = open ? ChevronDown : ChevronUp;
   return <>
     {(open || editing !== null) && <button type="button" aria-label="Close menu" onClick={() => { setOpen(false); setEditing(null); }} className="fixed inset-0 z-40 bg-black/20 md:hidden" />}
-    <nav aria-label="Mobile admin sections" className="fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-50 rounded-[28px] border border-white/80 bg-white/95 p-2 shadow-[0_14px_45px_rgba(33,23,38,.24)] backdrop-blur-xl md:hidden">
+    <nav aria-label="Mobile admin sections"
+      onFocusCapture={(event) => setFocused(event.target.matches(":focus-visible"))}
+      onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}
+      className="fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-50 rounded-[28px] border border-white/80 bg-white/95 p-2 shadow-[0_14px_45px_rgba(33,23,38,.24)] backdrop-blur-xl transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none md:hidden"
+      style={{ transform: hidden ? "translateY(calc(100% + max(12px, env(safe-area-inset-bottom)) + 48px))" : "translateY(0)", opacity: hidden ? 0 : 1, pointerEvents: hidden ? "none" : undefined }}>
       {editing !== null && <div className="mb-1 border-b border-slate-100 pb-2">
         <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
           <p className="text-[12px] font-bold text-slate-500">Replace {main[editing]?.mobileLabel} with…</p>
