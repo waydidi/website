@@ -132,7 +132,8 @@ test('website bot reply queues while disconnected and cron recovers it once',asy
  await d1.prepare("UPDATE website_chat_messages SET created_at='2026-01-01T00:00:00Z' WHERE id=?").bind(message).run();
  state.env.TELEGRAM_BOT_TOKEN='test-token';const count=sends.length;
  await Promise.all([chat.retryFailedTelegram(),chat.deliverBotMessage(id,message)]);
- assert.equal(sends.filter((s,i)=>i>=count&&s.text?.includes('Bot answer after reconnect')).length,1);
+ assert.equal(sends.filter((s,i)=>i>=count&&s.reply_parameters?.message_id===1234&&s.text?.includes('Bot answer after reconnect')).length,1);
+ assert.equal((await d1.prepare('SELECT telegram_status FROM website_chat_messages WHERE id=?').bind(message).first()).telegram_status,'sent');
 });
 test('bot notification rejection retries but a timeout remains uncertain',async()=>{
  const id=await botConversation();mode='denied';const rejected=await chat.addBotMessage(id,'Retry this bot reply');mode='ok';
