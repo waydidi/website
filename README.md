@@ -13,6 +13,27 @@ Waydidi’s only live site is [https://waydidi.com](https://waydidi.com). GitHub
 
 Canonical URLs, structured data, sitemap and robots metadata use `lib/site.ts`. The historical `.openai/hosting.json` is retained for build compatibility and logical bindings; it is not a deployment target.
 
+## Receipt PDF documents
+
+After a payment is recorded, **Account → Receipts → Receipt PDF** downloads a separate financial document; **Booking confirmation** retains the original trip PDF. **Admin → Financials → Payments → Receipt PDF** is available to owner/finance staff. The authenticated endpoints are `/api/account/trips/:reference/receipt` and `/api/admin/payments/:reference/receipt`; customer ownership and finance roles are checked server-side.
+
+The first authorized, payment-eligible download safely creates the additive receipt table/index if needed, then saves an immutable document number, issue timestamp, issuer/customer billing snapshot and financial breakdown. `drizzle/0099_booking_receipt_documents.sql` is idempotent and can also be applied through normal D1 migrations. Concurrent downloads of the same cumulative financial state return the same document number. Additional collections/refunds create a new cumulative receipt snapshot, not another charge; older snapshots stay in the database. There is no public receipt URL, automatic receipt-email send, or credit-note issuance in this feature.
+
+Receipts use recorded integer-satang amounts, inclusive booking totals, add-ons/discounts, overtime collection, refunds and outstanding balances. Confirmed-but-unpaid cash bookings, zero recorded payments, test payments, inconsistent amounts and disputes cannot issue receipts. A receipt acknowledges recorded collection rather than merely the booking's status.
+
+Optional Worker variables (do not put real personal/company tax details in source):
+
+- `WAYDIDI_RECEIPT_ISSUER_NAME`: legal issuer/trading name (default `Waydidi Travel`).
+- `WAYDIDI_RECEIPT_ISSUER_ADDRESS`: issuer address.
+- `WAYDIDI_RECEIPT_ISSUER_TAX_ID`: 13-digit issuer tax ID.
+- `WAYDIDI_RECEIPT_ISSUER_BRANCH`: branch (default `Head office`).
+- `WAYDIDI_RECEIPT_VAT_REGISTERED`: defaults off; only `1` enables tax-invoice eligibility.
+- `WAYDIDI_RECEIPT_VAT_BPS`: inclusive VAT rate in basis points (default `700`, i.e. 7%).
+
+The tax-invoice title is used only with complete enabled issuer settings, complete requested customer tax/address details, full recorded payment and no refunds. VAT is split out of the already charged total, never added to the booking charge. Otherwise the PDF is a receipt, not a VAT tax invoice. Enabling VAT with incomplete issuer details fails closed. The issuer's eligibility and correct rate must be verified by the operator before enabling this setting. Existing documents retain their original snapshot even if customer/issuer details change later.
+
+The receipt reuses the confirmation's orange header/logo and pale-orange totals, includes quantity/unit-price/item totals and signature/date spaces, and bundles licensed Noto Sans Thai for Thai/Latin text without a runtime font fetch. Test with `node --test tests/receipt-pdf.test.mjs`.
+
 ## Telegram website chat
 
 Website chat is one conversation stored in D1 and shown in three places: the customer's chat window, **Admin → Website chat**, and a Telegram staff group. Customer messages are saved first and then posted to Telegram as a card (customer, page, status, latest message) with buttons (Assign to me, Reply, Pending, Close, Open in Admin). Staff answer by replying to the card, a mirrored message or a "Reply" prompt. Status and assignment changes edit the original card instead of posting new ones. New bookings also get a Telegram card.

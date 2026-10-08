@@ -19,6 +19,7 @@ export default async function ReceiptsPage() {
     <div className="mb-5 rounded-[20px] bg-white p-5"><p className="text-sm text-slate-500">Paid by card in {year}</p><p className="mt-1 text-2xl font-black">฿{paidThisYear.toLocaleString()}</p></div>
     {trips.length ? <ul className="grid grid-cols-[minmax(0,1fr)] gap-3">{trips.map((trip) => {
       const hasPdf = trip.status === "confirmed" || trip.status === "completed";
+      const hasReceipt = trip.amountPaid > 0 && trip.paymentMethod !== "test" && trip.paymentStatus !== "disputed";
       return <li key={trip.reference} className="flex flex-col gap-4 rounded-[20px] bg-white p-5 sm:flex-row sm:items-center">
         <span className="hidden size-11 shrink-0 place-items-center rounded-full bg-brand-tint text-brand-text sm:grid"><ReceiptText size={20} /></span>
         <div className="min-w-0 flex-1">
@@ -26,7 +27,10 @@ export default async function ReceiptsPage() {
           <p className="truncate text-sm text-slate-600">{trip.pickup} → {trip.serviceType === "hourly" ? "Hourly driver" : trip.dropoff}</p>
           <p className="mt-1 text-sm"><span className="font-bold">฿{trip.total.toLocaleString()}</span> · {trip.paymentMethod === "cash" ? "Cash" : "Card"} · <span className={trip.paymentStatus === "paid" ? "text-emerald-700" : "text-slate-600"}>{label(trip.paymentStatus)}</span>{trip.status === "cancelled" ? <span className="text-red-700"> · Cancelled{trip.refundStatus ? `, refund ${trip.refundStatus.replace(/_/g, " ")}` : ""}</span> : null}</p>
         </div>
-        {hasPdf ? <a href={`/api/account/trips/${trip.reference}/pdf`} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-slate-200 px-4 py-2.5 text-sm font-bold hover:border-brand"><Download size={16} />PDF</a> : null}
+        <div className="flex flex-wrap gap-2">
+          {hasReceipt ? <a href={`/api/account/trips/${trip.reference}/receipt`} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-brand px-4 py-2.5 text-sm font-bold text-white"><Download size={16} />Receipt PDF</a> : <span className="self-center text-sm text-slate-500">Receipt available after payment is recorded</span>}
+          {hasPdf ? <a href={`/api/account/trips/${trip.reference}/pdf`} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-slate-200 px-4 py-2.5 text-sm font-bold hover:border-brand"><Download size={16} />Booking confirmation</a> : null}
+        </div>
       </li>;
     })}</ul> : <div className="rounded-[20px] bg-white p-8 text-center text-slate-600">No receipts yet. They appear here after you book.</div>}
   </AccountShell>;
