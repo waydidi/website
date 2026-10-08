@@ -14,14 +14,23 @@ export async function GET() {
   if (!staff || !["owner", "support", "operations"].includes(staff.role)) return reply("Support staff access required.", 403);
   const team = (await env.DB.prepare("SELECT t.id,t.telegram_user_id,t.telegram_username,t.display_name,t.enabled,t.staff_id,s.display_name staff_name FROM telegram_admins t LEFT JOIN staff_accounts s ON s.id=t.staff_id ORDER BY t.display_name").all()).results;
   let webhook: { url: string; pending: number; lastError: string | null } | null = null;
+  let connectionError: string | null = null;
+  let destination: { label: string; type: string } | null = null;
   if (env.TELEGRAM_BOT_TOKEN) {
-    const info = await tg<{ url: string; pending_update_count: number; last_error_message?: string }>("getWebhookInfo", {}).catch(() => null);
+    const info = await tg<{ url: string; pending_update_count: number; last_error_message?: string }>("getWebhookInfo", {}).catch(error => { connectionError = error instanceof Error ? error.message : "Telegram could not be reached."; return null; });
     if (info) webhook = { url: info.url, pending: info.pending_update_count, lastError: info.last_error_message ?? null };
+    if (telegramConfigured()) {
+      const chat = await tg<{ title?: string; first_name?: string; username?: string; type: string }>("getChat", { chat_id: String(env.TELEGRAM_CHAT_ID) }).catch(error => { connectionError = error instanceof Error ? error.message : "Telegram destination could not be reached."; return null; });
+      if (chat) destination = { label: chat.title ?? chat.first_name ?? chat.username ?? "Configured destination", type: chat.type };
+    }
   }
+  const chatDelivery = await env.DB.prepare("SELECT telegram_status status,COUNT(*) count FROM website_chat_messages WHERE sender='visitor' AND telegram_status IN ('pending','failed','processing','uncertain') GROUP BY telegram_status").all();
+  const assignmentDelivery = await env.DB.prepare("SELECT status,COUNT(*) count FROM booking_notifications WHERE channel='telegram' AND status IN ('queued','failed','uncertain','processing') GROUP BY status").all();
   return NextResponse.json({
     canEdit: staff.role === "owner",
     secrets: { TELEGRAM_BOT_TOKEN: Boolean(env.TELEGRAM_BOT_TOKEN), TELEGRAM_CHAT_ID: Boolean(env.TELEGRAM_CHAT_ID), TELEGRAM_WEBHOOK_SECRET: String(env.TELEGRAM_WEBHOOK_SECRET ?? "").length >= 16 },
-    webhook, team,
+    webhook, team, destination, connectionError, outboundReady: telegramConfigured(),
+    delivery: { chat: chatDelivery.results, assignments: assignmentDelivery.results },
   }, { headers });
 }
 

@@ -130,6 +130,8 @@ const worker = {
     return withSecurityHeaders(response, url);
   },
   async scheduled(controller: { scheduledTime: number; cron?: string }, _env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(import("../lib/website-chat").then(m => m.retryFailedTelegram()).catch(() => console.error("Telegram chat retry failed")));
+    ctx.waitUntil(import("../lib/telegram/assignments").then(m => m.retryAssignmentTelegram()).catch(() => console.error("Telegram assignment retry failed")));
     // Every minute: chat check-ins ("Are you still with us?") and ending website chats idle for 30 minutes.
     if (controller.cron === "* * * * *") {
       ctx.waitUntil(import("../lib/chat-idle").then(async (m) => { const at = new Date(controller.scheduledTime); await m.sendIdleNudges(at); await m.closeIdleChats(at); await import("../lib/telegram/handover").then((h) => h.remindWaiting(at)); }).catch((e) => console.error("chat check-in failed", e)));
@@ -143,8 +145,6 @@ const worker = {
     }
     ctx.waitUntil(import("../lib/trip-evidence").then(m=>m.cleanupTripEvidence()).catch(()=>console.error("Evidence retention cleanup failed")));
     ctx.waitUntil(runOperationsAutomation(new Date(controller.scheduledTime)));
-    // Customer chat messages that could not reach Telegram are retried every run.
-    ctx.waitUntil(import("../lib/website-chat").then((m) => m.retryFailedTelegram()).catch(() => undefined));
   },
 };
 

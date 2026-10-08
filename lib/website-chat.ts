@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { SITE_URL } from "@/lib/site";
 import { deliverToChannel } from "@/lib/channels";
-import { editCard, sendCard, sendPrivate, telegramConfigured } from "@/lib/telegram/client";
+import { editCard, sendCard, sendPrivate, telegramConfigured, TelegramDeliveryError } from "@/lib/telegram/client";
 import { conversationCard, conversationKeyboard, customerMessage, esc, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
 
 // One canonical support conversation, stored in D1. The website widget, the admin inbox and Telegram
@@ -59,7 +59,13 @@ export async function addVisitorMessage(c: Conversation, body: string, clientId:
     VALUES(?,?,'visitor',?,?,?,?) ON CONFLICT(conversation_id,client_id) DO NOTHING`).bind(id, c.id, body, now, clientId, "pending"),
     db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=?,status=CASE WHEN status='closed' THEN 'open' ELSE status END WHERE id=? AND EXISTS(SELECT 1 FROM website_chat_messages WHERE id=?)").bind(now, now, c.id, id),
   ]) as { meta: { changes: number } }[];
-  if (!inserted.meta.changes) return { duplicate: true as const };
+  if (!inserted.meta.changes) {
+    // A lost response can leave the saved message pending. Retrying the same client ID
+    // recovers its notification as well as deduplicating the customer message.
+    const saved = await db().prepare("SELECT id FROM website_chat_messages WHERE conversation_id=? AND client_id=? AND telegram_status IN ('pending','failed')").bind(c.id, clientId).first<{ id: string }>();
+    if (saved) await deliverVisitorMessage(c.id, saved.id).catch(() => undefined);
+    return { duplicate: true as const };
+  }
   await deliverVisitorMessage(c.id, id).catch(() => undefined);
   return { duplicate: false as const, id };
 }
@@ -76,19 +82,24 @@ export async function deliverVisitorMessage(conversationId: string, messageId: s
     await db().prepare("UPDATE website_chat_messages SET telegram_status='skipped' WHERE id=? AND telegram_status='pending'").bind(messageId).run();
     return;
   }
-  // Assigned chats go to the assignee's private chat with the bot; the group only if that fails.
-  const dm = c.assigned_name ? await assigneeTelegramId(c) : null;
-  if (dm) {
-    try {
-      // Private chat reads like a normal one-to-one conversation: just the customer's words.
-      const sent = await sendPrivate(dm, esc(m.body.slice(0, 4000)));
-      await rememberPrivate(dm, sent.message_id, c.id);
-      await db().prepare("UPDATE website_chat_messages SET telegram_status='sent' WHERE id=?").bind(messageId).run();
-      return;
-    } catch { /* not started with the bot, or blocked: fall back to the group */ }
-  }
+  // Atomic claim prevents the request retry and cron from sending the same message together.
+  const claim = await db().prepare("UPDATE website_chat_messages SET telegram_status='processing' WHERE id=? AND (telegram_status IN ('pending','failed') OR telegram_status IS NULL)").bind(messageId).run();
+  if (!claim.meta.changes) return;
+  let telegramId: number | null = null;
   try {
-    let telegramId: number;
+    // Assigned chats go to the assignee's private chat; definite rejection falls back to the group.
+    const dm = c.assigned_name ? await assigneeTelegramId(c) : null;
+    if (dm) {
+      let sent;
+      try { sent = await sendPrivate(dm, esc(m.body.slice(0, 4000))); }
+      catch (error) { if (!(error instanceof TelegramDeliveryError && error.retryable)) throw error; }
+      if (sent) {
+        // A failure after acceptance must not fall back to the group and duplicate the notification.
+        await rememberPrivate(dm, sent.message_id, c.id);
+        await db().prepare("UPDATE website_chat_messages SET telegram_status='sent' WHERE id=?").bind(messageId).run();
+        return;
+      }
+    }
     if (!c.telegram_message_id) {
       const non = await nonAnswering(c);
       const sent = await sendCard(conversationCard(c, { body: m.body, created_at: m.created_at, from: "visitor" }, true, non), conversationKeyboard(c, adminUrl(c.id), non));
@@ -101,8 +112,9 @@ export async function deliverVisitorMessage(conversationId: string, messageId: s
     }
     await db().prepare("UPDATE website_chat_messages SET telegram_status='sent',telegram_message_id=? WHERE id=?").bind(telegramId, messageId).run();
   } catch (error) {
-    await db().prepare("UPDATE website_chat_messages SET telegram_status='failed' WHERE id=?").bind(messageId).run();
-    console.error("telegram delivery failed", error instanceof Error ? error.message : "unknown");
+    const status = telegramId === null && error instanceof TelegramDeliveryError && error.retryable ? "failed" : "uncertain";
+    await db().prepare("UPDATE website_chat_messages SET telegram_status=? WHERE id=? AND telegram_status='processing'").bind(status, messageId).run();
+    console.error("telegram delivery failed", error instanceof TelegramDeliveryError ? error.message : "Delivery outcome unknown; check Telegram");
     throw error;
   }
 }
