@@ -1,4 +1,6 @@
 "use client";
+import { GpsCamera } from "@/components/drivers/gps-camera";
+import type { EvidencePolicy } from "@/lib/evidence-rules";
 import Link from "next/link";
 
 import {
@@ -16,11 +18,10 @@ import {
   Phone,
   RefreshCw,
   Route,
-  Upload,
   UserX,
   WifiOff,
 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { clearQueuedStep, queuedStepForm, readQueuedStep, saveQueuedStep, type QueuedDriverStep } from "@/lib/driver-step-queue";
 import { distanceMetres, NO_SHOW_MIN_NOTE_LENGTH } from "@/lib/trip-rules";
@@ -35,6 +36,8 @@ type DriverStatus =
   | "completed"
   | "no_show";
 type Trip = {
+  evidencePolicy: EvidencePolicy;
+  evidenceOverrides: {pickup:boolean;dropoff:boolean};
   assignment: {
     id: string;
     currentStatus: DriverStatus;
@@ -45,6 +48,7 @@ type Trip = {
   };
   driver: { fullName: string; phone: string };
   booking: {
+    leg: string;
     reference: string;
     customerName: string;
     customerPhone: string;
@@ -68,6 +72,8 @@ type Trip = {
     expectedDistanceMetres: number | null;
     createdAt: string;
     hasEvidence: boolean;
+    tripEvidenceId: string | null;
+    confirmedAt: string | null;
   }>;
   activeStop: { reason: string; note: string | null; declaredAt: string } | null;
   payoutDetails: { submittedAt: string } | null;
@@ -115,7 +121,7 @@ const steps: Array<{
     thai: "ส่งลูกค้าเรียบร้อย",
     english: "Arrived",
     action: "ยืนยันว่าส่งลูกค้าแล้ว",
-    help: "แนบรูปหลักฐานก่อนจบงาน ระบบจะบันทึกเวลาส่งลูกค้า",
+    help: "บันทึกรูปจุดส่ง (ตามนโยบาย) แล้วยืนยันส่งลูกค้า ระบบจะบันทึกเวลายืนยัน",
   },
 ];
 
@@ -128,7 +134,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [note, setNote] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
+  const [evidenceId, setEvidenceId] = useState<string | null>(null);
+  const [cameraBusy,setCameraBusy] = useState(false);
   const [position, setPosition] = useState<{
     latitude: number;
     longitude: number;
@@ -283,30 +290,23 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   const currentIndex = trip
     ? trip.assignment.currentStatus === "no_show"
       ? progressStatuses.indexOf("standby") + 1
-      : progressStatuses.indexOf(trip.assignment.currentStatus)
+      : trip.assignment.currentStatus === "passenger_verified"
+        ? progressStatuses.indexOf("standby")
+        : progressStatuses.indexOf(trip.assignment.currentStatus)
     : 0;
   const next = trip && trip.assignment.currentStatus !== "no_show"
     ? trip.assignment.currentStatus === "passenger_picked_up"
       ? steps.find((step) => step.status === "completed") ?? null
       : steps[currentIndex] ?? null
     : null;
-  const needsEvidence = Boolean(next && ["standby", "completed"].includes(next.status));
-  const needsLocation = Boolean(next && ["going_to_standby", "standby", "trip_started", "completed"].includes(next.status));
+  const showCamera = Boolean(next && ["standby", "trip_started", "completed"].includes(next.status));
+  const needsEvidence = Boolean(trip && next && (next.status === "standby" ? trip.evidencePolicy.pickup_required && !trip.evidenceOverrides.pickup : next.status === "completed" ? trip.evidencePolicy.dropoff_required && !trip.evidenceOverrides.dropoff : false));
+  const needsLocation = Boolean(next && ["going_to_standby", "trip_started"].includes(next.status));
   const noShowEligibleAt = trip?.noShow.eligibleAt ? new Date(trip.noShow.eligibleAt).getTime() : null;
   const noShowMinutesLeft = noShowEligibleAt === null ? null : Math.max(0, Math.ceil((noShowEligibleAt - clock) / 60_000));
   const canReportNoShow = Boolean(trip && trip.assignment.currentStatus === "standby" && !trip.assignment.passengerVerifiedAt && !pending);
-  const preview = useMemo(
-    () => (photo ? URL.createObjectURL(photo) : ""),
-    [photo],
-  );
-  useEffect(
-    () => () => {
-      if (preview) URL.revokeObjectURL(preview);
-    },
-    [preview],
-  );
-
   function captureLocation() {
+    setPosition(null);
     setLocationBusy(true);
     setError("");
     if (!navigator.geolocation) {
@@ -361,8 +361,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!trip || !next || busy) return;
-    if (needsEvidence && !photo) {
+    if (!trip || !next || busy || cameraBusy) return;
+    if (needsEvidence && !evidenceId) {
       setError("ต้องแนบรูปก่อนดำเนินการ");
       return;
     }
@@ -375,7 +375,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
     setError("");
     setMessage("");
     let submissionPosition = position;
-    if (next.status === "trip_started" || next.status === "completed") {
+    if (next.status === "trip_started") {
       try {
         submissionPosition = await readCurrentLocation();
         setPosition(submissionPosition);
@@ -396,12 +396,13 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       latitude: submissionPosition?.latitude ?? null,
       longitude: submissionPosition?.longitude ?? null,
       accuracy: submissionPosition ? Math.round(submissionPosition.accuracy) : null,
-      photo,
-      photoName: photo?.name ?? null,
+      evidenceId,
+      photo: null,
+      photoName: null,
     };
     if (await queueAndSend(step)) {
       setNote("");
-      setPhoto(null);
+      setEvidenceId(null);
       setPosition(null);
     }
     setBusy(false);
@@ -670,6 +671,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
                             },
                           )}
                         </span>
+                        {event.tripEvidenceId && <a className="rounded-full bg-orange-50 px-2.5 py-1 underline" href={`/api/driver/trips/session/evidence/${event.tripEvidenceId}`} target="_blank" rel="noreferrer">View saved photo</a>}
+                        {event.confirmedAt && <span className="rounded-full bg-emerald-50 px-2.5 py-1">{step.status==="completed"?"Trip completed":"Status confirmed"} · {new Date(event.confirmedAt).toLocaleTimeString("en-GB",{timeZone:"Asia/Bangkok"})} ICT</span>}
                         {event.verificationStatus === "verified" && (
                           <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-700">
                             Admin verified
@@ -742,41 +745,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
                 <ChevronRight size={19} />
               </button>
             )}
-            {needsEvidence && (
-              <label
-                className={`mt-3 flex min-h-24 cursor-pointer items-center gap-4 overflow-hidden rounded-2xl border border-dashed p-3 ${photo ? "border-emerald-300 bg-emerald-50" : "border-slate-300 bg-slate-50"}`}
-              >
-                {preview ? (
-                  <img
-                    src={preview}
-                    alt="Evidence preview"
-                    className="size-20 rounded-xl object-cover"
-                  />
-                ) : (
-                  <span className="grid size-14 shrink-0 place-items-center rounded-full bg-white text-brand-text">
-                    <Camera size={24} />
-                  </span>
-                )}
-                <span className="min-w-0">
-                  <span className="block font-bold">
-                    {photo ? photo.name : "ถ่ายรูปหรือเลือกรูป"}
-                  </span>
-                  <span className="mt-1 block text-sm text-slate-500">
-                    JPG, PNG หรือ WebP · ไม่เกิน 8 MB
-                  </span>
-                </span>
-                <Upload className="ml-auto shrink-0 text-slate-400" size={20} />
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  capture="environment"
-                  className="sr-only"
-                  onChange={(event) =>
-                    setPhoto(event.target.files?.[0] ?? null)
-                  }
-                />
-              </label>
-            )}
+            {showCamera && <GpsCamera key={`${trip.assignment.id}:${next.status}`} assignmentId={trip.assignment.id} reference={trip.booking.reference} leg={trip.booking.leg} type={next.status==="completed"?"dropoff":"pickup"} policy={trip.evidencePolicy} onSaved={setEvidenceId} onBusy={setCameraBusy}/>}
+            {needsEvidence && <p className="mt-2 text-sm">A saved photo is required. If camera or GPS is unavailable, contact operations for an audited exception.</p>}
             <label className="mt-4 block text-sm font-bold">
               หมายเหตุ{" "}
               <span className="font-normal text-slate-400">(ไม่บังคับ)</span>
@@ -807,8 +777,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
               <button
                 disabled={
-                  busy ||
-                  Boolean(needsEvidence && !photo) ||
+                  busy || cameraBusy ||
+                  Boolean(needsEvidence && !evidenceId) ||
                   Boolean(needsLocation && !position)
                 }
                 className="mx-auto flex min-h-14 w-full max-w-xl items-center justify-center gap-2 rounded-full bg-brand px-6 text-base font-black text-white shadow-lg shadow-orange-500/20 disabled:cursor-not-allowed disabled:opacity-45"

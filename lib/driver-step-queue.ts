@@ -10,6 +10,7 @@ export type QueuedDriverStep = {
   latitude: number | null;
   longitude: number | null;
   accuracy: number | null;
+  evidenceId?: string | null;
   photo: Blob | null;
   photoName: string | null;
 };
@@ -31,9 +32,11 @@ async function run<T>(mode: IDBTransactionMode, action: (store: IDBObjectStore) 
   const db = await openDb();
   try {
     return await new Promise<T>((resolve, reject) => {
-      const request = action(db.transaction(STORE, mode).objectStore(STORE));
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error ?? new Error("Offline storage failed."));
+      const transaction = db.transaction(STORE, mode);
+      const request = action(transaction.objectStore(STORE));
+      transaction.oncomplete = () => resolve(request.result);
+      transaction.onerror = () => reject(transaction.error ?? new Error("Offline storage failed."));
+      transaction.onabort = () => reject(transaction.error ?? new Error("Offline storage aborted."));
     });
   } finally {
     db.close();
@@ -59,6 +62,7 @@ export async function clearQueuedStep(assignmentId: string) {
 export function queuedStepForm(step: QueuedDriverStep) {
   const data = new FormData();
   data.set("status", step.status);
+  if(step.evidenceId) data.set("evidenceId",step.evidenceId);
   data.set("note", step.note);
   data.set("clientEventId", step.id);
   data.set("occurredAt", step.occurredAt);

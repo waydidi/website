@@ -141,6 +141,7 @@ const worker = {
       ctx.waitUntil(import("../lib/flight-watch").then((m) => m.watchBookingFlights(new Date(controller.scheduledTime))).catch((e) => console.error("flight watch failed", e)));
       return;
     }
+    ctx.waitUntil(import("../lib/trip-evidence").then(m=>m.cleanupTripEvidence()).catch(()=>console.error("Evidence retention cleanup failed")));
     ctx.waitUntil(runOperationsAutomation(new Date(controller.scheduledTime)));
     // Customer chat messages that could not reach Telegram are retried every run.
     ctx.waitUntil(import("../lib/website-chat").then((m) => m.retryFailedTelegram()).catch(() => undefined));

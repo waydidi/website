@@ -1,5 +1,6 @@
 "use client";
 
+import { EvidenceAdmin } from "@/components/drivers/evidence-admin";
 import {
   ArrowLeft,
   Clipboard,
@@ -176,7 +177,8 @@ export default function JourneyDetails({ reference }: { reference: string }) {
     return (
       <main className="min-h-screen bg-[#f3f5f8] p-8 text-plum">
         <p>{error || "Loading journey…"}</p>
-      </main>
+        <EvidenceAdmin reference={reference}/>
+    </main>
     );
   return (
     <main className="min-h-screen bg-[#f3f5f8] px-4 py-6 text-plum sm:px-8">
@@ -371,6 +373,7 @@ export default function JourneyDetails({ reference }: { reference: string }) {
           </aside>
         </div>
       </div>
+      <EvidenceAdmin reference={reference}/>
     </main>
   );
 }

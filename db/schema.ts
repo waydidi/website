@@ -785,6 +785,8 @@ export const bookingCosts = sqliteTable(
 export const driverStatusEvents = sqliteTable(
   "driver_status_events",
   {
+    tripEvidenceId: text("trip_evidence_id"),
+    confirmedAt: text("confirmed_at"),
     id: text("id").primaryKey(),
     assignmentId: text("assignment_id").notNull(),
     bookingReference: text("booking_reference").notNull(),
@@ -1595,3 +1597,15 @@ export const crmSyncState = sqliteTable("crm_sync_state", {
 });
 
 export const crmMarketingTokens=sqliteTable("crm_marketing_tokens",{tokenHash:text("token_hash").primaryKey(),contactId:text("contact_id").notNull().references(()=>crmContacts.id),expiresAt:text("expires_at").notNull(),createdAt:text("created_at").notNull()});
+
+// Assignment-scoped GPS camera evidence. Status links are enforced by migration triggers.
+export const driverEvidencePolicy = sqliteTable("driver_evidence_policy", {
+ id:integer("id").primaryKey(), pickupRequired:integer("pickup_required").notNull().default(0), dropoffRequired:integer("dropoff_required").notNull().default(0), gpsRequired:integer("gps_required").notNull().default(0), gpsTimeoutMs:integer("gps_timeout_ms").notNull().default(20000), maxAccuracyM:integer("max_accuracy_m").notNull().default(2000), retentionDays:integer("retention_days").notNull().default(30), updatedBy:text("updated_by"), updatedAt:text("updated_at"),
+});
+export const driverTripEvidence = sqliteTable("driver_trip_evidence", {
+ id:text("id").primaryKey(), assignmentId:text("assignment_id").notNull().references(()=>bookingAssignments.id), bookingReference:text("booking_reference").notNull(), leg:text("leg").notNull(), driverId:text("driver_id").notNull(), eventType:text("event_type").notNull(), statusEventId:text("status_event_id").unique().references(()=>driverStatusEvents.id), deviceCapturedAt:text("device_captured_at").notNull(), receivedAt:text("received_at").notNull(), confirmedAt:text("confirmed_at"), latitude:real("latitude"), longitude:real("longitude"), accuracyMetres:real("accuracy_metres"), originalKey:text("original_key").notNull(), stampedKey:text("stamped_key").notNull(), fileBytes:integer("file_bytes").notNull(), expiresAt:text("expires_at").notNull(), deletedAt:text("deleted_at"),
+},t=>[uniqueIndex("uidx_trip_evidence_assignment_id").on(t.assignmentId,t.id),index("idx_trip_evidence_assignment").on(t.assignmentId,t.receivedAt),index("idx_trip_evidence_expiry").on(t.expiresAt,t.deletedAt)]);
+export const driverEvidenceOverrides = sqliteTable("driver_evidence_overrides", {
+ assignmentId:text("assignment_id").notNull().references(()=>bookingAssignments.id), eventType:text("event_type").notNull(), reason:text("reason").notNull(), actor:text("actor").notNull(), createdAt:text("created_at").notNull(),
+},t=>[uniqueIndex("uidx_driver_evidence_override").on(t.assignmentId,t.eventType)]);
+export const driverEvidenceUploadLimits = sqliteTable("driver_evidence_upload_limits", {assignmentId:text("assignment_id").primaryKey(),windowStart:text("window_start").notNull(),attempts:integer("attempts").notNull()});
