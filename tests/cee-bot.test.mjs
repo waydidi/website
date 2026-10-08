@@ -219,7 +219,7 @@ test('scheduling hands the chat to its Durable Object and shows typing at once',
  assert.deepEqual(seen,[[id,id]]);assert.ok((await db.prepare('SELECT bot_thinking_at t FROM website_conversations WHERE id=?').bind(id).first()).t);
  delete globalThis.__ceeTest.env.NON_AGENT;assert.equal(schedule.WAIT_MS,5000);
 });
-test('website questions notify Telegram while Non answers; AI replies stay quiet and staff replies are mirrored',async()=>{
+test('website questions and Non replies notify Telegram; staff replies are mirrored',async()=>{
  Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
  const id=await conversation('hi');tgCalls.length=0;
  await chat.addVisitorMessage(await db.prepare('SELECT * FROM website_conversations WHERE id=?').bind(id).first(),'How much to Pattaya?','c-skip-1');
@@ -230,7 +230,9 @@ test('website questions notify Telegram while Non answers; AI replies stay quiet
  assert.equal(tgCalls.filter(c=>c.method==='sendMessage').length,1);
  await chat.addVisitorMessage(await chat.conversationById(id),'Can I add a child seat?','c-notify-2');
  assert.equal(tgCalls.filter(c=>c.method==='sendMessage').length,2);
- await chat.addBotMessage(id,'Hello from Non');assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,2);
+ const botId=await chat.addBotMessage(id,'Hello from Non');assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,3);
+ assert.ok(tgCalls.some(c=>c.method==='sendMessage' && c.body.text.includes('Non (AI)') && c.body.text.includes('Hello from Non')));
+ assert.equal((await db.prepare('SELECT telegram_status FROM website_chat_messages WHERE id=?').bind(botId).first()).telegram_status,'sent');
  await db.prepare('UPDATE website_conversations SET telegram_message_id=500 WHERE id=?').bind(id).run();
  tg429=1;await chat.addStaffMessage(id,'Anna here',{name:'Anna',staffId:'anna'},'dashboard');
  assert.ok(tgCalls.some((c)=>c.method==='sendMessage'&&/Anna here/.test(c.body.text)));

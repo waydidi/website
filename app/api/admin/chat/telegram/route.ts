@@ -24,7 +24,7 @@ export async function GET() {
       if (chat) destination = { label: chat.title ?? chat.first_name ?? chat.username ?? "Configured destination", type: chat.type };
     }
   }
-  const chatDelivery = await env.DB.prepare("SELECT telegram_status status,COUNT(*) count FROM website_chat_messages WHERE sender='visitor' AND telegram_status IN ('pending','failed','processing','uncertain') GROUP BY telegram_status").all();
+  const chatDelivery = await env.DB.prepare("SELECT telegram_status status,COUNT(*) count FROM website_chat_messages WHERE (sender='visitor' OR is_bot=1) AND telegram_status IN ('pending','failed','processing','uncertain') GROUP BY telegram_status").all();
   const assignmentDelivery = await env.DB.prepare("SELECT status,COUNT(*) count FROM booking_notifications WHERE channel='telegram' AND status IN ('queued','failed','uncertain','processing') GROUP BY status").all();
   return NextResponse.json({
     canEdit: staff.role === "owner",

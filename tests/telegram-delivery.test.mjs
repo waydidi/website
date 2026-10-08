@@ -108,3 +108,44 @@ test('website timeout stays visible as uncertain and is excluded from automatic 
  assert.equal((await d1.prepare('SELECT telegram_status FROM website_chat_messages WHERE id=?').bind(saved.id).first()).telegram_status,'uncertain');
  const count=sends.length;await chat.retryFailedTelegram();assert.equal(sends.length,count);
 });
+async function botConversation(channel='web') {
+ const now=new Date().toISOString(),id=crypto.randomUUID();
+ await d1.prepare("INSERT INTO website_conversations(id,public_id,token_hash,expires_at,created_at,updated_at,telegram_message_id,channel) VALUES(?,?,?,?,?,?,1234,?)").bind(id,`WD-bot-${id}`,id,new Date(Date.now()+86400000).toISOString(),now,now,channel).run();
+ return id;
+}
+test('website bot answer posts once under the conversation, clearly labelled and escaped',async()=>{
+ const id=await botConversation(),count=sends.length;
+ const message=await chat.addBotMessage(id,'The fare is < 1,000 & includes tolls',{type:'summary',text:'Trip quote'});
+ const sent=sends.find((s,i)=>i>=count&&s.text?.includes('Non (AI)'));
+ assert.ok(sent);assert.equal(sent.chat_id,'-100');assert.equal(sent.reply_parameters.message_id,1234);
+ assert.match(sent.text,/fare is &lt; 1,000 &amp;/);
+ await Promise.all([chat.deliverBotMessage(id,message),chat.deliverBotMessage(id,message),chat.deliverVisitorMessage(id,message)]);
+ assert.equal(sends.filter((s,i)=>i>=count&&s.text?.includes('Non (AI)')).length,1);
+ const row=await d1.prepare('SELECT is_bot,sender_name,telegram_status,card_json FROM website_chat_messages WHERE id=?').bind(message).first();
+ assert.equal(row.is_bot,1);assert.equal(row.sender_name,'Non');assert.equal(row.telegram_status,'sent');assert.equal(JSON.parse(row.card_json).type,'summary');
+ assert.equal((await chat.conversationById(id)).assigned_name,null);
+});
+test('website bot reply queues while disconnected and cron recovers it once',async()=>{
+ const id=await botConversation();delete state.env.TELEGRAM_BOT_TOKEN;
+ const message=await chat.addBotMessage(id,'Bot answer after reconnect');
+ assert.equal((await d1.prepare('SELECT telegram_status FROM website_chat_messages WHERE id=?').bind(message).first()).telegram_status,'pending');
+ await d1.prepare("UPDATE website_chat_messages SET created_at='2026-01-01T00:00:00Z' WHERE id=?").bind(message).run();
+ state.env.TELEGRAM_BOT_TOKEN='test-token';const count=sends.length;
+ await Promise.all([chat.retryFailedTelegram(),chat.deliverBotMessage(id,message)]);
+ assert.equal(sends.filter((s,i)=>i>=count&&s.text?.includes('Bot answer after reconnect')).length,1);
+});
+test('bot notification rejection retries but a timeout remains uncertain',async()=>{
+ const id=await botConversation();mode='denied';const rejected=await chat.addBotMessage(id,'Retry this bot reply');mode='ok';
+ assert.equal((await d1.prepare('SELECT telegram_status FROM website_chat_messages WHERE id=?').bind(rejected).first()).telegram_status,'failed');
+ await chat.deliverBotMessage(id,rejected);
+ assert.equal((await d1.prepare('SELECT telegram_status FROM website_chat_messages WHERE id=?').bind(rejected).first()).telegram_status,'sent');
+ mode='timeout';const uncertain=await chat.addBotMessage(id,'Uncertain bot reply');mode='ok';
+ assert.equal((await d1.prepare('SELECT telegram_status FROM website_chat_messages WHERE id=?').bind(uncertain).first()).telegram_status,'uncertain');
+ const count=sends.length;await chat.deliverBotMessage(id,uncertain);assert.equal(sends.length,count);
+});
+test('other-channel bot replies are not mirrored to Telegram',async()=>{
+ const id=await botConversation('line'),count=sends.length;
+ const message=await chat.addBotMessage(id,'External channel reply');
+ await chat.deliverBotMessage(id,message);assert.equal(sends.length,count);
+ assert.equal((await d1.prepare('SELECT telegram_status FROM website_chat_messages WHERE id=?').bind(message).first()).telegram_status,'skipped');
+});

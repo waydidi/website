@@ -79,7 +79,7 @@ export const customerMessage = (publicId: string, name: string | null, body: str
 
 /** Non's reply, posted under the card so staff can follow the conversation. */
 export const botEcho = (publicId: string, body: string) =>
-  `<b>Non (AI)</b> · ${esc(publicId)}\n<blockquote>${esc(clip(body, 1500))}</blockquote>`;
+  `<b>Non (AI)</b> · ${esc(publicId)}\n<blockquote>${esc(clip(body, 3500))}</blockquote>`;
 
 /** A reply sent from the admin dashboard, mirrored so Telegram shows the whole thread. */
 export const staffEcho = (publicId: string, name: string, body: string) =>
