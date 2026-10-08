@@ -22,13 +22,16 @@ async function setup(page: import("@playwright/test").Page, denied = false) {
       return canvas.captureStream(10);
     } });
     Object.defineProperty(navigator.geolocation, "getCurrentPosition", { value: (success: PositionCallback, failure: PositionErrorCallback, options: PositionOptions) => {
-      stats.location++; stats.options.push(options);
+      // Existing live tracking requests cached fixes independently of evidence.
+      // Count only the fresh, permission-on-demand evidence requests here.
+      if (options.maximumAge === 0) { stats.location++; stats.options.push(options); }
       setTimeout(() => denied ? failure({ code: 1, message: "Denied" } as GeolocationPositionError) : success({ coords: { latitude: 13.75, longitude: 100.5, accuracy: 12 }, timestamp: Date.now() } as GeolocationPosition), 20);
     } });
   }, { denied });
   await page.route("**/api/driver/trips/session", route => route.fulfill({ json: fixture }));
   await page.route("**/api/driver/trips/session/plan", route => route.fulfill({ json: { days: [] } }));
   await page.route("**/api/driver/trips/session/evidence", route => route.request().method() === "GET" ? route.fulfill({ json: { evidence: [], policy: fixture.evidencePolicy } }) : route.fulfill({ status: 503, json: { error: "Simulated slow connection. Retry this photo." } }));
+  await page.route("**/api/driver/location", route => route.fulfill({ json: { ok: true } }));
   await page.goto("/driver/trip/session");
   await expect(page.getByRole("heading", { name: "Pickup GPS Camera" })).toBeVisible();
 }
