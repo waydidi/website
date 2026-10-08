@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { SITE_URL } from "@/lib/site";
 import { deliverToChannel } from "@/lib/channels";
 import { editCard, sendCard, sendPrivate, telegramConfigured, TelegramDeliveryError } from "@/lib/telegram/client";
-import { conversationCard, conversationKeyboard, customerMessage, esc, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
+import { botEcho, conversationCard, conversationKeyboard, customerMessage, esc, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
 
 // One canonical support conversation, stored in D1. The website widget, the admin inbox and Telegram
 // are three views of the same rows; nothing is routed by name, only by conversation id.
@@ -72,10 +72,19 @@ export async function addVisitorMessage(c: Conversation, body: string, clientId:
 
 /** Sends (or re-sends) one customer message to Telegram. Safe to call again for messages that failed. */
 export async function deliverVisitorMessage(conversationId: string, messageId: string) {
+  return deliverChatMessage(conversationId, messageId, false);
+}
+
+export async function deliverBotMessage(conversationId: string, messageId: string) {
+  return deliverChatMessage(conversationId, messageId, true);
+}
+
+async function deliverChatMessage(conversationId: string, messageId: string, bot: boolean) {
   if (!telegramConfigured()) return;
   const c = await conversationById(conversationId);
-  const m = await db().prepare("SELECT body,created_at,telegram_status FROM website_chat_messages WHERE id=?").bind(messageId).first<{ body: string; created_at: string; telegram_status: string | null }>();
+  const m = await db().prepare("SELECT body,created_at,telegram_status,sender,is_bot FROM website_chat_messages WHERE id=? AND conversation_id=?").bind(messageId, conversationId).first<{ body: string; created_at: string; telegram_status: string | null; sender: string; is_bot: number }>();
   if (!c || !m || m.telegram_status === "sent") return;
+  if (bot ? m.sender !== "staff" || !m.is_bot || (c.channel ?? "web") !== "web" : m.sender !== "visitor") return;
   // Website questions always notify the team, including while Non is answering.
   // External AI-managed channels keep their existing handover-only notifications.
   if ((c.channel ?? "web") !== "web" && !c.assigned_name && (await nonAnswering(c))) {
@@ -91,7 +100,7 @@ export async function deliverVisitorMessage(conversationId: string, messageId: s
     const dm = c.assigned_name ? await assigneeTelegramId(c) : null;
     if (dm) {
       let sent;
-      try { sent = await sendPrivate(dm, esc(m.body.slice(0, 4000))); }
+      try { sent = await sendPrivate(dm, bot ? botEcho(c.public_id, m.body) : esc(m.body.slice(0, 4000))); }
       catch (error) { if (!(error instanceof TelegramDeliveryError && error.retryable)) throw error; }
       if (sent) {
         // A failure after acceptance must not fall back to the group and duplicate the notification.
@@ -102,11 +111,11 @@ export async function deliverVisitorMessage(conversationId: string, messageId: s
     }
     if (!c.telegram_message_id) {
       const non = await nonAnswering(c);
-      const sent = await sendCard(conversationCard(c, { body: m.body, created_at: m.created_at, from: "visitor" }, true, non), conversationKeyboard(c, adminUrl(c.id), non));
+      const sent = await sendCard(conversationCard(c, { body: m.body, created_at: m.created_at, from: bot ? "Non (AI)" : "visitor" }, true, non), conversationKeyboard(c, adminUrl(c.id), non));
       telegramId = sent.message_id;
       await db().prepare("UPDATE website_conversations SET telegram_message_id=? WHERE id=? AND telegram_message_id IS NULL").bind(telegramId, c.id).run();
     } else {
-      const sent = await sendCard(customerMessage(c.public_id, c.customer_name, m.body), undefined, c.telegram_message_id);
+      const sent = await sendCard(bot ? botEcho(c.public_id, m.body) : customerMessage(c.public_id, c.customer_name, m.body), undefined, c.telegram_message_id);
       telegramId = sent.message_id;
       await refreshCard(c.id).catch(() => undefined);
     }
@@ -119,13 +128,13 @@ export async function deliverVisitorMessage(conversationId: string, messageId: s
   }
 }
 
-/** Retries customer messages whose Telegram delivery failed (called from the scheduled job). */
+/** Retries customer messages and website bot replies with definite failed/pending delivery. */
 export async function retryFailedTelegram(limit = 20) {
   if (!telegramConfigured()) return 0;
-  const rows = (await db().prepare("SELECT id,conversation_id FROM website_chat_messages WHERE sender='visitor' AND telegram_status IN ('failed','pending') AND created_at<? ORDER BY rowid LIMIT ?")
-    .bind(new Date(Date.now() - 60000).toISOString(), limit).all<{ id: string; conversation_id: string }>()).results;
+  const rows = (await db().prepare("SELECT id,conversation_id,is_bot FROM website_chat_messages WHERE (sender='visitor' OR (sender='staff' AND is_bot=1)) AND telegram_status IN ('failed','pending') AND created_at<? ORDER BY rowid LIMIT ?")
+    .bind(new Date(Date.now() - 60000).toISOString(), limit).all<{ id: string; conversation_id: string; is_bot: number }>()).results;
   let ok = 0;
-  for (const r of rows) { try { await deliverVisitorMessage(r.conversation_id, r.id); ok++; } catch { /* stays failed for the next run */ } }
+  for (const r of rows) { try { await deliverChatMessage(r.conversation_id, r.id, Boolean(r.is_bot)); ok++; } catch { /* stays failed for the next run */ } }
   return ok;
 }
 
@@ -176,10 +185,11 @@ export async function addBotMessage(conversationId: string, rawBody: string, car
   const c = await conversationById(conversationId);
   if (!c) return null;
   const now = nowIso(), id = crypto.randomUUID();
-  await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot,card_json) VALUES(?,?,'staff',?,?,'Non',1,?)`).bind(id, c.id, body, now, card ? JSON.stringify(card) : null).run();
+  const website = (c.channel ?? "web") === "web";
+  await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot,card_json,telegram_status) VALUES(?,?,'staff',?,?,'Non',1,?,?)`).bind(id, c.id, body, now, card ? JSON.stringify(card) : null, website ? "pending" : "skipped").run();
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();
   await toChannel(c, id, body);
-  // Not posted to Telegram: the group only hears about handovers (with the recent conversation).
+  if (website) await deliverBotMessage(c.id, id).catch(() => undefined);
   return id;
 }
 
