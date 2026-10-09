@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { expect, test as setup } from "@playwright/test";
+import { migrationStatements } from "../tests/helpers/migrations.mjs";
 
 // Test-only admin for the browser tests. It is written straight into the LOCAL dev database
 // (.wrangler/state, the emulated D1 the dev server uses), never production, and gets a session
@@ -9,17 +10,30 @@ import { expect, test as setup } from "@playwright/test";
 const D1_DIR = ".wrangler/state/v3/d1/miniflare-D1DatabaseObject";
 export const ADMIN_STATE = "e2e/.auth/admin.json";
 
-function localDatabases() {
-  return readdirSync(D1_DIR).filter((f) => f.endsWith(".sqlite") && f !== "metadata.sqlite").map((f) => `${D1_DIR}/${f}`).filter((path) => {
-    const db = new DatabaseSync(path, { readOnly: true });
-    try { return !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='staff_sessions'").get(); } finally { db.close(); }
-  });
+const hasStaffTables = (path: string) => {
+  const db = new DatabaseSync(path, { readOnly: true });
+  try { return !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='staff_sessions'").get(); } finally { db.close(); }
+};
+const databaseFiles = () => { try { return readdirSync(D1_DIR).filter((f) => f.endsWith(".sqlite") && f !== "metadata.sqlite").map((f) => `${D1_DIR}/${f}`); } catch { return []; } };
+const localDatabases = () => databaseFiles().filter(hasStaffTables);
+
+// A fresh checkout (CI) has an empty local database: apply the drizzle migrations, as the unit tests do.
+function migrate(path: string) {
+  const db = new DatabaseSync(path);
+  try {
+    for (const file of readdirSync("drizzle").filter((f) => f.endsWith(".sql")).sort()) {
+      for (const sql of migrationStatements(readFileSync(`drizzle/${file}`, "utf8"))) {
+        try { db.exec(sql); } catch { /* already applied, or created at runtime by the app */ }
+      }
+    }
+  } finally { db.close(); }
 }
 
 setup("sign in a test-only admin", async ({ page, baseURL }) => {
   // The first page load creates and migrates the local database.
   await expect(async () => {
     expect((await page.request.get("/admin")).status()).toBeLessThan(500);
+    for (const path of databaseFiles()) if (!hasStaffTables(path)) migrate(path);
     expect(localDatabases().length).toBeGreaterThan(0);
   }).toPass({ timeout: 90_000 });
 
