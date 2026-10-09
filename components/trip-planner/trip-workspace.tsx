@@ -359,7 +359,7 @@ function AttractionPicker({ attractions, date, area, onClose, onAdd }: { attract
   const sessions = chosen && program ? sessionsOn(chosen as never, program, date) : [];
   return <Modal open onClose={() => onClose()} sheet overlayClassName="z-50 bg-black/40" asChild>
     <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-      <div className="flex items-center justify-between"><ModalTitle id="pick-title" className="text-[20px] font-bold">{chosen ? chosen.customerName || chosen.name : "Add attraction"}</ModalTitle><button type="button" onClick={chosen ? () => setChosen(null) : onClose} aria-label={chosen ? "Back" : "Close"} className="rounded-full p-1.5 hover:bg-slate-100">{chosen ? <ArrowLeft size={20} /> : <X size={20} />}</button></div>
+      <div className="flex items-center justify-between"><ModalTitle className="text-[20px] font-bold">{chosen ? chosen.customerName || chosen.name : "Add attraction"}</ModalTitle><button type="button" onClick={chosen ? () => setChosen(null) : onClose} aria-label={chosen ? "Back" : "Close"} className="rounded-full p-1.5 hover:bg-slate-100">{chosen ? <ArrowLeft size={20} /> : <X size={20} />}</button></div>
       {!chosen ? <>
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search attractions" className={`${inputCls} mt-3`} />
         {area && <label className="mt-2 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={onlyArea} onChange={(e) => setOnlyArea(e.target.checked)} className="size-4 accent-brand" />Only {area}</label>}
@@ -389,7 +389,7 @@ function SendDialog({ hasEmail, errors, onClose, onSend }: { hasEmail: boolean; 
   const [busy, setBusy] = useState(false);
   return <Modal open onClose={() => onClose()} locked={busy} sheet overlayClassName="z-50 bg-black/40" asChild>
     <form onSubmit={async (e) => { e.preventDefault(); setBusy(true); await onSend(note, notify); setBusy(false); }} className="w-full max-w-md rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-      <ModalTitle id="send-title" className="text-[20px] font-bold">Send to the customer</ModalTitle>
+      <ModalTitle className="text-[20px] font-bold">Send to the customer</ModalTitle>
       <p className="mt-1 text-[14px] text-slate-600">This saves a new version the customer sees on their itinerary page. Earlier versions are kept.</p>
       {errors > 0 && <p className="mt-3 rounded-xl bg-red-50 p-3 text-[13px] font-semibold text-red-700">{errors} check(s) are failing. You can still send, but fix them first if you can.</p>}
       <Field label="What changed (for the version history)" className="mt-3"><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Added Promthep Cape" className={inputCls} /></Field>

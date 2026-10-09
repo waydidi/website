@@ -21,11 +21,21 @@ export function Modal({ open, onClose, locked = false, sheet = false, overlayCla
   // Remember what had focus when the popup opened, so closing it puts focus back there.
   // (Tracks focus outside any dialog, because a field with autoFocus takes focus before Radix can record it.)
   const opener = React.useRef<HTMLElement | null>(null);
+  // A popup mounted only while open ({open && <Modal …>}) appears after the opener was clicked, so
+  // also take whatever had focus at its first render.
+  const [focusedAtMount] = React.useState(() => (typeof document === "undefined" ? null : document.activeElement as HTMLElement | null));
   React.useEffect(() => {
+    if (!opener.current && focusedAtMount && focusedAtMount !== document.body && !focusedAtMount.closest('[role="dialog"]')) opener.current = focusedAtMount;
     const track = (e: FocusEvent) => { const t = e.target as HTMLElement | null; if (t && !t.closest?.('[role="dialog"]')) opener.current = t; };
     document.addEventListener("focusin", track);
-    return () => document.removeEventListener("focusin", track);
-  }, []);
+    return () => {
+      document.removeEventListener("focusin", track);
+      // Popups shown with {open && <Modal …>} unmount at once on close, before Radix can restore
+      // focus; if focus was left on nothing, put it back on the opener.
+      const el = opener.current;
+      window.setTimeout(() => { if ((!document.activeElement || document.activeElement === document.body) && el?.isConnected) el.focus(); }, 0);
+    };
+  }, [focusedAtMount]);
   return <DialogPrimitive.Root open={open} onOpenChange={(next) => { if (!next && !locked) onClose(); }}>
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className={cn("fixed inset-0 z-50 flex justify-center overflow-y-auto bg-plum/50",

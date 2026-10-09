@@ -134,7 +134,7 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
 
   return <Modal open onClose={() => setDraft(null)} locked={busy} overlayClassName="z-50 bg-black/40 justify-end items-stretch p-0" asChild>
     <form onSubmit={(e) => { e.preventDefault(); onSave(draft); }} className="h-full w-full max-w-2xl overflow-y-auto bg-white p-5 sm:p-7">
-      <div className="flex items-center justify-between"><ModalTitle id="attraction-title" className="text-[22px] font-bold">{draft.id ? "Edit attraction" : "Add attraction"}</ModalTitle>
+      <div className="flex items-center justify-between"><ModalTitle className="text-[22px] font-bold">{draft.id ? "Edit attraction" : "Add attraction"}</ModalTitle>
         <button type="button" onClick={() => setDraft(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
       <div className="mt-4 grid gap-5">
         <Section title="Basics">

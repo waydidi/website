@@ -109,7 +109,7 @@ export default function SeasonsWorkspace() {
 
     {draft && <Modal open onClose={() => setDraft(null)} locked={busy} sheet overlayClassName="z-50 bg-black/40" asChild>
       <form onSubmit={async (e) => { e.preventDefault(); if (await save(draft)) setDraft(null); }} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-        <div className="flex items-center justify-between"><ModalTitle id="season-title" className="text-[20px] font-bold">{draft.id ? "Edit season" : "Add season"}</ModalTitle><button type="button" onClick={() => setDraft(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button></div>
+        <div className="flex items-center justify-between"><ModalTitle className="text-[20px] font-bold">{draft.id ? "Edit season" : "Add season"}</ModalTitle><button type="button" onClick={() => setDraft(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button></div>
         <div className="mt-4 grid gap-3">
           <label className="grid gap-1 text-[13px] font-semibold">Name<input required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Songkran" className={input} /></label>
           <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={draft.repeatsYearly} onChange={(e) => setDraft({ ...draft, repeatsYearly: e.target.checked, startsOn: "", endsOn: "" })} className="size-4 accent-brand" />Same dates every year</label>
