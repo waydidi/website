@@ -20,8 +20,10 @@ export default defineConfig({
     launchOptions: { executablePath },
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "phone", use: { ...devices["Pixel 7"] } },
+    // Signs in a test-only admin in the local database; the admin tests reuse its cookie.
+    { name: "admin-setup", testMatch: /admin\.setup\.ts/ },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] }, dependencies: ["admin-setup"] },
+    { name: "phone", use: { ...devices["Pixel 7"] }, dependencies: ["admin-setup"] },
   ],
   webServer: {
     command: `npx vite --port ${PORT} --strictPort`,

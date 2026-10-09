@@ -116,7 +116,7 @@ function QuickQuote({ base, home, preset, presetId, label, templates: known, onC
   }
   return <Modal open onClose={() => onClose()} locked={busy} sheet overlayClassName="z-50 bg-black/40" asChild>
     <form onSubmit={(e) => { e.preventDefault(); void create(true); }} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-      <div className="flex items-center justify-between"><ModalTitle id="qq-title" className="flex items-center gap-2 text-[20px] font-bold"><Zap size={19} className="text-brand-text" />Quick quote</ModalTitle><button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
+      <div className="flex items-center justify-between"><ModalTitle className="flex items-center gap-2 text-[20px] font-bold"><Zap size={19} className="text-brand-text" />Quick quote</ModalTitle><button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
       <div className="mt-4 grid gap-3">
         <Field label={label}><select required value={template?.id ?? ""} onChange={(e) => { const t = templates?.find((x) => x.id === e.target.value) ?? null; setTemplate(t); if (t) setF((v) => ({ ...v, startTime: t.startTime })); }} className={inputCls}><option value="">{templates ? "Choose a ready-made day" : "Loading…"}</option>{templates?.map((t) => <option key={t.id} value={t.id}>{t.templateName || t.title} · {t.durationHours} hr · THB {t.total.toLocaleString("en-US")}</option>)}</select></Field>
         <div className="grid grid-cols-2 gap-3">

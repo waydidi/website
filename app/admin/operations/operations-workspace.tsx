@@ -656,7 +656,7 @@ function EvidenceSheet({ reference, events, onClose }: { reference: string; even
     <div className="max-h-[88dvh] w-full max-w-lg animate-in slide-in-from-bottom overflow-y-auto rounded-t-[28px] bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] duration-300">
       <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-200" />
       <div className="flex items-center justify-between">
-        <ModalTitle id="evidence-title" className="text-lg font-black">Evidence · {reference}</ModalTitle>
+        <ModalTitle className="text-lg font-black">Evidence · {reference}</ModalTitle>
         <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
       </div>
       <ul className="mt-3 grid gap-4">

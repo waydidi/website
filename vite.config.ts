@@ -34,6 +34,9 @@ function bindingConfig(command: "build" | "serve") {
     // Run database-heavy requests close to the D1 database instead of next to
     // each visitor: pages with several queries finish sooner.
     placement: { mode: "smart" as const },
+    // Workers Logs: keeps every request's log, CPU time and errors (such as 1102 "exceeded
+    // resource limits") for a few days in Cloudflare → Workers → waydidi-website → Logs.
+    observability: { enabled: true, head_sampling_rate: 1 },
     // Runs worker/index.ts "scheduled": trip reminders and operations alerts.
     triggers: { crons: ["*/5 * * * *", "* * * * *"] },
     d1_databases: d1

@@ -61,7 +61,7 @@ export function SuppliersWorkspace() {
     </div>
     {draft && <Modal open onClose={() => setDraft(null)} locked={busy} sheet overlayClassName="z-50 bg-black/40" asChild>
       <form onSubmit={save} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-        <div className="flex items-center justify-between"><ModalTitle id="supplier-title" className="text-[20px] font-bold">{draft.id ? "Edit supplier" : "Add supplier"}</ModalTitle><button type="button" onClick={() => setDraft(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
+        <div className="flex items-center justify-between"><ModalTitle className="text-[20px] font-bold">{draft.id ? "Edit supplier" : "Add supplier"}</ModalTitle><button type="button" onClick={() => setDraft(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={20} /></button></div>
         <div className="mt-4 grid gap-3">
           <Field label="Name"><input required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className={inputCls} /></Field>
           <div className="grid grid-cols-2 gap-3">
