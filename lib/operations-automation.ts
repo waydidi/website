@@ -181,7 +181,10 @@ export async function runOperationsAutomation(at = new Date()): Promise<Automati
     const assignment = assignmentByBooking.get(booking.journeyId);
     const common = reminderInput(booking);
     const deliveries: Array<Promise<"sent" | "failed" | "skipped">> = [];
-    if (remaining > 3 * HOUR && remaining <= 24 * HOUR) {
+    // The day-before reminder only for rides booked earlier: a booking made inside the last 24 hours
+    // has just had its confirmation email, and still gets the 3-hour reminder.
+    const bookedEarly = Date.parse(booking.createdAt) <= pickup - 24 * HOUR;
+    if (bookedEarly && remaining > 3 * HOUR && remaining <= 24 * HOUR) {
       deliveries.push(deliverNotification({ booking, notificationType: "customer_24h", recipient: booking.customerEmail, scheduledFor: pickup - 24 * HOUR, send: async () => sendCustomerTripReminder({ ...common, to: booking.customerEmail, name: booking.customerName, hoursBefore: 24, tripKey: await tripOwnerKey(booking.reference).catch(() => undefined) }) }));
       (contactsByBooking.get(booking.reference) ?? []).forEach((to, index) => deliveries.push(deliverNotification({ booking, notificationType: `customer_24h_copy${index}`, recipient: to, scheduledFor: pickup - 24 * HOUR, send: async () => sendCustomerTripReminder({ ...common, to, name: "there", hoursBefore: 24, tripKey: await tripOwnerKey(booking.reference).catch(() => undefined) }) })));
     }

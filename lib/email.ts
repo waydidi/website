@@ -141,7 +141,7 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
 <body style="margin:0;background:#ffffff;color:#211726;font-family:Arial,Helvetica,sans-serif">
 <div style="display:none;max-height:0;overflow:hidden">Your Waydidi booking ${escapeHtml(input.reference)} is confirmed.</div>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:24px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px"><tr><td>
-<p style="margin:0 0 24px;color:#e57a00;font-size:26px;font-weight:800;letter-spacing:-.02em;font-family:Arial,Helvetica,sans-serif">Waydidi</p>
+<p style="margin:0 0 24px;color:#e57a00;font-size:26px;font-weight:800;letter-spacing:-.02em;font-family:Arial,Helvetica,sans-serif">Waydidi Travel</p>
 ${p(escapeHtml(greeting))}
 ${p("Warm greetings from Waydidi Travel. We are pleased to confirm your booking with the following details:")}
 ${blocks.map(blockHtml).join("\n")}
@@ -202,7 +202,7 @@ export async function sendOperationsAlert(booking: {
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f5f8"><tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fff;border-radius:28px;overflow:hidden;box-shadow:0 8px 30px rgba(43,25,10,.08)">
 <tr><td style="background:#ff8a05;padding:36px 38px 40px;color:#fff">
-<p style="margin:0 0 38px;color:#ffffff;font-size:30px;font-weight:800;letter-spacing:-.02em;font-family:Arial,Helvetica,sans-serif">Waydidi</p>
+<p style="margin:0 0 38px;color:#ffffff;font-size:30px;font-weight:800;letter-spacing:-.02em;font-family:Arial,Helvetica,sans-serif">Waydidi Travel</p>
 <div style="width:52px;height:52px;border-radius:50%;background:#ffa84d;color:#fff;font-size:30px;line-height:52px;text-align:center;font-weight:700">✓</div>
 <p style="margin:28px 0 8px;color:#ffe1c2;font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${cash ? "Booking confirmed" : "Payment received"}</p>
 <h1 style="margin:0;color:#fff;font-size:38px;line-height:1.08;letter-spacing:-.03em">Your ride is booked.</h1>
@@ -257,15 +257,17 @@ type TripReminderInput = {
 };
 
 function reminderShell(kicker: string, title: string, intro: string, rows: string) {
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f3f5f8;color:#211726;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:28px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border-radius:24px;overflow:hidden"><tr><td style="background:#ff8a05;padding:30px 34px;color:#fff"><p style="margin:0 0 28px;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-.02em;font-family:Arial,Helvetica,sans-serif">Waydidi</p>${kicker ? `<p style="margin:0 0 8px;color:#ffe1c2;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${escapeHtml(kicker)}</p>` : ""}<h1 style="margin:0;color:#fff;font-size:32px;line-height:1.12">${escapeHtml(title)}</h1></td></tr><tr><td style="padding:30px 34px">${intro ? `<p style="margin:0 0 22px;color:#586579;font-size:16px;line-height:1.6">${escapeHtml(intro)}</p>` : ""}<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rows}</table></td></tr></table></td></tr></table></body></html>`;
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f3f5f8;color:#211726;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:28px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border-radius:24px;overflow:hidden"><tr><td style="background:#ff8a05;padding:30px 34px;color:#fff"><p style="margin:0 0 28px;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-.02em;font-family:Arial,Helvetica,sans-serif">Waydidi Travel</p>${kicker ? `<p style="margin:0 0 8px;color:#ffe1c2;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${escapeHtml(kicker)}</p>` : ""}<h1 style="margin:0;color:#fff;font-size:32px;line-height:1.12">${escapeHtml(title)}</h1></td></tr><tr><td style="padding:30px 34px">${intro ? `<p style="margin:0 0 22px;color:#586579;font-size:16px;line-height:1.6">${escapeHtml(intro)}</p>` : ""}<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rows}</table></td></tr></table></td></tr></table></body></html>`;
 }
 
 export async function sendCustomerTripReminder(input: TripReminderInput & { to: string; name: string; hoursBefore: 24 | 3; tripKey?: string; leg?: "outbound" | "return" }) {
   const tripUrl = input.tripKey ? `${siteUrl()}/trip/${encodeURIComponent(input.reference)}?key=${input.tripKey}&leg=${input.leg ?? "outbound"}` : null;
   const when = displayDate(input.pickupDate, input.pickupTime);
-  const title = input.hoursBefore === 24 ? "Your ride is tomorrow." : "Your ride is coming up soon.";
+  // Said by the calendar date in Thailand, so an evening ride booked the same day isn't "tomorrow".
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  const title = input.hoursBefore === 3 ? "Your ride is coming up soon." : input.pickupDate === today ? "Your ride is today." : "Your ride is tomorrow.";
   const html = reminderShell(
-    `${input.hoursBefore}-hour reminder`,
+    "",
     title,
     `Hi ${input.name}, this is a reminder for your confirmed Waydidi transfer.`,
     `${detailRow("Booking", input.reference)}${detailRow("Pickup", input.pickup)}${detailRow("Drop-off", input.dropoff)}${detailRow("Date & time", when)}${detailRow("Vehicle", input.vehicle)}${tripUrl ? `<tr><td colspan="2" align="center" style="padding-top:26px"><a href="${escapeHtml(tripUrl)}" style="display:inline-block;background:#ff8a05;color:#21140a;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:15px;font-weight:700">Track your trip</a></td></tr>` : ""}`,
