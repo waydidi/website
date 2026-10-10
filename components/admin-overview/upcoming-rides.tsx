@@ -9,8 +9,9 @@ import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/dri
 import { includesKohChangFerry } from "@/lib/booking-form";
 import { paymentPill } from "@/lib/payment-pill";
 import { TripPhotos } from "@/components/drivers/trip-photos";
+import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 
-export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return" };
+export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return"; /** The customer's ride-status page. */ rideUrl?: string | null };
 
 // The badge follows the driver's trip status once a driver is assigned.
 const STATUS: Record<string, [string, string]> = {
@@ -77,6 +78,7 @@ export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions }: {
           ["To", r.dropoff],
           ["Price", null],
           ["Payment", <span key="pay" className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold ${payment(r.paymentStatus)[1]}`}>{payment(r.paymentStatus)[0]}</span>],
+          ...(r.rideUrl ? [["Customer status", <span key="ride" className="inline-flex items-center gap-2"><a href={r.rideUrl} target="_blank" rel="noreferrer" className="text-brand-darker underline underline-offset-4">Open</a><CopyTextButton icon="link" text={r.rideUrl} label={`Copy customer status link for ${r.reference}`} /></span>] as [string, React.ReactNode]] : []),
         ] as [string, React.ReactNode][]).map(([k, v]) => k === "Price" ? <PriceRow key={k} r={r} /> : <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
         <TripPhotos reference={r.reference} leg={r.leg} />
         <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="mt-1 justify-self-end text-[13px] font-semibold text-brand-darker hover:underline">Open booking →</Link>
