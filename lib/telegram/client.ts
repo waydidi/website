@@ -54,7 +54,7 @@ export async function editCard(messageId: number, text: string, keyboard?: Inlin
 export const answerCallback = (id: string, text?: string, alert = false) => tg("answerCallbackQuery", { callback_query_id: id, ...(text ? { text, show_alert: alert } : {}) }).catch(() => undefined);
 
 /** A photo to the group (multipart upload), optionally as a reply to a card. */
-export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: number) {
+export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: number, keyboard?: InlineKeyboard) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) throw new Error("TELEGRAM_NOT_CONFIGURED");
   const form = new FormData();
@@ -62,6 +62,7 @@ export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: n
   form.set("caption", caption);
   form.set("parse_mode", "HTML");
   if (replyTo) form.set("reply_parameters", JSON.stringify({ message_id: replyTo, allow_sending_without_reply: true }));
+  if (keyboard) form.set("reply_markup", JSON.stringify({ inline_keyboard: keyboard }));
   form.set("photo", new Blob([photo], { type: "image/jpeg" }), "trip-photo.jpg");
   const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(15000) });
   const data = await res.json().catch(() => ({})) as { ok?: boolean; result?: TelegramMessage; description?: string };

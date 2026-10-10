@@ -29,7 +29,7 @@ test('the step photo goes to the group under the booking card with step, driver,
  const {postTripPhoto}=await vite.ssrLoadModule('/lib/telegram/trip-photos.ts');
  await putFile('driver-private-evidence/a1/x.jpg',new Uint8Array([0xff,0xd8,0xff,0xd9]),'image/jpeg');
  await d1.prepare("INSERT INTO telegram_booking_cards(booking_reference,telegram_message_id,created_at) VALUES('52LLDS',4321,'2026-10-10T00:00:00Z')").run();
- await postTripPhoto({reference:'52LLDS',status:'standby',driverName:'Thanakorn <B>',evidence:{id:'e1',assignment_id:'a1',booking_reference:'52LLDS',leg:'outbound',driver_id:'d1',event_type:'pickup',status_event_id:null,device_captured_at:'2026-10-10T14:24:53.000Z',received_at:'2026-10-10T14:24:55.000Z',confirmed_at:null,latitude:13.7399,longitude:100.5,accuracy_metres:6.2,original_key:'driver-private-evidence/a1/x.jpg',stamped_key:'x.svg',expires_at:'2099-01-01',deleted_at:null}});
+ await postTripPhoto({reference:'52LLDS',status:'standby',eventId:'ev-1',driverName:'Thanakorn <B>',evidence:{id:'e1',assignment_id:'a1',booking_reference:'52LLDS',leg:'outbound',driver_id:'d1',event_type:'pickup',status_event_id:null,device_captured_at:'2026-10-10T14:24:53.000Z',received_at:'2026-10-10T14:24:55.000Z',confirmed_at:null,latitude:13.7399,longitude:100.5,accuracy_metres:6.2,original_key:'driver-private-evidence/a1/x.jpg',stamped_key:'x.svg',expires_at:'2099-01-01',deleted_at:null}});
  assert.equal(sent.length,1);
  assert.equal(sent[0].method,'sendPhoto');
  const form=sent[0].form;
@@ -43,4 +43,14 @@ test('the step photo goes to the group under the booking card with step, driver,
  const photo=form.get('photo');
  assert.equal(photo.type,'image/jpeg');
  assert.deepEqual([...new Uint8Array(await photo.arrayBuffer())],[0xff,0xd8,0xff,0xd9]);
+ assert.equal(form.get('reply_markup'),null); // only the Drop has a button
+});
+
+test('the Drop photo carries a Completed job button for that status event',async()=>{
+ const {postTripPhoto}=await vite.ssrLoadModule('/lib/telegram/trip-photos.ts');
+ sent.length=0;
+ await postTripPhoto({reference:'52LLDS',status:'completed',eventId:'0f1e2d3c-0000-4000-8000-000000000001',driverName:'Thanakorn',evidence:{id:'e2',assignment_id:'a1',booking_reference:'52LLDS',leg:'outbound',driver_id:'d1',event_type:'dropoff',status_event_id:null,device_captured_at:'2026-10-10T15:00:00.000Z',received_at:'2026-10-10T15:00:02.000Z',confirmed_at:null,latitude:null,longitude:null,accuracy_metres:null,original_key:'driver-private-evidence/a1/x.jpg',stamped_key:'x.svg',expires_at:'2099-01-01',deleted_at:null}});
+ const form=sent[0].form;
+ assert.match(form.get('caption'),/📸 <b>Drop<\/b> · 52LLDS/);assert.match(form.get('caption'),/Location unavailable/);
+ assert.deepEqual(JSON.parse(form.get('reply_markup')),{inline_keyboard:[[{text:'✅ Completed job',callback_data:'trip_done:0f1e2d3c-0000-4000-8000-000000000001'}]]});
 });

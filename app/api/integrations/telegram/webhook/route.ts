@@ -6,6 +6,7 @@ import { esc, pickKeyboard } from "@/lib/telegram/cards";
 import { acknowledgeBooking, refreshBookingCard } from "@/lib/telegram/bookings";
 import { askBookingQuestion, driverChoices, handleBookingAnswer, pickDriver } from "@/lib/telegram/booking-tasks";
 import { waitHandover } from "@/lib/telegram/handover";
+import { verifyTripCompletion } from "@/lib/trip-completion";
 import { approveChange, cancelBookingFromTelegram, declineChange, keepBooking } from "@/lib/telegram/booking-changes";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus, telegramClientId } from "@/lib/website-chat";
 
@@ -59,6 +60,14 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   if (!target || target.length > 60) return answerCallback(q.id, "Unknown action.");
   const who = { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(q.from.id) };
 
+  if (action === "trip_done") {
+    // An admin checked the driver's Drop photo: the job is completed and the driver's page says so.
+    const done = await verifyTripCompletion(target, `telegram:${admin.display_name}`);
+    if (done.result === "invalid") return answerCallback(q.id, "This job can't be completed from here any more. Open the booking to check it.", true);
+    if (q.message) await tg("editMessageReplyMarkup", { chat_id: telegramChatId(), message_id: q.message.message_id, reply_markup: { inline_keyboard: [[{ text: `✅ Completed · ${admin.display_name}`, callback_data: `trip_done:${target}` }]] } }).catch(() => undefined);
+    if (done.reference) await refreshBookingCard(done.reference).catch(() => undefined);
+    return answerCallback(q.id, done.result === "done" ? "Job completed ✓" : "Already completed.");
+  }
   if (action === "bk_pmap" || action === "bk_dmap") {
     await askBookingQuestion(target, action === "bk_pmap" ? "pickup_map" : "dropoff_map", q.from);
     return answerCallback(q.id, "Paste the Google Maps share link.");

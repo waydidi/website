@@ -83,3 +83,13 @@ test("the address keeps the real link, so it opens in another browser (Telegram 
   expect(sent).toBe("ab12".repeat(12));
   await other.close();
 });
+test("after an admin confirms the Drop, the page shows the job completed with the customer details", async ({ page }) => {
+  const done = { ...base, assignment: { ...base.assignment, currentStatus: "completed" }, events: [{ id: "ev1", status: "completed", createdAt: "2026-10-11T03:00:00Z", verificationStatus: "verified", hasEvidence: true }] };
+  await page.route("**/api/driver/trips/session", (r) => r.fulfill({ json: done }));
+  await page.route("**/api/driver/trips/session/plan", (r) => r.fulfill({ json: { days: [] } }));
+  await page.goto("/driver/trip/session");
+  await expect(page.getByRole("heading", { name: "งานนี้เสร็จเรียบร้อย" })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText("Customer name")).toBeVisible();
+  await expect(page.getByText("Non Naowarat")).toBeVisible();
+  await expect(page.getByText("รอผู้ดูแลตรวจสอบ")).toHaveCount(0);
+});
