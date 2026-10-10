@@ -93,3 +93,13 @@ test("after an admin confirms the Drop, the page shows the job completed with th
   await expect(page.getByText("Non Naowarat")).toBeVisible();
   await expect(page.getByText("รอผู้ดูแลตรวจสอบ")).toHaveCount(0);
 });
+test("after the Drop is sent and while it waits for an admin: no waiting panel; Pick up / Drop buttons stay", async ({ page }) => {
+  const waiting = { ...base, assignment: { ...base.assignment, currentStatus: "completed" }, events: [{ id: "ev1", status: "completed", createdAt: "2026-10-11T03:00:00Z", verificationStatus: "pending_review", hasEvidence: true }] };
+  await page.route("**/api/driver/trips/session", (r) => r.fulfill({ json: waiting }));
+  await page.route("**/api/driver/trips/session/plan", (r) => r.fulfill({ json: { days: [] } }));
+  await page.goto("/driver/trip/session");
+  await expect(page.getByText("Customer name")).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText("รอผู้ดูแลตรวจสอบ")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /^Pick up:/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Drop:/ })).toBeVisible();
+});

@@ -545,15 +545,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             <h2 className="mt-4 text-2xl font-black">งานนี้เสร็จเรียบร้อย</h2>
             <p className="mt-2">ผู้ดูแล Waydidi ตรวจสอบการส่งลูกค้าแล้ว</p>
           </section>
-        ) : (
-          <section className="rounded-[26px] border border-amber-200 bg-amber-50 p-7 text-center text-amber-900">
-            <LoaderCircle className="mx-auto" size={44} />
-            <h2 className="mt-4 text-2xl font-black">รอผู้ดูแลตรวจสอบ</h2>
-            <p className="mt-2">
-              ส่งสถานะและหลักฐานการส่งลูกค้าแล้ว งานจะเสร็จสมบูรณ์หลังจากผู้ดูแลยืนยัน
-            </p>
-          </section>
-        )}
+        ) : null /* Drop sent, waiting for an admin: nothing extra to show */}
         {canReportNoShow && (
           <section className="rounded-[26px] bg-white p-5 shadow-sm">
             <div className="flex items-start gap-3">
