@@ -13,7 +13,6 @@ import {
   CircleAlert,
   ExternalLink,
   LoaderCircle,
-  LocateFixed,
   Luggage,
   Navigation,
   RefreshCw,
@@ -80,13 +79,6 @@ type Trip = {
   noShow: { eligibleAt: string | null; airport: boolean; freeWaitMinutes: number; maxDistanceMetres: number };
 };
 
-type LocationPing = {
-  latitude: number;
-  longitude: number;
-  accuracyMetres: number;
-  clientTimestamp: string;
-  sequenceNumber: number;
-};
 
 const steps: Array<{
   status: Exclude<DriverStatus, "assigned">;
@@ -165,23 +157,14 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   // Stand by, Pick up and Drop are confirmed with a photo taken in the step camera.
   const [cameraOpen, setCameraOpen] = useState(false);
   const [online, setOnline] = useState(true);
-  const [trackingState, setTrackingState] = useState<"off" | "active" | "sending" | "queued" | "error">("off");
-  const [lastTrackedAt, setLastTrackedAt] = useState<string | null>(null);
-  const [trackingRetry, setTrackingRetry] = useState(0);
   const [stopReason, setStopReason] = useState("");
   const [stopNote, setStopNote] = useState("");
   const [stopBusy, setStopBusy] = useState(false);
   // Welcome screen before a new job starts: shown once per job on this phone, until "เริ่มงาน".
   const [welcome, setWelcome] = useState(false);
   const welcomeKey = (id: string) => `waydidi-driver-welcome:${id}`;
-  // The stop-reason popup: opened when the car has been still for a long time (or by the driver).
+  // The stop-reason popup, opened by the driver.
   const [stopOpen, setStopOpen] = useState(false);
-  const stopSnoozedUntil = useRef(0);
-  const stopDeclared = useRef(false);
-  const askStopReason = useCallback(() => {
-    if (stopDeclared.current || Date.now() < stopSnoozedUntil.current) return;
-    setStopOpen(true);
-  }, []);
   const [pending, setPending] = useState<QueuedDriverStep | null>(null);
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [noShowNote, setNoShowNote] = useState("");
@@ -213,15 +196,13 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       try { seen = Boolean(localStorage.getItem(welcomeKey(result.assignment.id))); } catch { /* storage blocked: show it */ }
       if (!seen) setWelcome(true);
     }
-    stopDeclared.current = Boolean(result.activeStop);
-    if (result.stopAlert) askStopReason();
 
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Trip unavailable.");
     } finally {
       setLoading(false);
     }
-  }, [token,initialToken,askStopReason]);
+  }, [token,initialToken]);
 
   useEffect(() => {
     const first=window.setTimeout(()=>void load(),0);
@@ -282,57 +263,6 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
     return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener("online", flush); };
   }, [assignmentId, sendStep]);
 
-  const trackingStatus=trip?.assignment.currentStatus;
-  useEffect(() => {
-    if (!assignmentId || !["going_to_standby","standby","passenger_verified","trip_started", "passenger_picked_up"].includes(trackingStatus??"")) {
-      return;
-    }
-    const queueKey = `waydidi-location-queue:${assignmentId}`;
-    const sequenceKey = `waydidi-location-sequence:${assignmentId}`;
-    let cancelled = false;
-    const readQueue = (): LocationPing[] => {
-      try { return JSON.parse(localStorage.getItem(queueKey) ?? "[]") as LocationPing[]; } catch { return []; }
-    };
-    const writeQueue = (items: LocationPing[]) => localStorage.setItem(queueKey, JSON.stringify(items.slice(-30)));
-    const flush = async () => {
-      if (cancelled || !navigator.onLine) { setTrackingState("queued"); return; }
-      const queued = readQueue();
-      if (!queued.length) { setTrackingState("active"); return; }
-      setTrackingState("sending");
-      const remaining: LocationPing[] = [];
-      for (let index = 0; index < queued.length; index += 1) {
-        const ping = queued[index];
-        try {
-          const response = await fetch("/api/driver/location", { method: "POST", headers: driverHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ token, ...ping }) });
-          if (response.ok) {
-            setLastTrackedAt(new Date().toISOString());
-            // Still for about 10+ minutes ("potential"), or an operations alert is open: ask why.
-            const reply = await response.json().catch(() => null) as { abnormalStop?: { status?: string } } | null;
-            if (reply?.abnormalStop?.status === "potential" || reply?.abnormalStop?.status === "open") askStopReason();
-          }
-          else if (response.status >= 500 || response.status === 429) { remaining.push(...queued.slice(index)); break; }
-        } catch { remaining.push(...queued.slice(index)); break; }
-      }
-      writeQueue(remaining);
-      if (!cancelled) setTrackingState(remaining.length ? "queued" : "active");
-    };
-    const capture = () => {
-      if (cancelled || !navigator.geolocation) { setTrackingState("error"); return; }
-      navigator.geolocation.getCurrentPosition((result) => {
-        const sequenceNumber = Number(localStorage.getItem(sequenceKey) ?? "0") + 1;
-        localStorage.setItem(sequenceKey, String(sequenceNumber));
-        const ping: LocationPing = { latitude: result.coords.latitude, longitude: result.coords.longitude, accuracyMetres: Math.round(result.coords.accuracy), clientTimestamp: new Date().toISOString(), sequenceNumber };
-        writeQueue([...readQueue(), ping]);
-        void flush();
-      }, () => setTrackingState("error"), { enableHighAccuracy: true, timeout: 20_000, maximumAge: 15_000 });
-    };
-    const resume = () => { if (document.visibilityState === "visible") { void flush().then(capture); } };
-    const first=window.setTimeout(()=>void flush().then(capture),0);
-    const timer = window.setInterval(capture, 45_000);
-    window.addEventListener("online", flush);
-    document.addEventListener("visibilitychange", resume);
-    return () => { cancelled = true; window.clearTimeout(first); window.clearInterval(timer); window.removeEventListener("online", flush); document.removeEventListener("visibilitychange", resume); };
-  }, [trackingStatus, assignmentId, token, trackingRetry, askStopReason]);
 
   const progressStatuses = ["assigned", ...steps.map((step) => step.status)];
   const currentIndex = trip
@@ -470,7 +400,6 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "บันทึกการหยุดไม่สำเร็จ");
       setStopReason(""); setStopNote(""); setStopOpen(false);
-      stopDeclared.current = action === "declare";
       setMessage(action === "clear" ? "สิ้นสุดการหยุดแล้ว" : "บันทึกเหตุผลการหยุดแล้ว");
       await load();
     } catch (cause) {
@@ -549,13 +478,6 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             <Navigation size={18} /> เปิด Google Maps <ExternalLink size={15} />
           </a>
           {["going_to_standby","standby","passenger_verified","trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) && (
-            <div className={`mt-3 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-bold ${trackingState === "error" ? "bg-red-50 text-red-700" : trackingState === "queued" ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>
-              <span className="flex items-center gap-2"><LocateFixed size={18}/>{trackingState === "error" ? "ต้องอนุญาตตำแหน่งสดตลอดการเดินทาง" : trackingState === "queued" ? "บันทึก GPS ไว้แล้ว รอส่งเมื่อออนไลน์" : trackingState === "sending" ? "กำลังส่งตำแหน่ง…" : "กำลังแชร์ตำแหน่งสดระหว่างเดินทาง"}</span>
-              {trackingState === "error" && <button type="button" onClick={() => setTrackingRetry((value) => value + 1)} className="shrink-0 rounded-full bg-red-700 px-3 py-2 text-xs font-black text-white">อนุญาตตำแหน่ง</button>}
-              {lastTrackedAt && <span className="text-xs opacity-70">{new Date(lastTrackedAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</span>}
-            </div>
-          )}
-          {["going_to_standby","standby","passenger_verified","trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) && (
             <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
               {trip.activeStop ? (
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -563,19 +485,19 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
                   <button type="button" disabled={stopBusy} onClick={() => updateStop("clear")} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black">เดินทางต่อ</button>
                 </div>
               ) : (
-                <button type="button" onClick={() => { stopSnoozedUntil.current = 0; setStopOpen(true); }} className="text-sm font-bold text-slate-600 underline underline-offset-4">แจ้งหยุดรถ (พักรถ เติมน้ำมัน ฯลฯ)</button>
+                <button type="button" onClick={() => setStopOpen(true)} className="text-sm font-bold text-slate-600 underline underline-offset-4">แจ้งหยุดรถ (พักรถ เติมน้ำมัน ฯลฯ)</button>
               )}
             </div>
           )}
-          <Modal open={stopOpen} onClose={() => { setStopOpen(false); stopSnoozedUntil.current = Date.now() + 10 * 60_000; }} locked={stopBusy} sheet overlayClassName="bg-black/40" className="max-w-md rounded-t-[26px] p-5 sm:rounded-[26px]">
+          <Modal open={stopOpen} onClose={() => setStopOpen(false)} locked={stopBusy} sheet overlayClassName="bg-black/40" className="max-w-md rounded-t-[26px] p-5 sm:rounded-[26px]">
             <ModalTitle className="text-xl font-black">หยุดรถนานกว่าปกติ?</ModalTitle>
-            <p className="mt-1 text-sm text-slate-500">รถหยุดนิ่งมาสักพักแล้ว แจ้งเหตุผลเพื่อให้ฝ่ายปฏิบัติการทราบว่าเป็นการหยุดที่ตั้งใจ</p>
+            <p className="mt-1 text-sm text-slate-500">แจ้งเหตุผลเพื่อให้ฝ่ายปฏิบัติการทราบว่าเป็นการหยุดที่ตั้งใจ</p>
             <div className="mt-4 grid gap-2">
               <select aria-label="เหตุผล" value={stopReason} onChange={(event) => setStopReason(event.target.value)} className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3 font-bold"><option value="">เลือกเหตุผล</option><option value="rest_stop">พักรถ</option><option value="fuel">เติมน้ำมัน</option><option value="passenger_request">ผู้โดยสารขอหยุด</option><option value="traffic_police">การจราจร / ตำรวจ</option><option value="other">อื่น ๆ</option></select>
               <input aria-label="หมายเหตุ" value={stopNote} onChange={(event) => setStopNote(event.target.value)} maxLength={300} placeholder="หมายเหตุ (ถ้ามี)" className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3" />
               {error && stopOpen && <p role="alert" className="text-sm font-semibold text-red-700">{error}</p>}
               <button type="button" disabled={stopBusy || !stopReason || (stopReason === "other" && stopNote.trim().length < 3)} onClick={() => updateStop("declare")} className="h-12 rounded-full bg-plum px-5 font-black text-white disabled:opacity-40">แจ้งหยุด</button>
-              <button type="button" disabled={stopBusy} onClick={() => { setStopOpen(false); stopSnoozedUntil.current = Date.now() + 10 * 60_000; }} className="h-11 rounded-full font-bold text-slate-600">ยังไม่ใช่ตอนนี้</button>
+              <button type="button" disabled={stopBusy} onClick={() => setStopOpen(false)} className="h-11 rounded-full font-bold text-slate-600">ยังไม่ใช่ตอนนี้</button>
             </div>
           </Modal>
         </section>
