@@ -1,4 +1,5 @@
 "use client";
+import { Modal, ModalTitle } from "@/components/ui/modal";
 import { driverHeaders, rememberDriverToken } from "@/lib/driver-token";
 import { GpsCamera } from "@/components/drivers/gps-camera";
 import type { EvidencePolicy } from "@/lib/evidence-rules";
@@ -76,6 +77,7 @@ type Trip = {
     confirmedAt: string | null;
   }>;
   activeStop: { reason: string; note: string | null; declaredAt: string } | null;
+  stopAlert?: boolean;
   payoutDetails: { submittedAt: string } | null;
   noShow: { eligibleAt: string | null; airport: boolean; freeWaitMinutes: number; maxDistanceMetres: number };
 };
@@ -146,6 +148,14 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   const [stopReason, setStopReason] = useState("");
   const [stopNote, setStopNote] = useState("");
   const [stopBusy, setStopBusy] = useState(false);
+  // The stop-reason popup: opened when the car has been still for a long time (or by the driver).
+  const [stopOpen, setStopOpen] = useState(false);
+  const stopSnoozedUntil = useRef(0);
+  const stopDeclared = useRef(false);
+  const askStopReason = useCallback(() => {
+    if (stopDeclared.current || Date.now() < stopSnoozedUntil.current) return;
+    setStopOpen(true);
+  }, []);
   const [pending, setPending] = useState<QueuedDriverStep | null>(null);
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [noShowNote, setNoShowNote] = useState("");
@@ -172,13 +182,15 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       const result = (await response.json().catch(() => ({ error: "The trip could not be loaded right now. Please try again in a minute, or contact Waydidi operations." }))) as Trip & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Trip unavailable.");
     setTrip(result);
+    stopDeclared.current = Boolean(result.activeStop);
+    if (result.stopAlert) askStopReason();
 
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Trip unavailable.");
     } finally {
       setLoading(false);
     }
-  }, [token,initialToken]);
+  }, [token,initialToken,askStopReason]);
 
   useEffect(() => {
     const first=window.setTimeout(()=>void load(),0);
@@ -261,7 +273,12 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
         const ping = queued[index];
         try {
           const response = await fetch("/api/driver/location", { method: "POST", headers: driverHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ token, ...ping }) });
-          if (response.ok) setLastTrackedAt(new Date().toISOString());
+          if (response.ok) {
+            setLastTrackedAt(new Date().toISOString());
+            // Still for about 10+ minutes ("potential"), or an operations alert is open: ask why.
+            const reply = await response.json().catch(() => null) as { abnormalStop?: { status?: string } } | null;
+            if (reply?.abnormalStop?.status === "potential" || reply?.abnormalStop?.status === "open") askStopReason();
+          }
           else if (response.status >= 500 || response.status === 429) { remaining.push(...queued.slice(index)); break; }
         } catch { remaining.push(...queued.slice(index)); break; }
       }
@@ -284,7 +301,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
     window.addEventListener("online", flush);
     document.addEventListener("visibilitychange", resume);
     return () => { cancelled = true; window.clearTimeout(first); window.clearInterval(timer); window.removeEventListener("online", flush); document.removeEventListener("visibilitychange", resume); };
-  }, [trackingStatus, assignmentId, token, trackingRetry]);
+  }, [trackingStatus, assignmentId, token, trackingRetry, askStopReason]);
 
   const progressStatuses = ["assigned", ...steps.map((step) => step.status)];
   const currentIndex = trip
@@ -419,7 +436,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       const response = await fetch("/api/driver/stop", { method: "POST", headers: driverHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ token, action, reason: stopReason, note: stopNote }) });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "บันทึกการหยุดไม่สำเร็จ");
-      setStopReason(""); setStopNote("");
+      setStopReason(""); setStopNote(""); setStopOpen(false);
+      stopDeclared.current = action === "declare";
       setMessage(action === "clear" ? "สิ้นสุดการหยุดแล้ว" : "บันทึกเหตุผลการหยุดแล้ว");
       await load();
     } catch (cause) {
@@ -548,18 +566,21 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
                   <button type="button" disabled={stopBusy} onClick={() => updateStop("clear")} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black">เดินทางต่อ</button>
                 </div>
               ) : (
-                <div>
-                  <p className="font-black">หยุดรถนานกว่าปกติ?</p>
-                  <p className="mt-1 text-sm text-slate-500">แจ้งเหตุผลเพื่อให้ฝ่ายปฏิบัติการทราบว่าเป็นการหยุดที่ตั้งใจ</p>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                    <select value={stopReason} onChange={(event) => setStopReason(event.target.value)} className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3 font-bold"><option value="">เลือกเหตุผล</option><option value="rest_stop">พักรถ</option><option value="fuel">เติมน้ำมัน</option><option value="passenger_request">ผู้โดยสารขอหยุด</option><option value="traffic_police">การจราจร / ตำรวจ</option><option value="other">อื่น ๆ</option></select>
-                    <input value={stopNote} onChange={(event) => setStopNote(event.target.value)} maxLength={300} placeholder="หมายเหตุ (ถ้ามี)" className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3" />
-                    <button type="button" disabled={stopBusy || !stopReason || (stopReason === "other" && stopNote.trim().length < 3)} onClick={() => updateStop("declare")} className="h-12 rounded-full bg-plum px-5 font-black text-white disabled:opacity-40">แจ้งหยุด</button>
-                  </div>
-                </div>
+                <button type="button" onClick={() => { stopSnoozedUntil.current = 0; setStopOpen(true); }} className="text-sm font-bold text-slate-600 underline underline-offset-4">แจ้งหยุดรถ (พักรถ เติมน้ำมัน ฯลฯ)</button>
               )}
             </div>
           )}
+          <Modal open={stopOpen} onClose={() => { setStopOpen(false); stopSnoozedUntil.current = Date.now() + 10 * 60_000; }} locked={stopBusy} sheet overlayClassName="bg-black/40" className="max-w-md rounded-t-[26px] p-5 sm:rounded-[26px]">
+            <ModalTitle className="text-xl font-black">หยุดรถนานกว่าปกติ?</ModalTitle>
+            <p className="mt-1 text-sm text-slate-500">รถหยุดนิ่งมาสักพักแล้ว แจ้งเหตุผลเพื่อให้ฝ่ายปฏิบัติการทราบว่าเป็นการหยุดที่ตั้งใจ</p>
+            <div className="mt-4 grid gap-2">
+              <select aria-label="เหตุผล" value={stopReason} onChange={(event) => setStopReason(event.target.value)} className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3 font-bold"><option value="">เลือกเหตุผล</option><option value="rest_stop">พักรถ</option><option value="fuel">เติมน้ำมัน</option><option value="passenger_request">ผู้โดยสารขอหยุด</option><option value="traffic_police">การจราจร / ตำรวจ</option><option value="other">อื่น ๆ</option></select>
+              <input aria-label="หมายเหตุ" value={stopNote} onChange={(event) => setStopNote(event.target.value)} maxLength={300} placeholder="หมายเหตุ (ถ้ามี)" className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3" />
+              {error && stopOpen && <p role="alert" className="text-sm font-semibold text-red-700">{error}</p>}
+              <button type="button" disabled={stopBusy || !stopReason || (stopReason === "other" && stopNote.trim().length < 3)} onClick={() => updateStop("declare")} className="h-12 rounded-full bg-plum px-5 font-black text-white disabled:opacity-40">แจ้งหยุด</button>
+              <button type="button" disabled={stopBusy} onClick={() => { setStopOpen(false); stopSnoozedUntil.current = Date.now() + 10 * 60_000; }} className="h-11 rounded-full font-bold text-slate-600">ยังไม่ใช่ตอนนี้</button>
+            </div>
+          </Modal>
         </section>
         <section className="rounded-[26px] bg-white p-5 shadow-sm">
           <h2 className="text-lg font-black">Trip progress</h2>

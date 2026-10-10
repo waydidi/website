@@ -6,7 +6,7 @@ import { and, count, desc, eq, gt, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { deleteFile, putFile } from "@/lib/file-store";
 import { getDb } from "@/db";
-import { bookings, drivers, driverPayoutDetails, driverStatusEvents, journeyStopDeclarations, passengerVerifications } from "@/db/schema";
+import { bookings, drivers, driverPayoutDetails, driverStatusEvents, journeyExceptions, journeyStopDeclarations, passengerVerifications } from "@/db/schema";
 import { activeAssignmentForToken } from "@/lib/driver-operations";
 import { acceptedOccurredAt, adminReviewRequired, AIRPORT_FREE_WAIT_MINUTES, distanceMetres, evidenceRequired, expectedPointFor, isAirportPickup, isDriverStatus, locationRequired, NEXT_DRIVER_STATUS, NO_SHOW_MAX_DISTANCE_METRES, NO_SHOW_MIN_NOTE_LENGTH, noShowEligibleAt, STANDARD_FREE_WAIT_MINUTES, TRIP_START_WARNING_METRES, type DriverStatus } from "@/lib/trip-rules";
 import { sameOrigin, sha256Bytes } from "@/lib/security";
@@ -47,10 +47,11 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
   const trip = await tripForToken(token);
   if (!trip) return NextResponse.json({ error: "This driver link is invalid, expired, or revoked." }, { status: 404 });
   const { assignment, booking, driver, events } = trip;
-  const [[{ failedAttempts }], [activeStop], [payout]] = await Promise.all([
+  const [[{ failedAttempts }], [activeStop], [payout], [openStopAlert]] = await Promise.all([
     getDb().select({ failedAttempts: count() }).from(passengerVerifications).where(and(eq(passengerVerifications.assignmentId, assignment.id), eq(passengerVerifications.result, "failed"))),
     getDb().select().from(journeyStopDeclarations).where(and(eq(journeyStopDeclarations.assignmentId, assignment.id), isNull(journeyStopDeclarations.clearedAt))).orderBy(desc(journeyStopDeclarations.declaredAt)).limit(1),
     getDb().select().from(driverPayoutDetails).where(eq(driverPayoutDetails.assignmentId, assignment.id)).limit(1),
+    getDb().select({ id: journeyExceptions.id }).from(journeyExceptions).where(and(eq(journeyExceptions.assignmentId, assignment.id), eq(journeyExceptions.exceptionType, "abnormal_stop"), eq(journeyExceptions.status, "open"))).limit(1).catch(() => []),
   ]);
   return NextResponse.json({
     // Viewing the trip never fails on the photo settings (status changes still enforce them).
@@ -68,6 +69,8 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     },
     events: events.map(({ evidenceKey, evidenceSha256, ...event }) => ({ ...event, hasEvidence: Boolean(evidenceKey || evidenceSha256 || event.tripEvidenceId) })),
     activeStop: activeStop ? { reason: activeStop.reason, note: activeStop.note, declaredAt: activeStop.declaredAt } : null,
+    // The car has been still long enough for an operations alert: the page asks the driver why.
+    stopAlert: Boolean(openStopAlert) && !activeStop,
     noShow: { eligibleAt: eligibleAtIso(booking), airport: isAirportPickup(booking), freeWaitMinutes: isAirportPickup(booking) ? AIRPORT_FREE_WAIT_MINUTES : STANDARD_FREE_WAIT_MINUTES, maxDistanceMetres: NO_SHOW_MAX_DISTANCE_METRES },
     payoutDetails: payout ? { submittedAt: payout.submittedAt } : null,
   }, { headers: { "Cache-Control": "no-store" } });
