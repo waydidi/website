@@ -16,6 +16,8 @@ import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 import { SendJobButton } from "@/components/bookings-admin/send-job";
 import { ReturnPill } from "@/components/bookings-admin/return-pill";
+import { BookingCards } from "@/components/bookings-admin/booking-cards";
+import { fullName } from "@/lib/person-name";
 import { bookingAddonLabels } from "@/lib/booking-addon-requests";
 import { CreateMenu } from "@/components/bookings-admin/create-menu";
 import { FormsTable } from "@/components/bookings-admin/form-requests";
@@ -62,10 +64,12 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const activeRows = allRows.filter((row) => row.status !== "binned");
   const [driverRows, assignmentRows] = await Promise.all([
     getDb().select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, plate: drivers.carPlate, vehicleType: drivers.vehicleType, photoKey: drivers.photoKey, status: drivers.status }).from(drivers),
-    getDb().select({ ref: bookingAssignments.bookingReference, driverId: bookingAssignments.driverId }).from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)),
+    getDb().select({ ref: bookingAssignments.bookingReference, leg: bookingAssignments.leg, driverId: bookingAssignments.driverId, status: bookingAssignments.currentStatus }).from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)),
   ]);
   const driverOptions = driverRows.filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.name, phone: d.phone, email: d.email, area: d.area ?? "", vehicle: d.vehicle, plate: d.plate, vehicleType: d.vehicleType, hasPhoto: Boolean(d.photoKey) }));
   const assigned = new Map(assignmentRows.map((a) => [a.ref, a.driverId]));
+  // The outbound driver's trip status, for the phone cards' status badge.
+  const driverStatus = new Map(assignmentRows.filter((a) => a.leg === "outbound").map((a) => [a.ref, a.status]));
   const rows = (view === "bin" ? binRows : activeRows).filter((row) => (row.serviceType ?? "transfer") === type);
   // Bookings where the storefront collects cash at the counter.
   const refs = rows.map((r) => r.reference).slice(0, 100);
@@ -171,8 +175,16 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} className={`flex h-11 items-center gap-1.5 rounded-xl px-4 text-[15px] font-semibold ${view === "bin" ? "bg-plum text-white" : "bg-[#E8EAEE] text-slate-700 hover:text-slate-950"}`}><Trash2 size={16} aria-hidden="true" />Bin & restore{binRows.length > 0 && <span className={`rounded-full px-2 text-[12px] ${view === "bin" ? "bg-white/20" : "bg-white"}`}>{binRows.length}</span>}</Link>
           </div>
         </div>
-        {view === "forms" ? <FormsTable service={type} openForm={q.form} /> : mode !== "list" && view !== "bin" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> :
-        <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        {view === "forms" ? <FormsTable service={type} openForm={q.form} /> : mode !== "list" && view !== "bin" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> : <>
+        {/* Phones: one card per booking, swiped sideways. The bin keeps the table. */}
+        {view !== "bin" && rows.length > 0 && <div className="mt-4 md:hidden"><BookingCards drivers={driverOptions} rides={rows.map((row) => ({
+          reference: row.reference, pickupDate: row.pickupDate, pickupTime: row.pickupTime, pickup: row.pickup,
+          dropoff: row.serviceType === "hourly" ? `${row.bookedHours ?? ""} hours${row.pricingArea ? ` · ${row.pricingArea}` : ""}` : row.dropoff,
+          name: fullName(row.customerName, row.customerSurname), vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage,
+          total: row.total, paymentStatus: row.paymentStatus, status: row.status,
+          driver: driverOptions.find((o) => o.id === assigned.get(row.reference))?.name ?? null, driverId: assigned.get(row.reference) ?? null, driverStatus: driverStatus.get(row.reference) ?? null,
+        }))} /></div>}
+        <section className={`${view !== "bin" && rows.length > 0 ? "hidden md:block " : ""}mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm`}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-600">
@@ -210,7 +222,8 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               </tbody>
             </table>
           </div>
-        </section>}
+        </section>
+        </>}
       </div>
     </main>
   );

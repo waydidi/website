@@ -51,6 +51,39 @@ function PriceRow({ r }: { r: UpcomingRide }) {
   </div>;
 }
 
+/** One ride: journey details above (with a details panel), driver picker left and assignment status right. */
+export function RideCard({ r, drivers, open, onToggle, onAddDriver }: { r: UpcomingRide; drivers: PickerDriver[]; open: boolean; onToggle: () => void; onAddDriver: () => void }) {
+  return <div className="grid gap-3">
+    <div className="min-w-0">
+      <p className="text-[12px] font-semibold text-slate-500">{day(r.pickupDate)} · {r.pickupTime} · <span className="font-mono">{r.reference}</span>{r.status === "pending_payment" && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">Awaiting payment</span>}</p>
+      <p className="mt-1 truncate text-[15px] font-black">{r.name}</p>
+      <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[14px] font-semibold text-slate-700"><span className="truncate">{r.pickup}</span><ArrowRight size={14} className="shrink-0 text-slate-400" aria-hidden="true" /><span className="truncate">{r.dropoff}</span></p>
+      <div className="mt-1.5 flex items-center gap-4 text-[13px] text-slate-600">
+        <span className="inline-flex items-center gap-1.5" aria-label={`${r.passengers} passengers`}><Users size={16} className="shrink-0 text-slate-500" aria-hidden="true" />{r.passengers}</span>
+        <span className="inline-flex items-center gap-1.5" aria-label={`${r.luggage} bags`}><Luggage size={16} className="shrink-0 text-slate-500" aria-hidden="true" />{r.luggage}</span>
+        <span className="truncate">{r.vehicle.replace(/_/g, " ")}</span>
+        <button type="button" aria-expanded={open} onClick={onToggle} className="ml-auto shrink-0 font-semibold text-brand-darker underline underline-offset-4">{open ? "Hide details" : "See details"}</button>
+      </div>
+      {open && <dl className="mt-3 grid gap-2 rounded-2xl bg-slate-50 p-4 text-[13.5px]">
+        {([
+          ["Passengers & luggage", <span key="pl" className="inline-flex items-center gap-3"><span className="inline-flex items-center gap-1"><Users size={15} aria-hidden="true" />{r.passengers}</span><span className="inline-flex items-center gap-1"><Luggage size={15} aria-hidden="true" />{r.luggage}</span></span>],
+          ["Vehicle", vehicleName(r.vehicle)],
+          ["Date & time", dateTime(r.pickupDate, r.pickupTime)],
+          ["From", r.pickup],
+          ["To", r.dropoff],
+          ["Price", null],
+          ["Payment", <span key="pay" className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold ${payment(r.paymentStatus)[1]}`}>{payment(r.paymentStatus)[0]}</span>],
+        ] as [string, React.ReactNode][]).map(([k, v]) => k === "Price" ? <PriceRow key={k} r={r} /> : <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
+        <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="mt-1 justify-self-end text-[13px] font-semibold text-brand-darker hover:underline">Open booking →</Link>
+      </dl>}
+    </div>
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <DriverPicker reference={r.reference} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} onAddDriver={onAddDriver} />
+      <span className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-bold ${badge(r)[1]}`}>{badge(r)[0]}</span>
+    </div>
+  </div>;
+}
+
 // Upcoming rides: journey details above, driver picker left and assignment status right.
 export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drivers: PickerDriver[] }) {
   const [adding, setAdding] = useState<string | null>(null);
@@ -64,35 +97,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
       <Link href="/admin/bookings" className="text-[13px] font-bold text-brand-darker hover:underline">See all →</Link>
     </div>
     {rides.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No upcoming rides.</p> : <ul className="divide-y divide-slate-100">
-      {rides.slice(0, shown).map((r) => <li key={r.reference} className="grid gap-3 px-4 py-3">
-        <div className="min-w-0">
-          <p className="text-[12px] font-semibold text-slate-500">{day(r.pickupDate)} · {r.pickupTime} · <span className="font-mono">{r.reference}</span>{r.status === "pending_payment" && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">Awaiting payment</span>}</p>
-          <p className="mt-1 truncate text-[15px] font-black">{r.name}</p>
-          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[14px] font-semibold text-slate-700"><span className="truncate">{r.pickup}</span><ArrowRight size={14} className="shrink-0 text-slate-400" aria-hidden="true" /><span className="truncate">{r.dropoff}</span></p>
-          <div className="mt-1.5 flex items-center gap-4 text-[13px] text-slate-600">
-            <span className="inline-flex items-center gap-1.5" aria-label={`${r.passengers} passengers`}><Users size={16} className="shrink-0 text-slate-500" aria-hidden="true" />{r.passengers}</span>
-            <span className="inline-flex items-center gap-1.5" aria-label={`${r.luggage} bags`}><Luggage size={16} className="shrink-0 text-slate-500" aria-hidden="true" />{r.luggage}</span>
-            <span className="truncate">{r.vehicle.replace(/_/g, " ")}</span>
-            <button type="button" aria-expanded={open === r.reference} onClick={() => setOpen(open === r.reference ? null : r.reference)} className="ml-auto shrink-0 font-semibold text-brand-darker underline underline-offset-4">{open === r.reference ? "Hide details" : "See details"}</button>
-          </div>
-          {open === r.reference && <dl className="mt-3 grid gap-2 rounded-2xl bg-slate-50 p-4 text-[13.5px]">
-            {([
-              ["Passengers & luggage", <span key="pl" className="inline-flex items-center gap-3"><span className="inline-flex items-center gap-1"><Users size={15} aria-hidden="true" />{r.passengers}</span><span className="inline-flex items-center gap-1"><Luggage size={15} aria-hidden="true" />{r.luggage}</span></span>],
-              ["Vehicle", vehicleName(r.vehicle)],
-              ["Date & time", dateTime(r.pickupDate, r.pickupTime)],
-              ["From", r.pickup],
-              ["To", r.dropoff],
-              ["Price", null],
-              ["Payment", <span key="pay" className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold ${payment(r.paymentStatus)[1]}`}>{payment(r.paymentStatus)[0]}</span>],
-            ] as [string, React.ReactNode][]).map(([k, v]) => k === "Price" ? <PriceRow key={k} r={r} /> : <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
-            <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="mt-1 justify-self-end text-[13px] font-semibold text-brand-darker hover:underline">Open booking →</Link>
-          </dl>}
-        </div>
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <DriverPicker reference={r.reference} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} onAddDriver={() => setAdding(r.reference)} />
-          <span className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-bold ${badge(r)[1]}`}>{badge(r)[0]}</span>
-        </div>
-      </li>)}
+      {rides.slice(0, shown).map((r) => <li key={r.reference} className="px-4 py-3"><RideCard r={r} drivers={drivers} open={open === r.reference} onToggle={() => setOpen(open === r.reference ? null : r.reference)} onAddDriver={() => setAdding(r.reference)} /></li>)}
     </ul>}
     {left > 0 && <div className="flex justify-center border-t border-slate-100 py-2.5">
       <button type="button" onClick={() => setShown((n) => n + Math.min(2, left))} className="rounded-full px-4 py-1.5 text-[13.5px] font-bold text-brand-darker hover:bg-brand-wash">Show more ({left} more {left === 1 ? "ride" : "rides"})</button>
