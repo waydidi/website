@@ -8,7 +8,7 @@ import { useState } from "react";
 import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/driver-picker";
 import { includesKohChangFerry } from "@/lib/booking-form";
 
-export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null };
+export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return" };
 
 // The badge follows the driver's trip status once a driver is assigned.
 const STATUS: Record<string, [string, string]> = {
@@ -55,7 +55,7 @@ function PriceRow({ r }: { r: UpcomingRide }) {
 export function RideCard({ r, drivers, open, onToggle, onAddDriver }: { r: UpcomingRide; drivers: PickerDriver[]; open: boolean; onToggle: () => void; onAddDriver: () => void }) {
   return <div className="grid gap-3">
     <div className="min-w-0">
-      <p className="text-[12px] font-semibold text-slate-500">{day(r.pickupDate)} · {r.pickupTime} · <span className="font-mono">{r.reference}</span>{r.status === "pending_payment" && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">Awaiting payment</span>}</p>
+      <p className="text-[12px] font-semibold text-slate-500">{day(r.pickupDate)} · {r.pickupTime} · <span className="font-mono">{r.reference}</span>{r.roundtrip && <span className="ml-1.5 rounded-full bg-line-green px-2 py-0.5 text-[10.5px] font-bold text-white">Roundtrip</span>}{r.status === "pending_payment" && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">Awaiting payment</span>}</p>
       <p className="mt-1 truncate text-[15px] font-black">{r.name}</p>
       <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[14px] font-semibold text-slate-700"><span className="truncate">{r.pickup}</span><ArrowRight size={14} className="shrink-0 text-slate-400" aria-hidden="true" /><span className="truncate">{r.dropoff}</span></p>
       <div className="mt-1.5 flex items-center gap-4 text-[13px] text-slate-600">
@@ -78,7 +78,7 @@ export function RideCard({ r, drivers, open, onToggle, onAddDriver }: { r: Upcom
       </dl>}
     </div>
     <div className="flex min-w-0 items-center justify-between gap-2">
-      <DriverPicker reference={r.reference} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} onAddDriver={onAddDriver} />
+      <DriverPicker reference={r.reference} leg={r.leg} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} onAddDriver={onAddDriver} />
       <span className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-bold ${badge(r)[1]}`}>{badge(r)[0]}</span>
     </div>
   </div>;
