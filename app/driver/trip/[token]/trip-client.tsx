@@ -513,19 +513,10 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       </header>
       <div className="mx-auto max-w-xl space-y-5 px-4 py-5">
         <section className="rounded-[26px] bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <span className="inline-flex rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-brand-text">
-                {trip.booking.pickupDate} · {trip.booking.pickupTime}
-              </span>
-              <h2 className="mt-3 text-xl font-black">
-                {trip.booking.customerName}
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {trip.booking.vehicle} · {trip.booking.passengers} passengers ·{" "}
-                {trip.booking.luggage} bags
-              </p>
-            </div>
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-xl font-black">
+              {trip.booking.customerName}
+            </h2>
             <a
               href={`tel:${trip.booking.customerPhone}`}
               className="grid size-12 shrink-0 place-items-center rounded-full bg-plum text-white"
