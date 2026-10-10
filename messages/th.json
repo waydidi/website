@@ -608,7 +608,7 @@
     "status": "machine"
   },
   "trip.stage.waiting": {
-    "text": "รอที่จุดรับ",
+    "text": "คนขับสแตนด์บายรอที่จุดรับ",
     "status": "machine"
   },
   "trip.stage.on_trip": {

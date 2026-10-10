@@ -160,9 +160,9 @@ export function TripView({ reference, lang }: { reference: string; lang: SiteLan
         </div>
         <div className="mx-auto mt-7 max-w-xl">
           <p className="text-xs font-black uppercase tracking-[.16em] text-white/85">{shared ? t("trip.sharedTitle") : t("trip.title")} · {t("trip.reference", { reference: trip.reference })}</p>
-          {trip.driver && shownStage(trip.stage) !== "confirmed" && <p className="mt-3">{(() => { const [before, after = ""] = t("trip.driver", { name: "\u0000" }).split("\u0000"); return <>{before}<strong translate="no">{trip.driver.name}</strong>{after}</>; })()} · <a className="underline" href={`tel:${trip.driver.phone}`}>{trip.driver.phone}</a></p>}
+          {trip.driver && trip.stage !== "confirmed" && <p className="mt-3">{(() => { const [before, after = ""] = t("trip.driver", { name: "\u0000" }).split("\u0000"); return <>{before}<strong translate="no">{trip.driver.name}</strong>{after}</>; })()} · <a className="underline" href={`tel:${trip.driver.phone}`}>{trip.driver.phone}</a></p>}
           {live && <p className="mt-2 text-sm" role="status">{!online ? t("trip.live.offline") : trip.freshness ? t(stale ? "trip.live.stale" : "trip.live.updated", { time: time(trip.freshness.at) }) : t("trip.live.waiting")}</p>}
-          <h1 className="mt-2 text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px]">{t(`trip.headline.${shownStage(trip.stage)}` as MessageKey)}</h1>
+          <h1 className="mt-2 text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px]">{t(`trip.headline.${trip.stage}` as MessageKey)}</h1>
           {live && (
             <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-sm font-black" aria-live="polite">
               <span className="relative flex size-2.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-white opacity-75 motion-reduce:animate-none" /><span className="relative inline-flex size-2.5 rounded-full bg-white" /></span>
@@ -224,14 +224,14 @@ function LanguageLinks({ lang }: { lang: SiteLang }) {
   return <LocalePicker languagesOnly current={lang} onChoose={open} className="text-white" />;
 }
 
-/** The trip stage as the customer sees it: a driver being assigned still reads as "confirmed". */
-const shownStage = (stage: Stage): Stage => (stage === "assigned" ? "confirmed" : stage);
+/** The step a stage sits on in the trip progress list. */
+const timelineStage = (stage: Stage): Stage => (stage === "assigned" || stage === "on_the_way" ? "confirmed" : stage);
 
 function Timeline({ trip, time }: { trip: Trip; time: (value: string) => string }) {
   const { t } = useI18n();
-  // "Driver assigned" isn't shown as its own step: customers see the booking as confirmed until
-  // the driver is on the way.
-  const order: Stage[] = ["confirmed", "on_the_way", "waiting", "on_trip", "arrived"];
+  // Four steps: Booking confirmed → Driver is on stand by → On the way → Arrived. A driver being
+  // assigned or heading to the pickup still sits on the first step.
+  const order: Stage[] = ["confirmed", "waiting", "on_trip", "arrived"];
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
   // Times from another day also show the date (dd/mm).
   const stamp = (value: string) => {
@@ -239,7 +239,7 @@ function Timeline({ trip, time }: { trip: Trip; time: (value: string) => string 
     return day === today ? time(value) : `${formatDate(day).slice(0, 5)} ${time(value)}`;
   };
   const terminal = trip.stage === "no_show" || trip.stage === "cancelled";
-  const reached = terminal ? -1 : order.indexOf(shownStage(trip.stage));
+  const reached = terminal ? -1 : order.indexOf(timelineStage(trip.stage));
   return (
     <section className="rounded-[26px] bg-white p-5 shadow-sm" aria-labelledby="trip-timeline">
       <h2 id="trip-timeline" className="text-lg font-black">{t("trip.timeline")}</h2>

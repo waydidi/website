@@ -608,11 +608,11 @@
     "status": "machine"
   },
   "trip.stage.waiting": {
-    "text": "在上车点等候",
+    "text": "司机已在上车点等候",
     "status": "machine"
   },
   "trip.stage.on_trip": {
-    "text": "行程中",
+    "text": "前往目的地途中",
     "status": "machine"
   },
   "trip.stage.arrived": {
