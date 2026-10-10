@@ -1,4 +1,5 @@
 "use client";
+import { DriverWelcome } from "@/components/driver/welcome-scene";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 import { driverHeaders, rememberDriverToken } from "@/lib/driver-token";
 import { GpsCamera } from "@/components/drivers/gps-camera";
@@ -170,6 +171,9 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   const [stopReason, setStopReason] = useState("");
   const [stopNote, setStopNote] = useState("");
   const [stopBusy, setStopBusy] = useState(false);
+  // Welcome screen before a new job starts: shown once per job on this phone, until "เริ่มงาน".
+  const [welcome, setWelcome] = useState(false);
+  const welcomeKey = (id: string) => `waydidi-driver-welcome:${id}`;
   // The stop-reason popup: opened when the car has been still for a long time (or by the driver).
   const [stopOpen, setStopOpen] = useState(false);
   const stopSnoozedUntil = useRef(0);
@@ -204,6 +208,11 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       const result = (await response.json().catch(() => ({ error: "The trip could not be loaded right now. Please try again in a minute, or contact Waydidi operations." }))) as Trip & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Trip unavailable.");
     setTrip(result);
+    if (result.assignment?.currentStatus === "assigned") {
+      let seen = false;
+      try { seen = Boolean(localStorage.getItem(welcomeKey(result.assignment.id))); } catch { /* storage blocked: show it */ }
+      if (!seen) setWelcome(true);
+    }
     stopDeclared.current = Boolean(result.activeStop);
     if (result.stopAlert) askStopReason();
 
@@ -500,6 +509,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   const completionVerified = completionEvent?.verificationStatus === "verified";
   return (
     <main className="min-h-screen bg-[#f3f5f8] pb-32 text-plum">
+      {welcome && <DriverWelcome onStart={() => { try { localStorage.setItem(welcomeKey(trip.assignment.id), "1"); } catch { /* storage blocked */ } setWelcome(false); }} />}
       <header className="bg-brand px-5 pb-7 pt-6 text-white">
         <div className="mx-auto max-w-xl">
           <h1 className="sr-only">Trip {trip.booking.reference}</h1>
