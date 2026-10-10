@@ -15,7 +15,9 @@ import { EditDriverButton } from "@/components/bookings-admin/edit-driver";
 import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 import { SendJobButton } from "@/components/bookings-admin/send-job";
-import { ReturnPill } from "@/components/bookings-admin/return-pill";
+import { RoundtripPill } from "@/components/bookings-admin/roundtrip-pill";
+import { BookingCards } from "@/components/bookings-admin/booking-cards";
+import { fullName } from "@/lib/person-name";
 import { bookingAddonLabels } from "@/lib/booking-addon-requests";
 import { CreateMenu } from "@/components/bookings-admin/create-menu";
 import { FormsTable } from "@/components/bookings-admin/form-requests";
@@ -62,10 +64,23 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const activeRows = allRows.filter((row) => row.status !== "binned");
   const [driverRows, assignmentRows] = await Promise.all([
     getDb().select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, plate: drivers.carPlate, vehicleType: drivers.vehicleType, photoKey: drivers.photoKey, status: drivers.status }).from(drivers),
-    getDb().select({ ref: bookingAssignments.bookingReference, driverId: bookingAssignments.driverId }).from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)),
+    getDb().select({ ref: bookingAssignments.bookingReference, leg: bookingAssignments.leg, driverId: bookingAssignments.driverId, status: bookingAssignments.currentStatus }).from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)),
   ]);
   const driverOptions = driverRows.filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.name, phone: d.phone, email: d.email, area: d.area ?? "", vehicle: d.vehicle, plate: d.plate, vehicleType: d.vehicleType, hasPhoto: Boolean(d.photoKey) }));
   const assigned = new Map(assignmentRows.map((a) => [a.ref, a.driverId]));
+  const legAssignment = (leg: string) => new Map(assignmentRows.filter((a) => a.leg === leg).map((a) => [a.ref, a]));
+  const outboundLeg = legAssignment("outbound"), returnLeg = legAssignment("return");
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  // A round trip shows its outbound journey until that is done (the driver completed it, or its
+  // day has passed), then the return journey. The Roundtrip pill opens the other journey.
+  const journey = (row: (typeof rows)[number]) => {
+    const roundtrip = Boolean(row.returnDate && row.returnTime);
+    const outbound = { leg: "outbound" as const, title: "Outbound journey", date: row.pickupDate, time: row.pickupTime, from: row.pickup, to: row.serviceType === "hourly" ? `${row.bookedHours ?? ""} hours${row.pricingArea ? ` · ${row.pricingArea}` : ""}` : row.dropoff, assignment: outboundLeg.get(row.reference) };
+    if (!roundtrip) return { roundtrip, shown: outbound, other: null };
+    const back = { leg: "return" as const, title: "Return journey", date: row.returnDate!, time: row.returnTime!, from: row.returnPickup || row.dropoff, to: row.returnDropoff || row.pickup, assignment: returnLeg.get(row.reference) };
+    const onReturn = outbound.assignment?.status === "completed" || row.pickupDate < today;
+    return onReturn ? { roundtrip, shown: back, other: outbound } : { roundtrip, shown: outbound, other: back };
+  };
   const rows = (view === "bin" ? binRows : activeRows).filter((row) => (row.serviceType ?? "transfer") === type);
   // Bookings where the storefront collects cash at the counter.
   const refs = rows.map((r) => r.reference).slice(0, 100);
@@ -171,8 +186,15 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} className={`flex h-11 items-center gap-1.5 rounded-xl px-4 text-[15px] font-semibold ${view === "bin" ? "bg-plum text-white" : "bg-[#E8EAEE] text-slate-700 hover:text-slate-950"}`}><Trash2 size={16} aria-hidden="true" />Bin & restore{binRows.length > 0 && <span className={`rounded-full px-2 text-[12px] ${view === "bin" ? "bg-white/20" : "bg-white"}`}>{binRows.length}</span>}</Link>
           </div>
         </div>
-        {view === "forms" ? <FormsTable service={type} openForm={q.form} /> : mode !== "list" && view !== "bin" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> :
-        <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        {view === "forms" ? <FormsTable service={type} openForm={q.form} /> : mode !== "list" && view !== "bin" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> : <>
+        {/* Phones: one card per booking, swiped sideways. The bin keeps the table. */}
+        {view !== "bin" && rows.length > 0 && <div className="mt-4 md:hidden"><BookingCards drivers={driverOptions} rides={rows.map((row) => { const { roundtrip, shown } = journey(row); const driverId = shown.assignment?.driverId ?? null; return {
+          reference: row.reference, pickupDate: shown.date, pickupTime: shown.time, pickup: shown.from, dropoff: shown.to, roundtrip, leg: shown.leg,
+          name: fullName(row.customerName, row.customerSurname), vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage,
+          total: row.total, paymentStatus: row.paymentStatus, status: row.status,
+          driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: shown.assignment?.status ?? null,
+        }; })} /></div>}
+        <section className={`${view !== "bin" && rows.length > 0 ? "hidden md:block " : ""}mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm`}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-600">
@@ -183,11 +205,12 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                   const paid = row.paymentStatus === "paid";
                   const cash = !paid && row.paymentMethod === "cash";
                   const tax = taxByBooking.get(row.reference);
+                  const { shown, other } = journey(row);
                   return <tr key={row.reference} className="align-middle hover:bg-orange-50/40">
-                    <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${row.pickupDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{row.pickupTime}</p>{row.returnDate && row.returnTime && <ReturnPill leg={{ reference: row.reference, date: row.returnDate, time: row.returnTime, from: row.returnPickup || row.dropoff, to: row.returnDropoff || row.pickup, passengers: row.passengers, luggage: row.luggage, vehicle: row.vehicle }} />}</td>
+                    <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${shown.date}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{shown.time}</p>{other && <RoundtripPill leg={{ reference: row.reference, title: other.title, date: other.date, time: other.time, from: other.from, to: other.to, passengers: row.passengers, luggage: row.luggage, vehicle: row.vehicle }} />}</td>
                     <td className="px-4 py-4"><p className="font-medium text-slate-900">{row.customerName}</p><p className="text-[12px] text-slate-500">{row.customerPhone}</p>{tax && <p className="mt-1 text-[12px] font-medium text-amber-700">Tax invoice requested</p>}</td>
-                    <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.pickup}</p></td>
-                    <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{row.serviceType === "hourly" ? `${row.bookedHours ?? ""} hours${row.pricingArea ? ` · ${row.pricingArea}` : ""}` : row.dropoff}</p></td>
+                    <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{shown.from}</p></td>
+                    <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{shown.to}</p></td>
                     <td className="px-4 py-4"><p className="text-slate-900">{row.vehicle.replaceAll("_", " ")}</p>{bookingAddonLabels(row).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{bookingAddonLabels(row).map((l) => <span key={l} className="whitespace-nowrap rounded-full bg-brand-tint px-2 py-0.5 text-[11px] font-semibold text-[#B85D00]">+ {l}</span>)}</div>}</td>
                     <td className="px-4 py-4"><Link href={`/admin/journeys/${encodeURIComponent(row.reference)}`} className="font-semibold text-slate-900 hover:text-brand-darker">{row.reference}</Link>{viaPartner.has(row.reference) && <span className="ml-1.5 rounded-full bg-violet-50 px-2 py-0.5 text-[11.5px] font-semibold text-violet-700">via {viaPartner.get(row.reference)}</span>}{row.status !== "confirmed" && <p className="mt-0.5 text-[12px] capitalize text-slate-500">{row.status.replaceAll("_", " ")}</p>}</td>
                     <td className="whitespace-nowrap px-4 py-4">
@@ -196,7 +219,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                         : cash ? <span className="inline-flex rounded-full bg-[#E53935] px-2.5 py-0.5 text-[13px] font-medium text-white">Pay in cash</span>
                         : <span className="inline-flex rounded-full bg-slate-200 px-2.5 py-0.5 text-[13px] font-medium text-slate-700">{row.paymentStatus.replaceAll("_", " ")}</span>}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-4">{(() => { const d = driverOptions.find((o) => o.id === assigned.get(row.reference)); return d ? <span className="flex items-center gap-2"><span className="text-slate-900">{d.name}</span>{tripLinks.get(row.reference) && <CopyTextButton icon="link" text={tripLinks.get(row.reference)!} label={`Copy trip status link for ${row.reference}`} />}</span> : <span className="text-slate-400">Not assigned</span>; })()}</td>
+                    <td className="whitespace-nowrap px-4 py-4">{(() => { const d = driverOptions.find((o) => o.id === (other ? shown.assignment?.driverId : assigned.get(row.reference))); return d ? <span className="flex items-center gap-2"><span className="text-slate-900">{d.name}</span>{tripLinks.get(row.reference) && <CopyTextButton icon="link" text={tripLinks.get(row.reference)!} label={`Copy trip status link for ${row.reference}`} />}</span> : <span className="text-slate-400">Not assigned</span>; })()}</td>
                     <td className="px-4 py-4">{view === "bin" ? <BookingDeleteButton reference={row.reference} binned purgeAfter={row.purgeAfter} /> : <div className="flex items-center gap-1">{row.status === "confirmed" && <SendJobButton reference={row.reference} />}<EditDriverButton reference={row.reference} drivers={driverOptions} current={assigned.get(row.reference) ?? null} canAssign={row.status === "confirmed"} trip={row.status === "cancelled" ? undefined : { pickupDate: row.pickupDate, pickupTime: row.pickupTime, returnDate: row.returnDate ?? null, returnTime: row.returnTime ?? null, vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage }} /><BookingDeleteButton reference={row.reference} /></div>}</td>
                   </tr>;
                 })}
@@ -210,7 +233,8 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               </tbody>
             </table>
           </div>
-        </section>}
+        </section>
+        </>}
       </div>
     </main>
   );
