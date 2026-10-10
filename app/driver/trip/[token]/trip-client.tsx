@@ -2,7 +2,7 @@
 import { DriverWelcome } from "@/components/driver/welcome-scene";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 import { driverHeaders, rememberDriverToken } from "@/lib/driver-token";
-import { GpsCamera } from "@/components/drivers/gps-camera";
+import { StepCamera } from "@/components/drivers/step-camera";
 import type { EvidencePolicy } from "@/lib/evidence-rules";
 
 import {
@@ -128,7 +128,7 @@ const steps: Array<{
 // The header's three steps. A step is done once its status is reached; the next one is current.
 const STEPPER: { label: string; reachedBy: string[] }[] = [
   { label: "Stand by", reachedBy: ["standby", "passenger_verified", "no_show"] },
-  { label: "On the way", reachedBy: ["trip_started", "passenger_picked_up"] },
+  { label: "Pick up", reachedBy: ["trip_started", "passenger_picked_up"] },
   { label: "Drop", reachedBy: ["completed"] },
 ];
 function TripStepper({ status }: { status: string }) {
@@ -162,7 +162,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   const [message, setMessage] = useState("");
   const [note, setNote] = useState("");
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
-  const [cameraBusy,setCameraBusy] = useState(false);
+  // Stand by, Pick up and Drop are confirmed with a photo taken in the step camera.
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [online, setOnline] = useState(true);
   const [trackingState, setTrackingState] = useState<"off" | "active" | "sending" | "queued" | "error">("off");
   const [lastTrackedAt, setLastTrackedAt] = useState<string | null>(null);
@@ -346,8 +347,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       ? steps.find((step) => step.status === "completed") ?? null
       : steps[currentIndex] ?? null
     : null;
-  const showCamera = Boolean(next && ["standby", "trip_started", "completed"].includes(next.status));
-  const needsEvidence = Boolean(trip && next && (next.status === "standby" ? trip.evidencePolicy.pickup_required && !trip.evidenceOverrides.pickup : next.status === "completed" ? trip.evidencePolicy.dropoff_required && !trip.evidenceOverrides.dropoff : false));
+  const photoStep = Boolean(next && ["standby", "trip_started", "completed"].includes(next.status));
   const noShowEligibleAt = trip?.noShow.eligibleAt ? new Date(trip.noShow.eligibleAt).getTime() : null;
   const noShowMinutesLeft = noShowEligibleAt === null ? null : Math.max(0, Math.ceil((noShowEligibleAt - clock) / 60_000));
   const canReportNoShow = Boolean(trip && trip.assignment.currentStatus === "standby" && !trip.assignment.passengerVerifiedAt && !pending);
@@ -381,12 +381,15 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!trip || !next || busy || cameraBusy) return;
-    if (needsEvidence && !evidenceId) {
-      setError("ต้องแนบรูปก่อนดำเนินการ");
-      return;
-    }
+    if (!trip || !next || busy) return;
+    // Photo steps: the camera opens; the step is sent once the photo is saved.
+    if (photoStep) { setError(""); setCameraOpen(true); return; }
     if (!window.confirm(`ยืนยันสถานะ “${next.thai}”?`)) return;
+    await sendStatus(null);
+  }
+
+  async function sendStatus(photoId: string | null) {
+    if (!trip || !next) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -399,7 +402,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       latitude: null,
       longitude: null,
       accuracy: null,
-      evidenceId,
+      evidenceId: photoId ?? evidenceId,
       photo: null,
       photoName: null,
     };
@@ -672,8 +675,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             </span>
             <h2 className="mt-3 text-2xl font-black">{next.thai}</h2>
             <p className="mt-2 leading-6 text-slate-600">{next.help}</p>
-            {showCamera && <GpsCamera key={`${trip.assignment.id}:${next.status}`} assignmentId={trip.assignment.id} reference={trip.booking.reference} leg={trip.booking.leg} type={next.status==="completed"?"dropoff":"pickup"} policy={trip.evidencePolicy} onSaved={setEvidenceId} onBusy={setCameraBusy}/>}
-            {needsEvidence && <p className="mt-2 text-sm">A saved photo is required. If camera or GPS is unavailable, contact operations for an audited exception.</p>}
+            {photoStep && cameraOpen && <StepCamera title={next.thai} type={next.status === "completed" ? "dropoff" : "pickup"} policy={trip.evidencePolicy}
+              onCancel={() => setCameraOpen(false)} onSaved={(id) => { setCameraOpen(false); void sendStatus(id); }} />}
             <label className="mt-4 block text-sm font-bold">
               หมายเหตุ{" "}
               <span className="font-normal text-slate-400">(ไม่บังคับ)</span>
@@ -704,13 +707,14 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
               <button
                 disabled={
-                  busy || cameraBusy ||
-                  Boolean(needsEvidence && !evidenceId)
+                  busy
                 }
                 className="mx-auto flex min-h-14 w-full max-w-xl items-center justify-center gap-2 rounded-full bg-brand px-6 text-base font-black text-white shadow-lg shadow-orange-500/20 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {busy ? (
                   <LoaderCircle className="animate-spin" size={20} />
+                ) : photoStep ? (
+                  <Camera size={20} aria-hidden="true" />
                 ) : (
                   <Check size={20} />
                 )}{" "}
