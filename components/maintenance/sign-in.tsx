@@ -49,10 +49,11 @@ export function MaintenanceSignIn() {
           {secret && <div className="mb-3 rounded-xl bg-amber-50 p-3 text-[13px]"><p>Add this secret to your authenticator app, then enter its code.</p><code className="mt-1 block break-all select-all">{secret}</code></div>}
           <input autoFocus value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required placeholder="123456" aria-label="Authenticator code" className="w-full rounded-xl border border-slate-300 p-3 text-center text-[20px] tracking-[.3em]" />
         </div>}
-        <label className="mt-4 flex items-center gap-2 text-[14px] font-semibold text-slate-700">
+        {/* Asked once with the ID and key; the choice is sent with the authenticator code. */}
+        {!mfa && <label className="mt-4 flex items-center gap-2 text-[14px] font-semibold text-slate-700">
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="size-4 accent-brand" />
           Stay signed in for 30 days
-        </label>
+        </label>}
         {error && <p role="alert" className="mt-3 text-[14px] text-red-600">{error}</p>}
         <button type="submit" disabled={busy} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand font-semibold text-white hover:bg-brand-strong disabled:opacity-60">{busy && <LoaderCircle size={18} className="animate-spin" />}{mfa ? "Verify" : "Sign in"}</button>
       </form>

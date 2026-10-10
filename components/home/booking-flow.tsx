@@ -64,6 +64,7 @@ import { formatTimeLabel } from "./dates";
 import { formatDate, translate, type Locale, type MessageKey, type Messages } from "@/lib/i18n";
 import enMessages from "@/messages/en.json";
 import { I18nProvider, useI18n } from "@/components/i18n-provider";
+import { fullName } from "@/lib/person-name";
 
 type Stage = "search" | "vehicle" | "details" | "payment" | "review" | "confirmation";
 type ServiceType = "transfer" | "hourly";
@@ -856,7 +857,7 @@ export function BookingFlow({
     if (!hourlyRequestId.current) hourlyRequestId.current = crypto.randomUUID();
     try {
       const response = await fetch("/api/hourly-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId: hourlyRequestId.current, areaSlug: hourlyArea, note: [hourlyRequestNote, booking.specialRequests].filter(Boolean).join(" ").slice(0, 500), answers: {
-        name: `${booking.name} ${booking.surname}`.trim(), phone: booking.phone, email: booking.email, pickup: booking.pickup.slice(0, 300), dropoff: booking.dropoff.slice(0, 300), hours: booking.bookedHours,
+        name: fullName(booking.name, booking.surname), phone: booking.phone, email: booking.email, pickup: booking.pickup.slice(0, 300), dropoff: booking.dropoff.slice(0, 300), hours: booking.bookedHours,
         date: booking.date, time: booking.time, vehicle, passengers: booking.passengers, luggage: booking.luggage, flightNumber: booking.flightNumber, childSeats: booking.childSeats, exchangeStop, ferryPeople: 0,
       } }) });
       const result = await response.json();

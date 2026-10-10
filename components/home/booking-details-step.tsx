@@ -8,6 +8,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import type { ReviewFieldErrors } from "@/lib/booking-review";
 import type { Booking } from "./booking-flow";
 import { useI18n } from "@/components/i18n-provider";
+import { fullName } from "@/lib/person-name";
 
 type Traveller = { id: string; name: string; surname: string; email: string | null; phone: string | null; notes: string | null };
 
@@ -59,7 +60,7 @@ export function BookingDetailsStep({ quoteRequired = false, booking, change, fie
   const phone = splitPhone(booking.phone);
   const [signHelp, setSignHelp] = useState(false);
   // The Meet & Greet sign follows the lead passenger's name until the customer types their own.
-  const autoSign = `${booking.name} ${booking.surname}`.trim();
+  const autoSign = fullName(booking.name, booking.surname);
   const [signEdited, setSignEdited] = useState(() => Boolean(booking.pickupSign) && booking.pickupSign !== autoSign);
   useEffect(() => {
     if (!signEdited && booking.pickupSign !== autoSign) change("pickupSign", autoSign);

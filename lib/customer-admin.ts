@@ -4,6 +4,7 @@ import { bookingEvents, bookings, customerBookingLinks, customers } from "@/db/s
 import { crmDb } from "@/lib/crm";
 import { csvCell } from "@/lib/crm-rules";
 import { ACCOUNT_VISIBLE_STATUSES } from "@/lib/customer-account";
+import { fullName } from "@/lib/person-name";
 
 /**
  * Registered members for the admin Users tab, newest first. Trips count
@@ -85,7 +86,7 @@ export async function linkBookingToCustomer(customerId: string, reference: strin
   ]);
   if (!changed.meta.changes) return { ok: false as const, status: 409, error: "Booking ownership changed. Review it before moving it.", needsMove: true };
   console.info("Admin added booking to account", { reference, customerId, admin: by });
-  return { ok: true as const, reference, already: false, guest: `${booking.name} ${booking.surname ?? ""}`.trim() };
+  return { ok: true as const, reference, already: false, guest: fullName(booking.name, booking.surname) };
 }
 
 export async function memberPage(search:string,page=1,filter="all",sort="newest") {

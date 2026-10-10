@@ -8,6 +8,7 @@ import { fulfillBooking } from "@/lib/booking-fulfillment";
 import { secureToken, sha256 } from "@/lib/security";
 import { VEHICLES } from "@/lib/vehicles";
 import { OVERTIME_RATES, type HourlyVehicle } from "@/lib/hourly-policy";
+import { fullName } from "@/lib/person-name";
 
 const POLICY_VERSION = "2026-09-07";
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -71,7 +72,7 @@ export async function createManualBooking(b: ManualBookingInput, origin: string)
 
   await getDb().insert(bookings).values({
     reference,
-    customerName: `${b.customerName} ${b.customerSurname}`.trim(),
+    customerName: fullName(b.customerName, b.customerSurname),
     customerSurname: b.customerSurname || null,
     customerEmail: b.customerEmail,
     customerPhone: b.customerPhone,
