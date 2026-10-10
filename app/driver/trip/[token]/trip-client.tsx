@@ -165,7 +165,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
         `/api/driver/trips/${encodeURIComponent(token)}`,
         { cache: "no-store", headers: driverHeaders() },
       );
-      const result = (await response.json()) as Trip & { error?: string };
+      // A server error page isn't JSON (Safari then says "The string did not match the expected pattern").
+      const result = (await response.json().catch(() => ({ error: "The trip could not be loaded right now. Please try again in a minute, or contact Waydidi operations." }))) as Trip & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Trip unavailable.");
     setTrip(result);
 
