@@ -1,5 +1,5 @@
 import { evidenceDb, evidencePolicy, evidenceOverride, type EvidenceRow } from "@/lib/trip-evidence";
-import { evidenceTypeFor } from "@/lib/evidence-rules";
+import { evidenceTypeFor, type EvidencePolicy } from "@/lib/evidence-rules";
 import { journeyFor, parseLeg } from "@/lib/journey-legs";
 import { env } from "cloudflare:workers";
 import { and, count, desc, eq, gt, isNull } from "drizzle-orm";
@@ -53,8 +53,9 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     getDb().select().from(driverPayoutDetails).where(eq(driverPayoutDetails.assignmentId, assignment.id)).limit(1),
   ]);
   return NextResponse.json({
-    evidencePolicy: await evidencePolicy(),
-    evidenceOverrides: { pickup: Boolean(await evidenceOverride(assignment.id,"pickup")), dropoff: Boolean(await evidenceOverride(assignment.id,"dropoff")) },
+    // Viewing the trip never fails on the photo settings (status changes still enforce them).
+    evidencePolicy: await evidencePolicy().catch((): EvidencePolicy => ({ pickup_required: 0, dropoff_required: 0, gps_required: 0, gps_timeout_ms: 20000, max_accuracy_m: 2000, retention_days: 30 })),
+    evidenceOverrides: { pickup: Boolean(await evidenceOverride(assignment.id,"pickup").catch(() => null)), dropoff: Boolean(await evidenceOverride(assignment.id,"dropoff").catch(() => null)) },
     assignment: { id: assignment.id, currentStatus: assignment.currentStatus === "standby" && assignment.passengerVerifiedAt ? "passenger_verified" : assignment.currentStatus, tokenExpiresAt: assignment.tokenExpiresAt, passengerVerifiedAt: assignment.passengerVerifiedAt, passengerVerificationMethod: assignment.passengerVerificationMethod, passengerVerificationAttemptsRemaining: Math.max(0, 5 - failedAttempts) },
     driver: { fullName: driver.fullName, phone: driver.phone },
     booking: {
