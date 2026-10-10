@@ -1,0 +1,2 @@
+/** Payment status as a pill: paid online or by hand → green; cash to take on the day → red; anything else → amber with its status. */
+export const paymentPill = (s?: string | null): [string, string] => s === "paid" || s === "partially_refunded" ? ["Paid", "bg-emerald-50 text-emerald-700"] : s === "cash_due" ? ["Collect cash", "bg-red-50 text-red-700"] : [s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ") : "Unpaid", "bg-amber-50 text-amber-800"];

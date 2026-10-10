@@ -42,3 +42,22 @@ test("no live location, stop report, popup or note box", async ({ page }) => {
   expect(pings).toHaveLength(0);
   await expect(page.getByRole("button", { name: "ยืนยันว่าส่งลูกค้าแล้ว" })).toBeVisible(); // the bottom step button stays
 });
+test("Price (set in Telegram) and Payment sit below To", async ({ page }) => {
+  await page.route("**/api/driver/trips/session", (r) => r.fulfill({ json: { ...base, booking: { ...base.booking, price: 1400, paymentStatus: "cash_due" } } }));
+  await page.route("**/api/driver/trips/session/plan", (r) => r.fulfill({ json: { days: [] } }));
+  await page.goto("/driver/trip/session");
+  const labels = page.locator("dl dt");
+  await expect(labels.first()).toBeVisible({ timeout: 30000 });
+  expect(await labels.allTextContents()).toEqual(["Passengers & luggage", "Vehicle", "Date & time", "From", "To", "Price", "Payment"]);
+  await expect(page.locator("dl")).toContainText("THB 1,400");
+  await expect(page.locator("dl")).toContainText("Collect cash");
+  await page.getByRole("button", { name: "What's included" }).click();
+  await expect(page.getByRole("dialog", { name: "What's included" })).toContainText("Private vehicle with driver");
+});
+test("without a price from Telegram the row reads Not set", async ({ page }) => {
+  await page.route("**/api/driver/trips/session", (r) => r.fulfill({ json: { ...base, booking: { ...base.booking, price: null, paymentStatus: "paid" } } }));
+  await page.route("**/api/driver/trips/session/plan", (r) => r.fulfill({ json: { days: [] } }));
+  await page.goto("/driver/trip/session");
+  await expect(page.locator("dl")).toContainText("Not set", { timeout: 30000 });
+  await expect(page.locator("dl")).toContainText("Paid");
+});

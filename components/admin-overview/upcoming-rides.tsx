@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/driver-picker";
 import { includesKohChangFerry } from "@/lib/booking-form";
+import { paymentPill } from "@/lib/payment-pill";
 
 export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return" };
 
@@ -30,8 +31,7 @@ const day = (d: string) => { const [y, m, n] = d.split("-").map(Number); const w
 
 // "27/09/2026 — 01:15 am", same as the form answers panel.
 const dateTime = (date: string, time: string) => { const [y, m, d] = date.split("-"); const [h = 0, min = 0] = time.split(":").map(Number); return `${d}/${m}/${y} — ${String(h % 12 || 12).padStart(2, "0")}:${String(min).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`; };
-// Paid online or by hand → green; cash to take on the day → red; anything else → amber with its status.
-const payment = (s?: string): [string, string] => s === "paid" || s === "partially_refunded" ? ["Paid", "bg-emerald-50 text-emerald-700"] : s === "cash_due" ? ["Collect cash", "bg-red-50 text-red-700"] : [s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ") : "Unpaid", "bg-amber-50 text-amber-800"];
+const payment = paymentPill;
 const vehicleName = (v: string) => { const t = v.replace(/_/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); };
 
 /** The Price row with a "!" on the left that opens what the price includes (Koh Chang car ferry tickets when the ride starts or ends there). */

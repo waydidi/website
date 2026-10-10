@@ -57,6 +57,8 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
   const maps = (await env.DB.prepare("SELECT pickup_map_url,dropoff_map_url FROM booking_map_links WHERE booking_reference=?").bind(booking.reference).first().catch(() => null)) as { pickup_map_url: string | null; dropoff_map_url: string | null } | null;
   const pickupMapUrl = (assignment.leg === "return" ? maps?.dropoff_map_url : maps?.pickup_map_url) ?? null;
   const dropoffMapUrl = (assignment.leg === "return" ? maps?.pickup_map_url : maps?.dropoff_map_url) ?? null;
+  // The price for this trip: what staff typed with "Set cost" on the Telegram booking card (null until then).
+  const cost = (await env.DB.prepare("SELECT total_driver_cost FROM booking_costs WHERE booking_reference=?").bind(booking.reference).first().catch(() => null)) as { total_driver_cost: number | null } | null;
   return NextResponse.json({
     // Viewing the trip never fails on the photo settings (status changes still enforce them).
     evidencePolicy: await evidencePolicy().catch((): EvidencePolicy => ({ pickup_required: 0, dropoff_required: 0, gps_required: 0, gps_timeout_ms: 20000, max_accuracy_m: 2000, retention_days: 30 })),
@@ -70,6 +72,7 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
       pickupLatitude: booking.pickupLatitude, pickupLongitude: booking.pickupLongitude,
       dropoffLatitude: booking.dropoffLatitude, dropoffLongitude: booking.dropoffLongitude,
       status: booking.status, pickupMapUrl, dropoffMapUrl,
+      price: cost?.total_driver_cost ?? null, paymentStatus: booking.paymentStatus,
     },
     events: events.map(({ evidenceKey, evidenceSha256, ...event }) => ({ ...event, hasEvidence: Boolean(evidenceKey || evidenceSha256 || event.tripEvidenceId) })),
     activeStop: activeStop ? { reason: activeStop.reason, note: activeStop.note, declaredAt: activeStop.declaredAt } : null,
