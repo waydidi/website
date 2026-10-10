@@ -85,7 +85,7 @@ export const botEcho = (publicId: string, body: string) =>
 export const staffEcho = (publicId: string, name: string, body: string) =>
   `<b>${esc(name)}</b> replied on the website · ${esc(publicId)}\n<blockquote>${esc(clip(body, 3500))}</blockquote>`;
 
-export type CardBooking = { reference: string; customerName: string; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; vehicle: string; passengers: number; luggage: number; total: number; payment: string; acknowledgedBy?: string | null; driverCost?: number | null; driverName?: string | null; costDone?: boolean; driverDone?: boolean; rideLink?: string | null; driverLink?: string | null };
+export type CardBooking = { reference: string; customerName: string; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; vehicle: string; passengers: number; luggage: number; total: number; payment: string; acknowledgedBy?: string | null; driverCost?: number | null; driverName?: string | null; costDone?: boolean; driverDone?: boolean; rideLink?: string | null; driverLink?: string | null; pickupMap?: boolean; dropoffMap?: boolean };
 
 export function bookingCard(b: CardBooking) {
   return [
@@ -109,9 +109,11 @@ export function bookingCard(b: CardBooking) {
 
 /** Not taken: Assign. Taken: Set cost and Add driver information, each removed once done. */
 export const bookingKeyboard = (b: CardBooking, adminUrl: string): InlineKeyboard => {
+  // Google Maps links for the driver's Pick up / Drop buttons (✓ once set; tap again to change).
+  const maps = [{ text: `📍 Pickup map${b.pickupMap ? " ✓" : ""}`, callback_data: `bk_pmap:${b.reference}` }, { text: `📍 Drop-off map${b.dropoffMap ? " ✓" : ""}`, callback_data: `bk_dmap:${b.reference}` }];
   if (!b.acknowledgedBy) return [[{ text: "Assign to me", callback_data: `booking_assign:${b.reference}` }, { text: "Open booking", url: adminUrl }]];
   const tasks = [...(b.costDone ? [] : [{ text: "Set cost", callback_data: `bk_cost:${b.reference}` }]), ];
   // Driver: pick one of our drivers, or add a one-off outsource driver step by step.
   const driver = b.driverDone ? [] : [[{ text: "Assign driver", callback_data: `bk_dl:${b.reference}` }, { text: "Add outsource driver", callback_data: `bk_drv:${b.reference}` }]];
-  return [...(tasks.length ? [tasks] : []), ...driver, [{ text: "Open booking", url: adminUrl }]];
+  return [...(tasks.length ? [tasks] : []), ...driver, maps, [{ text: "Open booking", url: adminUrl }]];
 };

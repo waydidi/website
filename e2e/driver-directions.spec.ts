@@ -24,6 +24,15 @@ test("Pick up and Drop open Google Maps directions to each place", async ({ page
   await expect(pickup).toHaveAttribute("href", `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent("Suvarnabhumi Airport (BKK)")}`);
   await expect(page.getByRole("link", { name: /^Drop:/ })).toHaveAttribute("href", `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent("Hilton Pattaya")}`);
 });
+test("a Google Maps link set in Telegram is used; without one, directions to the address", async ({ page }) => {
+  await page.route("**/api/driver/trips/session", (r) => r.fulfill({ json: { ...base, booking: { ...base.booking, pickupMapUrl: "https://maps.app.goo.gl/BKKgate4", dropoffMapUrl: null } } }));
+  await page.route("**/api/driver/trips/session/plan", (r) => r.fulfill({ json: { days: [] } }));
+  await page.goto("/driver/trip/session");
+  await expect(page.getByRole("link", { name: /^Pick up:/ })).toHaveAttribute("href", "https://maps.app.goo.gl/BKKgate4", { timeout: 30000 });
+  await expect(page.getByRole("link", { name: /^Drop:/ })).toHaveAttribute("href", `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent("Hilton Pattaya")}`);
+  // The buttons sit below the customer card, not inside it.
+  await expect(page.locator("section").filter({ hasText: "Customer name" }).getByRole("link", { name: /^Pick up:/ })).toHaveCount(0);
+});
 test("no live location, stop report, popup or note box", async ({ page }) => {
   const pings = await open(page);
   await expect(page.getByRole("link", { name: /^Drop:/ })).toBeVisible({ timeout: 30000 });

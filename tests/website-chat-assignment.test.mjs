@@ -281,13 +281,13 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
   const lastPrompt=()=>[...sent].reverse().find((m)=>m.reply_markup?.force_reply);
   await tap('bk_cost:MC7Q2P');assert.equal(lastPrompt(),undefined); // must be assigned first
   await tap('booking_assign:MC7Q2P');
-  const kb=sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text);assert.deepEqual(kb,['Set cost','Assign driver','Add outsource driver','Open booking']);
+  const kb=sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text);assert.deepEqual(kb,['Set cost','Assign driver','Add outsource driver','📍 Pickup map','📍 Drop-off map','Open booking']);
   assert.doesNotMatch(sent.filter((m)=>m.method==='editMessageText').at(-1).text,/Driver link/); // no driver link before a driver is assigned
   await tap('bk_cost:MC7Q2P');assert.match(lastPrompt().text,/Driver cost/);
   await say('abc');assert.match(sent.filter((m)=>m.method==='sendMessage').at(-2).text,/number/); // asked again
   await say('900');
   assert.equal((await db.prepare("SELECT total_driver_cost FROM booking_costs WHERE booking_reference='MC7Q2P'").first()).total_driver_cost,900);
-  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Assign driver','Add outsource driver','Open booking']);
+  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Assign driver','Add outsource driver','📍 Pickup map','📍 Drop-off map','Open booking']);
   await tap('bk_drv:MC7Q2P');
   for(const [q,a] of [[/full name/,'Somchai Jaidee'],[/phone/,'081 234 5678'],[/plate/,'1กข 1234'],[/model/,'Toyota Camry, black'],[/licence/,'12345678']]){assert.match(lastPrompt().text,q);await say(a);}
   const d=await db.prepare("SELECT full_name,phone,car_plate,vehicle,license_number FROM drivers WHERE full_name='Somchai Jaidee'").first();
@@ -297,7 +297,14 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
   for(const line of ['ชื่อลูกค้า: Mansi Choksi','จำนวน: 2 คน, 2 กระเป๋า','วันที่/เวลา: 14/10/2026 12:45','ไฟลท์: PG305','รับ: Trat airport','ส่ง: Dinso Resort &amp; Villas Ko Chang','ราคา: -']) assert.ok(job.includes(line),line);
   assert.match(job,/\/driver\/trip\/[a-f0-9]{48}/);
   assert.equal((await db.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='MC7Q2P' AND revoked_at IS NULL").first()).n,1);
-  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Open booking']);
+  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['📍 Pickup map','📍 Drop-off map','Open booking']);
+  // Google Maps link for the driver's Pick up button, pasted in Telegram; other links are refused.
+  for(const sql of (await readFile(root+'/drizzle/0100_booking_map_links.sql','utf8')).split('--> statement-breakpoint')) await db.prepare(sql).run();
+  await tap('bk_pmap:MC7Q2P');assert.match(lastPrompt().text,/Google Maps link for the pickup/);
+  await say('https://example.com/somewhere');assert.match(sent.filter((m)=>m.method==='sendMessage').at(-2).text,/Google Maps link/); // asked again
+  await say('Here: https://maps.app.goo.gl/TratAirport1');
+  assert.equal((await db.prepare("SELECT pickup_map_url FROM booking_map_links WHERE booking_reference='MC7Q2P'").first()).pickup_map_url,'https://maps.app.goo.gl/TratAirport1');
+  assert.ok(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().some((b)=>b.text==='📍 Pickup map ✓'));
   // Once assigned, the card shows the same working driver link as the job post.
   assert.equal(sent.filter((m)=>m.method==='editMessageText').at(-1).text.match(/Driver link: (\S+)/)?.[1],job.match(/(https?:\/\/\S+\/driver\/trip\/[a-f0-9]{48})/)?.[1]);
  }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
@@ -321,7 +328,7 @@ test('Telegram booking: Assign driver lists our own drivers (not outsource) and 
   await tap(list.find((b)=>b.text==='Prasit Staff').callback_data);
   const card=await db.prepare("SELECT driver_done,driver_form_json FROM telegram_booking_cards WHERE booking_reference='PK4D7R'").first();
   assert.equal(card.driver_done,1);assert.equal(JSON.parse(card.driver_form_json).driverId,'d-staff');
-  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Set cost','Open booking']);
+  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Set cost','📍 Pickup map','📍 Drop-off map','Open booking']);
  }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
 });
 test('Telegram cancellation and change requests: cards with buttons, booking updated, driver told in Thai',async()=>{

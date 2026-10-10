@@ -4,6 +4,7 @@ import { sha256 } from "@/lib/security";
 import { driverTokenForAssignment } from "@/lib/trip-links";
 import { SITE_URL } from "@/lib/site";
 import { jobVehicleName } from "./job-text";
+import { googleMapsLink } from "@/lib/maps-link";
 import { esc } from "./cards";
 import { sendCard, telegramChatId, tg, type TelegramMessage } from "./client";
 
@@ -15,7 +16,7 @@ type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>
 const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
 const now = () => new Date().toISOString();
 
-type Field = "cost" | "driver_name" | "driver_phone" | "driver_plate" | "driver_model" | "driver_license";
+type Field = "cost" | "driver_name" | "driver_phone" | "driver_plate" | "driver_model" | "driver_license" | "pickup_map" | "dropoff_map";
 const DRIVER_STEPS: Field[] = ["driver_name", "driver_phone", "driver_plate", "driver_model", "driver_license"];
 const QUESTION: Record<Field, string> = {
   cost: "Driver cost in THB (numbers only)",
@@ -24,6 +25,8 @@ const QUESTION: Record<Field, string> = {
   driver_plate: "Car plate",
   driver_model: "Car model (e.g. Toyota Camry, black)",
   driver_license: "Driving licence number",
+  pickup_map: "Google Maps link for the pickup (paste the share link)",
+  dropoff_map: "Google Maps link for the drop-off (paste the share link)",
 };
 type DriverForm = { name?: string; phone?: string; plate?: string; model?: string; license?: string; driverId?: string };
 
@@ -31,7 +34,7 @@ type DriverForm = { name?: string; phone?: string; plate?: string; model?: strin
 export async function askBookingQuestion(reference: string, field: Field, user: { id: number; first_name?: string }) {
   const mention = `<a href="tg://user?id=${user.id}">${esc(user.first_name ?? "You")}</a>`;
   const card = await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>();
-  const step = field === "cost" ? "" : ` (${DRIVER_STEPS.indexOf(field) + 1}/${DRIVER_STEPS.length})`;
+  const step = DRIVER_STEPS.includes(field) ? ` (${DRIVER_STEPS.indexOf(field) + 1}/${DRIVER_STEPS.length})` : "";
   const sent = await tg<TelegramMessage>("sendMessage", { chat_id: telegramChatId(), parse_mode: "HTML",
     text: `${mention}, booking <b>${esc(reference)}</b>${step}: ${QUESTION[field]}?`,
     reply_markup: { force_reply: true, selective: true, input_field_placeholder: QUESTION[field] },
@@ -57,6 +60,18 @@ export async function handleBookingAnswer(m: TelegramMessage, adminName: string,
   const again = async (note: string) => { await sendCard(`${esc(note)}`, undefined, m.message_id).catch(() => undefined); await askBookingQuestion(ref, prompt!.field, m.from!); };
   await db().prepare("DELETE FROM telegram_booking_prompts WHERE telegram_message_id=?").bind(prompt.telegram_message_id).run();
 
+  if (prompt.field === "pickup_map" || prompt.field === "dropoff_map") {
+    // The driver's Pick up / Drop buttons open this link.
+    const link = googleMapsLink(text);
+    if (!link) { await again("Please paste a Google Maps link, e.g. https://maps.app.goo.gl/…"); return true; }
+    const column = prompt.field === "pickup_map" ? "pickup_map_url" : "dropoff_map_url";
+    await db().prepare(`INSERT INTO booking_map_links(booking_reference,${column},updated_by,updated_at) VALUES(?,?,?,?)
+      ON CONFLICT(booking_reference) DO UPDATE SET ${column}=excluded.${column},updated_by=excluded.updated_by,updated_at=excluded.updated_at`)
+      .bind(ref, link, `telegram:${adminName}`, now()).run();
+    await sendCard(`${prompt.field === "pickup_map" ? "Pickup" : "Drop-off"} map saved for <b>${esc(ref)}</b> ✓`, undefined, m.message_id).catch(() => undefined);
+    await refresh(ref);
+    return true;
+  }
   if (prompt.field === "cost") {
     const cost = Number(text.replace(/[,\s฿]|THB|บาท/gi, ""));
     if (!Number.isInteger(cost) || cost < 0 || cost > 500000) { await again("Please send the cost as a number, e.g. 900."); return true; }

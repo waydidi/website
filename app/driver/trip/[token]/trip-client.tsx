@@ -1,4 +1,5 @@
 "use client";
+import { directionsTo } from "@/lib/maps-link";
 import { DriverWelcome } from "@/components/driver/welcome-scene";
 import { driverHeaders, rememberDriverToken } from "@/lib/driver-token";
 import { StepCamera } from "@/components/drivers/step-camera";
@@ -56,6 +57,8 @@ type Trip = {
     luggage: number;
     vehicle: string;
     flightNumber: string | null;
+    pickupMapUrl?: string | null;
+    dropoffMapUrl?: string | null;
     pickupLatitude: number | null;
     pickupLongitude: number | null;
     status: string;
@@ -444,17 +447,17 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
               ["To", trip.booking.dropoff],
             ] as [string, React.ReactNode][]).map(([label, value]) => <div key={label} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{label}</dt><dd className="text-right font-semibold">{value}</dd></div>)}
           </dl>
-          {/* Directions in Google Maps to the pickup or the drop-off */}
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            {([["Pick up", trip.booking.pickup], ["Drop", trip.booking.dropoff]] as const).map(([label, place]) => (
-              <a key={label} href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place)}`} target="_blank" rel="noreferrer"
-                aria-label={`${label}: ${place} (Google Maps)`}
-                className="flex h-16 items-center justify-center gap-2 rounded-2xl border border-orange-200 bg-orange-50 text-[18px] font-black text-brand-text active:bg-orange-100">
-                <MapPin size={22} aria-hidden="true" />{label}
-              </a>
-            ))}
-          </div>
         </section>
+        {/* Pick up / Drop: the Google Maps link an admin set in Telegram, or directions to the address */}
+        <div className="grid grid-cols-2 gap-3">
+          {([["Pick up", trip.booking.pickup, trip.booking.pickupMapUrl], ["Drop", trip.booking.dropoff, trip.booking.dropoffMapUrl]] as const).map(([label, place, link]) => (
+            <a key={label} href={link || directionsTo(place)} target="_blank" rel="noreferrer"
+              aria-label={`${label}: ${place} (Google Maps)`}
+              className="flex h-16 items-center justify-center gap-2 rounded-2xl border border-orange-200 bg-white text-[18px] font-black text-brand-text shadow-sm active:bg-orange-50">
+              <MapPin size={22} aria-hidden="true" />{label}
+            </a>
+          ))}
+        </div>
         {pending ? (
           <section className="rounded-[26px] border border-amber-200 bg-amber-50 p-6 text-amber-900" aria-live="polite">
             <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[.14em]"><WifiOff size={15} /> Waiting to send</p>
