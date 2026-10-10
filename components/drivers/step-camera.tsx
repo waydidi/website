@@ -1,14 +1,16 @@
 "use client";
 
-import { Camera, LoaderCircle, RotateCcw, X } from "lucide-react";
+import { Camera, LoaderCircle, MapPin, RotateCcw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 import { driverHeaders } from "@/lib/driver-token";
-import { freshEvidenceGps, type EvidencePolicy, type EvidenceType } from "@/lib/evidence-rules";
+import type { EvidencePolicy, EvidenceType } from "@/lib/evidence-rules";
 
-// The camera a driver uses to confirm Stand by, Pick up and Drop: it opens straight into the phone's
+// Waydidi's GPS camera, used to confirm Stand by, Pick up and Drop: it opens straight into the phone's
 // rear camera (no photo library), the driver takes the photo, checks it, and it is uploaded as the
-// step's evidence. If the browser can't show a live camera, the phone's own camera app is opened.
+// step's evidence with where it was taken (the server stamps the photo with the place and time).
+// Location must be allowed to take the photo. If the browser can't show a live camera, the phone's
+// own camera app is opened.
 
 type Gps = { latitude: number; longitude: number; accuracy: number };
 
@@ -34,9 +36,21 @@ export function StepCamera({ title, type, policy, onCancel, onSaved }: {
   const input = useRef<HTMLInputElement>(null);
   const [live, setLive] = useState(false);
   const [noLive, setNoLive] = useState(false);
-  const [photo, setPhoto] = useState<{ blob: Blob; url: string; at: string } | null>(null);
+  const [photo, setPhoto] = useState<{ blob: Blob; url: string; at: string; gps: Gps | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Location for the photo: followed while the camera is open; the shutter waits for it.
+  const [gps, setGps] = useState<Gps | null>(null);
+  const [gpsState, setGpsState] = useState<"asking" | "ok" | "denied" | "unavailable">("asking");
+  const [gpsTry, setGpsTry] = useState(0);
+  useEffect(() => {
+    if (!navigator.geolocation) { queueMicrotask(() => setGpsState("unavailable")); return; }
+    const watch = navigator.geolocation.watchPosition(
+      (p) => { setGps({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy }); setGpsState("ok"); },
+      (e) => setGpsState(e.code === e.PERMISSION_DENIED ? "denied" : "unavailable"),
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: policy.gps_timeout_ms });
+    return () => navigator.geolocation.clearWatch(watch);
+  }, [gpsTry, policy.gps_timeout_ms]);
 
   // Live camera while no photo is being checked; released when a photo is taken or the sheet closes.
   useEffect(() => {
@@ -55,7 +69,7 @@ export function StepCamera({ title, type, policy, onCancel, onSaved }: {
   useEffect(() => { if (live && video.current) video.current.srcObject = stream.current; }, [live]);
   useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
 
-  function keep(blob: Blob) { setPhoto({ blob, url: URL.createObjectURL(blob), at: new Date().toISOString() }); }
+  function keep(blob: Blob) { setPhoto({ blob, url: URL.createObjectURL(blob), at: new Date().toISOString(), gps }); }
   async function shoot() {
     if (!video.current) return;
     try { keep(await toJpeg(video.current, video.current.videoWidth, video.current.videoHeight)); } catch (e) { setError((e as Error).message); }
@@ -73,17 +87,12 @@ export function StepCamera({ title, type, policy, onCancel, onSaved }: {
     if (!photo || busy) return;
     setBusy(true); setError("");
     try {
-      // Location is only attached when the photo policy asks for it.
-      let gps: Gps | null = null;
-      if (policy.gps_required && navigator.geolocation) {
-        gps = await new Promise<Gps | null>((resolve) => navigator.geolocation.getCurrentPosition(
-          (p) => resolve(freshEvidenceGps(p.timestamp) ? { latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy } : null),
-          () => resolve(null), { enableHighAccuracy: true, maximumAge: 0, timeout: policy.gps_timeout_ms }));
-      }
       const form = new FormData();
       form.set("id", crypto.randomUUID()); form.set("eventType", type); form.set("deviceCapturedAt", photo.at);
       form.set("photo", photo.blob, "capture.jpg");
-      if (gps) { form.set("latitude", String(gps.latitude)); form.set("longitude", String(gps.longitude)); form.set("accuracy", String(gps.accuracy)); }
+      const where = photo.gps ?? gps;
+      if (!where) throw new Error("ยังไม่ได้ตำแหน่ง GPS รอสักครู่แล้วลองอีกครั้ง");
+      form.set("latitude", String(where.latitude)); form.set("longitude", String(where.longitude)); form.set("accuracy", String(Math.round(where.accuracy)));
       const response = await fetch("/api/driver/trips/session/evidence", { method: "POST", headers: driverHeaders(), body: form });
       const result = await response.json().catch(() => ({})) as { evidence?: { id: string }; error?: string };
       if (!response.ok || !result.evidence) throw new Error(result.error ?? "อัปโหลดรูปไม่สำเร็จ ลองอีกครั้ง");
@@ -104,18 +113,27 @@ export function StepCamera({ title, type, policy, onCancel, onSaved }: {
         : live ? <video ref={video} autoPlay playsInline muted className="size-full object-cover" />
         : <div className="grid size-full place-items-center p-8 text-center">
             {noLive ? <div><p className="text-white/85">เปิดกล้องในหน้านี้ไม่ได้ ใช้กล้องของโทรศัพท์แทน</p>
-              <button type="button" onClick={() => input.current?.click()} className="mt-5 inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 font-black text-plum"><Camera size={20} />เปิดกล้อง</button></div>
+              <button type="button" disabled={!gps} onClick={() => input.current?.click()} className="mt-5 disabled:opacity-50 inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 font-black text-plum"><Camera size={20} />เปิดกล้อง</button></div>
               : <LoaderCircle className="animate-spin" size={36} aria-label="กำลังเปิดกล้อง" />}
           </div>}
       {/* The phone's own camera app (capture=environment opens the camera, not the photo library). */}
       <input ref={input} type="file" accept="image/*" capture="environment" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={(e) => { void fromCameraApp(e.target.files?.[0]); e.target.value = ""; }} />
     </div>
+    {/* GPS camera line: where and when, as stamped on the saved photo */}
+    <p className="flex items-center justify-center gap-2 bg-black/80 px-4 py-2 text-center text-[12.5px] font-semibold text-white/90" aria-live="polite">
+      <MapPin size={14} aria-hidden="true" />
+      {(photo?.gps ?? gps) ? `Waydidi GPS · ${(photo?.gps ?? gps)!.latitude.toFixed(5)}, ${(photo?.gps ?? gps)!.longitude.toFixed(5)} · ±${Math.round((photo?.gps ?? gps)!.accuracy)} ม.` : gpsState === "asking" ? "กำลังหาตำแหน่ง GPS…" : "ยังไม่ได้ตำแหน่ง GPS"}
+    </p>
+    {(gpsState === "denied" || gpsState === "unavailable") && !gps && <div role="alert" className="bg-amber-500 px-4 py-3 text-center text-sm font-semibold text-black">
+      {gpsState === "denied" ? "ต้องอนุญาตตำแหน่งเพื่อใช้กล้อง GPS ของ Waydidi เปิดสิทธิ์ตำแหน่งให้ waydidi.com ในการตั้งค่าโทรศัพท์ แล้วกดลองอีกครั้ง" : "หาตำแหน่ง GPS ไม่ได้ ออกไปที่โล่งแล้วกดลองอีกครั้ง"}
+      <button type="button" onClick={() => { setGpsState("asking"); setGpsTry((n) => n + 1); }} className="ml-2 rounded-full bg-black px-3 py-1 text-white">ลองอีกครั้ง</button>
+    </div>}
     {error && <p role="alert" className="bg-red-700 px-4 py-2 text-center text-sm font-semibold">{error}</p>}
     <div className="flex items-center justify-center gap-4 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
       {photo ? <>
         <button type="button" onClick={retake} disabled={busy} className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-full border border-white/40 font-black disabled:opacity-50"><RotateCcw size={18} />ถ่ายใหม่</button>
         <button type="button" onClick={() => void use()} disabled={busy} className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-full bg-brand font-black text-white disabled:opacity-60">{busy && <LoaderCircle className="animate-spin" size={18} />}{busy ? "กำลังบันทึก…" : "ใช้รูปนี้"}</button>
-      </> : <button type="button" onClick={() => void shoot()} disabled={!live} aria-label="ถ่ายรูป" className="grid size-[74px] place-items-center rounded-full border-4 border-white disabled:opacity-40"><span className="size-[58px] rounded-full bg-white" /></button>}
+      </> : <button type="button" onClick={() => void shoot()} disabled={!live || !gps} aria-label="ถ่ายรูป" className="grid size-[74px] place-items-center rounded-full border-4 border-white disabled:opacity-40"><span className="size-[58px] rounded-full bg-white" /></button>}
     </div>
   </Modal>;
 }

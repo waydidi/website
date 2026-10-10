@@ -13,10 +13,12 @@ const fixture = (currentStatus: string) => ({
   noShow: { eligibleAt: null, airport: false, freeWaitMinutes: 30, maxDistanceMetres: 2000 },
 });
 
-async function setup(page: Page, currentStatus: string, { camera = true } = {}) {
+async function setup(page: Page, currentStatus: string, { camera = true, location = true } = {}) {
   const sent: { status: string; evidenceId: string | null }[] = [];
   const uploads: string[] = [];
-  await page.addInitScript(({ camera }) => {
+  const uploadGps: (string | null)[] = [];
+  const pings: string[] = [];
+  await page.addInitScript(({ camera, location }) => {
     Object.defineProperty(navigator.mediaDevices, "getUserMedia", { value: async () => {
       if (!camera) throw new Error("NotAllowedError");
       const canvas = document.createElement("canvas"); canvas.width = 480; canvas.height = 640;
@@ -24,8 +26,12 @@ async function setup(page: Page, currentStatus: string, { camera = true } = {}) 
       ctx.fillStyle = "#FE8B05"; ctx.fillRect(50, 150, 380, 180);
       return canvas.captureStream(10);
     } });
-    Object.defineProperty(navigator.geolocation, "getCurrentPosition", { value: (ok: PositionCallback) => setTimeout(() => ok({ coords: { latitude: 13.75, longitude: 100.5, accuracy: 12 }, timestamp: Date.now() } as GeolocationPosition), 10) });
-  }, { camera });
+    const fix = { coords: { latitude: 13.75, longitude: 100.5, accuracy: 12 }, timestamp: Date.now() } as GeolocationPosition;
+    const denied = { code: 1, PERMISSION_DENIED: 1, message: "denied" } as GeolocationPositionError;
+    Object.defineProperty(navigator.geolocation, "getCurrentPosition", { value: (ok: PositionCallback, fail: PositionErrorCallback) => setTimeout(() => location ? ok(fix) : fail(denied), 10) });
+    Object.defineProperty(navigator.geolocation, "watchPosition", { value: (ok: PositionCallback, fail: PositionErrorCallback) => { setTimeout(() => location ? ok(fix) : fail(denied), 10); return 1; } });
+    Object.defineProperty(navigator.geolocation, "clearWatch", { value: () => undefined });
+  }, { camera, location });
   await page.route("**/api/driver/trips/session", async (route) => {
     if (route.request().method() === "GET") return route.fulfill({ json: fixture(currentStatus) });
     const body = route.request().postData() ?? "";
@@ -36,15 +42,16 @@ async function setup(page: Page, currentStatus: string, { camera = true } = {}) 
   await page.route("**/api/driver/trips/session/evidence", (route) => {
     const id = route.request().postData()?.match(/name="id"\r\n\r\n([^\r]+)/)?.[1] ?? "";
     uploads.push(id);
+    uploadGps.push(route.request().postData()?.match(/name="latitude"\r\n\r\n([^\r]+)/)?.[1] ?? null);
     return route.fulfill({ json: { evidence: { id, event_type: "pickup", received_at: new Date().toISOString(), device_captured_at: new Date().toISOString(), confirmed_at: null, status_event_id: null } } });
   });
-  await page.route("**/api/driver/location", (route) => route.fulfill({ json: { ok: true } }));
+  await page.route("**/api/driver/location", (route) => { pings.push(route.request().url()); return route.fulfill({ json: { ok: true } }); });
   await page.goto("/driver/trip/session");
-  return { sent, uploads };
+  return { sent, uploads, uploadGps, pings };
 }
 
 test("Stand by: the button opens the camera; the photo is uploaded and sent with the step", async ({ page }) => {
-  const { sent, uploads } = await setup(page, "going_to_standby");
+  const { sent, uploads, uploadGps, pings } = await setup(page, "going_to_standby");
   const button = page.getByRole("button", { name: "ยืนยันว่าถึงจุดรับแล้ว" });
   await expect(button).toBeVisible({ timeout: 30000 });
   await expect(page.locator("video")).toHaveCount(0); // no camera until the button is tapped
@@ -64,6 +71,16 @@ test("Stand by: the button opens the camera; the photo is uploaded and sent with
   await expect.poll(() => sent.length).toBe(1);
   expect(uploads).toHaveLength(1);
   expect(sent[0]).toEqual({ status: "standby", evidenceId: uploads[0] });
+  expect(uploadGps[0]).toBe("13.75"); // the photo carries where it was taken
+  expect(pings).toHaveLength(0); // no live location sharing
+});
+
+test("the GPS camera needs location: without it the shutter stays off and the driver is told why", async ({ page }) => {
+  await setup(page, "going_to_standby", { location: false });
+  await page.getByRole("button", { name: "ยืนยันว่าถึงจุดรับแล้ว" }).click({ timeout: 30000 });
+  const camera = page.getByRole("dialog", { name: "รอที่จุดรับ" });
+  await expect(camera.getByRole("alert")).toContainText("ต้องอนุญาตตำแหน่งเพื่อใช้กล้อง GPS ของ Waydidi");
+  await expect(camera.getByRole("button", { name: "ถ่ายรูป" })).toBeDisabled();
 });
 
 test("Pick up and Drop also use the camera; without a live camera the phone's camera app is used", async ({ page }) => {
