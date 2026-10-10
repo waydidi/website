@@ -52,3 +52,23 @@ test("with a driver assigned: the headline says the driver is ready and progress
   expect(await steps.locator("p.font-black").allTextContents()).toEqual(["Booking confirmed", "Driver is on stand by", "On the way", "Arrived"]);
   await expect(steps.first()).toHaveAttribute("aria-current", "step");
 });
+
+test("the address keeps the link's code, so it opens in another browser (Telegram → Open in Safari)", async ({ page, browser }) => {
+  const mock = async (p: Page) => {
+    await mockTrip(p);
+    await p.route("**/api/trip/access", (route) => route.fulfill({ json: { ok: true } }));
+  };
+  await mock(page);
+  await page.goto("/trip/LANG01?ride=" + "a1".repeat(16) + "&lang=en");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("ride")).toBe("a1".repeat(16));
+  const other = await browser.newContext();
+  const fresh = await other.newPage();
+  await mock(fresh);
+  let query = "";
+  await fresh.route("**/api/trip/access", (route) => { query = JSON.parse(route.request().postData() ?? "{}").query; return route.fulfill({ json: { ok: true } }); });
+  await fresh.goto(page.url());
+  await expect(fresh.getByRole("heading", { level: 1 })).toBeVisible();
+  expect(new URLSearchParams(query).get("ride")).toBe("a1".repeat(16));
+  await other.close();
+});
