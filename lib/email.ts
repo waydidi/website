@@ -6,6 +6,7 @@ import { includesKohChangFerry } from "@/lib/booking-form";
 import { env } from "cloudflare:workers";
 
 import { publicSiteUrl } from "@/lib/site";
+import { fullName as personFullName } from "@/lib/person-name";
 
 type ConfirmationEmailInput = {
   to: string;
@@ -115,7 +116,7 @@ export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
   const payment = input.total === 0 ? "Nothing to pay" : input.paymentMethod === "cash" ? "Pay in cash" : input.paymentMethod === "manual" ? "Paid" : "Paid online";
   const addons = input.extras?.addons.map((line) => line.label.toLowerCase()) ?? [];
   const price = `${input.total.toLocaleString("en-US")} THB${addons.length ? ` (including ${addons.join(", ")}${roundTrip ? " for both ways" : ""})` : ""}`;
-  const fullName = [input.name, input.surname].filter(Boolean).join(" ");
+  const fullName = personFullName(input.name, input.surname);
   const greeting = input.name === "there" ? "Hello," : `Dear ${input.name},`;
   const flight = input.flightNumber?.trim();
   // Each block is a list of [label, value] lines; blocks are separated by a blank line.

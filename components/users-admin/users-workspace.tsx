@@ -4,6 +4,7 @@ import { ArrowUpDown, Download, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { UserDeleteButton } from "@/components/user-delete-button";
 import { AddBookingButton } from "@/components/users-admin/add-booking-button";
+import { fullName as personFullName } from "@/lib/person-name";
 
 // Members (customer accounts), laid out like the Partners → Drivers page.
 export type UserRow = { id: string; name: string | null; surname: string | null; email: string; phone: string | null; providers: string | null; trips: number; createdAt: string; lastSeenAt: string | null; marketingOptIn: boolean };
@@ -13,7 +14,7 @@ const TABS = [["all", "All"], ["booked", "With trips"], ["none", "No trips yet"]
 const SORTS = [["newest", "Newest first"], ["oldest", "Oldest first"], ["name", "Name A–Z"], ["trips", "Most trips"]] as const;
 const iconBtn = "grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50";
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" }) : "N/A");
-const fullName = (u: UserRow) => [u.name, u.surname].filter(Boolean).join(" ") || u.email.split("@")[0];
+const fullName = (u: UserRow) => personFullName(u.name, u.surname) || u.email.split("@")[0];
 const initials = (s: string) => s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("");
 
 function StatCard({ label, value, sub }: { label: string; value: number; sub: string }) {

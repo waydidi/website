@@ -7,6 +7,7 @@ import { parseCard } from "@/lib/chat-cards";
 import { googleReviewUrl, reviewForConversation } from "@/lib/support-reviews";
 import { scheduleNon } from "@/lib/cee/schedule";
 import { addVisitorMessage, conversationByTokenHash, createConversation, messagesFor, type Conversation } from "@/lib/website-chat";
+import { fullName } from "@/lib/person-name";
 
 // Customer side of the chat. The httpOnly cookie token is the only key to a conversation;
 // the WD-number shown to staff never grants access.
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     c = await createConversation(await sha256(token), {
       customerId: account?.id ?? null,
       phone: text(input.phone, 40) ?? previous?.customer_phone ?? account?.phone ?? null,
-      name: text(input.name, 100) ?? previous?.customer_name ?? (account ? `${account.name ?? ""} ${account.surname ?? ""}`.trim() || null : null),
+      name: text(input.name, 100) ?? previous?.customer_name ?? (account ? fullName(account.name, account.surname) || null : null),
       email,
       sourceUrl: source && source.startsWith("/") ? source : null,
       sourceTitle: text(input.sourceTitle, 160), topic: text(input.topic, 60),

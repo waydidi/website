@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { bookings, crmContacts, drivers, promoCodes, storefronts } from "@/db/schema";
 import { allowedStaffRoute,type StaffRole } from "@/lib/staff-security";
 import { getWaydidiAdmin } from "@/lib/admin";
+import { fullName } from "@/lib/person-name";
 
 export type AdminSearchHit = { group: string; label: string; detail: string; href: string };
 
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
     safe(db.select({ name: storefronts.name, slug: storefronts.slug, area: storefronts.area }).from(storefronts).where(or(like(storefronts.name, term), like(storefronts.slug, term), like(storefronts.contactName, term))).limit(5)),
   ]);
   const hits: AdminSearchHit[] = [
-    ...b.map((r) => ({ group: "Bookings", label: `${r.reference} · ${[r.name, r.surname].filter(Boolean).join(" ")}`, detail: `${r.date} · ${r.pickup}${r.dropoff ? ` → ${r.dropoff}` : ""}${r.status === "binned" ? " · in bin" : ""}`, href: `/admin/journeys/${encodeURIComponent(r.reference)}` })),
+    ...b.map((r) => ({ group: "Bookings", label: `${r.reference} · ${fullName(r.name, r.surname)}`, detail: `${r.date} · ${r.pickup}${r.dropoff ? ` → ${r.dropoff}` : ""}${r.status === "binned" ? " · in bin" : ""}`, href: `/admin/journeys/${encodeURIComponent(r.reference)}` })),
     ...c.map((r) => ({ group: "Customers", label: r.name || r.email || "Guest", detail: [r.email, r.phone].filter(Boolean).join(" · "), href: `/admin/crm?view=customers&id=${encodeURIComponent(r.id)}` })),
     ...d.map((r) => ({ group: "Drivers", label: r.name, detail: [r.phone, r.plate, r.vehicle].filter(Boolean).join(" · "), href: "/admin/drivers" })),
     ...p.map((r) => ({ group: "Promo codes", label: r.code, detail: r.title, href: "/admin/promotions" })),

@@ -29,6 +29,7 @@ import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AdminKeyLogin } from "@/components/admin-key-login";
 import { PaymentReconciliationButton } from "@/components/payment-reconciliation-button";
 import { backfillUnifiedPaymentFields } from "@/lib/payment-backfill";
+import { fullName } from "@/lib/person-name";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -87,7 +88,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
     return [
       `${(VEHICLES as Record<string, { name: string }>)[row.vehicle]?.name ?? row.vehicle.replaceAll("_", " ")}🚗`,
       "",
-      `ชื่อลูกค้า: ${[row.customerName, row.customerSurname].filter(Boolean).join(" ")}`,
+      `ชื่อลูกค้า: ${fullName(row.customerName, row.customerSurname)}`,
       `จำนวน: ${row.passengers} คน, ${row.luggage} กระเป๋า`,
       `วันที่/เวลา: ${d}/${m}/${y} ${row.pickupTime}`,
       ...(flight ? [`ไฟลท์: ${flight}`] : []),

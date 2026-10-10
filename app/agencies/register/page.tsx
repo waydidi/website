@@ -7,6 +7,7 @@ import { requireCustomer } from "@/lib/customer-auth";
 import { agencyForCustomer } from "@/lib/agency";
 import { getDb } from "@/db";
 import { agencyApplications } from "@/db/schema";
+import { fullName } from "@/lib/person-name";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Create your agency account · Waydidi", robots: { index: false, follow: false } };
@@ -27,7 +28,7 @@ export default async function AgencyRegistrationPage() {
         <p className="mt-2 text-slate-600">{customer.email}</p>
         <p className="mt-4 text-sm text-slate-600">Portal access becomes available after approval. Partner rates are agreed with you by our team.</p>
         <Link href="/contact" className="mt-6 inline-flex rounded-full bg-[#171D21] px-6 py-3 font-semibold text-white">Contact partnerships</Link>
-      </div> : <AgencyForm initialEmail={customer.email} initialName={[customer.name, customer.surname].filter(Boolean).join(" ")} />}
+      </div> : <AgencyForm initialEmail={customer.email} initialName={fullName(customer.name, customer.surname)} />}
       <Link href="/agencies" className="mt-6 inline-block text-sm font-semibold underline underline-offset-4">Learn about partnering with Waydidi</Link>
     </div>
   </main>;
