@@ -46,12 +46,12 @@ export function BookingDeleteButton({ reference, binned = false, purgeAfter }: {
         <form onSubmit={(event) => { event.preventDefault(); if (password) void request("bin"); }}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete booking {reference}?</AlertDialogTitle>
-            <AlertDialogDescription>It moves to the Bin for 30 days, where you can restore it. After 30 days it is deleted permanently. Enter the admin password to confirm.</AlertDialogDescription>
+            <AlertDialogDescription>It moves to the Bin for 30 days, where you can restore it. After 30 days it is deleted permanently. Enter your admin password to confirm.</AlertDialogDescription>
           </AlertDialogHeader>
           {/* A text field masked with CSS, so browsers don't offer saved passwords or passkeys here; the eye shows what was typed. */}
           <div className="relative mt-4">
             <input type="text" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} data-1p-ignore data-lpignore="true" data-form-type="other"
-              autoFocus required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin password" aria-label="Admin password"
+              autoFocus required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your admin password" aria-label="Your admin password"
               style={show ? undefined : ({ WebkitTextSecurity: "disc" } as React.CSSProperties)}
               className="h-11 w-full rounded-xl border border-slate-200 pl-3 pr-11 text-[15px] outline-none focus:border-brand" />
             <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? "Hide password" : "Show password"} aria-pressed={show}
