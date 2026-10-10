@@ -1,6 +1,5 @@
 "use client";
 import { DriverWelcome } from "@/components/driver/welcome-scene";
-import { Modal, ModalTitle } from "@/components/ui/modal";
 import { driverHeaders, rememberDriverToken } from "@/lib/driver-token";
 import { StepCamera } from "@/components/drivers/step-camera";
 import type { EvidencePolicy } from "@/lib/evidence-rules";
@@ -11,10 +10,9 @@ import {
   Clock3,
   CheckCircle2,
   CircleAlert,
-  ExternalLink,
   LoaderCircle,
   Luggage,
-  Navigation,
+  MapPin,
   RefreshCw,
   Users,
   UserX,
@@ -157,14 +155,9 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   // Stand by, Pick up and Drop are confirmed with a photo taken in the step camera.
   const [cameraOpen, setCameraOpen] = useState(false);
   const [online, setOnline] = useState(true);
-  const [stopReason, setStopReason] = useState("");
-  const [stopNote, setStopNote] = useState("");
-  const [stopBusy, setStopBusy] = useState(false);
   // Welcome screen before a new job starts: shown once per job on this phone, until "เริ่มงาน".
   const [welcome, setWelcome] = useState(false);
   const welcomeKey = (id: string) => `waydidi-driver-welcome:${id}`;
-  // The stop-reason popup, opened by the driver.
-  const [stopOpen, setStopOpen] = useState(false);
   const [pending, setPending] = useState<QueuedDriverStep | null>(null);
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [noShowNote, setNoShowNote] = useState("");
@@ -392,22 +385,6 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
     setBusy(false);
   }
 
-  async function updateStop(action: "declare" | "clear") {
-    if (stopBusy) return;
-    setStopBusy(true); setError(""); setMessage("");
-    try {
-      const response = await fetch("/api/driver/stop", { method: "POST", headers: driverHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ token, action, reason: stopReason, note: stopNote }) });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "บันทึกการหยุดไม่สำเร็จ");
-      setStopReason(""); setStopNote(""); setStopOpen(false);
-      setMessage(action === "clear" ? "สิ้นสุดการหยุดแล้ว" : "บันทึกเหตุผลการหยุดแล้ว");
-      await load();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "บันทึกการหยุดไม่สำเร็จ");
-    } finally { setStopBusy(false); }
-  }
-
-
   if (loading)
     return (
       <main className="grid min-h-screen place-items-center bg-brand text-white">
@@ -433,7 +410,6 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       </main>
     );
 
-  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(["going_to_standby","standby","passenger_verified","trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) ? trip.booking.dropoff : trip.booking.pickup)}`;
   const completionEvent = trip.events.find(
     (event) => event.status === "completed",
   );
@@ -469,37 +445,16 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
               ["To", trip.booking.dropoff],
             ] as [string, React.ReactNode][]).map(([label, value]) => <div key={label} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{label}</dt><dd className="text-right font-semibold">{value}</dd></div>)}
           </dl>
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full border border-orange-200 font-bold text-brand-text"
-          >
-            <Navigation size={18} /> เปิด Google Maps <ExternalLink size={15} />
-          </a>
-          {["going_to_standby","standby","passenger_verified","trip_started", "passenger_picked_up"].includes(trip.assignment.currentStatus) && (
-            <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
-              {trip.activeStop ? (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div><p className="font-black">รายงานการหยุดแล้ว</p><p className="mt-1 text-sm text-slate-500">{({ rest_stop: "พักรถ", fuel: "เติมน้ำมัน", passenger_request: "ผู้โดยสารขอหยุด", traffic_police: "การจราจร / ตำรวจ", other: "อื่น ๆ" } as Record<string,string>)[trip.activeStop.reason] ?? trip.activeStop.reason}{trip.activeStop.note ? ` · ${trip.activeStop.note}` : ""}</p></div>
-                  <button type="button" disabled={stopBusy} onClick={() => updateStop("clear")} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black">เดินทางต่อ</button>
-                </div>
-              ) : (
-                <button type="button" onClick={() => setStopOpen(true)} className="text-sm font-bold text-slate-600 underline underline-offset-4">แจ้งหยุดรถ (พักรถ เติมน้ำมัน ฯลฯ)</button>
-              )}
-            </div>
-          )}
-          <Modal open={stopOpen} onClose={() => setStopOpen(false)} locked={stopBusy} sheet overlayClassName="bg-black/40" className="max-w-md rounded-t-[26px] p-5 sm:rounded-[26px]">
-            <ModalTitle className="text-xl font-black">หยุดรถนานกว่าปกติ?</ModalTitle>
-            <p className="mt-1 text-sm text-slate-500">แจ้งเหตุผลเพื่อให้ฝ่ายปฏิบัติการทราบว่าเป็นการหยุดที่ตั้งใจ</p>
-            <div className="mt-4 grid gap-2">
-              <select aria-label="เหตุผล" value={stopReason} onChange={(event) => setStopReason(event.target.value)} className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3 font-bold"><option value="">เลือกเหตุผล</option><option value="rest_stop">พักรถ</option><option value="fuel">เติมน้ำมัน</option><option value="passenger_request">ผู้โดยสารขอหยุด</option><option value="traffic_police">การจราจร / ตำรวจ</option><option value="other">อื่น ๆ</option></select>
-              <input aria-label="หมายเหตุ" value={stopNote} onChange={(event) => setStopNote(event.target.value)} maxLength={300} placeholder="หมายเหตุ (ถ้ามี)" className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3" />
-              {error && stopOpen && <p role="alert" className="text-sm font-semibold text-red-700">{error}</p>}
-              <button type="button" disabled={stopBusy || !stopReason || (stopReason === "other" && stopNote.trim().length < 3)} onClick={() => updateStop("declare")} className="h-12 rounded-full bg-plum px-5 font-black text-white disabled:opacity-40">แจ้งหยุด</button>
-              <button type="button" disabled={stopBusy} onClick={() => setStopOpen(false)} className="h-11 rounded-full font-bold text-slate-600">ยังไม่ใช่ตอนนี้</button>
-            </div>
-          </Modal>
+          {/* Directions in Google Maps to the pickup or the drop-off */}
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {([["Pick up", trip.booking.pickup], ["Drop", trip.booking.dropoff]] as const).map(([label, place]) => (
+              <a key={label} href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place)}`} target="_blank" rel="noreferrer"
+                aria-label={`${label}: ${place} (Google Maps)`}
+                className="flex h-16 items-center justify-center gap-2 rounded-2xl border border-orange-200 bg-orange-50 text-[17px] font-black text-brand-text active:bg-orange-100">
+                <MapPin size={22} aria-hidden="true" />{label}
+              </a>
+            ))}
+          </div>
         </section>
         {pending ? (
           <section className="rounded-[26px] border border-amber-200 bg-amber-50 p-6 text-amber-900" aria-live="polite">
@@ -518,33 +473,14 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             {error && <p role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
           </section>
         ) : next ? (
-          <form
-            onSubmit={submit}
-            className="rounded-[26px] bg-white p-5 shadow-sm"
-          >
-            <span className="inline-flex rounded-full bg-[#FFF0DE] px-3 py-1 text-xs font-black text-brand-text">
-              Next step
-            </span>
-            <h2 className="mt-3 text-2xl font-black">{next.thai}</h2>
-            <p className="mt-2 leading-6 text-slate-600">{next.help}</p>
+          // The next step is confirmed from the fixed button at the bottom.
+          <form onSubmit={submit} aria-label={next.thai}>
             {photoStep && cameraOpen && <StepCamera title={next.thai} type={next.status === "completed" ? "dropoff" : "pickup"} policy={trip.evidencePolicy}
               onCancel={() => setCameraOpen(false)} onSaved={(id) => { setCameraOpen(false); void sendStatus(id); }} />}
-            <label className="mt-4 block text-sm font-bold">
-              หมายเหตุ{" "}
-              <span className="font-normal text-slate-400">(ไม่บังคับ)</span>
-              <textarea
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                maxLength={500}
-                rows={3}
-                placeholder="รายละเอียดจุดรับหรือเหตุการณ์เพิ่มเติม"
-                className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-base outline-none focus:border-brand"
-              />
-            </label>
             {error && (
               <p
                 role="alert"
-                className="mt-4 flex gap-2 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700"
+                className="flex gap-2 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700"
               >
                 <CircleAlert className="shrink-0" size={19} />
                 {error}
