@@ -1,4 +1,5 @@
 "use client";
+import { driverHeaders } from "@/lib/driver-token";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { freshEvidenceGps, ictTime, type EvidencePolicy, type EvidenceType } from "@/lib/evidence-rules";
@@ -20,7 +21,7 @@ export function GpsCamera({assignmentId,reference,leg,type,policy,onSaved,onBusy
  useEffect(()=>{let active=true; void (async()=>{
   const draft=await readQueuedStep(storageKey); if(!active)return;
   if(draft&&Date.now()-Date.parse(draft.occurredAt)<6*3600000){setFile(draft.photo);setId(draft.id);setCaptured(draft.occurredAt);setGps(draft.latitude!==null?{latitude:draft.latitude,longitude:draft.longitude!,accuracy:draft.accuracy!}:null);} else if(draft){await clearQueuedStep(storageKey);}
-  const response=await fetch("/api/driver/trips/session/evidence",{cache:"no-store"});if(!response.ok)return;
+  const response=await fetch("/api/driver/trips/session/evidence",{cache:"no-store",headers:driverHeaders()});if(!response.ok)return;
   const result=await response.json();if(!active)return;
   const existing=(result.evidence as Saved[]).find(e=>e.event_type===type&&!e.status_event_id&&(!draft||e.id===draft.id));
   if(existing){setSaved(existing);onSaved(existing.id);}
@@ -74,7 +75,7 @@ export function GpsCamera({assignmentId,reference,leg,type,policy,onSaved,onBusy
   if(!file||!id||lock.current)return;lock.current=true;setBusy(true);onBusy(true);setError("");setProgress(0);
   try{
    const form=new FormData();form.set("id",id);form.set("eventType",type);form.set("deviceCapturedAt",captured);form.set("photo",file,"capture.jpg");if(gps){form.set("latitude",String(gps.latitude));form.set("longitude",String(gps.longitude));form.set("accuracy",String(gps.accuracy));}
-   const result=await new Promise<{evidence:Saved}>((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open("POST","/api/driver/trips/session/evidence");xhr.timeout=90000;xhr.upload.onprogress=e=>{if(e.lengthComputable)setProgress(Math.round(e.loaded/e.total*100));};xhr.onerror=()=>reject(new Error("Connection lost. Retry this photo."));xhr.ontimeout=()=>reject(new Error("Upload timed out. Retry this photo."));xhr.onload=()=>{try{const data=JSON.parse(xhr.responseText);if(xhr.status>=200&&xhr.status<300)resolve(data);else reject(new Error(data.error??"Upload failed."));}catch(e){reject(e);}};xhr.send(form);});
+   const result=await new Promise<{evidence:Saved}>((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open("POST","/api/driver/trips/session/evidence");for(const [k,v] of Object.entries(driverHeaders()))xhr.setRequestHeader(k,v);xhr.timeout=90000;xhr.upload.onprogress=e=>{if(e.lengthComputable)setProgress(Math.round(e.loaded/e.total*100));};xhr.onerror=()=>reject(new Error("Connection lost. Retry this photo."));xhr.ontimeout=()=>reject(new Error("Upload timed out. Retry this photo."));xhr.onload=()=>{try{const data=JSON.parse(xhr.responseText);if(xhr.status>=200&&xhr.status<300)resolve(data);else reject(new Error(data.error??"Upload failed."));}catch(e){reject(e);}};xhr.send(form);});
    setSaved(result.evidence);onSaved(result.evidence.id);await clearQueuedStep(storageKey);
   }catch(e){setError((e as Error).message);}finally{lock.current=false;setBusy(false);onBusy(false);}
  }
