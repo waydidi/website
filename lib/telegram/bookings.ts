@@ -8,7 +8,7 @@ import { editCard, sendCard, telegramConfigured } from "./client";
 
 // Booking events on Telegram: one card per booking, edited in place when someone takes it.
 
-type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
+type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<{ meta: { changes: number } }> };
 const db = () => env.DB as { prepare: (sql: string) => Stmt };
 const adminUrl = (ref: string) => `${SITE_URL}/admin/journeys/${encodeURIComponent(ref)}`;
 
@@ -45,6 +45,16 @@ export async function notifyBookingTelegram(reference: string) {
     await db().prepare("DELETE FROM telegram_booking_cards WHERE booking_reference=? AND telegram_message_id=0").bind(reference).run();
     throw error;
   }
+}
+
+/** Catch-up: a confirmed booking from the last two days whose card never reached the group gets one now. */
+export async function postMissingBookingCards(now = new Date()) {
+  if (!telegramConfigured()) return;
+  const since = new Date(now.getTime() - 2 * 86400_000).toISOString();
+  const today = new Date(now.getTime() + 7 * 3600_000).toISOString().slice(0, 10); // Thailand date
+  const { results } = await db().prepare(`SELECT b.reference FROM bookings b LEFT JOIN telegram_booking_cards c ON c.booking_reference=b.reference
+    WHERE c.booking_reference IS NULL AND b.status='confirmed' AND b.binned_at IS NULL AND b.created_at>=? AND b.pickup_date>=? ORDER BY b.created_at LIMIT 5`).bind(since, today).all<{ reference: string }>();
+  for (const { reference } of results) await notifyBookingTelegram(reference).catch((error) => console.error("telegram booking card failed", error instanceof Error ? error.message : "unknown"));
 }
 
 export async function acknowledgeBooking(reference: string, name: string) {

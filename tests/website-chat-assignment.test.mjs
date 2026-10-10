@@ -331,6 +331,26 @@ test('Telegram booking: Assign driver lists our own drivers (not outsource) and 
   assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Set cost','📍 Pickup map','📍 Drop-off map','Open booking']);
  }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
 });
+test('Telegram booking cards: a confirmed booking without a card (e.g. saved by staff without emailing) gets one',async()=>{
+ const bookingsTg=await vite.ssrLoadModule('/lib/telegram/bookings.ts');
+ for(const c of ['binned_at TEXT'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
+ Object.assign(globalThis.__chatTest.env,{TELEGRAM_BOT_TOKEN:'t',TELEGRAM_CHAT_ID:'-100'});
+ const sent=[];const real=globalThis.fetch;
+ globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://api.telegram.org')){const body=JSON.parse(init.body);sent.push({method:u.split('/').pop(),...body});return new Response(JSON.stringify({ok:true,result:{message_id:6100+sent.length,chat:{id:-100}}}));}return real(url,init);};
+ try{
+  const now=new Date('2026-10-10T17:05:00Z');
+  const add=(ref,date,created)=>db.prepare("INSERT INTO bookings(reference,customer_name,customer_surname,customer_email,customer_phone,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,amount_paid,flight_number,status,created_at) VALUES(?,'Non','Test','','','Testtt','Testttt',?,'03:00',2,2,'economy_sedan','cash',1400,0,'','confirmed',?)").bind(ref,date,created).run();
+  await add('66T23V','2026-10-11','2026-10-10T17:00:15.767Z'); // new, no card
+  await add('OLDP4S','2026-10-10','2026-10-10T12:00:00.000Z'); // pickup already passed (Thailand date is the 11th)
+  await add('OLDC8R','2026-10-20','2026-10-01T12:00:00.000Z'); // created long ago
+  await bookingsTg.postMissingBookingCards(now);
+  const cards=sent.filter((m)=>m.method==='sendMessage');
+  assert.equal(cards.length,1);assert.match(cards[0].text,/66T23V/);
+  assert.equal((await db.prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference='66T23V'").first()).telegram_message_id,6101);
+  await bookingsTg.postMissingBookingCards(now); // never twice
+  assert.equal(sent.filter((m)=>m.method==='sendMessage').length,1);
+ }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
+});
 test('Telegram cancellation and change requests: cards with buttons, booking updated, driver told in Thai',async()=>{
  for(const c of ['cancelled_at TEXT','updated_at TEXT','booking_version INTEGER NOT NULL DEFAULT 1'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
  await db.exec("CREATE TABLE IF NOT EXISTS booking_change_requests(id TEXT PRIMARY KEY,booking_reference TEXT,status TEXT DEFAULT 'pending',pickup TEXT,dropoff TEXT,pickup_date TEXT,pickup_time TEXT,vehicle_id TEXT,original_total INTEGER,revised_total INTEGER,price_difference INTEGER,reason TEXT,booking_version INTEGER,created_at TEXT,resolved_at TEXT);");
