@@ -4,7 +4,7 @@ import { ArrowRight, ImagePlus, LoaderCircle, Luggage, Users, X } from "lucide-r
 import { Modal, ModalTitle } from "@/components/ui/modal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/driver-picker";
 import { includesKohChangFerry } from "@/lib/booking-form";
 
@@ -94,6 +94,22 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
   // 3 rides at first; each "Show more" adds 2 (or the 1 that is left).
   const [shown, setShown] = useState(3);
   const left = rides.length - shown;
+  // Scrolling down to the "Show more" row loads the next rides, as if it were tapped. Only a scroll by
+  // the user triggers it (not the page opening with the row already in view); the button still works.
+  const more = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (left <= 0) return;
+    let last = 0;
+    const onScroll = () => {
+      const row = more.current;
+      if (!row || Date.now() - last < 400) return;
+      const { top } = row.getBoundingClientRect();
+      if (top < window.innerHeight - 24 && top > 0) { last = Date.now(); setShown((n) => Math.min(rides.length, n + 2)); }
+    };
+    // Captured, so it also hears scrolling inside the admin layout's own scroll area.
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener("scroll", onScroll, { capture: true });
+  }, [left, rides.length]);
   return <section aria-labelledby="upcoming-heading" className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
     <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
       <h2 id="upcoming-heading" className="text-[15px] font-black">Upcoming rides</h2>
@@ -102,7 +118,7 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
     {rides.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No upcoming rides.</p> : <ul className="divide-y divide-slate-100">
       {rides.slice(0, shown).map((r) => <li key={r.reference} className="px-4 py-3"><RideCard r={r} drivers={drivers} open={open === r.reference} onToggle={() => setOpen(open === r.reference ? null : r.reference)} onAddDriver={() => setAdding(r.reference)} /></li>)}
     </ul>}
-    {left > 0 && <div className="flex justify-center border-t border-slate-100 py-2.5">
+    {left > 0 && <div ref={more} className="flex justify-center border-t border-slate-100 py-2.5">
       <button type="button" onClick={() => setShown((n) => n + Math.min(2, left))} className="rounded-full px-4 py-1.5 text-[13.5px] font-bold text-brand-darker hover:bg-brand-wash">Show more ({left} more {left === 1 ? "ride" : "rides"})</button>
     </div>}
     {adding && <AddDriverDialog reference={adding} onClose={() => setAdding(null)} />}
