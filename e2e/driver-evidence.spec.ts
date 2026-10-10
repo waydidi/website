@@ -13,12 +13,14 @@ const fixture = (currentStatus: string) => ({
   noShow: { eligibleAt: null, airport: false, freeWaitMinutes: 30, maxDistanceMetres: 2000 },
 });
 
-async function setup(page: Page, currentStatus: string, { camera = true, location = true } = {}) {
+async function setup(page: Page, currentStatus: string, { camera = true, location = true, granted = true } = {}) {
   const sent: { status: string; evidenceId: string | null }[] = [];
   const uploads: string[] = [];
   const uploadGps: (string | null)[] = [];
   const pings: string[] = [];
-  await page.addInitScript(({ camera, location }) => {
+  await page.addInitScript(({ camera, location, granted }) => {
+    // Whether location and camera were allowed before ("prompt" shows the permission cards).
+    Object.defineProperty(navigator.permissions, "query", { value: async () => ({ state: granted ? "granted" : "prompt" }) });
     Object.defineProperty(navigator.mediaDevices, "getUserMedia", { value: async () => {
       if (!camera) throw new Error("NotAllowedError");
       const canvas = document.createElement("canvas"); canvas.width = 480; canvas.height = 640;
@@ -31,7 +33,7 @@ async function setup(page: Page, currentStatus: string, { camera = true, locatio
     Object.defineProperty(navigator.geolocation, "getCurrentPosition", { value: (ok: PositionCallback, fail: PositionErrorCallback) => setTimeout(() => location ? ok(fix) : fail(denied), 10) });
     Object.defineProperty(navigator.geolocation, "watchPosition", { value: (ok: PositionCallback, fail: PositionErrorCallback) => { setTimeout(() => location ? ok(fix) : fail(denied), 10); return 1; } });
     Object.defineProperty(navigator.geolocation, "clearWatch", { value: () => undefined });
-  }, { camera, location });
+  }, { camera, location, granted });
   await page.route("**/api/driver/trips/session", async (route) => {
     if (route.request().method() === "GET") return route.fulfill({ json: fixture(currentStatus) });
     const body = route.request().postData() ?? "";
@@ -75,12 +77,30 @@ test("Stand by: the button opens the camera; the photo is uploaded and sent with
   expect(pings).toHaveLength(0); // no live location sharing
 });
 
-test("the GPS camera needs location: without it the shutter stays off and the driver is told why", async ({ page }) => {
-  await setup(page, "going_to_standby", { location: false });
+test("before the camera: step 1 asks for location, step 2 for the camera, then the camera opens", async ({ page }) => {
+  await setup(page, "going_to_standby", { granted: false });
   await page.getByRole("button", { name: "ยืนยันว่าถึงจุดรับแล้ว" }).click({ timeout: 30000 });
-  const camera = page.getByRole("dialog", { name: "รอที่จุดรับ" });
-  await expect(camera.getByRole("alert")).toContainText("ต้องอนุญาตตำแหน่งเพื่อใช้กล้อง GPS ของ Waydidi");
-  await expect(camera.getByRole("button", { name: "ถ่ายรูป" })).toBeDisabled();
+  const sheet = page.getByRole("dialog", { name: "รอที่จุดรับ" });
+  await expect(sheet.getByText("ขั้นตอน 1 จาก 2")).toBeVisible();
+  await expect(sheet.getByRole("heading", { name: "อนุญาตให้ Waydidi ใช้ตำแหน่งของคุณ" })).toBeVisible();
+  await expect(sheet.locator("video")).toHaveCount(0);
+  await sheet.getByRole("button", { name: "อนุญาตตำแหน่ง" }).click();
+  await expect(sheet.getByText("ขั้นตอน 2 จาก 2")).toBeVisible();
+  await expect(sheet.getByRole("heading", { name: "อนุญาตให้ Waydidi ใช้กล้อง" })).toBeVisible();
+  await sheet.getByRole("button", { name: "อนุญาตกล้อง" }).click();
+  await expect(sheet.locator("video")).toBeVisible();
+  await expect(sheet.getByText(/Waydidi GPS · 13\.75000, 100\.50000/)).toBeVisible();
+});
+
+test("location refused: the card explains how to turn it on and the camera stays closed", async ({ page }) => {
+  await setup(page, "going_to_standby", { granted: false, location: false });
+  await page.getByRole("button", { name: "ยืนยันว่าถึงจุดรับแล้ว" }).click({ timeout: 30000 });
+  const sheet = page.getByRole("dialog", { name: "รอที่จุดรับ" });
+  await sheet.getByRole("button", { name: "อนุญาตตำแหน่ง" }).click();
+  await expect(sheet.getByRole("alert")).toContainText("เปิดสิทธิ์ตำแหน่งให้ waydidi.com");
+  await expect(sheet.getByRole("button", { name: "ลองอีกครั้ง" })).toBeVisible();
+  await expect(sheet.getByText("ขั้นตอน 2 จาก 2")).toHaveCount(0);
+  await expect(sheet.locator("video")).toHaveCount(0);
 });
 
 test("Pick up and Drop also use the camera; without a live camera the phone's camera app is used", async ({ page }) => {
