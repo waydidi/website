@@ -87,8 +87,7 @@ export function TripView({ reference, lang }: { reference: string; lang: SiteLan
       if(["token","key","share","ride"].some(key=>params.has(key))) {
         exchanged.current??=fetch("/api/trip/access",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reference,query})});
         if(!(await exchanged.current).ok) {setFailure("expired");return;}
-        const clean=new URL(window.location.href);for(const key of ["token","key","share","ride"]) clean.searchParams.delete(key);
-        window.history.replaceState(null,"",clean.pathname+clean.search);
+        // The address keeps the link's code, so "Open in browser" (Telegram, LINE) or a refresh still opens the trip.
       }
       const response = await fetch(`/api/trip/${encodeURIComponent(reference)}${new URLSearchParams(query).get("leg") ? `?leg=${new URLSearchParams(query).get("leg")}` : ""}`, { cache: "no-store" });
       if (response.status === 404) { setFailure("not_found"); return; }
