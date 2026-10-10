@@ -18,9 +18,13 @@ export {
 } from "@/lib/trip-rules";
 export type { DriverStatus } from "@/lib/trip-rules";
 
+/** Which link token a "session" request means: this tab's header first, then the browser-wide cookie. */
+export const sessionDriverToken = (header: string | null | undefined, cookie: string | null | undefined) => header || cookie || "";
+
 export async function activeAssignmentForToken(token: string) {
-  // The session cookie, or (when a phone did not send it back) the link token in the X-Driver-Token header.
-  if(token==="session") token=(await cookies()).get("waydidi_driver")?.value||(await headers()).get("x-driver-token")||"";
+  // The link token this tab opened (X-Driver-Token header) first, then the session cookie. The cookie is
+  // shared by the whole browser and may still hold an older trip's link (some phones don't replace it).
+  if(token==="session") token=sessionDriverToken((await headers()).get("x-driver-token"),(await cookies()).get("waydidi_driver")?.value);
   if (!/^[a-f0-9]{48}$/u.test(token)) return null;
   const [assignment] = await getDb()
     .select()

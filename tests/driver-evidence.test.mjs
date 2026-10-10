@@ -135,3 +135,10 @@ test('retention deletes fallback files after a later R2 binding is enabled',asyn
  const deleted=[];state.env.BUCKET={delete:async k=>deleted.push(k),get:async()=>null};
  try {await actualStore.deleteFile(key);assert.deepEqual(deleted,[key]);assert.equal(await actualStore.getFile(key),null);}finally{delete state.env.BUCKET;}
 });
+
+test('the link this tab opened (header) wins over an older trip still in the session cookie',async()=>{
+ const {sessionDriverToken}=await vite.ssrLoadModule('/lib/driver-operations.ts');
+ assert.equal(sessionDriverToken('new-tab-token','old-cookie-token'),'new-tab-token');
+ assert.equal(sessionDriverToken(null,'old-cookie-token'),'old-cookie-token'); // no header (storage blocked): cookie
+ assert.equal(sessionDriverToken('',undefined),'');
+});
