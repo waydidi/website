@@ -79,6 +79,8 @@ export async function handleBookingAnswer(m: TelegramMessage, adminName: string,
       ON CONFLICT(booking_reference) DO UPDATE SET agreed_driver_cost=excluded.agreed_driver_cost,total_driver_cost=excluded.agreed_driver_cost+booking_costs.additional_costs,updated_by=excluded.updated_by,updated_at=excluded.updated_at`)
       .bind(ref, cost, cost, `telegram:${adminName}`, now(), now()).run();
     await db().prepare("UPDATE telegram_booking_cards SET cost_done=1 WHERE booking_reference=?").bind(ref).run();
+    // The driver's trip page shows this as the Price.
+    await sendCard(`Price THB ${cost.toLocaleString("en-US")} saved for <b>${esc(ref)}</b> ✓ (shown on the driver page)`, undefined, m.message_id).catch(() => undefined);
   } else {
     const row = await db().prepare("SELECT driver_form_json FROM telegram_booking_cards WHERE booking_reference=?").bind(ref).first<{ driver_form_json: string | null }>();
     const form: DriverForm = row?.driver_form_json ? JSON.parse(row.driver_form_json) : {};

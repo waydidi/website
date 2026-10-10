@@ -1,5 +1,7 @@
 "use client";
 import { directionsTo } from "@/lib/maps-link";
+import { includesKohChangFerry } from "@/lib/booking-form";
+import { paymentPill } from "@/lib/payment-pill";
 import { DriverWelcome } from "@/components/driver/welcome-scene";
 import { driverHeaders, rememberDriverToken } from "@/lib/driver-token";
 import { StepCamera } from "@/components/drivers/step-camera";
@@ -59,6 +61,9 @@ type Trip = {
     flightNumber: string | null;
     pickupMapUrl?: string | null;
     dropoffMapUrl?: string | null;
+    /** Set by staff in Telegram ("Set cost"); null until then. */
+    price?: number | null;
+    paymentStatus?: string | null;
     pickupLatitude: number | null;
     pickupLongitude: number | null;
     status: string;
@@ -124,6 +129,20 @@ const STEPPER: { label: string; reachedBy: string[] }[] = [
   { label: "Pick up", reachedBy: ["trip_started", "passenger_picked_up"] },
   { label: "Drop", reachedBy: ["completed"] },
 ];
+/** The Price row, as on the admin ride card: a "!" on the left opens what the price includes. */
+function PriceRow({ booking }: { booking: Trip["booking"] }) {
+  const [open, setOpen] = useState(false);
+  const items = ["Private vehicle with driver", "Fuel and driver costs", ...(includesKohChangFerry(booking.pickup, booking.dropoff) ? [`Koh Chang car ferry tickets for all ${booking.passengers} ${booking.passengers === 1 ? "passenger" : "passengers"}`] : [])];
+  return <div className="relative flex justify-between gap-3">
+    <dt className="shrink-0 text-slate-500">Price</dt>
+    <dd className="flex items-center justify-end gap-1.5 text-right font-semibold"><button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="What's included" className="grid size-[19px] place-items-center rounded-full bg-brand text-[12px] font-black leading-none text-white">!</button>{booking.price != null ? `THB ${booking.price.toLocaleString("en-US")}` : "Not set"}</dd>
+    {open && <div role="dialog" aria-label="What's included" className="absolute right-0 top-[calc(100%+6px)] z-20 w-[260px] rounded-xl border border-slate-200 bg-white p-3 text-[14px] shadow-lg">
+      <p className="mb-1.5 font-bold">What&apos;s included</p>
+      <ul className="grid gap-1">{items.map((i) => <li key={i} className={`flex gap-1.5 ${i.startsWith("Koh Chang") ? "font-semibold text-[#2F7A6B]" : "text-slate-700"}`}><span aria-hidden>✓</span>{i}</li>)}</ul>
+    </div>}
+  </div>;
+}
+
 function TripStepper({ status }: { status: string }) {
   const reached = STEPPER.reduce((count, step, index) => (STEPPER.slice(index).some((later) => later.reachedBy.includes(status)) ? index + 1 : count), 0);
   return <ol className="grid grid-cols-3" aria-label="Trip steps">
@@ -445,7 +464,9 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
               ["Date & time", tripDateTime(trip.booking.pickupDate, trip.booking.pickupTime)],
               ["From", trip.booking.pickup],
               ["To", trip.booking.dropoff],
-            ] as [string, React.ReactNode][]).map(([label, value]) => <div key={label} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{label}</dt><dd className="text-right font-semibold">{value}</dd></div>)}
+              ["Price", null],
+              ["Payment", <span key="pay" className={`rounded-full px-2.5 py-0.5 text-[13px] font-bold ${paymentPill(trip.booking.paymentStatus)[1]}`}>{paymentPill(trip.booking.paymentStatus)[0]}</span>],
+            ] as [string, React.ReactNode][]).map(([label, value]) => label === "Price" ? <PriceRow key={label} booking={trip.booking} /> : <div key={label} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{label}</dt><dd className="text-right font-semibold">{value}</dd></div>)}
           </dl>
         </section>
         {/* Pick up / Drop: the Google Maps link an admin set in Telegram, or directions to the address */}
