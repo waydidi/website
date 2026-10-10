@@ -282,6 +282,7 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
   await tap('bk_cost:MC7Q2P');assert.equal(lastPrompt(),undefined); // must be assigned first
   await tap('booking_assign:MC7Q2P');
   const kb=sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text);assert.deepEqual(kb,['Set cost','Assign driver','Add outsource driver','Open booking']);
+  assert.doesNotMatch(sent.filter((m)=>m.method==='editMessageText').at(-1).text,/Driver link/); // no driver link before a driver is assigned
   await tap('bk_cost:MC7Q2P');assert.match(lastPrompt().text,/Driver cost/);
   await say('abc');assert.match(sent.filter((m)=>m.method==='sendMessage').at(-2).text,/number/); // asked again
   await say('900');
@@ -297,6 +298,8 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
   assert.match(job,/\/driver\/trip\/[a-f0-9]{48}/);
   assert.equal((await db.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='MC7Q2P' AND revoked_at IS NULL").first()).n,1);
   assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Open booking']);
+  // Once assigned, the card shows the same working driver link as the job post.
+  assert.equal(sent.filter((m)=>m.method==='editMessageText').at(-1).text.match(/Driver link: (\S+)/)?.[1],job.match(/(https?:\/\/\S+\/driver\/trip\/[a-f0-9]{48})/)?.[1]);
  }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
 });
 test('Telegram booking: Assign driver lists our own drivers (not outsource) and assigns the one tapped',async()=>{
