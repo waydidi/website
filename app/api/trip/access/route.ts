@@ -15,5 +15,5 @@ export async function POST(request:Request) {
  const token=secureToken();
  await env.DB.prepare("DELETE FROM trip_access_sessions WHERE expires_at<=?").bind(new Date().toISOString()).run();
  await env.DB.prepare("INSERT INTO trip_access_sessions(token_hash,booking_reference,access,issued_at,expires_at) VALUES(?,?,?,?,?)").bind(await sha256(token),reference,resolved.access,issued,expires).run();
- return NextResponse.json({ok:true},{headers:{"Cache-Control":"no-store","Set-Cookie":`waydidi_trip_${reference}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${Math.max(0,Math.floor((Date.parse(expires)-Date.now())/1000))}`}});
+ return NextResponse.json({ok:true},{headers:{"Cache-Control":"no-store","Set-Cookie":`waydidi_trip_${reference}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${Math.max(0,Math.floor((Date.parse(expires)-Date.now())/1000))}`}});
 }

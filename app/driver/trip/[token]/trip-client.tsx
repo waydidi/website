@@ -1,4 +1,5 @@
 "use client";
+import { driverHeaders, rememberDriverToken } from "@/lib/driver-token";
 import { GpsCamera } from "@/components/drivers/gps-camera";
 import type { EvidencePolicy } from "@/lib/evidence-rules";
 import Link from "next/link";
@@ -155,12 +156,14 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       if(initialToken!=="session") {
         exchange.current??=fetch("/api/driver/session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:initialToken})});
         const session=await exchange.current;
-        if(!session.ok) throw new Error("Driver link expired or revoked.");
+        // Let "Try again" make a fresh attempt.
+        if(!session.ok) { exchange.current=null; throw new Error("Driver link expired or revoked."); }
+        rememberDriverToken(initialToken);
         window.history.replaceState(null,"","/driver/trip/session");
       }
       const response = await fetch(
         `/api/driver/trips/${encodeURIComponent(token)}`,
-        { cache: "no-store" },
+        { cache: "no-store", headers: driverHeaders() },
       );
       const result = (await response.json()) as Trip & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Trip unavailable.");
@@ -200,7 +203,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
     if (sending.current || !navigator.onLine) return "queued";
     sending.current = true;
     try {
-      const response = await fetch(`/api/driver/trips/${encodeURIComponent(token)}`, { method: "POST", body: queuedStepForm(step) });
+      const response = await fetch(`/api/driver/trips/${encodeURIComponent(token)}`, { method: "POST", headers: driverHeaders(), body: queuedStepForm(step) });
       const result = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok && (response.status >= 500 || response.status === 429)) return "queued";
       await clearQueuedStep(step.assignmentId);
@@ -253,7 +256,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       for (let index = 0; index < queued.length; index += 1) {
         const ping = queued[index];
         try {
-          const response = await fetch("/api/driver/location", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, ...ping }) });
+          const response = await fetch("/api/driver/location", { method: "POST", headers: driverHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ token, ...ping }) });
           if (response.ok) setLastTrackedAt(new Date().toISOString());
           else if (response.status >= 500 || response.status === 429) { remaining.push(...queued.slice(index)); break; }
         } catch { remaining.push(...queued.slice(index)); break; }
@@ -409,7 +412,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
     if (stopBusy) return;
     setStopBusy(true); setError(""); setMessage("");
     try {
-      const response = await fetch("/api/driver/stop", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, action, reason: stopReason, note: stopNote }) });
+      const response = await fetch("/api/driver/stop", { method: "POST", headers: driverHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ token, action, reason: stopReason, note: stopNote }) });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "บันทึกการหยุดไม่สำเร็จ");
       setStopReason(""); setStopNote("");
