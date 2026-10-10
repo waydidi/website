@@ -16,7 +16,6 @@ import {
   LocateFixed,
   Luggage,
   Navigation,
-  Phone,
   RefreshCw,
   Users,
   UserX,
@@ -527,13 +526,6 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             <h2 className="text-xl font-black">
               {trip.booking.customerName}
             </h2>
-            <a
-              href={`tel:${trip.booking.customerPhone}`}
-              className="grid size-12 shrink-0 place-items-center rounded-full bg-plum text-white"
-              aria-label="Call passenger"
-            >
-              <Phone size={20} />
-            </a>
           </div>
           {/* Trip details laid out like the admin booking card. */}
           <dl className="mt-5 grid gap-2 rounded-2xl bg-slate-50 p-4 text-[13.5px]">
