@@ -17,7 +17,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n-provider";
 import { WaydidiLogo } from "@/components/waydidi-logo";
-import { formatDate, intlLocale, locales, type Locale, type MessageKey } from "@/lib/i18n";
+import { formatDate, intlLocale, type MessageKey } from "@/lib/i18n";
+import { SITE_LANGS, type SiteLang } from "@/lib/site-languages";
 import { LocalePicker } from "@/components/locale-picker";
 import { ShareTripButton } from "@/components/trip/share-sheet";
 
@@ -68,7 +69,7 @@ function authQuery() {
   return query.toString();
 }
 
-export function TripView({ reference }: { reference: string }) {
+export function TripView({ reference, lang }: { reference: string; lang: SiteLang }) {
   const { t, locale } = useI18n();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [failure, setFailure] = useState<"not_found" | "expired" | "error" | null>(null);
@@ -116,7 +117,8 @@ export function TripView({ reference }: { reference: string }) {
     return () => { window.removeEventListener("online", update); window.removeEventListener("offline", update); };
   }, []);
 
-  const time = (value: string) => new Date(value).toLocaleTimeString(intlLocale(locale), { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
+  const timeLocale = locale === "en" && lang !== "en" ? SITE_LANGS.find((l) => l.code === lang)!.htmlLang : intlLocale(locale);
+  const time = (value: string) => new Date(value).toLocaleTimeString(timeLocale, { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
 
   if (!trip && failure) {
     return (
@@ -147,19 +149,19 @@ export function TripView({ reference }: { reference: string }) {
   const live = ["on_the_way","waiting","on_trip"].includes(trip.stage);
   return (
     <main className="font-home min-h-screen bg-surface pb-16 text-ink">
-      {trip.legs.length > 1 && <nav className="mx-auto flex max-w-3xl gap-3 p-4" aria-label="Journey direction">{trip.legs.map(j => { const params = new URLSearchParams(); params.set("leg",j.leg); return <a key={j.leg} href={`?${params}`} className={`rounded-full px-4 py-2 font-bold ${trip.leg === j.leg ? "bg-orange-500 text-white" : "bg-slate-100"}`}>{j.leg === "outbound" ? "Outbound" : "Return"} · {j.pickupDate}</a>; })}</nav>}
+      {trip.legs.length > 1 && <nav className="mx-auto flex max-w-3xl gap-3 p-4" aria-label={t("trip.legs")}>{trip.legs.map(j => { const params = new URLSearchParams(); params.set("leg",j.leg); return <a key={j.leg} href={`?${params}`} className={`rounded-full px-4 py-2 font-bold ${trip.leg === j.leg ? "bg-orange-500 text-white" : "bg-slate-100"}`}>{j.leg === "outbound" ? t("trip.leg.outbound") : t("trip.leg.return")} · {j.pickupDate}</a>; })}</nav>}
       <header className="bg-brand px-4 pb-10 pt-4 text-white">
         <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
           <Link href="/" aria-label={t("nav.home")} className="inline-flex text-white"><WaydidiLogo className="h-[48px] w-auto" /></Link>
           <div className="flex items-center gap-1">
             {trip.canShare && <ShareTripButton reference={trip.reference} query={query ?? ""} />}
-            <LanguageLinks locale={locale} />
+            <LanguageLinks lang={lang} />
           </div>
         </div>
         <div className="mx-auto mt-7 max-w-xl">
           <p className="text-xs font-black uppercase tracking-[.16em] text-white/85">{shared ? t("trip.sharedTitle") : t("trip.title")} · {t("trip.reference", { reference: trip.reference })}</p>
-          {trip.driver && shownStage(trip.stage) !== "confirmed" && <p className="mt-3">Your driver: <strong>{trip.driver.name}</strong> · <a className="underline" href={`tel:${trip.driver.phone}`}>{trip.driver.phone}</a></p>}
-          {live && <p className="mt-2 text-sm" role="status">{!online ? "Offline — position and ETA may be outdated." : trip.freshness ? `${stale ? "Location stale" : "Location updated"} · ${time(trip.freshness.at)} (Thailand time)` : "Waiting for the driver's location."}</p>}
+          {trip.driver && shownStage(trip.stage) !== "confirmed" && <p className="mt-3">{(() => { const [before, after = ""] = t("trip.driver", { name: "\u0000" }).split("\u0000"); return <>{before}<strong translate="no">{trip.driver.name}</strong>{after}</>; })()} · <a className="underline" href={`tel:${trip.driver.phone}`}>{trip.driver.phone}</a></p>}
+          {live && <p className="mt-2 text-sm" role="status">{!online ? t("trip.live.offline") : trip.freshness ? t(stale ? "trip.live.stale" : "trip.live.updated", { time: time(trip.freshness.at) }) : t("trip.live.waiting")}</p>}
           <h1 className="mt-2 text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px]">{t(`trip.headline.${shownStage(trip.stage)}` as MessageKey)}</h1>
           {live && (
             <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-sm font-black" aria-live="polite">
@@ -191,12 +193,12 @@ export function TripView({ reference }: { reference: string }) {
           <p className="text-sm font-bold text-slate-500">{t("trip.route.when", { date: formatDate(trip.pickupDate), time: trip.pickupTime })}</p>
           <div className="mt-4 flex gap-3">
             <MapPin className="mt-0.5 shrink-0 text-brand" size={19} aria-hidden="true" />
-            <div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{t("trip.route.pickup")}</p><p className="mt-1 font-bold leading-5">{trip.pickup}</p></div>
+            <div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{t("trip.route.pickup")}</p><p translate="no" className="mt-1 font-bold leading-5">{trip.pickup}</p></div>
           </div>
           <div className="my-3 ml-[9px] h-5 border-l-2 border-dotted border-slate-300" aria-hidden="true" />
           <div className="flex gap-3">
             <Route className="mt-0.5 shrink-0 text-brand" size={19} aria-hidden="true" />
-            <div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{t("trip.route.dropoff")}</p><p className="mt-1 font-bold leading-5">{trip.dropoff}</p></div>
+            <div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{t("trip.route.dropoff")}</p><p translate="no" className="mt-1 font-bold leading-5">{trip.dropoff}</p></div>
           </div>
           {trip.flightNumber && <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-sm font-bold"><Plane size={15} aria-hidden="true" /> {t("trip.route.flight", { flight: trip.flightNumber })}</p>}
         </section>
@@ -210,16 +212,16 @@ export function TripView({ reference }: { reference: string }) {
   );
 }
 
-function LanguageLinks({ locale }: { locale: Locale }) {
-  // The homepage's language button (flag, no currency) and bottom sheet, limited to the trip
-  // page's own languages. Keeps the trip's access key in the address when switching language.
+function LanguageLinks({ lang }: { lang: SiteLang }) {
+  // The homepage's language button (flag, no currency) and bottom sheet, with every site language.
+  // Keeps the trip's access key in the address when switching language. English is set explicitly,
+  // since without ?lang= the page follows the visitor's browser language.
   function open(item: string) {
     const params = new URLSearchParams(window.location.search);
-    if (item === "en") params.delete("lang"); else params.set("lang", item);
-    const search = params.toString();
-    window.location.assign(`${window.location.pathname}${search ? `?${search}` : ""}`);
+    params.set("lang", item);
+    window.location.assign(`${window.location.pathname}?${params}`);
   }
-  return <LocalePicker languagesOnly languages={[...locales]} current={locale} onChoose={open} className="text-white" />;
+  return <LocalePicker languagesOnly current={lang} onChoose={open} className="text-white" />;
 }
 
 /** The trip stage as the customer sees it: a driver being assigned still reads as "confirmed". */
@@ -288,7 +290,7 @@ function MeetCard({ trip, query }: { trip: Trip; query: string }) {
         {trip.meetingPoint && (
           <div className="mt-3 rounded-2xl bg-surface p-4">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{t("trip.meet.point")}</p>
-            <p className="mt-1 font-bold leading-6">{trip.meetingPoint}</p>
+            <p translate="no" className="mt-1 font-bold leading-6">{trip.meetingPoint}</p>
           </div>
         )}
       </div>

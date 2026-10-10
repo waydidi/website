@@ -1282,5 +1282,37 @@
   "pwa.onlineRequired": {
     "text": "ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อจอง ชำระเงิน ดูแผนที่ และติดตามการเดินทาง",
     "status": "machine"
+  },
+  "trip.driver": {
+    "text": "คนขับของคุณ: {name}",
+    "status": "machine"
+  },
+  "trip.live.offline": {
+    "text": "ออฟไลน์อยู่ ตำแหน่งและเวลาถึงอาจไม่เป็นปัจจุบัน",
+    "status": "machine"
+  },
+  "trip.live.updated": {
+    "text": "อัปเดตตำแหน่ง · {time} (เวลาประเทศไทย)",
+    "status": "machine"
+  },
+  "trip.live.stale": {
+    "text": "ตำแหน่งไม่ได้อัปเดตตั้งแต่ {time} (เวลาประเทศไทย)",
+    "status": "machine"
+  },
+  "trip.live.waiting": {
+    "text": "กำลังรอตำแหน่งของคนขับ",
+    "status": "machine"
+  },
+  "trip.leg.outbound": {
+    "text": "ขาไป",
+    "status": "machine"
+  },
+  "trip.leg.return": {
+    "text": "ขากลับ",
+    "status": "machine"
+  },
+  "trip.legs": {
+    "text": "เที่ยวการเดินทาง",
+    "status": "machine"
   }
 }

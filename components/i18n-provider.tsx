@@ -18,16 +18,19 @@ const I18nContext = createContext<{ locale: Locale; messages: Messages }>({
 export function I18nProvider({
   locale,
   messages,
+  htmlLang,
   children,
 }: {
   locale: Locale;
   messages: Messages;
+  /** The page's language when it's shown in a language other than `locale` (AI-translated wording). */
+  htmlLang?: string;
   children: ReactNode;
 }) {
   useEffect(() => {
     // The root layout is shared by every language, so the page corrects it.
-    document.documentElement.lang = localeInfo[locale].htmlLang;
-  }, [locale]);
+    document.documentElement.lang = htmlLang ?? localeInfo[locale].htmlLang;
+  }, [locale, htmlLang]);
   return <I18nContext.Provider value={{ locale, messages }}>{children}</I18nContext.Provider>;
 }
 
