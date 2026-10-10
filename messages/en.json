@@ -150,7 +150,7 @@
   "trip.updated": "Updated {time}",
   "trip.stage.confirmed": "Booking confirmed",
   "trip.stage.assigned": "Driver assigned",
-  "trip.stage.on_the_way": "On the way",
+  "trip.stage.on_the_way": "Driver is on the way",
   "trip.stage.waiting": "Waiting at pickup",
   "trip.stage.on_trip": "On trip",
   "trip.stage.arrived": "Arrived",

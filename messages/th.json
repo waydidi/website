@@ -604,7 +604,7 @@
     "status": "machine"
   },
   "trip.stage.on_the_way": {
-    "text": "กำลังไปรับ",
+    "text": "คนขับกำลังไปรับ",
     "status": "machine"
   },
   "trip.stage.waiting": {
