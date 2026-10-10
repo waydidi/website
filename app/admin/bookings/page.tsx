@@ -92,6 +92,8 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   // Customer trip status page links for bookings that have a driver.
   const origin = (() => { const h = requestHeaders.get("host"); return h ? `${h.startsWith("localhost") ? "http" : "https"}://${h}` : ""; })();
   const tripLinks = new Map(await Promise.all(rows.filter((r) => assigned.has(r.reference)).map(async (r) => [r.reference, await rideUrl(origin, r)] as const)));
+  // The phone cards show every confirmed booking's customer status link (in the card details).
+  const cardRideLinks = new Map(await Promise.all(rows.filter((r) => r.status === "confirmed").map(async (r) => [r.reference, await rideUrl(origin, r).catch(() => null)] as const)));
   const confirmed = activeRows.filter((row) => row.status === "confirmed").length;
   const pending = activeRows.filter((row) => row.status === "pending_payment").length;
   const emailIssues = activeRows.filter(
@@ -197,6 +199,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               name: fullName(row.customerName, row.customerSurname), vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage,
               total: row.total, paymentStatus: row.paymentStatus, status: row.status,
               driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: shown.assignment?.status ?? null,
+              rideUrl: cardRideLinks.get(row.reference) ?? null,
             }; })} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
           </section>;
         })}</div>}
