@@ -41,7 +41,16 @@ function LanguageIcon({ language, size = 40 }: { language: Language; size?: numb
   return <img src={`/flags/${language.flag}.svg`} alt="" width={size} height={size} style={{ width: size, height: size }} className="shrink-0 rounded-full object-cover ring-1 ring-black/10" />;
 }
 
-export function LocalePicker({ className = "" }: { className?: string }) {
+export function LocalePicker({ className = "", languagesOnly = false, languages, current, onChoose }: {
+  className?: string;
+  /** Language only: no currency on the button and no Currency tab (e.g. trip and driver links). */
+  languagesOnly?: boolean;
+  /** Limit the list (pages with their own hand-written translations). */
+  languages?: SiteLang[];
+  /** The page's own language and how to switch it, instead of the site-wide language cookie. */
+  current?: SiteLang;
+  onChoose?: (code: SiteLang) => void;
+}) {
   const [open, setOpen] = useState(false);
   // Opened by tap/click (not keyboard): don't hand focus back to the button
   // on close, which would draw its focus ring on touch screens.
@@ -59,8 +68,11 @@ export function LocalePicker({ className = "" }: { className?: string }) {
     setChosen(locale !== "en" ? locale : siteLang());
   }, [locale]);
 
-  const language = LANGUAGES.find((l) => l.code === chosen) ?? LANGUAGES[0];
+  const list = languages ? LANGUAGES.filter((l) => languages.includes(l.code)) : LANGUAGES;
+  const active = current ?? chosen;
+  const language = LANGUAGES.find((l) => l.code === active) ?? LANGUAGES[0];
   function chooseLanguage(code: SiteLang) {
+    if (onChoose) { setOpen(false); if (code !== active) onChoose(code); return; }
     remember(LOCALE_COOKIE, code);
     setOpen(false);
     if (code === chosen) return;
@@ -80,10 +92,10 @@ export function LocalePicker({ className = "" }: { className?: string }) {
 
   return <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
     <DialogPrimitive.Trigger asChild>
-      <button type="button" onPointerDown={() => { openedByPointer.current = true; }} onKeyDown={() => { openedByPointer.current = false; }} aria-label={t("locale.button", { language: language.label, currency })} className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1 pl-0.5 pr-1 text-[13.5px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${className}`}>
+      <button type="button" onPointerDown={() => { openedByPointer.current = true; }} onKeyDown={() => { openedByPointer.current = false; }} aria-label={languagesOnly ? `${t("locale.languages")}: ${language.label}` : t("locale.button", { language: language.label, currency })} className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1 pl-0.5 pr-1 text-[13.5px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${className}`}>
         <LanguageIcon language={language} size={22.5} />
-        <span className="hidden h-[18px] w-px bg-current opacity-40 min-[300px]:block" aria-hidden />
-        <span className="hidden min-[300px]:inline">{currency}</span>
+        {!languagesOnly && <><span className="hidden h-[18px] w-px bg-current opacity-40 min-[300px]:block" aria-hidden />
+        <span className="hidden min-[300px]:inline">{currency}</span></>}
       </button>
     </DialogPrimitive.Trigger>
     <DialogPrimitive.Portal>
@@ -97,16 +109,16 @@ export function LocalePicker({ className = "" }: { className?: string }) {
         <div className="flex items-end justify-between border-b border-[#EEF1F6] px-6 pt-6 sm:px-8">
           <div className="flex gap-8" role="tablist">
             <button role="tab" aria-selected={tab === "languages"} onClick={() => setTab("languages")} className={tabClass(tab === "languages")}>{t("locale.languages")}</button>
-            <button role="tab" aria-selected={tab === "currency"} onClick={() => setTab("currency")} className={tabClass(tab === "currency")}>{t("locale.currency")}</button>
+            {!languagesOnly && <button role="tab" aria-selected={tab === "currency"} onClick={() => setTab("currency")} className={tabClass(tab === "currency")}>{t("locale.currency")}</button>}
           </div>
           <DialogPrimitive.Close className="mb-3 grid size-9 place-items-center rounded-full text-navy hover:bg-slate-100" aria-label={t("locale.close")}><X size={24} strokeWidth={2} /></DialogPrimitive.Close>
         </div>
         <DialogPrimitive.Title className="sr-only">{tab === "languages" ? t("locale.languages") : t("locale.currency")}</DialogPrimitive.Title>
         <DialogPrimitive.Description className="sr-only">{t("locale.remembered")}</DialogPrimitive.Description>
         <div className="flex-1 overflow-y-auto px-6 pb-8 pt-5 sm:px-8">
-          {tab === "languages" ? <>
+          {tab === "languages" || languagesOnly ? <>
             <h3 className="mb-2 text-base font-bold">{t("locale.allLanguages")}</h3>
-            <ul className="grid">{LANGUAGES.map((l) => <li key={l.code}><button lang={l.htmlLang} onClick={() => chooseLanguage(l.code)} aria-current={l.code === chosen || undefined} className={`${row(l.code === chosen)} min-h-14`}><LanguageIcon language={l} size={32} />{l.label}</button></li>)}</ul>
+            <ul className="grid">{list.map((l) => <li key={l.code}><button lang={l.htmlLang} onClick={() => chooseLanguage(l.code)} aria-current={l.code === active || undefined} className={`${row(l.code === active)} min-h-14`}><LanguageIcon language={l} size={32} />{l.label}</button></li>)}</ul>
           </> : <>
             <h3 className="mb-2 text-base font-bold">{t("locale.topCurrencies")}</h3>
             <ul className="grid">{CURRENCIES.filter(([c]) => TOP_CURRENCIES.includes(c)).map(([code, name]) => <li key={code}><button onClick={() => chooseCurrency(code)} aria-current={code === currency || undefined} className={`${row(code === currency)} min-h-12`}><span><strong className="font-bold">{code}</strong> - {name}</span></button></li>)}</ul>

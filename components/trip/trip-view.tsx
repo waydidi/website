@@ -3,7 +3,6 @@
 import {
   Check,
   CircleAlert,
-  Copy,
   ExternalLink,
   LoaderCircle,
   MapPin,
@@ -11,7 +10,6 @@ import {
   Plane,
   RefreshCw,
   Route,
-  Share2,
   Signpost,
   WifiOff,
 } from "lucide-react";
@@ -19,7 +17,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n-provider";
 import { WaydidiLogo } from "@/components/waydidi-logo";
-import { formatDate, intlLocale, localeInfo, locales, type Locale, type MessageKey } from "@/lib/i18n";
+import { formatDate, intlLocale, locales, type Locale, type MessageKey } from "@/lib/i18n";
+import { LocalePicker } from "@/components/locale-picker";
+import { ShareTripButton } from "@/components/trip/share-sheet";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Google Maps JS has no bundled types here
@@ -146,18 +146,21 @@ export function TripView({ reference }: { reference: string }) {
   // Live location and arrival time are only shared after pickup.
   const live = ["on_the_way","waiting","on_trip"].includes(trip.stage);
   return (
-    <main className="min-h-screen bg-surface pb-16 text-ink">
+    <main className="font-home min-h-screen bg-surface pb-16 text-ink">
       {trip.legs.length > 1 && <nav className="mx-auto flex max-w-3xl gap-3 p-4" aria-label="Journey direction">{trip.legs.map(j => { const params = new URLSearchParams(); params.set("leg",j.leg); return <a key={j.leg} href={`?${params}`} className={`rounded-full px-4 py-2 font-bold ${trip.leg === j.leg ? "bg-orange-500 text-white" : "bg-slate-100"}`}>{j.leg === "outbound" ? "Outbound" : "Return"} · {j.pickupDate}</a>; })}</nav>}
       <header className="bg-brand px-4 pb-10 pt-4 text-white">
         <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
           <Link href="/" aria-label={t("nav.home")} className="inline-flex text-white"><WaydidiLogo className="h-[48px] w-auto" /></Link>
-          <LanguageLinks locale={locale} />
+          <div className="flex items-center gap-1">
+            {trip.canShare && <ShareTripButton reference={trip.reference} query={query ?? ""} />}
+            <LanguageLinks locale={locale} />
+          </div>
         </div>
         <div className="mx-auto mt-7 max-w-xl">
           <p className="text-xs font-black uppercase tracking-[.16em] text-white/85">{shared ? t("trip.sharedTitle") : t("trip.title")} · {t("trip.reference", { reference: trip.reference })}</p>
           {trip.driver && <p className="mt-3">Your driver: <strong>{trip.driver.name}</strong> · <a className="underline" href={`tel:${trip.driver.phone}`}>{trip.driver.phone}</a></p>}
           {live && <p className="mt-2 text-sm" role="status">{!online ? "Offline — position and ETA may be outdated." : trip.freshness ? `${stale ? "Location stale" : "Location updated"} · ${time(trip.freshness.at)} (Thailand time)` : "Waiting for the driver's location."}</p>}
-          <h1 className="mt-2 text-[2rem] font-black leading-tight tracking-[-.03em]">{t(`trip.headline.${trip.stage}` as MessageKey)}</h1>
+          <h1 className="mt-2 text-[32.5px] font-semibold leading-[1.08] tracking-[-.03em] sm:text-[45.3px]">{t(`trip.headline.${trip.stage}` as MessageKey)}</h1>
           {live && (
             <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-sm font-black" aria-live="polite">
               <span className="relative flex size-2.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-white opacity-75 motion-reduce:animate-none" /><span className="relative inline-flex size-2.5 rounded-full bg-white" /></span>
@@ -200,7 +203,6 @@ export function TripView({ reference }: { reference: string }) {
 
         <Timeline trip={trip} time={time} />
 
-        {trip.canShare && <ShareCard reference={trip.reference} query={query ?? ""} />}
 
         <p className="text-center text-xs text-slate-500">{t("trip.updated", { time: time(trip.updatedAt) })}</p>
       </div>
@@ -209,24 +211,15 @@ export function TripView({ reference }: { reference: string }) {
 }
 
 function LanguageLinks({ locale }: { locale: Locale }) {
-  // Keeps the trip's access key in the address when switching language.
-  function open(event: React.MouseEvent<HTMLAnchorElement>, item: Locale) {
-    event.preventDefault();
+  // The homepage's language button (flag, no currency) and bottom sheet, limited to the trip
+  // page's own languages. Keeps the trip's access key in the address when switching language.
+  function open(item: string) {
     const params = new URLSearchParams(window.location.search);
     if (item === "en") params.delete("lang"); else params.set("lang", item);
     const search = params.toString();
     window.location.assign(`${window.location.pathname}${search ? `?${search}` : ""}`);
   }
-  return (
-    <nav aria-label="Language" className="flex rounded-full bg-white/20 p-1 text-xs font-black">
-      {locales.map((item) => (
-        <a key={item} href={item === "en" ? "?" : `?lang=${item}`} onClick={(event) => open(event, item)} lang={localeInfo[item].htmlLang} aria-current={item === locale ? "true" : undefined}
-          className={`rounded-full px-3 py-1.5 ${item === locale ? "bg-white text-brand-deep" : "text-white"}`}>
-          {item === "en" ? "EN" : item === "th" ? "ไทย" : "中文"}
-        </a>
-      ))}
-    </nav>
-  );
+  return <LocalePicker languagesOnly languages={[...locales]} current={locale} onChoose={open} className="text-white" />;
 }
 
 function Timeline({ trip, time }: { trip: Trip; time: (value: string) => string }) {
@@ -371,62 +364,3 @@ function LiveMap({ trip, time }: { trip: Trip; time: (value: string) => string }
   );
 }
 
-function ShareCard({ reference, query }: { reference: string; query: string }) {
-  const { t } = useI18n();
-  const [url, setUrl] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState<"" | "copied" | "stopped" | "error">("");
-
-  async function call(action: "create" | "revoke") {
-    setBusy(true); setStatus("");
-    try {
-      const response = await fetch(`/api/trip/${encodeURIComponent(reference)}/share${new URLSearchParams(query).get("leg") ? `?leg=${new URLSearchParams(query).get("leg")}` : ""}`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
-      });
-      const result = (await response.json()) as { url?: string };
-      if (!response.ok) throw new Error();
-      if (action === "create") setUrl(result.url ?? null); else { setUrl(null); setStatus("stopped"); }
-    } catch {
-      setStatus("error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function send() {
-    if (!url) return;
-    if (navigator.share) {
-      try { await navigator.share({ title: t("trip.share.message"), url }); return; } catch { /* closed, fall back to copy */ }
-    }
-    try { await navigator.clipboard.writeText(url); setStatus("copied"); } catch { setStatus("error"); }
-  }
-
-  return (
-    <section className="rounded-[26px] bg-white p-5 shadow-sm">
-      <h2 className="flex items-center gap-2 text-lg font-black"><Share2 size={19} className="text-brand-deep" aria-hidden="true" /> {t("trip.share.title")}</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{t("trip.share.help")}</p>
-      {url ? (
-        <div className="mt-4 space-y-3">
-          <p className="break-all rounded-2xl bg-surface p-3 text-sm font-semibold text-slate-700">{url}</p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => void send()} className="flex h-12 items-center justify-center gap-2 rounded-full bg-brand font-black text-ink">
-              {typeof navigator !== "undefined" && "share" in navigator ? <Share2 size={18} aria-hidden="true" /> : <Copy size={18} aria-hidden="true" />}
-              {typeof navigator !== "undefined" && "share" in navigator ? t("trip.share.send") : t("trip.share.copy")}
-            </button>
-            <button type="button" disabled={busy} onClick={() => void call("revoke")} className="h-12 rounded-full border border-slate-300 font-bold disabled:opacity-50">{t("trip.share.stop")}</button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" disabled={busy} onClick={() => void call("create")} className="flex h-12 items-center gap-2 rounded-full bg-ink px-6 font-black text-white disabled:opacity-50">
-            {busy ? <LoaderCircle className="animate-spin motion-reduce:animate-none" size={18} aria-hidden="true" /> : <Share2 size={18} aria-hidden="true" />} {t("trip.share.create")}
-          </button>
-          <button type="button" disabled={busy} onClick={() => void call("revoke")} className="h-12 rounded-full px-4 text-sm font-bold text-slate-600 underline-offset-4 hover:underline disabled:opacity-50">{t("trip.share.stop")}</button>
-        </div>
-      )}
-      <p aria-live="polite" className="mt-3 text-sm font-semibold text-slate-600">
-        {status === "copied" ? t("trip.share.copied") : status === "stopped" ? t("trip.share.stopped") : status === "error" ? t("trip.share.error") : ""}
-      </p>
-    </section>
-  );
-}
