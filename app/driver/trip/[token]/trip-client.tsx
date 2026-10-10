@@ -127,7 +127,7 @@ function TripStepper({ status }: { status: string }) {
     {STEPPER.map((step, index) => {
       const done = index < reached, current = index === reached;
       return <li key={step.label} aria-current={current ? "step" : undefined} className="relative flex flex-col items-center">
-        <span className={`text-[13px] font-black uppercase leading-5 tracking-[.12em] ${done || current ? "text-white" : "text-white/55"}`}>{step.label}</span>
+        <span className={`text-[14px] font-black uppercase leading-5 tracking-[.12em] ${done || current ? "text-white" : "text-white/55"}`}>{step.label}</span>
         {/* Line to the next step: solid once this step is done. */}
         {index < STEPPER.length - 1 && <span aria-hidden="true" className={`absolute left-1/2 top-[51px] h-[5px] w-full -translate-y-1/2 ${done ? "bg-white" : "bg-[#FFAD50]"}`} />}
         <span className={`relative mt-3 grid size-[38px] place-items-center rounded-full ${done ? "bg-white text-brand" : current ? "border-[3px] border-white bg-brand" : "bg-[#FFAD50]"}`}>
@@ -430,13 +430,12 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       </header>
       <div className="mx-auto max-w-xl space-y-5 px-4 py-5">
         <section className="rounded-[26px] bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-xl font-black">
-              {trip.booking.customerName}
-            </h2>
-          </div>
+          <p className="text-[13px] font-bold uppercase tracking-[.12em] text-slate-500">Customer name</p>
+          <h2 className="mt-1 text-[21px] font-black leading-tight">
+            {trip.booking.customerName}
+          </h2>
           {/* Trip details laid out like the admin booking card. */}
-          <dl className="mt-5 grid gap-2 rounded-2xl bg-slate-50 p-4 text-[13.5px]">
+          <dl className="mt-5 grid gap-2 rounded-2xl bg-slate-50 p-4 text-[14.5px]">
             {([
               ["Passengers & luggage", <span key="pl" className="inline-flex items-center gap-3"><span className="inline-flex items-center gap-1" aria-label={`${trip.booking.passengers} passengers`}><Users size={15} aria-hidden="true" />{trip.booking.passengers}</span><span className="inline-flex items-center gap-1" aria-label={`${trip.booking.luggage} bags`}><Luggage size={15} aria-hidden="true" />{trip.booking.luggage}</span></span>],
               ["Vehicle", trip.booking.vehicle],
@@ -450,7 +449,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             {([["Pick up", trip.booking.pickup], ["Drop", trip.booking.dropoff]] as const).map(([label, place]) => (
               <a key={label} href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place)}`} target="_blank" rel="noreferrer"
                 aria-label={`${label}: ${place} (Google Maps)`}
-                className="flex h-16 items-center justify-center gap-2 rounded-2xl border border-orange-200 bg-orange-50 text-[17px] font-black text-brand-text active:bg-orange-100">
+                className="flex h-16 items-center justify-center gap-2 rounded-2xl border border-orange-200 bg-orange-50 text-[18px] font-black text-brand-text active:bg-orange-100">
                 <MapPin size={22} aria-hidden="true" />{label}
               </a>
             ))}
