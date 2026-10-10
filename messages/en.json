@@ -319,5 +319,13 @@
   "pwa.ios": "Open this website in Safari. Tap Share, then Add to Home Screen. If shown, leave Open as Web App enabled and tap Add.",
   "pwa.android": "Open your browser menu and choose Install app or Add to Home screen. If the option is missing, try Chrome.",
   "pwa.desktop": "Look for the install icon in your browser’s address bar, or choose Install Waydidi Travel from its menu. If it is unavailable, open this site in Chrome or Edge.",
-  "pwa.onlineRequired": "An internet connection is needed to book, pay, view maps and follow your trip."
+  "pwa.onlineRequired": "An internet connection is needed to book, pay, view maps and follow your trip.",
+  "trip.driver": "Your driver: {name}",
+  "trip.live.offline": "Offline — position and arrival time may be outdated.",
+  "trip.live.updated": "Location updated · {time} (Thailand time)",
+  "trip.live.stale": "Location not updated since {time} (Thailand time)",
+  "trip.live.waiting": "Waiting for the driver's location.",
+  "trip.leg.outbound": "Outbound",
+  "trip.leg.return": "Return",
+  "trip.legs": "Journey direction"
 }

@@ -1282,5 +1282,37 @@
   "pwa.onlineRequired": {
     "text": "预订、付款、查看地图和跟踪行程需要网络连接。",
     "status": "machine"
+  },
+  "trip.driver": {
+    "text": "您的司机：{name}",
+    "status": "machine"
+  },
+  "trip.live.offline": {
+    "text": "您已离线，位置和到达时间可能不是最新的。",
+    "status": "machine"
+  },
+  "trip.live.updated": {
+    "text": "位置已更新 · {time}（泰国时间）",
+    "status": "machine"
+  },
+  "trip.live.stale": {
+    "text": "位置自 {time} 起未更新（泰国时间）",
+    "status": "machine"
+  },
+  "trip.live.waiting": {
+    "text": "正在等待司机的位置。",
+    "status": "machine"
+  },
+  "trip.leg.outbound": {
+    "text": "去程",
+    "status": "machine"
+  },
+  "trip.leg.return": {
+    "text": "返程",
+    "status": "machine"
+  },
+  "trip.legs": {
+    "text": "行程方向",
+    "status": "machine"
   }
 }
