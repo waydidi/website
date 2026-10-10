@@ -53,6 +53,10 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     getDb().select().from(driverPayoutDetails).where(eq(driverPayoutDetails.assignmentId, assignment.id)).limit(1),
     getDb().select({ id: journeyExceptions.id }).from(journeyExceptions).where(and(eq(journeyExceptions.assignmentId, assignment.id), eq(journeyExceptions.exceptionType, "abnormal_stop"), eq(journeyExceptions.status, "open"))).limit(1).catch(() => []),
   ]);
+  // Google Maps links set by an admin in Telegram (outbound pickup/drop-off; swapped for the return).
+  const maps = (await env.DB.prepare("SELECT pickup_map_url,dropoff_map_url FROM booking_map_links WHERE booking_reference=?").bind(booking.reference).first().catch(() => null)) as { pickup_map_url: string | null; dropoff_map_url: string | null } | null;
+  const pickupMapUrl = (assignment.leg === "return" ? maps?.dropoff_map_url : maps?.pickup_map_url) ?? null;
+  const dropoffMapUrl = (assignment.leg === "return" ? maps?.pickup_map_url : maps?.dropoff_map_url) ?? null;
   return NextResponse.json({
     // Viewing the trip never fails on the photo settings (status changes still enforce them).
     evidencePolicy: await evidencePolicy().catch((): EvidencePolicy => ({ pickup_required: 0, dropoff_required: 0, gps_required: 0, gps_timeout_ms: 20000, max_accuracy_m: 2000, retention_days: 30 })),
@@ -65,7 +69,7 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
       passengers: booking.passengers, luggage: booking.luggage, vehicle: booking.vehicle, flightNumber: booking.flightNumber,
       pickupLatitude: booking.pickupLatitude, pickupLongitude: booking.pickupLongitude,
       dropoffLatitude: booking.dropoffLatitude, dropoffLongitude: booking.dropoffLongitude,
-      status: booking.status,
+      status: booking.status, pickupMapUrl, dropoffMapUrl,
     },
     events: events.map(({ evidenceKey, evidenceSha256, ...event }) => ({ ...event, hasEvidence: Boolean(evidenceKey || evidenceSha256 || event.tripEvidenceId) })),
     activeStop: activeStop ? { reason: activeStop.reason, note: activeStop.note, declaredAt: activeStop.declaredAt } : null,

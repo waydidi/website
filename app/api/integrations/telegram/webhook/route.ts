@@ -59,6 +59,10 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   if (!target || target.length > 60) return answerCallback(q.id, "Unknown action.");
   const who = { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(q.from.id) };
 
+  if (action === "bk_pmap" || action === "bk_dmap") {
+    await askBookingQuestion(target, action === "bk_pmap" ? "pickup_map" : "dropoff_map", q.from);
+    return answerCallback(q.id, "Paste the Google Maps share link.");
+  }
   if (action === "bk_cost" || action === "bk_drv") {
     const taken = await db().prepare("SELECT acknowledged_by FROM telegram_booking_cards WHERE booking_reference=?").bind(target).first<{ acknowledged_by: string | null }>();
     if (!taken?.acknowledged_by) return answerCallback(q.id, "Assign the booking first.", true);

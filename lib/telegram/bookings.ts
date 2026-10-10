@@ -20,12 +20,14 @@ async function card(reference: string, acknowledgedBy: string | null): Promise<C
   if (!b) return null;
   // The booking's two links (made once): customer ride status and the driver's job page.
   const links = await bookingLinks({ reference: b.reference, createdAt: b.created_at, returnDate: b.return_date }).catch(() => null);
+  // Read on their own, so the card still works if the map-link table isn't there yet.
+  const maps = await db().prepare("SELECT pickup_map_url,dropoff_map_url FROM booking_map_links WHERE booking_reference=?").bind(reference).first<{ pickup_map_url: string | null; dropoff_map_url: string | null }>().catch(() => null);
   return { reference: b.reference, customerName: fullName(b.customer_name, b.customer_surname), pickup: b.pickup, dropoff: b.dropoff, pickupDate: b.pickup_date, pickupTime: b.pickup_time,
     vehicle: VEHICLES[b.vehicle as keyof typeof VEHICLES]?.name ?? b.vehicle, passengers: b.passengers, luggage: b.luggage, total: b.total,
     payment: b.payment_method === "cash" ? "cash on the day" : "paid online", acknowledgedBy,
     costDone: Boolean(tasks?.cost_done), driverDone: Boolean(tasks?.driver_done), driverCost: tasks?.total_driver_cost ?? null,
     driverName: tasks?.driver_form_json ? (JSON.parse(tasks.driver_form_json) as { name?: string }).name ?? null : null,
-    rideLink: links?.customer ?? null, driverLink: links?.driver ?? null };
+    rideLink: links?.customer ?? null, driverLink: links?.driver ?? null, pickupMap: Boolean(maps?.pickup_map_url), dropoffMap: Boolean(maps?.dropoff_map_url) };
 }
 
 /** Posts the new-booking card once per booking (safe to call repeatedly). */
