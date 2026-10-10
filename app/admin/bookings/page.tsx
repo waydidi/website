@@ -175,7 +175,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
         <div className="-mt-[40px] mb-1 flex justify-end"><CreateMenu service={type} waiting={formsReceived} /></div>
         {/* Transfer / By the hour, each with a list or calendar view. */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <div role="tablist" aria-label="Service" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
+          <div role="tablist" aria-label="Service" className={`${mode === "list" && view === "active" ? "hidden md:inline-flex" : "inline-flex"} rounded-xl bg-[#E8EAEE] p-1`}>
             {([["transfer", "Transfer"], ["hourly", "By the hour"], ["tour", "Tour"]] as const).map(([id, label]) => <Link key={id} role="tab" aria-selected={type === id} href={`/admin/bookings?type=${id}&mode=${mode}`} className={`h-9 rounded-lg px-4 text-[15px] leading-9 ${type === id ? "bg-white font-medium text-night shadow-sm" : "text-slate-600 hover:text-night"}`}>{label}</Link>)}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -187,14 +187,20 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           </div>
         </div>
         {view === "forms" ? <FormsTable service={type} openForm={q.form} /> : mode !== "list" && view !== "bin" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> : <>
-        {/* Phones: one card per booking, swiped sideways. The bin keeps the table. */}
-        {view !== "bin" && rows.length > 0 && <div className="mt-4 md:hidden"><BookingCards drivers={driverOptions} rides={rows.map((row) => { const { roundtrip, shown } = journey(row); const driverId = shown.assignment?.driverId ?? null; return {
-          reference: row.reference, pickupDate: shown.date, pickupTime: shown.time, pickup: shown.from, dropoff: shown.to, roundtrip, leg: shown.leg,
-          name: fullName(row.customerName, row.customerSurname), vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage,
-          total: row.total, paymentStatus: row.paymentStatus, status: row.status,
-          driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: shown.assignment?.status ?? null,
-        }; })} /></div>}
-        <section className={`${view !== "bin" && rows.length > 0 ? "hidden md:block " : ""}mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm`}>
+        {/* Phones: a row of swipeable booking cards for each service, under its own headline. The bin keeps the table. */}
+        {view !== "bin" && <div className="md:hidden">{([["transfer", "Transfer"], ["hourly", "By the hour"], ["tour", "Tour"]] as const).map(([service, title]) => {
+          const list = activeRows.filter((row) => (row.serviceType ?? "transfer") === service);
+          return <section key={service} aria-labelledby={`phone-${service}`} className="mt-6">
+            <h2 id={`phone-${service}`} className="mb-3 text-[20px] font-black tracking-[-.02em]">{title}</h2>
+            {list.length ? <BookingCards label={`${title} bookings`} drivers={driverOptions} rides={list.map((row) => { const { roundtrip, shown } = journey(row); const driverId = shown.assignment?.driverId ?? null; return {
+              reference: row.reference, pickupDate: shown.date, pickupTime: shown.time, pickup: shown.from, dropoff: shown.to, roundtrip, leg: shown.leg,
+              name: fullName(row.customerName, row.customerSurname), vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage,
+              total: row.total, paymentStatus: row.paymentStatus, status: row.status,
+              driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: shown.assignment?.status ?? null,
+            }; })} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
+          </section>;
+        })}</div>}
+        <section className={`${view !== "bin" ? "hidden md:block " : ""}mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm`}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-600">
