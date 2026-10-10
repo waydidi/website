@@ -11,6 +11,7 @@ import { activeAssignmentForToken } from "@/lib/driver-operations";
 import { acceptedOccurredAt, adminReviewRequired, AIRPORT_FREE_WAIT_MINUTES, distanceMetres, evidenceRequired, expectedPointFor, isAirportPickup, isDriverStatus, locationRequired, NEXT_DRIVER_STATUS, NO_SHOW_MAX_DISTANCE_METRES, NO_SHOW_MIN_NOTE_LENGTH, noShowEligibleAt, STANDARD_FREE_WAIT_MINUTES, TRIP_START_WARNING_METRES, type DriverStatus } from "@/lib/trip-rules";
 import { sameOrigin, sha256Bytes } from "@/lib/security";
 import { notifyLineTripStatus } from "@/lib/line";
+import { postTripPhoto } from "@/lib/telegram/trip-photos";
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -208,6 +209,8 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     if(duplicate?.status===requestedStatus) return NextResponse.json({ok:true,status:requestedStatus,eventId:id,duplicate:true});
     return NextResponse.json({ error: "The update could not be saved. Please try again." }, { status: 503 });
   }
+  // The step's photo goes to the Telegram group, under the booking card.
+  if (storedEvidence) await postTripPhoto({ reference: trip.booking.reference, status: requestedStatus, driverName: trip.driver.fullName, evidence: storedEvidence }).catch((error) => console.error("Telegram trip photo failed", error));
   if (!type) await notifyLineTripStatus({
     eventId: id,
     reference: trip.booking.reference,

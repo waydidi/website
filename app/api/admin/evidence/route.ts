@@ -8,7 +8,7 @@ export async function GET(request:Request) {
  const admin=await getWaydidiAdmin(); if(!admin||!["owner","operations"].includes(admin.role)) return NextResponse.json({error:"Unauthorized"},{status:403});
  const reference=new URL(request.url).searchParams.get("reference")??"";
  const db=evidenceDb();
- const {results}=await db.prepare("SELECT e.*, d.full_name AS driver_name FROM driver_trip_evidence e JOIN drivers d ON d.id=e.driver_id WHERE e.booking_reference=? ORDER BY e.received_at DESC LIMIT 120").bind(reference).all<EvidenceRow>();
+ const {results}=await db.prepare("SELECT e.*, d.full_name AS driver_name, s.status AS step FROM driver_trip_evidence e JOIN drivers d ON d.id=e.driver_id LEFT JOIN driver_status_events s ON s.id=e.status_event_id WHERE e.booking_reference=? ORDER BY e.received_at DESC LIMIT 120").bind(reference).all<EvidenceRow>();
  const assignments=await db.prepare("SELECT id,leg,current_status FROM booking_assignments WHERE booking_reference=? AND revoked_at IS NULL").bind(reference).all();
  const overrides=await db.prepare("SELECT o.* FROM driver_evidence_overrides o JOIN booking_assignments a ON a.id=o.assignment_id WHERE a.booking_reference=?").bind(reference).all();
  return NextResponse.json({evidence:results.map(safeEvidence),policy:await evidencePolicy(),assignments:assignments.results,overrides:overrides.results,canSetPolicy:admin.role==="owner"},{headers:{"Cache-Control":"private, no-store"}});
