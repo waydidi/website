@@ -3,7 +3,6 @@ import { Modal, ModalTitle } from "@/components/ui/modal";
 import { driverHeaders, rememberDriverToken } from "@/lib/driver-token";
 import { GpsCamera } from "@/components/drivers/gps-camera";
 import type { EvidencePolicy } from "@/lib/evidence-rules";
-import Link from "next/link";
 
 import {
   Camera,
@@ -23,7 +22,6 @@ import {
   WifiOff,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { WaydidiLogo } from "@/components/waydidi-logo";
 import { clearQueuedStep, queuedStepForm, readQueuedStep, saveQueuedStep, type QueuedDriverStep } from "@/lib/driver-step-queue";
 import { distanceMetres, NO_SHOW_MIN_NOTE_LENGTH } from "@/lib/trip-rules";
 
@@ -126,6 +124,30 @@ const steps: Array<{
     help: "บันทึกรูปจุดส่ง (ตามนโยบาย) แล้วยืนยันส่งลูกค้า ระบบจะบันทึกเวลายืนยัน",
   },
 ];
+
+// The header's three steps. A step is done once its status is reached; the next one is current.
+const STEPPER: { label: string; reachedBy: string[] }[] = [
+  { label: "Stand by", reachedBy: ["standby", "passenger_verified", "no_show"] },
+  { label: "On the way", reachedBy: ["trip_started", "passenger_picked_up"] },
+  { label: "Drop", reachedBy: ["completed"] },
+];
+function TripStepper({ status }: { status: string }) {
+  const reached = STEPPER.reduce((count, step, index) => (STEPPER.slice(index).some((later) => later.reachedBy.includes(status)) ? index + 1 : count), 0);
+  return <ol className="grid grid-cols-3" aria-label="Trip steps">
+    {STEPPER.map((step, index) => {
+      const done = index < reached, current = index === reached;
+      return <li key={step.label} aria-current={current ? "step" : undefined} className="relative flex flex-col items-center">
+        <span className={`text-[13px] font-black uppercase leading-5 tracking-[.12em] ${done || current ? "text-white" : "text-white/55"}`}>{step.label}</span>
+        {/* Line to the next step: solid once this step is done. */}
+        {index < STEPPER.length - 1 && <span aria-hidden="true" className={`absolute left-1/2 top-[51px] h-[5px] w-full -translate-y-1/2 ${done ? "bg-white" : "bg-[#FFAD50]"}`} />}
+        <span className={`relative mt-3 grid size-[38px] place-items-center rounded-full ${done ? "bg-white text-brand" : current ? "border-[3px] border-white bg-brand" : "bg-[#FFAD50]"}`}>
+          {done && <Check size={20} strokeWidth={3.5} aria-hidden="true" />}
+          <span className="sr-only">{done ? "done" : current ? "current step" : "next"}</span>
+        </span>
+      </li>;
+    })}
+  </ol>;
+}
 
 // "11/10/2026 — 09:00 am", as on the admin booking card.
 const tripDateTime = (date: string, time: string) => { const [y, m, d] = date.split("-"); const [h = 0, min = 0] = time.split(":").map(Number); return `${d}/${m}/${y} — ${String(h % 12 || 12).padStart(2, "0")}:${String(min).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`; };
@@ -478,36 +500,15 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   const completionVerified = completionEvent?.verificationStatus === "verified";
   return (
     <main className="min-h-screen bg-[#f3f5f8] pb-32 text-plum">
-      <header className="bg-brand px-5 pb-8 pt-5 text-white">
+      <header className="bg-brand px-5 pb-7 pt-6 text-white">
         <div className="mx-auto max-w-xl">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/"
-              aria-label="Waydidi home"
-              className="inline-flex text-white"
-            >
-              <WaydidiLogo className="h-[53px] w-auto" />
-            </Link>
-            {!online && (
-              <span className="inline-flex items-center gap-2 rounded-full bg-red-700 px-3 py-2 text-xs font-bold">
-                <WifiOff size={15} /> Offline
-              </span>
-            )}
-          </div>
-          <div className="mt-8 text-center">
-            <p className="text-xs font-bold uppercase tracking-[.15em] text-white/75">
-              Reference ID
-            </p>
-            <p className="mt-1 text-base font-black tracking-[.08em]">
-              {trip.booking.reference}
-            </p>
-            <h1 className="mt-5 text-3xl font-black">
-              สวัสดี {trip.driver.fullName}
-            </h1>
-            <p className="mt-2 text-white/85">
-              ทำตามขั้นตอนด้านล่างและกดยืนยันทุกครั้ง
-            </p>
-          </div>
+          <h1 className="sr-only">Trip {trip.booking.reference}</h1>
+          {!online && (
+            <p className="mb-4 flex justify-center"><span className="inline-flex items-center gap-2 rounded-full bg-red-700 px-3 py-2 text-xs font-bold">
+              <WifiOff size={15} /> Offline
+            </span></p>
+          )}
+          <TripStepper status={trip.assignment.currentStatus} />
         </div>
       </header>
       <div className="mx-auto max-w-xl space-y-5 px-4 py-5">
