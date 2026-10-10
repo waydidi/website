@@ -195,8 +195,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
         const session=await exchange.current;
         // Let "Try again" make a fresh attempt.
         if(!session.ok) { exchange.current=null; throw new Error("Driver link expired or revoked."); }
+        // The address keeps the real link, so "Open in browser" (Telegram, LINE) or a refresh still opens this trip.
         rememberDriverToken(initialToken);
-        window.history.replaceState(null,"","/driver/trip/session");
       }
       const response = await fetch(
         `/api/driver/trips/${encodeURIComponent(token)}`,

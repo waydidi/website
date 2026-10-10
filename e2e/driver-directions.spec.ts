@@ -61,3 +61,25 @@ test("without a price from Telegram the row reads Not set", async ({ page }) => 
   await expect(page.locator("dl")).toContainText("Not set", { timeout: 30000 });
   await expect(page.locator("dl")).toContainText("Paid");
 });
+test("the address keeps the real link, so it opens in another browser (Telegram → Open in browser)", async ({ page, browser }) => {
+  const link = "/driver/trip/" + "ab12".repeat(12);
+  const mock = async (p: Page) => {
+    await p.route("**/api/driver/session", (r) => r.fulfill({ json: { ok: true } }));
+    await p.route("**/api/driver/trips/session", (r) => r.fulfill({ json: base }));
+    await p.route("**/api/driver/trips/*/plan", (r) => r.fulfill({ json: { days: [] } }));
+  };
+  await mock(page);
+  await page.goto(link);
+  await expect(page.getByText("Customer name")).toBeVisible({ timeout: 30000 });
+  expect(new URL(page.url()).pathname).toBe(link);
+  // A different browser: no cookie and no tab storage, only the address.
+  const other = await browser.newContext();
+  const fresh = await other.newPage();
+  await mock(fresh);
+  let sent = "";
+  await fresh.route("**/api/driver/session", (r) => { sent = JSON.parse(r.request().postData() ?? "{}").token; return r.fulfill({ json: { ok: true } }); });
+  await fresh.goto(page.url());
+  await expect(fresh.getByText("Customer name")).toBeVisible({ timeout: 30000 });
+  expect(sent).toBe("ab12".repeat(12));
+  await other.close();
+});
