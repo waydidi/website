@@ -291,7 +291,7 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
   for(const [q,a] of [[/full name/,'Somchai Jaidee'],[/phone/,'081 234 5678'],[/plate/,'1กข 1234'],[/model/,'Toyota Camry, black'],[/licence/,'12345678']]){assert.match(lastPrompt().text,q);await say(a);}
   const d=await db.prepare("SELECT full_name,phone,car_plate,vehicle,license_number FROM drivers WHERE full_name='Somchai Jaidee'").first();
   assert.deepEqual([d.phone,d.car_plate,d.vehicle,d.license_number],['081 234 5678','1กข 1234','Toyota Camry, black','12345678']);
-  const job=sent.filter((m)=>m.method==='sendMessage').map((m)=>m.text).find((t)=>t.startsWith('Economy sedan🚗'));
+  const job=sent.filter((m)=>m.method==='sendMessage').map((m)=>m.text).find((t)=>t.startsWith('อัลติส+ 🚗'));
   assert.ok(job,'job posted');
   for(const line of ['ชื่อลูกค้า: Mansi Choksi','จำนวน: 2 คน, 2 กระเป๋า','วันที่/เวลา: 14/10/2026 12:45','ไฟลท์: PG305','รับ: Trat airport','ส่ง: Dinso Resort &amp; Villas Ko Chang','ราคา: -']) assert.ok(job.includes(line),line);
   assert.match(job,/\/driver\/trip\/[a-f0-9]{48}/);

@@ -3,7 +3,7 @@ import { fullName } from "@/lib/person-name";
 import { sha256 } from "@/lib/security";
 import { driverTokenForAssignment } from "@/lib/trip-links";
 import { SITE_URL } from "@/lib/site";
-import { VEHICLES } from "@/lib/vehicles";
+import { jobVehicleName } from "./job-text";
 import { esc } from "./cards";
 import { sendCard, telegramChatId, tg, type TelegramMessage } from "./client";
 
@@ -143,10 +143,10 @@ export async function postAssignmentWhenReady(reference: string, by: string, hea
   const link = `${SITE_URL}/driver/trip/${token}`;
   const [y, mo, d] = b.pickup_date.split("-");
   const cashDue = b.payment_method === "cash" ? Math.max(0, b.total - (b.amount_paid ?? 0)) : 0;
-  const vehicleName = (VEHICLES as Record<string, { name: string }>)[b.vehicle]?.name ?? b.vehicle;
+  const vehicleName = jobVehicleName(b.vehicle);
   const lines = [
     ...(header ? [header, ""] : []),
-    `${esc(vehicleName)}🚗`,
+    `${esc(vehicleName)} 🚗`,
     "",
     `ชื่อลูกค้า: ${esc(fullName(b.customer_name, b.customer_surname))}`,
     `จำนวน: ${b.passengers} คน, ${b.luggage} กระเป๋า`,

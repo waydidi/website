@@ -425,6 +425,13 @@ html.admin-dark :is(.border-emerald-200, .border-emerald-300) { border-color: #1
 html.admin-dark :is(.border-orange-200, .border-orange-300) { border-color: #5E3E14 !important; }
 html.admin-dark :is(.border-sky-200, .border-blue-200) { border-color: #1E3F5C !important; }
 html.admin-dark :is(.hover\:bg-red-50:hover) { background-color: #2E1414 !important; }
+/* Hard-coded dark text colours in admin components and popups. */
+html.admin-dark :is(.text-\[\#32302C\], .text-\[\#2B2B2B\], .text-\[\#171D21\], .text-\[\#141414\]) { color: #FFFFFF !important; }
+html.admin-dark :is(.text-\[\#4A4A4A\], .text-\[\#6B6170\]) { color: #E4E6EB !important; }
+html.admin-dark :is(.text-\[\#9A8F86\], .text-\[\#9A9A9A\]) { color: #B4B8C2 !important; }
+html.admin-dark :is(.text-\[\#B85D00\], .text-\[\#9A4D00\]) { color: #FDBA74 !important; }
+html.admin-dark :is(.text-\[\#5D1715\]) { color: #FCA5A5 !important; }
+html.admin-dark :is(.text-\[\#17563A\], .text-\[\#15803D\], .text-\[\#2F7A6B\]) { color: #6EE7B7 !important; }
 html.admin-dark :is(input, select, textarea) { color: #FFFFFF; }
 html.admin-dark :is(h1, h2, h3, th, td, dt, dd, label) { color: inherit; }
 html.admin-dark body, html.admin-dark .admin-page-slot { color: #FFFFFF; }
