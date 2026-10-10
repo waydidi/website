@@ -52,10 +52,13 @@ function PriceRow({ r }: { r: UpcomingRide }) {
 }
 
 /** One ride: journey details above (with a details panel), driver picker left and assignment status right. */
-export function RideCard({ r, drivers, open, onToggle, onAddDriver }: { r: UpcomingRide; drivers: PickerDriver[]; open: boolean; onToggle: () => void; onAddDriver: () => void }) {
+export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions }: { r: UpcomingRide; drivers: PickerDriver[]; open: boolean; onToggle: () => void; onAddDriver: () => void; /** Shown in the top-right corner (e.g. delete). */ actions?: React.ReactNode }) {
   return <div className="grid gap-3">
     <div className="min-w-0">
+      <div className="flex items-start justify-between gap-2">
       <p className="text-[12px] font-semibold text-slate-500">{day(r.pickupDate)} · {r.pickupTime} · <span className="font-mono">{r.reference}</span>{r.roundtrip && <span className="ml-1.5 rounded-full bg-line-green px-2 py-0.5 text-[10.5px] font-bold text-white">Roundtrip</span>}{r.status === "pending_payment" && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">Awaiting payment</span>}</p>
+      {actions && <div className="-mr-2 -mt-2 shrink-0">{actions}</div>}
+      </div>
       <p className="mt-1 truncate text-[15px] font-black">{r.name}</p>
       <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[14px] font-semibold text-slate-700"><span className="truncate">{r.pickup}</span><ArrowRight size={14} className="shrink-0 text-slate-400" aria-hidden="true" /><span className="truncate">{r.dropoff}</span></p>
       <div className="mt-1.5 flex items-center gap-4 text-[13px] text-slate-600">
