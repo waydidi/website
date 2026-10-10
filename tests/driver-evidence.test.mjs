@@ -24,7 +24,7 @@ const vite=await createServer({root,configFile:false,appType:'custom',resolve:{a
  if(id==='\0e-cookies')return 'export async function cookies(){return {get(){return {value:globalThis.__evidenceTest.token}}}}';
  if(id==='\0e-admin')return 'export async function getWaydidiAdmin(){return globalThis.__evidenceTest.user}';
  if(id==='\0e-files')return 'export async function putFile(k,body,contentType){globalThis.__evidenceTest.files.set(k,{body,contentType})};export async function getFile(k){return globalThis.__evidenceTest.files.get(k)};export async function deleteFile(k){globalThis.__evidenceTest.files.delete(k)}';
- if(id==='\0e-line')return 'export async function notifyLineTripStatus(){globalThis.__evidenceTest.notifications++}';
+ if(id==='\0e-line')return 'export async function notifyLineTripStatus(){globalThis.__evidenceTest.notifications++};export async function notifyLineDriverPayment(){globalThis.__evidenceTest.payments=(globalThis.__evidenceTest.payments??0)+1}';
 }}],server:{middlewareMode:true}});
 after(async()=>{await vite.close();await mf.dispose();delete globalThis.__evidenceTest;});
 const {getDb}=await vite.ssrLoadModule('/db/index.ts'),db=getDb();
@@ -141,4 +141,20 @@ test('the link this tab opened (header) wins over an older trip still in the ses
  assert.equal(sessionDriverToken('new-tab-token','old-cookie-token'),'new-tab-token');
  assert.equal(sessionDriverToken(null,'old-cookie-token'),'old-cookie-token'); // no header (storage blocked): cookie
  assert.equal(sessionDriverToken('',undefined),'');
+});
+
+test('an admin confirming the Drop (Telegram Completed job) completes the job; the driver page then shows it done',async()=>{
+ const {verifyTripCompletion}=await vite.ssrLoadModule('/lib/trip-completion.ts');
+ const trip=await seed('trip_started');const saved=await upload();const id=crypto.randomUUID();
+ assert.equal((await confirm(saved.id,id)).status,200);
+ const before=await (await status.GET(new Request('https://example.invalid/api/driver/trips/session'),context())).json();
+ assert.equal(before.events.find(e=>e.status==='completed').verificationStatus,'pending_review');
+ assert.equal((await verifyTripCompletion(crypto.randomUUID(),'telegram:Non')).result,'invalid');
+ assert.deepEqual(await verifyTripCompletion(id,'telegram:Non'),{result:'done',reference:trip.reference});
+ assert.deepEqual(await verifyTripCompletion(id,'telegram:Non'),{result:'already',reference:trip.reference}); // a second tap does nothing
+ const after=await (await status.GET(new Request('https://example.invalid/api/driver/trips/session'),context())).json();
+ const done=after.events.find(e=>e.status==='completed');
+ assert.equal(done.verificationStatus,'verified');assert.equal(done.verifiedBy,'telegram:Non');
+ assert.equal(after.booking.customerName,'Test'); // the customer details are still there
+ assert.equal(state.payments,1);
 });

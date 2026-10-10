@@ -210,7 +210,8 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     return NextResponse.json({ error: "The update could not be saved. Please try again." }, { status: 503 });
   }
   // The step's photo goes to the Telegram group, under the booking card.
-  if (storedEvidence) await postTripPhoto({ reference: trip.booking.reference, status: requestedStatus, driverName: trip.driver.fullName, evidence: storedEvidence }).catch((error) => console.error("Telegram trip photo failed", error));
+  // The Drop always goes (with a "Completed job" button), even without a photo.
+  if (storedEvidence || requestedStatus === "completed") await postTripPhoto({ reference: trip.booking.reference, status: requestedStatus, eventId: id, driverName: trip.driver.fullName, evidence: storedEvidence }).catch((error) => console.error("Telegram trip photo failed", error));
   if (!type) await notifyLineTripStatus({
     eventId: id,
     reference: trip.booking.reference,

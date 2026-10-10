@@ -2,14 +2,14 @@ import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { bookingAssignments, bookingForms, bookings, drivers, driverStatusEvents } from "@/db/schema";
-import { notifyLineDriverPayment, replyLine, verifyLineSignature } from "@/lib/line";
+import { bookingForms } from "@/db/schema";
+import { replyLine, verifyLineSignature } from "@/lib/line";
 import { bookedCard, getLineState, pricePrompt, setLineState } from "@/lib/line-forms";
 import { suggestFormPrice } from "@/lib/price-suggest";
 import type { FormAnswers, FormService } from "@/lib/booking-form";
 import { bookFromForm } from "@/lib/form-booking";
 import { safeOrigin } from "@/lib/security";
-import { completeJourney, parseLeg } from "@/lib/journey-legs";
+import { verifyTripCompletion } from "@/lib/trip-completion";
 
 type LineEvent = { type?: string; webhookEventId?: string; replyToken?: string; postback?: { data?: string }; message?: { type?: string; text?: string }; source?: { userId?: string; groupId?: string; roomId?: string } };
 
@@ -25,25 +25,7 @@ export async function POST(request: Request) {
     if (!env.LINE_ADMIN_TARGET_ID || chat !== env.LINE_ADMIN_TARGET_ID) continue;
     const params = new URLSearchParams(event.postback?.data ?? "");
     if (params.get("action") !== "complete_trip") continue;
-    const eventId = params.get("event") ?? "";
-    const [statusEvent] = await getDb().select().from(driverStatusEvents).where(eq(driverStatusEvents.id, eventId)).limit(1);
-    if (!statusEvent || statusEvent.status !== "completed") continue;
-    if (statusEvent.verificationStatus === "verified") continue;
-    if (statusEvent.verificationStatus !== "pending_review") continue;
-    const [[assignment], [booking]] = await Promise.all([
-      getDb().select().from(bookingAssignments).where(eq(bookingAssignments.id, statusEvent.assignmentId)).limit(1),
-      getDb().select().from(bookings).where(eq(bookings.reference, statusEvent.bookingReference)).limit(1),
-    ]);
-    if (!assignment || assignment.revokedAt || !booking || booking.status !== "confirmed") continue;
-    const [driver] = await getDb().select().from(drivers).where(eq(drivers.id, assignment.driverId)).limit(1);
-    const now = new Date().toISOString();
-    const claimed = await env.DB.prepare("UPDATE driver_status_events SET verification_status = 'verified', verified_by = ?, verified_at = ? WHERE id = ? AND verification_status = 'pending_review'").bind("LINE admin", now, statusEvent.id).run();
-    if ((claimed.meta.changes ?? 0) !== 1) continue;
-    await completeJourney(booking.reference, parseLeg(assignment.leg), "completed");
-    await env.DB.batch([
-      env.DB.prepare("INSERT OR IGNORE INTO booking_events (booking_reference, event_type, provider_event_id, created_at) VALUES (?, 'trip_completed_verified', ?, ?)").bind(booking.reference, `line-completed:${statusEvent.id}`, now),
-    ]);
-    if (driver) await notifyLineDriverPayment({ reference: booking.reference, driverName: driver.fullName, bankCode: driver.bankCode, bankAccountNumber: driver.bankAccountNumber }).catch((error) => console.error("LINE payment notification failed", error));
+    await verifyTripCompletion(params.get("event") ?? "", "LINE admin");
   }
   return NextResponse.json({ ok: true });
 }
