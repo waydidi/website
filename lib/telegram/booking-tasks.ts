@@ -82,8 +82,9 @@ export async function handleBookingAnswer(m: TelegramMessage, adminName: string,
     form.driverId = await saveDriver(form);
     await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=?,driver_done=1 WHERE booking_reference=?").bind(JSON.stringify(form), ref).run();
   }
-  await refresh(ref);
+  // Assign first, so the redrawn card can show the driver's (now working) link.
   await postAssignmentWhenReady(ref, adminName);
+  await refresh(ref);
   return true;
 }
 
@@ -101,8 +102,8 @@ export async function pickDriver(reference: string, driverId: string, adminName:
   const form: DriverForm = { name: d.full_name, phone: d.phone ?? undefined, plate: d.car_plate ?? undefined, model: d.vehicle ?? undefined, license: d.license_number ?? undefined, driverId: d.id };
   const done = await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=?,driver_done=1 WHERE booking_reference=? AND driver_done=0").bind(JSON.stringify(form), reference).run();
   if (!done.meta.changes) return false;
-  await refresh(reference);
   await postAssignmentWhenReady(reference, adminName);
+  await refresh(reference);
   return true;
 }
 

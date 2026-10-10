@@ -3,9 +3,9 @@ import { secureToken, sha256 } from "@/lib/security";
 import { SITE_URL } from "@/lib/site";
 import { rideUrl } from "@/lib/trip-access";
 
-// The two links every booking gets as soon as it's confirmed:
+// The two links a booking has:
 //  • the customer's ride-status page (/trip/REF?ride=…), valid until 7 days after the trip;
-//  • the driver's job page (/driver/trip/TOKEN), which starts working once a driver is assigned.
+//  • the driver's job page (/driver/trip/TOKEN), which works (and is shown) once a driver is assigned.
 // Assigning a driver uses the prepared driver link; a different driver later gets a fresh one,
 // so a replaced driver's link stops working.
 
@@ -33,9 +33,20 @@ export async function driverTokenForAssignment(reference: string, leg = "outboun
 
 export const driverUrl = (token: string) => `${SITE_URL}/driver/trip/${token}`;
 
-/** Both links for a booking (made if missing). */
+/** The driver's link for a leg, only once a driver has been assigned with it (before that it can't open). */
+async function assignedDriverUrl(reference: string, leg: string) {
+  const row = await db().prepare("SELECT driver_token FROM booking_links WHERE booking_reference=? AND leg=?").bind(reference, leg).first<{ driver_token: string }>();
+  if (!row) return null;
+  const live = await db().prepare("SELECT 1 x FROM booking_assignments WHERE token_hash=? AND revoked_at IS NULL AND token_expires_at>?").bind(await sha256(row.driver_token), new Date().toISOString()).first();
+  return live ? driverUrl(row.driver_token) : null;
+}
+
+/** The customer's ride-status link, and the driver links once a driver is assigned. */
 export async function bookingLinks(booking: { reference: string; createdAt: string; returnDate?: string | null }) {
-  const driver = await ensureDriverLink(booking.reference, "outbound");
-  const ret = booking.returnDate ? await ensureDriverLink(booking.reference, "return") : null;
-  return { customer: await rideUrl(SITE_URL, booking), driver: driverUrl(driver), driverReturn: ret ? driverUrl(ret) : null };
+  return {
+    // Each link on its own: a problem with one never hides the other.
+    customer: await rideUrl(SITE_URL, booking).catch(() => null),
+    driver: await assignedDriverUrl(booking.reference, "outbound"),
+    driverReturn: booking.returnDate ? await assignedDriverUrl(booking.reference, "return") : null,
+  };
 }
