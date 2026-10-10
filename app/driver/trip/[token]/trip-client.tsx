@@ -13,11 +13,11 @@ import {
   ExternalLink,
   LoaderCircle,
   LocateFixed,
-  MapPin,
+  Luggage,
   Navigation,
   Phone,
   RefreshCw,
-  Route,
+  Users,
   UserX,
   WifiOff,
 } from "lucide-react";
@@ -124,6 +124,9 @@ const steps: Array<{
     help: "บันทึกรูปจุดส่ง (ตามนโยบาย) แล้วยืนยันส่งลูกค้า ระบบจะบันทึกเวลายืนยัน",
   },
 ];
+
+// "11/10/2026 — 09:00 am", as on the admin booking card.
+const tripDateTime = (date: string, time: string) => { const [y, m, d] = date.split("-"); const [h = 0, min = 0] = time.split(":").map(Number); return `${d}/${m}/${y} — ${String(h % 12 || 12).padStart(2, "0")}:${String(min).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`; };
 
 export default function DriverTripClient({ token: initialToken }: { token: string }) {
   const token="session";
@@ -512,31 +515,16 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
               <Phone size={20} />
             </a>
           </div>
-          <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-            <div className="flex gap-3">
-              <MapPin className="mt-0.5 shrink-0 text-brand" size={19} />
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Pickup
-                </p>
-                <p className="mt-1 font-bold leading-5">
-                  {trip.booking.pickup}
-                </p>
-              </div>
-            </div>
-            <div className="my-3 ml-[9px] h-5 border-l-2 border-dotted border-slate-300" />
-            <div className="flex gap-3">
-              <Route className="mt-0.5 shrink-0 text-brand" size={19} />
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Drop-off
-                </p>
-                <p className="mt-1 font-bold leading-5">
-                  {trip.booking.dropoff}
-                </p>
-              </div>
-            </div>
-          </div>
+          {/* Trip details laid out like the admin booking card. */}
+          <dl className="mt-5 grid gap-2 rounded-2xl bg-slate-50 p-4 text-[13.5px]">
+            {([
+              ["Passengers & luggage", <span key="pl" className="inline-flex items-center gap-3"><span className="inline-flex items-center gap-1" aria-label={`${trip.booking.passengers} passengers`}><Users size={15} aria-hidden="true" />{trip.booking.passengers}</span><span className="inline-flex items-center gap-1" aria-label={`${trip.booking.luggage} bags`}><Luggage size={15} aria-hidden="true" />{trip.booking.luggage}</span></span>],
+              ["Vehicle", trip.booking.vehicle],
+              ["Date & time", tripDateTime(trip.booking.pickupDate, trip.booking.pickupTime)],
+              ["From", trip.booking.pickup],
+              ["To", trip.booking.dropoff],
+            ] as [string, React.ReactNode][]).map(([label, value]) => <div key={label} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{label}</dt><dd className="text-right font-semibold">{value}</dd></div>)}
+          </dl>
           <a
             href={mapsUrl}
             target="_blank"
