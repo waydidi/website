@@ -40,3 +40,15 @@ test("offers every site language and switching keeps the chosen one", async ({ p
   await expect(page).toHaveURL(/\?lang=en$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your driver is on the way");
 });
+
+test("with a driver assigned: the headline says the driver is ready and progress has four steps", async ({ page }) => {
+  const assigned = { ...trip, stage: "assigned", legs: [{ ...trip.legs[0], status: "assigned" }] };
+  await page.route("**/api/trip/LANG01**", (route) => route.fulfill({ json: assigned }));
+  await page.route("**/api/maps/config", (route) => route.fulfill({ json: {} }));
+  await page.goto("/trip/LANG01?lang=en");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your driver is ready for your trip");
+  const steps = page.locator("section[aria-labelledby='trip-timeline'] ol > li");
+  await expect(steps).toHaveCount(4);
+  expect(await steps.locator("p.font-black").allTextContents()).toEqual(["Booking confirmed", "Driver is on stand by", "On the way", "Arrived"]);
+  await expect(steps.first()).toHaveAttribute("aria-current", "step");
+});
