@@ -122,5 +122,7 @@ export async function createManualBooking(b: ManualBookingInput, origin: string)
   } else {
     await getDb().update(bookings).set({ emailStatus: "not_sent", fulfillmentStatus: "complete", updatedAt: now }).where(eq(bookings.reference, reference));
   }
+  // The team's Telegram card (with Assign → Set cost) is posted whether or not the customer is emailed.
+  await import("@/lib/telegram/bookings").then((m) => m.notifyBookingTelegram(reference)).catch((error) => console.error("telegram booking card failed", error instanceof Error ? error.message : "unknown"));
   return { reference, total, emailStatus, confirmationUrl };
 }
