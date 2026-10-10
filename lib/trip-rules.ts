@@ -49,8 +49,10 @@ export function evidenceRequired(status: DriverStatus) {
   return status === "standby" || status === "completed" || status === "no_show";
 }
 
+// Only a no-show report needs the driver's position (they must be near the pickup). Going to
+// pickup, arriving and starting the trip are confirmed without location.
 export function locationRequired(status: DriverStatus) {
-  return status !== "assigned" && status !== "passenger_verified";
+  return status === "no_show";
 }
 
 export function adminReviewRequired(status: DriverStatus) {

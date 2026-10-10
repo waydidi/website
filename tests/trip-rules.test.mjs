@@ -29,10 +29,9 @@ test("steps run in order and passenger_picked_up is only a legacy route to compl
   assert.equal(rules.NEXT_DRIVER_STATUS.completed, undefined);
 });
 
-test("every step after assigned needs GPS except PIN verification", () => {
-  for (const status of ["going_to_standby", "standby", "trip_started", "completed", "no_show"]) assert.ok(rules.locationRequired(status), status);
-  assert.equal(rules.locationRequired("passenger_verified"), false);
-  assert.equal(rules.locationRequired("assigned"), false);
+test("only a no-show report needs GPS; trip steps are confirmed without location", () => {
+  assert.ok(rules.locationRequired("no_show"));
+  for (const status of ["assigned", "going_to_standby", "standby", "passenger_verified", "trip_started", "completed"]) assert.equal(rules.locationRequired(status), false, status);
 });
 
 test("no-show needs a photo and admin review", () => {

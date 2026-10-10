@@ -8,7 +8,6 @@ import {
   Check,
   Clock3,
   CheckCircle2,
-  ChevronRight,
   CircleAlert,
   ExternalLink,
   LoaderCircle,
@@ -100,21 +99,21 @@ const steps: Array<{
     thai: "กำลังไปจุดรับ",
     english: "On the way",
     action: "เริ่มเดินทางไปจุดรับ",
-    help: "แชร์ตำแหน่งปัจจุบัน แล้วกดเมื่อคุณเริ่มเดินทางไปยังจุดรับลูกค้า",
+    help: "กดเมื่อคุณเริ่มเดินทางไปยังจุดรับลูกค้า",
   },
   {
     status: "standby",
     thai: "รอที่จุดรับ",
     english: "Waiting at pickup",
     action: "ยืนยันว่าถึงจุดรับแล้ว",
-    help: "แชร์ตำแหน่งปัจจุบันและถ่ายรูปบริเวณจุดรับ",
+    help: "ถ่ายรูปบริเวณจุดรับ แล้วกดยืนยันว่าถึงแล้ว",
   },
   {
     status: "trip_started",
     thai: "เริ่มการเดินทาง",
     english: "On trip",
     action: "เริ่มการเดินทาง",
-    help: "อนุญาตตำแหน่งแบบสดก่อนเริ่มเดินทาง ระบบจะแชร์ GPS จนกว่าจะส่งลูกค้าเสร็จ",
+    help: "กดเมื่อรับลูกค้าขึ้นรถแล้วและเริ่มเดินทาง",
   },
   {
     status: "completed",
@@ -136,12 +135,6 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   const [note, setNote] = useState("");
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
   const [cameraBusy,setCameraBusy] = useState(false);
-  const [position, setPosition] = useState<{
-    latitude: number;
-    longitude: number;
-    accuracy: number;
-  } | null>(null);
-  const [locationBusy, setLocationBusy] = useState(false);
   const [online, setOnline] = useState(true);
   const [trackingState, setTrackingState] = useState<"off" | "active" | "sending" | "queued" | "error">("off");
   const [lastTrackedAt, setLastTrackedAt] = useState<string | null>(null);
@@ -301,36 +294,9 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
     : null;
   const showCamera = Boolean(next && ["standby", "trip_started", "completed"].includes(next.status));
   const needsEvidence = Boolean(trip && next && (next.status === "standby" ? trip.evidencePolicy.pickup_required && !trip.evidenceOverrides.pickup : next.status === "completed" ? trip.evidencePolicy.dropoff_required && !trip.evidenceOverrides.dropoff : false));
-  const needsLocation = Boolean(next && ["going_to_standby", "trip_started"].includes(next.status));
   const noShowEligibleAt = trip?.noShow.eligibleAt ? new Date(trip.noShow.eligibleAt).getTime() : null;
   const noShowMinutesLeft = noShowEligibleAt === null ? null : Math.max(0, Math.ceil((noShowEligibleAt - clock) / 60_000));
   const canReportNoShow = Boolean(trip && trip.assignment.currentStatus === "standby" && !trip.assignment.passengerVerifiedAt && !pending);
-  function captureLocation() {
-    setPosition(null);
-    setLocationBusy(true);
-    setError("");
-    if (!navigator.geolocation) {
-      setError("อุปกรณ์นี้ไม่รองรับตำแหน่ง GPS");
-      setLocationBusy(false);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (result) => {
-        setPosition({
-          latitude: result.coords.latitude,
-          longitude: result.coords.longitude,
-          accuracy: result.coords.accuracy,
-        });
-        setLocationBusy(false);
-      },
-      () => {
-        setError("กรุณาอนุญาตให้ Waydidi เข้าถึงตำแหน่ง แล้วลองอีกครั้ง");
-        setLocationBusy(false);
-      },
-      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 },
-    );
-  }
-
   function readCurrentLocation() {
     return new Promise<{
       latitude: number;
@@ -366,36 +332,19 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       setError("ต้องแนบรูปก่อนดำเนินการ");
       return;
     }
-    if (needsLocation && !position) {
-      setError(next.status === "trip_started" ? "ต้องกดอนุญาตตำแหน่งสดก่อนเริ่มเดินทาง" : "ต้องแชร์ตำแหน่งปัจจุบันก่อนดำเนินการ");
-      return;
-    }
     if (!window.confirm(`ยืนยันสถานะ “${next.thai}”?`)) return;
     setBusy(true);
     setError("");
     setMessage("");
-    let submissionPosition = position;
-    if (next.status === "trip_started") {
-      try {
-        submissionPosition = await readCurrentLocation();
-        setPosition(submissionPosition);
-      } catch (cause) {
-        setError(
-          cause instanceof Error ? cause.message : "ไม่สามารถอ่านตำแหน่งได้",
-        );
-        setBusy(false);
-        return;
-      }
-    }
     const step: QueuedDriverStep = {
       id: crypto.randomUUID(),
       assignmentId: trip.assignment.id,
       status: next.status,
       note,
       occurredAt: new Date().toISOString(),
-      latitude: submissionPosition?.latitude ?? null,
-      longitude: submissionPosition?.longitude ?? null,
-      accuracy: submissionPosition ? Math.round(submissionPosition.accuracy) : null,
+      latitude: null,
+      longitude: null,
+      accuracy: null,
       evidenceId,
       photo: null,
       photoName: null,
@@ -403,7 +352,6 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
     if (await queueAndSend(step)) {
       setNote("");
       setEvidenceId(null);
-      setPosition(null);
     }
     setBusy(false);
   }
@@ -717,34 +665,6 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             </span>
             <h2 className="mt-3 text-2xl font-black">{next.thai}</h2>
             <p className="mt-2 leading-6 text-slate-600">{next.help}</p>
-            {needsLocation && (
-              <button
-                type="button"
-                onClick={captureLocation}
-                disabled={locationBusy}
-                className={`mt-5 flex min-h-14 w-full items-center justify-between rounded-2xl border px-4 text-left font-bold ${position ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-50"}`}
-              >
-                <span className="flex items-center gap-3">
-                  {locationBusy ? (
-                    <LoaderCircle className="animate-spin" size={20} />
-                  ) : position ? (
-                    <CheckCircle2 size={20} />
-                  ) : (
-                    <LocateFixed className="text-brand-text" size={20} />
-                  )}
-                  <span>
-                    {locationBusy
-                      ? "กำลังค้นหาตำแหน่ง…"
-                      : position
-                        ? `ตำแหน่งพร้อม · ±${Math.round(position.accuracy)} ม.`
-                        : next?.status === "trip_started"
-                          ? "อนุญาตตำแหน่งสดตลอดการเดินทาง"
-                          : "แชร์ตำแหน่งปัจจุบัน"}
-                  </span>
-                </span>
-                <ChevronRight size={19} />
-              </button>
-            )}
             {showCamera && <GpsCamera key={`${trip.assignment.id}:${next.status}`} assignmentId={trip.assignment.id} reference={trip.booking.reference} leg={trip.booking.leg} type={next.status==="completed"?"dropoff":"pickup"} policy={trip.evidencePolicy} onSaved={setEvidenceId} onBusy={setCameraBusy}/>}
             {needsEvidence && <p className="mt-2 text-sm">A saved photo is required. If camera or GPS is unavailable, contact operations for an audited exception.</p>}
             <label className="mt-4 block text-sm font-bold">
@@ -778,8 +698,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
               <button
                 disabled={
                   busy || cameraBusy ||
-                  Boolean(needsEvidence && !evidenceId) ||
-                  Boolean(needsLocation && !position)
+                  Boolean(needsEvidence && !evidenceId)
                 }
                 className="mx-auto flex min-h-14 w-full max-w-xl items-center justify-center gap-2 rounded-full bg-brand px-6 text-base font-black text-white shadow-lg shadow-orange-500/20 disabled:cursor-not-allowed disabled:opacity-45"
               >

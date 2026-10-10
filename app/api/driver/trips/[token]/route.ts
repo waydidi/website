@@ -124,7 +124,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   if(storedEvidence && policy.gps_required && !override && (storedEvidence.latitude===null || storedEvidence.accuracy_metres===null || storedEvidence.accuracy_metres>policy.max_accuracy_m)) return NextResponse.json({error:"Photo GPS is unavailable or inaccurate. Retake with GPS, or contact operations."},{status:409});
   const needsEvidence = requestedStatus === "no_show" && evidenceRequired(requestedStatus);
   // Evidence GPS is optional by default; existing tracking requirements on other steps remain.
-  const needsLocation = ["standby","completed"].includes(requestedStatus) ? false : locationRequired(requestedStatus);
+  const needsLocation = locationRequired(requestedStatus);
   const latitude = form.has("latitude") ? Number(form.get("latitude")) : NaN;
   const longitude = form.has("longitude") ? Number(form.get("longitude")) : NaN;
   const accuracy = Math.round(Number(form.get("accuracy")));
