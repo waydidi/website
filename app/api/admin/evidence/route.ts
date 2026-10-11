@@ -12,7 +12,8 @@ export async function GET(request:Request) {
  const {results}=await db.prepare("SELECT e.*, d.full_name AS driver_name, s.status AS step, s.verification_status AS step_review FROM driver_trip_evidence e JOIN drivers d ON d.id=e.driver_id LEFT JOIN driver_status_events s ON s.id=e.status_event_id WHERE e.booking_reference=? ORDER BY e.received_at DESC LIMIT 120").bind(reference).all<EvidenceRow>();
  const assignments=await db.prepare("SELECT id,leg,current_status FROM booking_assignments WHERE booking_reference=? AND revoked_at IS NULL").bind(reference).all();
  const overrides=await db.prepare("SELECT o.* FROM driver_evidence_overrides o JOIN booking_assignments a ON a.id=o.assignment_id WHERE a.booking_reference=?").bind(reference).all();
- return NextResponse.json({evidence:results.map(safeEvidence),policy:await evidencePolicy(),assignments:assignments.results,overrides:overrides.results,canSetPolicy:admin.role==="owner"},{headers:{"Cache-Control":"private, no-store"}});
+ const uploads=await db.prepare("SELECT id,leg,step,created_at,uploaded_by FROM admin_evidence_photos WHERE booking_reference=? ORDER BY created_at DESC").bind(reference).all().catch(()=>({results:[]}));
+ return NextResponse.json({uploads:uploads.results,evidence:results.map(safeEvidence),policy:await evidencePolicy(),assignments:assignments.results,overrides:overrides.results,canSetPolicy:admin.role==="owner"},{headers:{"Cache-Control":"private, no-store"}});
 }
 export async function POST(request:Request) {
  if(!sameOrigin(request)) return NextResponse.json({error:"Blocked"},{status:403});

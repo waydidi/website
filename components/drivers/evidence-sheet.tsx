@@ -1,11 +1,12 @@
 "use client";
-import { CheckCircle2, LoaderCircle, X } from "lucide-react";
+import { CheckCircle2, ImagePlus, LoaderCircle, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 
 // A booking's driver evidence in a sheet from the bottom: the Stand by, Pick up and Drop photos of one
 // journey. When the Drop waits for review, "Completed job" confirms it (as the Telegram button does).
 type Photo = { id: string; event_type: string; leg: string; step: string | null; step_review: string | null; status_event_id: string | null; device_captured_at: string; deleted_at: string | null; expires_at: string; latitude: number | null; longitude: number | null };
+type Upload = { id: string; leg: string; step: string; created_at: string };
 const STAGES: [string, string][] = [["standby", "Stand by"], ["trip_started", "Pick up"], ["completed", "Drop"]];
 const time = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
 
@@ -13,11 +14,14 @@ export function EvidenceSheet({ reference, leg = "outbound", onClose }: { refere
   const [photos, setPhotos] = useState<Photo[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uploads, setUploads] = useState<Upload[]>([]);
+  const [uploading, setUploading] = useState<string | null>(null);
   const load = useCallback(async () => {
     const res = await fetch(`/api/admin/evidence?reference=${encodeURIComponent(reference)}`, { cache: "no-store" });
-    const body = (await res.json().catch(() => ({}))) as { evidence?: Photo[]; error?: string };
+    const body = (await res.json().catch(() => ({}))) as { evidence?: Photo[]; uploads?: Upload[]; error?: string };
     if (!res.ok) throw new Error(body.error ?? "Evidence could not be loaded.");
     setPhotos(body.evidence ?? []);
+    setUploads(body.uploads ?? []);
   }, [reference]);
   useEffect(() => {
     const timer = setTimeout(() => void load().catch((e: Error) => { setError(e.message); setPhotos([]); }), 0);
@@ -26,7 +30,21 @@ export function EvidenceSheet({ reference, leg = "outbound", onClose }: { refere
   const now = new Date().toISOString();
   const mine = (photos ?? []).filter((p) => p.leg === leg && !p.deleted_at && p.expires_at > now);
   // Newest photo for each step; a Drop photo whose step wasn't sent yet still shows under Drop.
+  const added = (step: string) => uploads.find((u) => u.leg === leg && u.step === step);
   const forStage = (step: string) => mine.find((p) => p.step === step) ?? (step === "completed" ? mine.find((p) => !p.step && p.event_type === "dropoff") : undefined);
+  // An admin adds a photo for a step the driver has no photo for (stays on the website; no Telegram).
+  async function add(step: string, file: File | undefined) {
+    if (!file) return;
+    setUploading(step); setError("");
+    try {
+      const form = new FormData();
+      form.set("reference", reference); form.set("leg", leg); form.set("step", step); form.set("photo", file);
+      const res = await fetch("/api/admin/evidence/uploads", { method: "POST", body: form });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? "The photo could not be added.");
+      await load();
+    } catch (e) { setError((e as Error).message); } finally { setUploading(null); }
+  }
   async function complete(eventId: string) {
     setBusy(true); setError("");
     try {
@@ -58,7 +76,13 @@ export function EvidenceSheet({ reference, leg = "outbound", onClose }: { refere
               {p
                 // eslint-disable-next-line @next/next/no-img-element -- private evidence photo
                 ? <a href={`/api/admin/evidence/photos/${p.id}`} target="_blank" rel="noreferrer"><img src={`/api/admin/evidence/photos/${p.id}?original=1`} alt={`${label} photo`} className="mt-1.5 aspect-[4/3] w-full rounded-2xl bg-slate-100 object-cover" /></a>
-                : <div className="mt-1.5 grid aspect-[4/3] w-full place-items-center rounded-2xl bg-slate-100 text-sm text-slate-400">Not reached yet</div>}
+                : added(step)
+                  // eslint-disable-next-line @next/next/no-img-element -- private evidence photo
+                  ? <a href={`/api/admin/evidence/uploads/${added(step)!.id}`} target="_blank" rel="noreferrer" className="relative block"><img src={`/api/admin/evidence/uploads/${added(step)!.id}`} alt={`${label} photo (added by staff)`} className="mt-1.5 aspect-[4/3] w-full rounded-2xl bg-slate-100 object-cover" /><span className="absolute left-2 top-3.5 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-bold text-white">Added by staff</span></a>
+                  : <label className="mt-1.5 grid aspect-[4/3] w-full cursor-pointer place-items-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500 hover:border-brand">
+                    <span className="grid justify-items-center gap-1.5">{uploading === step ? <LoaderCircle className="animate-spin" size={24} /> : <ImagePlus size={26} aria-hidden="true" />}<span className="font-semibold text-slate-600">{uploading === step ? "Adding…" : "Tap to add a photo"}</span><span className="text-xs text-slate-400">Not reached yet</span></span>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label={`Add ${label} photo`} disabled={uploading !== null} onChange={(e) => { void add(step, e.target.files?.[0]); e.target.value = ""; }} />
+                  </label>}
               {p && p.latitude !== null && <a href={`https://www.google.com/maps?q=${p.latitude},${p.longitude}`} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand-darker underline">📍 Where it was taken</a>}
               {pending && <button type="button" disabled={busy} onClick={() => void complete(p!.status_event_id!)} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-line-green text-[15px] font-black text-white disabled:opacity-60">{busy ? <LoaderCircle className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}Completed job</button>}
               {verified && <p className="mt-3 flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800"><CheckCircle2 size={17} /> Job completed</p>}
