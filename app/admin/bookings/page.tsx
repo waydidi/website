@@ -6,8 +6,6 @@ import {
   Truck,
   List,
   Columns3,
-  Trash2,
-  FileText,
 } from "lucide-react";
 import { getDb } from "@/db";
 import { bookingAssignments, bookings, bookingSources, bookingStorefronts, bookingTaxInvoices, bookingForms, drivers } from "@/db/schema";
@@ -101,6 +99,12 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   ).length;
   const pendingRefunds = activeRows.filter((row) => row.refundStatus === "awaiting_approval").length;
 
+  // The phone card list (list mode, active bookings) shows Forms / Bin & restore below the Tour row instead.
+  const phoneCardList = view === "active" && mode === "list";
+  const extraLinks = <div className="flex items-center gap-5 text-[15px] font-semibold">
+    <Link href={view === "forms" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=forms`} aria-current={view === "forms" ? "page" : undefined} className={`inline-flex items-center gap-1.5 underline-offset-4 hover:underline ${view === "forms" ? "text-brand-darker underline" : "text-slate-600"}`}>Forms{formsReceived > 0 && <span className="rounded-full bg-[#D32F2F] px-1.5 text-[12px] leading-5 text-white">{formsReceived}</span>}</Link>
+    <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} className={`inline-flex items-center gap-1.5 underline-offset-4 hover:underline ${view === "bin" ? "text-brand-darker underline" : "text-slate-600"}`}>Bin & restore{binRows.length > 0 && <span className="text-slate-400">({binRows.length})</span>}</Link>
+  </div>;
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-plum sm:px-8">
       <div className="mx-auto max-w-[1500px]">
@@ -184,8 +188,8 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           <div role="tablist" aria-label="View" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
             {([["list", "List", List], ["calendar", "Calendar", CalendarDays], ["board", "Board", Columns3]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-night shadow-sm" : "text-slate-600 hover:text-night"}`}><Icon size={16} />{label}</Link>)}
           </div>
-          <Link href={view === "forms" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=forms`} aria-current={view === "forms" ? "page" : undefined} className={`flex h-11 items-center gap-1.5 rounded-xl px-4 text-[15px] font-semibold ${view === "forms" ? "bg-plum text-white" : "bg-[#E8EAEE] text-slate-700 hover:text-slate-950"}`}><FileText size={16} aria-hidden="true" />Forms{formsReceived > 0 && <span className="rounded-full bg-[#D32F2F] px-2 text-[12px] text-white">{formsReceived}</span>}</Link>
-          <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} className={`flex h-11 items-center gap-1.5 rounded-xl px-4 text-[15px] font-semibold ${view === "bin" ? "bg-plum text-white" : "bg-[#E8EAEE] text-slate-700 hover:text-slate-950"}`}><Trash2 size={16} aria-hidden="true" />Bin & restore{binRows.length > 0 && <span className={`rounded-full px-2 text-[12px] ${view === "bin" ? "bg-white/20" : "bg-white"}`}>{binRows.length}</span>}</Link>
+          {/* Forms / Bin & restore as text links: here on wider screens (and on phones outside the card list). */}
+          <div className={phoneCardList ? "hidden md:flex" : "flex"}>{extraLinks}</div>
           </div>
         </div>
         {view === "forms" ? <FormsTable service={type} openForm={q.form} /> : mode !== "list" && view !== "bin" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> : <>
@@ -202,7 +206,10 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               rideUrl: cardRideLinks.get(row.reference) ?? null,
             }; })} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
           </section>;
-        })}</div>}
+        })}
+          {/* Phones: Forms and Bin & restore below the Tour row, on the right. */}
+          <div className="mt-4 flex justify-end">{extraLinks}</div>
+        </div>}
         <section className={`${view !== "bin" ? "hidden md:block " : ""}mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm`}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-left text-sm">
