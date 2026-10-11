@@ -19,6 +19,7 @@ import { BookingCards } from "@/components/bookings-admin/booking-cards";
 import { fullName } from "@/lib/person-name";
 import { bookingAddonLabels } from "@/lib/booking-addon-requests";
 import { CreateMenu } from "@/components/bookings-admin/create-menu";
+import { ViewPicker } from "@/components/bookings-admin/view-picker";
 import { FormsTable } from "@/components/bookings-admin/form-requests";
 import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
@@ -178,13 +179,15 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
             Pricing areas
           </Link>
         </nav>
+        {/* Phone: the view picker sits on the page title row. */}
+        <div className="-mt-[40px] mb-1 flex justify-end md:hidden"><ViewPicker mode={mode} type={type} /></div>
         {/* Transfer / By the hour, each with a list or calendar view. */}
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <div className={`mt-2 flex-wrap items-center justify-between gap-3 ${mode === "list" && view === "active" ? "hidden md:flex" : "flex"}`}>
           <div role="tablist" aria-label="Service" className={`${mode === "list" && view === "active" ? "hidden md:inline-flex" : "inline-flex"} rounded-xl bg-[#E8EAEE] p-1`}>
             {([["transfer", "Transfer"], ["hourly", "By the hour"], ["tour", "Tour"]] as const).map(([id, label]) => <Link key={id} role="tab" aria-selected={type === id} href={`/admin/bookings?type=${id}&mode=${mode}`} className={`h-9 rounded-lg px-4 text-[15px] leading-9 ${type === id ? "bg-white font-medium text-night shadow-sm" : "text-slate-600 hover:text-night"}`}>{label}</Link>)}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-          <div role="tablist" aria-label="View" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
+          <div role="tablist" aria-label="View" className="hidden rounded-xl md:inline-flex bg-[#E8EAEE] p-1">
             {([["list", "List", List], ["calendar", "Calendar", CalendarDays], ["board", "Board", Columns3]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-night shadow-sm" : "text-slate-600 hover:text-night"}`}><Icon size={16} />{label}</Link>)}
           </div>
           </div>
