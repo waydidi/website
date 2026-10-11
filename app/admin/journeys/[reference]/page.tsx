@@ -1,14 +1,15 @@
-import type { Metadata } from "next";
-import { AdminKeyLogin } from "@/components/admin-key-login";
-import { requireWaydidiAdmin } from "@/lib/admin";
-import JourneyDetails from "./journey-details";
+import { eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
+import { getDb } from "@/db";
+import { bookings } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Journey details · Waydidi", robots: { index:false, follow:false } };
 
-export default async function JourneyPage({params}:{params:Promise<{reference:string}>}) {
-  const {reference}=await params;
-  const access=await requireWaydidiAdmin(`/admin/journeys/${encodeURIComponent(reference)}`);
-  if(!access.authorized)return <AdminKeyLogin configured={access.configured}/>;
-  return <JourneyDetails reference={reference}/>;
+// The old booking page. Links to it (Telegram, LINE, emails, search) now open the booking's card in
+// Bookings, with its details shown.
+export default async function JourneyPage({ params }: { params: Promise<{ reference: string }> }) {
+  const reference = (await params).reference.toUpperCase();
+  const [row] = await getDb().select({ serviceType: bookings.serviceType }).from(bookings).where(eq(bookings.reference, reference)).limit(1).catch(() => []);
+  const type = row?.serviceType === "hourly" || row?.serviceType === "tour" ? row.serviceType : "transfer";
+  redirect(`/admin/bookings?type=${type}&open=${encodeURIComponent(reference)}`);
 }

@@ -84,7 +84,6 @@ export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions }: {
           ...(r.driverUrl ? [["Driver link", <CopyTextButton key="drv" icon="link" text={r.driverUrl} label={`Copy driver link for ${r.reference}`} />] as [string, React.ReactNode]] : []),
           ["Evidence", <button key="ev" type="button" onClick={() => setEvidence(true)} className="font-semibold text-brand-darker underline underline-offset-4">See</button>],
         ] as [string, React.ReactNode][]).map(([k, v]) => k === "Price" ? <PriceRow key={k} r={r} /> : <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
-        <Link href={`/admin/journeys/${encodeURIComponent(r.reference)}`} className="mt-1 justify-self-end text-[13px] font-semibold text-brand-darker hover:underline">Open booking →</Link>
       </dl>}
     </div>
     <div className="flex min-w-0 items-center justify-between gap-2">

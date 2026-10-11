@@ -1,7 +1,6 @@
 "use client";
 
 import { Luggage, Users, X } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 
@@ -32,7 +31,6 @@ export function RoundtripPill({ leg, label }: { leg: Leg; label: "First trip" | 
       </div>
       <dl className="grid gap-2 rounded-2xl bg-slate-50 p-4 text-[13.5px]">
         {rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
-        <Link href={`/admin/journeys/${encodeURIComponent(leg.reference)}`} className="mt-1 justify-self-end text-[13px] font-semibold text-brand-darker hover:underline">Open booking →</Link>
       </dl>
     </Modal>}
   </>;

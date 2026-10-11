@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function BookingAdminPage({ searchParams }: { searchParams: Promise<{ view?: string; type?: string; mode?: string; form?: string }> }) {
+export default async function BookingAdminPage({ searchParams }: { searchParams: Promise<{ view?: string; type?: string; mode?: string; form?: string; open?: string }> }) {
   const access = await requireWaydidiAdmin("/admin/bookings");
   if (!access.authorized) {
     return <AdminKeyLogin configured={access.configured} />;
@@ -193,7 +193,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           const list = activeRows.filter((row) => (row.serviceType ?? "transfer") === service);
           return <section key={service} aria-labelledby={`phone-${service}`} className="mt-6">
             <h2 id={`phone-${service}`} className="mb-3 text-[20px] font-black tracking-[-.02em]">{title}</h2>
-            {list.length ? <BookingCards label={`${title} bookings`} drivers={driverOptions} rides={list.map((row) => { const { roundtrip, shown } = journey(row); const driverId = shown.assignment?.driverId ?? null; return {
+            {list.length ? <BookingCards label={`${title} bookings`} drivers={driverOptions} openRef={q.open?.toUpperCase()} rides={list.map((row) => { const { roundtrip, shown } = journey(row); const driverId = shown.assignment?.driverId ?? null; return {
               reference: row.reference, pickupDate: shown.date, pickupTime: shown.time, pickup: shown.from, dropoff: shown.to, roundtrip, leg: shown.leg,
               name: fullName(row.customerName, row.customerSurname), vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage,
               total: row.total, paymentStatus: row.paymentStatus, status: row.status,
@@ -223,7 +223,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{shown.from}</p></td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{shown.to}</p></td>
                     <td className="px-4 py-4"><p className="text-slate-900">{row.vehicle.replaceAll("_", " ")}</p>{bookingAddonLabels(row).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{bookingAddonLabels(row).map((l) => <span key={l} className="whitespace-nowrap rounded-full bg-brand-tint px-2 py-0.5 text-[11px] font-semibold text-[#B85D00]">+ {l}</span>)}</div>}</td>
-                    <td className="px-4 py-4"><Link href={`/admin/journeys/${encodeURIComponent(row.reference)}`} className="font-semibold text-slate-900 hover:text-brand-darker">{row.reference}</Link>{viaPartner.has(row.reference) && <span className="ml-1.5 rounded-full bg-violet-50 px-2 py-0.5 text-[11.5px] font-semibold text-violet-700">via {viaPartner.get(row.reference)}</span>}{row.status !== "confirmed" && <p className="mt-0.5 text-[12px] capitalize text-slate-500">{row.status.replaceAll("_", " ")}</p>}</td>
+                    <td className="px-4 py-4"><span className="font-semibold text-slate-900">{row.reference}</span>{viaPartner.has(row.reference) && <span className="ml-1.5 rounded-full bg-violet-50 px-2 py-0.5 text-[11.5px] font-semibold text-violet-700">via {viaPartner.get(row.reference)}</span>}{row.status !== "confirmed" && <p className="mt-0.5 text-[12px] capitalize text-slate-500">{row.status.replaceAll("_", " ")}</p>}</td>
                     <td className="whitespace-nowrap px-4 py-4">
                       {paid ? <span className="inline-flex rounded-full bg-line-green px-2.5 py-0.5 text-[13px] font-medium text-white">Paid</span>
                         : cash && cashAtStore.has(row.reference) ? <span className="inline-flex rounded-full bg-[#F59E0B] px-2.5 py-0.5 text-[13px] font-medium text-white">Cash at store</span>
