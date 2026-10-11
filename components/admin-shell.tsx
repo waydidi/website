@@ -413,10 +413,10 @@ function MobileTabBar({ pathname }: { pathname: string }) {
           <p className="text-[12px] font-bold text-slate-500">Replace {main[editing]?.mobileLabel} with…</p>
           <button type="button" onClick={() => { setMain(DEFAULT_MAIN); setEditing(null); try { localStorage.removeItem(MAIN_KEY); } catch { /* ignore */ } }} className="text-[12px] font-bold text-brand-darker">Reset</button>
         </div>
-        <div className="grid grid-cols-5 gap-1">{phoneTabs.filter((t) => t.href !== MAIN[editing]).map(({ href, mobileLabel, icon: Icon }) => <button key={href} type="button" onClick={() => swap(editing, href)} className={item(false)}><Icon size={21} strokeWidth={2.1} /><span className="w-full truncate text-center">{mobileLabel}</span></button>)}</div>
+        <div className="grid grid-cols-4 gap-1">{phoneTabs.filter((t) => t.href !== MAIN[editing]).map(({ href, mobileLabel, icon: Icon }) => <button key={href} type="button" onClick={() => swap(editing, href)} className={item(false)}><Icon size={21} strokeWidth={2.1} /><span className="w-full truncate text-center">{mobileLabel}</span></button>)}</div>
       </div>}
       <div id="admin-more-tabs" hidden={!open} className="mb-1 border-b border-slate-100 pb-1">
-        <div className="grid grid-cols-5 gap-1">{more.map((t) => link(t))}</div>
+        <div className="grid grid-cols-4 gap-1">{more.map((t) => link(t))}</div>
       </div>
       <div className="grid grid-cols-4 gap-1">
         {main.map((t, i) => link(t, i))}
