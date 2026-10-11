@@ -85,6 +85,14 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
     const onReturn = outbound.assignment?.status === "completed" || firstTripDone.has(row.reference) || row.pickupDate < today;
     return onReturn ? { roundtrip, shown: back, other: outbound } : { roundtrip, shown: outbound, other: back };
   };
+  // Phone cards: the nearest upcoming ride first (by the date the card shows, so a round trip counts its
+  // second trip once the first is done); rides already past come after, the most recent first.
+  const nearestFirst = (a: { pickupDate: string; pickupTime: string }, b: { pickupDate: string; pickupTime: string }) => {
+    const pastA = a.pickupDate < today, pastB = b.pickupDate < today;
+    if (pastA !== pastB) return pastA ? 1 : -1;
+    const order = `${a.pickupDate} ${a.pickupTime}`.localeCompare(`${b.pickupDate} ${b.pickupTime}`);
+    return pastA ? -order : order;
+  };
   const rows = (view === "bin" ? binRows : activeRows).filter((row) => (row.serviceType ?? "transfer") === type);
   // Bookings where the storefront collects cash at the counter.
   const refs = rows.map((r) => r.reference).slice(0, 100);
@@ -208,7 +216,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: shown.assignment?.status ?? null,
               rideUrl: cardRideLinks.get(row.reference) ?? null, cost: driverCosts.get(row.reference) ?? null,
               edit: { reference: row.reference, serviceType: row.serviceType, pickup: row.pickup, dropoff: row.dropoff, pickupDate: row.pickupDate, pickupTime: row.pickupTime, returnDate: row.returnDate, returnTime: row.returnTime, vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage }, driverUrl: cardDriverLinks.get(`${row.reference}:${shown.leg}`) ?? null,
-            }; })} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
+            }; }).sort(nearestFirst)} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
           </section>;
         })}
         </div>}
