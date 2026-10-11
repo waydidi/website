@@ -27,6 +27,16 @@ export async function postTripPhoto(input: { reference: string; status: string; 
   if (keyboard) return sendCard([...lines.slice(0, 2), "No photo", ...lines.slice(2)].join("\n"), keyboard, card?.telegram_message_id || undefined);
 }
 
+/** "2026-10-11" → "11/10/2026". */
+const dayMonthYear = (date: string | null) => (date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split("-").reverse().join("/") : date || "-");
+/** "06:00" → "6:00 AM", "13:30" → "1:30 PM". */
+function clock(time: string | null) {
+  const m = time?.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return time || "-";
+  const h = Number(m[1]);
+  return `${h % 12 || 12}:${m[2]} ${h < 12 ? "AM" : "PM"}`;
+}
+
 /** dd/mm/yyyy — h:mm AM/PM, in Thailand time. */
 export function stepTime(iso: string) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", day: "2-digit", month: "2-digit", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })
@@ -52,10 +62,21 @@ export async function postJobCompleted(reference: string, leg: string) {
     const file = row ? await getFile(row.key).catch(() => null) : null;
     if (file) photos.push({ bytes: await new Response(file.body).arrayBuffer(), mime: row!.mime || "image/jpeg" });
   }
-  const info = await db().prepare(`SELECT b.return_date AS returnDate, d.full_name AS driver, d.phone AS phone, d.car_plate AS plate FROM bookings b LEFT JOIN booking_assignments a ON a.booking_reference=b.reference AND a.leg=? AND a.revoked_at IS NULL LEFT JOIN drivers d ON d.id=a.driver_id WHERE b.reference=?`).bind(leg, reference).first<{ returnDate: string | null; driver: string | null; phone: string | null; plate: string | null }>().catch(() => null);
+  type Info = { pickup: string; dropoff: string; pickupDate: string; pickupTime: string; returnDate: string | null; returnTime: string | null; returnPickup: string | null; returnDropoff: string | null;
+    serviceType: string | null; bookedHours: number | null; driver: string | null; phone: string | null; plate: string | null; car: string | null };
+  const info = await db().prepare(`SELECT b.pickup, b.dropoff, b.pickup_date AS pickupDate, b.pickup_time AS pickupTime, b.return_date AS returnDate, b.return_time AS returnTime,
+      b.return_pickup AS returnPickup, b.return_dropoff AS returnDropoff, b.service_type AS serviceType, b.booked_hours AS bookedHours,
+      d.full_name AS driver, d.phone AS phone, d.car_plate AS plate, d.vehicle AS car
+    FROM bookings b LEFT JOIN booking_assignments a ON a.booking_reference=b.reference AND a.leg=? AND a.revoked_at IS NULL LEFT JOIN drivers d ON d.id=a.driver_id WHERE b.reference=?`).bind(leg, reference).first<Info>().catch(() => null);
   const card = await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>().catch(() => null);
-  const lines = ["✅ <b>Completed job</b>", `Reference ID: ${esc(reference)}`, "", "📍Stand by | Pick up | Drop photos are all in"];
-  if (info?.driver) lines.push("", `Driver: ${esc(info.driver)}`, `Tel: ${esc(info.phone || "-")}`, `Car plate: ${esc(info.plate || "-")}`);
+  // This journey's route, date and time (the second trip runs the other way unless set otherwise).
+  const back = leg === "return" && info?.returnDate;
+  const from = info ? (back ? info.returnPickup || info.dropoff : info.pickup) : "";
+  const to = info ? (back ? info.returnDropoff || info.pickup : info.serviceType === "hourly" ? `${info.bookedHours ?? ""} hours` : info.dropoff) : "";
+  const date = info ? (back ? info.returnDate : info.pickupDate) : null, time = info ? (back ? info.returnTime : info.pickupTime) : null;
+  const lines = ["✅ <b>Completed job</b>", `Reference ID: ${esc(reference)}`];
+  if (info) lines.push(`Route: ${esc(from)} – ${esc(to)}`, `Date: ${esc(dayMonthYear(date))}`, `Time: ${esc(clock(time))}`);
+  if (info?.driver) lines.push("", `Driver: ${esc(info.driver)}`, `Tel: ${esc(info.phone || "-")}`, `Car plate: ${esc(info.plate || "-")}`, `Vehicle: ${esc(info.car || "-")}`);
   if (info?.returnDate && leg === "outbound") lines.push("", "Next: the second trip.");
   // A reply under the booking's card, quoting its "Reference: …" line; without the quote if Telegram can't
   // find that text (e.g. the card was changed), and as a plain message if the card was never posted.
