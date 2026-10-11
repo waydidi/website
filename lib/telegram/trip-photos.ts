@@ -50,11 +50,11 @@ export async function postJobCompleted(reference: string, leg: string) {
     const file = row ? await getFile(row.key).catch(() => null) : null;
     if (file) photos.push({ bytes: await new Response(file.body).arrayBuffer(), mime: row!.mime || "image/jpeg" });
   }
-  const info = await db().prepare(`SELECT b.return_date AS returnDate, d.full_name AS driver FROM bookings b LEFT JOIN booking_assignments a ON a.booking_reference=b.reference AND a.leg=? AND a.revoked_at IS NULL LEFT JOIN drivers d ON d.id=a.driver_id WHERE b.reference=?`).bind(leg, reference).first<{ returnDate: string | null; driver: string | null }>().catch(() => null);
+  const info = await db().prepare(`SELECT b.return_date AS returnDate, d.full_name AS driver, d.phone AS phone, d.car_plate AS plate FROM bookings b LEFT JOIN booking_assignments a ON a.booking_reference=b.reference AND a.leg=? AND a.revoked_at IS NULL LEFT JOIN drivers d ON d.id=a.driver_id WHERE b.reference=?`).bind(leg, reference).first<{ returnDate: string | null; driver: string | null; phone: string | null; plate: string | null }>().catch(() => null);
   const card = await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>().catch(() => null);
-  const trip = info?.returnDate ? (leg === "return" ? " · Second trip" : " · First trip") : "";
-  const lines = [`✅ <b>Completed job</b> · ${esc(reference)}${trip}`, "Stand by · Pick up · Drop photos are all in.", ...(info?.driver ? [`Driver: ${esc(info.driver)}`] : [])];
-  if (info?.returnDate && leg === "outbound") lines.push("Next: the second trip.");
+  const lines = ["✅ <b>Completed job</b>", `Reference ID: ${esc(reference)}`, "", "📍Stand by | Pick up | Drop photos are all in"];
+  if (info?.driver) lines.push("", `Driver: ${esc(info.driver)}`, `Tel: ${esc(info.phone || "-")}`, `Car plate: ${esc(info.plate || "-")}`);
+  if (info?.returnDate && leg === "outbound") lines.push("", "Next: the second trip.");
   const replyTo = card?.telegram_message_id || undefined;
   if (photos.length >= 2) return sendPhotoAlbum(photos, lines.join("\n"), replyTo);
   if (photos.length === 1) return sendPhoto(photos[0].bytes, lines.join("\n"), replyTo);
