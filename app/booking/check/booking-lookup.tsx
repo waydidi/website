@@ -95,41 +95,46 @@ export default function BookingLookup() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const r = await fetch("/api/bookings/manage/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reference, surname }),
-    });
-    const value = (await r.json()) as { error?: string; verificationRequired?: boolean };
-    setLoading(false);
-    if (!r.ok) {
-      if (value.verificationRequired) { window.location.assign("/account/sign-in?next=%2Fbooking%2Fmanage"); return; }
-      setError(value.error ?? "Booking could not be opened.");
-      return;
-    }
-    await load();
+    try {
+      const r = await fetch("/api/bookings/manage/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference, surname }),
+      });
+      const value = (await r.json()) as { error?: string; verificationRequired?: boolean };
+      if (!r.ok) {
+        if (value.verificationRequired) { window.location.assign("/account/sign-in?next=%2Fbooking%2Fmanage"); return; }
+        setError(value.error ?? "Booking could not be opened.");
+        return;
+      }
+      await load();
+    } catch { setError("Couldn't open your booking. Check your connection and try again."); }
+    finally { setLoading(false); }
   }
   async function action(path: string, body: Record<string, unknown>) {
     setLoading(true);
     setError("");
     setMessage("");
-    const r = await fetch(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const value = (await r.json()) as { error?: string };
-    setLoading(false);
-    if (!r.ok) {
-      setError(value.error ?? "The change could not be completed.");
-      return;
-    }
-    await load();
-    setMessage(
-      path.endsWith("/share") ? "Previously issued owner tracking links have been revoked. The new link above expires after 24 hours." : path.endsWith("change-request")
-          ? "Your journey-change request was sent to Waydidi for review. Your confirmed booking has not changed."
-          : "Your pickup date and time have been updated.",
-    );
+    try {
+      const r = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const value = (await r.json()) as { error?: string };
+      if (!r.ok) {
+        setError(value.error ?? "The change could not be completed.");
+        return false;
+      }
+      await load();
+      setMessage(
+        path.endsWith("/share") ? "Previously issued owner tracking links have been revoked. The new link above expires after 24 hours." : path.endsWith("change-request")
+            ? "Your journey-change request was sent to Waydidi for review. Your confirmed booking has not changed."
+            : "Your pickup date and time have been updated.",
+      );
+      return true;
+    } catch { setError("Couldn't confirm the result. Refresh your booking before trying again."); return false; }
+    finally { setLoading(false); }
   }
   async function signOut() {
     await fetch("/api/bookings/manage/session", { method: "DELETE" });
@@ -177,14 +182,14 @@ export default function BookingLookup() {
   }
   async function submitJourneyChange() {
     if (!fareQuote || !routeInfo) return;
-    await action("/api/bookings/manage/change-request", {
+    const submitted = await action("/api/bookings/manage/change-request", {
       fareQuoteId: fareQuote.quoteId,
       returnFareQuoteId: returnFareQuote?.quoteId,
       vehicleId,
       bookingVersion: data?.booking.bookingVersion,
       reason: changeReason,
     });
-    setFareQuote(null);
+    if (submitted) setFareQuote(null);
   }
   if (!data)
     return (

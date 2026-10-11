@@ -1,3 +1,4 @@
+import { applyBookingChange } from "../booking-change";
 import { env } from "cloudflare:workers";
 import { fullName as personName } from "@/lib/person-name";
 import { VEHICLES } from "@/lib/vehicles";
@@ -139,14 +140,18 @@ export async function approveChange(id: string, by: string) {
   if (!c || !b) return "Request not found.";
   if (c.status !== "pending") return "Already handled.";
   const at = now();
-  const updated = await db().prepare("UPDATE bookings SET pickup=?,dropoff=?,pickup_date=?,pickup_time=?,vehicle=?,total=?,booking_version=booking_version+1,updated_at=? WHERE reference=? AND booking_version=? AND status NOT IN ('cancelled','binned')")
-    .bind(c.pickup, c.dropoff, c.pickup_date, c.pickup_time, c.vehicle_id, c.revised_total, at, b.reference, c.booking_version).run();
-  if (!updated.meta.changes) {
-    await db().prepare("UPDATE booking_change_requests SET status='expired',resolved_at=? WHERE id=?").bind(at, id).run();
+  const result = await applyBookingChange(id, at);
+  if (result === "handled") return "Already handled.";
+  if (result === "invalid") {
+    await db().prepare("UPDATE booking_change_requests SET status='expired',resolved_at=? WHERE id=? AND status='pending'").bind(at, id).run();
+    await close(`chg:${id}`, changeText(b, c, "The revised journey is incomplete or its return time is invalid."));
+    return "The revised journey is incomplete or its return time is invalid. Ask the customer to send it again.";
+  }
+  if (result === "stale") {
+    await db().prepare("UPDATE booking_change_requests SET status='expired',resolved_at=? WHERE id=? AND status='pending'").bind(at, id).run();
     await close(`chg:${id}`, changeText(b, c, "\nใช้ไม่ได้: การจองถูกแก้ไขหรือยกเลิกไปแล้ว"));
     return "The booking changed since this request; ask the customer to send it again.";
   }
-  await db().prepare("UPDATE booking_change_requests SET status='approved',resolved_at=? WHERE id=?").bind(at, id).run();
   await close(`chg:${id}`, changeText(b, c, `\nอนุมัติแล้ว โดย ${esc(by)}${c.price_difference ? ` · ${c.price_difference > 0 ? "เก็บเงินเพิ่ม" : "คืนเงิน"} ${thb(Math.abs(c.price_difference))}` : ""}`));
   // The driver gets a fresh job post (new link; the old one stops working).
   await republishJob(b.reference, by);

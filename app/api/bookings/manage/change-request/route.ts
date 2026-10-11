@@ -1,3 +1,4 @@
+import { revisedBookingTotal, validChangedSchedule } from "@/lib/booking-change";
 import { validTransferPrice } from "@/lib/booking-quote-check";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
   const requestedDate = quote.departureDate;
   const requestedTime = quote.departureTime;
   if (!requestedDate || !requestedTime) return NextResponse.json({ error: "The revised departure time is unavailable. Calculate it again." }, { status: 409 });
+  if (!validChangedSchedule(requestedDate, requestedTime, booking.returnDate, booking.returnTime)) return NextResponse.json({ error: "The return journey must be after the outbound pickup." }, { status: 409 });
   const prices = JSON.parse(quote.vehiclePricesJson) as Record<string, { total: number }>;
   const revisedPrice = prices[vehicleId];
   if (!revisedPrice || !Number.isInteger(revisedPrice.total)) return NextResponse.json({ error: "This vehicle is unavailable for the revised route." }, { status: 409 });
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
     if (!returnPrice || !Number.isInteger(returnPrice.total)) return NextResponse.json({ error: "This vehicle is unavailable for the revised return route." }, { status: 409 });
     revisedTotal += returnPrice.total;
   }
+  revisedTotal = await revisedBookingTotal(booking, revisedTotal);
   const [pending] = await getDb().select().from(bookingChangeRequests).where(and(eq(bookingChangeRequests.bookingReference, booking.reference), eq(bookingChangeRequests.status, "pending"))).limit(1);
   if (pending) return NextResponse.json({ error: "A journey-change request is already awaiting review." }, { status: 409 });
   const now = new Date().toISOString();

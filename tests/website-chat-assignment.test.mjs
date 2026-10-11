@@ -354,6 +354,15 @@ test('Telegram booking cards: an upcoming confirmed booking without a card (save
 test('Telegram cancellation and change requests: cards with buttons, booking updated, driver told in Thai',async()=>{
  for(const c of ['cancelled_at TEXT','updated_at TEXT','booking_version INTEGER NOT NULL DEFAULT 1'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
  await db.exec("CREATE TABLE IF NOT EXISTS booking_change_requests(id TEXT PRIMARY KEY,booking_reference TEXT,status TEXT DEFAULT 'pending',pickup TEXT,dropoff TEXT,pickup_date TEXT,pickup_time TEXT,vehicle_id TEXT,original_total INTEGER,revised_total INTEGER,price_difference INTEGER,reason TEXT,booking_version INTEGER,created_at TEXT,resolved_at TEXT);");
+ // Journey approval now synchronizes the complete route snapshot and payment ledger.
+ const changeColumns=['fare_quote_id TEXT','return_fare_quote_id TEXT','outbound_total INTEGER','return_total INTEGER','return_pickup TEXT','return_dropoff TEXT','return_date TEXT','return_time TEXT','return_distance_meters INTEGER','return_duration_seconds INTEGER','return_route_polyline TEXT','pickup_latitude REAL','pickup_longitude REAL','dropoff_latitude REAL','dropoff_longitude REAL','route_distance_meters INTEGER','route_duration_seconds INTEGER','expected_route_polyline TEXT','pricing_area TEXT','pricing_version INTEGER','base_price INTEGER','distance_surcharge INTEGER','payment_status TEXT DEFAULT \'paid\''];
+ for(const column of changeColumns)try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${column};`);}catch{}
+ await db.exec('ALTER TABLE booking_change_requests ADD COLUMN fare_quote_id TEXT;');
+ await db.exec('ALTER TABLE booking_change_requests ADD COLUMN return_fare_quote_id TEXT;');
+ await db.exec('CREATE TABLE fare_quotes(id TEXT PRIMARY KEY,pickup_place_id TEXT,dropoff_place_id TEXT,pickup_text TEXT,dropoff_text TEXT,departure_date TEXT,departure_time TEXT,pickup_latitude REAL,pickup_longitude REAL,dropoff_latitude REAL,dropoff_longitude REAL,distance_meters INTEGER,duration_seconds INTEGER,route_polyline TEXT,area_name TEXT,pricing_version INTEGER,vehicle_prices_json TEXT);');
+ await db.exec('CREATE TABLE booking_payments(id TEXT PRIMARY KEY,booking_reference TEXT,provider TEXT,status TEXT,amount_expected INTEGER,amount_expected_minor INTEGER,updated_at TEXT);');
+ await db.exec('CREATE TABLE journey_legs(id TEXT PRIMARY KEY,booking_reference TEXT,pickup_date TEXT,pickup_time TEXT,flight_date TEXT,arrival_pickup_offset_minutes INTEGER,updated_at TEXT);');
+ await db.prepare("INSERT INTO fare_quotes(id,pickup_place_id,dropoff_place_id,pickup_text,dropoff_text,departure_date,departure_time,distance_meters,duration_seconds,area_name,pricing_version,vehicle_prices_json) VALUES('change-quote','trat','hotel','Trat airport','KC Grande Resort, Ko Chang','2026-10-14','15:00',10000,900,'Trat',1,?)").bind(JSON.stringify({comfort_suv:{total:2900}})).run();
  const hook=await vite.ssrLoadModule('/app/api/integrations/telegram/webhook/route.ts');
  const ch=await vite.ssrLoadModule('/lib/telegram/booking-changes.ts');
  Object.assign(globalThis.__chatTest.env,{TELEGRAM_BOT_TOKEN:'t'});
@@ -363,7 +372,8 @@ test('Telegram cancellation and change requests: cards with buttons, booking upd
  const msgs=()=>sent.filter((m)=>m.method==='sendMessage').map((m)=>m.text);
  try{
   // Change request on MC7Q2P (driver already has the job from the previous test).
-  await db.prepare("INSERT INTO booking_change_requests VALUES('chg-1','MC7Q2P','pending','Trat airport','KC Grande Resort, Ko Chang','2026-10-14','15:00','comfort_suv',2400,2900,500,'Flight moved',1,?,NULL)").bind(new Date().toISOString()).run();
+  await db.prepare("INSERT INTO booking_change_requests(id,booking_reference,status,pickup,dropoff,pickup_date,pickup_time,vehicle_id,original_total,revised_total,price_difference,reason,booking_version,created_at,resolved_at) VALUES('chg-1','MC7Q2P','pending','Trat airport','KC Grande Resort, Ko Chang','2026-10-14','15:00','comfort_suv',2400,2900,500,'Flight moved',1,?,NULL)").bind(new Date().toISOString()).run();
+  await db.prepare("UPDATE booking_change_requests SET fare_quote_id='change-quote' WHERE id='chg-1'").run();
   assert.equal(await ch.notifyChangeRequest('chg-1'),true);assert.equal(await ch.notifyChangeRequest('chg-1'),false);
   const card=msgs().at(-1);console.log('\n'+card+'\n');
   assert.match(card,/คำขอเปลี่ยนแปลงการจอง MC7Q2P/);assert.match(card,/\+THB 500/);
