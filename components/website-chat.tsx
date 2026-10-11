@@ -78,6 +78,16 @@ export function WebsiteChat() {
   // Right after the visitor sends (and while Non is typing) check every second, so replies appear at once.
   const fastUntil = useRef(0);
   const typing = Boolean(info?.typing);
+  // The driver launcher steps aside while a popup or sheet (date, passengers, language…) or the site menu
+  // is open, so it never covers their buttons.
+  const [covered, setCovered] = useState(false);
+  useEffect(() => {
+    const check = () => setCovered(Boolean(document.querySelector('[role="dialog"], [role="alertdialog"]')) || document.body.style.overflow === "hidden" || document.body.hasAttribute("data-scroll-locked") || document.documentElement.hasAttribute("data-site-menu-open"));
+    check();
+    const watch = new MutationObserver(check);
+    watch.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "data-scroll-locked", "data-site-menu-open", "role"] });
+    return () => watch.disconnect();
+  }, []);
   useEffect(() => { if (typing) fastUntil.current = Math.max(fastUntil.current, Date.now() + 5000); }, [typing]);
   // Open: check every 4 s (every 1 s while a reply is expected). Closed but chatting: every 20 s for the unread badge. Never polls for visitors who never chatted.
   useEffect(() => {
@@ -120,7 +130,7 @@ export function WebsiteChat() {
 
   if (HIDDEN.test(path ?? "") || booking) return null;
   // The driver launcher shows only on the homepage, city pages and account; elsewhere the chat opens from "Ask Waydidi" links.
-  const launcher = open || /^\/((th|zh)\/?)?$|^\/(th\/|zh\/)?(destinations\/[^/]+|account)(\/|$)/.test(path ?? "/");
+  const launcher = open || !covered && /^\/((th|zh)\/?)?$|^\/(th\/|zh\/)?(destinations\/[^/]+|account)(\/|$)/.test(path ?? "/");
   return <>
     {mounted && open && <ChatPanel info={info} messages={messages} loadError={loadError} onRetryLoad={() => void sync().catch(() => setLoadError(true))}
       onSend={send} onClose={() => { setOpen(false); window.setTimeout(() => document.querySelector<HTMLElement>("[data-chat-launcher]")?.focus(), 0); }} onReviewed={() => void sync().catch(() => undefined)}
