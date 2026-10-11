@@ -7,7 +7,7 @@ import { NewBookingButton } from "@/components/bookings-admin/new-booking";
 import type { FormService } from "@/lib/booking-form";
 
 // One "Create" button: a centred popup to choose between a customer form link and a booking.
-// `text` shows the trigger as a plain "Create bookings" text button.
+// `text` shows the trigger as a "Create bookings" text button with a rounded outline.
 export function CreateMenu({ service, waiting = 0, text = false }: { service: FormService; waiting?: number; text?: boolean }) {
   const [open, setOpen] = useState(false);
   const [bookingSignal, setBookingSignal] = useState(0);
@@ -46,7 +46,7 @@ export function CreateMenu({ service, waiting = 0, text = false }: { service: Fo
   const icon = "grid size-14 place-items-center rounded-2xl bg-brand-tint text-brand-text";
 
   return <>
-    {text ? <button type="button" onClick={() => { setStep("choose"); setOpen(true); }} className="inline-flex h-9 items-center gap-1.5 text-[15px] font-semibold text-brand-darker hover:underline">
+    {text ? <button type="button" onClick={() => { setStep("choose"); setOpen(true); }} className="inline-flex h-9 items-center gap-1.5 rounded-[20px] border border-current px-4 text-[15px] font-semibold text-brand-darker hover:bg-brand-wash">
       Create bookings
       {waiting > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-[#D32F2F] px-1 text-[11px] font-bold text-white">{waiting}</span>}
     </button> : <button type="button" onClick={() => { setStep("choose"); setOpen(true); }} className="relative inline-flex h-10 items-center gap-1.5 rounded-full bg-brand px-4 text-[15px] font-semibold text-white hover:bg-brand-strong">
