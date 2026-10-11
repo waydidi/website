@@ -4,7 +4,7 @@ import { allowedStaffRoute, type StaffRole } from "@/lib/staff-security";
 import {
   BookOpen,
   MapPinned,
-  Users, UserRound,
+  Users, MessageCircle,
   Newspaper,
   TicketPercent, Gift, Route, Building2, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Plane, Search, Settings, Contrast } from "lucide-react";
 import Link from "next/link";
@@ -27,8 +27,8 @@ const DESKTOP_ONLY = ["/admin/pricing", "/admin/translations", "/admin/flights",
 const tabs = [
   { href: "/admin/crm", label: "CRM", mobileLabel: "CRM", title: "Customer management", icon: Users },
   { href: "/admin/financials", label: "Financials", mobileLabel: "Financials", title: "Financials", icon: BarChart3 },
-  { href: "/admin/chat", label: "Website chat", mobileLabel: "Chat", title: "Website chat", icon: Users },
-  { href: "/admin/profile", label: "Profile", mobileLabel: "Profile", title: "Profile", icon: UserRound },
+  { href: "/admin/chat", label: "Website chat", mobileLabel: "Chat", title: "Website chat", icon: MessageCircle },
+  { href: "/admin/blog", label: "Blog", mobileLabel: "Blog", title: "Blog", icon: Newspaper },
   {
     href: "/admin",
     label: "Overview",
@@ -79,13 +79,7 @@ const tabs = [
     title: "Giveaways",
     icon: Gift,
   },
-  {
-    href: "/admin/blog",
-    label: "Blog",
-    mobileLabel: "Blog",
-    title: "Blog",
-    icon: Newspaper,
-  },
+  { href: "/admin/profile", label: "Setting", mobileLabel: "Setting", title: "Setting", icon: Settings },
   { href: "/admin/translations", label: "Translations", mobileLabel: "Translate", title: "Website translations", icon: Newspaper },
   { href: "/admin/flights", label: "Flights", mobileLabel: "Flights", title: "Flight data", icon: Plane },
   { href: "/admin/trips/packages", label: "Trip packages", mobileLabel: "Packages", title: "Trip packages", icon: Route },
@@ -358,7 +352,7 @@ export default function AdminShell({
 // Mobile bottom bar: three tabs plus "More" in one row. "More" expands the sheet upward
 // to show the rest. Press and hold a tab to swap it for another page; the choice is kept
 // on this device.
-const DEFAULT_MAIN = ["/admin", "/admin/bookings", "/admin/crm"];
+const DEFAULT_MAIN = ["/admin", "/admin/bookings", "/admin/chat"];
 const MAIN_KEY = "waydidi-admin-tabs";
 function MobileTabBar({ pathname }: { pathname: string }) {
   const [open, setOpen] = useState(false);
@@ -372,8 +366,10 @@ function MobileTabBar({ pathname }: { pathname: string }) {
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(MAIN_KEY) ?? "null") as string[] | null;
+      // A bar saved as the old default (…, CRM) follows the new default (…, Chat).
+      if (Array.isArray(saved) && saved.join() === "/admin,/admin/bookings,/admin/crm") localStorage.removeItem(MAIN_KEY);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- read the saved tabs after hydration
-      if (Array.isArray(saved) && saved.length === 3 && saved.every((h) => phoneTabs.some((t) => t.href === h))) setMain(saved);
+      else if (Array.isArray(saved) && saved.length === 3 && saved.every((h) => phoneTabs.some((t) => t.href === h))) setMain(saved);
     } catch { /* storage unavailable: keep the defaults */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
