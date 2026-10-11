@@ -24,7 +24,7 @@ globalThis.fetch=async(url,init)=>{
 };
 after(async()=>{globalThis.fetch=realFetch;await vite.close();await mf.dispose();delete globalThis.__tripPhotos;});
 
-test('the step photo goes to the group under the booking card with step, driver, time and GPS',async()=>{
+test('the step photo goes to the group under the booking card as "✅Stand by (REF)" with its date and time',async()=>{
  const {putFile}=await vite.ssrLoadModule('/lib/file-store.ts');
  const {postTripPhoto}=await vite.ssrLoadModule('/lib/telegram/trip-photos.ts');
  await putFile('driver-private-evidence/a1/x.jpg',new Uint8Array([0xff,0xd8,0xff,0xd9]),'image/jpeg');
@@ -36,10 +36,8 @@ test('the step photo goes to the group under the booking card with step, driver,
  assert.equal(form.get('chat_id'),'-100');
  assert.deepEqual(JSON.parse(form.get('reply_parameters')),{message_id:4321,allow_sending_without_reply:true});
  const caption=form.get('caption');
- assert.match(caption,/📸 <b>Stand by<\/b> · 52LLDS/);
- assert.match(caption,/Driver: Thanakorn &lt;B&gt;/);
- assert.match(caption,/21:24:53 ICT/);
- assert.match(caption,/maps\?q=13\.7399,100\.5/);
+ // Taken 14:24 UTC = 9:24 PM in Thailand.
+ assert.equal(caption,'✅<b>Stand by</b> (52LLDS)\n10/10/2026 — 9:24 PM');
  const photo=form.get('photo');
  assert.equal(photo.type,'image/jpeg');
  assert.deepEqual([...new Uint8Array(await photo.arrayBuffer())],[0xff,0xd8,0xff,0xd9]);
@@ -51,6 +49,14 @@ test('the Drop photo carries a Completed job button for that status event',async
  sent.length=0;
  await postTripPhoto({reference:'52LLDS',status:'completed',eventId:'0f1e2d3c-0000-4000-8000-000000000001',driverName:'Thanakorn',evidence:{id:'e2',assignment_id:'a1',booking_reference:'52LLDS',leg:'outbound',driver_id:'d1',event_type:'dropoff',status_event_id:null,device_captured_at:'2026-10-10T15:00:00.000Z',received_at:'2026-10-10T15:00:02.000Z',confirmed_at:null,latitude:null,longitude:null,accuracy_metres:null,original_key:'driver-private-evidence/a1/x.jpg',stamped_key:'x.svg',expires_at:'2099-01-01',deleted_at:null}});
  const form=sent[0].form;
- assert.match(form.get('caption'),/📸 <b>Drop<\/b> · 52LLDS/);assert.match(form.get('caption'),/Location unavailable/);
+ assert.equal(form.get('caption'),'✅<b>Drop</b> (52LLDS)\n10/10/2026 — 10:00 PM\n\nCheck the photo, then tap Completed job.');
  assert.deepEqual(JSON.parse(form.get('reply_markup')),{inline_keyboard:[[{text:'✅ Completed job',callback_data:'trip_done:0f1e2d3c-0000-4000-8000-000000000001'}]]});
+});
+
+test('a Drop that completed the job (all three photos in) is posted without the button',async()=>{
+ const {postTripPhoto}=await vite.ssrLoadModule('/lib/telegram/trip-photos.ts');
+ sent.length=0;
+ await postTripPhoto({reference:'52LLDS',status:'completed',eventId:'ev-3',driverName:'Thanakorn',done:true,evidence:{id:'e3',assignment_id:'a1',booking_reference:'52LLDS',leg:'outbound',driver_id:'d1',event_type:'dropoff',status_event_id:null,device_captured_at:'2026-10-10T15:00:00.000Z',received_at:'2026-10-10T15:00:02.000Z',confirmed_at:null,latitude:null,longitude:null,accuracy_metres:null,original_key:'driver-private-evidence/a1/x.jpg',stamped_key:'x.svg',expires_at:'2099-01-01',deleted_at:null}});
+ assert.equal(sent[0].form.get('caption'),'✅<b>Drop</b> (52LLDS)\n10/10/2026 — 10:00 PM');
+ assert.equal(sent[0].form.get('reply_markup'),null);
 });
