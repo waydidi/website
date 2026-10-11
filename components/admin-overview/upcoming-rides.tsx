@@ -10,7 +10,7 @@ import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/dri
 import { includesKohChangFerry } from "@/lib/booking-form";
 import { paymentPill } from "@/lib/payment-pill";
 import { EvidenceSheet } from "@/components/drivers/evidence-sheet";
-import { BookingEditButton, type EditableBooking } from "@/components/bookings-admin/booking-edit";
+import type { EditableBooking } from "@/components/bookings-admin/booking-edit";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 
 export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return"; /** The customer's ride-status page. */ rideUrl?: string | null; /** The assigned driver's job page. */ driverUrl?: string | null; /** Driver cost set in Telegram ("Set cost"); null until then. */ cost?: number | null; /** What "Edit" on the card changes (booking cards). */ edit?: EditableBooking };
@@ -57,7 +57,7 @@ function PriceRow({ r }: { r: UpcomingRide }) {
 }
 
 /** One ride: journey details above (with a details panel), driver picker left and assignment status right. */
-export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions }: { r: UpcomingRide; drivers: PickerDriver[]; open: boolean; onToggle: () => void; onAddDriver: () => void; /** Shown in the top-right corner (e.g. delete). */ actions?: React.ReactNode }) {
+export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions, noAssign = false }: { r: UpcomingRide; drivers: PickerDriver[]; open: boolean; onToggle: () => void; onAddDriver: () => void; /** Shown in the top-right corner (e.g. delete). */ actions?: React.ReactNode; /** Hide the driver picker and assignment status (Overview). */ noAssign?: boolean }) {
   const [evidence, setEvidence] = useState(false);
   return <div className="grid gap-3">
     {evidence && <EvidenceSheet reference={r.reference} leg={r.leg} onClose={() => setEvidence(false)} />}
@@ -91,16 +91,15 @@ export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions }: {
         ] as [string, React.ReactNode][]).map(([k, v]) => k === "Price" ? <PriceRow key={k} r={r} /> : <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
       </dl>}
     </div>
-    <div className="flex min-w-0 items-center justify-between gap-2">
+    {!noAssign && <div className="flex min-w-0 items-center justify-between gap-2">
       <DriverPicker reference={r.reference} leg={r.leg} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} onAddDriver={onAddDriver} />
       <span className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-bold ${badge(r)[1]}`}>{badge(r)[0]}</span>
-    </div>
+    </div>}
   </div>;
 }
 
-// Upcoming rides: journey details above, driver picker left and assignment status right.
+// Upcoming rides: journey details only (no Edit, no driver picker; those live on Bookings).
 export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drivers: PickerDriver[] }) {
-  const [adding, setAdding] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   // 3 rides at first; each "Show more" adds 2 (or the 1 that is left).
   const [shown, setShown] = useState(3);
@@ -127,12 +126,11 @@ export function UpcomingRides({ rides, drivers }: { rides: UpcomingRide[]; drive
       <Link href="/admin/bookings" className="text-[13px] font-bold text-brand-darker hover:underline">See all →</Link>
     </div>
     {rides.length === 0 ? <p className="p-4 text-[14px] text-slate-500">No upcoming rides.</p> : <ul className="divide-y divide-slate-100">
-      {rides.slice(0, shown).map((r) => <li key={r.reference} className="px-4 py-3"><RideCard r={r} drivers={drivers} open={open === r.reference} onToggle={() => setOpen(open === r.reference ? null : r.reference)} onAddDriver={() => setAdding(r.reference)} actions={r.edit ? <BookingEditButton booking={r.edit} /> : undefined} /></li>)}
+      {rides.slice(0, shown).map((r) => <li key={r.reference} className="px-4 py-3"><RideCard r={r} drivers={drivers} open={open === r.reference} onToggle={() => setOpen(open === r.reference ? null : r.reference)} onAddDriver={() => undefined} noAssign /></li>)}
     </ul>}
     {left > 0 && <div ref={more} className="flex justify-center border-t border-slate-100 py-2.5">
       <button type="button" onClick={() => setShown((n) => n + Math.min(2, left))} className="rounded-full px-4 py-1.5 text-[13.5px] font-bold text-brand-darker hover:bg-brand-wash">Show more ({left} more {left === 1 ? "ride" : "rides"})</button>
     </div>}
-    {adding && <AddDriverDialog reference={adding} onClose={() => setAdding(null)} />}
   </section>;
 }
 
