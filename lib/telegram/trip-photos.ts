@@ -55,8 +55,12 @@ export async function postJobCompleted(reference: string, leg: string) {
   const lines = ["✅ <b>Completed job</b>", `Reference ID: ${esc(reference)}`, "", "📍Stand by | Pick up | Drop photos are all in"];
   if (info?.driver) lines.push("", `Driver: ${esc(info.driver)}`, `Tel: ${esc(info.phone || "-")}`, `Car plate: ${esc(info.plate || "-")}`);
   if (info?.returnDate && leg === "outbound") lines.push("", "Next: the second trip.");
+  // A reply under the booking's card, quoting its "Reference: …" line; without the quote if Telegram can't
+  // find that text (e.g. the card was changed), and as a plain message if the card was never posted.
   const replyTo = card?.telegram_message_id || undefined;
-  if (photos.length >= 2) return sendPhotoAlbum(photos, lines.join("\n"), replyTo);
-  if (photos.length === 1) return sendPhoto(photos[0].bytes, lines.join("\n"), replyTo);
-  return sendCard(lines.join("\n"), undefined, replyTo);
+  const send = (quote?: string): Promise<unknown> => photos.length >= 2 ? sendPhotoAlbum(photos, lines.join("\n"), replyTo, quote)
+    : photos.length === 1 ? sendPhoto(photos[0].bytes, lines.join("\n"), replyTo, undefined, quote)
+    : sendCard(lines.join("\n"), undefined, replyTo, quote);
+  if (!replyTo) return send();
+  return send(`Reference: ${reference}`).catch((error) => { console.error("Completed job quote failed, sending without it", error); return send(); });
 }

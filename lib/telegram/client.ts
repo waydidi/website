@@ -32,10 +32,13 @@ export async function tg<T = unknown>(method: string, payload: Record<string, un
   return data.result as T;
 }
 
-export const sendCard = (text: string, keyboard?: InlineKeyboard, replyTo?: number) =>
+/** Reply settings: `quote` shows that exact text from the replied-to message in the reply. */
+const replyParameters = (replyTo: number, quote?: string) => ({ message_id: replyTo, allow_sending_without_reply: true, ...(quote ? { quote } : {}) });
+
+export const sendCard = (text: string, keyboard?: InlineKeyboard, replyTo?: number, quote?: string) =>
   tg<TelegramMessage>("sendMessage", { chat_id: telegramChatId(), text, parse_mode: "HTML", disable_web_page_preview: true,
     ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
-    ...(replyTo ? { reply_parameters: { message_id: replyTo, allow_sending_without_reply: true } } : {}) });
+    ...(replyTo ? { reply_parameters: replyParameters(replyTo, quote) } : {}) });
 
 /** A message to one person's private chat with the bot (they must have pressed Start once). */
 export const sendPrivate = (chatId: string, text: string, replyTo?: number) =>
@@ -54,14 +57,14 @@ export async function editCard(messageId: number, text: string, keyboard?: Inlin
 export const answerCallback = (id: string, text?: string, alert = false) => tg("answerCallbackQuery", { callback_query_id: id, ...(text ? { text, show_alert: alert } : {}) }).catch(() => undefined);
 
 /** A photo to the group (multipart upload), optionally as a reply to a card. */
-export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: number, keyboard?: InlineKeyboard) {
+export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: number, keyboard?: InlineKeyboard, quote?: string) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) throw new Error("TELEGRAM_NOT_CONFIGURED");
   const form = new FormData();
   form.set("chat_id", telegramChatId());
   form.set("caption", caption);
   form.set("parse_mode", "HTML");
-  if (replyTo) form.set("reply_parameters", JSON.stringify({ message_id: replyTo, allow_sending_without_reply: true }));
+  if (replyTo) form.set("reply_parameters", JSON.stringify(replyParameters(replyTo, quote)));
   if (keyboard) form.set("reply_markup", JSON.stringify({ inline_keyboard: keyboard }));
   form.set("photo", new Blob([photo], { type: "image/jpeg" }), "trip-photo.jpg");
   const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(15000) });
@@ -71,12 +74,12 @@ export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: n
 }
 
 /** Up to 10 photos to the group as one album (the caption shows under the first), optionally as a reply. */
-export async function sendPhotoAlbum(photos: { bytes: ArrayBuffer; mime: string }[], caption: string, replyTo?: number) {
+export async function sendPhotoAlbum(photos: { bytes: ArrayBuffer; mime: string }[], caption: string, replyTo?: number, quote?: string) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) throw new Error("TELEGRAM_NOT_CONFIGURED");
   const form = new FormData();
   form.set("chat_id", telegramChatId());
-  if (replyTo) form.set("reply_parameters", JSON.stringify({ message_id: replyTo, allow_sending_without_reply: true }));
+  if (replyTo) form.set("reply_parameters", JSON.stringify(replyParameters(replyTo, quote)));
   form.set("media", JSON.stringify(photos.slice(0, 10).map((_, i) => ({ type: "photo", media: `attach://p${i}`, ...(i === 0 ? { caption, parse_mode: "HTML" } : {}) }))));
   photos.slice(0, 10).forEach((p, i) => form.set(`p${i}`, new Blob([p.bytes], { type: p.mime }), `photo-${i}.${p.mime === "image/png" ? "png" : p.mime === "image/webp" ? "webp" : "jpg"}`));
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMediaGroup`, { method: "POST", body: form, signal: AbortSignal.timeout(20000) });
