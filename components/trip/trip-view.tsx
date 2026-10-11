@@ -21,6 +21,7 @@ import { formatDate, intlLocale, type MessageKey } from "@/lib/i18n";
 import { SITE_LANGS, type SiteLang } from "@/lib/site-languages";
 import { LocalePicker } from "@/components/locale-picker";
 import { ShareTripButton } from "@/components/trip/share-sheet";
+import { tripApiQuery } from "@/lib/trip-api-query";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Google Maps JS has no bundled types here
@@ -89,7 +90,7 @@ export function TripView({ reference, lang }: { reference: string; lang: SiteLan
         if(!(await exchanged.current).ok) {setFailure("expired");return;}
         // The address keeps the link's code, so "Open in browser" (Telegram, LINE) or a refresh still opens the trip.
       }
-      const response = await fetch(`/api/trip/${encodeURIComponent(reference)}${new URLSearchParams(query).get("leg") ? `?leg=${new URLSearchParams(query).get("leg")}` : ""}`, { cache: "no-store" });
+      const response = await fetch(`/api/trip/${encodeURIComponent(reference)}${tripApiQuery(query)}`, { cache: "no-store" });
       if (response.status === 404) { setFailure("not_found"); return; }
       if (response.status === 410) { setFailure("expired"); return; }
       if (!response.ok) throw new Error("Trip unavailable");
@@ -275,7 +276,7 @@ function MeetCard({ trip, query }: { trip: Trip; query: string }) {
       {trip.standbyPhoto && (
         <figure>
           {/* eslint-disable-next-line @next/next/no-img-element -- private, uncached evidence photo */}
-          <img src={`/api/trip/${encodeURIComponent(trip.reference)}/photo${new URLSearchParams(query).get("leg") ? `?leg=${new URLSearchParams(query).get("leg")}` : ""}`} alt={t("trip.meet.photoAlt")} className="aspect-[4/3] w-full object-cover" onError={(event) => { const figure = event.currentTarget.closest("figure"); if (figure) figure.hidden = true; }} />
+          <img src={`/api/trip/${encodeURIComponent(trip.reference)}/photo${tripApiQuery(query)}`} alt={t("trip.meet.photoAlt")} className="aspect-[4/3] w-full object-cover" onError={(event) => { const figure = event.currentTarget.closest("figure"); if (figure) figure.hidden = true; }} />
           <figcaption className="px-5 pt-3 text-xs font-semibold text-slate-500">{t("trip.meet.photoCaption")}</figcaption>
         </figure>
       )}
