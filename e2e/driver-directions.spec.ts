@@ -53,6 +53,8 @@ test("Price (set in Telegram) and Payment sit below To", async ({ page }) => {
   await expect(page.locator("dl")).toContainText("Collect cash");
   await page.getByRole("button", { name: "What's included" }).click();
   await expect(page.getByRole("dialog", { name: "What's included" })).toContainText("Private vehicle with driver");
+  await page.getByText("Customer name").click(); // a tap outside closes it
+  await expect(page.getByRole("dialog", { name: "What's included" })).toHaveCount(0);
 });
 test("without a price from Telegram the row reads Not set", async ({ page }) => {
   await page.route("**/api/driver/trips/session", (r) => r.fulfill({ json: { ...base, booking: { ...base.booking, price: null, paymentStatus: "paid" } } }));
