@@ -5,11 +5,14 @@ import { useState } from "react";
 import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 import { VEHICLES, type VehicleId } from "@/lib/vehicles";
+import { DateField } from "@/components/booking-form/date-field";
 
 // "Edit" on a booking card: a sheet from the bottom to change the date and time (and the return's), the
 // car class and the number of passengers and bags; the driver with the job gets the updated job post.
 // Deleting the booking (with the admin password) is at the bottom.
-export type EditableBooking = { reference: string; pickupDate: string; pickupTime: string; returnDate: string | null; returnTime: string | null; vehicle: string; passengers: number; luggage: number };
+export type EditableBooking = { reference: string; serviceType?: string | null; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; returnDate: string | null; returnTime: string | null; vehicle: string; passengers: number; luggage: number };
+// The earliest day the picker offers: today, or the booking's own (earlier) date.
+const earliest = (date: string) => { const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10); return date && date < today ? date : today; };
 const field = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-brand";
 
 export function BookingEditButton({ booking }: { booking: EditableBooking }) {
@@ -32,32 +35,29 @@ function EditSheet({ booking, onClose }: { booking: EditableBooking; onClose: ()
     event.preventDefault();
     setBusy(true); setError("");
     try {
-      const res = await fetch(`/api/admin/bookings/${encodeURIComponent(booking.reference)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pickupDate: form.pickupDate, pickupTime: form.pickupTime, returnDate: form.returnDate, returnTime: form.returnTime, vehicle: form.vehicle, passengers: Number(form.passengers), luggage: Number(form.luggage) }) });
+      const res = await fetch(`/api/admin/bookings/${encodeURIComponent(booking.reference)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pickup: form.pickup, dropoff: form.dropoff, pickupDate: form.pickupDate, pickupTime: form.pickupTime, returnDate: form.returnDate, returnTime: form.returnTime, vehicle: form.vehicle, passengers: Number(form.passengers), luggage: Number(form.luggage) }) });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(body.error ?? "The booking could not be saved.");
       onClose(); router.refresh();
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
-  return <Modal open onClose={onClose} locked={busy} sheet overlayClassName="z-[70] bg-black/40 sm:items-end sm:p-0" asChild>
+  return <Modal open onClose={onClose} locked={busy} sheet overlayClassName="z-50 bg-black/40 sm:items-end sm:p-0" asChild>
     <div className="max-h-[90dvh] w-full max-w-lg animate-in slide-in-from-bottom overflow-y-auto rounded-t-[28px] bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] duration-300">
       <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-200" />
       <div className="flex items-center justify-between">
-        <ModalTitle className="text-lg font-black">Edit · {booking.reference}</ModalTitle>
+        <ModalTitle className="text-lg font-black">Edit</ModalTitle>
         <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
       </div>
       <form onSubmit={save} className="mt-4 grid gap-3 text-[14px]">
-        <p className="font-bold">{booking.returnDate ? "First trip" : "Pickup"}</p>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="grid gap-1 text-slate-600">Date<input type="date" required value={form.pickupDate} onChange={(e) => set("pickupDate", e.target.value)} className={field} /></label>
-          <label className="grid gap-1 text-slate-600">Time<input type="time" required value={form.pickupTime} onChange={(e) => set("pickupTime", e.target.value)} className={field} /></label>
+        <label className="grid gap-1 text-slate-600">From<input required value={form.pickup} onChange={(e) => set("pickup", e.target.value)} className={field} /></label>
+        {booking.serviceType !== "hourly" && <label className="grid gap-1 text-slate-600">To<input required value={form.dropoff} onChange={(e) => set("dropoff", e.target.value)} className={field} /></label>}
+        {/* Date and time in one, with the same picker as the booking search. */}
+        <div className="grid gap-1 text-slate-600">{booking.returnDate ? "First trip" : "Date & time"}
+          <DateField value={form.pickupDate} time={form.pickupTime} min={earliest(form.pickupDate)} onChange={(v) => set("pickupDate", v)} onTimeChange={(v) => set("pickupTime", v)} className={`${field} text-slate-900`} />
         </div>
-        {booking.returnDate && <>
-          <p className="mt-1 font-bold">Second trip</p>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="grid gap-1 text-slate-600">Date<input type="date" required value={form.returnDate} onChange={(e) => set("returnDate", e.target.value)} className={field} /></label>
-            <label className="grid gap-1 text-slate-600">Time<input type="time" required value={form.returnTime} onChange={(e) => set("returnTime", e.target.value)} className={field} /></label>
-          </div>
-        </>}
+        {booking.returnDate && <div className="grid gap-1 text-slate-600">Second trip
+          <DateField kind="return" value={form.returnDate} time={form.returnTime} min={earliest(form.returnDate)} onChange={(v) => set("returnDate", v)} onTimeChange={(v) => set("returnTime", v)} className={`${field} text-slate-900`} />
+        </div>}
         <label className="mt-1 grid gap-1 text-slate-600">Vehicle
           <select value={form.vehicle} onChange={(e) => set("vehicle", e.target.value)} className={field}>
             {(Object.keys(VEHICLES) as VehicleId[]).map((id) => <option key={id} value={id}>{VEHICLES[id].name} · up to {VEHICLES[id].passengers} people, {VEHICLES[id].bags} bags</option>)}

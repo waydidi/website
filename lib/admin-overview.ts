@@ -24,7 +24,7 @@ export type OverviewRide = {
   driver: string | null; driverId: string | null; driverStatus: string | null; attention: boolean;
   // Same extras as the Bookings cards.
   roundtrip?: boolean; leg?: "outbound"; rideUrl?: string | null; driverUrl?: string | null; cost?: number | null;
-  edit?: { reference: string; pickupDate: string; pickupTime: string; returnDate: string | null; returnTime: string | null; vehicle: string; passengers: number; luggage: number };
+  edit?: { reference: string; serviceType: string | null; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; returnDate: string | null; returnTime: string | null; vehicle: string; passengers: number; luggage: number };
 };
 
 export async function adminOverview(at = new Date()) {
@@ -45,7 +45,7 @@ export async function adminOverview(at = new Date()) {
         reference: bookings.reference, pickupDate: bookings.pickupDate, pickupTime: bookings.pickupTime, pickup: bookings.pickup, dropoff: bookings.dropoff,
         customerName: bookings.customerName, customerSurname: bookings.customerSurname, vehicle: bookings.vehicle, passengers: bookings.passengers, luggage: bookings.luggage, status: bookings.status,
         paymentMethod: bookings.paymentMethod, paymentStatus: bookings.paymentStatus, total: bookings.total, flightNumber: bookings.flightNumber, flightStatus: bookings.flightStatus, attentionStatus: bookings.attentionStatus,
-        createdAt: bookings.createdAt, returnDate: bookings.returnDate, returnTime: bookings.returnTime,
+        createdAt: bookings.createdAt, serviceType: bookings.serviceType, returnDate: bookings.returnDate, returnTime: bookings.returnTime,
       },
       driver: drivers.fullName, driverId: drivers.id, driverStatus: bookingAssignments.currentStatus,
     }).from(bookings)
@@ -71,7 +71,7 @@ export async function adminOverview(at = new Date()) {
     total: b.total, flightNumber: b.flightNumber, flightStatus: b.flightStatus, driver: driver ?? null, driverId: driverId ?? null, driverStatus: driverStatus ?? null,
     attention: b.attentionStatus === "attention",
     roundtrip: Boolean(b.returnDate), leg: "outbound" as const,
-    edit: { reference: b.reference, pickupDate: b.pickupDate, pickupTime: b.pickupTime, returnDate: b.returnDate, returnTime: b.returnTime, vehicle: b.vehicle, passengers: b.passengers, luggage: b.luggage },
+    edit: { reference: b.reference, serviceType: b.serviceType, pickup: b.pickup, dropoff: b.dropoff, pickupDate: b.pickupDate, pickupTime: b.pickupTime, returnDate: b.returnDate, returnTime: b.returnTime, vehicle: b.vehicle, passengers: b.passengers, luggage: b.luggage },
   }));
   // Customer link, driver link (once assigned) and driver cost for the nearest rides shown in Upcoming rides.
   const near = upcoming.slice(0, 20);
