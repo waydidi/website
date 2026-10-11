@@ -325,8 +325,9 @@ export default function AdminShell({
         <header className="relative z-30 flex h-[72px] items-center gap-4 border-b border-slate-200/70 bg-white/95 px-4 backdrop-blur sm:px-8">
           {/* Phones: the logo sits where desktop has the sidebar, followed by the page name: [logo] | Bookings. */}
           <div className="flex min-w-0 flex-1 items-center gap-3 md:hidden">
-            {/* Wordmark as tall as the 20px page name; the bird keeps the logo's proportion to it (157:115). */}
-            <Link href="/admin" aria-label="Waydidi admin home" className="flex shrink-0 items-end gap-[6px] text-brand"><WaydidiMark className="admin-logo mb-[2px] size-[28px]" /><WaydidiWordmark className="admin-logo h-[20px] w-auto" /></Link>
+            {/* Wordmark as tall as the 20px page name and centred on the row with it and the bell; the bird keeps
+                the logo's proportion to it (157:115) and sits a little higher, as in the logo. */}
+            <Link href="/admin" aria-label="Waydidi admin home" className="flex shrink-0 items-center gap-[6px] text-brand"><WaydidiMark className="admin-logo size-[28px] -translate-y-[3px]" /><WaydidiWordmark className="admin-logo h-[20px] w-auto" /></Link>
             <span aria-hidden="true" className="text-[24px] font-light leading-none text-slate-300">|</span>
             <p className="min-w-0 truncate text-[20px] font-semibold tracking-[-.02em] text-night">{title}</p>
           </div>
