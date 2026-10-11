@@ -203,7 +203,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               total: row.total, paymentStatus: row.paymentStatus, status: row.status,
               driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: shown.assignment?.status ?? null,
               rideUrl: cardRideLinks.get(row.reference) ?? null, cost: driverCosts.get(row.reference) ?? null,
-              edit: { reference: row.reference, pickupDate: row.pickupDate, pickupTime: row.pickupTime, returnDate: row.returnDate, returnTime: row.returnTime, vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage }, driverUrl: cardDriverLinks.get(`${row.reference}:${shown.leg}`) ?? null,
+              edit: { reference: row.reference, serviceType: row.serviceType, pickup: row.pickup, dropoff: row.dropoff, pickupDate: row.pickupDate, pickupTime: row.pickupTime, returnDate: row.returnDate, returnTime: row.returnTime, vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage }, driverUrl: cardDriverLinks.get(`${row.reference}:${shown.leg}`) ?? null,
             }; })} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
           </section>;
         })}
