@@ -1748,17 +1748,6 @@ export function BookingFlow({
             <SheetCounter label="Checked bags" description="Choose your luggage separately from passenger count. Tell us about oversized items in the booking notes." value={booking.luggage} min={0} max={MAX_GROUP_BAGS} onChange={value=>{fitVehicleToGroup(booking.passengers,value);setBooking(current=>({...current,luggage:value}));}} />
           </div>
 
-          <div className="mt-5 rounded-[24px] bg-slate-100 p-5 text-slate-600">
-            <p className="mb-4 font-semibold">Your luggage selection</p>
-            <div className="grid gap-4 text-base sm:grid-cols-2">
-              <span className="flex items-center gap-3">
-                <Luggage size={24} aria-hidden="true" />
-                <strong>{t("pax.checkedBags", { count: booking.luggage })}</strong>
-              </span>
-              <p className="text-sm">Tell us about additional carry-on or oversized items in the booking notes.</p>
-            </div>
-          </div>
-
           <button
             type="button"
             onClick={() => setPeopleOpen(false)}
