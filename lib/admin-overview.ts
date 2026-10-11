@@ -3,8 +3,11 @@ import { fullName } from "@/lib/person-name";
 import { getDb } from "@/db";
 import {
   agencyApplications, bookingAssignments, bookingChangeRequests, bookings, driverApplications, drivers,
-  memberBoxes, operationsAlerts,
+  bookingCosts, memberBoxes, operationsAlerts,
 } from "@/db/schema";
+import { SITE_URL } from "@/lib/site";
+import { rideUrl } from "@/lib/trip-access";
+import { assignedDriverUrl } from "@/lib/trip-links";
 
 // Bookings that never became real trips.
 const DEAD = ["expired", "payment_failed"];
@@ -19,6 +22,9 @@ export type OverviewRide = {
   reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string;
   vehicle: string; passengers: number; luggage: number; status: string; paymentMethod: string; paymentStatus: string; total: number; flightNumber: string | null; flightStatus: string | null;
   driver: string | null; driverId: string | null; driverStatus: string | null; attention: boolean;
+  // Same extras as the Bookings cards.
+  roundtrip?: boolean; leg?: "outbound"; rideUrl?: string | null; driverUrl?: string | null; cost?: number | null;
+  edit?: { reference: string; pickupDate: string; pickupTime: string; returnDate: string | null; returnTime: string | null; vehicle: string; passengers: number; luggage: number };
 };
 
 export async function adminOverview(at = new Date()) {
@@ -39,6 +45,7 @@ export async function adminOverview(at = new Date()) {
         reference: bookings.reference, pickupDate: bookings.pickupDate, pickupTime: bookings.pickupTime, pickup: bookings.pickup, dropoff: bookings.dropoff,
         customerName: bookings.customerName, customerSurname: bookings.customerSurname, vehicle: bookings.vehicle, passengers: bookings.passengers, luggage: bookings.luggage, status: bookings.status,
         paymentMethod: bookings.paymentMethod, paymentStatus: bookings.paymentStatus, total: bookings.total, flightNumber: bookings.flightNumber, flightStatus: bookings.flightStatus, attentionStatus: bookings.attentionStatus,
+        createdAt: bookings.createdAt, returnDate: bookings.returnDate, returnTime: bookings.returnTime,
       },
       driver: drivers.fullName, driverId: drivers.id, driverStatus: bookingAssignments.currentStatus,
     }).from(bookings)
@@ -63,7 +70,17 @@ export async function adminOverview(at = new Date()) {
     name: fullName(b.customerName, b.customerSurname), vehicle: b.vehicle, passengers: b.passengers, luggage: b.luggage, status: b.status, paymentMethod: b.paymentMethod, paymentStatus: b.paymentStatus,
     total: b.total, flightNumber: b.flightNumber, flightStatus: b.flightStatus, driver: driver ?? null, driverId: driverId ?? null, driverStatus: driverStatus ?? null,
     attention: b.attentionStatus === "attention",
+    roundtrip: Boolean(b.returnDate), leg: "outbound" as const,
+    edit: { reference: b.reference, pickupDate: b.pickupDate, pickupTime: b.pickupTime, returnDate: b.returnDate, returnTime: b.returnTime, vehicle: b.vehicle, passengers: b.passengers, luggage: b.luggage },
   }));
+  // Customer link, driver link (once assigned) and driver cost for the nearest rides shown in Upcoming rides.
+  const near = upcoming.slice(0, 20);
+  const costs = near.length ? await db.select({ ref: bookingCosts.bookingReference, cost: bookingCosts.totalDriverCost }).from(bookingCosts).where(inArray(bookingCosts.bookingReference, near.map((u) => u.b.reference))).catch(() => []) : [];
+  const links = await Promise.all(near.map(async ({ b }) => [
+    b.status === "confirmed" ? await rideUrl(SITE_URL, { reference: b.reference, createdAt: b.createdAt }).catch(() => null) : null,
+    await assignedDriverUrl(b.reference, "outbound").catch(() => null),
+  ] as const));
+  near.forEach(({ b }, i) => { const r = rides[i]; r.rideUrl = links[i][0]; r.driverUrl = links[i][1]; r.cost = costs.find((c) => c.ref === b.reference)?.cost ?? null; });
   const pickupAt = (r: OverviewRide) => new Date(`${r.pickupDate}T${r.pickupTime}:00+07:00`);
   const unassignedSoon = rides.filter((r) => r.status === "confirmed" && !r.driver && pickupAt(r) <= soon);
 
