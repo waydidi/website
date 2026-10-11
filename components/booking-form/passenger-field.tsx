@@ -38,10 +38,6 @@ export function PassengerField({ passengers, bags, onChange, maxPassengers = 30,
           <Counter label={t("pax.children")} description={t("pax.childrenHint")} value={children} min={0} max={maxPassengers - adults} onChange={(v) => setPeople(adults, v)} />
           <Counter label="Checked bags" description="Choose your luggage separately from passenger count. Tell us about oversized items in the booking notes." value={bags} min={0} max={maxBags} onChange={(v) => onChange(passengers, v)} />
         </div>
-        <div className="mt-5 rounded-[24px] bg-slate-100 p-5 text-slate-600">
-          <p className="mb-4 font-semibold">Your luggage selection</p>
-          <span className="flex items-center gap-3"><Luggage size={24} aria-hidden="true" /><strong>{t("pax.checkedBags", { count: bags })}</strong></span>
-        </div>
         <button type="button" onClick={() => setOpen(false)} className="mt-5 min-h-14 w-full rounded-full bg-brand px-6 text-lg font-bold text-white transition hover:bg-brand-hover">{t("common.done")}</button>
       </SheetContent>
     </Sheet>
