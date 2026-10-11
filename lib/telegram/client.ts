@@ -69,3 +69,18 @@ export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: n
   if (!data.ok) throw new TelegramDeliveryError(`Telegram sendPhoto failed: ${String(data.description ?? res.status).replaceAll(token, "[redacted]")}`, res.status >= 400 && res.status < 500);
   return data.result as TelegramMessage;
 }
+
+/** Up to 10 photos to the group as one album (the caption shows under the first), optionally as a reply. */
+export async function sendPhotoAlbum(photos: { bytes: ArrayBuffer; mime: string }[], caption: string, replyTo?: number) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) throw new Error("TELEGRAM_NOT_CONFIGURED");
+  const form = new FormData();
+  form.set("chat_id", telegramChatId());
+  if (replyTo) form.set("reply_parameters", JSON.stringify({ message_id: replyTo, allow_sending_without_reply: true }));
+  form.set("media", JSON.stringify(photos.slice(0, 10).map((_, i) => ({ type: "photo", media: `attach://p${i}`, ...(i === 0 ? { caption, parse_mode: "HTML" } : {}) }))));
+  photos.slice(0, 10).forEach((p, i) => form.set(`p${i}`, new Blob([p.bytes], { type: p.mime }), `photo-${i}.${p.mime === "image/png" ? "png" : p.mime === "image/webp" ? "webp" : "jpg"}`));
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMediaGroup`, { method: "POST", body: form, signal: AbortSignal.timeout(20000) });
+  const data = await res.json().catch(() => ({})) as { ok?: boolean; result?: TelegramMessage[]; description?: string };
+  if (!data.ok) throw new TelegramDeliveryError(`Telegram sendMediaGroup failed: ${String(data.description ?? res.status).replaceAll(token, "[redacted]")}`, res.status >= 400 && res.status < 500);
+  return data.result as TelegramMessage[];
+}
