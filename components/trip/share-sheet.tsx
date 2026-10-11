@@ -4,6 +4,7 @@ import { Copy, LoaderCircle, MessageSquareText, Share2, X } from "lucide-react";
 import { useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useI18n } from "@/components/i18n-provider";
+import { tripApiQuery } from "@/lib/trip-api-query";
 
 // "Share my trip": an icon in the trip header that opens a bottom sheet (same style as the
 // language picker). The view-only link is created on first open; each app gets the link prefilled.
@@ -24,12 +25,11 @@ export function ShareTripButton({ reference, query }: { reference: string; query
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<"" | "copied" | "stopped" | "error">("");
-  const leg = new URLSearchParams(query).get("leg");
 
   async function call(action: "create" | "revoke") {
     setBusy(true); setStatus("");
     try {
-      const response = await fetch(`/api/trip/${encodeURIComponent(reference)}/share${leg ? `?leg=${leg}` : ""}`, {
+      const response = await fetch(`/api/trip/${encodeURIComponent(reference)}/share${tripApiQuery(query)}`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
       });
       const result = (await response.json()) as { url?: string };

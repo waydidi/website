@@ -67,8 +67,10 @@ test("the address keeps the link's code, so it opens in another browser (Telegra
   await mock(fresh);
   let query = "";
   await fresh.route("**/api/trip/access", (route) => { query = JSON.parse(route.request().postData() ?? "{}").query; return route.fulfill({ json: { ok: true } }); });
+  // Safari from Telegram may not send the session cookie back: the trip request itself carries the code.
+  await fresh.route("**/api/trip/LANG01**", (route) => new URL(route.request().url()).searchParams.get("ride") === "a1".repeat(16) ? route.fulfill({ json: trip }) : route.fulfill({ status: 404, json: { error: "not found" } }));
   await fresh.goto(page.url());
-  await expect(fresh.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(fresh.getByRole("heading", { level: 1 })).toHaveText("Your driver is on the way");
   expect(new URLSearchParams(query).get("ride")).toBe("a1".repeat(16));
   await other.close();
 });
