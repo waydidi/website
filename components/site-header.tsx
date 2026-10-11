@@ -70,10 +70,13 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     if (!menuOpen) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // Lets floating buttons (the chat driver) step aside while the menu is open.
+    document.documentElement.setAttribute("data-site-menu-open", "");
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuOpen(false); };
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previous;
+      document.documentElement.removeAttribute("data-site-menu-open");
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen]);
