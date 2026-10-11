@@ -3,7 +3,6 @@ import {
   BookOpen,
   CalendarDays,
   MapPinned,
-  Truck,
   List,
   Columns3,
 } from "lucide-react";
@@ -23,6 +22,7 @@ import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { rideUrl } from "@/lib/trip-access";
+import { assignedDriverUrl } from "@/lib/trip-links";
 import Link from "next/link";
 import { NotionCalendar } from "@/components/bookings-admin/notion-calendar";
 import { WaydidiLogo } from "@/components/waydidi-logo";
@@ -92,6 +92,8 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const tripLinks = new Map(await Promise.all(rows.filter((r) => assigned.has(r.reference)).map(async (r) => [r.reference, await rideUrl(origin, r)] as const)));
   // The phone cards show every confirmed booking's customer status link (in the card details).
   const cardRideLinks = new Map(await Promise.all(rows.filter((r) => r.status === "confirmed").map(async (r) => [r.reference, await rideUrl(origin, r).catch(() => null)] as const)));
+  // …and the assigned driver's job link for the leg the card shows.
+  const cardDriverLinks = new Map(await Promise.all(rows.filter((r) => r.status === "confirmed").map(async (r) => { const leg = journey(r).shown.leg; return [`${r.reference}:${leg}`, await assignedDriverUrl(r.reference, leg).catch(() => null)] as const; })));
   const confirmed = activeRows.filter((row) => row.status === "confirmed").length;
   const pending = activeRows.filter((row) => row.status === "pending_payment").length;
   const emailIssues = activeRows.filter(
@@ -163,13 +165,6 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
             Bookings
           </Link>
           <Link
-            href="/admin/operations"
-            className="flex items-center gap-2 rounded-xl px-4 py-3 text-slate-600 hover:bg-slate-50"
-          >
-            <Truck size={17} />
-            Booking operations
-          </Link>
-          <Link
             href="/admin/pricing"
             className="flex items-center gap-2 rounded-xl px-4 py-3 text-slate-600 hover:bg-slate-50"
           >
@@ -203,7 +198,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               name: fullName(row.customerName, row.customerSurname), vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage,
               total: row.total, paymentStatus: row.paymentStatus, status: row.status,
               driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: shown.assignment?.status ?? null,
-              rideUrl: cardRideLinks.get(row.reference) ?? null,
+              rideUrl: cardRideLinks.get(row.reference) ?? null, driverUrl: cardDriverLinks.get(`${row.reference}:${shown.leg}`) ?? null,
             }; })} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
           </section>;
         })}

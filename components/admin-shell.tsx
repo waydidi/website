@@ -4,7 +4,6 @@ import { allowedStaffRoute, type StaffRole } from "@/lib/staff-security";
 import {
   BookOpen,
   MapPinned,
-  Truck,
   Users, UserRound,
   Newspaper,
   TicketPercent, Gift, Route, Building2, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Plane, Search, Settings, Contrast } from "lucide-react";
@@ -45,13 +44,6 @@ const tabs = [
     icon: BookOpen,
   },
 
-  {
-    href: "/admin/operations",
-    label: "Booking operations",
-    mobileLabel: "Operations",
-    title: "Operations",
-    icon: Truck,
-  },
   {
     href: "/admin/pricing",
     label: "Fare management",
@@ -119,7 +111,6 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
       { href: "/admin/bookings?type=hourly", label: "By the hour", match: (p, t) => p.startsWith("/admin/bookings") && t === "hourly" },
       { href: "/admin/bookings?type=tour", label: "Tour", match: (p, t) => p.startsWith("/admin/bookings") && t === "tour" },
     ] },
-    { href: "/admin/operations", label: "Operations", icon: Truck },
     { href: "/admin/flights", label: "Flights", icon: Plane },
     { href: "/admin/trips", label: "Trip planner", icon: Route, children: [
       { href: "/admin/trips", label: "Smart trips", match: (p) => p === "/admin/trips" || (p.startsWith("/admin/trips/") && !p.startsWith("/admin/trips/live") && !p.startsWith("/admin/trips/commissions") && !p.startsWith("/admin/trips/packages")) },
@@ -367,7 +358,7 @@ export default function AdminShell({
 // Mobile bottom bar: three tabs plus "More" in one row. "More" expands the sheet upward
 // to show the rest. Press and hold a tab to swap it for another page; the choice is kept
 // on this device.
-const DEFAULT_MAIN = ["/admin", "/admin/bookings", "/admin/operations"];
+const DEFAULT_MAIN = ["/admin", "/admin/bookings", "/admin/crm"];
 const MAIN_KEY = "waydidi-admin-tabs";
 function MobileTabBar({ pathname }: { pathname: string }) {
   const [open, setOpen] = useState(false);

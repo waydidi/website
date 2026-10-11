@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { evidenceDb,evidencePolicy,safeEvidence,type EvidenceRow } from "@/lib/trip-evidence";
 import { sameOrigin } from "@/lib/security";
+import { verifyTripCompletion } from "@/lib/trip-completion";
 import { z } from "zod";
 const policySchema=z.object({pickup_required:z.number().int().min(0).max(1),dropoff_required:z.number().int().min(0).max(1),gps_required:z.number().int().min(0).max(1),gps_timeout_ms:z.number().int().min(5000).max(60000),max_accuracy_m:z.number().int().min(10).max(2000),retention_days:z.number().int().min(1).max(90)});
 export async function GET(request:Request) {
  const admin=await getWaydidiAdmin(); if(!admin||!["owner","operations"].includes(admin.role)) return NextResponse.json({error:"Unauthorized"},{status:403});
  const reference=new URL(request.url).searchParams.get("reference")??"";
  const db=evidenceDb();
- const {results}=await db.prepare("SELECT e.*, d.full_name AS driver_name, s.status AS step FROM driver_trip_evidence e JOIN drivers d ON d.id=e.driver_id LEFT JOIN driver_status_events s ON s.id=e.status_event_id WHERE e.booking_reference=? ORDER BY e.received_at DESC LIMIT 120").bind(reference).all<EvidenceRow>();
+ const {results}=await db.prepare("SELECT e.*, d.full_name AS driver_name, s.status AS step, s.verification_status AS step_review FROM driver_trip_evidence e JOIN drivers d ON d.id=e.driver_id LEFT JOIN driver_status_events s ON s.id=e.status_event_id WHERE e.booking_reference=? ORDER BY e.received_at DESC LIMIT 120").bind(reference).all<EvidenceRow>();
  const assignments=await db.prepare("SELECT id,leg,current_status FROM booking_assignments WHERE booking_reference=? AND revoked_at IS NULL").bind(reference).all();
  const overrides=await db.prepare("SELECT o.* FROM driver_evidence_overrides o JOIN booking_assignments a ON a.id=o.assignment_id WHERE a.booking_reference=?").bind(reference).all();
  return NextResponse.json({evidence:results.map(safeEvidence),policy:await evidencePolicy(),assignments:assignments.results,overrides:overrides.results,canSetPolicy:admin.role==="owner"},{headers:{"Cache-Control":"private, no-store"}});
@@ -17,6 +18,12 @@ export async function POST(request:Request) {
  if(!sameOrigin(request)) return NextResponse.json({error:"Blocked"},{status:403});
  const admin=await getWaydidiAdmin();if(!admin||!["owner","operations"].includes(admin.role)) return NextResponse.json({error:"Unauthorized"},{status:403});
  const body=await request.json().catch(()=>null), db=evidenceDb(), now=new Date().toISOString();
+ if(body?.action==="complete") {
+  // The admin checked the Drop photo: the job is completed (same as Telegram "Completed job").
+  const done=await verifyTripCompletion(String(body.eventId??""),`admin:${admin.email}`);
+  if(done.result==="invalid") return NextResponse.json({error:"This job can't be completed now. Refresh and check the driver's steps."},{status:409});
+  return NextResponse.json({ok:true,already:done.result==="already"});
+ }
  if(body?.action==="policy") {
   if(admin.role!=="owner")return NextResponse.json({error:"Owner role required"},{status:403});
   const parsed=policySchema.safeParse(body.policy); if(!parsed.success)return NextResponse.json({error:"Invalid policy"},{status:400});

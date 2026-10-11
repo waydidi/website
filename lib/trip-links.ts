@@ -34,7 +34,7 @@ export async function driverTokenForAssignment(reference: string, leg = "outboun
 export const driverUrl = (token: string) => `${SITE_URL}/driver/trip/${token}`;
 
 /** The driver's link for a leg, only once a driver has been assigned with it (before that it can't open). */
-async function assignedDriverUrl(reference: string, leg: string) {
+export async function assignedDriverUrl(reference: string, leg: string) {
   const row = await db().prepare("SELECT driver_token FROM booking_links WHERE booking_reference=? AND leg=?").bind(reference, leg).first<{ driver_token: string }>();
   if (!row) return null;
   const live = await db().prepare("SELECT 1 x FROM booking_assignments WHERE token_hash=? AND revoked_at IS NULL AND token_expires_at>?").bind(await sha256(row.driver_token), new Date().toISOString()).first();
