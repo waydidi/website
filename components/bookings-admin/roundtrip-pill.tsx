@@ -18,7 +18,8 @@ export function RoundtripPill({ leg, label }: { leg: Leg; label: "First trip" | 
   const rows: [string, React.ReactNode][] = [
     ["Passengers & luggage", <span key="pl" className="inline-flex items-center gap-3"><span className="inline-flex items-center gap-1"><Users size={15} aria-hidden="true" />{leg.passengers}</span><span className="inline-flex items-center gap-1"><Luggage size={15} aria-hidden="true" />{leg.luggage}</span></span>],
     ["Vehicle", vehicleName(leg.vehicle)],
-    ["Date & time", dateTime(leg.date, leg.time)],
+    ["Date", dateTime(leg.date, leg.time).split(" — ")[0]],
+          ["Time", dateTime(leg.date, leg.time).split(" — ")[1]],
     ["From", leg.from],
     ["To", leg.to],
   ];

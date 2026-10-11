@@ -78,7 +78,8 @@ export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions }: {
         {([
           ["Passengers & luggage", <span key="pl" className="inline-flex items-center gap-3"><span className="inline-flex items-center gap-1"><Users size={15} aria-hidden="true" />{r.passengers}</span><span className="inline-flex items-center gap-1"><Luggage size={15} aria-hidden="true" />{r.luggage}</span></span>],
           ["Vehicle", vehicleName(r.vehicle)],
-          ["Date & time", dateTime(r.pickupDate, r.pickupTime)],
+          ["Date", dateTime(r.pickupDate, r.pickupTime).split(" — ")[0]],
+          ["Time", dateTime(r.pickupDate, r.pickupTime).split(" — ")[1]],
           ["From", r.pickup],
           ["To", r.dropoff],
           ["Price", null],
