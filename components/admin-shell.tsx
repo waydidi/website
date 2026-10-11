@@ -23,7 +23,7 @@ const FINANCIAL_TABS = [{ href: "/admin/payments", label: "Payments" }, { href: 
 const isFinancialsPath = (pathname: string) => pathname === "/admin/financials" || FINANCIAL_TABS.some(t => pathname === t.href || pathname.startsWith(`${t.href}/`));
 const isActive = (pathname: string, href: string) => href === "/admin/trips" && isFinancialsPath(pathname) ? false : (href === "/admin" ? pathname === "/admin" : (href === "/admin/partners" && isPartnersPath(pathname)) || (href === "/admin/financials" && isFinancialsPath(pathname)) || pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/seasons"))));
 
-const DESKTOP_ONLY = ["/admin/pricing", "/admin/translations", "/admin/flights", "/admin/trips/packages", "/admin/trips/live", "/admin/trips", "/admin/attractions", "/admin/suppliers"];
+const DESKTOP_ONLY = ["/admin/blog", "/admin/gifts", "/admin/crm", "/admin/pricing", "/admin/translations", "/admin/flights", "/admin/trips/packages", "/admin/trips/live", "/admin/trips", "/admin/attractions", "/admin/suppliers"];
 const tabs = [
   { href: "/admin/crm", label: "CRM", mobileLabel: "CRM", title: "Customer management", icon: Users },
   { href: "/admin/financials", label: "Financials", mobileLabel: "Financials", title: "Financials", icon: BarChart3 },
@@ -361,7 +361,7 @@ function MobileTabBar({ pathname }: { pathname: string }) {
   const [focused, setFocused] = useState(false);
   const hidden = useScrollHidden(pathname, open || editing !== null || focused);
   const hold = useRef<{ timer?: number; fired?: boolean }>({});
-  // Desktop-only sections are left out of the phone menu: fare management, translations, flight data and the trip planner pages.
+  // Desktop-only sections are left out of the phone menu: CRM, blog, giveaways, fare management, translations, flight data and the trip planner pages.
   const phoneTabs = tabs.filter((tab) => !DESKTOP_ONLY.includes(tab.href));
   useEffect(() => {
     try {
