@@ -9,9 +9,10 @@ import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/dri
 import { includesKohChangFerry } from "@/lib/booking-form";
 import { paymentPill } from "@/lib/payment-pill";
 import { EvidenceSheet } from "@/components/drivers/evidence-sheet";
+import type { EditableBooking } from "@/components/bookings-admin/booking-edit";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 
-export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return"; /** The customer's ride-status page. */ rideUrl?: string | null; /** The assigned driver's job page. */ driverUrl?: string | null; /** Driver cost set in Telegram ("Set cost"); null until then. */ cost?: number | null };
+export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return"; /** The customer's ride-status page. */ rideUrl?: string | null; /** The assigned driver's job page. */ driverUrl?: string | null; /** Driver cost set in Telegram ("Set cost"); null until then. */ cost?: number | null; /** What "Edit" on the card changes (booking cards). */ edit?: EditableBooking };
 
 // The badge follows the driver's trip status once a driver is assigned.
 const STATUS: Record<string, [string, string]> = {
