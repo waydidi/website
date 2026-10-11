@@ -14,7 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-export function BookingDeleteButton({ reference, binned = false, purgeAfter }: { reference: string; binned?: boolean; purgeAfter?: string | null }) {
+export function BookingDeleteButton({ reference, binned = false, purgeAfter, asText = false, onDone }: { reference: string; binned?: boolean; purgeAfter?: string | null; /** A "Delete booking" text button instead of the bin icon. */ asText?: boolean; onDone?: () => void }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -30,6 +30,7 @@ export function BookingDeleteButton({ reference, binned = false, purgeAfter }: {
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error ?? `Booking could not be ${action === "bin" ? "moved" : "restored"}.`);
       setOpen(false); setPassword(""); setBusy(false);
+      onDone?.();
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Booking could not be updated.");
@@ -41,7 +42,7 @@ export function BookingDeleteButton({ reference, binned = false, purgeAfter }: {
 
   return <div>
     <AlertDialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setPassword(""); setError(""); } }}>
-      <AlertDialogTrigger aria-label={`Delete booking ${reference}`} title="Delete booking" className="inline-flex size-9 items-center justify-center rounded-full text-slate-500 hover:bg-red-50 hover:text-red-600"><Trash2 size={17}/></AlertDialogTrigger>
+      <AlertDialogTrigger aria-label={`Delete booking ${reference}`} title="Delete booking" className={asText ? "inline-flex h-11 items-center gap-2 rounded-2xl px-1 text-[15px] font-bold text-red-600 hover:text-red-700" : "inline-flex size-9 items-center justify-center rounded-full text-slate-500 hover:bg-red-50 hover:text-red-600"}><Trash2 size={17}/>{asText && "Delete booking"}</AlertDialogTrigger>
       <AlertDialogContent>
         <form onSubmit={(event) => { event.preventDefault(); if (password) void request("bin"); }}>
           <AlertDialogHeader>
