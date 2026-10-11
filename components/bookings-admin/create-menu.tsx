@@ -7,7 +7,8 @@ import { NewBookingButton } from "@/components/bookings-admin/new-booking";
 import type { FormService } from "@/lib/booking-form";
 
 // One "Create" button: a centred popup to choose between a customer form link and a booking.
-export function CreateMenu({ service, waiting = 0 }: { service: FormService; waiting?: number }) {
+// `text` shows the trigger as a plain "Create bookings" text button.
+export function CreateMenu({ service, waiting = 0, text = false }: { service: FormService; waiting?: number; text?: boolean }) {
   const [open, setOpen] = useState(false);
   const [bookingSignal, setBookingSignal] = useState(0);
   // Step 2 of "Create form" / "Create booking": pick the service in the same centred popup.
@@ -45,10 +46,13 @@ export function CreateMenu({ service, waiting = 0 }: { service: FormService; wai
   const icon = "grid size-14 place-items-center rounded-2xl bg-brand-tint text-brand-text";
 
   return <>
-    <button type="button" onClick={() => { setStep("choose"); setOpen(true); }} className="relative inline-flex h-10 items-center gap-1.5 rounded-full bg-brand px-4 text-[15px] font-semibold text-white hover:bg-brand-strong">
+    {text ? <button type="button" onClick={() => { setStep("choose"); setOpen(true); }} className="inline-flex h-9 items-center gap-1.5 text-[15px] font-semibold text-brand-darker hover:underline">
+      Create bookings
+      {waiting > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-[#D32F2F] px-1 text-[11px] font-bold text-white">{waiting}</span>}
+    </button> : <button type="button" onClick={() => { setStep("choose"); setOpen(true); }} className="relative inline-flex h-10 items-center gap-1.5 rounded-full bg-brand px-4 text-[15px] font-semibold text-white hover:bg-brand-strong">
       <Plus size={17} strokeWidth={2.5} />Create
       {waiting > 0 && <span className="absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full bg-[#D32F2F] px-1 text-[11px] font-bold text-white">{waiting}</span>}
-    </button>
+    </button>}
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="rounded-[28px] border-0 bg-white p-6 text-slate-900 sm:max-w-md">
         <DialogTitle className="flex items-center gap-2 text-[22px] font-semibold">{step !== "choose" && <button type="button" onClick={() => setStep("choose")} aria-label="Back" className="rounded-full p-1 hover:bg-slate-100"><ArrowLeft size={20} /></button>}{step === "form" ? "Create form" : step === "booking" ? "Create booking" : "Create"}</DialogTitle>

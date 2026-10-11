@@ -178,8 +178,6 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
             Pricing areas
           </Link>
         </nav>
-        {/* "Create" sits on the page title row. */}
-        <div className="-mt-[40px] mb-1 flex justify-end"><CreateMenu service={type} waiting={formsReceived} /></div>
         {/* Transfer / By the hour, each with a list or calendar view. */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div role="tablist" aria-label="Service" className={`${mode === "list" && view === "active" ? "hidden md:inline-flex" : "inline-flex"} rounded-xl bg-[#E8EAEE] p-1`}>
@@ -249,7 +247,8 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           </div>
         </section>
         </>}
-        <div className="mt-6 flex justify-end">{extraLinks}</div>
+        {/* "Create bookings" on the left, bin | form on the right. */}
+        <div className="mt-6 flex items-center justify-between gap-3"><CreateMenu service={type} waiting={formsReceived} text />{extraLinks}</div>
       </div>
     </main>
   );
