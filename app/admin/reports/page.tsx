@@ -116,7 +116,7 @@ export async function ReportsSection({ searchParams }: { searchParams: Promise<{
           <Stat label="Driver cost" value={thb(total.driverCost)} />
           <Stat label="Margin" value={thb(total.margin)} sub="revenue − driver cost" />
         </div>
-        {total.costMissing > 0 && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[13px] font-semibold text-amber-900">{total.costMissing} trip{total.costMissing === 1 ? " has" : "s have"} no driver cost set yet, so driver cost and margin are incomplete. Set costs in each journey&apos;s Driver information (<Link href="/admin/operations" className="underline">Operations</Link> → eye icon).</p>}
+        {total.costMissing > 0 && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[13px] font-semibold text-amber-900">{total.costMissing} trip{total.costMissing === 1 ? " has" : "s have"} no driver cost set yet, so driver cost and margin are incomplete. Set each one with <b>Set cost</b> on the booking&apos;s Telegram card.</p>}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex gap-1">{(["day", "month"] as const).map((b) => <Link key={b} href={`?${qs({ by: b })}#reports`} className={`rounded-full px-3 py-1.5 text-[13px] font-bold ${by === b ? "bg-brand-tint text-brand-darker" : "text-slate-500"}`}>By {b}</Link>)}</div>

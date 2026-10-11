@@ -18,7 +18,6 @@ import {
   Save,
   Settings,
   Trash2,
-  Truck,
   Undo2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -257,13 +256,6 @@ export default function PricingWorkspace({ email }: { email: string }) {
             >
               <BookOpen size={18} />
               Bookings
-            </Link>
-            <Link
-              href="/admin/operations"
-              className="flex items-center gap-3 rounded-xl px-3 py-3 text-slate-600 hover:bg-orange-50"
-            >
-              <Truck size={18} />
-              Booking operations
             </Link>
             <Link
               href="/admin/pricing"

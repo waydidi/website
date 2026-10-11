@@ -342,7 +342,6 @@ export default function CalendarWorkspace({ email, serviceType, embedded = false
       <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-8">
         {!embedded && <><nav className="flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 text-sm font-bold shadow-sm sm:w-fit">
           <Link href="/admin/calendar" className="flex shrink-0 items-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-brand-text"><CalendarDays size={17} />Calendar</Link>
-          <Link href="/admin/operations" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><Truck size={17} />Booking operations</Link>
           <Link href="/admin/bookings" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><BookOpen size={17} />Bookings</Link>
           <Link href="/admin/pricing" className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-slate-600"><MapPinned size={17} />Pricing areas</Link>
         </nav></>}

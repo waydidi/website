@@ -184,11 +184,11 @@ export default function JourneyDetails({ reference }: { reference: string }) {
     <main className="min-h-screen bg-[#f3f5f8] px-4 py-6 text-plum sm:px-8">
       <div className="mx-auto max-w-6xl">
         <Link
-          href="/admin/operations"
+          href="/admin/bookings"
           className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold shadow-sm"
         >
           <ArrowLeft size={16} />
-          Back to journeys
+          Back to bookings
         </Link>
         {notice && <p role="status" className="mt-4 rounded-2xl bg-emerald-50 p-4 font-bold text-emerald-800">{notice}</p>}
         {error && (
