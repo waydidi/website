@@ -329,7 +329,7 @@ export default function AdminShell({
                 wordmark is as tall as the 20px page name; its letters sit 88/116 down its box, so it moves down by
                 the rest (28/116 × 20px). The bird keeps the logo's proportion (157:115) and its bottom sits just
                 under the baseline, as in the logo. The row is lifted 2px so the text is centred on the bell. */}
-            <Link href="/admin" aria-label="Waydidi admin home" className="flex shrink-0 items-baseline gap-[6px] text-brand"><WaydidiMark className="admin-logo size-[28px] translate-y-[3px]" /><WaydidiWordmark className="admin-logo h-[20px] w-auto translate-y-[4.8px]" /></Link>
+            <Link href="/admin" aria-label="Waydidi admin home" className="flex shrink-0 translate-y-[0.2px] items-baseline gap-[6px] text-brand"><WaydidiMark className="admin-logo size-[28px] translate-y-[3px]" /><WaydidiWordmark className="admin-logo h-[20px] w-auto translate-y-[4.8px]" /></Link>
             <span aria-hidden="true" className="text-[24px] font-light leading-none text-slate-300">|</span>
             <p className="min-w-0 truncate text-[20px] font-semibold tracking-[-.02em] text-night">{title}</p>
           </div>
