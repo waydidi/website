@@ -182,8 +182,8 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
             Pricing areas
           </Link>
         </nav>
-        {/* Phone: the view picker sits on the page title row. */}
-        <div className="-mt-[40px] mb-1 flex justify-end md:hidden"><ViewPicker mode={mode} type={type} /></div>
+        {/* Phone: the view picker sits at the top right (the page name is in the header). */}
+        <div className="mb-1 flex justify-end md:hidden"><ViewPicker mode={mode} type={type} /></div>
         {/* Transfer / By the hour, each with a list or calendar view. */}
         <div className={`mt-2 flex-wrap items-center justify-between gap-3 ${mode === "list" && view === "active" ? "hidden md:flex" : "flex"}`}>
           <div role="tablist" aria-label="Service" className={`${mode === "list" && view === "active" ? "hidden md:inline-flex" : "inline-flex"} rounded-xl bg-[#E8EAEE] p-1`}>

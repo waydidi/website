@@ -323,15 +323,19 @@ export default function AdminShell({
       </aside>
       <div className="min-w-0 flex-1 overflow-x-clip">
         <header className="relative z-30 flex h-[72px] items-center gap-4 border-b border-slate-200/70 bg-white/95 px-4 backdrop-blur sm:px-8">
-          {/* Phones: the logo sits where desktop has the sidebar; the title is shown large below, like desktop. */}
-          <Link href="/admin" aria-label="Waydidi admin home" className="shrink-0 md:hidden"><WaydidiLogo className="admin-logo h-[46px] w-auto text-brand" /></Link>
+          {/* Phones: the logo sits where desktop has the sidebar, followed by the page name: [logo] | Bookings. */}
+          <div className="flex min-w-0 flex-1 items-center gap-3 md:hidden">
+            <Link href="/admin" aria-label="Waydidi admin home" className="shrink-0"><WaydidiLogo className="admin-logo h-[46px] w-auto text-brand" /></Link>
+            <span aria-hidden="true" className="text-[24px] font-light leading-none text-slate-300">|</span>
+            <p className="min-w-0 truncate text-[20px] font-semibold tracking-[-.02em] text-night">{title}</p>
+          </div>
           <div className="hidden flex-1 md:block"><PageSearch /></div>
           <NotificationBell />
           <SettingsDialog dark={dark} onToggleDark={toggleDark} />
         </header>
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 pt-5 sm:px-8 md:pt-6">
           {/* Areas, Hourly and Seasons have their own page headings, so "Fare management" isn't repeated above them. */}
-          {!["/admin/pricing", "/admin/hourly", "/admin/seasons"].some((p) => pathname === p || pathname.startsWith(`${p}/`)) && <h1 className="text-[26px] font-semibold tracking-[-.02em] md:text-[28px]">{title}</h1>}
+          {!["/admin/pricing", "/admin/hourly", "/admin/seasons"].some((p) => pathname === p || pathname.startsWith(`${p}/`)) && <h1 className="hidden text-[28px] font-semibold tracking-[-.02em] md:block">{title}</h1>}
           {pathname === "/admin/chat" && <Suspense fallback={null}><ChatSectionPicker /></Suspense>}
           {isPartnersPath(pathname) && <nav aria-label="Partner categories" className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
             {PARTNER_TABS.filter(t => allowedStaffRoute(role, t.href, "GET")).map(t => {
