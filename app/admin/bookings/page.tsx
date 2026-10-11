@@ -107,12 +107,11 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   ).length;
   const pendingRefunds = activeRows.filter((row) => row.refundStatus === "awaiting_approval").length;
 
-  // The phone card list (list mode, active bookings) shows Forms / Bin & restore below the Tour row instead.
-  const phoneCardList = view === "active" && mode === "list";
-  const extraLinks = <div className="flex items-center gap-3 text-slate-900">
-    <Link href={view === "forms" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=forms`} aria-current={view === "forms" ? "page" : undefined} aria-label={`Forms${formsReceived > 0 ? ` (${formsReceived} new)` : ""}`} title="Forms" className={`relative grid size-10 place-items-center rounded-full hover:bg-slate-200/60 ${view === "forms" ? "bg-slate-200/80" : ""}`}><FileText size={22} aria-hidden="true" />{formsReceived > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-[#D32F2F] px-1 text-center text-[11px] font-bold leading-[18px] text-white">{formsReceived}</span>}</Link>
-    <span aria-hidden="true" className="text-[20px] text-slate-300">|</span>
-    <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} aria-label={`Bin & restore${binRows.length > 0 ? ` (${binRows.length})` : ""}`} title="Bin & restore" className={`grid size-10 place-items-center rounded-full hover:bg-slate-200/60 ${view === "bin" ? "bg-slate-200/80" : ""}`}><Trash2 size={22} aria-hidden="true" /></Link>
+  // Bin & restore | Forms as icons, at the bottom right of the page.
+  const extraLinks = <div className="flex items-center gap-0.5 text-slate-900">
+    <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} aria-label={`Bin & restore${binRows.length > 0 ? ` (${binRows.length})` : ""}`} title="Bin & restore" className={`grid size-9 place-items-center rounded-full hover:bg-slate-200/60 ${view === "bin" ? "bg-slate-200/80" : ""}`}><Trash2 size={22} aria-hidden="true" /></Link>
+    <span aria-hidden="true" className="text-[20px] leading-none text-slate-300">|</span>
+    <Link href={view === "forms" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=forms`} aria-current={view === "forms" ? "page" : undefined} aria-label={`Forms${formsReceived > 0 ? ` (${formsReceived} new)` : ""}`} title="Forms" className={`relative grid size-9 place-items-center rounded-full hover:bg-slate-200/60 ${view === "forms" ? "bg-slate-200/80" : ""}`}><FileText size={22} aria-hidden="true" />{formsReceived > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-[#D32F2F] px-1 text-center text-[11px] font-bold leading-[18px] text-white">{formsReceived}</span>}</Link>
   </div>;
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-plum sm:px-8">
@@ -190,8 +189,6 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           <div role="tablist" aria-label="View" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
             {([["list", "List", List], ["calendar", "Calendar", CalendarDays], ["board", "Board", Columns3]] as const).map(([id, label, Icon]) => <Link key={id} role="tab" aria-selected={mode === id} href={`/admin/bookings?type=${type}&mode=${id}`} className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[15px] ${mode === id ? "bg-white font-medium text-night shadow-sm" : "text-slate-600 hover:text-night"}`}><Icon size={16} />{label}</Link>)}
           </div>
-          {/* Forms / Bin & restore as text links: here on wider screens (and on phones outside the card list). */}
-          <div className={phoneCardList ? "hidden md:flex" : "flex"}>{extraLinks}</div>
           </div>
         </div>
         {view === "forms" ? <FormsTable service={type} openForm={q.form} /> : mode !== "list" && view !== "bin" ? <NotionCalendar serviceType={type} view={mode === "board" ? "board" : "calendar"} /> : <>
@@ -210,8 +207,6 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
             }; })} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
           </section>;
         })}
-          {/* Phones: Forms and Bin & restore below the Tour row, on the right. */}
-          <div className="mt-4 flex justify-end">{extraLinks}</div>
         </div>}
         <section className={`${view !== "bin" ? "hidden md:block " : ""}mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm`}>
           <div className="overflow-x-auto">
@@ -254,6 +249,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           </div>
         </section>
         </>}
+        <div className="mt-6 flex justify-end">{extraLinks}</div>
       </div>
     </main>
   );
