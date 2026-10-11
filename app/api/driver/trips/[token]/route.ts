@@ -11,8 +11,8 @@ import { activeAssignmentForToken } from "@/lib/driver-operations";
 import { acceptedOccurredAt, adminReviewRequired, AIRPORT_FREE_WAIT_MINUTES, distanceMetres, evidenceRequired, expectedPointFor, isAirportPickup, isDriverStatus, locationRequired, NEXT_DRIVER_STATUS, NO_SHOW_MAX_DISTANCE_METRES, NO_SHOW_MIN_NOTE_LENGTH, noShowEligibleAt, STANDARD_FREE_WAIT_MINUTES, TRIP_START_WARNING_METRES, type DriverStatus } from "@/lib/trip-rules";
 import { sameOrigin, sha256Bytes } from "@/lib/security";
 import { notifyLineTripStatus } from "@/lib/line";
-import { postTripPhoto } from "@/lib/telegram/trip-photos";
-import { completeIfEvidenceFilled } from "@/lib/evidence-auto-complete";
+import { postJobCompleted, postTripPhoto } from "@/lib/telegram/trip-photos";
+import { closeEvidenceJourney } from "@/lib/evidence-auto-complete";
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -212,9 +212,11 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   }
   // The step's photo goes to the Telegram group, under the booking card.
   // The Drop always goes (with a "Completed job" button), even without a photo.
-  if (storedEvidence || requestedStatus === "completed") await postTripPhoto({ reference: trip.booking.reference, status: requestedStatus, eventId: id, driverName: trip.driver.fullName, evidence: storedEvidence }).catch((error) => console.error("Telegram trip photo failed", error));
-  // Stand by, Pick up and Drop photos all in (from the driver or staff): the journey is completed.
-  if (requestedStatus === "completed" || storedEvidence) await evidenceDb().prepare("SELECT leg FROM booking_assignments WHERE id=?").bind(trip.assignment.id).first<{ leg: string }>().then((a) => completeIfEvidenceFilled(trip.booking.reference, a?.leg ?? "outbound", "auto:evidence")).catch((error) => console.error("Auto-complete failed", error));
+  // Stand by, Pick up and Drop photos all in (from the driver or staff): the journey is completed, so the
+  // Drop goes without the "Completed job" button and a "Completed job" album follows.
+  const autoDone = requestedStatus === "completed" || storedEvidence ? await evidenceDb().prepare("SELECT leg FROM booking_assignments WHERE id=?").bind(trip.assignment.id).first<{ leg: string }>().then((a) => closeEvidenceJourney(trip.booking.reference, a?.leg ?? "outbound")).catch((error) => { console.error("Auto-complete failed", error); return null; }) : null;
+  if (storedEvidence || requestedStatus === "completed") await postTripPhoto({ reference: trip.booking.reference, status: requestedStatus, eventId: id, driverName: trip.driver.fullName, evidence: storedEvidence, done: Boolean(autoDone) }).catch((error) => console.error("Telegram trip photo failed", error));
+  if (autoDone) await postJobCompleted(trip.booking.reference, autoDone).catch((error) => console.error("Telegram completed job message failed", error));
   if (!type) await notifyLineTripStatus({
     eventId: id,
     reference: trip.booking.reference,

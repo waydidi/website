@@ -146,6 +146,8 @@ const worker = {
       return;
     }
     ctx.waitUntil(import("../lib/trip-evidence").then(m=>m.cleanupTripEvidence()).catch(()=>console.error("Evidence retention cleanup failed")));
+    // Every 5 minutes: journeys whose Stand by, Pick up and Drop photos are all in but not yet completed.
+    ctx.waitUntil(import("../lib/evidence-auto-complete").then(m=>m.completeFilledJourneys()).catch((e)=>console.error("Evidence auto-complete sweep failed", e)));
     ctx.waitUntil(runOperationsAutomation(new Date(controller.scheduledTime)));
   },
 };
