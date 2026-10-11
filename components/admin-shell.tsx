@@ -11,7 +11,7 @@ import Link from "next/link";
 import { ChatSectionPicker } from "@/components/chat-admin/section-picker";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
-import { WaydidiLogo, WaydidiMark } from "@/components/waydidi-logo";
+import { WaydidiLogo, WaydidiMark, WaydidiWordmark } from "@/components/waydidi-logo";
 import { NotificationBell } from "@/components/admin-settings/notification-bell";
 import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings/settings-dialog";
 import { useScrollHidden } from "@/components/use-scroll-hidden";
@@ -325,7 +325,8 @@ export default function AdminShell({
         <header className="relative z-30 flex h-[72px] items-center gap-4 border-b border-slate-200/70 bg-white/95 px-4 backdrop-blur sm:px-8">
           {/* Phones: the logo sits where desktop has the sidebar, followed by the page name: [logo] | Bookings. */}
           <div className="flex min-w-0 flex-1 items-center gap-3 md:hidden">
-            <Link href="/admin" aria-label="Waydidi admin home" className="shrink-0"><WaydidiLogo className="admin-logo h-[46px] w-auto text-brand" /></Link>
+            {/* Wordmark as tall as the 20px page name; the bird keeps the logo's proportion to it (157:115). */}
+            <Link href="/admin" aria-label="Waydidi admin home" className="flex shrink-0 items-end gap-[6px] text-brand"><WaydidiMark className="admin-logo mb-[2px] size-[28px]" /><WaydidiWordmark className="admin-logo h-[20px] w-auto" /></Link>
             <span aria-hidden="true" className="text-[24px] font-light leading-none text-slate-300">|</span>
             <p className="min-w-0 truncate text-[20px] font-semibold tracking-[-.02em] text-night">{title}</p>
           </div>
