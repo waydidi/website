@@ -1,6 +1,5 @@
 import { env } from "cloudflare:workers";
 import { getFile } from "@/lib/file-store";
-import { ictTime } from "@/lib/evidence-rules";
 import type { EvidenceRow } from "@/lib/trip-evidence";
 import { esc } from "./cards";
 import { sendCard, sendPhoto, sendPhotoAlbum, telegramConfigured, type InlineKeyboard } from "./client";
@@ -20,16 +19,19 @@ export async function postTripPhoto(input: { reference: string; status: string; 
   const keyboard = input.status === "completed" && !input.done ? completedJobKeyboard(input.eventId) : undefined;
   const e = input.evidence;
   const stored = e ? await getFile(e.original_key) : null;
-  const lines = [`📸 <b>${esc(STEP_PHOTO_LABEL[input.status] ?? input.status)}</b> · ${esc(input.reference)}`, `Driver: ${esc(input.driverName)}`];
-  if (e) {
-    lines.push(`🕒 ${esc(ictTime(e.device_captured_at))}`, e.latitude !== null && e.longitude !== null
-      ? `📍 <a href="https://www.google.com/maps?q=${e.latitude},${e.longitude}">${e.latitude.toFixed(5)}, ${e.longitude.toFixed(5)}</a>${e.accuracy_metres ? ` ±${Math.round(e.accuracy_metres)} m` : ""}`
-      : "📍 Location unavailable");
-  }
+  // "✅Stand by (FMBNUW)" and when the photo was taken: "11/10/2026 — 6:05 AM" (Thailand time).
+  const lines = [`✅<b>${esc(STEP_PHOTO_LABEL[input.status] ?? input.status)}</b> (${esc(input.reference)})`, esc(stepTime(e?.device_captured_at ?? new Date().toISOString()))];
   if (keyboard) lines.push("", "Check the photo, then tap Completed job.");
   if (stored) return sendPhoto(await new Response(stored.body).arrayBuffer(), lines.join("\n"), card?.telegram_message_id || undefined, keyboard);
   // A Drop without a photo (an admin exception) still needs the button.
-  if (keyboard) return sendCard([...lines.slice(0, 2), "No photo", ...lines.slice(2)].join("\n").replace("📸", "🏁"), keyboard, card?.telegram_message_id || undefined);
+  if (keyboard) return sendCard([...lines.slice(0, 2), "No photo", ...lines.slice(2)].join("\n"), keyboard, card?.telegram_message_id || undefined);
+}
+
+/** dd/mm/yyyy — h:mm AM/PM, in Thailand time. */
+export function stepTime(iso: string) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", day: "2-digit", month: "2-digit", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })
+    .formatToParts(new Date(iso)).map((p) => [p.type, p.value]));
+  return `${parts.day}/${parts.month}/${parts.year} — ${parts.hour}:${parts.minute} ${String(parts.dayPeriod).toUpperCase()}`;
 }
 
 /**
