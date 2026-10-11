@@ -12,6 +12,7 @@ import { acceptedOccurredAt, adminReviewRequired, AIRPORT_FREE_WAIT_MINUTES, dis
 import { sameOrigin, sha256Bytes } from "@/lib/security";
 import { notifyLineTripStatus } from "@/lib/line";
 import { postTripPhoto } from "@/lib/telegram/trip-photos";
+import { completeIfEvidenceFilled } from "@/lib/evidence-auto-complete";
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -212,6 +213,8 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   // The step's photo goes to the Telegram group, under the booking card.
   // The Drop always goes (with a "Completed job" button), even without a photo.
   if (storedEvidence || requestedStatus === "completed") await postTripPhoto({ reference: trip.booking.reference, status: requestedStatus, eventId: id, driverName: trip.driver.fullName, evidence: storedEvidence }).catch((error) => console.error("Telegram trip photo failed", error));
+  // Stand by, Pick up and Drop photos all in (from the driver or staff): the journey is completed.
+  if (requestedStatus === "completed" || storedEvidence) await evidenceDb().prepare("SELECT leg FROM booking_assignments WHERE id=?").bind(trip.assignment.id).first<{ leg: string }>().then((a) => completeIfEvidenceFilled(trip.booking.reference, a?.leg ?? "outbound", "auto:evidence")).catch((error) => console.error("Auto-complete failed", error));
   if (!type) await notifyLineTripStatus({
     eventId: id,
     reference: trip.booking.reference,

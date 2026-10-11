@@ -1,5 +1,6 @@
 "use client";
 import { CheckCircle2, ImagePlus, LoaderCircle, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 
@@ -16,6 +17,9 @@ export function EvidenceSheet({ reference, leg = "outbound", onClose }: { refere
   const [busy, setBusy] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
+  // All three photos in: the server completed the journey (a round trip moves on to its second trip).
+  const [done, setDone] = useState(false);
+  const router = useRouter();
   const load = useCallback(async () => {
     const res = await fetch(`/api/admin/evidence?reference=${encodeURIComponent(reference)}`, { cache: "no-store" });
     const body = (await res.json().catch(() => ({}))) as { evidence?: Photo[]; uploads?: Upload[]; error?: string };
@@ -40,9 +44,10 @@ export function EvidenceSheet({ reference, leg = "outbound", onClose }: { refere
       const form = new FormData();
       form.set("reference", reference); form.set("leg", leg); form.set("step", step); form.set("photo", file);
       const res = await fetch("/api/admin/evidence/uploads", { method: "POST", body: form });
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      const body = (await res.json().catch(() => ({}))) as { error?: string; completed?: boolean };
       if (!res.ok) throw new Error(body.error ?? "The photo could not be added.");
       await load();
+      if (body.completed) { setDone(true); router.refresh(); }
     } catch (e) { setError((e as Error).message); } finally { setUploading(null); }
   }
   async function complete(eventId: string) {
@@ -52,6 +57,7 @@ export function EvidenceSheet({ reference, leg = "outbound", onClose }: { refere
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(body.error ?? "Could not complete the job.");
       await load();
+      router.refresh();
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
   return <Modal open onClose={onClose} sheet overlayClassName="z-[70] bg-black/40 sm:items-end sm:p-0" asChild>
@@ -61,6 +67,7 @@ export function EvidenceSheet({ reference, leg = "outbound", onClose }: { refere
         <ModalTitle className="text-lg font-black">Evidence · {reference}</ModalTitle>
         <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
       </div>
+      {done && <p role="status" className="mt-3 flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800"><CheckCircle2 size={17} /> All 3 photos in · trip completed</p>}
       {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
       {photos === null ? <p className="mt-6 flex items-center gap-2 text-sm text-slate-500"><LoaderCircle className="animate-spin" size={16} /> Loading…</p> :
         <ul className="mt-3 grid gap-4">
@@ -85,7 +92,7 @@ export function EvidenceSheet({ reference, leg = "outbound", onClose }: { refere
                   </label>}
               {p && p.latitude !== null && <a href={`https://www.google.com/maps?q=${p.latitude},${p.longitude}`} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand-darker underline">📍 Where it was taken</a>}
               {pending && <button type="button" disabled={busy} onClick={() => void complete(p!.status_event_id!)} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-line-green text-[15px] font-black text-white disabled:opacity-60">{busy ? <LoaderCircle className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}Completed job</button>}
-              {verified && <p className="mt-3 flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800"><CheckCircle2 size={17} /> Job completed</p>}
+              {verified && !done && <p className="mt-3 flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800"><CheckCircle2 size={17} /> Job completed</p>}
             </li>;
           })}
         </ul>}

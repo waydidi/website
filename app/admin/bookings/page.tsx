@@ -9,7 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { getDb } from "@/db";
-import { bookingAssignments, bookingCosts, bookings, bookingSources, bookingStorefronts, bookingTaxInvoices, bookingForms, drivers } from "@/db/schema";
+import { bookingAssignments, bookingCosts, bookings, bookingSources, bookingStorefronts, bookingTaxInvoices, bookingForms, drivers, journeyLegs } from "@/db/schema";
 import { EditDriverButton } from "@/components/bookings-admin/edit-driver";
 import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
@@ -63,23 +63,26 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   // The bin is read on its own so older binned bookings still show.
   const binRows = await getDb().select().from(bookings).where(eq(bookings.status, "binned")).orderBy(desc(bookings.binnedAt)).limit(200);
   const activeRows = allRows.filter((row) => row.status !== "binned");
-  const [driverRows, assignmentRows] = await Promise.all([
+  const [driverRows, assignmentRows, doneLegs] = await Promise.all([
     getDb().select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, plate: drivers.carPlate, vehicleType: drivers.vehicleType, photoKey: drivers.photoKey, status: drivers.status }).from(drivers),
     getDb().select({ ref: bookingAssignments.bookingReference, leg: bookingAssignments.leg, driverId: bookingAssignments.driverId, status: bookingAssignments.currentStatus }).from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)),
+    // First trips already completed (driver's Drop confirmed, or all three evidence photos in).
+    getDb().select({ ref: journeyLegs.bookingReference }).from(journeyLegs).where(and(eq(journeyLegs.leg, "outbound"), inArray(journeyLegs.status, ["completed", "no_show"]))).catch(() => []),
   ]);
+  const firstTripDone = new Set(doneLegs.map((l) => l.ref));
   const driverOptions = driverRows.filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.name, phone: d.phone, email: d.email, area: d.area ?? "", vehicle: d.vehicle, plate: d.plate, vehicleType: d.vehicleType, hasPhoto: Boolean(d.photoKey) }));
   const assigned = new Map(assignmentRows.map((a) => [a.ref, a.driverId]));
   const legAssignment = (leg: string) => new Map(assignmentRows.filter((a) => a.leg === leg).map((a) => [a.ref, a]));
   const outboundLeg = legAssignment("outbound"), returnLeg = legAssignment("return");
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
-  // A round trip shows its outbound journey until that is done (the driver completed it, or its
-  // day has passed), then the return journey. The Roundtrip pill opens the other journey.
+  // A round trip shows its outbound journey until that is done (the driver completed it, all three
+  // evidence photos are in, or its day has passed), then the return journey. The Roundtrip pill opens the other journey.
   const journey = (row: (typeof rows)[number]) => {
     const roundtrip = Boolean(row.returnDate && row.returnTime);
     const outbound = { leg: "outbound" as const, title: "First trip", date: row.pickupDate, time: row.pickupTime, from: row.pickup, to: row.serviceType === "hourly" ? `${row.bookedHours ?? ""} hours${row.pricingArea ? ` · ${row.pricingArea}` : ""}` : row.dropoff, assignment: outboundLeg.get(row.reference) };
     if (!roundtrip) return { roundtrip, shown: outbound, other: null };
     const back = { leg: "return" as const, title: "Second trip", date: row.returnDate!, time: row.returnTime!, from: row.returnPickup || row.dropoff, to: row.returnDropoff || row.pickup, assignment: returnLeg.get(row.reference) };
-    const onReturn = outbound.assignment?.status === "completed" || row.pickupDate < today;
+    const onReturn = outbound.assignment?.status === "completed" || firstTripDone.has(row.reference) || row.pickupDate < today;
     return onReturn ? { roundtrip, shown: back, other: outbound } : { roundtrip, shown: outbound, other: back };
   };
   const rows = (view === "bin" ? binRows : activeRows).filter((row) => (row.serviceType ?? "transfer") === type);
