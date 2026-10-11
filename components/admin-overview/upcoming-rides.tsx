@@ -11,7 +11,7 @@ import { paymentPill } from "@/lib/payment-pill";
 import { EvidenceSheet } from "@/components/drivers/evidence-sheet";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 
-export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return"; /** The customer's ride-status page. */ rideUrl?: string | null; /** The assigned driver's job page. */ driverUrl?: string | null };
+export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return"; /** The customer's ride-status page. */ rideUrl?: string | null; /** The assigned driver's job page. */ driverUrl?: string | null; /** Driver cost set in Telegram ("Set cost"); null until then. */ cost?: number | null };
 
 // The badge follows the driver's trip status once a driver is assigned.
 const STATUS: Record<string, [string, string]> = {
@@ -79,6 +79,7 @@ export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions }: {
           ["From", r.pickup],
           ["To", r.dropoff],
           ["Price", null],
+          ...(r.cost !== undefined ? [["Cost", r.cost != null ? `THB ${r.cost.toLocaleString("en-US")}` : <span key="cost" className="font-normal text-slate-400">Not set</span>] as [string, React.ReactNode]] : []),
           ["Payment", <span key="pay" className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold ${payment(r.paymentStatus)[1]}`}>{payment(r.paymentStatus)[0]}</span>],
           ...(r.rideUrl ? [["Customer link", <CopyTextButton key="ride" icon="link" text={r.rideUrl} label={`Copy customer link for ${r.reference}`} />] as [string, React.ReactNode]] : []),
           ...(r.driverUrl ? [["Driver link", <CopyTextButton key="drv" icon="link" text={r.driverUrl} label={`Copy driver link for ${r.reference}`} />] as [string, React.ReactNode]] : []),

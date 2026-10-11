@@ -7,7 +7,7 @@ import {
   Columns3,
 } from "lucide-react";
 import { getDb } from "@/db";
-import { bookingAssignments, bookings, bookingSources, bookingStorefronts, bookingTaxInvoices, bookingForms, drivers } from "@/db/schema";
+import { bookingAssignments, bookingCosts, bookings, bookingSources, bookingStorefronts, bookingTaxInvoices, bookingForms, drivers } from "@/db/schema";
 import { EditDriverButton } from "@/components/bookings-admin/edit-driver";
 import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
@@ -92,6 +92,10 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const tripLinks = new Map(await Promise.all(rows.filter((r) => assigned.has(r.reference)).map(async (r) => [r.reference, await rideUrl(origin, r)] as const)));
   // The phone cards show every confirmed booking's customer status link (in the card details).
   const cardRideLinks = new Map(await Promise.all(rows.filter((r) => r.status === "confirmed").map(async (r) => [r.reference, await rideUrl(origin, r).catch(() => null)] as const)));
+  // …the driver cost set in Telegram ("Set cost")…
+  const cardRefs = activeRows.map((r) => r.reference), costRows: { ref: string; cost: number }[] = [];
+  for (let i = 0; i < cardRefs.length; i += 90) costRows.push(...await getDb().select({ ref: bookingCosts.bookingReference, cost: bookingCosts.totalDriverCost }).from(bookingCosts).where(inArray(bookingCosts.bookingReference, cardRefs.slice(i, i + 90))).catch(() => []));
+  const driverCosts = new Map(costRows.map((c) => [c.ref, c.cost]));
   // …and the assigned driver's job link for the leg the card shows.
   const cardDriverLinks = new Map(await Promise.all(rows.filter((r) => r.status === "confirmed").map(async (r) => { const leg = journey(r).shown.leg; return [`${r.reference}:${leg}`, await assignedDriverUrl(r.reference, leg).catch(() => null)] as const; })));
   const confirmed = activeRows.filter((row) => row.status === "confirmed").length;
@@ -198,7 +202,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               name: fullName(row.customerName, row.customerSurname), vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage,
               total: row.total, paymentStatus: row.paymentStatus, status: row.status,
               driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: shown.assignment?.status ?? null,
-              rideUrl: cardRideLinks.get(row.reference) ?? null, driverUrl: cardDriverLinks.get(`${row.reference}:${shown.leg}`) ?? null,
+              rideUrl: cardRideLinks.get(row.reference) ?? null, cost: driverCosts.get(row.reference) ?? null, driverUrl: cardDriverLinks.get(`${row.reference}:${shown.leg}`) ?? null,
             }; })} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
           </section>;
         })}
