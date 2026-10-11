@@ -4,6 +4,7 @@ import { getWaydidiAdmin } from "@/lib/admin";
 import { prepareDriverImage } from "@/lib/admin-driver-images";
 import { putFile } from "@/lib/file-store";
 import { sameOrigin } from "@/lib/security";
+import { completeIfEvidenceFilled } from "@/lib/evidence-auto-complete";
 
 // An admin adds a photo to a booking's evidence (Stand by / Pick up / Drop). Stored on its own, no Telegram.
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<unknown> };
@@ -26,5 +27,7 @@ export async function POST(request: Request) {
   await putFile(key, image.bytes, image.mime);
   await db().prepare("INSERT INTO admin_evidence_photos(id,booking_reference,leg,step,file_key,mime,uploaded_by,created_at) VALUES(?,?,?,?,?,?,?,?)")
     .bind(id, reference, leg, step, key, image.mime, admin.email, new Date().toISOString()).run();
-  return NextResponse.json({ ok: true, id });
+  // All three photos in: the journey is completed.
+  const completed = await completeIfEvidenceFilled(reference, leg, `admin:${admin.email}`).catch((e) => { console.error("Auto-complete failed", e); return false; });
+  return NextResponse.json({ ok: true, id, completed });
 }
