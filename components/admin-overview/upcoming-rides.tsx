@@ -58,7 +58,7 @@ export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions }: {
   return <div className="grid gap-3">
     <div className="min-w-0">
       <div className="flex items-start justify-between gap-2">
-      <p className="text-[12px] font-semibold text-slate-500">{day(r.pickupDate)} · {r.pickupTime} · <span className="font-mono">{r.reference}</span>{r.roundtrip && <span className="ml-1.5 rounded-full bg-line-green px-2 py-0.5 text-[10.5px] font-bold text-white">Roundtrip</span>}{r.status === "pending_payment" && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">Awaiting payment</span>}</p>
+      <p className="text-[12px] font-semibold text-slate-500">{day(r.pickupDate)} · {r.pickupTime} · <span className="font-mono">{r.reference}</span>{r.roundtrip && <span className="ml-1.5 rounded-full bg-line-green px-2 py-0.5 text-[10.5px] font-bold text-white">{r.leg === "return" ? "Second trip" : "First trip"}</span>}{r.status === "pending_payment" && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">Awaiting payment</span>}</p>
       {actions && <div className="-mr-2 -mt-2 shrink-0">{actions}</div>}
       </div>
       <p className="mt-1 truncate text-[15px] font-black">{r.name}</p>
