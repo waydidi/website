@@ -1,5 +1,6 @@
 "use client";
 
+import { useCloseOutside } from "@/lib/use-close-outside";
 import { ArrowRight, ImagePlus, LoaderCircle, Luggage, Users, X } from "lucide-react";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 import Link from "next/link";
@@ -40,9 +41,10 @@ const vehicleName = (v: string) => { const t = v.replace(/_/g, " "); return t.ch
 /** The Price row with a "!" on the left that opens what the price includes (Koh Chang car ferry tickets when the ride starts or ends there). */
 function PriceRow({ r }: { r: UpcomingRide }) {
   const [open, setOpen] = useState(false);
+  const box = useCloseOutside<HTMLDivElement>(open, () => setOpen(false));
   const ferry = includesKohChangFerry(r.pickup, r.dropoff);
   const items = ["Private vehicle with driver", "Fuel and driver costs", ...(ferry ? [`Koh Chang car ferry tickets for all ${r.passengers} ${r.passengers === 1 ? "passenger" : "passengers"}`] : [])];
-  return <div className="relative flex justify-between gap-3">
+  return <div ref={box} className="relative flex justify-between gap-3">
     <dt className="shrink-0 text-slate-500">
       Price
     </dt>

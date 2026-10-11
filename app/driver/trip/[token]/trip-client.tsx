@@ -1,4 +1,5 @@
 "use client";
+import { useCloseOutside } from "@/lib/use-close-outside";
 import { directionsTo } from "@/lib/maps-link";
 import { includesKohChangFerry } from "@/lib/booking-form";
 import { paymentPill } from "@/lib/payment-pill";
@@ -132,8 +133,9 @@ const STEPPER: { label: string; reachedBy: string[] }[] = [
 /** The Price row, as on the admin ride card: a "!" on the left opens what the price includes. */
 function PriceRow({ booking }: { booking: Trip["booking"] }) {
   const [open, setOpen] = useState(false);
+  const box = useCloseOutside<HTMLDivElement>(open, () => setOpen(false));
   const items = ["Private vehicle with driver", "Fuel and driver costs", ...(includesKohChangFerry(booking.pickup, booking.dropoff) ? [`Koh Chang car ferry tickets for all ${booking.passengers} ${booking.passengers === 1 ? "passenger" : "passengers"}`] : [])];
-  return <div className="relative flex justify-between gap-3">
+  return <div ref={box} className="relative flex justify-between gap-3">
     <dt className="shrink-0 text-slate-500">Price</dt>
     <dd className="flex items-center justify-end gap-1.5 text-right font-semibold"><button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="What's included" className="grid size-[19px] place-items-center rounded-full bg-brand text-[12px] font-black leading-none text-white">!</button>{booking.price != null ? `THB ${booking.price.toLocaleString("en-US")}` : "Not set"}</dd>
     {open && <div role="dialog" aria-label="What's included" className="absolute right-0 top-[calc(100%+6px)] z-20 w-[260px] rounded-xl border border-slate-200 bg-white p-3 text-[14px] shadow-lg">
