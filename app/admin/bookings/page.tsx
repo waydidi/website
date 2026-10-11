@@ -73,9 +73,9 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   // day has passed), then the return journey. The Roundtrip pill opens the other journey.
   const journey = (row: (typeof rows)[number]) => {
     const roundtrip = Boolean(row.returnDate && row.returnTime);
-    const outbound = { leg: "outbound" as const, title: "Outbound journey", date: row.pickupDate, time: row.pickupTime, from: row.pickup, to: row.serviceType === "hourly" ? `${row.bookedHours ?? ""} hours${row.pricingArea ? ` · ${row.pricingArea}` : ""}` : row.dropoff, assignment: outboundLeg.get(row.reference) };
+    const outbound = { leg: "outbound" as const, title: "First trip", date: row.pickupDate, time: row.pickupTime, from: row.pickup, to: row.serviceType === "hourly" ? `${row.bookedHours ?? ""} hours${row.pricingArea ? ` · ${row.pricingArea}` : ""}` : row.dropoff, assignment: outboundLeg.get(row.reference) };
     if (!roundtrip) return { roundtrip, shown: outbound, other: null };
-    const back = { leg: "return" as const, title: "Return journey", date: row.returnDate!, time: row.returnTime!, from: row.returnPickup || row.dropoff, to: row.returnDropoff || row.pickup, assignment: returnLeg.get(row.reference) };
+    const back = { leg: "return" as const, title: "Second trip", date: row.returnDate!, time: row.returnTime!, from: row.returnPickup || row.dropoff, to: row.returnDropoff || row.pickup, assignment: returnLeg.get(row.reference) };
     const onReturn = outbound.assignment?.status === "completed" || row.pickupDate < today;
     return onReturn ? { roundtrip, shown: back, other: outbound } : { roundtrip, shown: outbound, other: back };
   };
@@ -223,7 +223,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                   const tax = taxByBooking.get(row.reference);
                   const { shown, other } = journey(row);
                   return <tr key={row.reference} className="align-middle hover:bg-orange-50/40">
-                    <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${shown.date}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{shown.time}</p>{other && <RoundtripPill leg={{ reference: row.reference, title: other.title, date: other.date, time: other.time, from: other.from, to: other.to, passengers: row.passengers, luggage: row.luggage, vehicle: row.vehicle }} />}</td>
+                    <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${shown.date}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{shown.time}</p>{other && <RoundtripPill label={shown.leg === "return" ? "Second trip" : "First trip"} leg={{ reference: row.reference, title: other.title, date: other.date, time: other.time, from: other.from, to: other.to, passengers: row.passengers, luggage: row.luggage, vehicle: row.vehicle }} />}</td>
                     <td className="px-4 py-4"><p className="font-medium text-slate-900">{row.customerName}</p><p className="text-[12px] text-slate-500">{row.customerPhone}</p>{tax && <p className="mt-1 text-[12px] font-medium text-amber-700">Tax invoice requested</p>}</td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{shown.from}</p></td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{shown.to}</p></td>
