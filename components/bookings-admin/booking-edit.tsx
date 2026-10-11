@@ -6,6 +6,7 @@ import { BookingDeleteButton } from "@/components/booking-delete-button";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 import { VEHICLES, type VehicleId } from "@/lib/vehicles";
 import { DateField } from "@/components/booking-form/date-field";
+import { PassengerField } from "@/components/booking-form/passenger-field";
 
 // "Edit" on a booking card: a sheet from the bottom to change the date and time (and the return's), the
 // car class and the number of passengers and bags; the driver with the job gets the updated job post.
@@ -63,9 +64,8 @@ function EditSheet({ booking, onClose }: { booking: EditableBooking; onClose: ()
             {(Object.keys(VEHICLES) as VehicleId[]).map((id) => <option key={id} value={id}>{VEHICLES[id].name} · up to {VEHICLES[id].passengers} people, {VEHICLES[id].bags} bags</option>)}
           </select>
         </label>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="grid gap-1 text-slate-600">Passengers<input type="number" inputMode="numeric" min={1} max={30} required value={form.passengers} onChange={(e) => set("passengers", e.target.value)} className={field} /></label>
-          <label className="grid gap-1 text-slate-600">Bags<input type="number" inputMode="numeric" min={0} max={40} required value={form.luggage} onChange={(e) => set("luggage", e.target.value)} className={field} /></label>
+        <div className="grid gap-1 text-slate-600">Passengers & bags
+          <PassengerField passengers={Number(form.passengers)} bags={Number(form.luggage)} onChange={(p, b) => setForm((f) => ({ ...f, passengers: p, luggage: b }))} />
         </div>
         <p className="text-[12.5px] text-slate-500">The price doesn&apos;t change. A driver who already has the job gets the updated job in Telegram.</p>
         {error && <p role="alert" className="rounded-xl bg-red-50 p-3 font-semibold text-red-700">{error}</p>}
