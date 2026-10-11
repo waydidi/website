@@ -5,6 +5,8 @@ import {
   MapPinned,
   List,
   Columns3,
+  FileText,
+  Trash2,
 } from "lucide-react";
 import { getDb } from "@/db";
 import { bookingAssignments, bookingCosts, bookings, bookingSources, bookingStorefronts, bookingTaxInvoices, bookingForms, drivers } from "@/db/schema";
@@ -107,9 +109,10 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
 
   // The phone card list (list mode, active bookings) shows Forms / Bin & restore below the Tour row instead.
   const phoneCardList = view === "active" && mode === "list";
-  const extraLinks = <div className="flex items-center gap-5 text-[15px] font-semibold">
-    <Link href={view === "forms" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=forms`} aria-current={view === "forms" ? "page" : undefined} className={`inline-flex items-center gap-1.5 underline-offset-4 hover:underline ${view === "forms" ? "text-brand-darker underline" : "text-slate-600"}`}>Forms{formsReceived > 0 && <span className="rounded-full bg-[#D32F2F] px-1.5 text-[12px] leading-5 text-white">{formsReceived}</span>}</Link>
-    <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} className={`inline-flex items-center gap-1.5 underline-offset-4 hover:underline ${view === "bin" ? "text-brand-darker underline" : "text-slate-600"}`}>Bin & restore{binRows.length > 0 && <span className="text-slate-400">({binRows.length})</span>}</Link>
+  const extraLinks = <div className="flex items-center gap-3 text-slate-900">
+    <Link href={view === "forms" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=forms`} aria-current={view === "forms" ? "page" : undefined} aria-label={`Forms${formsReceived > 0 ? ` (${formsReceived} new)` : ""}`} title="Forms" className={`relative grid size-10 place-items-center rounded-full hover:bg-slate-200/60 ${view === "forms" ? "bg-slate-200/80" : ""}`}><FileText size={22} aria-hidden="true" />{formsReceived > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-[#D32F2F] px-1 text-center text-[11px] font-bold leading-[18px] text-white">{formsReceived}</span>}</Link>
+    <span aria-hidden="true" className="text-[20px] text-slate-300">|</span>
+    <Link href={view === "bin" ? `/admin/bookings?type=${type}` : `/admin/bookings?type=${type}&view=bin`} aria-current={view === "bin" ? "page" : undefined} aria-label={`Bin & restore${binRows.length > 0 ? ` (${binRows.length})` : ""}`} title="Bin & restore" className={`grid size-10 place-items-center rounded-full hover:bg-slate-200/60 ${view === "bin" ? "bg-slate-200/80" : ""}`}><Trash2 size={22} aria-hidden="true" /></Link>
   </div>;
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-plum sm:px-8">
