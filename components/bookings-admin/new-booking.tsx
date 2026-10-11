@@ -10,6 +10,8 @@ import { isAirportPickup } from "@/lib/trip-rules";
 import { VEHICLES } from "@/lib/vehicles";
 
 type Service = "transfer" | "hourly" | "tour";
+// The service is chosen in the Create menu before this opens.
+const SERVICE_NAME: Record<Service, string> = { transfer: "Transfer", hourly: "By the hour", tour: "Tour" };
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 const bangkokToday = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 
@@ -97,9 +99,11 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
       ? <button type="button" onClick={() => { setF(blank()); setOpen(true); }} className="inline-flex h-9 items-center rounded-full bg-brand px-4 text-[14px] font-semibold text-white hover:bg-brand-strong">{trigger}</button>
       : <button type="button" onClick={() => { setF(blank()); setOpen(true); }} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-brand px-4 text-[15px] font-semibold text-white hover:bg-brand-strong"><Plus size={17} strokeWidth={2.5} />New booking</button>}
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent showCloseButton={false} className="max-h-[92dvh] overflow-y-auto rounded-[28px] border-0 bg-white p-6 text-slate-900 sm:max-w-2xl">
+      {/* A sheet that slides up from the bottom. */}
+      <DialogContent showCloseButton={false} className="top-auto bottom-0 max-h-[92dvh] max-w-none translate-y-0 overflow-y-auto rounded-t-[28px] rounded-b-none border-0 bg-white p-6 pb-[max(24px,env(safe-area-inset-bottom))] text-slate-900 duration-300 data-[state=closed]:slide-out-to-bottom data-[state=closed]:zoom-out-100 data-[state=open]:slide-in-from-bottom data-[state=open]:zoom-in-100 sm:max-w-2xl">
+        <div className="mx-auto -mt-2 h-1.5 w-10 rounded-full bg-slate-200" aria-hidden="true" />
         <DialogHeader className="flex-row items-center justify-between gap-3 text-left">
-          <div><DialogTitle className="text-[24px] font-semibold">{done ? "Booking saved" : "New booking"}</DialogTitle><DialogDescription>{done ? "It's in Bookings now, like any other booking." : "For rides booked by phone, LINE or an agency. Saved as a confirmed booking with a PDF."}</DialogDescription></div>
+          <div><DialogTitle className="text-[24px] font-semibold">{done ? "Booking saved" : `New booking · ${SERVICE_NAME[f.serviceType as Service]}`}</DialogTitle><DialogDescription className={done ? undefined : "sr-only"}>{done ? "It's in Bookings now, like any other booking." : "Saved as a confirmed booking with a PDF."}</DialogDescription></div>
           <button type="button" onClick={() => close(false)} aria-label="Close" className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 hover:bg-orange-50"><X size={20} /></button>
         </DialogHeader>
 
@@ -113,9 +117,6 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
           </div>
         </div> : <form onSubmit={(e) => { e.preventDefault(); }} className="grid gap-5 pt-2">
           <section className="grid gap-3">
-            <div role="tablist" aria-label="Service" className="inline-flex w-fit rounded-xl bg-[#E8EAEE] p-1">
-              {([["transfer", "Transfer"], ["hourly", "By the hour"], ["tour", "Tour"]] as const).map(([id, text]) => <button key={id} type="button" role="tab" aria-selected={f.serviceType === id} onClick={() => set("serviceType", id)} className={`h-9 rounded-lg px-4 text-[14px] ${f.serviceType === id ? "bg-white font-medium shadow-sm" : "text-slate-600"}`}>{text}</button>)}
-            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={label}>Pickup<input className={field} value={f.pickup} onChange={(e) => set("pickup", e.target.value)} placeholder="Suvarnabhumi Airport (BKK)" /></label>
               {f.serviceType === "hourly"
