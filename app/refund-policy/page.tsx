@@ -3,6 +3,7 @@ import { PublicFooter } from "@/components/public-footer";
 import { Breadcrumbs, JsonLd, breadcrumbSchema } from "@/components/seo";
 import { SITE_URL } from "@/lib/public-content";
 import { REFUND_POLICY_VERSION, customerRefundMinor, refundPercent } from "@/lib/refund-policy";
+import { WHATSAPP } from "@/lib/contact";
 
 const URL_PATH = "/refund-policy";
 export const metadata: Metadata = {
@@ -11,7 +12,6 @@ export const metadata: Metadata = {
   alternates: { canonical: `${SITE_URL}${URL_PATH}` },
 };
 
-const WHATSAPP = "+66 63 206 4884";
 const waLink = `https://wa.me/${WHATSAPP.replace(/\D/g, "")}?text=${encodeURIComponent("Hello Waydidi, I would like to cancel / request a refund.\nBooking number:\nName:\nService date:\nReason:")}`;
 const thb = (n: number) => `฿${n.toLocaleString("en-US")}`;
 // Worked examples come from the same rules the server uses.

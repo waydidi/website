@@ -8,6 +8,7 @@ import { AgencyForm } from "@/components/agencies/agency-form";
 import { NewsletterForm } from "@/components/agencies/newsletter-form";
 import { VEHICLES } from "@/lib/vehicles";
 import { SITE_URL } from "@/lib/public-content";
+import { SUPPORT_EMAIL } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Travel agencies: partner with Waydidi | Private transfers in Thailand",
@@ -151,7 +152,7 @@ export default async function AgenciesPage({ searchParams }: { searchParams: Pro
         <div className="mt-10 max-w-[560px] rounded-[28px] border border-white/15 bg-[#0D0D0D] p-8">
           <div className="flex items-center gap-5"><span className="grid size-16 place-items-center rounded-full bg-white/10"><Mail size={26} aria-hidden="true" /></span><div><p className="text-[18px] font-bold sm:text-[20px]">Waydidi partnerships</p><p className="text-[13px] text-white/60">Travel agency support</p></div></div>
           <p className="mt-7 text-[12px] text-white/60">Email</p>
-          <a href="mailto:support@waydidi.com?subject=Travel%20agency%20partnership" className="mt-1 block text-[15px] font-bold hover:underline sm:text-[17px]">support@waydidi.com</a>
+          <a href={`mailto:${SUPPORT_EMAIL}?subject=Travel%20agency%20partnership`} className="mt-1 block text-[15px] font-bold hover:underline sm:text-[17px]">{SUPPORT_EMAIL}</a>
         </div>
       </div>
     </section>

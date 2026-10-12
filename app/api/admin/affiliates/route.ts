@@ -5,6 +5,7 @@ import { affiliateBookings, affiliateSummaries, cleanCode, cleanSlug, dashboardP
 import { sendTripEmail } from "@/lib/email";
 import { KIT_ROUTES } from "@/lib/partner-kit";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { WHATSAPP } from "@/lib/contact";
 
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
 const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
         intro: `Hi ${a.name}, your partner account is ready. Share your link or code: you earn ${a.commission_percent}% of every completed ride, and your customers get ${a.discount_percent}% off with your code.`,
         rows: [["Your link", `https://waydidi.com/?ref=${a.slug}`], ["Your code", a.code], ["You earn", `${a.commission_percent}% per completed ride`], ["Customer discount", `${a.discount_percent}% with your code`]],
         cta: "Open my partner dashboard", link: `${origin}${await dashboardPath(a)}`,
-        footer: "Keep the dashboard link private: it opens your account without a password. Questions? WhatsApp +66 63 206 4884.",
+        footer: `Keep the dashboard link private: it opens your account without a password. Questions? WhatsApp ${WHATSAPP}.`,
         tag: `partner-welcome-${a.id}`,
       }).catch(() => null);
       emailed = r?.status === "sent";

@@ -6,12 +6,13 @@ import { areaHourlyPrices } from "@/lib/hourly-area-pricing";
 import { matchPublishedArea, pricesForArea, type Point } from "@/lib/pricing";
 import { loadSeasons, seasonalPrice } from "@/lib/seasons";
 import { VEHICLES } from "@/lib/vehicles";
+import { SUPPORT_EMAIL } from "@/lib/contact";
 
 // Suggested fare for a customer form, from the same fare areas, distance rules and
 // seasons the website uses. The fare excludes add-ons (child seat etc.), which booking adds.
 export type PriceSuggestion = { amount: number; detail: string };
 
-const UA = "Waydidi/1.0 (booking price suggestion; support@waydidi.com)";
+const UA = `Waydidi/1.0 (booking price suggestion; ${SUPPORT_EMAIL})`;
 
 /** Map point for a typed address: Google when a key is set, otherwise OpenStreetMap. */
 async function geocode(address: string): Promise<Point | null> {

@@ -7,6 +7,7 @@ import { HelpTopics, type HelpTopic } from "@/components/help/help-topics";
 import { PublicFooter } from "@/components/public-footer";
 import { currentCustomer } from "@/lib/customer-auth";
 import { SITE_URL } from "@/lib/public-content";
+import { SUPPORT_EMAIL, WHATSAPP } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Customer support | Waydidi",
@@ -14,7 +15,6 @@ export const metadata: Metadata = {
   alternates: { canonical: `${SITE_URL}/help` },
 };
 
-const SUPPORT_EMAIL = "support@waydidi.com";
 
 // Answers mirror the published policies (FAQ, cancellation, luggage, airport pages).
 const TOPICS: HelpTopic[] = [
@@ -30,7 +30,7 @@ const TOPICS: HelpTopic[] = [
   ] },
   { id: "changes", label: "Changes & cancellations", icon: "refresh", questions: [
     { q: "How do I change my pickup date or time?", a: "Eligible bookings can request a date or time change from Check your booking until three days before pickup. Changes depend on availability, and your original ride stays in place until we confirm." },
-    { q: "How can I cancel my booking?", a: `Message us on WhatsApp (+66 63 206 4884) or email ${SUPPORT_EMAIL} with your booking number, name, service date and reason. Cancellations more than 48 hours before pickup get a full refund, 24–48 hours before get 50%, and less than 24 hours are non-refundable. See the Refund & Cancellation Policy for details.` },
+    { q: "How can I cancel my booking?", a: `Message us on WhatsApp (${WHATSAPP}) or email ${SUPPORT_EMAIL} with your booking number, name, service date and reason. Cancellations more than 48 hours before pickup get a full refund, 24–48 hours before get 50%, and less than 24 hours are non-refundable. See the Refund & Cancellation Policy for details.` },
     { q: "What if I cancel late or miss the pickup?", a: "Cancellations less than 24 hours before pickup and no-shows are non-refundable, because the driver and vehicle are already committed. If Waydidi cannot provide your confirmed service and no suitable alternative is available, you get a full refund." },
   ] },
   { id: "payment", label: "Payment & receipts", icon: "card", questions: [
