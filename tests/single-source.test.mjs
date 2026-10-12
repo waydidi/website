@@ -32,3 +32,14 @@ test("support email and WhatsApp number live only in lib/contact.ts", () => {
   assert.equal(contact.WHATSAPP_URL, "https://wa.me/66632064884");
   assert.deepEqual(copies(/support@waydidi\.com|63 206 4884|66632064884/, ["lib/contact.ts"]), []);
 });
+
+test("member tier perks and the loyalty reward are written from their own numbers", async () => {
+  const { TIERS } = await vite.ssrLoadModule("/lib/member-tier-rules.ts");
+  assert.deepEqual(TIERS.map((t) => t.perks), [
+    ["3% off every booking (up to THB 300)"],
+    ["5% off every booking (up to THB 500)"],
+    ["7% off every booking (up to THB 800)", "1 free child seat on every booking"],
+    ["10% off every booking (up to THB 1,200)", "1 free child seat on every booking", "Free currency exchange stop on every booking"],
+  ]);
+  assert.deepEqual(copies(/5th (completed )?ride|THB 500\)/, ["lib/loyalty-rules.ts"]), []);
+});

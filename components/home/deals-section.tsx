@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTurnstile } from "@/components/use-turnstile";
 import { FULL_REFUND_HOURS } from "@/lib/refund-policy";
+import { LOYALTY_EVERY, LOYALTY_PERCENT } from "@/lib/loyalty-rules";
 
 // Trip.com-style block: newsletter sign-up, a sign-in card for member deals,
 // and "Book with confidence" reasons.
@@ -30,7 +31,7 @@ export function DealsSection() {
   const card = "rounded-2xl bg-white p-5 shadow-[0_2px_10px_rgba(15,41,77,.06)] sm:p-6";
   const reasons = [
     { Icon: ShieldCheck, title: `Free cancellation up to ${FULL_REFUND_HOURS} hours`, text: `Cancel more than ${FULL_REFUND_HOURS} hours before pickup for a full refund.`, href: "/refund-policy" },
-    { Icon: BadgePercent, title: "Get rewarded for traveling", text: "Members get 10% off every 5th completed ride, plus member-only deals.", href: "/account/sign-in" },
+    { Icon: BadgePercent, title: "Get rewarded for traveling", text: `Members get ${LOYALTY_PERCENT}% off every ${LOYALTY_EVERY}th completed ride, plus member-only deals.`, href: "/account/sign-in" },
   ];
   return <section aria-labelledby="deals-heading" className="bg-[#EEF0F4] px-4 py-10 sm:py-14">
     <div className="mx-auto grid max-w-[880px] grid-cols-[minmax(0,1fr)] gap-4">
