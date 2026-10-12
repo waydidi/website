@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { VEHICLES } from "@/lib/vehicles";
 import type { Metadata } from "next";
 import Image from "next/image";
 import {
@@ -53,11 +54,12 @@ const guides = [
   { title: "Frequently asked questions", text: "Read practical answers about waiting, delays, changes and payment.", href: "/faq", icon: Headphones },
 ];
 
-const vehicles = [
-  { name: "Economy sedan", capacity: "1–3 passengers · 2 bags", image: "/vehicle-economy-sedan.webp" },
-  { name: "Comfort SUV", capacity: "1–4 passengers · 4 bags", image: "/vehicle-comfort-suv.webp" },
-  { name: "Premium minivan", capacity: "Larger groups · extra luggage", image: "/vehicle-premium-minivan.webp" },
-];
+// Names and capacities come from lib/vehicles.ts, the same numbers booking and checkout use.
+const vehicles = ([
+  ["economy_sedan", "/vehicle-economy-sedan.webp"],
+  ["comfort_suv", "/vehicle-comfort-suv.webp"],
+  ["premium_minivan", "/vehicle-premium-minivan.webp"],
+] as const).map(([id, image]) => ({ name: VEHICLES[id].name, capacity: `Up to ${VEHICLES[id].passengers} passengers · ${VEHICLES[id].bags} bags`, image }));
 
 export default function SuvarnabhumiAirportPage() {
   const schema = {
