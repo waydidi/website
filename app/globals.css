@@ -123,6 +123,17 @@
   --canvas: #f5f6f8;
   --navy: #0f294d;
   --line-green: #06c755;
+
+  /* G7 additions (docs/design-system-g7.md). New names only: nothing that
+     existed before reads them, so existing pages look exactly the same.
+     Status colours pass WCAG AA (4.5:1) as text on white and on their soft
+     background. */
+  --success: #047857;
+  --success-soft: #ecfdf5;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
+  --danger: #b91c1c;
+  --danger-soft: #fef2f2;
 }
 
 @theme inline {
@@ -177,6 +188,17 @@
   --color-canvas: var(--canvas);
   --color-navy: var(--navy);
   --color-line-green: var(--line-green);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  /* G7 sizes: min-h-tap / size-tap (smallest touch target), max-w-liff
+     (LINE in-app screens), rounded-card (the 22px account/booking card). */
+  --spacing-tap: 44px;
+  --container-liff: 480px;
+  --radius-card: 22px;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

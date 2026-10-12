@@ -56,6 +56,24 @@ Non answers customer chats instantly, quoting only from the site's price tables 
 - **LINE** (LINE Official Account → Messaging API): `LINE_CHANNEL_ACCESS_TOKEN` and `LINE_CHANNEL_SECRET`. Set the webhook URL to `https://<your domain>/api/integrations/line/webhook`, turn "Use webhook" on and LINE's own auto-reply off. Replies use push messages, which count against the LINE plan's monthly message quota.
 - Model and monthly cost are on the Non knowledge tab. `ANTHROPIC_API_KEY=... node scripts/cee-eval.mjs` runs the 100 test questions against the real model (costs real money) and writes `cee-eval-report.md` with answers, timings and cost.
 
+## Waydidi in LINE (LIFF)
+
+`/liff` is My Trips inside the LINE app. The page loads LINE's LIFF SDK, gets an ID token, and `POST /api/liff/session` verifies it with LINE (`api.line.me/oauth2/v2.1/verify`, audience = the LIFF app's channel) before creating the normal customer session. The customer is found by their linked LINE identity, or by the verified email LINE shares. If LINE shares no email, the customer signs in once by email code and their LINE account is then linked, so later visits sign in automatically. `/liff/trips` lists their trips; trip details, slips and receipts are the normal account pages.
+
+Owner setup: in LINE Developers, on the same LINE Login channel used for social sign-in, add a LIFF app (size Full, Endpoint URL `https://waydidi.com/liff`, scopes `openid profile email`). Put its LIFF ID in the Worker variable `LINE_LIFF_ID`. Link `https://liff.line.me/<LIFF ID>` from the LINE Official Account rich menu. The LIFF SDK is allowed by the Content Security Policy on `/liff` pages only.
+
+## Bank transfer / PromptPay slips
+
+Customers with a pay-later (cash) booking can upload a transfer slip on **Account → My trips → trip**. Claude (`claude-opus-5-5`, vision with structured output) reads the amount, date, receiver, account and bank reference; `lib/payment-slip-rules.ts` decides in code. A slip is approved without a person only when `WAYDIDI_SLIP_AUTO_APPROVE=1` **and** it is clearly a slip, read with high confidence, for exactly the balance due, to a configured payee name and account, dated between the booking and now, with no signs of editing, and neither the image nor the bank reference was used before. Everything else waits in **Admin → Payments → Transfer slips** (owner/finance), with the reasons listed and a Telegram alert. Rejections need a reason, which the customer sees.
+
+An approval is a cash receipt (`cash_receipts` id `slip:<slip id>`) written in one D1 batch with the existing cash-collection guard: it is recorded once, never above the booking total, never for a slip that was just rejected, and one bank reference can be approved only once. Receipts PDFs therefore include it. Slip images are private (R2 or the D1 file store) and served only to owner/finance.
+
+Worker variables: `WAYDIDI_SLIP_PAYEE_NAMES` (turns the feature on), `WAYDIDI_SLIP_PAYEE_ACCOUNTS`, `WAYDIDI_SLIP_PAYEE_DISPLAY`, `WAYDIDI_SLIP_AUTO_APPROVE` (default off) and `ANTHROPIC_API_KEY` (without it every slip goes to review). The table is created on first use and by `drizzle/0102_payment_slips.sql`. Test with `node --test tests/payment-slips.test.mjs tests/liff.test.mjs`.
+
+## Design system (G7)
+
+Tokens and rules are in [`docs/design-system-g7.md`](docs/design-system-g7.md); the values live in `app/globals.css`.
+
 ## Starter build tooling
 
 Install locked dependencies with `npm run install:ci`, then build with `npm run build`. Cloudflare deploys the built Worker using the configuration generated from `vite.config.ts`.

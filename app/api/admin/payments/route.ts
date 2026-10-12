@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { paymentDashboard } from "@/lib/payment-dashboard";
 import { reconcileBooking } from "@/lib/payment-reconciliation";
+import { cashReceiptStatements } from "@/lib/cash-collection";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { assessHourlyOvertime, collectHourlyOvertime } from "@/lib/hourly-overtime-db";
 export async function GET() { if (!await getWaydidiAdmin())
@@ -55,11 +56,7 @@ export async function POST(request: Request) {
     if (input.action !== "collect_cash" || !Number.isSafeInteger(input.amountMinor) || (input.amountMinor ?? 0) <= 0 || !/^[0-9a-f-]{36}$/i.test(input.receiptId ?? ""))
         return NextResponse.json({ error: "Enter a valid cash amount." }, { status: 400 });
     const now = new Date().toISOString();
-    const result = await env.DB.batch([
-        env.DB.prepare(`INSERT OR IGNORE INTO cash_receipts(id,booking_reference,amount_minor,collected_by,note,created_at) SELECT ?,reference,?,?,?,? FROM bookings WHERE reference=? AND payment_method='cash' AND status IN ('confirmed','completed','no_show') AND COALESCE((SELECT SUM(amount_minor) FROM cash_receipts WHERE booking_reference=?),0)+? <= total*100`).bind(input.receiptId, input.amountMinor, admin.email, String(input.note ?? "").slice(0, 300), now, reference, reference, input.amountMinor),
-        env.DB.prepare(`UPDATE bookings SET amount_paid=COALESCE((SELECT SUM(amount_minor) FROM cash_receipts WHERE booking_reference=?),0)/100.0, payment_status=CASE WHEN COALESCE((SELECT SUM(amount_minor) FROM cash_receipts WHERE booking_reference=?),0)>=total*100 THEN 'paid' ELSE 'cash_due' END, payment_status_updated_at=?,updated_at=? WHERE reference=? AND payment_method='cash' AND EXISTS(SELECT 1 FROM cash_receipts WHERE id=? AND booking_reference=?)`).bind(reference, reference, now, now, reference, input.receiptId, reference),
-        env.DB.prepare(`UPDATE booking_payments SET amount_paid_minor=COALESCE((SELECT SUM(amount_minor) FROM cash_receipts WHERE booking_reference=?),0),amount_paid=(SELECT amount_paid FROM bookings WHERE reference=?),status=(SELECT payment_status FROM bookings WHERE reference=?),updated_at=? WHERE booking_reference=? AND provider='cash'`).bind(reference, reference, reference, now, reference),
-    ]);
+    const result = await env.DB.batch(cashReceiptStatements(env.DB, { receiptId: input.receiptId!, reference, amountMinor: input.amountMinor!, collectedBy: admin.email, note: String(input.note ?? ""), now }));
     if (!result[0].meta.changes) {
         const receipt = await env.DB.prepare("SELECT booking_reference,amount_minor FROM cash_receipts WHERE id=?").bind(input.receiptId).first() as {
             booking_reference: string;

@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
+import { env } from "cloudflare:workers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Check } from "lucide-react";
 import { AccountShell, formatTripDate } from "@/components/account/account-shell";
 import { TripActions } from "@/components/account/trip-actions";
+import { PaymentSlipUpload } from "@/components/account/payment-slip-upload";
 import { vehicleName } from "@/components/account/trip-card";
 import { canManageStatus } from "@/lib/booking-management";
 import { customerBooking, driverStatuses, requireCustomer } from "@/lib/customer-auth";
 import { driverStatusLabel, tripBucket } from "@/lib/customer-account";
+import { slipConfig } from "@/lib/payment-slip-rules";
+import { acceptsSlips, bookingBalance, customerSlipView, slipsForBooking } from "@/lib/payment-slips";
 
 export const metadata: Metadata = { title: "Trip details · Waydidi", robots: { index: false, follow: false } };
 
@@ -33,6 +37,10 @@ export default async function TripDetailPage({ params }: { params: Promise<{ ref
   const driverStatus = (await driverStatuses([trip.reference])).get(trip.reference);
   const progress = trip.status === "completed" ? 4 : stepIndex[driverStatus ?? ""] ?? 0;
   const payment = trip.paymentMethod === "cash" ? "Cash to driver" : "Card";
+  // Cash bookings may instead be paid by bank transfer: shown once the owner has set the payee.
+  const slips = slipConfig(env as unknown as Record<string, unknown>);
+  const balance = slips && trip.paymentMethod === "cash" ? await bookingBalance(trip.reference) : null;
+  const slipList = balance ? (await slipsForBooking(trip.reference)).map(customerSlipView) : [];
 
   return <AccountShell name={customer.name} email={customer.email}>
     <Link href="/account/trips" className="inline-flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-brand-text"><ArrowLeft size={16} /> My trips</Link>
@@ -76,6 +84,8 @@ export default async function TripDetailPage({ params }: { params: Promise<{ ref
             <Row label="Status" value={trip.paymentStatus.replace(/_/g, " ")} />
           </dl>
         </section>
+
+        {slips && balance && (acceptsSlips(balance) || slipList.length) ? <PaymentSlipUpload reference={trip.reference} outstandingMinor={balance.outstandingMinor} payeeDisplay={slips.payeeDisplay} slips={slipList} canUpload={acceptsSlips(balance)} /> : null}
       </div>
 
       <aside className="grid content-start gap-5">
