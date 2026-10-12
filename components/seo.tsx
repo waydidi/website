@@ -2,6 +2,39 @@ import { SITE_URL } from "@/lib/public-content";
 
 export type Crumb = { name: string; path: string };
 
+/**
+ * Public profiles of Waydidi on other sites (Facebook page, Instagram, LINE Official Account,
+ * TripAdvisor…), shown to Google as `sameAs`. Add only accounts Waydidi owns.
+ */
+export const SOCIAL_PROFILES: string[] = [];
+
+export const ORGANIZATION_ID = `${SITE_URL}/#organization`;
+
+/** Who Waydidi is, on every page: name, logo and how customers reach support. */
+export function organizationSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": ORGANIZATION_ID,
+    name: "Waydidi Travel",
+    alternateName: "Waydidi",
+    url: SITE_URL,
+    logo: { "@type": "ImageObject", url: `${SITE_URL}/waydidi-logo.png`, width: 810, height: 308 },
+    email: "support@waydidi.com",
+    contactPoint: [{ "@type": "ContactPoint", contactType: "customer service", email: "support@waydidi.com", telephone: "+66-63-206-4884", areaServed: "TH", availableLanguage: ["English", "Thai"] }],
+    ...(SOCIAL_PROFILES.length ? { sameAs: SOCIAL_PROFILES } : {}),
+  };
+}
+
+export function websiteSchema() {
+  return { "@context": "https://schema.org", "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: "Waydidi Travel", url: SITE_URL, publisher: { "@id": ORGANIZATION_ID } };
+}
+
+/** The private-transfer service; only on pages that sell it (home), not on the blog or legal pages. */
+export function transferServiceSchema() {
+  return { "@context": "https://schema.org", "@type": "Service", name: "Waydidi Private Transfers", serviceType: "Private passenger transfer", provider: { "@id": ORGANIZATION_ID }, areaServed: { "@type": "Country", name: "Thailand" }, url: SITE_URL };
+}
+
 export function JsonLd({ data }: { data: object | object[] }) {
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }} />;
 }

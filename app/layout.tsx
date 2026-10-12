@@ -8,6 +8,7 @@ import { PublicPathHeader } from "@/components/public-header";
 import { PwaProvider } from "@/components/pwa/pwa-provider";
 import { SiteTranslator } from "@/components/site-translator";
 import { PRE_HIDE } from "@/lib/site-languages";
+import { JsonLd, organizationSchema, websiteSchema } from "@/components/seo";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -35,15 +36,6 @@ export default function RootLayout({
   // Google Analytics 4 measurement ID, e.g. G-ABC123XYZ (a public ID, set in Cloudflare).
   const gaRaw = String((env as Record<string, unknown>).GA_MEASUREMENT_ID ?? "").trim().toUpperCase();
   const gaId = /^G-[A-Z0-9]{4,20}$/.test(gaRaw) ? gaRaw : "";
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "Service",
-    name: "Waydidi Private Transfers",
-    provider: { "@type": "Organization", name: "Waydidi", url: SITE_URL },
-    areaServed: { "@type": "Country", name: "Thailand" },
-    serviceType: "Private passenger transfer",
-    url: SITE_URL,
-  };
   return (
     <html lang="en" suppressHydrationWarning>
       {/* A relative link: metadata icons are made absolute with metadataBase,
@@ -73,12 +65,7 @@ export default function RootLayout({
           <SiteTranslator />
         </PwaProvider>
         {gaId && <GoogleAnalytics id={gaId} />}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
-          }}
-        />
+        <JsonLd data={[organizationSchema(), websiteSchema()]} />
       </body>
     </html>
   );
