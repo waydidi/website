@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PublicFooter } from "@/components/public-footer";
 import { Breadcrumbs, JsonLd, breadcrumbSchema } from "@/components/seo";
 import { SITE_URL } from "@/lib/public-content";
-import { REFUND_POLICY_VERSION, customerRefundMinor, refundPercent } from "@/lib/refund-policy";
+import { REFUND_POLICY_VERSION, customerRefundMinor, refundPercent, FULL_REFUND_HOURS, PARTIAL_REFUND_HOURS, PARTIAL_REFUND_PERCENT, GENERAL_REFUND_TIERS } from "@/lib/refund-policy";
 import { WHATSAPP } from "@/lib/contact";
 
 const URL_PATH = "/refund-policy";
@@ -18,9 +18,9 @@ const thb = (n: number) => `฿${n.toLocaleString("en-US")}`;
 const example = (hours: number) => customerRefundMinor(300000, refundPercent("customer_cancellation", hours)) / 100;
 
 const cards = [
-  { when: "More than 48 hours before pickup", result: "100% refund", text: "Cancel more than 48 hours before your scheduled service to receive a full refund, unless different conditions were stated for your booking.", tone: "border-emerald-200 bg-emerald-50", accent: "text-emerald-700" },
-  { when: "24–48 hours before pickup", result: "50% refund", text: "Cancel between 24 and 48 hours before your scheduled service to receive a 50% refund, unless different booking conditions apply.", tone: "border-amber-200 bg-amber-50", accent: "text-amber-700" },
-  { when: "Less than 24 hours before pickup", result: "Non-refundable", text: "Bookings cancelled less than 24 hours before the scheduled service are non-refundable.", tone: "border-slate-200 bg-canvas", accent: "text-slate-700" },
+  { when: GENERAL_REFUND_TIERS[0].label, result: "100% refund", text: `Cancel more than ${FULL_REFUND_HOURS} hours before your scheduled service to receive a full refund, unless different conditions were stated for your booking.`, tone: "border-emerald-200 bg-emerald-50", accent: "text-emerald-700" },
+  { when: GENERAL_REFUND_TIERS[1].label, result: `${PARTIAL_REFUND_PERCENT}% refund`, text: `Cancel between ${PARTIAL_REFUND_HOURS} and ${FULL_REFUND_HOURS} hours before your scheduled service to receive a ${PARTIAL_REFUND_PERCENT}% refund, unless different booking conditions apply.`, tone: "border-amber-200 bg-amber-50", accent: "text-amber-700" },
+  { when: GENERAL_REFUND_TIERS[2].label, result: "Non-refundable", text: `Bookings cancelled less than ${PARTIAL_REFUND_HOURS} hours before the scheduled service are non-refundable.`, tone: "border-slate-200 bg-canvas", accent: "text-slate-700" },
 ];
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -61,7 +61,7 @@ export default function RefundPolicyPage() {
           <caption className="sr-only">Refund by cancellation time</caption>
           <thead className="bg-canvas text-slate-600"><tr><th scope="col" className="px-4 py-3 font-semibold">Cancellation time</th><th scope="col" className="px-4 py-3 font-semibold">Refund</th></tr></thead>
           <tbody className="divide-y divide-slate-100">
-            {[["More than 48 hours before scheduled service", "100% refund"], ["24–48 hours before scheduled service", "50% refund"], ["Less than 24 hours before scheduled service", "No refund"], ["No-show", "No refund"]].map(([a, b]) => <tr key={a}><th scope="row" className="px-4 py-3 font-medium">{a}</th><td className="px-4 py-3 font-bold">{b}</td></tr>)}
+            {[[`More than ${FULL_REFUND_HOURS} hours before scheduled service`, "100% refund"], [`${PARTIAL_REFUND_HOURS}–${FULL_REFUND_HOURS} hours before scheduled service`, `${PARTIAL_REFUND_PERCENT}% refund`], [`Less than ${PARTIAL_REFUND_HOURS} hours before scheduled service`, "No refund"], ["No-show", "No refund"]].map(([a, b]) => <tr key={a}><th scope="row" className="px-4 py-3 font-medium">{a}</th><td className="px-4 py-3 font-bold">{b}</td></tr>)}
           </tbody>
         </table></div>
         <p>The notice period is the time between your scheduled service and when we receive your cancellation request, in Thailand time. It is not based on the date you paid.</p>

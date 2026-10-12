@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Check, LoaderCircle, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
+import { FULL_REFUND_HOURS, PARTIAL_REFUND_HOURS, PARTIAL_REFUND_PERCENT } from "@/lib/refund-policy";
 
 // Promotions (tiket.com style). Real offers come from Admin → Promotions
 // (/api/promotions); the examples below only show with /?promos=preview.
@@ -184,7 +185,7 @@ function TermsSheet({ promo, onClose }: { promo: Promotion | null; onClose: () =
             <ol className="mt-2 grid list-decimal gap-1.5 pl-6 text-[15px] leading-6 text-[#2B2B2B]">{promo.offer.map((line) => <li key={line}>{line}</li>)}</ol>
             <h3 className="mt-6 text-[16px] font-semibold underline underline-offset-4">Booking policies</h3>
             <ol className="mt-3 grid list-decimal gap-1.5 pl-6 text-[15px] leading-6 text-[#2B2B2B]">
-              <li>Full refund when cancelled more than 48 hours before pickup, 50% at 24–48 hours; contact Waydidi with your booking reference.</li>
+              <li>Full refund when cancelled more than {FULL_REFUND_HOURS} hours before pickup, {PARTIAL_REFUND_PERCENT}% at {PARTIAL_REFUND_HOURS}–{FULL_REFUND_HOURS} hours; contact Waydidi with your booking reference.</li>
               <li>Refunds go back to the original payment method and cover the amount actually paid after the discount.</li>
               <li>The discount applies to the fare shown at booking; extra stops, waiting or route changes are charged separately.</li>
               <li>Waydidi may cancel a discount that is used against these terms.</li>

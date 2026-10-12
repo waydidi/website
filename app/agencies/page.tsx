@@ -9,6 +9,7 @@ import { NewsletterForm } from "@/components/agencies/newsletter-form";
 import { VEHICLES } from "@/lib/vehicles";
 import { SITE_URL } from "@/lib/public-content";
 import { SUPPORT_EMAIL } from "@/lib/contact";
+import { FULL_REFUND_HOURS } from "@/lib/refund-policy";
 
 export const metadata: Metadata = {
   title: "Travel agencies: partner with Waydidi | Private transfers in Thailand",
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 // Facts about the service itself (no made-up partner counts or ratings).
 const FACTS = [
   { value: "Fixed", label: "Price agreed before booking" },
-  { value: "48h", label: "Free cancellation window" },
+  { value: `${FULL_REFUND_HOURS}h`, label: "Free cancellation window" },
   { value: "60 min", label: "Free waiting at airports" },
   { value: "Meet & Greet", label: "Name sign at arrivals" },
 ];
