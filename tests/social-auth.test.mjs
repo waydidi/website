@@ -10,6 +10,7 @@ const vite = await createServer({ appType: "custom", configFile: false, root, re
 after(async () => vite.close());
 const social = await vite.ssrLoadModule("/lib/social-auth.ts");
 const callback = await readFile(new URL("../app/api/account/oauth/[provider]/callback/route.ts", import.meta.url), "utf8");
+const socialCustomer = await readFile(new URL("../lib/social-customer.ts", import.meta.url), "utf8");
 
 const env = {
   GOOGLE_OAUTH_CLIENT_ID: "g-id", GOOGLE_OAUTH_CLIENT_SECRET: "g-secret",
@@ -110,7 +111,8 @@ test("Facebook requests are signed with appsecret_proof", async () => {
 });
 
 test("accounts are only linked by email when the provider verified it", () => {
-  assert.match(callback, /if \(!profile\.email \|\| !profile\.emailVerified\) return null;/);
+  assert.match(callback, /customerFor\(flow\.provider, profile\)/);
+  assert.match(socialCustomer, /if \(!profile\.email \|\| !profile\.emailVerified\) return null;/);
   assert.match(callback, /stateMatches\(flow\.state, input\.get\("state"\)\)/);
   assert.match(callback, /flow\.provider !== providerParam/);
   assert.equal(social.safeNextPath("//evil.com"), "/account");
