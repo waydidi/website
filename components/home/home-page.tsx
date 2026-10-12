@@ -1,4 +1,5 @@
 import { TransferLinks } from "./transfer-links";
+import { SHARE_IMAGE } from "@/components/seo";
 import { DestinationCards } from "./destination-cards";
 import { HowItWorks } from "@/components/home/how-it-works";
 import { HomeFaq } from "@/components/home/home-faq";
@@ -29,6 +30,7 @@ export function homeMetadata(locale: Locale): Metadata {
       url: url(locale),
       type: "website",
       locale: locale === "th" ? "th_TH" : locale === "zh" ? "zh_CN" : "en_TH",
+      images: [SHARE_IMAGE],
     },
   };
 }

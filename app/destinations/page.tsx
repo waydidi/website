@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, CarFront, Headphones, MapPin, ShieldCheck } from "lucide-react";
 import { PublicFooter } from "@/components/public-footer";
-import { Breadcrumbs, JsonLd, breadcrumbSchema, faqSchema } from "@/components/seo";
+import { Breadcrumbs, JsonLd, breadcrumbSchema, faqSchema, SHARE_IMAGE } from "@/components/seo";
 import { destinationRegions, destinations, SITE_URL } from "@/lib/public-content";
 
 const crumbs=[{name:"Home",path:"/"},{name:"Destinations",path:"/destinations"}];
@@ -13,7 +13,7 @@ const faq=[
   {q:"How is the price calculated?",a:"The price depends on your route and vehicle. You see it before you book, and it is recorded with your booking reference."},
 ];
 
-export const metadata:Metadata={title:"Private Transfers & Airport Taxi in Thailand | Waydidi",description:"Explore Waydidi private transfers in Bangkok, Phuket, Krabi, Pattaya, Kanchanaburi, Koh Chang, Koh Kood, Ayutthaya and Hua Hin.",alternates:{canonical:`${SITE_URL}/destinations`},openGraph:{title:"Private Transfers & Airport Taxi in Thailand | Waydidi",url:`${SITE_URL}/destinations`,type:"website"}};
+export const metadata:Metadata={title:"Private Transfers & Airport Taxi in Thailand | Waydidi",description:"Explore Waydidi private transfers in Bangkok, Phuket, Krabi, Pattaya, Kanchanaburi, Koh Chang, Koh Kood, Ayutthaya and Hua Hin.",alternates:{canonical:`${SITE_URL}/destinations`},openGraph:{title:"Private Transfers & Airport Taxi in Thailand | Waydidi",url:`${SITE_URL}/destinations`,type:"website",images:[SHARE_IMAGE]}};
 
 export default function DestinationsPage(){
   const list={"@context":"https://schema.org","@type":"ItemList",itemListElement:destinations.map((d,i)=>({"@type":"ListItem",position:i+1,name:`${d.name} private transfers`,url:`${SITE_URL}/destinations/${d.slug}`}))};

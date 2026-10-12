@@ -7,7 +7,7 @@ import { BookingFlow } from "@/components/home/booking-flow";
 import { DestinationGuides } from "@/components/destination-guides";
 import { guidesForDestination } from "@/lib/destination-guides";
 import { publishedPosts } from "@/lib/blog-store";
-import { Breadcrumbs, JsonLd, breadcrumbSchema, faqSchema } from "@/components/seo";
+import { Breadcrumbs, JsonLd, breadcrumbSchema, faqSchema, SHARE_IMAGE, destinationShareImage } from "@/components/seo";
 import { destinations, SITE_URL, type Destination } from "@/lib/public-content";
 import { fromPrice, KIND_LABEL, listPackages } from "@/lib/packages";
 
@@ -16,7 +16,7 @@ export function generateStaticParams(){return destinations.map(({slug})=>({slug}
 export async function generateMetadata({params}:{params:Promise<{slug:string}>}):Promise<Metadata>{
   const {slug}=await params;const d=destinations.find(x=>x.slug===slug);if(!d)return{};
   const title=d.seoTitle??`Private transfers in ${d.name} | Waydidi`;const description=d.seoDescription??d.intro;const url=`${SITE_URL}/destinations/${d.slug}`;
-  return{title,description,alternates:{canonical:url},openGraph:{title,description,url,type:"website",images:[{url:`${SITE_URL}${d.image??"/waydidi-transfer.png"}`,alt:`Waydidi private transfer in ${d.name}`}]}};
+  return{title,description,alternates:{canonical:url},openGraph:{title,description,url,type:"website",images:[d.image?destinationShareImage(d.slug,d.name):SHARE_IMAGE]}};
 }
 
 const services=[
