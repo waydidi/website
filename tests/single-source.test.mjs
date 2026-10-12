@@ -23,8 +23,8 @@ test("the refund policy's wording is unchanged and generated from its numbers", 
 });
 
 test("refund hours are not typed into page text anywhere else", () => {
-  // Blog articles are editorial content and are allowed to mention the policy in their own words.
-  assert.deepEqual(copies(/\b48 hours\b|24–48|\b48H\b|"48h"/, ["lib/refund-policy.ts", "lib/blog-posts.ts", "lib/unfinished-bookings.ts"]), []);
+  assert.deepEqual(copies(/\b48 hours\b|24–48|\b48H\b|"48h"|[Ff]ree cancellation up to \d+ hours/, ["lib/refund-policy.ts", "lib/unfinished-bookings.ts"]), []);
+  assert.deepEqual(copies(/ยกเลิกฟรีถึง \d|\d+ 小时可免费取消/, []), [], "the itinerary's Thai and Chinese text too");
 });
 
 test("support email and WhatsApp number live only in lib/contact.ts", () => {
