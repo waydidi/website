@@ -8,6 +8,12 @@ export type Crumb = { name: string; path: string };
  */
 export const SOCIAL_PROFILES: string[] = [];
 
+/** Link-preview image (LINE, Facebook, WhatsApp, X): 1200×630 JPEG. */
+export const SHARE_IMAGE = { url: `${SITE_URL}/og/waydidi.jpg`, width: 1200, height: 630, alt: "A Waydidi driver taking a passenger through Bangkok" };
+
+/** Each destination's photo cropped for link previews (public/og/destinations). */
+export const destinationShareImage = (slug: string, name: string) => ({ url: `${SITE_URL}/og/destinations/${slug}.jpg`, width: 1200, height: 630, alt: `Waydidi private transfer in ${name}` });
+
 export const ORGANIZATION_ID = `${SITE_URL}/#organization`;
 
 /** Who Waydidi is, on every page: name, logo and how customers reach support. */

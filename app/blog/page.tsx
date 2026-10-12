@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SHARE_IMAGE } from "@/components/seo";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   title: "Travel guides for Thailand | Waydidi blog",
   description: "Getting there, airport tips, day trips and itineraries across Thailand, from the Waydidi private transfer team.",
   alternates: { canonical: `${SITE_URL}/blog` },
-  openGraph: { title: "Waydidi travel guides", description: "Tips and inspiration for travelling around Thailand by private car.", url: `${SITE_URL}/blog`, type: "website" },
+  openGraph: { title: "Waydidi travel guides", description: "Tips and inspiration for travelling around Thailand by private car.", url: `${SITE_URL}/blog`, type: "website", images: [SHARE_IMAGE] },
 };
 
 const heading = "text-[26px] font-bold tracking-[-.02em] text-charcoal";

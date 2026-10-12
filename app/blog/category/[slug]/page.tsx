@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SHARE_IMAGE } from "@/components/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
@@ -26,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title: `${data.label}: Thailand travel guides | Waydidi`,
     description: `${data.posts.length} Waydidi guide${data.posts.length === 1 ? "" : "s"} on ${data.label.toLowerCase()} in Thailand, with practical tips for travelling by private car.`,
     alternates: { canonical: url },
-    openGraph: { title: `${data.label} | Waydidi travel guides`, url, type: "website" },
+    openGraph: { title: `${data.label} | Waydidi travel guides`, url, type: "website", images: [SHARE_IMAGE] },
   };
 }
 

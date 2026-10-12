@@ -15,7 +15,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { BookingFlow } from "@/components/home/booking-flow";
-import { Breadcrumbs } from "@/components/seo";
+import { Breadcrumbs, SHARE_IMAGE } from "@/components/seo";
 import { PublicFooter } from "@/components/public-footer";
 import { SITE_URL } from "@/lib/public-content";
 
@@ -30,6 +30,7 @@ export const metadata: Metadata = {
       "Private airport pickup with clear meeting instructions, fixed pricing and a vehicle for your group.",
     url: `${SITE_URL}/airport-transfer`,
     type: "website",
+    images: [SHARE_IMAGE],
   },
 };
 

@@ -8,7 +8,7 @@ import { PublicPathHeader } from "@/components/public-header";
 import { PwaProvider } from "@/components/pwa/pwa-provider";
 import { SiteTranslator } from "@/components/site-translator";
 import { PRE_HIDE } from "@/lib/site-languages";
-import { JsonLd, organizationSchema, websiteSchema } from "@/components/seo";
+import { JsonLd, organizationSchema, websiteSchema, SHARE_IMAGE } from "@/components/seo";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -21,7 +21,9 @@ export const metadata: Metadata = {
     description: "Book a comfortable private transfer across Thailand with trusted local drivers.",
     type: "website",
     locale: "en_TH",
+    images: [SHARE_IMAGE],
   },
+  twitter: { card: "summary_large_image" },
 };
 
 // "cover" lets the page reach under Safari's floating toolbar, so the light
