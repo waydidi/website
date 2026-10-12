@@ -43,3 +43,12 @@ test("member tier perks and the loyalty reward are written from their own number
   ]);
   assert.deepEqual(copies(/5th (completed )?ride|THB 500\)/, ["lib/loyalty-rules.ts"]), []);
 });
+
+test("booking status groups are named once, not written out in queries and checks", async () => {
+  const status = await vite.ssrLoadModule("/lib/booking-status.ts");
+  assert.equal(status.COMMITTED_SQL, "'confirmed','completed'");
+  assert.equal(status.CHARGEABLE_SQL, "'confirmed','completed','no_show'");
+  assert.equal(status.isChargeableStatus("no_show"), true);
+  assert.equal(status.isCommittedStatus("no_show"), false);
+  assert.deepEqual(copies(/\[("|')confirmed("|'), ?("|')completed("|')(, ?("|')no_show("|'))?\]|IN ?\('confirmed', ?'completed'/, ["lib/booking-status.ts"]), []);
+});

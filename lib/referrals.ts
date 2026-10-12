@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { COMMITTED_SQL } from "@/lib/booking-status";
 
 // "Share with a friend": every member has a personal code (e.g. FRIENDANNA27). A friend who uses it
 // on their first ride gets ฿100 off; when that ride is completed, the member gets a ฿100 thank-you
@@ -53,7 +54,7 @@ export async function checkReferral(input: { code: string; total: number; email?
     return { ok: false as const, reason: "This is your own invite code. Share it with friends instead!" };
   if (input.total < MIN_FARE) return { ok: false as const, reason: `Friend invites work on rides from ฿${MIN_FARE}.` };
   if (email || phone) {
-    const before = await db().prepare(`SELECT 1 x FROM bookings WHERE status IN ('confirmed','completed') AND (LOWER(customer_email)=? OR substr(replace(replace(replace(customer_phone,' ',''),'-',''),'+',''),-9)=?) LIMIT 1`)
+    const before = await db().prepare(`SELECT 1 x FROM bookings WHERE status IN (${COMMITTED_SQL}) AND (LOWER(customer_email)=? OR substr(replace(replace(replace(customer_phone,' ',''),'-',''),'+',''),-9)=?) LIMIT 1`)
       .bind(email || "-", phone.length >= 8 ? phone : "-").first().catch(() => null);
     if (before) return { ok: false as const, reason: "Friend invites are for a first ride with Waydidi." };
   }

@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { crmDb, nowIso } from "./crm";
 import { retryDelay } from "./crm-rules";
 import { sendRewardEmail, sendUnfinishedBookingEmail } from "./email";
+import { COMMITTED_SQL } from "@/lib/booking-status";
 type Reward = Parameters<typeof sendRewardEmail>[0];
 type Unfinished = Parameters<typeof sendUnfinishedBookingEmail>[0];
 export type QueuePayload = {
@@ -83,7 +84,7 @@ export async function recoverCrmEmails(at = new Date()) {
                     pickup_time: string;
                 }>();
                 eligible = !!b && ['expired', 'payment_failed'].includes(b.status) && Date.parse(`${b.pickup_date}T${b.pickup_time}:00+07:00`) > at.getTime() + 6 * 3600000;
-                const newer = await db.prepare("SELECT reference FROM bookings WHERE lower(customer_email)=lower(?) AND status IN ('confirmed','completed') AND created_at>(SELECT created_at FROM bookings WHERE reference=?) LIMIT 1").bind(row.email, payload.data.reference).first();
+                const newer = await db.prepare(`SELECT reference FROM bookings WHERE lower(customer_email)=lower(?) AND status IN (${COMMITTED_SQL}) AND created_at>(SELECT created_at FROM bookings WHERE reference=?) LIMIT 1`).bind(row.email, payload.data.reference).first();
                 if (newer)
                     eligible = false;
             }

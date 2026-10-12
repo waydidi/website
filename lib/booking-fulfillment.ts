@@ -9,6 +9,7 @@ import { sendConfirmationEmail } from "@/lib/email";
 import { sha256 } from "@/lib/security";
 import { SITE_URL, publicSiteUrl } from "@/lib/site";
 import { rideUrl } from "@/lib/trip-access";
+import { COMMITTED_SQL, isCommittedStatus } from "@/lib/booking-status";
 type Booking=typeof bookings.$inferSelect;
 type Delivery={id:string;channel:string;recipient:string|null;attempts:number};
 
@@ -34,7 +35,7 @@ export async function fulfillBooking(booking:Booking,paymentIntentId?:string|nul
 }
 
 async function deliverBooking(booking:Booking) {
- if(!["confirmed","completed"].includes(booking.status)) return;
+ if(!isCommittedStatus(booking.status)) return;
  const now=new Date(),stale=new Date(now.getTime()-5*60000).toISOString();
  const {results}=await env.DB.prepare("SELECT id FROM booking_deliveries WHERE booking_reference=? AND channel<>'confirmation' AND (status IN ('pending','failed','pending_configuration') OR (status='processing' AND attempted_at<?)) AND (next_attempt_at IS NULL OR next_attempt_at<=?) ORDER BY channel").bind(booking.reference,stale,now.toISOString()).all();
  let pdfPromise:Promise<Uint8Array>|null=null;
@@ -62,6 +63,6 @@ async function deliverBooking(booking:Booking) {
  await getDb().update(bookings).set({fulfillmentStatus:counts?.pending?"failed":"complete",emailStatus:counts?.email??"pending",updatedAt:new Date().toISOString()}).where(eq(bookings.reference,booking.reference));
 }
 export async function runDeliveryRecovery() {
- const {results}=await env.DB.prepare("SELECT d.booking_reference FROM booking_deliveries d JOIN bookings b ON b.reference=d.booking_reference WHERE b.status IN ('confirmed','completed') AND d.status IN ('pending','failed','pending_configuration','processing') AND (d.next_attempt_at IS NULL OR d.next_attempt_at<=?) GROUP BY d.booking_reference ORDER BY MIN(d.updated_at) LIMIT 20").bind(new Date().toISOString()).all();
+ const {results}=await env.DB.prepare(`SELECT d.booking_reference FROM booking_deliveries d JOIN bookings b ON b.reference=d.booking_reference WHERE b.status IN (${COMMITTED_SQL}) AND d.status IN ('pending','failed','pending_configuration','processing') AND (d.next_attempt_at IS NULL OR d.next_attempt_at<=?) GROUP BY d.booking_reference ORDER BY MIN(d.updated_at) LIMIT 20`).bind(new Date().toISOString()).all();
  for(const row of results) {const [booking]=await getDb().select().from(bookings).where(eq(bookings.reference,String(row.booking_reference))).limit(1);if(booking)await deliverBooking(booking);}
 }

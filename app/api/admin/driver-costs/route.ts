@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { bookingAssignments, bookingCosts, bookingEvents, bookings, drivers } from "@/db/schema";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { isChargeableStatus } from "@/lib/booking-status";
 
 const phoneValid=(value:string)=>/^[+0-9() .-]{7,30}$/u.test(value.trim());
 const emailValid=(value:string)=>/^\S+@\S+\.\S+$/u.test(value)&&value.length<=254;
@@ -16,7 +17,7 @@ export async function GET(){
     getDb().select().from(drivers).orderBy(drivers.fullName),getDb().select().from(bookingCosts),
     getDb().select().from(bookingAssignments).orderBy(desc(bookingAssignments.assignedAt)).limit(300),
   ]);
-  return NextResponse.json({bookings:bookingRows.filter(row=>["confirmed","completed","no_show"].includes(row.status)).map(row=>({reference:row.reference,customerName:row.customerName,pickup:row.pickup,dropoff:row.dropoff,pickupDate:row.pickupDate,pickupTime:row.pickupTime,returnPickup:row.returnPickup,returnDropoff:row.returnDropoff,returnDate:row.returnDate,returnTime:row.returnTime,vehicle:row.vehicle,total:row.total,status:row.status})),drivers:driverRows.map(row=>({id:row.id,fullName:row.fullName,phone:row.phone,email:row.email,remindersEnabled:row.remindersEnabled,status:row.status,createdAt:row.createdAt,updatedAt:row.updatedAt,idImageKey:row.idImageKey?"available":null,carImageKey:row.carImageKey?"available":null})),costs:costRows,assignments:assignmentRows.filter(row=>!row.revokedAt && row.leg === "outbound").map(row=>({id:row.id,bookingReference:row.bookingReference,driverId:row.driverId,currentStatus:row.currentStatus,assignedAt:row.assignedAt}))},{headers:{"Cache-Control":"no-store"}});
+  return NextResponse.json({bookings:bookingRows.filter(row=>isChargeableStatus(row.status)).map(row=>({reference:row.reference,customerName:row.customerName,pickup:row.pickup,dropoff:row.dropoff,pickupDate:row.pickupDate,pickupTime:row.pickupTime,returnPickup:row.returnPickup,returnDropoff:row.returnDropoff,returnDate:row.returnDate,returnTime:row.returnTime,vehicle:row.vehicle,total:row.total,status:row.status})),drivers:driverRows.map(row=>({id:row.id,fullName:row.fullName,phone:row.phone,email:row.email,remindersEnabled:row.remindersEnabled,status:row.status,createdAt:row.createdAt,updatedAt:row.updatedAt,idImageKey:row.idImageKey?"available":null,carImageKey:row.carImageKey?"available":null})),costs:costRows,assignments:assignmentRows.filter(row=>!row.revokedAt && row.leg === "outbound").map(row=>({id:row.id,bookingReference:row.bookingReference,driverId:row.driverId,currentStatus:row.currentStatus,assignedAt:row.assignedAt}))},{headers:{"Cache-Control":"no-store"}});
 }
 
 export async function POST(request:Request){

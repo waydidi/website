@@ -1,6 +1,7 @@
 import { and, gte, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookings } from "@/db/schema";
+import { COMMITTED_BOOKING_STATUSES } from "@/lib/booking-status";
 
 // "Someone arrived here …": a real Waydidi ride ended at this drop-off in the last 7 days.
 // Only the sentence leaves the server — never names, times or booking details.
@@ -33,7 +34,7 @@ export async function arrivedHere(place: string, point: { lat: number; lng: numb
   const rows = await getDb().select({
     dropoff: bookings.dropoff, date: bookings.pickupDate, time: bookings.pickupTime, seconds: bookings.routeDurationSeconds,
     lat: bookings.dropoffLatitude, lng: bookings.dropoffLongitude,
-  }).from(bookings).where(and(inArray(bookings.status, ["confirmed", "completed"]), gte(bookings.pickupDate, since))).limit(500);
+  }).from(bookings).where(and(inArray(bookings.status, [...COMMITTED_BOOKING_STATUSES]), gte(bookings.pickupDate, since))).limit(500);
   const wanted = norm(place);
   let newest: number | null = null;
   for (const r of rows) {

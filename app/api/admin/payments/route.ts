@@ -9,6 +9,7 @@ import { reconcileBooking } from "@/lib/payment-reconciliation";
 import { cashReceiptStatements } from "@/lib/cash-collection";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { assessHourlyOvertime, collectHourlyOvertime } from "@/lib/hourly-overtime-db";
+import { isChargeableStatus } from "@/lib/booking-status";
 export async function GET() { if (!await getWaydidiAdmin())
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); return NextResponse.json(await paymentDashboard(), { headers: { "Cache-Control": "no-store" } }); }
 export async function POST(request: Request) {
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
     }
     if (input.action === "update_leg_cost") {
         const [b] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
-        if (!b || !["confirmed", "completed", "no_show"].includes(b.status) || !["outbound", "return"].includes(input.leg ?? "") || input.leg === "return" && !b.returnDate || !Number.isSafeInteger(input.costMinor) || input.costMinor! < 0 || input.costMinor! > 100000000 || !["unpaid", "scheduled", "paid"].includes(input.paymentStatus ?? ""))
+        if (!b || !isChargeableStatus(b.status) || !["outbound", "return"].includes(input.leg ?? "") || input.leg === "return" && !b.returnDate || !Number.isSafeInteger(input.costMinor) || input.costMinor! < 0 || input.costMinor! > 100000000 || !["unpaid", "scheduled", "paid"].includes(input.paymentStatus ?? ""))
             return NextResponse.json({ error: "Check the journey, cost and payout status." }, { status: 400 });
         const now = new Date().toISOString();
         const id = `${reference}:${input.leg}`;

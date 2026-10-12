@@ -4,9 +4,10 @@ import { bookingAssignments, bookingCosts, bookingFreeAddons, bookingMemberDisco
 import { journeysFor } from "@/lib/journey-legs";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB } from "./addons";
 import { TIERS } from "./member-tier-rules";
+import { COMMITTED_BOOKING_STATUSES } from "@/lib/booking-status";
 
 // Revenue counts trips that went ahead; cancelled/refunded/failed ones are left out.
-const EARNING = ["confirmed", "completed"];
+const EARNING: string[] = [...COMMITTED_BOOKING_STATUSES];
 const CHUNK = 90; // D1 allows at most 100 bound values per query
 
 async function inChunks<T>(values: string[], run: (part: string[]) => Promise<T[]>) {
