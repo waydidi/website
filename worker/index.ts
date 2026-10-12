@@ -1,6 +1,7 @@
 import type { SecurityDatabase } from "../lib/worker-db";
 import { allowedStaffRoute, readCookie, staffForToken, STAFF_COOKIE } from "../lib/staff-security";
 import { LEGACY_HOSTS, SITE_URL } from "../lib/site";
+import { edgeTtl, mayFillEdgeCache } from "../lib/edge-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
@@ -104,8 +105,8 @@ const worker = {
     }
 
     // Public, same-for-everyone responses are kept at the edge so most visitors never
-    // wait for the database: blog pages 5 min (saving a post clears them), public
-    // data feeds 1–5 min.
+    // wait for the database: public pages and the blog 5 min (saving a post clears the
+    // blog), tour packages 2 min, public data feeds 1–5 min. See lib/edge-cache.ts.
     const ttl = request.method === "GET" ? edgeTtl(url) : 0;
     const edgeCache = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
     if (ttl && edgeCache) {
@@ -122,7 +123,7 @@ const worker = {
         response.headers.append("Set-Cookie", `wd_ref=${ref}; Path=/; Max-Age=${30 * 86400}; SameSite=Lax; Secure; HttpOnly`);
       }
     }
-    if (ttl && edgeCache && response.status === 200 && !response.headers.has("Set-Cookie")) {
+    if (ttl && edgeCache && response.status === 200 && !response.headers.has("Set-Cookie") && mayFillEdgeCache(request)) {
       const copy = new Response(response.clone().body, response);
       copy.headers.set("Cache-Control", `public, max-age=0, s-maxage=${ttl}`);
       ctx.waitUntil(edgeCache.put(url.toString(), copy).catch(() => undefined));
@@ -178,10 +179,3 @@ function withSecurityHeaders(response: Response, url: URL) {
 
 export default worker;
 
-/** Seconds a public GET response may be served from the edge cache (0 = never). */
-function edgeTtl(url: URL) {
-  if (/^\/(th\/|zh\/)?blog(\/|$)/.test(url.pathname) && !url.searchParams.has("preview")) return 300;
-  if (url.pathname === "/api/promotions") return 60;
-  if (url.pathname === "/api/route-inclusions") return 300;
-  return 0;
-}
