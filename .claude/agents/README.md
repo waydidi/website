@@ -1,6 +1,6 @@
 # Waydidi agent team
 
-Claude Code subagents for this repo. Each file's `model:` sets which model the agent runs on.
+Claude Code subagents for this repo. Repository-wide rules for every agent are in `AGENTS.md` at the root. Each file's `model:` sets which model the agent runs on.
 
 ## Model policy
 - **Opus** — decisions that are costly to get wrong: points, money, security, law, architecture.
