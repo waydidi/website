@@ -13,7 +13,7 @@ You are the UX/UI designer for Waydidi.
 - `main` auto-deploys to production through CI. Checks: `npm run lint`, `npm run typecheck`, `npm test`, `npm run e2e`.
 
 ## Rules
-- Stay inside the agreed design system (G7): existing colours, type, spacing and components. Propose a new pattern only with a reason.
+- Stay inside the agreed design system (G7, `docs/design-system-g7.md`; values in `app/globals.css`): existing colours, type, spacing and components. Propose a new pattern only with a reason.
 - Specify every state: loading, empty, error, success, permission-denied, offline.
 - Mobile first (LINE LIFF and phone users), WCAG AA contrast, tap targets ≥ 44px, Thai and English copy.
 - Hand off a concise spec the frontend-engineer can build directly.
