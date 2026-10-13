@@ -1,9 +1,9 @@
 import { env } from "cloudflare:workers";
 import { prepareDriverImage } from "@/lib/admin-driver-images";
-import { putFile } from "@/lib/file-store";
+import { getFile, putFile } from "@/lib/file-store";
 import { assignedDriverUrl } from "@/lib/trip-links";
 import { esc } from "./cards";
-import { answerCallback, downloadFile, editIn, sendPrivate, sendTo, telegramBotUsername, telegramChatId, tg, type InlineKeyboard, type TelegramMessage, type TelegramUser } from "./client";
+import { answerCallback, downloadFile, editIn, sendPhoto, sendPhotoAlbum, sendPrivate, sendTo, telegramBotUsername, telegramChatId, tg, type InlineKeyboard, type TelegramMessage, type TelegramUser } from "./client";
 import { jobVehicleName } from "./job-text";
 import {
   CAR_TYPES, SIGNUP_MINUTES, STEP_QUESTION, checkTextAnswer, driverGroupConfig, isCarType, isGroupMember, isMyJobsCommand, nextStep, offerText, parseSignupStart, signupLink, stepsFor,
@@ -167,10 +167,13 @@ export async function takeJob(user: TelegramUser, reference: string): Promise<Ta
 }
 
 /** The tapper's job becomes theirs with this driver record (still theirs and still in time), then is assigned. */
-async function completeTake(user: TelegramUser, reference: string, d: Driver) {
+async function completeTake(user: TelegramUser, reference: string, d: Driver, kind: DocsKind) {
   const taken = await db().prepare("UPDATE telegram_driver_jobs SET status='taken',driver_id=?,holder_name=?,hold_until=NULL,updated_at=? WHERE booking_reference=? AND status='signing_up' AND holder_telegram_id=? AND hold_until>=?")
     .bind(d.id, d.full_name, now(), reference, String(user.id), now()).run();
-  return taken.meta.changes ? assignTaken(reference, d) : false;
+  const ok = taken.meta.changes ? await assignTaken(reference, d) : false;
+  // Every job taken from the driver group: the driver's licence/ID and car photos go to the team group for checking.
+  if (ok) await postDriverPhotos(reference, d.id, kind).catch((error) => console.error("driver photos to team group failed", error instanceof Error ? error.message : "unknown"));
+  return ok;
 }
 
 /**
@@ -323,9 +326,34 @@ async function finishForm(form: FormRow, draft: DriverDraft, chatId: string, use
     db().prepare("DELETE FROM telegram_driver_forms WHERE telegram_user_id=?").bind(String(user.id)),
   ]);
   const d: Driver = { id, full_name: car ? me!.full_name : draft.name!, phone: car ? me!.phone : draft.phone!, car_plate: draft.plate!, vehicle: draft.model!, license_number: car ? me!.license_number : null };
-  const ok = await completeTake(user, form.booking_reference, d);
+  const ok = await completeTake(user, form.booking_reference, d, car ? "new_car" : "new_driver");
   await say(chatId, `${car ? "บันทึกข้อมูลรถแล้ว ✓" : "บันทึกข้อมูลคนขับแล้ว ✓"}\n${ok ? `✅ งาน <b>${esc(form.booking_reference)}</b> เป็นของคุณ ใบงานพร้อมข้อมูลลูกค้าและลิงก์งานส่งมาในแชทนี้`
     : "❌ แต่หมดเวลาหรืองานนี้มีคนขับแล้ว"}`);
+}
+
+type DocsKind = "new_driver" | "new_car" | "saved";
+
+/**
+ * The driver's documents under the booking's card in the team group: licence/ID and car photos from their
+ * driver record (private storage → Telegram, never a public link), with their details. Sent for every job
+ * taken from the driver group; a driver with no photos on file is flagged instead.
+ */
+async function postDriverPhotos(reference: string, driverId: string, kind: DocsKind) {
+  const d = await db().prepare("SELECT full_name,phone,vehicle,car_plate,id_image_key,id_image_mime,car_image_key,car_image_mime FROM drivers WHERE id=?").bind(driverId)
+    .first<{ full_name: string; phone: string; vehicle: string; car_plate: string | null; id_image_key: string | null; id_image_mime: string | null; car_image_key: string | null; car_image_mime: string | null }>();
+  if (!d) return;
+  const photos: { bytes: ArrayBuffer; mime: string }[] = [], names: string[] = [];
+  for (const [key, mime, name] of [[d.id_image_key, d.id_image_mime, "ใบขับขี่/บัตรประชาชน"], [d.car_image_key, d.car_image_mime, kind === "new_car" ? "รถ (ใหม่)" : "รถ"]] as const) {
+    const file = key ? await getFile(key).catch(() => null) : null;
+    if (file) { photos.push({ bytes: await new Response(file.body).arrayBuffer(), mime: mime || "image/jpeg" }); names.push(name); }
+  }
+  const title = kind === "new_driver" ? "🪪 เอกสารคนขับใหม่" : kind === "new_car" ? "🪪 เอกสารคนขับ (เปลี่ยนรถ)" : "🪪 เอกสารคนขับ";
+  const caption = [`${title}: <b>${esc(d.full_name)}</b>`, `เบอร์: ${esc(d.phone)}`, `รถ: ${esc(d.vehicle || "-")}`, `ทะเบียน: ${esc(d.car_plate || "-")}`,
+    names.length ? `รูป: ${names.join(", ")}` : "⚠️ ไม่มีรูปเอกสารในระบบ — เพิ่มได้ใน Admin → Drivers", `งาน: ${esc(reference)}`].join("\n");
+  const replyTo = await teamCardMessage(reference);
+  if (photos.length >= 2) await sendPhotoAlbum(photos, caption, replyTo, undefined, telegramChatId());
+  else if (photos.length === 1) await sendPhoto(photos[0].bytes, caption, replyTo, undefined, undefined, telegramChatId());
+  else await sendTo(telegramChatId(), caption, undefined, replyTo);
 }
 
 /** Private messages for drivers. Returns true when handled (otherwise the staff chat handler runs). */
@@ -403,7 +431,7 @@ export async function handleDriverCallback(q: { id: string; from: TelegramUser; 
     if (q.message) await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
     await answerCallback(q.id);
     if (action === "dj_other") { await startForm(q.from, chatId, reference, me); return; }
-    const ok = await completeTake(q.from, reference, me);
+    const ok = await completeTake(q.from, reference, me, "saved");
     await say(chatId, ok ? `✅ งาน <b>${esc(reference)}</b> เป็นของคุณ (${esc(carLabel(me))})\nใบงานพร้อมข้อมูลลูกค้าและลิงก์งานส่งมาในแชทนี้` : "❌ หมดเวลาหรืองานนี้มีคนขับแล้ว");
     return;
   }
