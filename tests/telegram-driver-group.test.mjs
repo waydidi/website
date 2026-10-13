@@ -47,6 +47,15 @@ async function driver(id,name){
 const alice={id:1001,first_name:'Somchai'}, bob={id:1002,first_name:'Anan'}, stranger={id:1003,first_name:'X'};
 members.set(1001,'member');members.set(1002,'member');
 
+test('the taken post only says whether the job is paid or cash, never an amount or a payment label',()=>{
+ const job={reference:'PC0001',vehicleName:'SUV',serviceType:'transfer',bookedHours:null,pickupDate:'2099-01-15',pickupTime:'09:30',pickup:'A',dropoff:'B',passengers:2,luggage:1,returnDate:null,returnTime:null,driverCost:800,paymentMethod:'card',paymentStatus:'paid',cashDue:0};
+ const taken={kind:'taken',driverName:'Somchai'};
+ const paid=rules.offerText(job,taken), cash=rules.offerText({...job,paymentMethod:'cash',paymentStatus:'pending',cashDue:2500},taken);
+ assert.match(paid,/\nงานชำระแล้ว\n\n✅ รับงานแล้ว: Somchai$/);
+ assert.match(cash,/\nงานเงินสด\n\n✅ รับงานแล้ว: Somchai$/);
+ for(const text of [paid,cash])assert.doesNotMatch(text,/การชำระ|ไม่ต้องเก็บเงิน|เก็บเงินสด|2,500/);
+});
+
 test('off unless the owner turns it on, and never the team group',()=>{
  assert.equal(rules.driverGroupConfig({TELEGRAM_DRIVER_CHAT_ID:'-100222'}),null);
  assert.equal(rules.driverGroupConfig({TELEGRAM_DRIVER_JOBS:'1',TELEGRAM_DRIVER_CHAT_ID:'-100111',TELEGRAM_CHAT_ID:'-100111'}),null);
@@ -125,7 +134,7 @@ test('two linked drivers tapping Assign at once: the first tap gets the job, the
  assert.equal((a.ok?a:b).driver.id,winner.id);
  // The post changes at once: the reference, the trip, what to collect and who took it, no button.
  const edit=sent.filter(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222').at(-1);
- assert.equal(edit.body.text,['🚗 งาน Ref ID: DG0001','รถ: ตู้สวย','วันที่: 15/01/2099','เวลา: 09:30','รับ: Suvarnabhumi Airport','ส่ง: Pattaya Hilton','จำนวน: 4 คน, 3 กระเป๋า','ค่างาน: 1,800 บาท','การชำระ: เก็บเงินสด 2,500 บาท','',`✅ รับงานแล้ว: ${winner.name}`].join('\n'));
+ assert.equal(edit.body.text,['🚗 งาน Ref ID: DG0001','รถ: ตู้สวย','วันที่: 15/01/2099','เวลา: 09:30','รับ: Suvarnabhumi Airport','ส่ง: Pattaya Hilton','จำนวน: 4 คน, 3 กระเป๋า','ค่างาน: 1,800 บาท','งานเงินสด','',`✅ รับงานแล้ว: ${winner.name}`].join('\n'));
  assert.deepEqual(edit.body.reply_markup.inline_keyboard,[]);
  assert.equal((await group.takeJob(winner.user,'DG0001')).ok,false); // tapping again changes nothing
  // In the private chat they pick their saved car: the job is assigned with it.
