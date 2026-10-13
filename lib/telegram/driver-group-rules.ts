@@ -91,13 +91,12 @@ export function offerText(job: OfferJob, state: OfferState) {
 }
 
 // The first-time questions, asked one at a time in the private chat.
-export type FormStep = "name" | "phone" | "plate" | "model" | "car_type" | "id_photo" | "car_photo";
-export const FORM_STEPS: FormStep[] = ["name", "phone", "plate", "model", "car_type", "id_photo", "car_photo"];
+export type FormStep = "name" | "phone" | "plate" | "car_type" | "id_photo" | "car_photo";
+export const FORM_STEPS: FormStep[] = ["name", "phone", "plate", "car_type", "id_photo", "car_photo"];
 export const STEP_QUESTION: Record<FormStep, string> = {
   name: "ชื่อ-นามสกุลคนขับ (พิมพ์ชื่อและนามสกุล เว้นวรรคระหว่างกัน เช่น สมชาย ใจดี)",
   phone: "เบอร์โทรศัพท์",
   plate: "ทะเบียนรถ (เช่น กข 1234)",
-  model: "ยี่ห้อ/รุ่นรถ และสี (เช่น Toyota Commuter สีเงิน)",
   car_type: "ประเภทรถ",
   id_photo: "ส่งรูปใบขับขี่หรือบัตรประชาชน",
   car_photo: "ส่งรูปรถ (เห็นทะเบียน)",
@@ -106,7 +105,7 @@ export const CAR_TYPES = { sedan: "รถเก๋ง", suv: "SUV 7 ที่น
 export type CarType = keyof typeof CAR_TYPES;
 export const isCarType = (v: unknown): v is CarType => typeof v === "string" && v in CAR_TYPES;
 
-export type DriverDraft = { mode?: "driver" | "car"; name?: string; phone?: string; plate?: string; model?: string; carType?: CarType; idPhoto?: boolean; carPhoto?: boolean };
+export type DriverDraft = { mode?: "driver" | "car"; name?: string; phone?: string; plate?: string; carType?: CarType; idPhoto?: boolean; carPhoto?: boolean };
 
 /** Checks one typed answer; returns the cleaned value or a Thai error to show. */
 export function checkTextAnswer(step: FormStep, raw: string): { value: string } | { error: string } {
@@ -115,13 +114,12 @@ export function checkTextAnswer(step: FormStep, raw: string): { value: string } 
   if (step === "name") return value.length <= 100 && /^\S{2,}( \S{2,})+$/u.test(value) ? { value } : { error: "กรุณาพิมพ์ทั้งชื่อและนามสกุล เว้นวรรคระหว่างกัน เช่น สมชาย ใจดี" };
   if (step === "phone") return /^[+0-9() .-]{9,20}$/.test(value) && value.replace(/\D/g, "").length >= 9 ? { value } : { error: "กรุณาพิมพ์เบอร์โทร เช่น 081 234 5678" };
   if (step === "plate") return value.length >= 2 && value.length <= 30 ? { value: value.toUpperCase() } : { error: "กรุณาพิมพ์ทะเบียนรถ" };
-  if (step === "model") return value.length >= 2 && value.length <= 150 ? { value } : { error: "กรุณาพิมพ์ยี่ห้อ/รุ่นรถ" };
   if (step === "car_type") return { error: "กรุณากดเลือกประเภทรถจากปุ่ม" };
   return { error: "กรุณาส่งเป็นรูปภาพ" };
 }
 
 /** A returning driver on another car («รถอื่นๆ») only answers the car questions. */
-export const CAR_STEPS: FormStep[] = ["plate", "model", "car_type", "car_photo"];
+export const CAR_STEPS: FormStep[] = ["plate", "car_type", "car_photo"];
 export const stepsFor = (mode: "driver" | "car") => (mode === "car" ? CAR_STEPS : FORM_STEPS);
 export const nextStep = (step: FormStep, mode: "driver" | "car" = "driver"): FormStep | null => stepsFor(mode)[stepsFor(mode).indexOf(step) + 1] ?? null;
 

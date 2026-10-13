@@ -331,24 +331,26 @@ async function saveStep(form: FormRow, draft: DriverDraft, chatId: string, user:
 
 /**
  * All answers in. First time: the driver is saved and linked to this Telegram account. Another car: the
- * driver's car (plate, model, type, photo) is updated. Then the job becomes theirs.
+ * driver's car (plate, type, photo) is updated. Then the job becomes theirs.
  */
 async function finishForm(form: FormRow, draft: DriverDraft, chatId: string, user: TelegramUser) {
   const car = draft.mode === "car";
-  const complete = draft.plate && draft.model && draft.carType && draft.carPhoto && (car || (draft.name && draft.phone && draft.idPhoto));
+  // The car's model is not asked: the car type (รถเก๋ง / SUV 7 ที่นั่ง / รถตู้) is what is kept as its description.
+  const vehicle = draft.carType ? CAR_TYPES[draft.carType] : "";
+  const complete = draft.plate && draft.carType && draft.carPhoto && (car || (draft.name && draft.phone && draft.idPhoto));
   const me = car ? await linkedDriver(user.id) : null;
   if (!complete || (car && me?.id !== form.driver_id)) { await startForm(user, chatId, form.booking_reference, me ?? undefined); return; }
   const at = now(), id = form.driver_id;
   const carKey = `driver-verification/${id}/vehicle.jpg`;
   await db().batch([
     car
-      ? db().prepare("UPDATE drivers SET car_plate=?,vehicle=?,vehicle_type=?,car_image_key=?,car_image_mime='image/jpeg',updated_at=? WHERE id=?").bind(draft.plate, draft.model, draft.carType, carKey, at, id)
+      ? db().prepare("UPDATE drivers SET car_plate=?,vehicle=?,vehicle_type=?,car_image_key=?,car_image_mime='image/jpeg',updated_at=? WHERE id=?").bind(draft.plate, vehicle, draft.carType, carKey, at, id)
       : db().prepare("INSERT INTO drivers(id,full_name,phone,base_location,vehicle,vehicle_type,car_plate,id_image_key,id_image_mime,car_image_key,car_image_mime,driver_type,status,created_at,updated_at) VALUES(?,?,?,'Telegram',?,?,?,?,'image/jpeg',?,'image/jpeg','outsource','active',?,?) ON CONFLICT(id) DO NOTHING")
-        .bind(id, draft.name, draft.phone, draft.model, draft.carType, draft.plate, `driver-verification/${id}/identity.jpg`, carKey, at, at),
+        .bind(id, draft.name, draft.phone, vehicle, draft.carType, draft.plate, `driver-verification/${id}/identity.jpg`, carKey, at, at),
     db().prepare("INSERT INTO telegram_driver_links(telegram_user_id,driver_id,linked_at) VALUES(?,?,?) ON CONFLICT(telegram_user_id) DO UPDATE SET driver_id=excluded.driver_id,linked_at=excluded.linked_at").bind(String(user.id), id, at),
     db().prepare("DELETE FROM telegram_driver_forms WHERE telegram_user_id=?").bind(String(user.id)),
   ]);
-  const d: Driver = { id, full_name: car ? me!.full_name : draft.name!, phone: car ? me!.phone : draft.phone!, car_plate: draft.plate!, vehicle: draft.model!, license_number: car ? me!.license_number : null };
+  const d: Driver = { id, full_name: car ? me!.full_name : draft.name!, phone: car ? me!.phone : draft.phone!, car_plate: draft.plate!, vehicle, license_number: car ? me!.license_number : null };
   const ok = await completeTake(user, form.booking_reference, d, car ? "new_car" : "new_driver");
   await say(chatId, `${car ? "บันทึกข้อมูลรถแล้ว ✓" : "บันทึกข้อมูลคนขับแล้ว ✓"}\n${ok ? `✅ งาน <b>${esc(form.booking_reference)}</b> เป็นของคุณ ใบงานพร้อมข้อมูลลูกค้าและลิงก์งานส่งมาในแชทนี้`
     : "❌ แต่หมดเวลาหรืองานนี้มีคนขับแล้ว"}`);
@@ -415,7 +417,6 @@ export async function handleDriverPrivate(m: TelegramMessage) {
   if (form.step === "name") draft.name = checked.value;
   if (form.step === "phone") draft.phone = checked.value;
   if (form.step === "plate") draft.plate = checked.value;
-  if (form.step === "model") draft.model = checked.value;
   await saveStep(form, draft, chatId, m.from);
   return true;
 }
