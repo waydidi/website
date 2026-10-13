@@ -2,15 +2,39 @@
 // one-time sign-up questions a driver answers in their private chat with the bot.
 // No runtime imports, so every rule is unit tested directly (tests/telegram-driver-group.test.mjs).
 
-export type DriverGroupConfig = { chatId: string };
+export type DriverGroupConfig = { chatId: string; southChatId: string | null };
 
-/** On only when the owner turns it on and gives the driver group's ID (never the team group). */
+/**
+ * On only when the owner turns it on and gives the driver group's ID (never the team group). A second group for
+ * the south of Thailand is optional (TELEGRAM_DRIVER_CHAT_ID_SOUTH): without it every job goes to the main group.
+ */
 export function driverGroupConfig(env: Record<string, unknown>): DriverGroupConfig | null {
   const chatId = String(env.TELEGRAM_DRIVER_CHAT_ID ?? "").trim();
   if (env.TELEGRAM_DRIVER_JOBS !== "1" || !/^-?\d{5,20}$/.test(chatId)) return null;
-  if (chatId === String(env.TELEGRAM_CHAT_ID ?? "").trim()) return null;
-  return { chatId };
+  const team = String(env.TELEGRAM_CHAT_ID ?? "").trim();
+  if (chatId === team) return null;
+  const south = String(env.TELEGRAM_DRIVER_CHAT_ID_SOUTH ?? "").trim();
+  const southChatId = /^-?\d{5,20}$/.test(south) && south !== chatId && south !== team ? south : null;
+  return { chatId, southChatId };
 }
+
+/** The driver groups' chat IDs (the main one first). */
+export const driverChatIds = (config: DriverGroupConfig) => (config.southChatId ? [config.chatId, config.southChatId] : [config.chatId]);
+export const isDriverGroupChat = (config: DriverGroupConfig | null, chatId: string) => !!config && driverChatIds(config).includes(chatId);
+
+// Places in the south of Thailand (English and Thai, lower case): a pickup that mentions one goes to the south group.
+const SOUTH_PLACES = [
+  "chumphon", "ชุมพร", "ranong", "ระนอง", "surat thani", "สุราษฎร์", "samui", "สมุย", "phangan", "พะงัน", "koh tao", "ko tao", "เกาะเต่า", "khanom", "ขนอม",
+  "nakhon si thammarat", "นครศรี", "krabi", "กระบี่", "ao nang", "อ่าวนาง", "railay", "ไร่เลย์", "lanta", "ลันตา", "phi phi", "พีพี", "phang nga", "phangnga", "พังงา", "khao lak", "เขาหลัก",
+  "phuket", "ภูเก็ต", "patong", "ป่าตอง", "trang", "ตรัง", "phatthalung", "พัทลุง", "satun", "สตูล", "koh lipe", "ko lipe", "ลีเป๊ะ", "songkhla", "สงขลา", "hat yai", "hatyai", "หาดใหญ่",
+  "pattani", "ปัตตานี", "yala", "ยะลา", "narathiwat", "นราธิวาส",
+];
+
+/** Whether the pickup is in the south of Thailand (by the place named in the pickup address). */
+export const isSouthPickup = (pickup: string) => { const text = String(pickup ?? "").toLowerCase(); return SOUTH_PLACES.some((place) => text.includes(place)); };
+
+/** The group a new job is offered in: the south group for a pickup in the south (if there is one), else the main group. */
+export const groupChatFor = (config: DriverGroupConfig, pickup: string) => (config.southChatId && isSouthPickup(pickup) ? config.southChatId : config.chatId);
 
 /** A first-time driver who tapped Assign has this long to send their details, then the job is offered again. */
 export const SIGNUP_MINUTES = 30;

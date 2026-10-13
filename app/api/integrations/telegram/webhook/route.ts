@@ -12,6 +12,7 @@ import { waitHandover } from "@/lib/telegram/handover";
 import { parseBulkCost } from "@/lib/telegram/bulk-cost-rules";
 import { setCostsFromMessage } from "@/lib/telegram/bulk-cost";
 import { driverGroup, handleDriverCallback, handleDriverGroupMessage, handleDriverPrivate, handleDriverTake } from "@/lib/telegram/driver-group";
+import { isDriverGroupChat } from "@/lib/telegram/driver-group-rules";
 import { postJobCompleted } from "@/lib/telegram/trip-photos";
 import { verifyTripCompletion } from "@/lib/trip-completion";
 import { approveChange, cancelBookingFromTelegram, declineChange, keepBooking } from "@/lib/telegram/booking-changes";
@@ -63,7 +64,7 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   // A driver's buttons in their private chat with the bot (sign-up and confirming a job).
   if (q.message?.chat.type === "private" && (q.data ?? "").startsWith("dj_")) return handleDriverCallback(q);
   // «รับงาน» on a job in the driver group: the first tap gets the job.
-  if (driverGroup() && String(q.message?.chat.id ?? "") === driverGroup()!.chatId) return (q.data ?? "").startsWith("dj_take:") ? handleDriverTake(q) : answerCallback(q.id);
+  if (isDriverGroupChat(driverGroup(), String(q.message?.chat.id ?? ""))) return (q.data ?? "").startsWith("dj_take:") ? handleDriverTake(q) : answerCallback(q.id);
   if (String(q.message?.chat.id ?? "") !== telegramChatId()) return answerCallback(q.id, "This chat isn't connected to Waydidi.", true);
   const admin = await approved(q.from);
   if (!admin) return answerCallback(q.id, `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: ${q.from.id}`, true);
@@ -182,16 +183,16 @@ async function handleMessage(m: TelegramMessage) {
       text: `This group's chat ID is <code>${m.chat.id}</code>. Add it in Cloudflare as TELEGRAM_CHAT_ID.` }).catch(() => undefined);
     return;
   }
-  // Setup helper for the driver group: /chatid there answers with its ID until TELEGRAM_DRIVER_CHAT_ID is set.
-  if (telegramChatId() && String(m.chat.id) !== telegramChatId() && m.chat.type !== "private" && !driverGroup() && (text0 === "/chatid" || text0.startsWith("/chatid@"))) {
+  // Setup helper for the driver group: /chatid there answers with its ID until TELEGRAM_DRIVER_CHAT_ID (or _SOUTH) is set.
+  if (telegramChatId() && String(m.chat.id) !== telegramChatId() && m.chat.type !== "private" && !isDriverGroupChat(driverGroup(), String(m.chat.id)) && (text0 === "/chatid" || text0.startsWith("/chatid@"))) {
     await tg("sendMessage", { chat_id: m.chat.id, parse_mode: "HTML", reply_parameters: { message_id: m.message_id, allow_sending_without_reply: true },
-      text: `This group's chat ID is <code>${m.chat.id}</code>. For the driver group, add it in Cloudflare as TELEGRAM_DRIVER_CHAT_ID and set TELEGRAM_DRIVER_JOBS=1.` }).catch(() => undefined);
+      text: `This group's chat ID is <code>${m.chat.id}</code>. For the driver group, add it in Cloudflare as TELEGRAM_DRIVER_CHAT_ID (the south group: TELEGRAM_DRIVER_CHAT_ID_SOUTH) and set TELEGRAM_DRIVER_JOBS=1.` }).catch(() => undefined);
     return;
   }
   // Private chat with the bot: drivers taking a job or signing up, otherwise the assignee answering their chats.
   if (m.chat.type === "private") { if (!await handleDriverPrivate(m)) await handlePrivate(m); return; }
   // The driver group: only "งานของฉัน" is answered (privately); nothing from the team group is ever posted there.
-  if (driverGroup() && String(m.chat.id) === driverGroup()!.chatId) { await handleDriverGroupMessage(m); return; }
+  if (isDriverGroupChat(driverGroup(), String(m.chat.id))) { await handleDriverGroupMessage(m); return; }
   if (String(m.chat.id) !== telegramChatId()) return;
   const text = (m.text ?? "").trim();
   if (text === "/id" || text.startsWith("/id@")) {
