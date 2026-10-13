@@ -31,7 +31,7 @@ test("a Google Maps link set in Telegram is used; without one, directions to the
   await expect(page.getByRole("link", { name: /^Pick up:/ })).toHaveAttribute("href", "https://maps.app.goo.gl/BKKgate4", { timeout: 30000 });
   await expect(page.getByRole("link", { name: /^Drop:/ })).toHaveAttribute("href", `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent("Hilton Pattaya")}`);
   // The buttons sit below the customer card, not inside it.
-  await expect(page.locator("section").filter({ hasText: "Customer name" }).getByRole("link", { name: /^Pick up:/ })).toHaveCount(0);
+  await expect(page.locator("section").filter({ hasText: "ชื่อลูกค้า" }).getByRole("link", { name: /^Pick up:/ })).toHaveCount(0);
 });
 test("no live location, stop report, popup or note box", async ({ page }) => {
   const pings = await open(page);
@@ -48,20 +48,20 @@ test("Price (set in Telegram) and Payment sit below To", async ({ page }) => {
   await page.goto("/driver/trip/session");
   const labels = page.locator("dl dt");
   await expect(labels.first()).toBeVisible({ timeout: 30000 });
-  expect(await labels.allTextContents()).toEqual(["Passengers & luggage", "Vehicle", "Date & time", "From", "To", "Price", "Payment"]);
-  await expect(page.locator("dl")).toContainText("THB 1,400");
-  await expect(page.locator("dl")).toContainText("Collect cash");
-  await page.getByRole("button", { name: "What's included" }).click();
-  await expect(page.getByRole("dialog", { name: "What's included" })).toContainText("Private vehicle with driver");
-  await page.getByText("Customer name").click(); // a tap outside closes it
-  await expect(page.getByRole("dialog", { name: "What's included" })).toHaveCount(0);
+  expect(await labels.allTextContents()).toEqual(["ผู้โดยสาร / กระเป๋า", "รถ", "วันที่และเวลา", "จุดรับ", "จุดส่ง", "ราคา", "การชำระเงิน"]);
+  await expect(page.locator("dl")).toContainText("1,400 บาท");
+  await expect(page.locator("dl")).toContainText("เก็บเงินสด");
+  await page.getByRole("button", { name: "ราคานี้รวมอะไรบ้าง" }).click();
+  await expect(page.getByRole("dialog", { name: "ราคานี้รวมอะไรบ้าง" })).toContainText("รถส่วนตัวพร้อมคนขับ");
+  await page.getByText("ชื่อลูกค้า").click(); // a tap outside closes it
+  await expect(page.getByRole("dialog", { name: "ราคานี้รวมอะไรบ้าง" })).toHaveCount(0);
 });
-test("without a price from Telegram the row reads Not set", async ({ page }) => {
+test("without a price from Telegram the row reads รอแจ้งราคา", async ({ page }) => {
   await page.route("**/api/driver/trips/session", (r) => r.fulfill({ json: { ...base, booking: { ...base.booking, price: null, paymentStatus: "paid" } } }));
   await page.route("**/api/driver/trips/session/plan", (r) => r.fulfill({ json: { days: [] } }));
   await page.goto("/driver/trip/session");
-  await expect(page.locator("dl")).toContainText("Not set", { timeout: 30000 });
-  await expect(page.locator("dl")).toContainText("Paid");
+  await expect(page.locator("dl")).toContainText("รอแจ้งราคา", { timeout: 30000 });
+  await expect(page.locator("dl")).toContainText("ชำระแล้ว");
 });
 test("the address keeps the real link, so it opens in another browser (Telegram → Open in browser)", async ({ page, browser }) => {
   const link = "/driver/trip/" + "ab12".repeat(12);
@@ -72,7 +72,7 @@ test("the address keeps the real link, so it opens in another browser (Telegram 
   };
   await mock(page);
   await page.goto(link);
-  await expect(page.getByText("Customer name")).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText("ชื่อลูกค้า")).toBeVisible({ timeout: 30000 });
   expect(new URL(page.url()).pathname).toBe(link);
   // A different browser: no cookie and no tab storage, only the address.
   const other = await browser.newContext();
@@ -81,7 +81,7 @@ test("the address keeps the real link, so it opens in another browser (Telegram 
   let sent = "";
   await fresh.route("**/api/driver/session", (r) => { sent = JSON.parse(r.request().postData() ?? "{}").token; return r.fulfill({ json: { ok: true } }); });
   await fresh.goto(page.url());
-  await expect(fresh.getByText("Customer name")).toBeVisible({ timeout: 30000 });
+  await expect(fresh.getByText("ชื่อลูกค้า")).toBeVisible({ timeout: 30000 });
   expect(sent).toBe("ab12".repeat(12));
   await other.close();
 });
@@ -91,7 +91,7 @@ test("after an admin confirms the Drop, the page shows the job completed with th
   await page.route("**/api/driver/trips/session/plan", (r) => r.fulfill({ json: { days: [] } }));
   await page.goto("/driver/trip/session");
   await expect(page.getByRole("heading", { name: "งานนี้เสร็จเรียบร้อย" })).toBeVisible({ timeout: 30000 });
-  await expect(page.getByText("Customer name")).toBeVisible();
+  await expect(page.getByText("ชื่อลูกค้า")).toBeVisible();
   await expect(page.getByText("Non Naowarat")).toBeVisible();
   await expect(page.getByText("รอผู้ดูแลตรวจสอบ")).toHaveCount(0);
 });
@@ -100,7 +100,7 @@ test("after the Drop is sent and while it waits for an admin: no waiting panel; 
   await page.route("**/api/driver/trips/session", (r) => r.fulfill({ json: waiting }));
   await page.route("**/api/driver/trips/session/plan", (r) => r.fulfill({ json: { days: [] } }));
   await page.goto("/driver/trip/session");
-  await expect(page.getByText("Customer name")).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText("ชื่อลูกค้า")).toBeVisible({ timeout: 30000 });
   await expect(page.getByText("รอผู้ดูแลตรวจสอบ")).toHaveCount(0);
   await expect(page.getByRole("link", { name: /^Pick up:/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /^Drop:/ })).toBeVisible();
