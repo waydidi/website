@@ -381,6 +381,14 @@ test('Telegram cancellation and change requests: cards with buttons, booking upd
   await tap('chg_ok:chg-1');
   const b=await db.prepare("SELECT pickup_time,dropoff,vehicle,total,booking_version FROM bookings WHERE reference='MC7Q2P'").first();
   assert.deepEqual([b.pickup_time,b.dropoff,b.vehicle,b.total,b.booking_version],['15:00','KC Grande Resort, Ko Chang','comfort_suv',2900,2]);
+  // The driver is not told straight away: the Admin group gets an "edited booking" card (Assign to me, then the choice).
+  assert.ok(!msgs().some((t)=>t.includes('แก้ไขงาน MC7Q2P')));
+  const editCard=sent.filter((m)=>m.method==='sendMessage'&&m.text.includes('แก้ไขการจอง MC7Q2P')).at(-1);assert.ok(editCard);
+  const editAck=editCard.reply_markup.inline_keyboard.flat()[0].callback_data,editId=editAck.split(':')[1];
+  assert.match(editAck,/^edit_ack:/);
+  await tap(editAck);
+  assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((x)=>x.text),['คนขับปัจจุบัน','คนขับใหม่']);
+  await tap('edit_cur:'+editId);
   const update=msgs().find((t)=>t.includes('แก้ไขงาน MC7Q2P'));assert.ok(update);console.log(update+'\n');assert.match(update,/15:00/);
   assert.equal((await db.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='MC7Q2P' AND revoked_at IS NULL").first()).n,1);
   await tap('chg_ok:chg-1');assert.equal(msgs().filter((t)=>t.includes('แก้ไขงาน')).length,1); // once only

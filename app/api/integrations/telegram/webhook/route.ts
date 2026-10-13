@@ -15,7 +15,7 @@ import { driverGroup, handleDriverCallback, handleDriverGroupMessage, handleDriv
 import { isDriverGroupChat } from "@/lib/telegram/driver-group-rules";
 import { postJobCompleted } from "@/lib/telegram/trip-photos";
 import { verifyTripCompletion } from "@/lib/trip-completion";
-import { approveChange, cancelBookingFromTelegram, declineChange, keepBooking } from "@/lib/telegram/booking-changes";
+import { acknowledgeEdit, approveChange, cancelBookingFromTelegram, declineChange, editKeepDriver, editNewDriver, keepBooking } from "@/lib/telegram/booking-changes";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus, telegramClientId } from "@/lib/website-chat";
 
 // Telegram → Waydidi. Verified by the secret-token header, de-duplicated by update_id, and every action
@@ -112,6 +112,10 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   if (action === "bk_keep") return answerCallback(q.id, await keepBooking(target, admin.display_name), true);
   if (action === "chg_ok") return answerCallback(q.id, await approveChange(target, admin.display_name), true);
   if (action === "chg_no") return answerCallback(q.id, await declineChange(target, admin.display_name), true);
+  // A booking that already has a driver was edited: Assign to me, then «คนขับปัจจุบัน» or «คนขับใหม่».
+  if (action === "edit_ack") return answerCallback(q.id, await acknowledgeEdit(target, admin.display_name), true);
+  if (action === "edit_cur") return answerCallback(q.id, await editKeepDriver(target, admin.display_name), true);
+  if (action === "edit_new") return answerCallback(q.id, await editNewDriver(target, admin.display_name, q.from), true);
   if (action === "booking_assign") {
     const done = await acknowledgeBooking(target, admin.display_name);
     return answerCallback(q.id, done ? "Booking is yours." : "Someone already took this booking.");

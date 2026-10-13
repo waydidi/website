@@ -84,6 +84,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ refer
   const places = { pickup, dropoff, ...(pickup !== booking.pickup ? { pickupLatitude: null, pickupLongitude: null } : {}), ...(dropoff !== booking.dropoff ? { dropoffLatitude: null, dropoffLongitude: null } : {}) };
   await getDb().update(bookings).set({ ...places, ...details, pickupDate, pickupTime, vehicle, passengers, luggage, returnDate, returnTime, bookingVersion: booking.bookingVersion + 1, updatedAt: new Date().toISOString() }).where(eq(bookings.reference, reference));
   console.info("Admin edited booking", { reference, admin: admin.email });
-  await import("@/lib/telegram/booking-changes").then((m) => m.republishJob(reference, admin.displayName || admin.email, "แก้ไขโดยแอดมิน")).catch(() => undefined);
+  await import("@/lib/telegram/booking-changes").then((m) => m.notifyBookingEdited(reference, admin.displayName || admin.email, "แก้ไขโดยแอดมิน")).catch(() => undefined);
   return NextResponse.json({ ok: true, changed: true });
 }
