@@ -10,8 +10,9 @@ import { sendCard, tg, telegramChatId } from "@/lib/telegram/client";
 // (bookings, drivers, schedule, payments, prices, policies) by calling read-only lookups
 // over Waydidi's own data. It cannot change anything and never writes to customers.
 
-export const ASSISTANT_MODEL = "claude-opus-5-5";
-const PRICE = { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 }; // US$ per million tokens
+// Haiku 5.5: the low-cost model (owner's choice). Prompts stay far under 100K tokens, so the base rate applies.
+export const ASSISTANT_MODEL = "claude-haiku-5-5";
+const PRICE = { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 }; // US$ per million tokens
 const MAX_STEPS = 6;
 const DEFAULT_MONTHLY_USD = 20;
 
@@ -28,9 +29,15 @@ const usd = (u: Usage) => ((u?.input_tokens ?? 0) * PRICE.input + (u?.output_tok
 
 export const monthlyCapUsd = () => { const v = Number(vars().TELEGRAM_ASSISTANT_MONTHLY_USD); return Number.isFinite(v) && v >= 0 ? v : DEFAULT_MONTHLY_USD; };
 
-async function spentThisMonth() {
+export type AssistantUsage = { questions: number; usd: number };
+async function spentThisMonth(): Promise<AssistantUsage> {
   const row = await db().prepare("SELECT value FROM app_settings WHERE key=?").bind(`tg_assistant_usage:${month()}`).first<{ value: string }>().catch(() => null);
-  try { return { questions: 0, usd: 0, ...JSON.parse(row?.value ?? "{}") } as { questions: number; usd: number }; } catch { return { questions: 0, usd: 0 }; }
+  try { return { questions: 0, usd: 0, ...JSON.parse(row?.value ?? "{}") }; } catch { return { questions: 0, usd: 0 }; }
+}
+
+/** For Admin: this month's questions and estimated spend against the cap. */
+export async function assistantUsage() {
+  return { ...(await spentThisMonth()), capUsd: monthlyCapUsd(), configured: assistantConfigured(), model: ASSISTANT_MODEL };
 }
 async function recordSpend(amount: number) {
   const u = await spentThisMonth();
@@ -74,7 +81,8 @@ export async function assistantTurn(question: string, context: { role: StaffRole
   for (let step = 0; step < MAX_STEPS; step++) {
     const res = await client.beta.messages.create({
       model: ASSISTANT_MODEL, max_tokens: 4000, system, tools: ASSISTANT_TOOLS, tool_choice: { type: "auto" }, messages,
-      output_config: { effort: "medium" }, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default",
+      // Haiku 5.5 has no server-side refusal fallback; a refusal is answered politely below.
+      output_config: { effort: "medium" },
     });
     out.requests++; out.usd += usd(res.usage);
     const text = res.content.filter((b) => b.type === "text").map((b) => String(b.text)).join("\n").trim();

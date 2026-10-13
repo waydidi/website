@@ -116,7 +116,8 @@ test('the assistant answers from lookups, with the asker\'s role', async () => {
   assert.deepEqual(ran, [['search_bookings', 'Tayla', 'operations']]);
   assert.equal(answer.requests, 2);
   assert.ok(answer.usd > 0);
-  assert.equal(client.calls[0].model, 'claude-opus-5-5');
+  assert.equal(client.calls[0].model, 'claude-haiku-5-5');
+  assert.equal('fallbacks' in client.calls[0], false, 'Haiku 5.5 has no server-side fallback');
   assert.match(client.calls[0].system[0].text, /Admin role is "operations"/);
   assert.match(client.calls[0].system[0].text, /Answer only from what the lookups return/);
   assert.equal(client.calls[1].messages.at(-1).content[0].tool_use_id, 't1');
@@ -159,6 +160,12 @@ test('the monthly cap stops answers and says how to raise it', async () => {
   await assistant.answerInGroup('hello', 9, { name: 'O', staffId: null }, null);
   assert.match(globalThis.__sent[0].text, /spending limit/);
   delete globalThis.__aEnv.TELEGRAM_ASSISTANT_MONTHLY_USD;
+});
+
+test('Admin sees this month\'s questions and spend against the limit', async () => {
+  await d1.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(`tg_assistant_usage:${new Date().toISOString().slice(0, 7)}`, JSON.stringify({ questions: 12, usd: 0.0061 }), now).run();
+  const u = await assistant.assistantUsage();
+  assert.deepEqual({ questions: u.questions, usd: u.usd, capUsd: u.capUsd, model: u.model }, { questions: 12, usd: 0.0061, capUsd: 20, model: 'claude-haiku-5-5' });
 });
 
 test('the webhook routes customer replies and job lookups before the assistant, for team members only', async () => {
