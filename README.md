@@ -76,6 +76,10 @@ Worker variables: `WAYDIDI_SLIP_PAYEE_NAMES` (turns the feature on), `WAYDIDI_SL
 
 **Waiting for payment (Admin → Bookings → Create booking):** the payment choice is Paid, Pay in cash or Waiting for payment. Waiting for payment saves payment method `transfer`: the customer pays by bank transfer or PromptPay before the trip, the driver's job message says not to collect cash, emails and PDFs say "Waiting for payment (bank transfer)", and the booking shows under Admin → Payments → "Cash or transfer to collect" with a **Record transfer** button. The customer can also upload a slip on their booking. Transfers use the same cash-receipt ledger as cash (`lib/cash-collection.ts`); a part payment stays waiting and never becomes cash for the driver. Payment method rules live in `lib/payment-methods.ts`.
 
+**Edit booking (Admin → Bookings → Edit):** besides the trip (route, date and time, car, passengers and bags), staff can change the customer's name, surname, phone and email, the flight number, child seats and notes; the price never changes and a driver who has the job gets the updated job in Telegram. **Payment** can be switched between Pay in cash and Waiting for payment by anyone who edits bookings; choosing **Paid** records the remaining balance in the cash-receipt ledger and is limited to owner and finance. Card payments and bookings already paid in full can't be changed here (refunds stay in Payments). Rules: `lib/booking-edit.ts`; endpoint `POST /api/admin/bookings/:reference/payment`.
+
+**LINE quick book:** when pricing a filled customer form in LINE, each suggested price has a cash and a โอน (transfer) button; a typed price books cash (`3400`) or waiting for transfer (`3400 โอน`, `3400 transfer`). Rules: `lib/quick-book-rules.ts`.
+
 ## Design system (G7)
 
 Tokens and rules are in [`docs/design-system-g7.md`](docs/design-system-g7.md); the values live in `app/globals.css`.

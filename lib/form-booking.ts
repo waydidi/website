@@ -3,10 +3,11 @@ import { getDb } from "@/db";
 import { bookingForms } from "@/db/schema";
 import type { FormAnswers, FormService } from "@/lib/booking-form";
 import { createManualBooking, manualBookingProblem, manualBookingSchema } from "@/lib/manual-booking";
+import type { QuickPayment } from "@/lib/quick-book-rules";
 
-/** Turn a received customer form into a confirmed booking at the given price
- *  (pay in cash; the confirmation email and PDF go to the customer straight away). */
-export async function bookFromForm(token: string, price: number, origin: string) {
+/** Turn a received customer form into a confirmed booking at the given price, paid in cash to the
+ *  driver or by bank transfer before the trip; the confirmation email and PDF go out straight away. */
+export async function bookFromForm(token: string, price: number, origin: string, payment: QuickPayment = "cash") {
   const [form] = await getDb().select().from(bookingForms).where(eq(bookingForms.token, token)).limit(1);
   if (!form) return { error: "That form no longer exists." } as const;
   if (form.status === "booked") return { error: `Already booked as ${form.bookingReference}.` } as const;
@@ -24,7 +25,7 @@ export async function bookFromForm(token: string, price: number, origin: string)
     customerEmail: a.email, customerPhone: a.phone,
     passengers: a.passengers, luggage: a.luggage, vehicle: a.vehicle,
     fare: price, childSeats: a.childSeats, exchangeStop: a.exchangeStop, ferryPeople: a.ferryPeople,
-    paid: false, specialRequests: form.note ?? "", sendEmail: true, agencyId: form.agencyId ?? "",
+    payment, specialRequests: form.note ?? "", sendEmail: true, agencyId: form.agencyId ?? "",
   });
   if (!parsed.success) return { error: `The form answers can't be booked (${parsed.error.issues[0]?.path?.[0] ?? "details"}). Open it in admin instead.` } as const;
   const problem = manualBookingProblem(parsed.data);

@@ -10,6 +10,7 @@ import type { FormAnswers, FormService } from "@/lib/booking-form";
 import { bookFromForm } from "@/lib/form-booking";
 import { safeOrigin } from "@/lib/security";
 import { verifyTripCompletion } from "@/lib/trip-completion";
+import { parseBookPostback, parsePriceReply, type QuickPayment } from "@/lib/quick-book-rules";
 
 type LineEvent = { type?: string; webhookEventId?: string; replyToken?: string; postback?: { data?: string }; message?: { type?: string; text?: string }; source?: { userId?: string; groupId?: string; roomId?: string } };
 
@@ -48,26 +49,27 @@ async function handleFormPricing(event: LineEvent, origin: string) {
   }
   // Quick reply: book straight away at the tapped price.
   if (event.type === "postback" && event.postback?.data?.startsWith("book:")) {
-    const [, token, amount] = event.postback.data.split(":");
+    const tapped = parseBookPostback(event.postback.data);
     await setLineState(pendingKey, null);
-    await book(token, Number(amount));
+    if (!tapped) { await reply([{ type: "text", text: "That price button isn't valid any more." }]); return true; }
+    await book(tapped.token, tapped.price, tapped.payment);
     return true;
   }
   if (event.type !== "message" || event.message?.type !== "text") return false;
   const token = await getLineState(pendingKey);
   if (!token) return false;
-  const typed = (event.message.text ?? "").replace(/[฿,\s]|thb|baht/giu, "");
-  if (!/^\d{1,7}$/u.test(typed)) { await reply([{ type: "text", text: "Please type the price as a number, e.g. 3400." }]); return true; }
+  const typed = parsePriceReply(event.message.text ?? "");
+  if (!typed) { await reply([{ type: "text", text: "Please type the price as a number, e.g. 3400 (cash) or 3400 โอน (bank transfer)." }]); return true; }
   await setLineState(pendingKey, null);
-  await book(token, Number(typed));
+  await book(token, typed.price, typed.payment);
   return true;
 
-  async function book(formToken: string, price: number) {
+  async function book(formToken: string, price: number, payment: QuickPayment) {
     if (!Number.isInteger(price) || price < 0 || price > 1_000_000) { await reply([{ type: "text", text: "That price isn't valid." }]); return; }
     try {
-      const result = await bookFromForm(formToken, price, origin);
+      const result = await bookFromForm(formToken, price, origin, payment);
       if ("error" in result) { await reply([{ type: "text", text: result.error }]); return; }
-      await reply([bookedCard({ reference: result.reference, name: result.name, total: result.total, emailSent: result.emailStatus === "sent", bookingUrl: `${origin}/admin/journeys/${result.reference}` })]);
+      await reply([bookedCard({ reference: result.reference, name: result.name, total: result.total, emailSent: result.emailStatus === "sent", bookingUrl: `${origin}/admin/journeys/${result.reference}`, payment })]);
     } catch (error) {
       console.error("LINE form booking failed", error);
       await reply([{ type: "text", text: "The booking couldn't be saved. Please open the form in admin." }]);

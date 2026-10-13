@@ -6,6 +6,7 @@ import { getWaydidiAdmin, verifyAdminKey } from "@/lib/admin";
 import { purgeExpiredBookings } from "@/lib/booking-bin";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { VEHICLES, vehicleFits, type VehicleId } from "@/lib/vehicles";
+import { detailsChanged, parseDetails } from "@/lib/booking-edit";
 
 export async function DELETE(request: Request, context: { params: Promise<{ reference: string }> }) {
   const admin = await getWaydidiAdmin();
@@ -74,11 +75,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ refer
     if (!date.test(returnDate) || !time.test(returnTime)) return NextResponse.json({ error: "Choose a valid return date and time." }, { status: 400 });
     if (`${returnDate}T${returnTime}` <= `${pickupDate}T${pickupTime}`) return NextResponse.json({ error: "The return must be after the pickup." }, { status: 400 });
   }
-  const changed = booking.pickup !== pickup || booking.dropoff !== dropoff || booking.pickupDate !== pickupDate || booking.pickupTime !== pickupTime || booking.vehicle !== vehicle || booking.passengers !== passengers || booking.luggage !== luggage || booking.returnDate !== returnDate || booking.returnTime !== returnTime;
+  // Customer details and extras (fields left out keep their value; the price doesn't change).
+  const details = parseDetails(input, booking);
+  if ("error" in details) return NextResponse.json({ error: details.error }, { status: 400 });
+  const changed = detailsChanged(details, booking) || booking.pickup !== pickup || booking.dropoff !== dropoff || booking.pickupDate !== pickupDate || booking.pickupTime !== pickupTime || booking.vehicle !== vehicle || booking.passengers !== passengers || booking.luggage !== luggage || booking.returnDate !== returnDate || booking.returnTime !== returnTime;
   if (!changed) return NextResponse.json({ ok: true, changed: false });
   // A new address drops its old map point (it no longer matches).
   const places = { pickup, dropoff, ...(pickup !== booking.pickup ? { pickupLatitude: null, pickupLongitude: null } : {}), ...(dropoff !== booking.dropoff ? { dropoffLatitude: null, dropoffLongitude: null } : {}) };
-  await getDb().update(bookings).set({ ...places, pickupDate, pickupTime, vehicle, passengers, luggage, returnDate, returnTime, bookingVersion: booking.bookingVersion + 1, updatedAt: new Date().toISOString() }).where(eq(bookings.reference, reference));
+  await getDb().update(bookings).set({ ...places, ...details, pickupDate, pickupTime, vehicle, passengers, luggage, returnDate, returnTime, bookingVersion: booking.bookingVersion + 1, updatedAt: new Date().toISOString() }).where(eq(bookings.reference, reference));
   console.info("Admin edited booking", { reference, admin: admin.email });
   await import("@/lib/telegram/booking-changes").then((m) => m.republishJob(reference, admin.displayName || admin.email, "แก้ไขโดยแอดมิน")).catch(() => undefined);
   return NextResponse.json({ ok: true, changed: true });
