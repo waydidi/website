@@ -6,7 +6,7 @@ import { esc } from "./cards";
 import { answerCallback, downloadFile, editIn, sendPhoto, sendPhotoAlbum, sendPrivate, sendTo, telegramBotUsername, telegramChatId, tg, type InlineKeyboard, type TelegramMessage, type TelegramUser } from "./client";
 import { jobVehicleName } from "./job-text";
 import {
-  CAR_TYPES, SIGNUP_MINUTES, STEP_QUESTION, checkTextAnswer, driverGroupConfig, groupChatFor, isDriverGroupChat, isCarType, isGroupMember, isMyJobsCommand, nextStep, offerText, parseSignupStart, signupLink, stepsFor,
+  SIGNUP_MINUTES, STEP_QUESTION, checkTextAnswer, driverGroupConfig, groupChatFor, isDriverGroupChat, isGroupMember, isMyJobsCommand, nextStep, offerText, parseSignupStart, signupLink, stepsFor,
   type DriverDraft, type FormStep, type OfferJob, type OfferState,
 } from "./driver-group-rules";
 
@@ -280,11 +280,10 @@ export async function reopenLapsedSignups(at = new Date()) {
 
 const cancelKeyboard = (reference: string): InlineKeyboard => [[{ text: "ยกเลิกการรับงาน", callback_data: `dj_x:${reference}` }]];
 const carLabel = (d: { vehicle: string; car_plate: string | null }) => `${d.vehicle || "รถของฉัน"} — ${d.car_plate || "-"}`.slice(0, 60);
-const carTypeKeyboard = (reference: string): InlineKeyboard => [Object.entries(CAR_TYPES).map(([k, label]) => ({ text: label, callback_data: `dj_car:${reference}:${k}` }))];
 
 async function ask(chatId: string, reference: string, step: FormStep, mode: "driver" | "car" = "driver") {
   const steps = stepsFor(mode);
-  await say(chatId, `งาน <b>${esc(reference)}</b> (${steps.indexOf(step) + 1}/${steps.length}): ${STEP_QUESTION[step]}`, step === "car_type" ? carTypeKeyboard(reference) : undefined);
+  await say(chatId, `งาน <b>${esc(reference)}</b> (${steps.indexOf(step) + 1}/${steps.length}): ${STEP_QUESTION[step]}`);
 }
 
 /** A returning driver: which car for this job? Their saved car, or «รถอื่นๆ» to give another one. */
@@ -331,26 +330,25 @@ async function saveStep(form: FormRow, draft: DriverDraft, chatId: string, user:
 
 /**
  * All answers in. First time: the driver is saved and linked to this Telegram account. Another car: the
- * driver's car (plate, type, photo) is updated. Then the job becomes theirs.
+ * driver's car (plate, photo) is updated. Then the job becomes theirs.
  */
 async function finishForm(form: FormRow, draft: DriverDraft, chatId: string, user: TelegramUser) {
   const car = draft.mode === "car";
-  // The car's model is not asked: the car type (รถเก๋ง / SUV 7 ที่นั่ง / รถตู้) is what is kept as its description.
-  const vehicle = draft.carType ? CAR_TYPES[draft.carType] : "";
-  const complete = draft.plate && draft.carType && draft.carPhoto && (car || (draft.name && draft.phone && draft.idPhoto));
+  // Neither the car's model nor its type is asked: the plate and the car photo identify it.
+  const complete = draft.plate && draft.carPhoto && (car || (draft.name && draft.phone && draft.idPhoto));
   const me = car ? await linkedDriver(user.id) : null;
   if (!complete || (car && me?.id !== form.driver_id)) { await startForm(user, chatId, form.booking_reference, me ?? undefined); return; }
   const at = now(), id = form.driver_id;
   const carKey = `driver-verification/${id}/vehicle.jpg`;
   await db().batch([
     car
-      ? db().prepare("UPDATE drivers SET car_plate=?,vehicle=?,vehicle_type=?,car_image_key=?,car_image_mime='image/jpeg',updated_at=? WHERE id=?").bind(draft.plate, vehicle, draft.carType, carKey, at, id)
-      : db().prepare("INSERT INTO drivers(id,full_name,phone,base_location,vehicle,vehicle_type,car_plate,id_image_key,id_image_mime,car_image_key,car_image_mime,driver_type,status,created_at,updated_at) VALUES(?,?,?,'Telegram',?,?,?,?,'image/jpeg',?,'image/jpeg','outsource','active',?,?) ON CONFLICT(id) DO NOTHING")
-        .bind(id, draft.name, draft.phone, vehicle, draft.carType, draft.plate, `driver-verification/${id}/identity.jpg`, carKey, at, at),
+      ? db().prepare("UPDATE drivers SET car_plate=?,car_image_key=?,car_image_mime='image/jpeg',updated_at=? WHERE id=?").bind(draft.plate, carKey, at, id)
+      : db().prepare("INSERT INTO drivers(id,full_name,phone,base_location,vehicle,car_plate,id_image_key,id_image_mime,car_image_key,car_image_mime,driver_type,status,created_at,updated_at) VALUES(?,?,?,'Telegram','',?,?,'image/jpeg',?,'image/jpeg','outsource','active',?,?) ON CONFLICT(id) DO NOTHING")
+        .bind(id, draft.name, draft.phone, draft.plate, `driver-verification/${id}/identity.jpg`, carKey, at, at),
     db().prepare("INSERT INTO telegram_driver_links(telegram_user_id,driver_id,linked_at) VALUES(?,?,?) ON CONFLICT(telegram_user_id) DO UPDATE SET driver_id=excluded.driver_id,linked_at=excluded.linked_at").bind(String(user.id), id, at),
     db().prepare("DELETE FROM telegram_driver_forms WHERE telegram_user_id=?").bind(String(user.id)),
   ]);
-  const d: Driver = { id, full_name: car ? me!.full_name : draft.name!, phone: car ? me!.phone : draft.phone!, car_plate: draft.plate!, vehicle, license_number: car ? me!.license_number : null };
+  const d: Driver = { id, full_name: car ? me!.full_name : draft.name!, phone: car ? me!.phone : draft.phone!, car_plate: draft.plate!, vehicle: car ? me!.vehicle : "", license_number: car ? me!.license_number : null };
   const ok = await completeTake(user, form.booking_reference, d, car ? "new_car" : "new_driver");
   await say(chatId, `${car ? "บันทึกข้อมูลรถแล้ว ✓" : "บันทึกข้อมูลคนขับแล้ว ✓"}\n${ok ? `✅ งาน <b>${esc(form.booking_reference)}</b> เป็นของคุณ ใบงานพร้อมข้อมูลลูกค้าและลิงก์งานส่งมาในแชทนี้`
     : "❌ แต่หมดเวลาหรืองานนี้มีคนขับแล้ว"}`);
@@ -413,7 +411,7 @@ export async function handleDriverPrivate(m: TelegramMessage) {
   }
   if (!text || text.startsWith("/")) { await ask(chatId, form.booking_reference, form.step, draft.mode); return true; }
   const checked = checkTextAnswer(form.step, text);
-  if ("error" in checked) { await say(chatId, esc(checked.error), form.step === "car_type" ? carTypeKeyboard(form.booking_reference) : undefined); return true; }
+  if ("error" in checked) { await say(chatId, esc(checked.error)); return true; }
   if (form.step === "name") draft.name = checked.value;
   if (form.step === "phone") draft.phone = checked.value;
   if (form.step === "plate") draft.plate = checked.value;
@@ -442,9 +440,9 @@ export async function handleDriverTake(q: { id: string; from: TelegramUser; data
     reply_markup: { inline_keyboard: [[{ text: "▶️ เริ่มแชทกับบอทเพื่อรับงาน", url: link }]] } }).catch(() => undefined);
 }
 
-/** Buttons in a driver's private chat (dj_car, dj_x). */
+/** Buttons in a driver's private chat (dj_use, dj_other, dj_x). */
 export async function handleDriverCallback(q: { id: string; from: TelegramUser; data?: string; message?: TelegramMessage }) {
-  const [action, reference, extra] = (q.data ?? "").split(":");
+  const [action, reference] = (q.data ?? "").split(":");
   const chatId = String(q.message?.chat.id ?? q.from.id);
   if (!reference || !/^[A-Z0-9-]{4,24}$/.test(reference) || !driverGroup()) return answerCallback(q.id, "ไม่พบงานนี้", true);
   await ensureTables();
@@ -464,16 +462,6 @@ export async function handleDriverCallback(q: { id: string; from: TelegramUser; 
     if (action === "dj_other") { await startForm(q.from, chatId, reference, me); return; }
     const ok = await completeTake(q.from, reference, me, "saved");
     await say(chatId, ok ? `✅ งาน <b>${esc(reference)}</b> เป็นของคุณ (${esc(carLabel(me))})\nใบงานพร้อมข้อมูลลูกค้าและลิงก์งานส่งมาในแชทนี้` : "❌ หมดเวลาหรืองานนี้มีคนขับแล้ว");
-    return;
-  }
-  if (action === "dj_car") {
-    const form = await activeForm(q.from.id);
-    if (!form || form.booking_reference !== reference || form.step !== "car_type" || !isCarType(extra)) return answerCallback(q.id, "กรุณาเริ่มใหม่: กด «รับงาน» ในกลุ่มคนขับ", true);
-    if (q.message) await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
-    const draft = JSON.parse(form.form_json || "{}") as DriverDraft;
-    draft.carType = extra;
-    await answerCallback(q.id, CAR_TYPES[extra]);
-    await saveStep(form, draft, chatId, q.from);
     return;
   }
   return answerCallback(q.id, "ไม่รู้จักคำสั่งนี้");

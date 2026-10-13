@@ -79,7 +79,7 @@ test('the sign-up link, "my jobs" and the sign-up answers are checked',()=>{
  assert.deepEqual(rules.checkTextAnswer('name','Mary Jane Watson'),{value:'Mary Jane Watson'});
  assert.deepEqual(rules.checkTextAnswer('plate','  กข  1234 '),{value:'กข 1234'});
  assert.ok('error' in rules.checkTextAnswer('id_photo','hello'));
- assert.equal(rules.nextStep("plate"),"car_type");assert.equal(rules.nextStep("car_photo"),null);
+ assert.equal(rules.nextStep("plate"),"id_photo");assert.equal(rules.nextStep("car_photo"),null);assert.equal(rules.nextStep("plate","car"),"car_photo");
  assert.ok(rules.isGroupMember({status:'member'}));assert.ok(!rules.isGroupMember({status:'left'}));assert.ok(!rules.isGroupMember({status:'kicked'}));
  assert.ok(rules.isGroupMember({status:'restricted',is_member:true}));assert.ok(!rules.isGroupMember(null));
 });
@@ -204,15 +204,13 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  assert.match(edit.body.text,/^🚗 งาน Ref ID: DG0006\n[\s\S]*\n\n✅ รับงานแล้ว: Carol$/);
  assert.deepEqual(edit.body.reply_markup.inline_keyboard,[]);
  assert.match(sent.find(s=>s.method==='answerCallbackQuery').body.text,/ได้งาน DG0006 แล้ว กรอกข้อมูลคนขับ/);
- assert.match(sent.filter(s=>s.body.chat_id==='1004').at(-1).body.text,/\(1\/6\): ชื่อ-นามสกุลคนขับ/);
+ assert.match(sent.filter(s=>s.body.chat_id==='1004').at(-1).body.text,/\(1\/5\): ชื่อ-นามสกุลคนขับ/);
  // Someone else tapping now is told it's taken.
  assert.deepEqual(await group.takeJob(alice,'DG0006'),{ok:false,reason:'มีคนรับงานนี้แล้ว'});
  let n=1;const say=(extra)=>group.handleDriverPrivate({message_id:n++,chat:{id:1004,type:'private'},from:carol,...extra});
  await say({text:'Carol'}); // first name only: asked again
  assert.match(sent.at(-1).body.text,/กรุณาพิมพ์ทั้งชื่อและนามสกุล/);
  for(const text of ['Carol Saetang','089 999 8888','นง 8384'])await say({text});
- assert.deepEqual(sent.at(-1).body.reply_markup.inline_keyboard[0].map(b=>b.callback_data),['dj_car:DG0006:sedan','dj_car:DG0006:suv','dj_car:DG0006:minivan']);
- await group.handleDriverCallback({id:'cb1',from:carol,data:'dj_car:DG0006:minivan',message:{message_id:77,chat:{id:1004,type:'private'}}});
  assert.match(sent.filter(s=>s.method==='sendMessage').at(-1).body.text,/ใบขับขี่หรือบัตรประชาชน/);
  await say({text:'no photo'}); // a photo is needed here
  await say({photo:[{file_id:'small',width:90,height:90},{file_id:'big',width:1280,height:960}]});
@@ -220,7 +218,7 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  await say({photo:[{file_id:'car',width:1280,height:960}]});
  const link=await d1.prepare("SELECT driver_id FROM telegram_driver_links WHERE telegram_user_id='1004'").first();
  const d=await d1.prepare("SELECT full_name,phone,car_plate,vehicle,vehicle_type,driver_type,id_image_key,car_image_key FROM drivers WHERE id=?").bind(link.driver_id).first();
- assert.deepEqual(d,{full_name:'Carol Saetang',phone:'089 999 8888',car_plate:'นง 8384',vehicle:'รถตู้',vehicle_type:'minivan',driver_type:'outsource',id_image_key:`driver-verification/${link.driver_id}/identity.jpg`,car_image_key:`driver-verification/${link.driver_id}/vehicle.jpg`});
+ assert.deepEqual(d,{full_name:'Carol Saetang',phone:'089 999 8888',car_plate:'นง 8384',vehicle:'',vehicle_type:null,driver_type:'outsource',id_image_key:`driver-verification/${link.driver_id}/identity.jpg`,car_image_key:`driver-verification/${link.driver_id}/vehicle.jpg`});
  assert.deepEqual(await d1.prepare("SELECT status,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0006'").first(),{status:'taken',driver_id:link.driver_id});
  assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111')[1].body.text,/^✋ นง 8384 รับงานจากกลุ่มคนขับ[\s\S]*ชื่อลูกค้า: Jessica Moore[\s\S]*คนขับ: Carol Saetang\nเบอร์: 089 999 8888/);
  assert.match(sent.filter(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222').at(-1).body.text,/\n\n✅ รับงานแล้ว: Carol Saetang$/);
@@ -232,7 +230,7 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  assert.equal(JSON.parse(album.body.get('reply_parameters')).message_id,9000);
  const media=JSON.parse(album.body.get('media'));
  assert.equal(media.length,2);
- assert.match(media[0].caption,/^🪪 เอกสารคนขับใหม่: <b>Carol Saetang<\/b>\nเบอร์: 089 999 8888\nรถ: รถตู้\nทะเบียน: นง 8384\nรูป: ใบขับขี่\/บัตรประชาชน, รถ\nงาน: DG0006$/);
+ assert.match(media[0].caption,/^🪪 เอกสารคนขับใหม่: <b>Carol Saetang<\/b>\nเบอร์: 089 999 8888\nรถ: -\nทะเบียน: นง 8384\nรูป: ใบขับขี่\/บัตรประชาชน, รถ\nงาน: DG0006$/);
  // Next time: one tap, then the bot asks which car — her saved one, or «รถอื่นๆ».
  await booking('DG0007');await group.postDriverOffer('DG0007');
  sent.length=0;
@@ -240,16 +238,15 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  assert.equal(await d1.prepare("SELECT status FROM telegram_driver_jobs WHERE booking_reference='DG0007'").first('status'),'signing_up');
  assert.match(sent.find(s=>s.method==='answerCallbackQuery').body.text,/ได้งาน DG0007 แล้ว เลือกรถในแชทส่วนตัว/);
  const choice=sent.filter(s=>s.body.chat_id==='1004').at(-1).body;
- assert.deepEqual(choice.reply_markup.inline_keyboard.map(r=>r.map(b=>[b.text,b.callback_data])),[[['รถตู้ — นง 8384','dj_use:DG0007']],[['รถอื่นๆ','dj_other:DG0007']],[['ยกเลิกการรับงาน','dj_x:DG0007']]]);
- // «รถอื่นๆ»: only the car questions (3), then the job is hers with the new car.
+ assert.deepEqual(choice.reply_markup.inline_keyboard.map(r=>r.map(b=>[b.text,b.callback_data])),[[['รถของฉัน — นง 8384','dj_use:DG0007']],[['รถอื่นๆ','dj_other:DG0007']],[['ยกเลิกการรับงาน','dj_x:DG0007']]]);
+ // «รถอื่นๆ»: only the car questions (2), then the job is hers with the new car.
  await group.handleDriverCallback({id:'oth',from:carol,data:'dj_other:DG0007',message:{message_id:79,chat:{id:1004,type:'private'}}});
- assert.match(sent.filter(s=>s.body.chat_id==='1004').at(-1).body.text,/\(1\/3\): ทะเบียนรถ/);
+ assert.match(sent.filter(s=>s.body.chat_id==='1004').at(-1).body.text,/\(1\/2\): ทะเบียนรถ/);
  await say({text:'กท 5555'});
- await group.handleDriverCallback({id:'cb9',from:carol,data:'dj_car:DG0007:suv',message:{message_id:80,chat:{id:1004,type:'private'}}});
- assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/\(3\/3\): ส่งรูปรถ/);
+ assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/\(2\/2\): ส่งรูปรถ/);
  await say({photo:[{file_id:'car2',width:1280,height:960}]});
  const updated=await d1.prepare("SELECT full_name,car_plate,vehicle,vehicle_type FROM drivers WHERE id=?").bind(link.driver_id).first();
- assert.deepEqual(updated,{full_name:'Carol Saetang',car_plate:'กท 5555',vehicle:'SUV 7 ที่นั่ง',vehicle_type:'suv'});
+ assert.deepEqual(updated,{full_name:'Carol Saetang',car_plate:'กท 5555',vehicle:'',vehicle_type:null});
  assert.deepEqual(await d1.prepare("SELECT status,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0007'").first(),{status:'taken',driver_id:link.driver_id});
  assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/บันทึกข้อมูลรถแล้ว ✓\n✅ งาน <b>DG0007<\/b> เป็นของคุณ/);
  assert.equal(await d1.prepare("SELECT COUNT(*) n FROM drivers WHERE full_name='Carol Saetang'").first('n'),1); // same driver, new car
@@ -278,7 +275,7 @@ test('a first-time driver who never opened the bot is sent to it with the sign-u
  assert.match(hint.body.text,/Erin.*ได้งาน.*DG0008/);
  sent.length=0;
  assert.equal(await group.handleDriverPrivate({message_id:9,chat:{id:1005,type:'private'},from:erin,text:'/start reg_DG0008'}),true);
- assert.match(sent.filter(s=>s.body.chat_id==='1005').at(-1).body.text,/\(1\/6\)/);
+ assert.match(sent.filter(s=>s.body.chat_id==='1005').at(-1).body.text,/\(1\/5\)/);
  // Someone else can't use her sign-up link.
  sent.length=0;
  await group.handleDriverPrivate({message_id:10,chat:{id:1001,type:'private'},from:alice,text:'/start reg_DG0008'});

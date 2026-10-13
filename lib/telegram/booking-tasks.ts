@@ -188,7 +188,7 @@ export async function postAssignmentWhenReady(reference: string, by: string, hea
     "",
     `คนขับ: ${esc(form.name ?? "")}`,
     `เบอร์: ${esc(form.phone ?? "")}`,
-    `รถ: ${esc(form.model ?? "")}`,
+    ...(form.model ? [`รถ: ${esc(form.model)}`] : []),
     `ทะเบียน: ${esc(form.plate ?? "")}`,
     "",
     `ลิงก์งาน (สถานะการเดินทาง/คนขับ): ${link}`,
