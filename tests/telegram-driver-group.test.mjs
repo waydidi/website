@@ -271,6 +271,11 @@ test('a first-time driver who never opened the bot is sent to it with the sign-u
  await group.handleDriverTake({id:'tap3',from:erin,data:'dj_take:DG0008',message:{message_id:3,chat:{id:-100222,type:'supergroup'}}});
  globalThis.fetch=realSend;
  assert.equal(sent.find(s=>s.method==='answerCallbackQuery').body.url,'https://t.me/waydidi_bot?start=reg_DG0008');
+ // The same link stays under the job in the group as a button (the pop-up is easy to miss).
+ const hint=sent.find(s=>s.method==='sendMessage'&&s.body.chat_id===-100222);
+ assert.deepEqual(hint.body.reply_markup.inline_keyboard,[[{text:'▶️ เริ่มแชทกับบอทเพื่อรับงาน',url:'https://t.me/waydidi_bot?start=reg_DG0008'}]]);
+ assert.equal(hint.body.reply_parameters.message_id,3);
+ assert.match(hint.body.text,/Erin.*ได้งาน.*DG0008/);
  sent.length=0;
  assert.equal(await group.handleDriverPrivate({message_id:9,chat:{id:1005,type:'private'},from:erin,text:'/start reg_DG0008'}),true);
  assert.match(sent.filter(s=>s.body.chat_id==='1005').at(-1).body.text,/\(1\/7\)/);

@@ -431,7 +431,14 @@ export async function handleDriverTake(q: { id: string; from: TelegramUser; data
   if (reached) return answerCallback(q.id, `✅ ได้งาน ${reference} แล้ว ${result.driver ? "เลือกรถ" : "กรอกข้อมูลคนขับ"}ในแชทส่วนตัวกับบอทภายใน ${SIGNUP_MINUTES} นาที`, true);
   // Never opened the bot: Telegram opens it for them with the link (continues from /start reg_REF).
   const bot = await telegramBotUsername().catch(() => null);
-  return bot ? tg("answerCallbackQuery", { callback_query_id: q.id, url: signupLink(bot, reference) }).catch(() => undefined) : answerCallback(q.id, "กดเริ่มแชทกับบอทก่อน", true);
+  if (!bot) return answerCallback(q.id, "กดเริ่มแชทกับบอทก่อน", true);
+  const link = signupLink(bot, reference);
+  await tg("answerCallbackQuery", { callback_query_id: q.id, url: link }).catch(() => undefined);
+  // That pop-up is easy to miss or dismiss, so the same link also stays under the job in the group as a button:
+  // the driver who took it taps it, starts the chat with the bot and answers there (only they can use it).
+  if (q.message) await tg("sendMessage", { chat_id: q.message.chat.id, parse_mode: "HTML", reply_parameters: { message_id: q.message.message_id, allow_sending_without_reply: true },
+    text: `✋ <b>${esc(displayName(q.from))}</b> ได้งาน <b>${esc(reference)}</b> แล้ว\nกดปุ่มด้านล่างเพื่อเริ่มแชทกับบอท Waydidi แล้วกรอกข้อมูลภายใน ${SIGNUP_MINUTES} นาที`,
+    reply_markup: { inline_keyboard: [[{ text: "▶️ เริ่มแชทกับบอทเพื่อรับงาน", url: link }]] } }).catch(() => undefined);
 }
 
 /** Buttons in a driver's private chat (dj_car, dj_x). */
