@@ -35,10 +35,15 @@ test('job requests are recognised in English, Thai and as a command', () => {
   assert.equal(rules.parseJobLookup('/job@WaydidiBot Tayla'), 'Tayla');
   assert.equal(rules.parseJobLookup('jobs for tayla'), 'tayla');
   assert.equal(rules.parseJobLookup('Can you send the job for Tayla please'), 'Tayla');
+  assert.equal(rules.parseJobLookup('Give me Tayla ref id'), 'Tayla');
+  assert.equal(rules.parseJobLookup("What's Tayla's booking reference?"), 'Tayla');
+  assert.equal(rules.parseJobLookup('ref for Tayla Smith'), 'Tayla Smith');
+  assert.equal(rules.parseJobLookup('booking id Tayla'), 'Tayla');
+  assert.equal(rules.parseJobLookup('ขอ เลขจอง Tayla'), 'Tayla');
 });
 
 test('ordinary group talk is not a job request', () => {
-  for (const t of ['Good job everyone!', 'The driver arrived', 'job', 'assignment', 'Give me the assignment', 'jobless', 'I have a jobby day', 'Nice job Aey', 'Tayla job is done', '']) assert.equal(rules.parseJobLookup(t), null, t);
+  for (const t of ['Good job everyone!', 'The driver arrived', 'job', 'assignment', 'Give me the assignment', 'jobless', 'I have a jobby day', 'Nice job Aey', 'Tayla job is done', 'Tayla booking is done', 'Thanks for the reference', 'booking', 'Give me the ref', '']) assert.equal(rules.parseJobLookup(t), null, t);
 });
 
 test('name patterns treat % and _ literally', () => {
