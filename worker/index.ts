@@ -1,4 +1,5 @@
 import type { SecurityDatabase } from "../lib/worker-db";
+import { adminGate, adminHopPage, ADMIN_HOP_PARAM } from "../lib/admin-gate";
 import { allowedStaffRoute, readCookie, staffForToken, STAFF_COOKIE } from "../lib/staff-security";
 import { LEGACY_HOSTS, SITE_URL } from "../lib/site";
 import { edgeTtl, mayFillEdgeCache } from "../lib/edge-cache";
@@ -61,7 +62,16 @@ const worker = {
     try { accessPath=decodeURIComponent(url.pathname).replace(/\/+/g,"/"); } catch { return new Response("Invalid path",{status:400}); }
     if ((accessPath.startsWith("/api/admin/") && accessPath !== "/api/admin/session") || accessPath.startsWith("/admin/")) {
       const staff = await staffForToken(env.DB, readCookie(request, STAFF_COOKIE));
-      if (!staff) return withSecurityHeaders(Response.json({error:"Staff sign-in required."},{status:401}),url);
+      if (!staff) {
+        // A link tapped outside the site (Telegram "Open booking") arrives without the Strict staff cookie: one hop through the site, then sign-in.
+        const gate = adminGate({ method: request.method, accept: request.headers.get("accept"), secFetchSite: request.headers.get("sec-fetch-site"), hopped: url.searchParams.has(ADMIN_HOP_PARAM) });
+        if (gate === "hop") {
+          const again = new URL(url); again.searchParams.set(ADMIN_HOP_PARAM, "1");
+          return withSecurityHeaders(new Response(adminHopPage(again.pathname + again.search), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }), url);
+        }
+        if (gate === "sign-in") return withSecurityHeaders(new Response(null, { status: 302, headers: { Location: "/admin", "Cache-Control": "no-store" } }), url);
+        return withSecurityHeaders(Response.json({error:"Staff sign-in required."},{status:401}),url);
+      }
       if (!allowedStaffRoute(staff.role,accessPath,request.method)) return withSecurityHeaders(Response.json({error:"Your staff role does not permit this action."},{status:403}),url);
     }
 
