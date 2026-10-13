@@ -1,7 +1,7 @@
 import { evidenceDb } from "@/lib/trip-evidence";
 import { completeJourney, parseLeg } from "@/lib/journey-legs";
 import { verifyTripCompletion } from "@/lib/trip-completion";
-import { postJobCompleted } from "@/lib/telegram/trip-photos";
+import { postJobCompleted, REPAIR_WINDOW_MS } from "@/lib/telegram/trip-photos";
 
 // When a journey has a photo for all three steps (Stand by, Pick up, Drop), from the driver or added
 // by staff, it is completed automatically. For a round trip that moves the card to the second trip.
@@ -25,7 +25,7 @@ export async function completeIfEvidenceFilled(reference: string, legValue: stri
 }
 
 /** Journeys whose three photos were all in before this check existed (or whose check failed): every few minutes. */
-export async function completeFilledJourneys() {
+export async function completeFilledJourneys(now = Date.now()) {
   const { results } = await evidenceDb().prepare(`SELECT x.booking_reference AS reference, x.leg FROM (
       SELECT booking_reference, leg, step FROM admin_evidence_photos
       UNION SELECT e.booking_reference, e.leg, COALESCE(s.status, CASE WHEN e.event_type='dropoff' THEN 'completed' END)
@@ -35,7 +35,8 @@ export async function completeFilledJourneys() {
       AND NOT EXISTS(SELECT 1 FROM journey_legs j WHERE j.booking_reference=x.booking_reference AND j.leg=x.leg AND j.status IN ('completed','no_show'))
     GROUP BY x.booking_reference, x.leg HAVING COUNT(DISTINCT x.step)=3 LIMIT 20`).all<{ reference: string; leg: string }>();
   for (const j of results) await completeIfEvidenceFilled(j.reference, j.leg, "auto:evidence").catch((e) => console.error("Auto-complete failed", j.reference, e));
-  const finished=(await evidenceDb().prepare("SELECT booking_reference AS reference,leg FROM journey_legs WHERE status='completed' ORDER BY updated_at DESC LIMIT 20").all<{reference:string;leg:string}>()).results;
+  // Completed journeys whose "Completed job" message may not have been queued: only recent ones (older ones are history).
+  const finished=(await evidenceDb().prepare("SELECT booking_reference AS reference,leg FROM journey_legs WHERE status='completed' AND updated_at>? ORDER BY updated_at DESC LIMIT 20").bind(new Date(now - REPAIR_WINDOW_MS).toISOString()).all<{reference:string;leg:string}>()).results;
   for (const j of finished) await postJobCompleted(j.reference,j.leg).catch(()=>undefined);
 }
 

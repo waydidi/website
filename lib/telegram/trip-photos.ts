@@ -81,8 +81,13 @@ export async function postJobCompleted(reference: string, leg: string) {
   return queueTelegram({id:`completed:${reference}:${leg}:team`,reference,leg,destination:telegramChatId(),payload:{text:lines.join("\n"),photos,replyTo,quote:replyTo?`Reference: ${reference}`:undefined}});
 }
 
-/** Repair a Worker interruption between a saved driver step and its notification enqueue. */
-export async function recoverTripNotifications(limit=20) {
+/**
+ * Repair a Worker interruption between a saved driver step and its notification enqueue. Only recent steps are
+ * repaired: a step without a delivery record from before the last day is history (sent before the delivery
+ * queue existed, or the queue was cleaned up), and posting it now would flood the group with old photos.
+ */
+export const REPAIR_WINDOW_MS = 24 * 3600_000;
+export async function recoverTripNotifications(limit=20, now=Date.now()) {
   const {ensureReliabilityTables,reliabilityDb}=await import('./reliability-db');
   await ensureReliabilityTables();
   const rows=(await reliabilityDb().prepare(`SELECT s.id event_id,s.status step,s.booking_reference reference,a.leg,d.full_name driver,
@@ -90,7 +95,7 @@ export async function recoverTripNotifications(limit=20) {
     LEFT JOIN driver_trip_evidence e ON e.status_event_id=s.id AND e.deleted_at IS NULL
     LEFT JOIN journey_legs j ON j.booking_reference=s.booking_reference AND j.leg=a.leg
     WHERE s.status IN ('standby','trip_started','completed') AND (e.id IS NOT NULL OR s.status='completed')
-      AND NOT EXISTS(SELECT 1 FROM telegram_delivery_jobs n WHERE n.id='step:'||s.id||':team')
-    ORDER BY s.created_at DESC LIMIT ?`).bind(limit).all<EvidenceRow & {event_id:string;step:string;reference:string;leg:string;driver:string;journey_status:string|null}>()).results;
+      AND s.created_at>? AND NOT EXISTS(SELECT 1 FROM telegram_delivery_jobs n WHERE n.id='step:'||s.id||':team')
+    ORDER BY s.created_at DESC LIMIT ?`).bind(new Date(now-REPAIR_WINDOW_MS).toISOString(),limit).all<EvidenceRow & {event_id:string;step:string;reference:string;leg:string;driver:string;journey_status:string|null}>()).results;
   for (const row of rows) await postTripPhoto({reference:row.reference,status:row.step,eventId:row.event_id,driverName:row.driver,evidence:row.id?row:null,done:row.journey_status==='completed'});
 }
