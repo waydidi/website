@@ -75,9 +75,8 @@ export async function postJobCompleted(reference: string, leg: string) {
   type Info = { pickup: string; dropoff: string; pickupDate: string; pickupTime: string; returnDate: string | null; returnTime: string | null; returnPickup: string | null; returnDropoff: string | null;
     serviceType: string | null; bookedHours: number | null; driver: string | null; phone: string | null; plate: string | null; car: string | null };
   const info = await db().prepare(`SELECT b.pickup, b.dropoff, b.pickup_date AS pickupDate, b.pickup_time AS pickupTime, b.return_date AS returnDate, b.return_time AS returnTime,
-      b.return_pickup AS returnPickup, b.return_dropoff AS returnDropoff, b.service_type AS serviceType, b.booked_hours AS bookedHours,
-      d.full_name AS driver, d.phone AS phone, d.car_plate AS plate, d.vehicle AS car
-    FROM bookings b LEFT JOIN booking_assignments a ON a.booking_reference=b.reference AND a.leg=? AND a.revoked_at IS NULL LEFT JOIN drivers d ON d.id=a.driver_id WHERE b.reference=?`).bind(leg, reference).first<Info>().catch(() => null);
+      b.return_pickup AS returnPickup, b.return_dropoff AS returnDropoff, b.service_type AS serviceType, b.booked_hours AS bookedHours
+    FROM bookings b WHERE b.reference=?`).bind(reference).first<Info>().catch(() => null);
   const card = await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>().catch(() => null);
   // This journey's route, date and time (the second trip runs the other way unless set otherwise).
   const back = leg === "return" && info?.returnDate;
@@ -86,7 +85,6 @@ export async function postJobCompleted(reference: string, leg: string) {
   const date = info ? (back ? info.returnDate : info.pickupDate) : null, time = info ? (back ? info.returnTime : info.pickupTime) : null;
   const lines = ["✅ <b>Completed job</b>", `Reference ID: ${esc(reference)}`];
   if (info) lines.push(`Route: ${esc(from)} – ${esc(to)}`, `Date: ${esc(dayMonthYear(date))}`, `Time: ${esc(clock(time))}`);
-  if (info?.driver) lines.push("", `Driver: ${esc(info.driver)}`, `Tel: ${esc(info.phone || "-")}`, `Car plate: ${esc(info.plate || "-")}`, `Vehicle: ${esc(info.car || "-")}`);
   if (info?.returnDate && leg === "outbound") lines.push("", "Next: the second trip.");
   // A reply under the booking's card, quoting its "Reference: …" line; without the quote if Telegram can't
   // find that text (e.g. the card was changed), and as a plain message if the card was never posted.
