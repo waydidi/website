@@ -43,3 +43,21 @@ export function bangkokDepartureIso(date: string, time: string) {
   const timestamp = bangkokDepartureTimestamp(date, time);
   return timestamp === null ? null : new Date(timestamp).toISOString();
 }
+
+/**
+ * Staff booking a pickup (Admin → New booking): the pickup, and a return trip, must still be ahead of now
+ * (Bangkok time). Returns the message to show, or null when the time is fine. Staff may book at short notice,
+ * so this is only "not in the past", unlike the customer rule of at least 3 hours.
+ */
+export function pastPickupProblem(input: { pickupDate: string; pickupTime: string; returnDate?: string; returnTime?: string }, now = Date.now()) {
+  const at = (date: string, time: string) => (DATE_PATTERN.test(date) && /^\d{2}:\d{2}$/.test(time) ? new Date(`${date}T${time}:00+07:00`).getTime() : NaN);
+  const pickup = at(input.pickupDate, input.pickupTime);
+  if (!Number.isFinite(pickup)) return "Choose the pickup date and time.";
+  if (pickup <= now) return "The pickup date and time have already passed. Choose a time that is still ahead.";
+  if (input.returnDate || input.returnTime) {
+    const back = at(input.returnDate ?? "", input.returnTime ?? "");
+    if (!Number.isFinite(back)) return "Choose the return date and time.";
+    if (back <= pickup) return "The return must be after the pickup.";
+  }
+  return null;
+}

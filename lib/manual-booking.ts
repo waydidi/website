@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb } from "@/db";
 import { bookingSources, bookings, promoRedemptions } from "@/db/schema";
 import { addonsTotal } from "@/lib/addons";
+import { pastPickupProblem } from "@/lib/booking-time";
 import { uniqueBookingReference } from "@/lib/booking-reference-server";
 import { fulfillBooking } from "@/lib/booking-fulfillment";
 import { secureToken, sha256 } from "@/lib/security";
@@ -62,7 +63,8 @@ export function manualBookingProblem(b: ManualBookingInput) {
   if (b.serviceType !== "hourly" && b.dropoff.length < 2) return b.serviceType === "tour" ? "Enter the tour name." : "Enter the drop-off.";
   if (b.serviceType === "hourly" && !b.bookedHours) return "Enter the number of hours.";
   if (b.serviceType === "hourly" && (b.vehicle === "comfort_bmw" || (b.bookedHours ?? 0) < 3)) return "By the Hour starts at 3 hours and does not offer BMW.";
-  return null;
+  // A pickup (or return) that has already passed can't be booked.
+  return pastPickupProblem({ pickupDate: b.pickupDate, pickupTime: b.pickupTime, ...(b.serviceType === "transfer" ? { returnDate: b.returnDate, returnTime: b.returnTime } : {}) });
 }
 
 // Saves a booking taken by phone, LINE or an agency as a normal confirmed booking

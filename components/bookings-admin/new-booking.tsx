@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
+import { pastPickupProblem } from "@/lib/booking-time";
 import { isAirportPickup } from "@/lib/trip-rules";
 import { VEHICLES } from "@/lib/vehicles";
 
@@ -14,6 +15,7 @@ type Service = "transfer" | "hourly" | "tour";
 const SERVICE_NAME: Record<Service, string> = { transfer: "Transfer", hourly: "By the hour", tour: "Tour" };
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 const bangkokToday = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+const bangkokNowTime = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 16);
 
 const field = "mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-brand";
 const label = "block text-[13px] font-medium text-slate-600";
@@ -85,7 +87,9 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
     if (!next) { setDone(null); setError(""); setF(blank()); }
   }
 
-  const ready = f.pickup.trim().length > 1 && (f.serviceType === "hourly" || f.dropoff.trim().length > 1) && f.customerName.trim() && /\S+@\S+\.\S+/.test(f.customerEmail) && f.customerPhone.trim().length > 4 && f.fare !== "";
+  // A pickup (or return) that has already passed can't be saved: the date and time show why.
+  const timeProblem = pastPickupProblem({ pickupDate: f.pickupDate, pickupTime: f.pickupTime, ...(f.returnOn ? { returnDate: f.returnDate, returnTime: f.returnTime } : {}) });
+  const ready = !timeProblem && f.pickup.trim().length > 1 && (f.serviceType === "hourly" || f.dropoff.trim().length > 1) && f.customerName.trim() && /\S+@\S+\.\S+/.test(f.customerEmail) && f.customerPhone.trim().length > 4 && f.fare !== "";
 
   // Opened from the "Create" menu: no button of its own.
   useEffect(() => {
@@ -122,9 +126,10 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
               {f.serviceType === "hourly"
                 ? <label className={label}>Hours<input type="number" min={1} max={24} className={field} value={f.bookedHours} onChange={(e) => set("bookedHours", Number(e.target.value))} /></label>
                 : <label className={label}>{f.serviceType === "tour" ? "Tour name" : "Drop-off"}<input className={field} value={f.dropoff} onChange={(e) => set("dropoff", e.target.value)} placeholder={f.serviceType === "tour" ? "Floating market day trip" : "Hilton Pattaya"} /></label>}
-              <label className={label}>Pickup date<input type="date" className={field} value={f.pickupDate} onChange={(e) => set("pickupDate", e.target.value)} /></label>
-              <label className={label}>Pickup time<input type="time" className={field} value={f.pickupTime} onChange={(e) => set("pickupTime", e.target.value)} /></label>
+              <label className={label}>Pickup date<input type="date" min={bangkokToday()} className={field} value={f.pickupDate} onChange={(e) => set("pickupDate", e.target.value)} /></label>
+              <label className={label}>Pickup time<input type="time" min={f.pickupDate === bangkokToday() ? bangkokNowTime() : undefined} className={field} value={f.pickupTime} onChange={(e) => set("pickupTime", e.target.value)} /></label>
             </div>
+            {timeProblem && <p role="alert" className="text-[13px] font-medium text-red-700">{timeProblem}</p>}
             {f.serviceType === "transfer" && <>
               <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={f.returnOn} onChange={(e) => set("returnOn", e.target.checked)} className="size-4 accent-brand" />Add return trip</label>
               {f.returnOn && <div className="grid gap-3 sm:grid-cols-2">
