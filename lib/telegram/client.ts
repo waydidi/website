@@ -4,7 +4,8 @@ import { env } from "cloudflare:workers";
 
 export type InlineButton = { text: string; callback_data?: string; url?: string };
 export type InlineKeyboard = InlineButton[][];
-export type TelegramMessage = { message_id: number; chat: { id: number; type?: string }; from?: TelegramUser; text?: string; reply_to_message?: TelegramMessage };
+export type TelegramPhotoSize = { file_id: string; file_unique_id?: string; width: number; height: number; file_size?: number };
+export type TelegramMessage = { message_id: number; chat: { id: number; type?: string }; from?: TelegramUser; text?: string; caption?: string; photo?: TelegramPhotoSize[]; reply_to_message?: TelegramMessage };
 export type TelegramUser = { id: number; username?: string; first_name?: string; last_name?: string; is_bot?: boolean };
 
 export const telegramConfigured = () => Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID);
@@ -35,19 +36,24 @@ export async function tg<T = unknown>(method: string, payload: Record<string, un
 /** Reply settings: `quote` shows that exact text from the replied-to message in the reply. */
 const replyParameters = (replyTo: number, quote?: string) => ({ message_id: replyTo, allow_sending_without_reply: true, ...(quote ? { quote } : {}) });
 
-export const sendCard = (text: string, keyboard?: InlineKeyboard, replyTo?: number, quote?: string) =>
-  tg<TelegramMessage>("sendMessage", { chat_id: telegramChatId(), text, parse_mode: "HTML", disable_web_page_preview: true,
+/** A message to a given chat (the team group, the driver group or a person). */
+export const sendTo = (chatId: string, text: string, keyboard?: InlineKeyboard, replyTo?: number, quote?: string) =>
+  tg<TelegramMessage>("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true,
     ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
     ...(replyTo ? { reply_parameters: replyParameters(replyTo, quote) } : {}) });
+
+export const sendCard = (text: string, keyboard?: InlineKeyboard, replyTo?: number, quote?: string) => sendTo(telegramChatId(), text, keyboard, replyTo, quote);
 
 /** A message to one person's private chat with the bot (they must have pressed Start once). */
 export const sendPrivate = (chatId: string, text: string, replyTo?: number) =>
   tg<TelegramMessage>("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true,
     ...(replyTo ? { reply_parameters: { message_id: replyTo, allow_sending_without_reply: true } } : {}) });
 
-export async function editCard(messageId: number, text: string, keyboard?: InlineKeyboard) {
+export const editCard = (messageId: number, text: string, keyboard?: InlineKeyboard) => editIn(telegramChatId(), messageId, text, keyboard);
+
+export async function editIn(chatId: string, messageId: number, text: string, keyboard?: InlineKeyboard) {
   try {
-    await tg("editMessageText", { chat_id: telegramChatId(), message_id: messageId, text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: keyboard ?? [] } });
+    await tg("editMessageText", { chat_id: chatId, message_id: messageId, text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: keyboard ?? [] } });
   } catch (error) {
     // Editing to identical content is not an error worth surfacing.
     if (!(error instanceof Error && /not modified/i.test(error.message))) throw error;
@@ -57,11 +63,11 @@ export async function editCard(messageId: number, text: string, keyboard?: Inlin
 export const answerCallback = (id: string, text?: string, alert = false) => tg("answerCallbackQuery", { callback_query_id: id, ...(text ? { text, show_alert: alert } : {}) }).catch(() => undefined);
 
 /** A photo to the group (multipart upload), optionally as a reply to a card. */
-export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: number, keyboard?: InlineKeyboard, quote?: string) {
+export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: number, keyboard?: InlineKeyboard, quote?: string, chatId = telegramChatId()) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) throw new Error("TELEGRAM_NOT_CONFIGURED");
   const form = new FormData();
-  form.set("chat_id", telegramChatId());
+  form.set("chat_id", chatId);
   form.set("caption", caption);
   form.set("parse_mode", "HTML");
   if (replyTo) form.set("reply_parameters", JSON.stringify(replyParameters(replyTo, quote)));
@@ -74,11 +80,11 @@ export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: n
 }
 
 /** Up to 10 photos to the group as one album (the caption shows under the first), optionally as a reply. */
-export async function sendPhotoAlbum(photos: { bytes: ArrayBuffer; mime: string }[], caption: string, replyTo?: number, quote?: string) {
+export async function sendPhotoAlbum(photos: { bytes: ArrayBuffer; mime: string }[], caption: string, replyTo?: number, quote?: string, chatId = telegramChatId()) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) throw new Error("TELEGRAM_NOT_CONFIGURED");
   const form = new FormData();
-  form.set("chat_id", telegramChatId());
+  form.set("chat_id", chatId);
   if (replyTo) form.set("reply_parameters", JSON.stringify(replyParameters(replyTo, quote)));
   form.set("media", JSON.stringify(photos.slice(0, 10).map((_, i) => ({ type: "photo", media: `attach://p${i}`, ...(i === 0 ? { caption, parse_mode: "HTML" } : {}) }))));
   photos.slice(0, 10).forEach((p, i) => form.set(`p${i}`, new Blob([p.bytes], { type: p.mime }), `photo-${i}.${p.mime === "image/png" ? "png" : p.mime === "image/webp" ? "webp" : "jpg"}`));
@@ -86,4 +92,23 @@ export async function sendPhotoAlbum(photos: { bytes: ArrayBuffer; mime: string 
   const data = await res.json().catch(() => ({})) as { ok?: boolean; result?: TelegramMessage[]; description?: string };
   if (!data.ok) throw new TelegramDeliveryError(`Telegram sendMediaGroup failed: ${String(data.description ?? res.status).replaceAll(token, "[redacted]")}`, res.status >= 400 && res.status < 500);
   return data.result as TelegramMessage[];
+}
+
+/** Downloads a photo someone sent the bot (largest size first is the caller's choice). */
+export async function downloadFile(fileId: string, maxBytes: number) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) throw new Error("TELEGRAM_NOT_CONFIGURED");
+  const file = await tg<{ file_path?: string; file_size?: number }>("getFile", { file_id: fileId });
+  if (!file.file_path || (file.file_size ?? 0) > maxBytes) return null;
+  const res = await fetch(`https://api.telegram.org/file/bot${token}/${file.file_path}`, { signal: AbortSignal.timeout(15000) });
+  if (!res.ok) return null;
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  return bytes.length > maxBytes ? null : bytes;
+}
+
+let botUsername: string | null = null;
+/** The bot's @username (for t.me links), asked from Telegram once per Worker instance. */
+export async function telegramBotUsername() {
+  botUsername ??= (await tg<{ username?: string }>("getMe", {})).username ?? null;
+  return botUsername;
 }

@@ -76,10 +76,7 @@ export async function handleBookingAnswer(m: TelegramMessage, adminName: string,
   if (prompt.field === "cost") {
     const cost = Number(text.replace(/[,\s฿]|THB|บาท/gi, ""));
     if (!Number.isInteger(cost) || cost < 0 || cost > 500000) { await again("Please send the cost as a number, e.g. 900."); return true; }
-    await db().prepare(`INSERT INTO booking_costs(booking_reference,agreed_driver_cost,additional_costs,total_driver_cost,payment_status,updated_by,created_at,updated_at) VALUES(?,?,0,?,'unpaid',?,?,?)
-      ON CONFLICT(booking_reference) DO UPDATE SET agreed_driver_cost=excluded.agreed_driver_cost,total_driver_cost=excluded.agreed_driver_cost+booking_costs.additional_costs,updated_by=excluded.updated_by,updated_at=excluded.updated_at`)
-      .bind(ref, cost, cost, `telegram:${adminName}`, now(), now()).run();
-    await db().prepare("UPDATE telegram_booking_cards SET cost_done=1 WHERE booking_reference=?").bind(ref).run();
+    await saveDriverCost(ref, cost, adminName);
     // The driver's trip page shows this as the Price.
     await sendCard(`Price THB ${cost.toLocaleString("en-US")} saved for <b>${esc(ref)}</b> ✓ (shown on the driver page)`, undefined, m.message_id).catch(() => undefined);
   } else {
@@ -104,6 +101,14 @@ export async function handleBookingAnswer(m: TelegramMessage, adminName: string,
   await postAssignmentWhenReady(ref, adminName);
   await refresh(ref);
   return true;
+}
+
+/** Saves a booking's driver cost (shown as the Price on the driver page) and marks the card's cost done. */
+export async function saveDriverCost(reference: string, cost: number, adminName: string) {
+  await db().prepare(`INSERT INTO booking_costs(booking_reference,agreed_driver_cost,additional_costs,total_driver_cost,payment_status,updated_by,created_at,updated_at) VALUES(?,?,0,?,'unpaid',?,?,?)
+    ON CONFLICT(booking_reference) DO UPDATE SET agreed_driver_cost=excluded.agreed_driver_cost,total_driver_cost=excluded.agreed_driver_cost+booking_costs.additional_costs,updated_by=excluded.updated_by,updated_at=excluded.updated_at`)
+    .bind(reference, cost, cost, `telegram:${adminName}`, now(), now()).run();
+  await db().prepare("UPDATE telegram_booking_cards SET cost_done=1 WHERE booking_reference=?").bind(reference).run();
 }
 
 /** Our own drivers (not outsource) who can be picked for a booking. */
@@ -181,5 +186,7 @@ export async function postAssignmentWhenReady(reference: string, by: string, hea
     `ลิงก์งาน (สถานะการเดินทาง/คนขับ): ${link}`,
   ];
   await sendCard(lines.join("\n"), undefined, card.telegram_message_id || undefined);
+  // A driver who took the job in the driver group also gets it privately (never in the group).
+  await import("./driver-group").then((m) => m.sendJobToLinkedDriver(form.driverId!, lines.join("\n"))).catch(() => undefined);
   return true;
 }

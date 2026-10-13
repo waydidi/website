@@ -2,7 +2,8 @@ import { env } from "cloudflare:workers";
 import { getFile } from "@/lib/file-store";
 import type { EvidenceRow } from "@/lib/trip-evidence";
 import { esc } from "./cards";
-import { sendCard, sendPhoto, sendPhotoAlbum, telegramConfigured, type InlineKeyboard } from "./client";
+import { sendCard, sendPhoto, sendPhotoAlbum, sendTo, telegramConfigured, type InlineKeyboard } from "./client";
+import { driverOfferMessage } from "./driver-group";
 
 // A driver's Stand by / Pick up / Drop photo, posted to the group under the booking's card. The Drop
 // carries a "Completed job" button: an admin checks the photo and confirms, which completes the job.
@@ -21,10 +22,19 @@ export async function postTripPhoto(input: { reference: string; status: string; 
   const stored = e ? await getFile(e.original_key) : null;
   // "✅Stand by (FMBNUW)" and when the photo was taken: "11/10/2026 — 6:05 AM" (Thailand time).
   const lines = [`✅<b>${esc(STEP_PHOTO_LABEL[input.status] ?? input.status)}</b> (${esc(input.reference)})`, esc(stepTime(e?.device_captured_at ?? new Date().toISOString()))];
+  const photo = stored ? await new Response(stored.body).arrayBuffer() : null;
+  // The driver group sees the same photo and text under the job's offer, without the staff-only button.
+  if (photo) await toDriverGroup(input.reference, (chatId, replyTo) => sendPhoto(photo, lines.join("\n"), replyTo, undefined, undefined, chatId));
   if (keyboard) lines.push("", "Check the photo, then tap Completed job.");
-  if (stored) return sendPhoto(await new Response(stored.body).arrayBuffer(), lines.join("\n"), card?.telegram_message_id || undefined, keyboard);
+  if (photo) return sendPhoto(photo, lines.join("\n"), card?.telegram_message_id || undefined, keyboard);
   // A Drop without a photo (an admin exception) still needs the button.
   if (keyboard) return sendCard([...lines.slice(0, 2), "No photo", ...lines.slice(2)].join("\n"), keyboard, card?.telegram_message_id || undefined);
+}
+
+/** A copy for the driver group (when it's on); a failure there never blocks the team group's post. */
+async function toDriverGroup(reference: string, send: (chatId: string, replyTo?: number) => Promise<unknown>) {
+  const offer = await driverOfferMessage(reference).catch(() => null);
+  if (offer) await send(offer.chatId, offer.messageId).catch((error) => console.error("driver group photo failed", error instanceof Error ? error.message : "unknown"));
 }
 
 /** "2026-10-11" → "11/10/2026". */
@@ -80,6 +90,9 @@ export async function postJobCompleted(reference: string, leg: string) {
   if (info?.returnDate && leg === "outbound") lines.push("", "Next: the second trip.");
   // A reply under the booking's card, quoting its "Reference: …" line; without the quote if Telegram can't
   // find that text (e.g. the card was changed), and as a plain message if the card was never posted.
+  await toDriverGroup(reference, (chatId, offerId) => photos.length >= 2 ? sendPhotoAlbum(photos, lines.join("\n"), offerId, undefined, chatId)
+    : photos.length === 1 ? sendPhoto(photos[0].bytes, lines.join("\n"), offerId, undefined, undefined, chatId)
+    : sendTo(chatId, lines.join("\n"), undefined, offerId));
   const replyTo = card?.telegram_message_id || undefined;
   const send = (quote?: string): Promise<unknown> => photos.length >= 2 ? sendPhotoAlbum(photos, lines.join("\n"), replyTo, quote)
     : photos.length === 1 ? sendPhoto(photos[0].bytes, lines.join("\n"), replyTo, undefined, quote)
