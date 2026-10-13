@@ -198,7 +198,7 @@ async function assignTaken(reference: string, d: Driver) {
   // The Thai job with the customer's details goes to the team group and privately to the driver
   // (the cost is always set by now); without a cost the team group is told who took it.
   // A short line first ("รถทะเบียน … รับงาน REF"), then the job with the customer's details.
-  await sendTo(telegramChatId(), `รถทะเบียน <b>${esc(d.car_plate || "-")}</b> รับงาน <b>${esc(reference)}</b>`, undefined, await teamCardMessage(reference)).catch(() => undefined);
+  await sendTo(telegramChatId(), `รถทะเบียน <b>${esc(d.car_plate || "-")}</b> รับงาน <b>${esc(reference)}</b> ✅`, undefined, await teamCardMessage(reference)).catch(() => undefined);
   const posted = await tasks.postAssignmentWhenReady(reference, `คนขับ ${d.full_name}`, `✋ ${esc(d.car_plate || d.full_name)} รับงานจากกลุ่มคนขับ${await samePhoneWarning(d)}`).catch(() => false);
   if (!posted) await noteTeamGroup(reference, d).catch(() => undefined);
   await bookings.refreshBookingCard(reference).catch(() => undefined);

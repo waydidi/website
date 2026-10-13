@@ -138,7 +138,7 @@ test('two linked drivers tapping Assign at once: the first tap gets the job, the
  // The team group gets the Thai job with the customer's details, headed by who took it.
  const team=sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111');
  // First a short line under the booking card, then the job headed by the car plate.
- assert.equal(team[0].body.text,'รถทะเบียน <b>กข 1234</b> รับงาน <b>DG0001</b>');
+ assert.equal(team[0].body.text,'รถทะเบียน <b>กข 1234</b> รับงาน <b>DG0001</b> ✅');
  assert.equal(team[0].body.reply_parameters.message_id,9000);
  const job=team[1];
  assert.equal(job.body.text.split('\n')[0],'✋ กข 1234 รับงานจากกลุ่มคนขับ');
