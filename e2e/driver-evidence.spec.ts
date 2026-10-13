@@ -77,6 +77,30 @@ test("Stand by: the button opens the camera; the photo is uploaded and sent with
   expect(pings).toHaveLength(0); // no live location sharing
 });
 
+test("the saved picture has latitude, longitude and the time burned into its bottom 30%", async ({ page }) => {
+  await setup(page, "going_to_standby");
+  await page.getByRole("button", { name: "ยืนยันว่าถึงจุดรับแล้ว" }).click({ timeout: 30000 });
+  const camera = page.getByRole("dialog", { name: "รอที่จุดรับ" });
+  await expect.poll(() => camera.locator("video").evaluate((v) => (v as HTMLVideoElement).videoWidth)).toBeGreaterThan(0);
+  await camera.getByRole("button", { name: "ถ่ายรูป" }).click();
+  const shot = camera.getByRole("img", { name: "รูปที่ถ่าย" });
+  await expect(shot).toBeVisible();
+  // The camera feed here is plain grey with an orange block and nothing white, so any white pixels are the text.
+  const result = await shot.evaluate(async (node) => {
+    const img = node as HTMLImageElement; await img.decode();
+    const canvas = document.createElement("canvas"); canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d")!; ctx.drawImage(img, 0, 0);
+    const edge = Math.round(canvas.height * 0.7);
+    const white = (y0: number, y1: number) => { const d = ctx.getImageData(0, y0, canvas.width, y1 - y0).data; let n = 0; for (let k = 0; k < d.length; k += 4) if (d[k] > 235 && d[k + 1] > 235 && d[k + 2] > 235) n++; return n; };
+    const px = (y: number) => Array.from(ctx.getImageData(5, y, 1, 1).data);
+    return { whiteBottom: white(edge, canvas.height), whiteTop: white(0, edge), grey: px(Math.round(canvas.height * 0.2)), dark: px(canvas.height - 3) };
+  });
+  expect(result.whiteBottom).toBeGreaterThan(300); // the stamp text
+  expect(result.whiteTop).toBe(0); // nothing above the bottom 30%
+  expect(result.grey[0]).toBeGreaterThan(80); // the top of the picture is untouched
+  expect(result.dark[0]).toBeLessThan(50); // the bottom fades to dark so the text reads
+});
+
 test("before the camera: step 1 asks for location, step 2 for the camera, then the camera opens", async ({ page }) => {
   await setup(page, "going_to_standby", { granted: false });
   await page.getByRole("button", { name: "ยืนยันว่าถึงจุดรับแล้ว" }).click({ timeout: 30000 });

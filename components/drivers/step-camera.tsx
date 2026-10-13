@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 import { driverHeaders } from "@/lib/driver-token";
 import type { EvidencePolicy, EvidenceType } from "@/lib/evidence-rules";
+import { STAMP_HEIGHT_SHARE, stampLines, type StampGps } from "@/lib/photo-stamp";
 
 // Waydidi's GPS camera, used to confirm Stand by, Pick up and Drop. Before the camera opens the driver
 // allows two things, one after the other, each from its own card and button (like Google's "use your
@@ -16,11 +17,31 @@ import type { EvidencePolicy, EvidenceType } from "@/lib/evidence-rules";
 type Gps = { latitude: number; longitude: number; accuracy: number };
 type Stage = "checking" | "location" | "camera" | "ready";
 
-async function toJpeg(source: HTMLVideoElement | HTMLImageElement, width: number, height: number) {
+/** Burns the stamp into the bottom 30% of the picture: a dark fade, then latitude, longitude and time. */
+function drawStamp(context: CanvasRenderingContext2D, width: number, height: number, lines: string[]) {
+  const top = height * (1 - STAMP_HEIGHT_SHARE);
+  const fade = context.createLinearGradient(0, top, 0, height);
+  fade.addColorStop(0, "rgba(0,0,0,0)"); fade.addColorStop(0.45, "rgba(0,0,0,.55)"); fade.addColorStop(1, "rgba(0,0,0,.8)");
+  if (!lines.length) return;
+  context.fillStyle = fade; context.fillRect(0, top, width, height - top);
+  // The text is sized to fit the longest line across the width and the lines inside the 30%.
+  const margin = width * 0.04, size = Math.max(12, Math.min(width * 0.055, (height * STAMP_HEIGHT_SHARE - margin) / (lines.length * 1.35)));
+  context.textBaseline = "alphabetic"; context.shadowColor = "rgba(0,0,0,.9)"; context.shadowBlur = size * 0.15;
+  lines.forEach((line, index) => {
+    context.font = `${index === 0 ? 800 : 600} ${index === 0 ? size * 0.85 : size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    context.fillStyle = index === 0 ? "#fdba74" : "#ffffff";
+    context.fillText(line, margin, height - margin - (lines.length - 1 - index) * size * 1.35, width - margin * 2);
+  });
+  context.shadowBlur = 0;
+}
+
+async function toJpeg(source: HTMLVideoElement | HTMLImageElement, width: number, height: number, stamp: string[]) {
   if (!width || !height) throw new Error("กล้องยังไม่พร้อม ลองอีกครั้ง");
   const ratio = Math.min(1, 1280 / Math.max(width, height)), canvas = document.createElement("canvas");
   canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
-  canvas.getContext("2d")!.drawImage(source, 0, 0, canvas.width, canvas.height);
+  const context = canvas.getContext("2d")!;
+  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  drawStamp(context, canvas.width, canvas.height, stamp);
   return new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("เตรียมรูปไม่สำเร็จ"))), "image/jpeg", 0.82));
 }
 
@@ -29,6 +50,7 @@ async function alreadyGranted(name: "geolocation" | "camera") {
   try { return (await navigator.permissions.query({ name: name as PermissionName })).state === "granted"; } catch { return false; }
 }
 
+const stampFor = (gps: StampGps | null, at: string) => (gps ? stampLines(gps, at) : []);
 const fix = (p: GeolocationPosition): Gps => ({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy });
 
 /** One permission card: icon, step, what is asked and why, and the button that asks the phone. */
@@ -131,15 +153,18 @@ export function StepCamera({ title, type, policy, onCancel, onSaved }: {
   useEffect(() => { if (live && video.current) video.current.srcObject = stream.current; }, [live]);
   useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
 
-  function keep(blob: Blob) { setPhoto({ blob, url: URL.createObjectURL(blob), at: new Date().toISOString(), gps }); }
+  function keep(blob: Blob, at: string) { setPhoto({ blob, url: URL.createObjectURL(blob), at, gps }); }
   async function shoot() {
     if (!video.current) return;
-    try { keep(await toJpeg(video.current, video.current.videoWidth, video.current.videoHeight)); } catch (e) { setError((e as Error).message); }
+    try {
+      const at = new Date().toISOString();
+      keep(await toJpeg(video.current, video.current.videoWidth, video.current.videoHeight, stampFor(gps, at)), at);
+    } catch (e) { setError((e as Error).message); }
   }
   async function fromCameraApp(file: File | undefined) {
     if (!file) return;
     const url = URL.createObjectURL(file);
-    try { const img = new Image(); img.src = url; await img.decode(); keep(await toJpeg(img, img.naturalWidth, img.naturalHeight)); }
+    try { const img = new Image(); img.src = url; await img.decode(); const at = new Date().toISOString(); keep(await toJpeg(img, img.naturalWidth, img.naturalHeight, stampFor(gps, at)), at); }
     catch { setError("เปิดรูปนี้ไม่ได้ ลองถ่ายใหม่"); }
     finally { URL.revokeObjectURL(url); }
   }

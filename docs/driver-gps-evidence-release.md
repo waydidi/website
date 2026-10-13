@@ -16,6 +16,10 @@ Refresh recovery uses IndexedDB. Photo drafts retain their stable upload ID; fai
 
 Admin → Journey details contains private photos, assignment/leg/driver context, metadata, retention status, and links to the sanitized originals. Existing operations review links also open the new evidence. Owners can change global photo policy, GPS timeout/accuracy and retention; owners and operations staff can record a reasoned exception for one assignment/event. An exception does not advance the trip or bypass other business rules.
 
+### Stamp on the picture
+
+The browser burns **latitude, longitude and the time** (Thailand time, UTC+7) into the bottom 30% of the photo itself, on a dark fade so it reads on any picture (`lib/photo-stamp.ts`, drawn in `components/drivers/step-camera.tsx`). The driver sees it in the preview, and because it is part of the saved JPEG it also appears in Admin → Journey details and in the photos posted to Telegram. The coordinates come from the phone's GPS at the moment of the shot; the time is the phone's clock shown in Thailand time (device time, as before, not server-verified). Photos taken before this change have no stamp.
+
 ## Data and access control
 
 Apply `drizzle/0098_driver_gps_evidence.sql` once. It adds:
