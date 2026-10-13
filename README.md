@@ -71,6 +71,15 @@ Each cost is saved exactly as with **Set cost** (an unassigned card is taken by 
 Updates are de-duplicated by `update_id`, the webhook secret is checked on every call, callbacks are re-validated server side, and replies are routed only by stored Telegram message ids, never by name. Failed Telegram deliveries keep the customer's message and are retried by the five-minute cron. The schema is in `drizzle/0069_chat_telegram.sql`.
 
 
+### Editing a booking that already has a driver
+
+When staff edit a booking in Admin (details, or its payment) or approve a customer's change, and a driver already has the job, the driver is **not** told straight away. The Admin group gets an **แก้ไขการจอง** card with the booking, the change and the current driver. **Assign to me** shows two choices:
+
+- **คนขับปัจจุบัน**: the Waydidi bot sends the updated ใบงาน to the driver who has the job (new trip link; the old one stops working).
+- **คนขับใหม่**: the current driver loses the job (link revoked, told privately), the post in the driver group says "กำลังหาคนขับใหม่", the old driver cost is cleared (unless already paid) and the Admin group is asked for a new cost. Once it is set, the job is offered to the driver group (or the south group) again as for a new booking.
+
+Only one person's tap counts. A second edit before anyone answers replaces the first card. A booking with no driver is only redrawn (an offer still in the driver group updates itself).
+
 ### Admin links opened from Telegram
 
 The staff cookie is `SameSite=Strict`, so a link tapped outside the site (Telegram's **Open booking**) used to arrive without it and showed `{"error":"Staff sign-in required."}` even for a signed-in person. A staff page or API address opened as a page visit without the cookie now goes through one hop (a small page on waydidi.com that reloads the same address, which sends the cookie). Still no session after the hop: the sign-in page. Fetches and API calls keep the plain 401, and the cookie rule is unchanged (`lib/admin-gate.ts`, `worker/index.ts`).

@@ -10,12 +10,13 @@ import { fullName as personName } from "@/lib/person-name";
 import { VEHICLES } from "@/lib/vehicles";
 import { esc } from "./cards";
 import { editCard, sendCard, telegramChatId, telegramConfigured } from "./client";
+import { askBookingQuestion, postAssignmentWhenReady } from "./booking-tasks";
 import { paymentLabelThai } from "@/lib/payment-methods";
 
 // Cancellation and journey-change requests on Telegram. Each request gets one card in the group
 // with buttons; the outcome edits the card, and a driver who already has the job is told in Thai.
 
-type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
+type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<{ meta: { changes: number } }> };
 const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
 const now = () => new Date().toISOString();
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
@@ -181,8 +182,8 @@ export async function approveChange(id: string, by: string) {
     return "The booking changed since this request; ask the customer to send it again.";
   }
   await close(`chg:${id}`, changeText(b, c, `\nอนุมัติแล้ว โดย ${esc(by)}${c.price_difference ? ` · ${c.price_difference > 0 ? "เก็บเงินเพิ่ม" : "คืนเงิน"} ${thb(Math.abs(c.price_difference))}` : ""}`));
-  // The driver gets a fresh job post (new link; the old one stops working).
-  await republishJob(b.reference, by);
+  // A driver who has the job: the Admin group chooses what happens next (see notifyBookingEdited).
+  await notifyBookingEdited(b.reference, by, "ลูกค้าเปลี่ยนการเดินทาง");
   return "Change approved.";
 }
 
@@ -218,4 +219,111 @@ export async function republishJob(reference:string,by:string,note="") {
     await deliverAssignmentTelegram(committed.assignment.id);
   }
   await import("./bookings").then(m=>m.refreshBookingCard(reference));
+}
+
+// ---------- A booking that already has a driver was edited ----------
+// The driver is not told automatically. The Admin group gets an "edited booking" card: «Assign to me», then two
+// choices: «คนขับปัจจุบัน» sends the updated ใบงาน to the driver who has the job; «คนขับใหม่» takes the job away
+// from that driver, asks for a new driver cost in the Admin group and offers the job to the driver group again.
+
+const editKeyboard = (id: string, step: "open" | "ack") => step === "open"
+  ? [[{ text: "Assign to me", callback_data: `edit_ack:${id}` }]]
+  : [[{ text: "คนขับปัจจุบัน", callback_data: `edit_cur:${id}` }, { text: "คนขับใหม่", callback_data: `edit_new:${id}` }]];
+
+type EditDriver = { driver_id: string; full_name: string; phone: string | null; car_plate: string | null; vehicle: string | null };
+const currentDriver = (ref: string) => db().prepare(`SELECT a.driver_id,d.full_name,d.phone,d.car_plate,d.vehicle FROM booking_assignments a JOIN drivers d ON d.id=a.driver_id
+  WHERE a.booking_reference=? AND a.leg='outbound' AND a.revoked_at IS NULL`).bind(ref).first<EditDriver>();
+
+function editText(b: Booking, d: EditDriver | null, note: string, extra = "") {
+  return [`<b>แก้ไขการจอง ${esc(b.reference)}</b>${note ? ` · ${esc(note)}` : ""}`, "",
+    `ลูกค้า: ${esc(fullName(b))}${b.customer_phone ? ` · ${esc(b.customer_phone)}` : ""}`,
+    `การเดินทาง: ${esc(trip(b))}`,
+    `ยอดจอง: ${thb(b.total)} (${b.payment_method === "transfer" || b.payment_method === "cash" ? paymentLabelThai(b.payment_method, b.payment_status) : "ชำระออนไลน์แล้ว"})`, "",
+    d ? `คนขับปัจจุบัน: ${esc(d.full_name)}${d.car_plate ? ` · ${esc(d.car_plate)}` : ""}${d.phone ? ` · ${esc(d.phone)}` : ""}` : "คนขับปัจจุบัน: -",
+    extra].filter((l, i, all) => l !== "" || (i > 0 && all[i - 1] !== "")).join("\n").trim();
+}
+
+/**
+ * A booking was edited (Admin, a payment change, or an approved customer change). With no driver on it the card is
+ * just redrawn (an offer still in the driver group updates itself). With a driver, the Admin group gets the
+ * "edited booking" card above; an older, unanswered edit card for the same booking is replaced by this one.
+ */
+export async function notifyBookingEdited(reference: string, by: string, note = "") {
+  if (!telegramConfigured()) return;
+  const refresh = () => import("./bookings").then((m) => m.refreshBookingCard(reference)).catch(() => undefined);
+  const b = await booking(reference);
+  if (!b || b.status === "cancelled" || !await jobMessageId(reference)) { await refresh(); return; }
+  // Replace an edit card nobody finished.
+  const { results: older } = await db().prepare("SELECT telegram_message_id FROM telegram_request_cards WHERE booking_reference=? AND kind='edit' AND status IN ('open','ack')").bind(reference).all<{ telegram_message_id: number }>();
+  if (older.length) {
+    await db().prepare("UPDATE telegram_request_cards SET status='done' WHERE booking_reference=? AND kind='edit' AND status IN ('open','ack')").bind(reference).run();
+    for (const r of older) if (r.telegram_message_id) await editCard(r.telegram_message_id, `<b>แก้ไขการจอง ${esc(reference)}</b>\nถูกแทนที่ด้วยการแก้ไขล่าสุดด้านล่าง`, []).catch(() => undefined);
+  }
+  const id = `${reference}-${Date.now().toString(36)}`;
+  if (!await claim(id, reference, "edit")) return;
+  await post(id, editText(b, await currentDriver(reference), note, `แก้ไขโดย: ${esc(by)}`), editKeyboard(id, "open"));
+  await refresh();
+}
+
+type EditCard = { id: string; booking_reference: string; telegram_message_id: number };
+const editCardRow = (id: string) => db().prepare("SELECT id,booking_reference,telegram_message_id FROM telegram_request_cards WHERE id=? AND kind='edit'").bind(id).first<EditCard>();
+/** Moves an edit card from one step to the next once (two people tapping at once: one wins). */
+async function step(id: string, from: "open" | "ack", to: "ack" | "done") {
+  return (await db().prepare("UPDATE telegram_request_cards SET status=? WHERE id=? AND kind='edit' AND status=?").bind(to, id, from).run()).meta.changes > 0;
+}
+async function showEdit(card: EditCard, text: string, keyboard: { text: string; callback_data: string }[][]) {
+  if (card.telegram_message_id) await editCard(card.telegram_message_id, text, keyboard).catch(() => undefined);
+}
+
+/** «Assign to me» on the edited-booking card: shows the two choices. */
+export async function acknowledgeEdit(id: string, by: string) {
+  const card = await editCardRow(id);
+  const b = card && await booking(card.booking_reference);
+  if (!card || !b) return "Request not found.";
+  if (!await step(id, "open", "ack")) return "Someone already took this.";
+  await showEdit(card, editText(b, await currentDriver(b.reference), "", `รับเรื่องโดย: ${esc(by)}\nเลือก: คนขับปัจจุบัน หรือ คนขับใหม่`), editKeyboard(id, "ack"));
+  return "It's yours. Choose the current driver or a new driver.";
+}
+
+/** «คนขับปัจจุบัน»: the driver who has the job gets the updated ใบงาน (new link; the old one stops working). */
+export async function editKeepDriver(id: string, by: string) {
+  const card = await editCardRow(id);
+  const b = card && await booking(card.booking_reference);
+  if (!card || !b) return "Request not found.";
+  if (!await step(id, "ack", "done")) return "Already handled.";
+  const d = await currentDriver(b.reference);
+  if (!d) {
+    await showEdit(card, editText(b, null, "", `ไม่มีคนขับแล้ว · ปิดโดย ${esc(by)}`), []);
+    await import("./bookings").then((m) => m.refreshBookingCard(b.reference)).catch(() => undefined);
+    return "That job has no driver any more.";
+  }
+  await republishJob(b.reference, by, "แก้ไขโดยแอดมิน");
+  await showEdit(card, editText(b, d, "", `ส่งใบงานที่แก้ไขให้คนขับปัจจุบันแล้ว · โดย ${esc(by)}`), []);
+  return "Updated job sent to the current driver.";
+}
+
+/**
+ * «คนขับใหม่»: the current driver loses the job (their link stops working and they are told), the job is
+ * taken out of the driver group, and the Admin group is asked for a new driver cost. Once it is set the
+ * job is offered to the driver group again, as for a new booking.
+ */
+export async function editNewDriver(id: string, by: string, asker: { id: number; first_name?: string }) {
+  const card = await editCardRow(id);
+  const b = card && await booking(card.booking_reference);
+  if (!card || !b) return "Request not found.";
+  if (!await step(id, "ack", "done")) return "Already handled.";
+  const d = await currentDriver(b.reference);
+  const at = now();
+  await db().prepare("UPDATE booking_assignments SET revoked_at=?,updated_at=? WHERE booking_reference=? AND leg='outbound' AND revoked_at IS NULL").bind(at, at, b.reference).run();
+  await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=NULL,driver_done=0,assignment_posted=0,cost_done=0 WHERE booking_reference=?").bind(b.reference).run();
+  // The old cost goes (unless it was already paid), so the job is not offered again until the new cost is set.
+  const oldCost = await db().prepare("SELECT total_driver_cost AS cost FROM booking_costs WHERE booking_reference=? AND payment_status<>'paid'").bind(b.reference).first<{ cost: number | null }>();
+  await db().prepare("UPDATE booking_costs SET agreed_driver_cost=0,additional_costs=0,total_driver_cost=0,updated_by=?,updated_at=? WHERE booking_reference=? AND payment_status<>'paid'").bind(`telegram:${by}`, at, b.reference).run();
+  const driverGroup = await import("./driver-group");
+  await driverGroup.withdrawDriverOffer(b.reference).catch((error) => console.error("driver offer withdraw failed", error instanceof Error ? error.message : "unknown"));
+  if (d) await driverGroup.sendJobToLinkedDriver(d.driver_id, `⚠️ <b>งาน ${esc(b.reference)}</b> มีการแก้ไขและเปลี่ยนคนขับ ลิงก์งานเดิมใช้ไม่ได้แล้ว ไม่ต้องไปรับงานนี้`).catch(() => undefined);
+  await showEdit(card, editText(b, d, "", `คนขับใหม่ · โดย ${esc(by)}${oldCost?.cost ? `\nราคาค่างานเดิม: ${oldCost.cost.toLocaleString("en-US")} บาท` : ""}\nกำลังตั้งราคาค่างานใหม่ แล้วจะส่งงานให้กลุ่มคนขับอีกครั้ง`), []);
+  await import("./bookings").then((m) => m.refreshBookingCard(b.reference)).catch(() => undefined);
+  await askBookingQuestion(b.reference, "cost", asker);
+  return "Type the new driver cost. The job is offered to the drivers again after that.";
 }

@@ -148,6 +148,24 @@ export async function syncDriverOffer(reference: string) {
   if (driverJobLeg(reference).leg==='outbound') await syncDriverOffer(driverJobIdentity(reference,'return'));
 }
 
+/**
+ * The job is being given to a new driver (the booking was edited): its post in the driver group says so and the
+ * offer is forgotten, so the next one (after the new driver cost is set) is posted fresh.
+ */
+export async function withdrawDriverOffer(reference: string) {
+  const group = driverGroup();
+  if (!group) return;
+  await ensureTables();
+  const job = await db().prepare("SELECT telegram_message_id FROM telegram_driver_jobs WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>();
+  if (!job) return;
+  const chatId = await chatForJob(reference, group);
+  if (job.telegram_message_id) await editIn(chatId, job.telegram_message_id, `🔄 งาน <b>${esc(reference)}</b> มีการเปลี่ยนแปลง กำลังหาคนขับใหม่`, []).catch(() => undefined);
+  await db().batch([
+    db().prepare("DELETE FROM telegram_driver_jobs WHERE booking_reference=?").bind(reference),
+    db().prepare("DELETE FROM telegram_driver_job_chats WHERE booking_reference=?").bind(reference),
+  ]);
+}
+
 /** The driver-group message of a booking's offer, for posting trip photos under it. */
 export async function driverOfferMessage(reference: string,leg="outbound") {
   reference=driverJobIdentity(reference,leg);
