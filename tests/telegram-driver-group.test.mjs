@@ -76,9 +76,7 @@ test('a booking is offered to the driver group in Thai, with the Assign button a
  await group.postDriverOffer('DG0001');
  const post=sent.find(s=>s.method==='sendMessage');
  assert.equal(post.body.chat_id,'-100222');
- assert.match(post.body.text,/งานใหม่ · <b>DG0001<\/b>/);
- assert.match(post.body.text,/รถ: ตู้สวย\nวันที่\/เวลา: 15\/01\/2099 09:30\nรับ: Suvarnabhumi Airport\nส่ง: Pattaya Hilton\nจำนวน: 4 คน, 3 กระเป๋า/);
- assert.match(post.body.text,/ค่างาน: 1,800 บาท\nการชำระ: เก็บเงินสด 2,500 บาท/);
+ assert.equal(post.body.text,['ตู้สวย งานใหม่🚗','','วันที่: 15/01/2099','เวลา: 09:30','รับ: Suvarnabhumi Airport','ส่ง: Pattaya Hilton','จำนวน: 4 คน, 3 กระเป๋า','ค่างาน: 1,800 บาท','','คนแรกที่กด «รับงาน» ได้งานนี้'].join('\n'));
  for(const secret of ['Jessica','Moore','+66811112222','jess@example.com','TG101'])assert.ok(!post.body.text.includes(secret),secret);
  assert.deepEqual(post.body.reply_markup.inline_keyboard,[[{text:'✋ รับงาน (Assign)',callback_data:'dj_take:DG0001'}]]);
  assert.match(post.body.text,/คนแรกที่กด «รับงาน» ได้งานนี้/);
@@ -97,7 +95,8 @@ test('a booking without a driver cost is not offered; setting the cost posts it'
  await saveDriverCost('DG0010',2100,'Admin');
  await refreshBookingCard('DG0010');
  const post=sent.find(s=>s.method==='sendMessage'&&s.body.chat_id==='-100222');
- assert.match(post.body.text,/DG0010[\s\S]*ค่างาน: 2,100 บาท/);
+ assert.match(post.body.text,/ค่างาน: 2,100 บาท/);
+ assert.deepEqual(post.body.reply_markup.inline_keyboard,[[{text:'✋ รับงาน (Assign)',callback_data:'dj_take:DG0010'}]]);
 });
 
 test('nothing goes to the driver group while the feature is off',async()=>{
@@ -289,7 +288,7 @@ test('setting costs for several bookings in one message posts them all to the dr
  sent.length=0;
  await setCostsFromMessage(bulkRules.parseBulkCost('ราคา\nBK0003 1500\nBK0001 1200\nBK0002 1300\nBKGONE 900\nNOPE99 800\nbad line'),'Nok',4242);
  const offers=sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='-100222');
- assert.deepEqual(offers.map(o=>o.body.text.match(/<b>(\w+)<\/b>/)[1]),['BK0001','BK0002','BK0003']);
+ assert.deepEqual(offers.map(o=>o.body.reply_markup.inline_keyboard[0][0].callback_data),['dj_take:BK0001','dj_take:BK0002','dj_take:BK0003']);
  assert.match(offers[0].body.text,/ค่างาน: 1,200 บาท/);
  for(const [ref,cost] of [['BK0001',1200],['BK0002',1300],['BK0003',1500]]){
   assert.equal(await d1.prepare("SELECT total_driver_cost FROM booking_costs WHERE booking_reference=?").bind(ref).first('total_driver_cost'),cost);

@@ -49,7 +49,7 @@ async function bookingFor(reference: string) {
 const offerJob = (b: BookingRow): OfferJob => ({
   reference: b.reference, vehicleName: jobVehicleName(b.vehicle), pickupDate: b.pickup_date, pickupTime: b.pickup_time, pickup: b.pickup, dropoff: b.dropoff,
   serviceType: b.service_type, bookedHours: b.booked_hours, passengers: b.passengers, luggage: b.luggage, returnDate: b.return_date, returnTime: b.return_time,
-  driverCost: b.driver_cost, paymentMethod: b.payment_method, paymentStatus: b.payment_status, cashDue: Math.max(0, b.total - (b.amount_paid ?? 0)),
+  driverCost: b.driver_cost,
 });
 
 const pickupPassed = (b: { pickup_date: string; pickup_time: string }) => new Date(`${b.pickup_date}T${b.pickup_time || "00:00"}:00+07:00`).getTime() <= Date.now();
