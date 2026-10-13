@@ -209,6 +209,13 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  assert.match(sent.filter(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222').at(-1).body.text,/\n\n✅ รับงานแล้ว: Carol Saetang$/);
  assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/งาน <b>DG0006<\/b> เป็นของคุณ/);
  assert.equal(await d1.prepare("SELECT COUNT(*) n FROM telegram_driver_forms").first('n'),0);
+ // The licence/ID and car photos she sent go to the team group as one album under the booking card.
+ const album=sent.find(s=>s.method==='sendMediaGroup');
+ assert.equal(album.body.get('chat_id'),'-100111');
+ assert.equal(JSON.parse(album.body.get('reply_parameters')).message_id,9000);
+ const media=JSON.parse(album.body.get('media'));
+ assert.equal(media.length,2);
+ assert.match(media[0].caption,/^🪪 เอกสารคนขับใหม่: <b>Carol Saetang<\/b>\nเบอร์: 089 999 8888\nรถ: Toyota Commuter สีเงิน\nทะเบียน: นง 8384\nรูป: ใบขับขี่\/บัตรประชาชน, รถ\nงาน: DG0006$/);
  // Next time: one tap, then the bot asks which car — her saved one, or «รถอื่นๆ».
  await booking('DG0007');await group.postDriverOffer('DG0007');
  sent.length=0;
@@ -229,6 +236,9 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  assert.deepEqual(await d1.prepare("SELECT status,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0007'").first(),{status:'taken',driver_id:link.driver_id});
  assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/บันทึกข้อมูลรถแล้ว ✓\n✅ งาน <b>DG0007<\/b> เป็นของคุณ/);
  assert.equal(await d1.prepare("SELECT COUNT(*) n FROM drivers WHERE full_name='Carol Saetang'").first('n'),1); // same driver, new car
+ const carPhoto=sent.filter(s=>s.method==='sendPhoto').at(-1);
+ assert.equal(carPhoto.body.get('chat_id'),'-100111');
+ assert.match(carPhoto.body.get('caption'),/^🚗 รถใหม่ของคนขับ: <b>Carol Saetang<\/b>[\s\S]*ทะเบียน: กท 5555\nรูป: รถ\nงาน: DG0007$/);
 });
 
 test('a first-time driver who never opened the bot is sent to it with the sign-up link',async()=>{

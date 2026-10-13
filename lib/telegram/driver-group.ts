@@ -1,9 +1,9 @@
 import { env } from "cloudflare:workers";
 import { prepareDriverImage } from "@/lib/admin-driver-images";
-import { putFile } from "@/lib/file-store";
+import { getFile, putFile } from "@/lib/file-store";
 import { assignedDriverUrl } from "@/lib/trip-links";
 import { esc } from "./cards";
-import { answerCallback, downloadFile, editIn, sendPrivate, sendTo, telegramBotUsername, telegramChatId, tg, type InlineKeyboard, type TelegramMessage, type TelegramUser } from "./client";
+import { answerCallback, downloadFile, editIn, sendPhoto, sendPhotoAlbum, sendPrivate, sendTo, telegramBotUsername, telegramChatId, tg, type InlineKeyboard, type TelegramMessage, type TelegramUser } from "./client";
 import { jobVehicleName } from "./job-text";
 import {
   CAR_TYPES, SIGNUP_MINUTES, STEP_QUESTION, checkTextAnswer, driverGroupConfig, isCarType, isGroupMember, isMyJobsCommand, nextStep, offerText, parseSignupStart, signupLink, stepsFor,
@@ -324,8 +324,25 @@ async function finishForm(form: FormRow, draft: DriverDraft, chatId: string, use
   ]);
   const d: Driver = { id, full_name: car ? me!.full_name : draft.name!, phone: car ? me!.phone : draft.phone!, car_plate: draft.plate!, vehicle: draft.model!, license_number: car ? me!.license_number : null };
   const ok = await completeTake(user, form.booking_reference, d);
+  // The photos the driver just sent go to the team group for checking: licence/ID and car (first time), or the car (รถอื่นๆ).
+  await postDriverPhotos(form.booking_reference, d, car ? [carKey] : [`driver-verification/${id}/identity.jpg`, carKey], car).catch((error) => console.error("driver photos to team group failed", error instanceof Error ? error.message : "unknown"));
   await say(chatId, `${car ? "บันทึกข้อมูลรถแล้ว ✓" : "บันทึกข้อมูลคนขับแล้ว ✓"}\n${ok ? `✅ งาน <b>${esc(form.booking_reference)}</b> เป็นของคุณ ใบงานพร้อมข้อมูลลูกค้าและลิงก์งานส่งมาในแชทนี้`
     : "❌ แต่หมดเวลาหรืองานนี้มีคนขับแล้ว"}`);
+}
+
+/** The sign-up photos, under the booking's card in the team group (private storage → Telegram, never a public link). */
+async function postDriverPhotos(reference: string, d: Driver, keys: string[], carOnly: boolean) {
+  const photos: { bytes: ArrayBuffer; mime: string }[] = [];
+  for (const key of keys) {
+    const file = await getFile(key).catch(() => null);
+    if (file) photos.push({ bytes: await new Response(file.body).arrayBuffer(), mime: "image/jpeg" });
+  }
+  if (!photos.length) return;
+  const caption = [carOnly ? `🚗 รถใหม่ของคนขับ: <b>${esc(d.full_name)}</b>` : `🪪 เอกสารคนขับใหม่: <b>${esc(d.full_name)}</b>`, `เบอร์: ${esc(d.phone)}`,
+    `รถ: ${esc(d.vehicle || "-")}`, `ทะเบียน: ${esc(d.car_plate || "-")}`, carOnly ? "รูป: รถ" : "รูป: ใบขับขี่/บัตรประชาชน, รถ", `งาน: ${esc(reference)}`].join("\n");
+  const replyTo = await teamCardMessage(reference);
+  if (photos.length >= 2) await sendPhotoAlbum(photos, caption, replyTo, undefined, telegramChatId());
+  else await sendPhoto(photos[0].bytes, caption, replyTo, undefined, undefined, telegramChatId());
 }
 
 /** Private messages for drivers. Returns true when handled (otherwise the staff chat handler runs). */
