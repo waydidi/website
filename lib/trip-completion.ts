@@ -6,7 +6,7 @@ import { completeJourney, parseLeg } from "@/lib/journey-legs";
 import { notifyLineDriverPayment } from "@/lib/line";
 
 /** An admin confirms a driver's Drop (from LINE "ปิดงาน" or Telegram "Completed job"): the job is completed. */
-export async function verifyTripCompletion(eventId: string, verifiedBy: string): Promise<{ result: "done" | "already" | "invalid"; reference?: string }> {
+export async function verifyTripCompletion(eventId: string, verifiedBy: string): Promise<{ result: "done" | "already" | "invalid"; reference?: string; leg?: string }> {
   const [statusEvent] = await getDb().select().from(driverStatusEvents).where(eq(driverStatusEvents.id, eventId)).limit(1);
   if (!statusEvent || statusEvent.status !== "completed") return { result: "invalid" };
   if (statusEvent.verificationStatus === "verified") return { result: "already", reference: statusEvent.bookingReference };
@@ -23,5 +23,5 @@ export async function verifyTripCompletion(eventId: string, verifiedBy: string):
   await env.DB.prepare("INSERT OR IGNORE INTO booking_events (booking_reference, event_type, provider_event_id, created_at) VALUES (?, 'trip_completed_verified', ?, ?)").bind(booking.reference, `completed:${statusEvent.id}`, now).run();
   const [driver] = await getDb().select().from(drivers).where(eq(drivers.id, assignment.driverId)).limit(1);
   if (driver) await notifyLineDriverPayment({ reference: booking.reference, driverName: driver.fullName, bankCode: driver.bankCode, bankAccountNumber: driver.bankAccountNumber }).catch((error) => console.error("LINE payment notification failed", error));
-  return { result: "done", reference: booking.reference };
+  return { result: "done", reference: booking.reference, leg: assignment.leg };
 }

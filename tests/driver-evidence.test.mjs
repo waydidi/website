@@ -150,7 +150,7 @@ test('an admin confirming the Drop (Telegram Completed job) completes the job; t
  const before=await (await status.GET(new Request('https://example.invalid/api/driver/trips/session'),context())).json();
  assert.equal(before.events.find(e=>e.status==='completed').verificationStatus,'pending_review');
  assert.equal((await verifyTripCompletion(crypto.randomUUID(),'telegram:Non')).result,'invalid');
- assert.deepEqual(await verifyTripCompletion(id,'telegram:Non'),{result:'done',reference:trip.reference});
+ assert.deepEqual(await verifyTripCompletion(id,'telegram:Non'),{result:'done',reference:trip.reference,leg:'outbound'});
  assert.deepEqual(await verifyTripCompletion(id,'telegram:Non'),{result:'already',reference:trip.reference}); // a second tap does nothing
  const after=await (await status.GET(new Request('https://example.invalid/api/driver/trips/session'),context())).json();
  const done=after.events.find(e=>e.status==='completed');
