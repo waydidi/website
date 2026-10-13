@@ -12,6 +12,7 @@ import { customerBooking, driverStatuses, requireCustomer } from "@/lib/customer
 import { driverStatusLabel, tripBucket } from "@/lib/customer-account";
 import { slipConfig } from "@/lib/payment-slip-rules";
 import { acceptsSlips, bookingBalance, customerSlipView, slipsForBooking } from "@/lib/payment-slips";
+import { isOfflinePayment } from "@/lib/payment-methods";
 
 export const metadata: Metadata = { title: "Trip details · Waydidi", robots: { index: false, follow: false } };
 
@@ -36,10 +37,10 @@ export default async function TripDetailPage({ params }: { params: Promise<{ ref
   const bucket = tripBucket(trip.status, trip.pickupDate, trip.pickupTime);
   const driverStatus = (await driverStatuses([trip.reference])).get(trip.reference);
   const progress = trip.status === "completed" ? 4 : stepIndex[driverStatus ?? ""] ?? 0;
-  const payment = trip.paymentMethod === "cash" ? "Cash to driver" : "Card";
+  const payment = trip.paymentMethod === "cash" ? "Cash to driver" : trip.paymentMethod === "transfer" ? "Bank transfer" : "Card";
   // Cash bookings may instead be paid by bank transfer: shown once the owner has set the payee.
   const slips = slipConfig(env as unknown as Record<string, unknown>);
-  const balance = slips && trip.paymentMethod === "cash" ? await bookingBalance(trip.reference) : null;
+  const balance = slips && isOfflinePayment(trip.paymentMethod) ? await bookingBalance(trip.reference) : null;
   const slipList = balance ? (await slipsForBooking(trip.reference)).map(customerSlipView) : [];
 
   return <AccountShell name={customer.name} email={customer.email}>

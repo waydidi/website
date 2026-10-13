@@ -5,6 +5,7 @@ import { VEHICLES } from "@/lib/vehicles";
 import { esc } from "./cards";
 import { editCard, sendCard, telegramConfigured } from "./client";
 import { postAssignmentWhenReady } from "./booking-tasks";
+import { paymentLabelThai } from "@/lib/payment-methods";
 
 // Cancellation and journey-change requests on Telegram. Each request gets one card in the group
 // with buttons; the outcome edits the card, and a driver who already has the job is told in Thai.
@@ -17,8 +18,8 @@ const ddmmyyyy = (d: string) => d.split("-").reverse().join("/");
 const carName = (v: string) => (VEHICLES as Record<string, { name: string }>)[v]?.name ?? v;
 
 type Booking = { reference: string; customer_name: string; customer_surname: string | null; customer_phone: string | null; pickup: string; dropoff: string; pickup_date: string; pickup_time: string;
-  vehicle: string; total: number; payment_method: string; status: string };
-const booking = (ref: string) => db().prepare("SELECT reference,customer_name,customer_surname,customer_phone,pickup,dropoff,pickup_date,pickup_time,vehicle,total,payment_method,status FROM bookings WHERE reference=?").bind(ref).first<Booking>();
+  vehicle: string; total: number; payment_method: string; payment_status: string; status: string };
+const booking = (ref: string) => db().prepare("SELECT reference,customer_name,customer_surname,customer_phone,pickup,dropoff,pickup_date,pickup_time,vehicle,total,payment_method,payment_status,status FROM bookings WHERE reference=?").bind(ref).first<Booking>();
 const fullName = (b: Booking) => personName(b.customer_name, b.customer_surname);
 const trip = (b: { pickup_date: string; pickup_time: string; pickup: string; dropoff: string; vehicle: string }) => `${ddmmyyyy(b.pickup_date)} ${b.pickup_time} · ${b.pickup} → ${b.dropoff} · ${carName(b.vehicle)}`;
 const hoursUntil = (b: Booking) => (new Date(`${b.pickup_date}T${b.pickup_time}:00+07:00`).getTime() - Date.now()) / 3600_000;
@@ -51,7 +52,7 @@ function cancelText(b: Booking, extra = "") {
   return [`<b>คำขอยกเลิกการจอง ${esc(b.reference)}</b>`, "",
     `ลูกค้า: ${esc(fullName(b))}${b.customer_phone ? ` · ${esc(b.customer_phone)}` : ""}`,
     `การเดินทาง: ${esc(trip(b))}`,
-    `ยอดจอง: ${thb(b.total)} (${b.payment_method === "cash" ? "เงินสดวันเดินทาง" : "ชำระออนไลน์แล้ว"})`,
+    `ยอดจอง: ${thb(b.total)} (${b.payment_method === "transfer" || b.payment_method === "cash" ? paymentLabelThai(b.payment_method, b.payment_status) : "ชำระออนไลน์แล้ว"})`,
     `เหลือเวลาก่อนรับ: ${h >= 24 ? `${Math.floor(h / 24)} วัน ${Math.floor(h % 24)} ชม. (ยกเลิกได้คืนเงิน)` : `${Math.max(0, Math.floor(h))} ชม. (น้อยกว่า 24 ชม. ไม่คืนเงิน)`}`,
     extra].filter((l) => l !== "").join("\n");
 }

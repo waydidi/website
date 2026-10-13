@@ -9,6 +9,7 @@ import { secureToken, sha256 } from "@/lib/security";
 import { VEHICLES } from "@/lib/vehicles";
 import { OVERTIME_RATES, type HourlyVehicle } from "@/lib/hourly-policy";
 import { fullName } from "@/lib/person-name";
+import { unpaidStatusFor } from "@/lib/payment-methods";
 
 const POLICY_VERSION = "2026-09-07";
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -33,7 +34,10 @@ export const manualBookingSchema = z.object({
   exchangeStop: z.boolean().default(false),
   ferryPeople: z.number().int().min(0).max(20).default(0),
   discount: z.number().int().min(0).max(1_000_000).default(0),
-  paid: z.boolean(),
+  /** paid = already paid; cash = driver collects at pickup; waiting = bank transfer before the trip. */
+  payment: z.enum(["paid", "cash", "waiting"]).optional(),
+  /** Older callers (customer booking forms) send paid: true/false instead of payment. */
+  paid: z.boolean().optional(),
   pickupSign: text(80).optional().default(""),
   specialRequests: text(400).optional().default(""),
   sendEmail: z.boolean().default(false),
@@ -41,6 +45,17 @@ export const manualBookingSchema = z.object({
 });
 
 export type ManualBookingInput = z.infer<typeof manualBookingSchema>;
+export type ManualPayment = "paid" | "cash" | "waiting";
+
+/** How the booking is paid: the explicit choice, else the older paid flag (false = cash). */
+export const manualPayment = (b: Pick<ManualBookingInput, "payment" | "paid">): ManualPayment => b.payment ?? (b.paid ? "paid" : "cash");
+
+/** Payment method and status a new manual booking is saved with (lib/payment-methods.ts). */
+export function manualPaymentFields(payment: ManualPayment, total: number) {
+  if (payment === "paid" || total === 0) return { paymentMethod: "manual", paymentStatus: "paid" } as const;
+  if (payment === "waiting") return { paymentMethod: "transfer", paymentStatus: unpaidStatusFor("transfer") } as const;
+  return { paymentMethod: "cash", paymentStatus: unpaidStatusFor("cash") } as const;
+}
 
 /** Checks the rules a parsed manual booking must meet; returns an error message or null. */
 export function manualBookingProblem(b: ManualBookingInput) {
@@ -66,6 +81,7 @@ export async function createManualBooking(b: ManualBookingInput, origin: string)
     b.specialRequests,
   ].filter(Boolean).join(" ").slice(0, 500);
   const vehicle = VEHICLES[b.vehicle as keyof typeof VEHICLES];
+  const pay = manualPaymentFields(manualPayment(b), total);
   // Same private confirmation link a website booking gets.
   const accessToken = secureToken();
   const confirmationUrl = `${origin}/booking/confirmation/${reference}?token=${accessToken}`;
@@ -85,10 +101,10 @@ export async function createManualBooking(b: ManualBookingInput, origin: string)
     childSeats: b.childSeats,
     specialRequests: requests || null,
     vehicle: vehicle.name,
-    paymentMethod: b.paid || total === 0 ? "manual" : "cash",
+    paymentMethod: pay.paymentMethod,
     total,
     status: "confirmed",
-    paymentStatus: b.paid || total === 0 ? "paid" : "cash_due",
+    paymentStatus: pay.paymentStatus,
     paymentStatusUpdatedAt: now,
     reconciliationStatus: "not_required",
     termsAcceptedAt: now,

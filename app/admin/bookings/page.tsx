@@ -32,6 +32,7 @@ import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AdminKeyLogin } from "@/components/admin-key-login";
 import { PaymentReconciliationButton } from "@/components/payment-reconciliation-button";
 import { backfillUnifiedPaymentFields } from "@/lib/payment-backfill";
+import { editableFrom } from "@/lib/booking-edit";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -215,7 +216,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               total: row.total, paymentStatus: row.paymentStatus, status: row.status,
               driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: shown.assignment?.status ?? null,
               rideUrl: cardRideLinks.get(row.reference) ?? null, cost: driverCosts.get(row.reference) ?? null,
-              edit: { reference: row.reference, serviceType: row.serviceType, pickup: row.pickup, dropoff: row.dropoff, pickupDate: row.pickupDate, pickupTime: row.pickupTime, returnDate: row.returnDate, returnTime: row.returnTime, vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage }, driverUrl: cardDriverLinks.get(`${row.reference}:${shown.leg}`) ?? null,
+              edit: editableFrom(row), driverUrl: cardDriverLinks.get(`${row.reference}:${shown.leg}`) ?? null,
             }; }).sort(nearestFirst)} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
           </section>;
         })}
@@ -243,6 +244,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                       {paid ? <span className="inline-flex rounded-full bg-line-green px-2.5 py-0.5 text-[13px] font-medium text-white">Paid</span>
                         : cash && cashAtStore.has(row.reference) ? <span className="inline-flex rounded-full bg-[#F59E0B] px-2.5 py-0.5 text-[13px] font-medium text-white">Cash at store</span>
                         : cash ? <span className="inline-flex rounded-full bg-[#E53935] px-2.5 py-0.5 text-[13px] font-medium text-white">Pay in cash</span>
+                        : row.paymentMethod === "transfer" ? <span className="inline-flex rounded-full bg-warning-soft px-2.5 py-0.5 text-[13px] font-medium text-warning">Waiting for payment</span>
                         : <span className="inline-flex rounded-full bg-slate-200 px-2.5 py-0.5 text-[13px] font-medium text-slate-700">{row.paymentStatus.replaceAll("_", " ")}</span>}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4">{(() => { const d = driverOptions.find((o) => o.id === (other ? shown.assignment?.driverId : assigned.get(row.reference))); return d ? <span className="flex items-center gap-2"><span className="text-slate-900">{d.name}</span>{tripLinks.get(row.reference) && <CopyTextButton icon="link" text={tripLinks.get(row.reference)!} label={`Copy trip status link for ${row.reference}`} />}</span> : <span className="text-slate-400">Not assigned</span>; })()}</td>

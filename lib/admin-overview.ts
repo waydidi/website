@@ -8,6 +8,7 @@ import {
 import { SITE_URL } from "@/lib/site";
 import { rideUrl } from "@/lib/trip-access";
 import { assignedDriverUrl } from "@/lib/trip-links";
+import { editableFrom, type EditableBooking } from "@/lib/booking-edit";
 
 // Bookings that never became real trips.
 const DEAD = ["expired", "payment_failed"];
@@ -24,7 +25,7 @@ export type OverviewRide = {
   driver: string | null; driverId: string | null; driverStatus: string | null; attention: boolean;
   // Same extras as the Bookings cards.
   roundtrip?: boolean; leg?: "outbound" | "return"; rideUrl?: string | null; driverUrl?: string | null; cost?: number | null;
-  edit?: { reference: string; serviceType: string | null; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; returnDate: string | null; returnTime: string | null; vehicle: string; passengers: number; luggage: number };
+  edit?: EditableBooking;
 };
 
 export async function adminOverview(at = new Date()) {
@@ -42,7 +43,7 @@ export async function adminOverview(at = new Date()) {
     // selecting all of it plus the joined columns would fail.
     db.select({
       reference: bookings.reference, pickupDate: bookings.pickupDate, pickupTime: bookings.pickupTime, pickup: bookings.pickup, dropoff: bookings.dropoff,
-      customerName: bookings.customerName, customerSurname: bookings.customerSurname, vehicle: bookings.vehicle, passengers: bookings.passengers, luggage: bookings.luggage, status: bookings.status,
+      customerName: bookings.customerName, customerSurname: bookings.customerSurname, customerPhone: bookings.customerPhone, customerEmail: bookings.customerEmail, childSeats: bookings.childSeats, specialRequests: bookings.specialRequests, vehicle: bookings.vehicle, passengers: bookings.passengers, luggage: bookings.luggage, status: bookings.status,
       paymentMethod: bookings.paymentMethod, paymentStatus: bookings.paymentStatus, total: bookings.total, flightNumber: bookings.flightNumber, flightStatus: bookings.flightStatus, attentionStatus: bookings.attentionStatus,
       createdAt: bookings.createdAt, serviceType: bookings.serviceType, returnDate: bookings.returnDate, returnTime: bookings.returnTime, returnPickup: bookings.returnPickup, returnDropoff: bookings.returnDropoff,
     }).from(bookings)
@@ -86,7 +87,7 @@ export async function adminOverview(at = new Date()) {
       total: b.total, flightNumber: onReturn ? null : b.flightNumber, flightStatus: onReturn ? null : b.flightStatus, driver: a?.driver ?? null, driverId: a?.driverId ?? null, driverStatus: a?.status ?? null,
       attention: b.attentionStatus === "attention",
       roundtrip, leg,
-      edit: { reference: b.reference, serviceType: b.serviceType, pickup: b.pickup, dropoff: b.dropoff, pickupDate: b.pickupDate, pickupTime: b.pickupTime, returnDate: b.returnDate, returnTime: b.returnTime, vehicle: b.vehicle, passengers: b.passengers, luggage: b.luggage },
+      edit: editableFrom(b),
     };
   }).sort((x, y) => `${x.pickupDate} ${x.pickupTime}`.localeCompare(`${y.pickupDate} ${y.pickupTime}`));
   // Customer link, driver link (once assigned) and driver cost for the nearest rides shown in Upcoming rides.

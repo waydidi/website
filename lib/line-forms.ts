@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { lineState } from "@/db/schema";
 import { includesKohChangFerry, type FormAnswers, type FormService } from "@/lib/booking-form";
 import { VEHICLES } from "@/lib/vehicles";
+import { quickPaymentLabel, type QuickPayment } from "@/lib/quick-book-rules";
 
 // LINE cards for customer forms: an orange "needs price" card when a form comes in,
 // and a green "booked" card once the admin types the price in the chat.
@@ -101,7 +102,7 @@ export function formCard(input: { token: string; service: FormService; answers: 
 }
 
 /** The green "booked" card sent after a price is typed. */
-export function bookedCard(input: { reference: string; name: string; total: number; emailSent: boolean; bookingUrl: string }) {
+export function bookedCard(input: { reference: string; name: string; total: number; emailSent: boolean; bookingUrl: string; payment?: QuickPayment }) {
   return {
     type: "flex", altText: `Booked: Reference ID ${input.reference}`,
     contents: {
@@ -110,7 +111,7 @@ export function bookedCard(input: { reference: string; name: string; total: numb
       body: { type: "box", layout: "vertical", spacing: "sm", contents: [
         row("Customer", input.name),
         row("Price", `${input.total.toLocaleString("en-US")} THB`),
-        row("Payment", "Pay in cash"),
+        row("Payment", quickPaymentLabel(input.payment ?? "cash")),
         row("Email + PDF", input.emailSent ? "Sent to customer ✓" : "Not sent — check email setup"),
       ] },
       footer: { type: "box", layout: "vertical", contents: [
@@ -123,12 +124,16 @@ export function bookedCard(input: { reference: string; name: string; total: numb
 /** "Type the price" prompt with the suggestion and one-tap quick replies (suggestion and ±10%). */
 export function pricePrompt(token: string, name: string, suggested: { amount: number; detail: string } | null) {
   const text = suggested
-    ? `Type the price for ${name} in THB.\n💡 Suggested: ${suggested.amount.toLocaleString("en-US")} THB (${suggested.detail})\nTap a price below or type your own.`
-    : `Type the price for ${name} in THB.\nNo fare area matches this route, so there's no suggestion.`;
+    ? `Type the price for ${name} in THB.\n💡 Suggested: ${suggested.amount.toLocaleString("en-US")} THB (${suggested.detail})\nTap a price below or type your own. Add "โอน" (e.g. 3400 โอน) if the customer pays by bank transfer before the trip; otherwise it's cash to the driver.`
+    : `Type the price for ${name} in THB.\nNo fare area matches this route, so there's no suggestion. Add "โอน" (e.g. 3400 โอน) if the customer pays by bank transfer before the trip.`;
   const round = (n: number) => Math.max(50, Math.round(n / 50) * 50);
   const options = suggested ? [...new Set([round(suggested.amount), round(suggested.amount * 1.1), round(suggested.amount * 0.9)])] : [];
   return {
     type: "text", text,
-    ...(options.length ? { quickReply: { items: options.map((amount) => ({ type: "action", action: { type: "postback", label: `${amount.toLocaleString("en-US")} THB`, data: `book:${token}:${amount}`, displayText: `${amount}` } })) } } : {}),
+    // Each price twice: cash to the driver, or bank transfer before the trip ("waiting for payment").
+    ...(options.length ? { quickReply: { items: options.flatMap((amount) => [
+      { type: "action", action: { type: "postback", label: `${amount.toLocaleString("en-US")} THB cash`, data: `book:${token}:${amount}`, displayText: `${amount}` } },
+      { type: "action", action: { type: "postback", label: `${amount.toLocaleString("en-US")} THB โอน`, data: `book:${token}:${amount}:waiting`, displayText: `${amount} โอน` } },
+    ]) } } : {}),
   };
 }

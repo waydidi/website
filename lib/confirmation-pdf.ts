@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import type { BookingExtras } from "@/lib/booking-extras";
 import { childSeatPng, exchangePng, ferryPng, logoPng } from "@/lib/pdf-addon-images";
+import { paymentLabel } from "@/lib/payment-methods";
 
 type Confirmation = {
   reference: string; customerName: string; customerEmail: string;
@@ -59,7 +60,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
       ["Return date & time", `${booking.returnDate} at ${booking.returnTime}`],
     ] : []),
     ["Vehicle", booking.vehicle],
-    ["Payment", booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Pay in Cash" : "PAID"],
+    ["Payment", booking.paymentMethod === "transfer" ? paymentLabel("transfer", "pending", booking.total) : booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Pay in Cash" : "PAID"],
     ["Passengers & luggage", ""],
   ] as string[][];
 

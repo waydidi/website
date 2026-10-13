@@ -34,7 +34,7 @@ function blankDraft(service: Service) {
     returnOn: false, returnDate: "", returnTime: "", flightNumber: "",
     customerName: "", customerSurname: "", customerEmail: "", customerPhone: "", passengers: 2, luggage: 2,
     vehicle: "economy_sedan", fare: "", childSeats: 0, exchangeStop: false, ferryPeople: 0, discount: "",
-    paid: false, pickupSign: "", specialRequests: "", agencyId: "",
+    payment: "cash" as "paid" | "cash" | "waiting", pickupSign: "", specialRequests: "", agencyId: "",
   };
 }
 export type NewBookingPrefill = Partial<Draft>;
@@ -168,9 +168,10 @@ export function NewBookingButton({ service, prefill, formToken, trigger, autoOpe
             <label className={label}>Exclusive discount (THB, optional)<input type="number" min={0} inputMode="numeric" className={field} value={f.discount} onChange={(e) => set("discount", e.target.value)} placeholder="0" /></label>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 p-3">
               <div role="radiogroup" aria-label="Payment" className="inline-flex rounded-xl bg-[#E8EAEE] p-1">
-                {([[true, "Paid"], [false, "Pay in cash"]] as const).map(([v, text]) => <button key={text} type="button" role="radio" aria-checked={f.paid === v} onClick={() => set("paid", v)} className={`h-9 rounded-lg px-4 text-[14px] ${f.paid === v ? `bg-white font-medium shadow-sm ${v ? "text-emerald-700" : "text-red-600"}` : "text-slate-600"}`}>{text}</button>)}
+                {([["paid", "Paid", "text-emerald-700"], ["cash", "Pay in cash", "text-red-600"], ["waiting", "Waiting for payment", "text-warning"]] as const).map(([v, text, tone]) => <button key={v} type="button" role="radio" aria-checked={f.payment === v} onClick={() => set("payment", v)} className={`h-9 rounded-lg px-4 text-[14px] ${f.payment === v ? `bg-white font-medium shadow-sm ${tone}` : "text-slate-600"}`}>{text}</button>)}
               </div>
               <p className="text-[15px]">Total <strong className="text-[20px] tabular-nums">{thb(total)}</strong></p>
+              {f.payment === "waiting" && <p className="w-full text-[13px] text-slate-600">The customer pays by bank transfer or PromptPay before the trip. The driver won&apos;t collect cash. Record it in Payments when it arrives, or the customer uploads the slip on their booking.</p>}
             </div>
           </section>
 

@@ -272,7 +272,7 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
  globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://api.telegram.org')){const body=JSON.parse(init.body);sent.push({method:u.split('/').pop(),...body});return new Response(JSON.stringify({ok:true,result:{message_id:++mid,chat:{id:-100}}}));}return real(url,init);};
  try{
   await db.prepare("INSERT INTO bookings VALUES('MC7Q2P','Mansi','Choksi Choksi','m@x.co','','Trat airport','Dinso Resort & Villas Ko Chang','2026-10-14','12:45',2,2,'economy_sedan','card',2400,2400,'PG305','confirmed')").run();
-  for(const c of ['created_at TEXT','return_date TEXT'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
+  for(const c of ['created_at TEXT','return_date TEXT','payment_status TEXT'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
   await db.prepare("UPDATE bookings SET created_at=? WHERE reference='MC7Q2P'").bind(new Date().toISOString()).run();
   await db.prepare("INSERT INTO telegram_booking_cards(booking_reference,telegram_message_id,created_at) VALUES('MC7Q2P',6999,?)").bind(new Date().toISOString()).run();
   let u=500;const call=(update)=>hook.POST(new Request('https://example.invalid/api/integrations/telegram/webhook',{method:'POST',headers:{'content-type':'application/json','x-telegram-bot-api-secret-token':'s'.repeat(24)},body:JSON.stringify({update_id:++u,...update})}));
