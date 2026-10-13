@@ -70,6 +70,12 @@ Each cost is saved exactly as with **Set cost** (an unassigned card is taken by 
 
 Updates are de-duplicated by `update_id`, the webhook secret is checked on every call, callbacks are re-validated server side, and replies are routed only by stored Telegram message ids, never by name. Failed Telegram deliveries keep the customer's message and are retried by the five-minute cron. The schema is in `drizzle/0069_chat_telegram.sql`.
 
+## Driver bank details after the Drop
+
+When a driver confirms the Drop on their trip link (`/driver/trip/…`), the link goes to **กรอกข้อมูลบัญชี** instead of the trip page: **ธนาคาร** (a bottom sheet listing the Thai banks, like the date and time picker), **เลขที่บัญชี** (8–16 digits) and **ชื่อบัญชี**, which is filled in with the assigned driver's name and **must match it** (titles such as นาย/นาง/นางสาว, spaces and capitals are ignored). **ส่งข้อมูล** shows the same tick as a finished website booking (the account number partly hidden, with **เสร็จสิ้น** to go back to the trip page and **แก้ไขข้อมูลบัญชี** to change it). A driver who already sent the details for that job goes straight to the trip page, and so does a **cash** job: only prepaid bookings ask for bank details (the request is refused with 409 for cash).
+
+The request (`POST /api/driver/bank`) needs the driver link's token like every driver request, only works once the Drop is done, and only changes the driver that link belongs to. The details are saved with the job (`driver_payout_details`) and replace the driver's saved account (used in the payout message). The Admin group gets "💳 ข้อมูลบัญชีคนขับ" with the bank, the full account number (tap to copy) and the account name; if the account differs from the one saved before, a ⚠️ line shows the old one partly hidden, so a wrong or fraudulent change is seen before paying. Sending the same details again (a retry) saves and announces once. Account numbers are never logged. No Worker variables.
+
 ## Non (chat assistant) on website, WhatsApp and LINE
 
 Non answers customer chats instantly, quoting only from the site's price tables and searching the notes under **Admin → Chat → Non knowledge** (plus the attraction database). It hands over to staff (with a Telegram alert) when it can't help. Secrets go in Cloudflare (Workers → Settings → Variables and secrets), never in the code:
