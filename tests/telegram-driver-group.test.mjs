@@ -63,6 +63,11 @@ test('the sign-up link, "my jobs" and the sign-up answers are checked',()=>{
  assert.deepEqual(rules.checkTextAnswer('phone','081 234 5678'),{value:'081 234 5678'});
  assert.ok('error' in rules.checkTextAnswer('phone','12'));
  assert.ok('error' in rules.checkTextAnswer('name','A'));
+ // First name and last name are both required.
+ for(const bad of ['สมชาย','Carol','นนท์  ','ก ข','Carol S','x'.repeat(101)+' y'])assert.ok('error' in rules.checkTextAnswer('name',bad),bad);
+ assert.deepEqual(rules.checkTextAnswer('name','  สมชาย   ใจดี '),{value:'สมชาย ใจดี'});
+ assert.deepEqual(rules.checkTextAnswer('name','Carol Saetang'),{value:'Carol Saetang'});
+ assert.deepEqual(rules.checkTextAnswer('name','Mary Jane Watson'),{value:'Mary Jane Watson'});
  assert.deepEqual(rules.checkTextAnswer('plate','  กข  1234 '),{value:'กข 1234'});
  assert.ok('error' in rules.checkTextAnswer('id_photo','hello'));
  assert.equal(rules.nextStep('model'),'car_type');assert.equal(rules.nextStep('car_photo'),null);
@@ -194,8 +199,8 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  // Someone else tapping now is told it's taken.
  assert.deepEqual(await group.takeJob(alice,'DG0006'),{ok:false,reason:'มีคนรับงานนี้แล้ว'});
  let n=1;const say=(extra)=>group.handleDriverPrivate({message_id:n++,chat:{id:1004,type:'private'},from:carol,...extra});
- await say({text:'A'}); // too short: asked again
- assert.match(sent.at(-1).body.text,/กรุณาพิมพ์ชื่อ-นามสกุล/);
+ await say({text:'Carol'}); // first name only: asked again
+ assert.match(sent.at(-1).body.text,/กรุณาพิมพ์ทั้งชื่อและนามสกุล/);
  for(const text of ['Carol Saetang','089 999 8888','นง 8384','Toyota Commuter สีเงิน'])await say({text});
  assert.deepEqual(sent.at(-1).body.reply_markup.inline_keyboard[0].map(b=>b.callback_data),['dj_car:DG0006:sedan','dj_car:DG0006:suv','dj_car:DG0006:minivan']);
  await group.handleDriverCallback({id:'cb1',from:carol,data:'dj_car:DG0006:minivan',message:{message_id:77,chat:{id:1004,type:'private'}}});
