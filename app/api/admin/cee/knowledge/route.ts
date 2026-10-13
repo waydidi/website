@@ -5,6 +5,7 @@ import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { MODELS, ceeEnabled, modelMode, setModelMode, usageFor, type ModelMode } from "@/lib/cee/bot";
 import { deleteNote, listNotes, parseMarkdown, saveNote, validNote } from "@/lib/cee/knowledge";
 import { lineConfigured, whatsappConfigured } from "@/lib/channels";
+import { assistantUsage } from "@/lib/telegram/assistant";
 
 // Non's knowledge notes, model choice and monthly cost. Support staff edit notes; the owner picks the model.
 const headers = { "Cache-Control": "no-store" };
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
     notes, owner: staff.role === "owner",
     cee: { enabled: await ceeEnabled(), keySet: Boolean(vars.ANTHROPIC_API_KEY), mapsKeySet: Boolean(vars.GOOGLE_MAPS_SERVER_KEY), mode: await modelMode(), models: MODELS, usage: await usageFor() },
     channels: { whatsapp: whatsappConfigured(), line: lineConfigured() },
+    telegramAssistant: await assistantUsage(),
   }, { headers });
 }
 

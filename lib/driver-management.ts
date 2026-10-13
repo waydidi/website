@@ -2,6 +2,7 @@ import { and, desc, gte, inArray, isNull, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingAssignments, bookings, driverApplications, drivers } from "@/db/schema";
 import { bangkokDate } from "@/lib/admin-overview";
+import { COMMITTED_BOOKING_STATUSES } from "@/lib/booking-status";
 
 export type DriverRow = {
   kind: "driver"; id: string; name: string; phone: string; email: string | null; area: string; vehicle: string;
@@ -23,7 +24,7 @@ export async function driverManagement(at = new Date()) {
     db.select().from(driverApplications).orderBy(desc(driverApplications.createdAt)).limit(500).catch(() => []),
     db.select({ driverId: bookingAssignments.driverId, bookingReference: bookingAssignments.bookingReference }).from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)),
     db.select({ reference: bookings.reference, pickupDate: bookings.pickupDate }).from(bookings)
-      .where(and(inArray(bookings.status, ["confirmed", "completed"]), gte(bookings.pickupDate, monthStart < today ? monthStart : today), lte(bookings.pickupDate, in7), isNull(bookings.binnedAt))),
+      .where(and(inArray(bookings.status, [...COMMITTED_BOOKING_STATUSES]), gte(bookings.pickupDate, monthStart < today ? monthStart : today), lte(bookings.pickupDate, in7), isNull(bookings.binnedAt))),
   ]);
   const trips = new Map<string, number>();
   for (const a of assignRows) trips.set(a.driverId, (trips.get(a.driverId) ?? 0) + 1);

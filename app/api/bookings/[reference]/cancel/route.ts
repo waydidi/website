@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { bookings } from "@/db/schema";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { SUPPORT_EMAIL, WHATSAPP } from "@/lib/contact";
+import { PARTIAL_REFUND_HOURS } from "@/lib/refund-policy";
 
 export async function POST(request: Request, context: { params: Promise<{ reference: string }> }) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-site request blocked." }, { status: 403 });
@@ -16,9 +18,9 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   if (booking.status === "cancelled") return NextResponse.json({ status: "cancelled", refundStatus: booking.refundStatus });
   if (booking.status !== "confirmed") return NextResponse.json({ error: "This booking cannot be cancelled online." }, { status: 409 });
   const pickup = new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime();
-  if (pickup - Date.now() < 24 * 60 * 60 * 1000) return NextResponse.json({ error: "Cancellations less than 24 hours before pickup are non-refundable. Contact Waydidi on WhatsApp +66 63 206 4884." }, { status: 409 });
+  if (pickup - Date.now() < PARTIAL_REFUND_HOURS * 3_600_000) return NextResponse.json({ error: `Cancellations less than ${PARTIAL_REFUND_HOURS} hours before pickup are non-refundable. Contact Waydidi on WhatsApp ${WHATSAPP}.` }, { status: 409 });
 
   // No online refunds yet: the team gets the request in Telegram and confirms with the customer.
   await import("@/lib/telegram/booking-changes").then((m) => m.notifyCancellationRequest(reference)).catch((e) => console.error("telegram cancel request failed", e instanceof Error ? e.message : "unknown"));
-  return NextResponse.json({ status: "requested", message: `We've received your cancellation request for ${reference}. Our team will confirm by email shortly. Questions: WhatsApp +66 63 206 4884 or support@waydidi.com.` }, { status: 202 });
+  return NextResponse.json({ status: "requested", message: `We've received your cancellation request for ${reference}. Our team will confirm by email shortly. Questions: WhatsApp ${WHATSAPP} or ${SUPPORT_EMAIL}.` }, { status: 202 });
 }

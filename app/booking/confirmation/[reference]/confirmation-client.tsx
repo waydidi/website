@@ -5,6 +5,7 @@ import { Check, Clock3, Download, Mail, RotateCw, XCircle, Navigation } from "lu
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { WaydidiLogo } from "@/components/waydidi-logo";
+import { PARTIAL_REFUND_HOURS } from "@/lib/refund-policy";
 
 type Booking = {
   reference: string;
@@ -240,7 +241,7 @@ export default function ConfirmationClient({
   ).getTime();
   const canCancel =
     booking.status === "confirmed" &&
-    pickupTime - Date.now() >= 24 * 60 * 60 * 1000;
+    pickupTime - Date.now() >= PARTIAL_REFUND_HOURS * 3_600_000;
 
   return (
     <main className="min-h-screen bg-[#f6f7f9] px-4 py-6 sm:px-5 sm:py-10">

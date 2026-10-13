@@ -4,6 +4,7 @@ import { getFile, putFile } from "@/lib/file-store";
 import { readSlip, slipOcrConfigured } from "@/lib/payment-slip-ocr";
 import { assessSlip, SLIP_REASONS, SLIP_TYPES, slipConfig, validApprovalAmount, type SlipExtraction, type SlipMime, type SlipReason, type SlipStatus } from "@/lib/payment-slip-rules";
 import { sha256Bytes } from "@/lib/security";
+import { isChargeableStatus } from "@/lib/booking-status";
 
 // Bank-transfer / PromptPay slips for "pay later" (cash) bookings. The customer uploads a
 // slip, Claude reads it, assessSlip() decides whether it may be approved without a person,
@@ -41,7 +42,7 @@ export async function bookingBalance(reference: string) {
 
 /** Whether this booking can take a slip right now (cash method, committed, money still due). */
 export const acceptsSlips = (b: { payment_method: string; status: string; outstandingMinor: number }) =>
-  b.payment_method === "cash" && ["confirmed", "completed", "no_show"].includes(b.status) && b.outstandingMinor > 0;
+  b.payment_method === "cash" && isChargeableStatus(b.status) && b.outstandingMinor > 0;
 
 type SlipRow = { id: string; booking_reference: string; status: SlipStatus; amount_minor: number | null; approved_amount_minor: number | null; bank_reference: string | null; reasons_json: string; extraction_json: string | null; decided_by: string | null; decided_at: string | null; decision_note: string | null; created_at: string };
 

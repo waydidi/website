@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { answerInGroup, assistantConfigured } from "@/lib/telegram/assistant";
 import { answerJobLookup } from "@/lib/telegram/job-lookup";
 import { parseJobLookup } from "@/lib/telegram/job-lookup-rules";
 import { NextResponse } from "next/server";
@@ -183,8 +184,8 @@ async function handleMessage(m: TelegramMessage) {
   const teamMember = await approved(m.from);
   if (teamMember && await handleBookingAnswer(m, teamMember.display_name, refreshBookingCard)) return;
   // Customer answers: replies to a Waydidi card or prompt, or the next plain message from someone
-  // who tapped "Reply" in the last 10 minutes. Job requests are answered; other group talk is ignored.
-  if (!text || (text.startsWith("/") && !parseJobLookup(text))) return;
+  // who tapped "Reply" in the last 10 minutes. Anything else a team member writes is answered by the assistant.
+  if (!text || (text.startsWith("/") && !parseJobLookup(text) && !/^\/ask(@\w+)?(\s|$)/i.test(text))) return;
   const saved = await db().prepare("SELECT conversation_id FROM website_chat_messages WHERE client_id=? AND sender='staff' LIMIT 1").bind(telegramClientId(String(m.chat.id), m.message_id)).first<{ conversation_id: string }>();
   let conversationId = saved?.conversation_id ?? (m.reply_to_message ? await conversationForTelegramMessage(m.reply_to_message.message_id) : null);
   if (!conversationId && !m.reply_to_message && m.from) {
@@ -193,11 +194,18 @@ async function handleMessage(m: TelegramMessage) {
     conversationId = recent?.conversation_id ?? null;
   }
   if (!conversationId) {
-    // Not a reply to a customer: "assignment Tayla" / "งาน Tayla" / "job FMBNUW" asks for a driver job message.
+    // Not a reply to a customer: a team member asking the bot something.
     const query = parseJobLookup(text);
-    if (!query) return;
-    if (!teamMember) { await sendCard(`Only the Waydidi Telegram team can look up jobs. Your Telegram ID is <code>${m.from?.id ?? "unknown"}</code>.`, undefined, m.message_id); return; }
-    await answerJobLookup(query, m.message_id);
+    if (!teamMember) {
+      if (query) await sendCard(`Only the Waydidi Telegram team can look up jobs. Your Telegram ID is <code>${m.from?.id ?? "unknown"}</code>.`, undefined, m.message_id);
+      return;
+    }
+    // "assignment Tayla" / "งาน Tayla" / "job FMBNUW": the exact driver job message, instantly and free.
+    if (query && await answerJobLookup(query, m.message_id, { quietWhenNone: assistantConfigured() })) return;
+    // Anything else (or a lookup with no match): the assistant answers from Waydidi's data, within the asker's Admin role.
+    if (!assistantConfigured()) return;
+    const previous = m.reply_to_message?.from?.is_bot ? m.reply_to_message.text ?? null : null;
+    await answerInGroup(text.replace(/^\/ask(@\w+)?\s*/i, "") || text, m.message_id, { name: teamMember.display_name, staffId: teamMember.staff_id }, previous);
     return;
   }
   const admin = await approved(m.from);

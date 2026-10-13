@@ -4,6 +4,7 @@ import { TIERS, affiliateForDashboard, kitPrices, partnerDashboard } from "@/lib
 import { ContentKit } from "@/components/partner/content-kit";
 import { CopyRow, LinkBuilder, PartnerQr } from "@/components/partner/tools";
 import { WaydidiLogo } from "@/components/waydidi-logo";
+import { WHATSAPP } from "@/lib/contact";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Partner dashboard · Waydidi", robots: { index: false, follow: false } };
@@ -76,7 +77,7 @@ export default async function PartnerDashboard({ params }: { params: Promise<{ i
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold ${STATE[r.state][1]}`}>{thb(r.commission)} {STATE[r.state][0].toLowerCase()}</span>
           </li>)}</ul>}
       </section>
-      <p className="text-center text-[12.5px] text-slate-500">Commission is earned when the ride is completed; cancelled rides earn nothing. Payments are made monthly. Questions? WhatsApp +66 63 206 4884.<br />Keep this page link private: it opens your dashboard without a password.</p>
+      <p className="text-center text-[12.5px] text-slate-500">Commission is earned when the ride is completed; cancelled rides earn nothing. Payments are made monthly. Questions? WhatsApp {WHATSAPP}.<br />Keep this page link private: it opens your dashboard without a password.</p>
     </div>
   </main>;
 }

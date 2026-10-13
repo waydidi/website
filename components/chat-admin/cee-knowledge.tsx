@@ -6,6 +6,7 @@ type Note = { id: string; title: string; kind: string; city: string | null; body
 type Data = {
   notes: Note[]; owner: boolean;
   cee: { enabled: boolean; keySet: boolean; mapsKeySet: boolean; mode: "auto" | "fast" | "smart"; models: { fast: string; smart: string }; usage: { replies: number; requests: number; smart: number; usd: number } };
+  telegramAssistant?: { questions: number; usd: number; capUsd: number; configured: boolean; model: string };
   channels: { whatsapp: boolean; line: boolean };
 };
 const KINDS: [string, string][] = [["rule", "Rule"], ["faq", "FAQ"], ["tip", "Tip"], ["place", "Place"]];
@@ -60,7 +61,7 @@ export function CeeKnowledge() {
   const u = data.cee.usage;
   return <section className="grid gap-4">
     <h2 className="sr-only">Non knowledge</h2>
-    <section className="grid gap-4 lg:grid-cols-3">
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 text-[14px]">
         <p className="text-[13px] font-semibold text-slate-500">Non status</p>
         <ul className="mt-2 grid gap-1.5">
@@ -76,6 +77,12 @@ export function CeeKnowledge() {
         <p className="text-slate-600">{u.replies} customer messages answered{u.replies ? ` · about $${(u.usd / u.replies).toFixed(3)} each` : ""}</p>
         <p className="text-[12.5px] text-slate-500">{u.smart} used the smart model. Estimated from token counts; your Anthropic bill is the final figure.</p>
       </div>
+      {data.telegramAssistant && (() => { const t = data.telegramAssistant; return <div className="rounded-2xl border border-slate-200 bg-white p-5 text-[14px]">
+        <p className="text-[13px] font-semibold text-slate-500">Telegram assistant spend this month</p>
+        <p className="mt-1 text-[28px] font-bold">${t.usd.toFixed(t.usd < 1 ? 3 : 2)} <span className="text-[14px] font-semibold text-slate-500">of ${t.capUsd} limit</span></p>
+        <p className="text-slate-600">{t.questions} team questions answered{t.questions ? ` · about $${(t.usd / t.questions).toFixed(4)} each` : ""}</p>
+        <p className="text-[12.5px] text-slate-500">{t.configured ? `🟢 On (${t.model})` : "⚪ Off"}. Change the limit with TELEGRAM_ASSISTANT_MONTHLY_USD in Cloudflare. Estimated from token counts.</p>
+      </div>; })()}
       <fieldset className="rounded-2xl border border-slate-200 bg-white p-5 text-[14px]" disabled={!data.owner || busy}>
         <legend className="px-1 text-[13px] font-semibold text-slate-500">AI model{data.owner ? "" : " (owner only)"}</legend>
         {MODES.map(([k, l, d]) => <label key={k} className="mt-2 flex gap-2"><input type="radio" name="cee-mode" checked={data.cee.mode === k} onChange={() => void post({ action: "mode", mode: k }, "Model updated.")} className="mt-1 accent-brand" /><span><b>{l}</b><br /><span className="text-[12.5px] text-slate-500">{d}</span></span></label>)}

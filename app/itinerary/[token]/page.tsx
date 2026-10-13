@@ -12,6 +12,7 @@ import { reviewUrl } from "@/lib/trip-thanks";
 import { groupDays, tripByToken, tripSnapshot, type TripSnapshot } from "@/lib/smart-trips";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { dateLocale, fill, tripWords, type TripWords } from "@/lib/trip-i18n";
+import { FULL_REFUND_HOURS } from "@/lib/refund-policy";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Your itinerary · Waydidi", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -107,7 +108,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
             : <ItineraryActions token={leadToken} total={total} name={trip.customerName ?? ""} email={trip.customerEmail ?? ""} phone={trip.customerPhone ?? ""} words={w} />}
         </div>
         <a href={`/api/itinerary/${leadToken}/pdf`} className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-semibold text-brand-darker hover:underline"><Download size={16} />{w.downloadPdf}</a>
-        <p className="mt-2 text-[12px] text-slate-500">{fill(w.refLine, { ref: s.ref, v: s.version })} <Link href="/refund-policy" className="underline">{w.policy}</Link>.</p>
+        <p className="mt-2 text-[12px] text-slate-500">{fill(w.refLine, { ref: s.ref, v: s.version, hours: FULL_REFUND_HOURS })} <Link href="/refund-policy" className="underline">{w.policy}</Link>.</p>
       </section>
     </div>
   </main>;

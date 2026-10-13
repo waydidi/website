@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
-import { GENERAL_REFUND_TIERS, REFUND_POLICY_VERSION, type RefundTier } from "./refund-policy";
-export const ACCEPTED_CANCELLATION_POLICY={version:REFUND_POLICY_VERSION,timezone:"Asia/Bangkok",basis:"scheduled pickup minus cancellation request",tiers:GENERAL_REFUND_TIERS.map(t=>({...t,minHours:Number.isFinite(t.minHours)?t.minHours:null})),terms:"More than 48 hours: full refund. Exactly 48 hours through 24 hours: 50% refund. Less than 24 hours: no refund. Waydidi cancellation: full refund. No-show: no refund."};
+import { FULL_REFUND_HOURS, GENERAL_REFUND_TIERS, PARTIAL_REFUND_HOURS, PARTIAL_REFUND_PERCENT, REFUND_POLICY_VERSION, type RefundTier } from "./refund-policy";
+export const ACCEPTED_CANCELLATION_POLICY={version:REFUND_POLICY_VERSION,timezone:"Asia/Bangkok",basis:"scheduled pickup minus cancellation request",tiers:GENERAL_REFUND_TIERS.map(t=>({...t,minHours:Number.isFinite(t.minHours)?t.minHours:null})),terms:`More than ${FULL_REFUND_HOURS} hours: full refund. Exactly ${FULL_REFUND_HOURS} hours through ${PARTIAL_REFUND_HOURS} hours: ${PARTIAL_REFUND_PERCENT}% refund. Less than ${PARTIAL_REFUND_HOURS} hours: no refund. Waydidi cancellation: full refund. No-show: no refund.`};
 export async function saveAcceptedPolicy(reference:string,acceptedAt:string) {
  await env.DB.prepare("INSERT INTO booking_policy_snapshots(booking_reference,version,policy_json,accepted_at) VALUES(?,?,?,?)").bind(reference,REFUND_POLICY_VERSION,JSON.stringify(ACCEPTED_CANCELLATION_POLICY),acceptedAt).run();
 }

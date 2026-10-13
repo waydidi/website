@@ -1,4 +1,5 @@
 import { SITE_URL } from "@/lib/public-content";
+import { SUPPORT_EMAIL, WHATSAPP_E164 } from "@/lib/contact";
 
 export type Crumb = { name: string; path: string };
 
@@ -26,8 +27,8 @@ export function organizationSchema() {
     alternateName: "Waydidi",
     url: SITE_URL,
     logo: { "@type": "ImageObject", url: `${SITE_URL}/waydidi-logo.png`, width: 810, height: 308 },
-    email: "support@waydidi.com",
-    contactPoint: [{ "@type": "ContactPoint", contactType: "customer service", email: "support@waydidi.com", telephone: "+66-63-206-4884", areaServed: "TH", availableLanguage: ["English", "Thai"] }],
+    email: SUPPORT_EMAIL,
+    contactPoint: [{ "@type": "ContactPoint", contactType: "customer service", email: SUPPORT_EMAIL, telephone: WHATSAPP_E164, areaServed: "TH", availableLanguage: ["English", "Thai"] }],
     ...(SOCIAL_PROFILES.length ? { sameAs: SOCIAL_PROFILES } : {}),
   };
 }

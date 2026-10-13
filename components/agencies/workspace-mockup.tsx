@@ -1,4 +1,5 @@
 import { SITE_URL } from "@/lib/site";
+import { VEHICLES } from "@/lib/vehicles";
 // Browser-window mockups of the planned agency workspace (example data only).
 const NAV = ["Dashboard", "Bookings", "Passengers", "Profile", "Billing", "Reports"];
 
@@ -54,7 +55,7 @@ export function DetailMockup() {
     <div className="mt-2 grid grid-cols-[1.6fr_1fr] gap-1.5">
       <div className="grid gap-1.5">
         <div className="rounded border border-[#EEE] bg-white p-1.5 text-[5px]"><p className="font-bold">{r.when}</p><p className="mt-1">■ {r.from}</p><p className="ml-1 border-l border-[#CCC] pl-1 text-[#999]">1 h 30 min · 122 km · 2 passengers</p><p>■ {r.to}</p></div>
-        <div className="rounded border border-[#EEE] bg-white p-1.5 text-[5px]"><p className="text-[#999]">YOUR VEHICLE</p><p className="font-bold">Economy sedan · up to 3 passengers</p></div>
+        <div className="rounded border border-[#EEE] bg-white p-1.5 text-[5px]"><p className="text-[#999]">YOUR VEHICLE</p><p className="font-bold">{VEHICLES.economy_sedan.name} · up to {VEHICLES.economy_sedan.passengers} passengers</p></div>
         <div className="rounded border border-[#EEE] bg-white p-1.5 text-[5px]"><p className="font-bold">Passenger</p><p className="text-[#555]">Ms. Example Traveller · +66 81 000 0000</p></div>
       </div>
       <div className="grid content-start gap-1.5">

@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { bookingNotifications, bookings, customerBookingLinks, customers, fareQuotes } from "@/db/schema";
 import { rebookQuery } from "@/lib/customer-account";
 import { enqueueCrmEmail } from "@/lib/crm-email-queue";
+import { COMMITTED_BOOKING_STATUSES } from "@/lib/booking-status";
 
 const HOUR = 3_600_000;
 const TYPE = "member_unfinished";
@@ -27,7 +28,7 @@ export async function sendUnfinishedBookingReminders(at = new Date()) {
     if (pickupAt - now < 6 * HOUR) continue; // too close to the trip to be useful
     const [bookedSince] = await db.select({ ref: bookings.reference }).from(bookings)
       .innerJoin(customerBookingLinks, eq(customerBookingLinks.bookingReference, bookings.reference))
-      .where(and(eq(customerBookingLinks.customerId, customer.id), inArray(bookings.status, ["confirmed", "completed"]), gt(bookings.createdAt, booking.createdAt))).limit(1);
+      .where(and(eq(customerBookingLinks.customerId, customer.id), inArray(bookings.status, [...COMMITTED_BOOKING_STATUSES]), gt(bookings.createdAt, booking.createdAt))).limit(1);
     if (bookedSince) continue;
     const [recent] = await db.select({ id: bookingNotifications.id }).from(bookingNotifications)
       .where(and(eq(bookingNotifications.notificationType, TYPE), eq(bookingNotifications.recipient, customer.email), eq(bookingNotifications.status,"sent"), gte(bookingNotifications.createdAt, new Date(now - 72 * HOUR).toISOString()))).limit(1);

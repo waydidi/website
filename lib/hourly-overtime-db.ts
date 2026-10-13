@@ -3,11 +3,12 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookings, hourlyOvertimeCharges } from "@/db/schema";
 import { hourlyOvertime } from "@/lib/hourly-policy";
+import { COMMITTED_SQL, isCommittedStatus } from "@/lib/booking-status";
 
 /** Supplemental cash charges never alter a settled card payment or its amount. */
 export async function assessHourlyOvertime(reference: string, extraMinutes: number, adminEmail: string) {
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
-  if (!booking || booking.serviceType !== "hourly" || !["confirmed", "completed"].includes(booking.status) || !booking.extraHourRate || !Number.isInteger(extraMinutes) || extraMinutes < 0 || extraMinutes > 1440) throw new Error("Enter valid overtime minutes for an active hourly booking.");
+  if (!booking || booking.serviceType !== "hourly" || !isCommittedStatus(booking.status) || !booking.extraHourRate || !Number.isInteger(extraMinutes) || extraMinutes < 0 || extraMinutes > 1440) throw new Error("Enter valid overtime minutes for an active hourly booking.");
   const charge = hourlyOvertime(extraMinutes, booking.extraHourRate);
   const now = new Date().toISOString();
   await env.DB.batch([
@@ -23,7 +24,7 @@ export async function collectHourlyOvertime(reference: string, amountMinor: numb
   if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0 || !/^[0-9a-f-]{36}$/i.test(receiptId)) throw new Error("Enter a valid overtime cash amount.");
   const now = new Date().toISOString();
   const results = await env.DB.batch([
-    env.DB.prepare(`INSERT OR IGNORE INTO hourly_overtime_receipts(id,booking_reference,amount_minor,collected_by,created_at) SELECT ?,booking_reference,?,?,? FROM hourly_overtime_charges WHERE booking_reference=? AND COALESCE((SELECT SUM(amount_minor) FROM hourly_overtime_receipts WHERE booking_reference=?),0)+?<=amount_minor AND EXISTS(SELECT 1 FROM bookings WHERE reference=? AND status IN ('confirmed','completed'))`).bind(receiptId, amountMinor, adminEmail, now, reference, reference, amountMinor, reference),
+    env.DB.prepare(`INSERT OR IGNORE INTO hourly_overtime_receipts(id,booking_reference,amount_minor,collected_by,created_at) SELECT ?,booking_reference,?,?,? FROM hourly_overtime_charges WHERE booking_reference=? AND COALESCE((SELECT SUM(amount_minor) FROM hourly_overtime_receipts WHERE booking_reference=?),0)+?<=amount_minor AND EXISTS(SELECT 1 FROM bookings WHERE reference=? AND status IN (${COMMITTED_SQL}))`).bind(receiptId, amountMinor, adminEmail, now, reference, reference, amountMinor, reference),
     env.DB.prepare(`INSERT OR IGNORE INTO booking_events(booking_reference,event_type,provider_event_id,created_at) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM hourly_overtime_receipts WHERE id=? AND booking_reference=?)`).bind(reference, "hourly_overtime_cash_received", `overtime-receipt:${receiptId}`, now, receiptId, reference),
   ]);
   if (!results[0].meta.changes) {

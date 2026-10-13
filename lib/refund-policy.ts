@@ -7,11 +7,16 @@ export const REFUND_POLICY_TIMEZONE = "Asia/Bangkok";
 
 export type RefundTier = { minHours: number; percent: number; label: string };
 
+/** The policy's numbers. Every page, email and check reads these; change the policy here. */
+export const FULL_REFUND_HOURS = 48;
+export const PARTIAL_REFUND_HOURS = 24;
+export const PARTIAL_REFUND_PERCENT = 50;
+
 /** Ordered from most to least notice. Notice = scheduled service time − cancellation request time. */
 export const GENERAL_REFUND_TIERS: RefundTier[] = [
-  { minHours: 48, percent: 100, label: "More than 48 hours before pickup" },
-  { minHours: 24, percent: 50, label: "24–48 hours before pickup" },
-  { minHours: -Infinity, percent: 0, label: "Less than 24 hours before pickup" },
+  { minHours: FULL_REFUND_HOURS, percent: 100, label: `More than ${FULL_REFUND_HOURS} hours before pickup` },
+  { minHours: PARTIAL_REFUND_HOURS, percent: PARTIAL_REFUND_PERCENT, label: `${PARTIAL_REFUND_HOURS}–${FULL_REFUND_HOURS} hours before pickup` },
+  { minHours: -Infinity, percent: 0, label: `Less than ${PARTIAL_REFUND_HOURS} hours before pickup` },
 ];
 
 export type RefundReason = "customer_cancellation" | "no_show" | "waydidi_cancellation" | "goodwill";

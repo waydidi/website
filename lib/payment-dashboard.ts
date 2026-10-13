@@ -2,6 +2,7 @@ import { toSatang } from "./money";
 import { desc } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookings, bookingPayments, bookingCosts, journeyCosts, hourlyOvertimeCharges, hourlyOvertimeReceipts } from "@/db/schema";
+import { isCommittedStatus } from "@/lib/booking-status";
 export async function paymentDashboard() {
     const [rows, payments, costs, legCosts, overtimeCharges, overtimeReceipts] = await Promise.all([getDb().select().from(bookings).orderBy(desc(bookings.createdAt)), getDb().select().from(bookingPayments), getDb().select().from(bookingCosts), getDb().select().from(journeyCosts), getDb().select().from(hourlyOvertimeCharges), getDb().select().from(hourlyOvertimeReceipts)]);
     const pm = new Map(payments.map(p => [p.bookingReference, p]));
@@ -11,7 +12,7 @@ export async function paymentDashboard() {
         const c = cm.get(b.reference);
         const overtime = overtimeCharges.find(c => c.bookingReference === b.reference);
         const overtimeReceivedMinor = overtimeReceipts.filter(r => r.bookingReference === b.reference).reduce((sum, r) => sum + r.amountMinor, 0);
-        const overtimeDueMinor = ["confirmed", "completed"].includes(b.status) ? Math.max(0, (overtime?.amountMinor ?? 0) - overtimeReceivedMinor) : 0;
+        const overtimeDueMinor = isCommittedStatus(b.status) ? Math.max(0, (overtime?.amountMinor ?? 0) - overtimeReceivedMinor) : 0;
         const receivedMinor = (p?.amountPaidMinor ?? toSatang(b.amountPaid)) + overtimeReceivedMinor;
         const refundedMinor = p?.refundedMinor ?? toSatang(b.refundAmount ?? 0);
         const feeMinor = b.paymentMethod === "cash" ? 0 : p?.feeMinor ?? null;
