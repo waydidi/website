@@ -21,13 +21,13 @@ test("a new job opens with the welcome screen; เริ่มงาน starts i
   await expect(welcome).toBeVisible({ timeout: 30000 });
   await welcome.getByRole("button", { name: "เริ่มงาน" }).click();
   await expect(welcome).toBeHidden();
-  await expect(page.getByRole("list", { name: "Trip steps" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "ขั้นตอนการเดินทาง" })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("list", { name: "Trip steps" })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByRole("list", { name: "ขั้นตอนการเดินทาง" })).toBeVisible({ timeout: 30000 });
   await expect(welcome).toHaveCount(0);
 });
 test("a job already under way goes straight to the steps", async ({ page }) => {
   await open(page, "standby");
-  await expect(page.getByRole("list", { name: "Trip steps" })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByRole("list", { name: "ขั้นตอนการเดินทาง" })).toBeVisible({ timeout: 30000 });
   await expect(page.getByRole("dialog", { name: "Welcome, driver" })).toHaveCount(0);
 });
