@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { COMMITTED_SQL } from "@/lib/booking-status";
 import { esc } from "@/lib/telegram/cards";
 import { sendCard } from "@/lib/telegram/client";
 import { driverJobText } from "@/lib/telegram/job-text";
@@ -27,7 +28,7 @@ export async function findJobs(query: string, today = bangkokToday()) {
     if (results.length) return results;
   }
   const { results } = await db().prepare(`SELECT ${COLUMNS} FROM bookings b LEFT JOIN booking_costs c ON c.booking_reference=b.reference
-    WHERE b.status IN ('confirmed','completed') AND b.pickup_date>=?
+    WHERE b.status IN (${COMMITTED_SQL}) AND b.pickup_date>=?
       AND (lower(b.customer_name || ' ' || COALESCE(b.customer_surname,'')) LIKE ? ESCAPE '\\' OR lower(COALESCE(b.customer_surname,'') || ' ' || b.customer_name) LIKE ? ESCAPE '\\')
     ORDER BY b.pickup_date, b.pickup_time LIMIT ?`).bind(today, namePattern(query), namePattern(query), LOOKUP_MAX_RESULTS + 1).all<Row>();
   return results;
@@ -43,12 +44,14 @@ export function jobReply(row: Row) {
 }
 
 /** Replies under the asking message: one job message per match, or a short "not found". */
-export async function answerJobLookup(query: string, replyTo: number) {
+export async function answerJobLookup(query: string, replyTo: number, options: { quietWhenNone?: boolean } = {}) {
   const rows = await findJobs(query);
   if (!rows.length) {
-    await sendCard(`No upcoming booking found for “${esc(query)}”. Try the surname or the booking reference.`, undefined, replyTo);
-    return;
+    // The assistant can look wider (past trips, other spellings), so it may answer instead.
+    if (!options.quietWhenNone) await sendCard(`No upcoming booking found for “${esc(query)}”. Try the surname or the booking reference.`, undefined, replyTo);
+    return 0;
   }
   for (const row of rows.slice(0, LOOKUP_MAX_RESULTS)) await sendCard(jobReply(row), undefined, replyTo);
   if (rows.length > LOOKUP_MAX_RESULTS) await sendCard(`Showing the first ${LOOKUP_MAX_RESULTS}. Add the surname or the booking reference to narrow it down.`, undefined, replyTo);
+  return rows.length;
 }
