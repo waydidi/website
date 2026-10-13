@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/driver-picker";
 import { includesKohChangFerry } from "@/lib/booking-form";
 import { paymentPill } from "@/lib/payment-pill";
+import { shrinkFormImages } from "@/lib/shrink-image";
 import { EvidenceSheet } from "@/components/drivers/evidence-sheet";
 import type { EditableBooking } from "@/components/bookings-admin/booking-edit";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
@@ -158,9 +159,10 @@ export function AddDriverDialog({ reference, leg = "outbound", onClose, onDone }
     try {
       const form = new FormData(e.currentTarget);
       form.set("driverType", "outsource");
+      await shrinkFormImages(form);
       const res = await fetch("/api/admin/drivers", { method: "POST", body: form });
       const out = await res.json().catch(() => ({})) as { error?: string; driver?: { id: string } };
-      if (!res.ok || !out.driver) throw new Error(out.error ?? "The driver could not be saved.");
+      if (!res.ok || !out.driver) throw new Error(out.error ?? (res.status === 413 ? "The photos are too large. Use smaller photos." : `The driver could not be saved (error ${res.status}). Please try again.`));
       const assign = await fetch("/api/admin/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "assign", bookingReference: reference, leg, driverId: out.driver.id }) });
       const a = await assign.json().catch(() => ({})) as { error?: string; driverUrl?: string };
       if (!assign.ok) throw new Error(a.error ?? "Driver saved, but could not be assigned.");
