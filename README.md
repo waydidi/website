@@ -70,6 +70,11 @@ Each cost is saved exactly as with **Set cost** (an unassigned card is taken by 
 
 Updates are de-duplicated by `update_id`, the webhook secret is checked on every call, callbacks are re-validated server side, and replies are routed only by stored Telegram message ids, never by name. Failed Telegram deliveries keep the customer's message and are retried by the five-minute cron. The schema is in `drizzle/0069_chat_telegram.sql`.
 
+
+### Admin links opened from Telegram
+
+The staff cookie is `SameSite=Strict`, so a link tapped outside the site (Telegram's **Open booking**) used to arrive without it and showed `{"error":"Staff sign-in required."}` even for a signed-in person. A staff page or API address opened as a page visit without the cookie now goes through one hop (a small page on waydidi.com that reloads the same address, which sends the cookie). Still no session after the hop: the sign-in page. Fetches and API calls keep the plain 401, and the cookie rule is unchanged (`lib/admin-gate.ts`, `worker/index.ts`).
+
 ## Driver bank details after the Drop
 
 When a driver confirms the Drop on their trip link (`/driver/trip/…`), the link goes to **กรอกข้อมูลบัญชี** instead of the trip page: **ธนาคาร** (a bottom sheet listing the Thai banks, like the date and time picker), **เลขที่บัญชี** (8–16 digits) and **ชื่อบัญชี**, which is filled in with the assigned driver's name and **must match it** (titles such as นาย/นาง/นางสาว, spaces and capitals are ignored). **ส่งข้อมูล** shows the same tick as a finished website booking (the account number partly hidden, with **เสร็จสิ้น** to go back to the trip page and **แก้ไขข้อมูลบัญชี** to change it). A driver who already sent the details for that job goes straight to the trip page, and so does a **cash** job: only prepaid bookings ask for bank details (the request is refused with 409 for cash).
