@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, LoaderCircle, Luggage, Send, Trash2, UsersRound, X } from "lucide-react";
+import { Check, Copy, FileDown, LoaderCircle, Luggage, Send, Trash2, UsersRound, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,7 +35,7 @@ function prefillFrom(form: FormRow): NewBookingPrefill {
 
 function CopyButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
-  return <button type="button" onClick={() => { void navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1600); }); }} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 px-3 text-[14px] font-medium hover:border-brand">
+  return <button type="button" onClick={() => { void navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1600); }); }} className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 px-3 text-[14px] font-medium hover:border-brand">
     {copied ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}{copied ? "Copied" : "Copy link"}
   </button>;
 }
@@ -245,6 +245,7 @@ export function FormsTable({ service, openForm }: { service: FormService; openFo
               <td className="px-4 py-4"><div className="flex items-center justify-end gap-2">
                 {form.status === "waiting" && !expired && origin && <CopyButton url={`${origin}/f/${form.token}`} />}
                 {form.status === "submitted" && <NewBookingButton service={form.serviceType} prefill={prefillFrom(form)} formToken={form.token} trigger="Create booking" autoOpen={form.token === openForm} />}
+                {form.status === "booked" && form.bookingReference && <a href={`/api/admin/bookings/${encodeURIComponent(form.bookingReference)}/confirmation`} download aria-label={`Download booking PDF ${form.bookingReference}`} title="Download booking PDF" className="grid size-9 place-items-center rounded-full text-slate-400 hover:bg-orange-50 hover:text-brand-text"><FileDown size={16} /></a>}
                 <button type="button" onClick={() => void remove(form.token)} aria-label="Delete form" title="Delete form" className="grid size-9 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>
               </div></td>
             </tr>;
