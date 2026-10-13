@@ -382,3 +382,35 @@ test('the Completed job message goes to both groups with the same text',async()=
  assert.equal(posts[0].body.text,posts[1].body.text);
  assert.match(posts[1].body.text,/^✅ <b>Completed job<\/b>\nReference ID: DG0001/);
 });
+
+async function linkedTake(ref,user,id){
+ await driver(id,'นนท์');
+ await d1.prepare("INSERT OR REPLACE INTO telegram_driver_links(telegram_user_id,driver_id,linked_at) VALUES(?,?,?)").bind(String(user.id),id,at).run();
+ await booking(ref,{method:'card',date:'2099-02-01',cost:1200});
+ await group.postDriverOffer(ref);
+ assert.equal((await group.takeJob(user,ref)).ok,true);
+}
+const useCar=(ref,user)=>group.handleDriverCallback({id:'u'+ref,from:user,data:'dj_use:'+ref,message:{message_id:40,chat:{id:user.id,type:'private'}}});
+
+test('a take that stopped half way (driver saved, nothing assigned) is finished by the same driver, not closed',async()=>{
+ await linkedTake('RS0001',alice,'drv-rs1');
+ // The earlier try saved the driver on the card and then died before assigning.
+ const d=await d1.prepare("SELECT full_name,phone,car_plate,vehicle FROM drivers WHERE id='drv-rs1'").first();
+ await d1.prepare("UPDATE telegram_booking_cards SET driver_done=1,driver_form_json=? WHERE booking_reference='RS0001'").bind(JSON.stringify({name:d.full_name,phone:d.phone,plate:d.car_plate,model:d.vehicle,driverId:'drv-rs1'})).run();
+ await useCar('RS0001',alice);
+ assert.equal((await d1.prepare("SELECT status FROM telegram_driver_jobs WHERE booking_reference='RS0001'").first()).status,'taken');
+ assert.equal((await d1.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='RS0001' AND revoked_at IS NULL").first()).n,1);
+});
+
+test('a take that fails while assigning gives the job back, tells the team why, and can be tapped again',async()=>{
+ await linkedTake('RS0002',bob,'drv-rs2');
+ await d1.prepare("ALTER TABLE telegram_assignment_messages RENAME TO telegram_assignment_messages_off").run();
+ sent.length=0;
+ try{await useCar('RS0002',bob);}finally{await d1.prepare("ALTER TABLE telegram_assignment_messages_off RENAME TO telegram_assignment_messages").run();}
+ assert.deepEqual(await d1.prepare("SELECT status,holder_telegram_id FROM telegram_driver_jobs WHERE booking_reference='RS0002'").first(),{status:'open',holder_telegram_id:null});
+ assert.deepEqual(await d1.prepare("SELECT driver_done,driver_form_json FROM telegram_booking_cards WHERE booking_reference='RS0002'").first(),{driver_done:0,driver_form_json:null});
+ assert.ok(sent.some(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111'&&/ไม่สำเร็จ.*RS0002|RS0002.*ไม่สำเร็จ/s.test(s.body.text)));
+ assert.equal((await group.takeJob(bob,'RS0002')).ok,true);
+ await useCar('RS0002',bob);
+ assert.equal((await d1.prepare("SELECT status FROM telegram_driver_jobs WHERE booking_reference='RS0002'").first()).status,'taken');
+});

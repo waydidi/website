@@ -230,40 +230,57 @@ async function assignTaken(reference: string, d: Driver,holderId:string) {
   }
   const b = await bookingFor(reference);
   const form = { name: d.full_name, phone: d.phone, plate: d.car_plate ?? undefined, model: d.vehicle || undefined, license: d.license_number ?? undefined, driverId: d.id };
-  const slot = b?.status === "confirmed"
-    ? await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=?,driver_done=1 WHERE booking_reference=? AND driver_done=0").bind(JSON.stringify(form), reference).run()
+  const formJson = JSON.stringify(form);
+  let slot = b?.status === "confirmed"
+    ? await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=?,driver_done=1 WHERE booking_reference=? AND driver_done=0").bind(formJson, reference).run()
     : { meta: { changes: 0 } };
+  // The same driver's earlier try stopped half way (the form is saved, nothing was assigned): carry on instead of closing the job.
+  if (!slot.meta.changes && b?.status === "confirmed" && await db().prepare("SELECT 1 x FROM telegram_booking_cards WHERE booking_reference=? AND driver_done=1 AND driver_form_json=?").bind(reference, formJson).first()) slot = { meta: { changes: 1 } };
   if (slot.meta.changes && b?.driver_cost) {
     // The offer was posted because a cost exists (set in Telegram or in Admin): the card counts it as set.
     await db().prepare("UPDATE telegram_booking_cards SET cost_done=1 WHERE booking_reference=? AND cost_done=0").bind(reference).run();
   }
   if (!slot.meta.changes || await liveAssignmentByOther(reference, d.id)) {
     await db().prepare("UPDATE telegram_driver_jobs SET status='closed',driver_id=NULL,holder_telegram_id=NULL,updated_at=? WHERE booking_reference=?").bind(now(), reference).run();
-    if (slot.meta.changes) await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=NULL,driver_done=0 WHERE booking_reference=? AND driver_form_json=?").bind(reference, JSON.stringify(form)).run();
+    if (slot.meta.changes) await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=NULL,driver_done=0 WHERE booking_reference=? AND driver_form_json=?").bind(reference, formJson).run();
     await syncDriverOffer(reference).catch(() => undefined);
     return false;
   }
-  const tasks = await import("./booking-tasks");
-  const bookings = await import("./bookings");
-  // The Thai job with the customer's details goes to the team group and privately to the driver
-  // (the cost is always set by now); without a cost the team group is told who took it.
-  // A short line first ("รถทะเบียน … รับงาน REF"), then the job with the customer's details.
-  await sendTo(telegramChatId(), `รถทะเบียน <b>${esc(d.car_plate || "-")}</b> รับงาน <b>${esc(reference)}</b> ✅`, undefined, await teamCardMessage(reference)).catch(() => undefined);
-  const posted = await tasks.postAssignmentWhenReady(reference, `คนขับ ${d.full_name}`, `✋ ${esc(d.car_plate || d.full_name)} รับงานจากกลุ่มคนขับ${await samePhoneWarning(d)}`,{offerKey:reference,holderId}).catch(() => false);
-  if (!posted) {
-    const committed=await db().prepare("SELECT 1 x FROM booking_assignments WHERE booking_reference=? AND leg='outbound' AND driver_id=? AND revoked_at IS NULL").bind(reference,d.id).first();
-    if (!committed) {
-      await db().batch([
-        db().prepare("UPDATE telegram_booking_cards SET driver_done=0,driver_form_json=NULL WHERE booking_reference=? AND driver_form_json=?").bind(reference,JSON.stringify(form)),
-        db().prepare("UPDATE telegram_driver_jobs SET status='open',driver_id=NULL,holder_telegram_id=NULL,holder_name=NULL,hold_until=NULL WHERE booking_reference=? AND holder_telegram_id=?").bind(reference,holderId),
-      ]);
-      await syncDriverOffer(reference);
-      return false;
+  // Whatever goes wrong from here, the driver slot and the job go back as they were, so the driver can tap again
+  // and the team sees why (a half-done take used to leave the card "driver set" with nobody assigned).
+  const giveBack = () => db().batch([
+    db().prepare("UPDATE telegram_booking_cards SET driver_done=0,driver_form_json=NULL WHERE booking_reference=? AND driver_form_json=?").bind(reference, formJson),
+    db().prepare("UPDATE telegram_driver_jobs SET status='open',driver_id=NULL,holder_telegram_id=NULL,holder_name=NULL,hold_until=NULL WHERE booking_reference=? AND holder_telegram_id=?").bind(reference, holderId),
+  ]);
+  try {
+    const tasks = await import("./booking-tasks");
+    const bookings = await import("./bookings");
+    // The Thai job with the customer's details goes to the team group and privately to the driver
+    // (the cost is always set by now); without a cost the team group is told who took it.
+    // A short line first ("รถทะเบียน … รับงาน REF"), then the job with the customer's details.
+    await sendTo(telegramChatId(), `รถทะเบียน <b>${esc(d.car_plate || "-")}</b> รับงาน <b>${esc(reference)}</b> ✅`, undefined, await teamCardMessage(reference)).catch(() => undefined);
+    const posted = await tasks.postAssignmentWhenReady(reference, `คนขับ ${d.full_name}`, `✋ ${esc(d.car_plate || d.full_name)} รับงานจากกลุ่มคนขับ${await samePhoneWarning(d)}`,{offerKey:reference,holderId});
+    if (!posted) {
+      const committed=await db().prepare("SELECT 1 x FROM booking_assignments WHERE booking_reference=? AND leg='outbound' AND driver_id=? AND revoked_at IS NULL").bind(reference,d.id).first();
+      if (!committed) {
+        await giveBack();
+        await syncDriverOffer(reference).catch(() => undefined);
+        return false;
+      }
     }
+    await bookings.refreshBookingCard(reference).catch(() => undefined);
+    await syncDriverOffer(reference).catch(() => undefined);
+    return true;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "unknown";
+    console.error("driver take failed", reference, reason);
+    const committed=await db().prepare("SELECT 1 x FROM booking_assignments WHERE booking_reference=? AND leg='outbound' AND driver_id=? AND revoked_at IS NULL").bind(reference,d.id).first().catch(() => null);
+    if (committed) return true;
+    await giveBack().catch(() => undefined);
+    await sendTo(telegramChatId(), `⚠️ ${esc(d.full_name)} รับงาน <b>${esc(reference)}</b> ไม่สำเร็จ งานถูกเปิดให้รับใหม่\nสาเหตุ: ${esc(reason.slice(0, 200))}`, undefined, await teamCardMessage(reference)).catch(() => undefined);
+    await syncDriverOffer(reference).catch(() => undefined);
+    return false;
   }
-  await bookings.refreshBookingCard(reference).catch(() => undefined);
-  await syncDriverOffer(reference).catch(() => undefined);
-  return true;
 }
 
 async function liveAssignmentByOther(reference: string, driverId: string) {
