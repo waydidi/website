@@ -102,3 +102,10 @@ test("a driver who already sent the details goes straight to the trip page", asy
   await expect(page.getByText("Customer name")).toBeVisible({ timeout: 30000 });
   await expect(page.getByRole("heading", { name: "กรอกข้อมูลบัญชี" })).toHaveCount(0);
 });
+test("a cash job skips กรอกข้อมูลบัญชี and shows the completed trip page as before", async ({ page }) => {
+  await page.route("**/api/driver/trips/session", (r) => r.fulfill({ json: trip({ payoutNeeded: false }) }));
+  await page.route("**/api/driver/trips/session/plan", (r) => r.fulfill({ json: { days: [] } }));
+  await page.goto("/driver/trip/session");
+  await expect(page.getByText("Customer name")).toBeVisible({ timeout: 30000 });
+  await expect(page.getByRole("heading", { name: "กรอกข้อมูลบัญชี" })).toHaveCount(0);
+});

@@ -84,6 +84,7 @@ type Trip = {
   activeStop: { reason: string; note: string | null; declaredAt: string } | null;
   stopAlert?: boolean;
   payoutDetails: { submittedAt: string } | null;
+  payoutNeeded?: boolean;
   noShow: { eligibleAt: string | null; airport: boolean; freeWaitMinutes: number; maxDistanceMetres: number };
 };
 
@@ -439,7 +440,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       </main>
     );
 
-  if (trip.assignment.currentStatus === "completed" && !pending && payoutStage !== "closed" && (!trip.payoutDetails || payoutStage === "done" || payoutStage === "edit"))
+  if (trip.assignment.currentStatus === "completed" && trip.payoutNeeded !== false && !pending && payoutStage !== "closed" && (!trip.payoutDetails || payoutStage === "done" || payoutStage === "edit"))
     return <PayoutPage driverName={trip.driver.fullName} reference={trip.booking.reference} mode={payoutStage === "done" ? "done" : "form"} saved={payoutSaved}
       onSubmitted={(saved) => { setPayoutSaved(saved); setPayoutStage("done"); void load(); }} onEdit={() => setPayoutStage("edit")} onFinish={() => setPayoutStage("closed")} />;
 

@@ -36,9 +36,9 @@ const route=await vite.ssrLoadModule('/app/api/driver/bank/route.ts');
 const {sha256}=await vite.ssrLoadModule('/lib/security.ts');
 const now='2026-10-13T00:00:00Z';
 let count=0;
-async function seed(status='completed'){
+async function seed(status='completed',method='card'){
  const reference='BANK'+(++count);
- await d1.prepare("INSERT INTO bookings(reference,customer_name,customer_email,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status,access_token_hash,created_at,updated_at) VALUES(?,'Test','t@example.invalid','Bangkok','Pattaya','2026-11-01','09:00',2,1,'economy_sedan','cash',1000,'confirmed','h',?,?)").bind(reference,now,now).run();
+ await d1.prepare("INSERT INTO bookings(reference,customer_name,customer_email,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status,access_token_hash,created_at,updated_at) VALUES(?,'Test','t@example.invalid','Bangkok','Pattaya','2026-11-01','09:00',2,1,'economy_sedan',?,1000,'confirmed','h',?,?)").bind(reference,method,now,now).run();
  await d1.prepare("INSERT INTO telegram_booking_cards(booking_reference,telegram_message_id,created_at) VALUES(?,4400,?)").bind(reference,now).run();
  const driverId='drv-'+count, token=crypto.randomUUID().replaceAll('-','')+'1234567890abcdef';
  await d1.prepare("INSERT INTO drivers(id,full_name,phone,status,created_at,updated_at) VALUES(?,?,'0812345678','active',?,?)").bind(driverId,'สมชาย ใจดี',now,now).run();
@@ -102,13 +102,14 @@ test('a different account from the saved one replaces it and is flagged with the
 });
 
 test('refused without a valid driver link, before the Drop, from another site, or in someone else\'s name: nothing is saved or sent',async()=>{
- const t=await seed('trip_started'), done=await seed();
+ const t=await seed('trip_started'), done=await seed(), cash=await seed('completed','cash');
  sent.length=0;
  const cases=[
   [await post({token:'f'.repeat(48),...good}),404],            // an unknown link
   [await post({token:'nope',...good}),404],                    // a malformed link
   [await post({...good}),404],                                 // no link at all
   [await post({token:t.token,...good}),409],                   // the Drop is not done yet
+  [await post({token:cash.token,...good}),409],               // a cash job has no bank page
   [await post({token:done.token,...good},{origin:'https://evil.example'}),403],
   [await post(JSON.stringify({token:done.token,...good}),{type:'text/plain'}),403],
   [await post('not json'),400],
@@ -119,6 +120,7 @@ test('refused without a valid driver link, before the Drop, from another site, o
  for(const [res,status] of cases)assert.equal(res.status,status);
  assert.deepEqual(await rows(t.reference),{payout:0,events:0});
  assert.deepEqual(await rows(done.reference),{payout:0,events:0});
+ assert.deepEqual(await rows(cash.reference),{payout:0,events:0});
  assert.equal(await d1.prepare("SELECT COUNT(*) n FROM drivers WHERE bank_account_number<>'' AND id IN (?,?)").bind(t.driverId,done.driverId).first('n'),0);
  assert.equal(sent.length,0);
  const wrongName=await (await post({token:done.token,...good,accountName:'ใครสักคน ใจดี'})).json();

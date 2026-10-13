@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { drivers } from "@/db/schema";
+import { bookings, drivers } from "@/db/schema";
 import { parseBankDetails } from "@/lib/driver-bank-rules";
 import { activeAssignmentForToken } from "@/lib/driver-operations";
 import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
@@ -20,6 +20,8 @@ export async function POST(request: Request) {
   const assignment = await activeAssignmentForToken(String(input.token ?? ""));
   if (!assignment) return NextResponse.json({ error: "ลิงก์คนขับหมดอายุหรือถูกยกเลิก" }, { status: 404 });
   if (assignment.currentStatus !== "completed") return NextResponse.json({ error: "กรอกข้อมูลบัญชีได้หลังยืนยันส่งลูกค้าแล้ว" }, { status: 409 });
+  const [booking] = await getDb().select({ paymentMethod: bookings.paymentMethod }).from(bookings).where(eq(bookings.reference, assignment.bookingReference)).limit(1);
+  if (!booking || booking.paymentMethod === "cash") return NextResponse.json({ error: "งานเงินสดไม่ต้องกรอกข้อมูลบัญชี" }, { status: 409 });
   const [driver] = await getDb().select().from(drivers).where(eq(drivers.id, assignment.driverId)).limit(1);
   if (!driver) return NextResponse.json({ error: "ไม่พบข้อมูลคนขับ" }, { status: 404 });
   const parsed = parseBankDetails(input, driver.fullName);
