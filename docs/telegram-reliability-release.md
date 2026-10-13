@@ -11,6 +11,8 @@
 - Admin address edits invalidate corresponding saved navigation links atomically. Expired bin entries are archived, preserving immutable financial/policy records and evidence references.
 - Assistant usage is atomically charged per provider call, including partial turns; concurrent calls reserve budget before requests. Unknown outcomes retain reservations. Long answers are split without losing text.
 
+- The repair routines (a driver step or a completed journey with no delivery record) only look at the **last 24 hours**. Older steps without a record are history: they were sent before the queue existed, or the queue was cleaned up, and posting them again would flood the groups with old photos (this happened once, right after the first deploy).
+
 ## Configuration
 
 Existing bot token/chat/webhook configuration is reused. No secrets are committed.
