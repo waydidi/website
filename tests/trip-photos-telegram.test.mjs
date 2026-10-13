@@ -61,7 +61,7 @@ test('a Drop that completed the job (all three photos in) is posted without the 
  assert.equal(sent[0].form.get('reply_markup'),null);
 });
 
-test('Completed job: route, date, time and the driver with car, under the booking card quoting its reference',async()=>{
+test('Completed job: route, date and time only (no driver details), under the booking card quoting its reference',async()=>{
  const {postJobCompleted}=await vite.ssrLoadModule('/lib/telegram/trip-photos.ts');
  const now='2026-10-11T00:00:00Z';
  await d1.prepare("INSERT INTO bookings(reference,customer_name,customer_surname,customer_email,customer_phone,pickup,dropoff,pickup_date,pickup_time,return_date,return_time,passengers,luggage,vehicle,payment_method,total,amount_paid,flight_number,status,created_at,access_token_hash,updated_at) VALUES('FMB123','Jess','M','j@x.co','','Bkk train station','Koh Chang','2026-10-11','06:00','2026-10-18','13:30',2,2,'premium_minivan','cash',5000,0,'','confirmed',?,'tok',?)").bind(now,now).run();
@@ -72,11 +72,12 @@ test('Completed job: route, date, time and the driver with car, under the bookin
  await postJobCompleted('FMB123','outbound');
  const body=JSON.parse(sent[0].form);
  assert.equal(sent[0].method,'sendMessage'); // no photos stored for this one
- assert.equal(body.text,'✅ <b>Completed job</b>\nReference ID: FMB123\nRoute: Bkk train station – Koh Chang\nDate: 11/10/2026\nTime: 6:00 AM\n\nDriver: Aey\nTel: 0639299689\nCar plate: 1นฌ 1183\nVehicle: Toyota Commuter\n\nNext: the second trip.');
+ assert.equal(body.text,'✅ <b>Completed job</b>\nReference ID: FMB123\nRoute: Bkk train station – Koh Chang\nDate: 11/10/2026\nTime: 6:00 AM\n\nNext: the second trip.');
+ assert.doesNotMatch(body.text,/Driver|Tel:|Car plate|Vehicle|Aey|0639299689|1นฌ/);
  assert.deepEqual(body.reply_parameters,{message_id:149,allow_sending_without_reply:true,quote:'Reference: FMB123'});
  sent.length=0;
  await postJobCompleted('FMB123','return');
  const back=JSON.parse(sent[0].form);
  assert.match(back.text,/Route: Koh Chang – Bkk train station\nDate: 18\/10\/2026\nTime: 1:30 PM/);
- assert.doesNotMatch(back.text,/Next: the second trip/);
+ assert.doesNotMatch(back.text,/Next: the second trip|Driver|Tel:|Car plate|Vehicle/);
 });
