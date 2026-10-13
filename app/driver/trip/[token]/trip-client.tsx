@@ -6,6 +6,7 @@ import { paymentPill } from "@/lib/payment-pill";
 import { DriverWelcome } from "@/components/driver/welcome-scene";
 import { driverHeaders, rememberDriverToken } from "@/lib/driver-token";
 import { StepCamera } from "@/components/drivers/step-camera";
+import { PayoutPage, type SavedPayout } from "@/components/drivers/payout-page";
 import type { EvidencePolicy } from "@/lib/evidence-rules";
 
 import {
@@ -188,6 +189,10 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   const [noShowPhoto, setNoShowPhoto] = useState<File | null>(null);
   const [clock, setClock] = useState(() => Date.now());
   const sending = useRef(false);
+  // After the Drop the link goes to "กรอกข้อมูลบัญชี" until the bank details are in: auto → form; done → the tick
+  // after "ส่งข้อมูล"; edit → the form again from the tick; closed → back to the trip page.
+  const [payoutStage, setPayoutStage] = useState<"auto" | "done" | "edit" | "closed">("auto");
+  const [payoutSaved, setPayoutSaved] = useState<SavedPayout | null>(null);
 
   const load = useCallback(async () => {
     setError("");
@@ -433,6 +438,10 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
         </div>
       </main>
     );
+
+  if (trip.assignment.currentStatus === "completed" && !pending && payoutStage !== "closed" && (!trip.payoutDetails || payoutStage === "done" || payoutStage === "edit"))
+    return <PayoutPage driverName={trip.driver.fullName} reference={trip.booking.reference} mode={payoutStage === "done" ? "done" : "form"} saved={payoutSaved}
+      onSubmitted={(saved) => { setPayoutSaved(saved); setPayoutStage("done"); void load(); }} onEdit={() => setPayoutStage("edit")} onFinish={() => setPayoutStage("closed")} />;
 
   const completionEvent = trip.events.find(
     (event) => event.status === "completed",
