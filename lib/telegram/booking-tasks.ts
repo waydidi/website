@@ -7,6 +7,7 @@ import { jobVehicleName } from "./job-text";
 import { googleMapsLink } from "@/lib/maps-link";
 import { esc } from "./cards";
 import { sendCard, telegramChatId, tg, type TelegramMessage } from "./client";
+import { paymentLabelThai } from "@/lib/payment-methods";
 
 // After a booking is taken in the Telegram group: "Set cost" and "Add driver information" ask
 // their questions one at a time (Telegram's reply box opens for the person who tapped). When both
@@ -172,7 +173,7 @@ export async function postAssignmentWhenReady(reference: string, by: string, hea
     `ไฟลท์: ${esc(b.flight_number || "-")}`,
     `รับ: ${esc(b.pickup)}`,
     `ส่ง: ${esc(b.dropoff)}`,
-    `ราคา: ${cashDue ? `${cashDue.toLocaleString("en-US")} บาท (เก็บเงินสดจากลูกค้า)` : "-"}`,
+    `ราคา: ${cashDue ? `${cashDue.toLocaleString("en-US")} บาท (เก็บเงินสดจากลูกค้า)` : b.payment_method === "transfer" && (b.amount_paid ?? 0) < b.total ? paymentLabelThai("transfer", "pending") : "-"}`,
     "",
     `คนขับ: ${esc(form.name ?? "")} · ${esc(form.phone ?? "")}`,
     `รถ: ${esc(form.model ?? "")} · ทะเบียน ${esc(form.plate ?? "")}`,

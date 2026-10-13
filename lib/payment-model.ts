@@ -1,5 +1,6 @@
 import { toSatang } from "./money";
 import type { bookings } from "@/db/schema";
+import { isOfflinePayment } from "./payment-methods";
 
 export type PaymentProvider = "stripe" | "payso" | "cash";
 export type UnifiedPaymentStatus = "pending" | "processing" | "paid" | "cash_due" | "failed" | "expired" | "refunded" | "partially_refunded" | "disputed";
@@ -7,7 +8,8 @@ export type UnifiedPaymentStatus = "pending" | "processing" | "paid" | "cash_due
 type Booking = typeof bookings.$inferSelect;
 
 export function legacyPaymentProvider(paymentMethod: string): PaymentProvider {
-  if (paymentMethod === "cash") return "cash";
+  // Cash and bank transfer are both recorded offline as cash receipts.
+  if (isOfflinePayment(paymentMethod)) return "cash";
   if (paymentMethod === "payso") return "payso";
   return "stripe";
 }

@@ -74,6 +74,8 @@ An approval is a cash receipt (`cash_receipts` id `slip:<slip id>`) written in o
 
 Worker variables: `WAYDIDI_SLIP_PAYEE_NAMES` (turns the feature on), `WAYDIDI_SLIP_PAYEE_ACCOUNTS`, `WAYDIDI_SLIP_PAYEE_DISPLAY`, `WAYDIDI_SLIP_AUTO_APPROVE` (default off) and `ANTHROPIC_API_KEY` (without it every slip goes to review). The table is created on first use and by `drizzle/0102_payment_slips.sql`. Test with `node --test tests/payment-slips.test.mjs tests/liff.test.mjs`.
 
+**Waiting for payment (Admin → Bookings → Create booking):** the payment choice is Paid, Pay in cash or Waiting for payment. Waiting for payment saves payment method `transfer`: the customer pays by bank transfer or PromptPay before the trip, the driver's job message says not to collect cash, emails and PDFs say "Waiting for payment (bank transfer)", and the booking shows under Admin → Payments → "Cash or transfer to collect" with a **Record transfer** button. The customer can also upload a slip on their booking. Transfers use the same cash-receipt ledger as cash (`lib/cash-collection.ts`); a part payment stays waiting and never becomes cash for the driver. Payment method rules live in `lib/payment-methods.ts`.
+
 ## Design system (G7)
 
 Tokens and rules are in [`docs/design-system-g7.md`](docs/design-system-g7.md); the values live in `app/globals.css`.

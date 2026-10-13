@@ -262,7 +262,7 @@ export default function ConfirmationClient({
             )}
           </span>
           <p className="mt-6 text-sm font-bold uppercase tracking-[.16em] text-white/80">
-            {cancelled ? "Booking cancelled" : booking.paymentStatus === "refunded" ? "Payment refunded" : booking.paymentStatus === "partially_refunded" ? "Payment partly refunded" : booking.paymentStatus === "disputed" ? "Payment under review" : booking.paymentMethod === "cash" && booking.paymentStatus === "paid" ? "Cash collected" : booking.paymentMethod === "cash" && booking.total > 0 ? "Booking confirmed · cash due" : booking.paymentStatus === "paid" ? "Payment received" : "Booking confirmed"}
+            {cancelled ? "Booking cancelled" : booking.paymentStatus === "refunded" ? "Payment refunded" : booking.paymentStatus === "partially_refunded" ? "Payment partly refunded" : booking.paymentStatus === "disputed" ? "Payment under review" : booking.paymentMethod === "cash" && booking.paymentStatus === "paid" ? "Cash collected" : booking.paymentMethod === "cash" && booking.total > 0 ? "Booking confirmed · cash due" : booking.paymentMethod === "transfer" && booking.paymentStatus !== "paid" && booking.total > 0 ? "Booking confirmed · waiting for payment" : booking.paymentStatus === "paid" ? "Payment received" : "Booking confirmed"}
           </p>
           <h1 className="mt-2 text-4xl font-black tracking-[-.04em]">
             {cancelled ? "Your ride was cancelled." : booking.status === "completed" ? "Your journey is complete." : booking.status === "no_show" ? "This journey was recorded as a no-show." : "Your ride is booked."}

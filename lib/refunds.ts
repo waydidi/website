@@ -7,6 +7,7 @@ import { bookingPayments, bookingRefunds, bookings, cashReceipts } from "@/db/sc
 import { paymentProviderFor } from "@/lib/payments/provider";
 import type { PaymentProvider } from "@/lib/payment-model";
 import { customerRefundMinor, describeRefund, noticeHours, serviceStartMs, type RefundReason } from "@/lib/refund-policy";
+import { isOfflinePayment } from "@/lib/payment-methods";
 
 // Server-side refund flow: quote → admin confirmation → refund record → provider
 // request → webhook/reconciliation → refunded. Amounts are never taken from the browser.
@@ -23,7 +24,7 @@ export async function quoteRefund(reference: string, reason: RefundReason, reque
 
   // What was actually received: card payments from the payment record, cash from receipts.
   const [payment] = await getDb().select().from(bookingPayments).where(eq(bookingPayments.bookingReference, reference)).orderBy(desc(bookingPayments.updatedAt)).limit(1);
-  const cash = booking.paymentMethod === "cash" || payment?.provider === "cash";
+  const cash = isOfflinePayment(booking.paymentMethod) || payment?.provider === "cash";
   const paidMinor = cash
     ? (await getDb().select({ m: cashReceipts.amountMinor }).from(cashReceipts).where(eq(cashReceipts.bookingReference, reference))).reduce((t, r) => t + r.m, 0)
     : payment && ["paid", "partially_refunded", "refunded"].includes(payment.status) ? payment.amountPaidMinor ?? toSatang(payment.amountPaid) : 0;

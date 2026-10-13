@@ -7,6 +7,7 @@ import { fulfillBooking } from "@/lib/booking-fulfillment";
 import { legacyPaymentProvider } from "@/lib/payment-model";
 import { paymentProviderFor } from "@/lib/payments/provider";
 import type { ProviderPaymentSession } from "@/lib/payments/types";
+import { isOfflinePayment } from "@/lib/payment-methods";
 
 type Booking = typeof bookings.$inferSelect;
 export type ReconciliationSource = "webhook" | "customer_return" | "admin" | "scheduled";
@@ -73,7 +74,8 @@ export async function reconcilePaymentSession(booking: Booking, session: Provide
 export async function reconcileBooking(reference: string, source: ReconciliationSource) {
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
   if (!booking) return { status: "not_found" as const };
-  if (booking.paymentMethod === "cash") return { status: "cash_due" as const, bookingStatus: booking.status };
+  // Cash and bank transfer have no provider to ask; staff or an approved slip record them.
+  if (isOfflinePayment(booking.paymentMethod)) return { status: "cash_due" as const, bookingStatus: booking.status };
   if (!booking.checkoutSessionId) {
     await alert(booking, "payment_session_missing", "Payment session is missing", "A card booking has no Stripe Checkout Session ID.");
     return { status: "missing_session" as const, bookingStatus: booking.status };

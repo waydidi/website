@@ -101,7 +101,7 @@ export async function createReceiptPdf(r: Receipt) {
   for (const [label, value] of totals) { text(label, 56, y, 11); right(`THB ${amount(value)}`, 539, y, 11); y -= 23; }
   y -= 25;
   for (const row of wrap(`Amount received in words: ${amountInWords(r.receivedMinor)}`, 503, 9)) { text(row, 46, y, 9, muted); y -= 14; }
-  for (const row of wrap(`Payment: ${r.paymentMethod === "cash" ? "Recorded cash collection" : "Recorded online payment"}. This document confirms the cumulative payments shown above for this booking.`, 503, 9)) { text(row, 46, y, 9, muted); y -= 14; }
+  for (const row of wrap(`Payment: ${r.paymentMethod === "cash" ? "Recorded cash collection" : r.paymentMethod === "transfer" ? "Recorded bank transfer" : "Recorded online payment"}. This document confirms the cumulative payments shown above for this booking.`, 503, 9)) { text(row, 46, y, 9, muted); y -= 14; }
   if (r.kind === "receipt") for (const row of wrap("Receipt only. This document does not charge VAT or serve as a VAT tax invoice.", 503, 9)) { text(row, 46, y, 9, muted); y -= 14; }
   y -= 35;
   ensure(55);

@@ -7,6 +7,7 @@ import { env } from "cloudflare:workers";
 import { publicSiteUrl } from "@/lib/site";
 import { fullName as personFullName } from "@/lib/person-name";
 import { WHATSAPP } from "@/lib/contact";
+import { paymentLabel } from "@/lib/payment-methods";
 
 type ConfirmationEmailInput = {
   to: string;
@@ -104,7 +105,7 @@ function letterDate(date: string, time: string) {
 
 export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
   const roundTrip = Boolean(input.returnDate && input.returnTime);
-  const payment = input.total === 0 ? "Nothing to pay" : input.paymentMethod === "cash" ? "Pay in cash" : input.paymentMethod === "manual" ? "Paid" : "Paid online";
+  const payment = input.paymentMethod === "transfer" ? paymentLabel("transfer", "pending", input.total) : input.total === 0 ? "Nothing to pay" : input.paymentMethod === "cash" ? "Pay in cash" : input.paymentMethod === "manual" ? "Paid" : "Paid online";
   const addons = input.extras?.addons.map((line) => line.label.toLowerCase()) ?? [];
   const price = `${input.total.toLocaleString("en-US")} THB${addons.length ? ` (including ${addons.join(", ")}${roundTrip ? " for both ways" : ""})` : ""}`;
   const fullName = personFullName(input.name, input.surname);
@@ -181,7 +182,7 @@ export async function sendOperationsAlert(booking: {
   serviceType?: string | null; bookedHours?: number | null; pricingArea?: string | null; childSeats?: number | null; specialRequests?: string | null; flightNumber?: string | null;
 }) {
   if (!env.BOOKING_ALERT_EMAIL) return { status: "pending_configuration" } as EmailDelivery;
-  const payment = booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : booking.paymentMethod === "manual" ? "Paid" : "Paid online";
+  const payment = booking.paymentMethod === "transfer" ? paymentLabel("transfer", "pending", booking.total) : booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Cash at pickup" : booking.paymentMethod === "manual" ? "Paid" : "Paid online";
   const cash = booking.paymentMethod === "cash" && booking.total > 0;
   // Same look as the customer's confirmation page: stacked label / value blocks.
   const field = (label: string, value: string) => `<tr><td style="padding:0 0 22px"><p style="margin:0 0 6px;color:#8793a6;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${escapeHtml(label)}</p><p style="margin:0;color:#211726;font-size:17px;font-weight:700;line-height:1.4">${escapeHtml(value)}</p></td></tr>`;

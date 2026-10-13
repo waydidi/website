@@ -65,7 +65,7 @@ export async function revenueReport(range: ReportRange, by: "day" | "month") {
   const total = empty();
   trips.forEach((t) => add(total, t));
   const periods = [...group(trips, (t) => (by === "month" ? t.pickupDate.slice(0, 7) : t.pickupDate))].sort(([a], [b]) => a.localeCompare(b));
-  const payment = [...group(trips, (t) => (t.paymentMethod === "cash" ? "Cash" : "Card"))];
+  const payment = [...group(trips, (t) => (t.paymentMethod === "cash" ? "Cash" : t.paymentMethod === "transfer" ? "Bank transfer" : "Card"))];
   const vehicles = [...group(trips, (t) => t.vehicle)].sort(([, a], [, b]) => b.revenue - a.revenue);
   const routes = [...group(trips, (t) => (t.serviceType === "hourly" ? `${t.pickup.split(",")[0]} (hourly)` : `${t.pickup.split(",")[0]} → ${t.dropoff.split(",")[0]}`))]
     .sort(([, a], [, b]) => b.revenue - a.revenue).slice(0, 10);
