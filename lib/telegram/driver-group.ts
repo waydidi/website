@@ -6,7 +6,7 @@ import { esc } from "./cards";
 import { answerCallback, downloadFile, editIn, sendPhoto, sendPhotoAlbum, sendPrivate, sendTo, telegramBotUsername, telegramChatId, tg, type InlineKeyboard, type TelegramMessage, type TelegramUser } from "./client";
 import { jobVehicleName } from "./job-text";
 import {
-  CAR_TYPES, SIGNUP_MINUTES, STEP_QUESTION, checkTextAnswer, driverGroupConfig, isCarType, isGroupMember, isMyJobsCommand, nextStep, offerText, parseSignupStart, signupLink, stepsFor,
+  CAR_TYPES, SIGNUP_MINUTES, STEP_QUESTION, checkTextAnswer, driverGroupConfig, groupChatFor, isDriverGroupChat, isCarType, isGroupMember, isMyJobsCommand, nextStep, offerText, parseSignupStart, signupLink, stepsFor,
   type DriverDraft, type FormStep, type OfferJob, type OfferState,
 } from "./driver-group-rules";
 
@@ -18,15 +18,16 @@ import {
 // group; the driver gets the full job privately. One guarded write decides who tapped first.
 
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<{ meta: { changes: number } }> };
-const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt; batch: (s: Stmt[]) => Promise<unknown> };
+const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt; batch: (s: Stmt[]) => Promise<{ meta: { changes: number } }[]> };
 const now = () => new Date().toISOString();
 export const driverGroup = () => driverGroupConfig(env as unknown as Record<string, unknown>);
 
 let ready: Promise<unknown> | null = null;
-/** Workers Builds doesn't run migrations: the tables are created on first use (same as drizzle/0103). */
+/** Workers Builds doesn't run migrations: the tables are created on first use (same as drizzle/0103 and 0104). */
 function ensureTables() {
   ready ??= db().batch([
     db().prepare("CREATE TABLE IF NOT EXISTS telegram_driver_jobs (booking_reference TEXT PRIMARY KEY, telegram_message_id INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'open', holder_telegram_id TEXT, holder_name TEXT, hold_until TEXT, driver_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"),
+    db().prepare("CREATE TABLE IF NOT EXISTS telegram_driver_job_chats (booking_reference TEXT PRIMARY KEY, chat_id TEXT NOT NULL)"),
     db().prepare("CREATE TABLE IF NOT EXISTS telegram_driver_links (telegram_user_id TEXT PRIMARY KEY, driver_id TEXT NOT NULL, linked_at TEXT NOT NULL)"),
     db().prepare("CREATE INDEX IF NOT EXISTS idx_telegram_driver_links_driver ON telegram_driver_links(driver_id)"),
     db().prepare("CREATE TABLE IF NOT EXISTS telegram_driver_forms (telegram_user_id TEXT PRIMARY KEY, booking_reference TEXT NOT NULL, step TEXT NOT NULL, driver_id TEXT NOT NULL, form_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL)"),
@@ -77,6 +78,20 @@ async function stateFor(b: BookingRow, job: JobRow | null): Promise<OfferState> 
 const offerKeyboard = (reference: string, state: OfferState): InlineKeyboard =>
   state.kind === "open" ? [[{ text: "✋ รับงาน (Assign)", callback_data: `dj_take:${reference}` }]] : [];
 
+/**
+ * The driver group a job was offered in: the one saved with it (the south group); a job offered before the south
+ * group existed stays in the main group; a job not offered yet goes where its pickup says.
+ */
+async function chatForJob(reference: string, group: { chatId: string; southChatId: string | null }) {
+  const row = await db().prepare("SELECT chat_id FROM telegram_driver_job_chats WHERE booking_reference=?").bind(reference).first<{ chat_id: string }>().catch(() => null);
+  if (row?.chat_id) return row.chat_id;
+  if (!group.southChatId) return group.chatId;
+  const offered = await db().prepare("SELECT 1 x FROM telegram_driver_jobs WHERE booking_reference=?").bind(reference).first().catch(() => null);
+  if (offered) return group.chatId;
+  const b = await bookingFor(reference).catch(() => null);
+  return b ? groupChatFor(group, b.pickup) : group.chatId;
+}
+
 /** Posts a booking to the driver group once its cost is set (safe to call again). Off unless the owner turned it on. */
 export async function postDriverOffer(reference: string) {
   const group = driverGroup();
@@ -85,15 +100,23 @@ export async function postDriverOffer(reference: string) {
   const b = await bookingFor(reference);
   // Offered only once staff have set the driver cost, and only while it still needs a driver.
   if (!b || b.status !== "confirmed" || !b.driver_cost || pickupPassed(b) || await driverSet(reference)) return false;
-  const claimed = await db().prepare("INSERT INTO telegram_driver_jobs(booking_reference,created_at,updated_at) VALUES(?,?,?) ON CONFLICT(booking_reference) DO NOTHING").bind(reference, now(), now()).run();
+  // A pickup in the south goes to the south group (when there is one), everything else to the main group.
+  const chatId = groupChatFor(group, b.pickup);
+  const [claimed] = await db().batch([
+    db().prepare("INSERT INTO telegram_driver_jobs(booking_reference,created_at,updated_at) VALUES(?,?,?) ON CONFLICT(booking_reference) DO NOTHING").bind(reference, now(), now()),
+    db().prepare("INSERT OR IGNORE INTO telegram_driver_job_chats(booking_reference,chat_id) VALUES(?,?)").bind(reference, chatId),
+  ]);
   if (!claimed.meta.changes) return false;
   try {
     const state: OfferState = { kind: "open" };
-    const sent = await sendTo(group.chatId, offerText(offerJob(b), state), offerKeyboard(reference, state));
+    const sent = await sendTo(chatId, offerText(offerJob(b), state), offerKeyboard(reference, state));
     await db().prepare("UPDATE telegram_driver_jobs SET telegram_message_id=?,updated_at=? WHERE booking_reference=?").bind(sent.message_id, now(), reference).run();
     return true;
   } catch (error) {
-    await db().prepare("DELETE FROM telegram_driver_jobs WHERE booking_reference=? AND telegram_message_id=0").bind(reference).run();
+    await db().batch([
+      db().prepare("DELETE FROM telegram_driver_jobs WHERE booking_reference=? AND telegram_message_id=0").bind(reference),
+      db().prepare("DELETE FROM telegram_driver_job_chats WHERE booking_reference=? AND NOT EXISTS(SELECT 1 FROM telegram_driver_jobs WHERE booking_reference=?)").bind(reference, reference),
+    ]);
     throw error;
   }
 }
@@ -109,7 +132,7 @@ export async function syncDriverOffer(reference: string) {
   if (!b) return;
   const state = await stateFor(b, job);
   if (state.kind === "closed" && job.status !== "closed" && job.status !== "taken") await db().prepare("UPDATE telegram_driver_jobs SET status='closed',holder_telegram_id=NULL,hold_until=NULL,updated_at=? WHERE booking_reference=? AND status IN ('open','signing_up')").bind(now(), reference).run();
-  await editIn(group.chatId, job.telegram_message_id, offerText(offerJob(b), state), offerKeyboard(reference, state));
+  await editIn(await chatForJob(reference, group), job.telegram_message_id, offerText(offerJob(b), state), offerKeyboard(reference, state));
 }
 
 /** The driver-group message of a booking's offer, for posting trip photos under it. */
@@ -117,14 +140,13 @@ export async function driverOfferMessage(reference: string) {
   const group = driverGroup();
   if (!group) return null;
   const row = await db().prepare("SELECT telegram_message_id FROM telegram_driver_jobs WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>().catch(() => null);
-  return { chatId: group.chatId, messageId: row?.telegram_message_id || undefined };
+  return { chatId: await chatForJob(reference, group), messageId: row?.telegram_message_id || undefined };
 }
 
 /** Telegram says whether this person is in the driver group right now. Unknown = no (fail closed). */
-async function inDriverGroup(userId: number) {
-  const group = driverGroup();
-  if (!group) return false;
-  const member = await tg<{ status?: string; is_member?: boolean }>("getChatMember", { chat_id: group.chatId, user_id: userId }).catch(() => null);
+async function inDriverGroup(userId: number, chatId: string) {
+  if (!driverGroup()) return false;
+  const member = await tg<{ status?: string; is_member?: boolean }>("getChatMember", { chat_id: chatId, user_id: userId }).catch(() => null);
   return isGroupMember(member);
 }
 
@@ -148,7 +170,8 @@ export type TakeResult = { ok: true; driver: Driver | null } | { ok: false; reas
 export async function takeJob(user: TelegramUser, reference: string): Promise<TakeResult> {
   if (!driverGroup()) return { ok: false, reason: "ระบบรับงานทาง Telegram ยังไม่เปิดใช้งาน" };
   await ensureTables();
-  if (!await inDriverGroup(user.id)) return { ok: false, reason: "รับงานได้เฉพาะสมาชิกกลุ่มคนขับ Waydidi" };
+  // The driver must be in the group this job was offered in (the south group for a southern job).
+  if (!await inDriverGroup(user.id, await chatForJob(reference, driverGroup()!))) return { ok: false, reason: "รับงานได้เฉพาะสมาชิกกลุ่มคนขับ Waydidi" };
   const job = await db().prepare("SELECT * FROM telegram_driver_jobs WHERE booking_reference=?").bind(reference).first<JobRow>();
   const b = job ? await bookingFor(reference) : null;
   if (!job || !b) return { ok: false, reason: "ไม่พบงานนี้" };
@@ -475,7 +498,6 @@ export async function handleDriverGroupMessage(m: TelegramMessage) {
   if (!m.from || !isMyJobsCommand(text)) return;
   await ensureTables();
   const sent = await sendMyJobs(m.from, String(m.from.id)).then(() => true).catch(() => false);
-  const group = driverGroup();
   const bot = await telegramBotUsername().catch(() => null);
-  if (group) await sendTo(group.chatId, sent ? "ส่งรายการงานให้ทางแชทส่วนตัวแล้ว" : `กดเริ่มแชทกับบอทก่อน${bot ? `: https://t.me/${bot}` : ""}`, undefined, m.message_id).catch(() => undefined);
+  if (isDriverGroupChat(driverGroup(), String(m.chat.id))) await sendTo(String(m.chat.id), sent ? "ส่งรายการงานให้ทางแชทส่วนตัวแล้ว" : `กดเริ่มแชทกับบอทก่อน${bot ? `: https://t.me/${bot}` : ""}`, undefined, m.message_id).catch(() => undefined);
 }

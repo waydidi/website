@@ -60,7 +60,7 @@ test('off unless the owner turns it on, and never the team group',()=>{
  assert.equal(rules.driverGroupConfig({TELEGRAM_DRIVER_CHAT_ID:'-100222'}),null);
  assert.equal(rules.driverGroupConfig({TELEGRAM_DRIVER_JOBS:'1',TELEGRAM_DRIVER_CHAT_ID:'-100111',TELEGRAM_CHAT_ID:'-100111'}),null);
  assert.equal(rules.driverGroupConfig({TELEGRAM_DRIVER_JOBS:'1',TELEGRAM_DRIVER_CHAT_ID:'not-an-id'}),null);
- assert.deepEqual(rules.driverGroupConfig({TELEGRAM_DRIVER_JOBS:'1',TELEGRAM_DRIVER_CHAT_ID:'-100222',TELEGRAM_CHAT_ID:'-100111'}),{chatId:'-100222'});
+ assert.deepEqual(rules.driverGroupConfig({TELEGRAM_DRIVER_JOBS:'1',TELEGRAM_DRIVER_CHAT_ID:'-100222',TELEGRAM_CHAT_ID:'-100111'}),{chatId:'-100222',southChatId:null});
 });
 
 test('the sign-up link, "my jobs" and the sign-up answers are checked',()=>{
