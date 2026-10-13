@@ -48,12 +48,8 @@ async function recordSpend(amount: number) {
 /** On when an API key exists, unless TELEGRAM_ASSISTANT=0. */
 export const assistantConfigured = () => Boolean(vars().ANTHROPIC_API_KEY) && vars().TELEGRAM_ASSISTANT !== "0";
 
-/** The staff role a Telegram team member asks with: their linked staff account's, else support (read-only bookings). */
-export async function assistantRole(staffId: string | null): Promise<StaffRole> {
-  if (!staffId) return "support";
-  const row = await db().prepare("SELECT role FROM staff_accounts WHERE id=? AND active=1").bind(staffId).first<{ role: StaffRole }>().catch(() => null);
-  return row?.role ?? "support";
-}
+/** Waydidi has one admin: everyone on the Telegram team list asks with full (owner) access. */
+export const TELEGRAM_TEAM_ROLE: StaffRole = "owner";
 
 const bangkokNow = () => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", dateStyle: "full", timeStyle: "short" }).format(new Date());
 const todayIso = () => new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
@@ -115,14 +111,14 @@ export function splitForTelegram(text: string, max = 3900) {
 }
 
 /** Answers a team member's question in the group, under their message. */
-export async function answerInGroup(question: string, replyTo: number, asker: { name: string; staffId: string | null }, previous: string | null) {
+export async function answerInGroup(question: string, replyTo: number, asker: { name: string }, previous: string | null) {
   const spent = await spentThisMonth();
   if (spent.usd >= monthlyCapUsd()) {
     await sendCard(`The assistant has reached this month's spending limit (US$${monthlyCapUsd()}). The owner can raise TELEGRAM_ASSISTANT_MONTHLY_USD in Cloudflare.`, undefined, replyTo);
     return;
   }
   await tg("sendChatAction", { chat_id: telegramChatId(), action: "typing" }).catch(() => undefined);
-  const role = await assistantRole(asker.staffId);
+  const role = TELEGRAM_TEAM_ROLE;
   const client = new Anthropic({ apiKey: vars().ANTHROPIC_API_KEY, timeout: 45_000, maxRetries: 1 }) as unknown as AssistantClient;
   let answer: AssistantAnswer;
   try { answer = await assistantTurn(question, { role, name: asker.name, previous }, client); }

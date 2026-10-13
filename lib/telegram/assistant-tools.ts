@@ -108,16 +108,17 @@ export async function runAssistantTool(name: string, input: Record<string, unkno
     const ref = s("reference").toUpperCase();
     const b = await db().prepare("SELECT * FROM bookings WHERE reference=? AND status<>'binned'").bind(ref).first<BookingRow>();
     if (!b) return json({ none: `No booking ${ref}.` });
-    const [assignments, cost] = await Promise.all([
+    const [assignments, cost, maps] = await Promise.all([
       db().prepare("SELECT a.leg,a.current_status,a.assigned_at,d.full_name,d.phone,d.car_plate,d.vehicle FROM booking_assignments a JOIN drivers d ON d.id=a.driver_id WHERE a.booking_reference=? AND a.revoked_at IS NULL").bind(ref).all<BookingRow>(),
       db().prepare("SELECT agreed_driver_cost,total_driver_cost,payment_status FROM booking_costs WHERE booking_reference=?").bind(ref).first<BookingRow>().catch(() => null),
+      db().prepare("SELECT pickup_map_url,dropoff_map_url FROM booking_map_links WHERE booking_reference=?").bind(ref).first<{ pickup_map_url: string | null; dropoff_map_url: string | null }>().catch(() => null),
     ]);
     const keep = ["reference", "status", "service_type", "customer_name", "customer_surname", "customer_email", "customer_phone", "pickup", "dropoff", "pickup_date", "pickup_time", "flight_number", "flight_status", "passengers", "luggage", "child_seats", "oversized_luggage", "special_requests", "pickup_sign", "vehicle", "booked_hours", "pricing_area", "return_pickup", "return_dropoff", "return_date", "return_time", "payment_method", "payment_status", "total", "amount_paid", "refund_status", "refund_amount", "cancellation_reason", "attention_status", "attention_reason", "internal_notes", "created_at"];
     const booking = Object.fromEntries(keep.filter((k) => b[k] !== null && b[k] !== "" && b[k] !== 0 || ["total", "passengers"].includes(k)).map((k) => [k, b[k]]));
     const driverCost = cost ? Number(cost.total_driver_cost) || Number(cost.agreed_driver_cost) || null : null;
-    const job = driverJobText({ vehicle: String(b.vehicle), customerName: String(b.customer_name), customerSurname: b.customer_surname as string | null, passengers: Number(b.passengers), luggage: Number(b.luggage),
-      pickupDate: String(b.pickup_date), pickupTime: String(b.pickup_time), flightNumber: b.flight_number as string | null, pickup: String(b.pickup), dropoff: String(b.dropoff),
-      serviceType: b.service_type as string | null, pricingArea: b.pricing_area as string | null, bookedHours: b.booked_hours as number | null }, driverCost);
+    const job = driverJobText({ reference: ref, vehicle: String(b.vehicle), customerName: String(b.customer_name), customerSurname: b.customer_surname as string | null, passengers: Number(b.passengers), luggage: Number(b.luggage),
+      pickupDate: String(b.pickup_date), pickupTime: String(b.pickup_time), pickup: String(b.pickup), dropoff: String(b.dropoff),
+      serviceType: b.service_type as string | null, pricingArea: b.pricing_area as string | null, bookedHours: b.booked_hours as number | null }, driverCost, { pickup: maps?.pickup_map_url, dropoff: maps?.dropoff_map_url });
     return json({ booking, drivers: assignments.results, ...(seesMoney(role) ? { driver_cost_thb: driverCost, driver_cost_paid: cost?.payment_status ?? null } : {}), driver_job_message: job, admin_link: `${SITE_URL}/admin/journeys/${ref}` });
   }
 

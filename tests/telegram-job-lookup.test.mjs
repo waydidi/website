@@ -72,7 +72,7 @@ test('upcoming bookings for a name, nearest first, with the driver cost', async 
   const text = lookup.jobReply(rows[0]);
   assert.match(text, new RegExp(`<b>${sooner}</b>`));
   assert.match(text, /ชื่อลูกค้า: Tayla Smith/);
-  assert.match(text, /วันที่\/เวลา: 14\/10\/2026 08:30/);
+  assert.match(text, /วันที่: 14\/10\/2026\nเวลา: 08:30\nรับ: .+\nhttps:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;destination=/);
   assert.match(text, /ราคา: 1,800 บาท/);
   assert.equal((await lookup.findJobs('smith tayla', '2026-10-12')).length, 2, 'surname first works too');
 });

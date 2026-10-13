@@ -205,7 +205,7 @@ async function handleMessage(m: TelegramMessage) {
     // Anything else (or a lookup with no match): the assistant answers from Waydidi's data, within the asker's Admin role.
     if (!assistantConfigured()) return;
     const previous = m.reply_to_message?.from?.is_bot ? m.reply_to_message.text ?? null : null;
-    await answerInGroup(text.replace(/^\/ask(@\w+)?\s*/i, "") || text, m.message_id, { name: teamMember.display_name, staffId: teamMember.staff_id }, previous);
+    await answerInGroup(text.replace(/^\/ask(@\w+)?\s*/i, "") || text, m.message_id, { name: teamMember.display_name }, previous);
     return;
   }
   const admin = await approved(m.from);

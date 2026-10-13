@@ -139,13 +139,11 @@ test('a failing lookup becomes a message, a refusal a polite no, and loops stop'
   assert.equal(looping.requests, 6);
 });
 
-test('roles come from the linked staff account; unlinked members get support', async () => {
-  await d1.prepare("INSERT INTO staff_accounts(id,username,email,display_name,password_hash,role,last_totp_step,active,created_at) VALUES(?,?,?,?,?,?,?,?,?)").bind('s1', 'fin', 'f@example.invalid', 'Fin', 'x', 'finance', 0, 1, now).run();
-  await d1.prepare("INSERT INTO staff_accounts(id,username,email,display_name,password_hash,role,last_totp_step,active,created_at) VALUES(?,?,?,?,?,?,?,?,?)").bind('s2', 'old', 'o@example.invalid', 'Old', 'x', 'owner', 0, 0, now).run();
-  assert.equal(await assistant.assistantRole('s1'), 'finance');
-  assert.equal(await assistant.assistantRole(null), 'support');
-  assert.equal(await assistant.assistantRole('missing'), 'support');
-  assert.equal(await assistant.assistantRole('s2'), 'support', 'a disabled staff account gives no extra access');
+test('one admin: every Telegram team member asks with full (owner) access, including payments', async () => {
+  assert.equal(assistant.TELEGRAM_TEAM_ROLE, 'owner');
+  const r = await run('payments_overview', {}, assistant.TELEGRAM_TEAM_ROLE);
+  assert.notEqual(r.ok, false, 'the team role may see payments');
+  assert.equal(r.reason, undefined);
 });
 
 test('long answers are split for Telegram', () => {
