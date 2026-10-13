@@ -25,7 +25,7 @@ import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { rideUrl } from "@/lib/trip-access";
-import { assignedDriverUrl } from "@/lib/trip-links";
+import { assignedDriverUrls } from "@/lib/trip-links";
 import Link from "next/link";
 import { NotionCalendar } from "@/components/bookings-admin/notion-calendar";
 import { WaydidiLogo } from "@/components/waydidi-logo";
@@ -104,15 +104,17 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const viaPartner = new Map(partnerSources.map((p) => [p.ref, p.source.slice(4)]));
   // Customer trip status page links for bookings that have a driver.
   const origin = (() => { const h = requestHeaders.get("host"); return h ? `${h.startsWith("localhost") ? "http" : "https"}://${h}` : ""; })();
-  const tripLinks = new Map(await Promise.all(rows.filter((r) => assigned.has(r.reference)).map(async (r) => [r.reference, await rideUrl(origin, r)] as const)));
+  // Each customer ride link is signed once, however many places show it.
+  const rideLinks = new Map(await Promise.all(rows.filter((r) => assigned.has(r.reference) || r.status === "confirmed").map(async (r) => [r.reference, await rideUrl(origin, r).catch(() => null)] as const)));
+  const tripLinks = new Map([...rideLinks].filter(([ref, url]) => assigned.has(ref) && url));
   // The phone cards show every confirmed booking's customer status link (in the card details).
-  const cardRideLinks = new Map(await Promise.all(rows.filter((r) => r.status === "confirmed").map(async (r) => [r.reference, await rideUrl(origin, r).catch(() => null)] as const)));
+  const cardRideLinks = rideLinks;
   // …the driver cost set in Telegram ("Set cost")…
   const cardRefs = activeRows.map((r) => r.reference), costRows: { ref: string; cost: number }[] = [];
   for (let i = 0; i < cardRefs.length; i += 90) costRows.push(...await getDb().select({ ref: bookingCosts.bookingReference, cost: bookingCosts.totalDriverCost }).from(bookingCosts).where(inArray(bookingCosts.bookingReference, cardRefs.slice(i, i + 90))).catch(() => []));
   const driverCosts = new Map(costRows.map((c) => [c.ref, c.cost]));
   // …and the assigned driver's job link for the leg the card shows.
-  const cardDriverLinks = new Map(await Promise.all(rows.filter((r) => r.status === "confirmed").map(async (r) => { const leg = journey(r).shown.leg; return [`${r.reference}:${leg}`, await assignedDriverUrl(r.reference, leg).catch(() => null)] as const; })));
+  const cardDriverLinks = await assignedDriverUrls(rows.filter((r) => r.status === "confirmed").map((r) => ({ reference: r.reference, leg: journey(r).shown.leg })));
   const confirmed = activeRows.filter((row) => row.status === "confirmed").length;
   const pending = activeRows.filter((row) => row.status === "pending_payment").length;
   const emailIssues = activeRows.filter(
