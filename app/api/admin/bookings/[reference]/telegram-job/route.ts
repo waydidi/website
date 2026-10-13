@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -7,6 +8,7 @@ import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { esc } from "@/lib/telegram/cards";
 import { sendCard, telegramConfigured } from "@/lib/telegram/client";
 import { driverJobText } from "@/lib/telegram/job-text";
+import type { SecurityDatabase } from "@/lib/worker-db";
 
 // Admin: post the driver job message for one booking to the team Telegram group.
 export async function POST(request: Request, context: { params: Promise<{ reference: string }> }) {
@@ -20,7 +22,8 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   if (booking.status === "cancelled") return NextResponse.json({ error: "This booking is cancelled." }, { status: 409 });
   const [cost] = await getDb().select({ total: bookingCosts.totalDriverCost, agreed: bookingCosts.agreedDriverCost }).from(bookingCosts).where(eq(bookingCosts.bookingReference, reference)).limit(1).catch(() => []);
   try {
-    await sendCard(esc(driverJobText(booking, cost ? cost.total || cost.agreed : null)));
+    const maps = await (env.DB as SecurityDatabase).prepare("SELECT pickup_map_url,dropoff_map_url FROM booking_map_links WHERE booking_reference=?").bind(reference).first<{ pickup_map_url: string | null; dropoff_map_url: string | null }>().catch(() => null);
+    await sendCard(esc(driverJobText(booking, cost ? cost.total || cost.agreed : null, { pickup: maps?.pickup_map_url, dropoff: maps?.dropoff_map_url })));
   } catch (error) {
     console.error("Telegram job post failed", { reference, error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "Couldn't send to Telegram. Try again." }, { status: 502 });
