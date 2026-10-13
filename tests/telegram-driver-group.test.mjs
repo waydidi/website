@@ -151,6 +151,9 @@ test('two linked drivers tapping Assign at once: the first tap gets the job, the
  // Privately: the ใบงาน (with map links), what to collect and the trip link.
  assert.match(dms[0].body.text,/^DG0001\n\nตู้สวย 🚗\n\nชื่อลูกค้า: Jessica Moore\n[\s\S]*\nhttps:\/\/www\.google\.com\/maps\/dir\/[\s\S]*\nราคา: 1,800 บาท\nเก็บเงินสดจากลูกค้า 2,500 บาท\n\nลิงก์งาน: https:\/\/\S+\/driver\/trip\//);
  assert.match(dms.at(-1).body.text,/เป็นของคุณ \(Toyota Commuter — กข 1234\)/);
+ // Their documents go to the team group too; these test drivers have no photos on file, so it says so.
+ const docs=sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111').map(s=>s.body.text).find(t=>t.startsWith('🪪 เอกสารคนขับ: '));
+ assert.match(docs,new RegExp(`^🪪 เอกสารคนขับ: <b>${winner.name}</b>\nเบอร์: 0812345678\nรถ: Toyota Commuter\nทะเบียน: กข 1234\n⚠️ ไม่มีรูปเอกสารในระบบ — เพิ่มได้ใน Admin → Drivers\nงาน: DG0001$`));
  assert.doesNotMatch(sent.filter(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222').at(-1).body.text,/Jessica|\+66811112222/);
 });
 
@@ -236,9 +239,10 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  assert.deepEqual(await d1.prepare("SELECT status,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0007'").first(),{status:'taken',driver_id:link.driver_id});
  assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/บันทึกข้อมูลรถแล้ว ✓\n✅ งาน <b>DG0007<\/b> เป็นของคุณ/);
  assert.equal(await d1.prepare("SELECT COUNT(*) n FROM drivers WHERE full_name='Carol Saetang'").first('n'),1); // same driver, new car
- const carPhoto=sent.filter(s=>s.method==='sendPhoto').at(-1);
- assert.equal(carPhoto.body.get('chat_id'),'-100111');
- assert.match(carPhoto.body.get('caption'),/^🚗 รถใหม่ของคนขับ: <b>Carol Saetang<\/b>[\s\S]*ทะเบียน: กท 5555\nรูป: รถ\nงาน: DG0007$/);
+ // Her licence/ID (on file) and the new car photo go to the team group.
+ const docs=JSON.parse(sent.filter(s=>s.method==='sendMediaGroup').at(-1).body.get('media'));
+ assert.equal(docs.length,2);
+ assert.match(docs[0].caption,/^🪪 เอกสารคนขับ \(เปลี่ยนรถ\): <b>Carol Saetang<\/b>[\s\S]*ทะเบียน: กท 5555\nรูป: ใบขับขี่\/บัตรประชาชน, รถ \(ใหม่\)\nงาน: DG0007$/);
 });
 
 test('a first-time driver who never opened the bot is sent to it with the sign-up link',async()=>{
