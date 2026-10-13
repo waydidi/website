@@ -1,7 +1,8 @@
+import { queueTelegram } from "./outbox";
 import { env } from "cloudflare:workers";
 import { addBotMessage, conversationById, messagesFor, setStatus, type Conversation } from "@/lib/website-chat";
 import { esc } from "./cards";
-import { editCard, sendCard, telegramConfigured } from "./client";
+import { editCard, telegramChatId, telegramConfigured } from "./client";
 
 // When Non hands a chat to the team: a card in the group with [Assign] [Wait].
 // "Wait" tells the customer someone is coming, and the card comes back after 10 minutes if
@@ -33,12 +34,10 @@ const buttons = (id: string) => [[{ text: "Assign", callback_data: `chat_assign:
 
 /** Posts the handover card (as a reply under the chat's card, so the conversation is one tap away). */
 export async function postHandoverCard(conversationId: string, extra = "") {
-  if (!telegramConfigured()) return;
   const c = await conversationById(conversationId);
   if (!c || c.assigned_name) return;
   const s = state(c);
-  const sent = await sendCard(text(c, s, extra, await recent(c)), buttons(c.id), c.telegram_message_id ?? undefined);
-  await save(c.id, { ...s, card: sent.message_id, waitUntil: null });
+  await queueTelegram({id:`handover:${c.id}:${s.waitUntil??s.at??"initial"}`,destination:telegramChatId(),payload:{text:text(c,s,extra,await recent(c)),keyboard:buttons(c.id),replyTo:c.telegram_message_id??undefined,target:{kind:"handover",id:c.id}}});
 }
 
 /** "Wait": the customer is told someone is coming; the card returns in 10 minutes if still unassigned. */

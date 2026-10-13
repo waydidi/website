@@ -35,6 +35,8 @@ export async function completeFilledJourneys() {
       AND NOT EXISTS(SELECT 1 FROM journey_legs j WHERE j.booking_reference=x.booking_reference AND j.leg=x.leg AND j.status IN ('completed','no_show'))
     GROUP BY x.booking_reference, x.leg HAVING COUNT(DISTINCT x.step)=3 LIMIT 20`).all<{ reference: string; leg: string }>();
   for (const j of results) await completeIfEvidenceFilled(j.reference, j.leg, "auto:evidence").catch((e) => console.error("Auto-complete failed", j.reference, e));
+  const finished=(await evidenceDb().prepare("SELECT booking_reference AS reference,leg FROM journey_legs WHERE status='completed' ORDER BY updated_at DESC LIMIT 20").all<{reference:string;leg:string}>()).results;
+  for (const j of finished) await postJobCompleted(j.reference,j.leg).catch(()=>undefined);
 }
 
 async function closeIfFilled(reference: string, leg: "outbound" | "return", by: string): Promise<boolean> {

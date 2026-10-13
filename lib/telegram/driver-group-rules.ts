@@ -38,11 +38,11 @@ export const groupChatFor = (config: DriverGroupConfig, pickup: string) => (conf
 
 /** A first-time driver who tapped Assign has this long to send their details, then the job is offered again. */
 export const SIGNUP_MINUTES = 30;
-const REFERENCE = /^[A-Z0-9-]{4,24}$/;
+const REFERENCE = /^[A-Z0-9-]{4,40}$/;
 
 /** "/start reg_FMBNUW" (the link that opens the sign-up after tapping Assign) → "FMBNUW". */
 export function parseSignupStart(text: string) {
-  const m = text.trim().match(/^\/start\s+reg_([A-Za-z0-9-]{4,24})$/);
+  const m = text.trim().match(/^\/start\s+reg_([A-Za-z0-9-]{4,40})$/);
   const reference = m?.[1].toUpperCase();
   return reference && REFERENCE.test(reference) ? reference : null;
 }
@@ -128,3 +128,7 @@ export const nextStep = (step: FormStep, mode: "driver" | "car" = "driver"): For
 /** The group's members who may take jobs (Telegram's getChatMember statuses). */
 export const isGroupMember = (member: { status?: string; is_member?: boolean } | null) =>
   !!member && (member.status === "creator" || member.status === "administrator" || member.status === "member" || (member.status === "restricted" && member.is_member === true));
+
+/** Return offers use a separate dispatch identity; the public booking reference remains unchanged. */
+export const driverJobIdentity = (reference:string,leg="outbound") => leg==="return"?`${reference}--RETURN`:reference;
+export const driverJobLeg = (key:string) => key.endsWith("--RETURN") ? {reference:key.slice(0,-8),leg:"return" as const} : {reference:key,leg:"outbound" as const};

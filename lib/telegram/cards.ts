@@ -85,12 +85,12 @@ export const botEcho = (publicId: string, body: string) =>
 export const staffEcho = (publicId: string, name: string, body: string) =>
   `<b>${esc(name)}</b> replied on the website · ${esc(publicId)}\n<blockquote>${esc(clip(body, 3500))}</blockquote>`;
 
-export type CardBooking = { reference: string; customerName: string; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; vehicle: string; passengers: number; luggage: number; total: number; payment: string; acknowledgedBy?: string | null; driverCost?: number | null; driverName?: string | null; costDone?: boolean; driverDone?: boolean; rideLink?: string | null; driverLink?: string | null };
+export type CardBooking = { status?:string;returnAvailable?:boolean;returnCostSet?:boolean; reference: string; customerName: string; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; vehicle: string; passengers: number; luggage: number; total: number; payment: string; acknowledgedBy?: string | null; driverCost?: number | null; driverName?: string | null; costDone?: boolean; driverDone?: boolean; rideLink?: string | null; driverReturnLink?:string|null; driverLink?: string | null };
 
 export function bookingCard(b: CardBooking) {
   return [
     "<b>WAYDIDI</b>",
-    "<b>NEW BOOKING</b>",
+    b.status&&b.status!=="confirmed"?`<b>${esc(b.status.toUpperCase())} BOOKING</b>`:"<b>NEW BOOKING</b>",
     "",
     `Customer: <b>${esc(b.customerName)}</b>`,
     `Route: ${esc(b.pickup)} → ${esc(b.dropoff)}`,
@@ -100,6 +100,7 @@ export function bookingCard(b: CardBooking) {
     `Total: THB ${b.total.toLocaleString("en-US")} · ${esc(b.payment)}`,
     ...(b.rideLink ? [`Customer ride status: ${esc(b.rideLink)}`] : []),
     ...(b.driverLink ? [`Driver link: ${esc(b.driverLink)}`] : []),
+    ...(b.driverReturnLink?[`Return driver link: ${esc(b.driverReturnLink)}`]:[]),
     `Reference: ${esc(b.reference)}`,
     "",
     b.acknowledgedBy ? `Taken by <b>${esc(b.acknowledgedBy)}</b>` : "Awaiting assignment",
@@ -112,6 +113,7 @@ export function bookingCard(b: CardBooking) {
  * driver group; old cards' driver and map buttons still work if tapped.
  */
 export const bookingKeyboard = (b: CardBooking, adminUrl: string): InlineKeyboard => {
+  if (b.status && b.status!=="confirmed") return [[{text:"Open booking",url:adminUrl}]];
   if (!b.acknowledgedBy) return [[{ text: "Assign to me", callback_data: `booking_assign:${b.reference}` }, { text: "Open booking", url: adminUrl }]];
-  return [...(b.costDone ? [] : [[{ text: "Set cost", callback_data: `bk_cost:${b.reference}` }]]), [{ text: "Open booking", url: adminUrl }]];
+  return [...(b.costDone ? [] : [[{ text: "Set cost", callback_data: `bk_cost:${b.reference}` }]]),...(b.returnAvailable&&!b.returnCostSet?[[{text:"Set return cost",callback_data:`bk_rcost:${b.reference}`}]]:[]), [{ text: "Open booking", url: adminUrl }]];
 };

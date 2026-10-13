@@ -47,7 +47,7 @@ export function BookingDeleteButton({ reference, binned = false, purgeAfter, asT
         <form onSubmit={(event) => { event.preventDefault(); if (password) void request("bin"); }}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete booking {reference}?</AlertDialogTitle>
-            <AlertDialogDescription>It moves to the Bin for 30 days, where you can restore it. After 30 days it is deleted permanently. Enter your admin password to confirm.</AlertDialogDescription>
+            <AlertDialogDescription>It moves to the Bin for 30 days, where you can restore it. After 30 days it is archived; financial documents and policy records are retained. Enter your admin password to confirm.</AlertDialogDescription>
           </AlertDialogHeader>
           {/* A text field masked with CSS, so browsers don't offer saved passwords or passkeys here; the eye shows what was typed. */}
           <div className="relative mt-4">

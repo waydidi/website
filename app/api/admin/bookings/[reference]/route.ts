@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
+import { and,eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { bookingAssignments, bookings } from "@/db/schema";
 import { getWaydidiAdmin, verifyAdminKey } from "@/lib/admin";
-import { purgeExpiredBookings } from "@/lib/booking-bin";
+import { ensureReliabilityTables, reliabilityDb } from "@/lib/telegram/reliability-db";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { VEHICLES, vehicleFits, type VehicleId } from "@/lib/vehicles";
 import { detailsChanged, parseDetails } from "@/lib/booking-edit";
@@ -15,7 +15,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ refe
   // Deleting needs the admin password again, even with a signed-in session.
   const { password } = await request.json().catch(() => ({})) as { password?: string };
   if (!password || !(await verifyAdminKey(password))) return NextResponse.json({ error: "Incorrect admin password." }, { status: 403 });
-  await purgeExpiredBookings();
+  await ensureReliabilityTables();
   const { reference } = await context.params;
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
   if (!booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
@@ -34,11 +34,13 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   const admin = await getWaydidiAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
-  await purgeExpiredBookings();
+  await ensureReliabilityTables();
   const { reference } = await context.params;
   const input = await request.json().catch(() => null) as { action?: string } | null;
   if (input?.action !== "restore") return NextResponse.json({ error: "Unsupported action." }, { status: 400 });
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
+  const archived=await reliabilityDb().prepare("SELECT 1 x FROM booking_archives WHERE booking_reference=?").bind(reference).first();
+  if (archived) return NextResponse.json({error:"This booking has been archived; its financial records are retained."},{status:409});
   if (!booking || booking.status !== "binned") return NextResponse.json({ error: "Booking is not in the bin." }, { status: 404 });
   await getDb().update(bookings).set({ status: booking.binPreviousStatus || "confirmed", binnedAt: null, purgeAfter: null, binnedBy: null, binPreviousStatus: null, updatedAt: new Date().toISOString() }).where(eq(bookings.reference, reference));
   if (booking.binPreviousStatus !== "cancelled") await import("@/lib/telegram/booking-changes").then((m) => m.notifyAdminRestored(reference, admin.email)).catch(() => undefined);
@@ -82,7 +84,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ refer
   if (!changed) return NextResponse.json({ ok: true, changed: false });
   // A new address drops its old map point (it no longer matches).
   const places = { pickup, dropoff, ...(pickup !== booking.pickup ? { pickupLatitude: null, pickupLongitude: null } : {}), ...(dropoff !== booking.dropoff ? { dropoffLatitude: null, dropoffLongitude: null } : {}) };
-  await getDb().update(bookings).set({ ...places, ...details, pickupDate, pickupTime, vehicle, passengers, luggage, returnDate, returnTime, bookingVersion: booking.bookingVersion + 1, updatedAt: new Date().toISOString() }).where(eq(bookings.reference, reference));
+  await ensureReliabilityTables();
+  const changedAt=new Date().toISOString();
+  const version=booking.bookingVersion;
+  // Claim the observed version first. Derived navigation and the edit commit together.
+  const update=getDb().update(bookings).set({...places,...details,pickupDate,pickupTime,vehicle,passengers,luggage,returnDate,returnTime,bookingVersion:version+1,updatedAt:changedAt}).where(and(eq(bookings.reference,reference),eq(bookings.bookingVersion,version),eq(bookings.status,booking.status))).toSQL();
+  const owns="EXISTS(SELECT 1 FROM bookings WHERE reference=? AND booking_version=? AND updated_at=?)";
+  const [committed]=await reliabilityDb().batch([
+    reliabilityDb().prepare(update.sql).bind(...update.params),
+    ...(pickup!==booking.pickup || dropoff!==booking.dropoff ? [reliabilityDb().prepare(`UPDATE booking_map_links SET pickup_map_url=CASE WHEN ? THEN NULL ELSE pickup_map_url END,dropoff_map_url=CASE WHEN ? THEN NULL ELSE dropoff_map_url END,updated_at=? WHERE booking_reference=? AND ${owns}`).bind(pickup!==booking.pickup?1:0,dropoff!==booking.dropoff?1:0,changedAt,reference,reference,version+1,changedAt)] : []),
+    reliabilityDb().prepare(`UPDATE dispatch_revision SET version=version+1 WHERE id=1 AND ${owns}`).bind(reference,version+1,changedAt),
+  ]);
+  if (!committed.meta.changes) return NextResponse.json({error:"The booking changed. Refresh and retry."},{status:409});
   console.info("Admin edited booking", { reference, admin: admin.email });
   await import("@/lib/telegram/booking-changes").then((m) => m.republishJob(reference, admin.displayName || admin.email, "แก้ไขโดยแอดมิน")).catch(() => undefined);
   return NextResponse.json({ ok: true, changed: true });

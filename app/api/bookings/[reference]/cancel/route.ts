@@ -1,3 +1,4 @@
+import { requestCancellation } from "@/lib/cancellation-requests";
 import { customerFromRequest, customerBooking } from "@/lib/customer-auth";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -20,7 +21,9 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   const pickup = new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime();
   if (pickup - Date.now() < PARTIAL_REFUND_HOURS * 3_600_000) return NextResponse.json({ error: `Cancellations less than ${PARTIAL_REFUND_HOURS} hours before pickup are non-refundable. Contact Waydidi on WhatsApp ${WHATSAPP}.` }, { status: 409 });
 
+  const cancellation=await requestCancellation(reference);
+  if (!cancellation) return NextResponse.json({error:"The booking changed. Refresh and try again."},{status:409});
   // No online refunds yet: the team gets the request in Telegram and confirms with the customer.
   await import("@/lib/telegram/booking-changes").then((m) => m.notifyCancellationRequest(reference)).catch((e) => console.error("telegram cancel request failed", e instanceof Error ? e.message : "unknown"));
-  return NextResponse.json({ status: "requested", message: `We've received your cancellation request for ${reference}. Our team will confirm by email shortly. Questions: WhatsApp ${WHATSAPP} or ${SUPPORT_EMAIL}.` }, { status: 202 });
+  return NextResponse.json({ status: "requested", requestId:cancellation.id, requestedAt:cancellation.requested_at, message: `We've received your cancellation request for ${reference}. Our team will confirm by email shortly. Questions: WhatsApp ${WHATSAPP} or ${SUPPORT_EMAIL}.` }, { status: 202 });
 }

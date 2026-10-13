@@ -1,34 +1,22 @@
-import { env } from "cloudflare:workers";
-import { and, eq, lte } from "drizzle-orm";
-import { getDb } from "@/db";
-import { bookings, driverStatusEvents } from "@/db/schema";
+import { ensureReliabilityTables, reliabilityDb } from "@/lib/telegram/reliability-db";
 
-export async function permanentlyDeleteBooking(reference: string) {
-  const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
-  if (!booking) return false;
-  const evidence = await getDb().select({ key: driverStatusEvents.evidenceKey }).from(driverStatusEvents).where(eq(driverStatusEvents.bookingReference, reference));
-  await env.DB.batch([
-    env.DB.prepare("DELETE FROM driver_status_events WHERE booking_reference = ?").bind(reference),
-    env.DB.prepare("DELETE FROM booking_notifications WHERE booking_reference = ?").bind(reference),
-    env.DB.prepare("DELETE FROM operations_alerts WHERE booking_reference = ?").bind(reference),
-    env.DB.prepare("DELETE FROM booking_assignments WHERE booking_reference = ?").bind(reference),
-    env.DB.prepare("DELETE FROM driver_offers WHERE booking_reference = ?").bind(reference),
-    env.DB.prepare("DELETE FROM booking_costs WHERE booking_reference = ?").bind(reference),
-    env.DB.prepare("DELETE FROM booking_management_sessions WHERE booking_reference = ?").bind(reference),
-    env.DB.prepare("DELETE FROM booking_changes WHERE booking_reference = ?").bind(reference),
-    env.DB.prepare("DELETE FROM booking_events WHERE booking_reference = ?").bind(reference),
-    env.DB.prepare("DELETE FROM bookings WHERE reference = ?").bind(reference),
+/** Expired bin entries are archived. Financial documents, policies and their parent identity stay immutable. */
+export async function permanentlyDeleteBooking(reference:string) {
+  await ensureReliabilityTables();
+  const db=reliabilityDb(),at=new Date().toISOString();
+  const [saved]=await db.batch([
+    db.prepare("INSERT OR IGNORE INTO booking_archives(booking_reference,archived_at) SELECT reference,? FROM bookings WHERE reference=? AND status='binned' AND purge_after<=?").bind(at,reference,at),
+    db.prepare("UPDATE bookings SET purge_after=NULL,updated_at=? WHERE reference=? AND EXISTS(SELECT 1 FROM booking_archives WHERE booking_reference=?)").bind(at,reference,reference),
+    db.prepare("UPDATE booking_assignments SET revoked_at=COALESCE(revoked_at,?),updated_at=? WHERE booking_reference=? AND EXISTS(SELECT 1 FROM booking_archives WHERE booking_reference=?)").bind(at,at,reference,reference),
   ]);
-  if (env.BUCKET) {
-    const keys = [booking.pdfKey, ...evidence.map((row) => row.key)].filter((key): key is string => Boolean(key));
-    await Promise.all(keys.map((key) => env.BUCKET.delete(key))).catch(() => undefined);
-  }
-  return true;
+  return Boolean(saved.meta.changes);
 }
-
 export async function purgeExpiredBookings() {
-  const now = new Date().toISOString();
-  const expired = await getDb().select({ reference: bookings.reference }).from(bookings).where(and(eq(bookings.status, "binned"), lte(bookings.purgeAfter, now))).limit(50);
-  for (const row of expired) await permanentlyDeleteBooking(row.reference);
-  return expired.length;
+  await ensureReliabilityTables();
+  const rows=(await reliabilityDb().prepare("SELECT reference FROM bookings WHERE status='binned' AND purge_after<=? LIMIT 50").bind(new Date().toISOString()).all<{reference:string}>()).results;
+  let archived=0;
+  for (const row of rows) {
+    try {if(await permanentlyDeleteBooking(row.reference)) archived++;} catch {console.error("Booking archival failed; retained for retry");}
+  }
+  return archived;
 }

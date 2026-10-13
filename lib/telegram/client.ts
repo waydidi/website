@@ -73,7 +73,7 @@ export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: n
   if (replyTo) form.set("reply_parameters", JSON.stringify(replyParameters(replyTo, quote)));
   if (keyboard) form.set("reply_markup", JSON.stringify({ inline_keyboard: keyboard }));
   form.set("photo", new Blob([photo], { type: "image/jpeg" }), "trip-photo.jpg");
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(15000) });
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(15000) }).catch(() => { throw new TelegramDeliveryError("Telegram sendPhoto: delivery outcome unknown", false); });
   const data = await res.json().catch(() => ({})) as { ok?: boolean; result?: TelegramMessage; description?: string };
   if (!data.ok) throw new TelegramDeliveryError(`Telegram sendPhoto failed: ${String(data.description ?? res.status).replaceAll(token, "[redacted]")}`, res.status >= 400 && res.status < 500);
   return data.result as TelegramMessage;
@@ -88,7 +88,7 @@ export async function sendPhotoAlbum(photos: { bytes: ArrayBuffer; mime: string 
   if (replyTo) form.set("reply_parameters", JSON.stringify(replyParameters(replyTo, quote)));
   form.set("media", JSON.stringify(photos.slice(0, 10).map((_, i) => ({ type: "photo", media: `attach://p${i}`, ...(i === 0 ? { caption, parse_mode: "HTML" } : {}) }))));
   photos.slice(0, 10).forEach((p, i) => form.set(`p${i}`, new Blob([p.bytes], { type: p.mime }), `photo-${i}.${p.mime === "image/png" ? "png" : p.mime === "image/webp" ? "webp" : "jpg"}`));
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendMediaGroup`, { method: "POST", body: form, signal: AbortSignal.timeout(20000) });
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMediaGroup`, { method: "POST", body: form, signal: AbortSignal.timeout(20000) }).catch(() => { throw new TelegramDeliveryError("Telegram sendMediaGroup: delivery outcome unknown", false); });
   const data = await res.json().catch(() => ({})) as { ok?: boolean; result?: TelegramMessage[]; description?: string };
   if (!data.ok) throw new TelegramDeliveryError(`Telegram sendMediaGroup failed: ${String(data.description ?? res.status).replaceAll(token, "[redacted]")}`, res.status >= 400 && res.status < 500);
   return data.result as TelegramMessage[];

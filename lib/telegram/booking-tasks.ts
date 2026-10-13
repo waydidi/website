@@ -1,13 +1,12 @@
+import { toSatang } from "@/lib/money";
+import { assignDriver } from "@/lib/assignment-service";
+import { deliverAssignmentTelegram } from "./assignments";
+import { queueTelegram } from "./outbox";
+import { ensureReliabilityTables, reliabilityDb } from "./reliability-db";
 import { env } from "cloudflare:workers";
-import { fullName } from "@/lib/person-name";
-import { sha256 } from "@/lib/security";
-import { driverTokenForAssignment } from "@/lib/trip-links";
-import { SITE_URL } from "@/lib/site";
-import { driverJobText, jobVehicleName } from "./job-text";
 import { googleMapsLink } from "@/lib/maps-link";
 import { esc } from "./cards";
-import { sendCard, telegramChatId, tg, type TelegramMessage } from "./client";
-import { paymentLabelThai } from "@/lib/payment-methods";
+import { telegramChatId, type TelegramMessage } from "./client";
 
 // After a booking is taken in the Telegram group: "Set cost" and "Add driver information" ask
 // their questions one at a time (Telegram's reply box opens for the person who tapped). When both
@@ -17,10 +16,11 @@ type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>
 const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
 const now = () => new Date().toISOString();
 
-type Field = "cost" | "driver_name" | "driver_phone" | "driver_plate" | "driver_model" | "driver_license" | "pickup_map" | "dropoff_map";
+type Field = "return_cost" | "cost" | "driver_name" | "driver_phone" | "driver_plate" | "driver_model" | "driver_license" | "pickup_map" | "dropoff_map";
 const DRIVER_STEPS: Field[] = ["driver_name", "driver_phone", "driver_plate", "driver_model", "driver_license"];
 const QUESTION: Record<Field, string> = {
   cost: "Driver cost in THB (numbers only)",
+  return_cost:"Return driver cost in THB (numbers only)",
   driver_name: "Driver full name",
   driver_phone: "Driver phone number",
   driver_plate: "Car plate",
@@ -32,74 +32,85 @@ const QUESTION: Record<Field, string> = {
 type DriverForm = { name?: string; phone?: string; plate?: string; model?: string; license?: string; driverId?: string };
 
 /** Asks one question in the group; only the person who tapped gets the reply box. */
-export async function askBookingQuestion(reference: string, field: Field, user: { id: number; first_name?: string }) {
-  const mention = `<a href="tg://user?id=${user.id}">${esc(user.first_name ?? "You")}</a>`;
-  const card = await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>();
-  const step = DRIVER_STEPS.includes(field) ? ` (${DRIVER_STEPS.indexOf(field) + 1}/${DRIVER_STEPS.length})` : "";
-  const sent = await tg<TelegramMessage>("sendMessage", { chat_id: telegramChatId(), parse_mode: "HTML",
-    text: `${mention}, booking <b>${esc(reference)}</b>${step}: ${QUESTION[field]}?`,
-    reply_markup: { force_reply: true, selective: true, input_field_placeholder: QUESTION[field] },
-    ...(card?.telegram_message_id ? { reply_parameters: { message_id: card.telegram_message_id, allow_sending_without_reply: true } } : {}) });
-  await db().prepare("INSERT OR REPLACE INTO telegram_booking_prompts(telegram_message_id,booking_reference,field,telegram_user_id,created_at) VALUES(?,?,?,?,?)")
-    .bind(sent.message_id, reference, field, String(user.id), now()).run();
+export async function askBookingQuestion(reference:string,field:Field,user:{id:number;first_name?:string},eventId=crypto.randomUUID()) {
+  await ensureReliabilityTables();
+  const version=await db().prepare("SELECT booking_version,status FROM bookings WHERE reference=?").bind(reference).first<{booking_version:number;status:string}>();
+  if (!version || version.status!=="confirmed") return;
+  const card=await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{telegram_message_id:number}>();
+  const mention=`<a href="tg://user?id=${user.id}">${esc(user.first_name??"You")}</a>`;
+  const step=DRIVER_STEPS.includes(field)?` (${DRIVER_STEPS.indexOf(field)+1}/${DRIVER_STEPS.length})`:"";
+  await queueTelegram({id:`prompt:${eventId}:${field}`,reference,destination:telegramChatId(),payload:{text:`${mention}, booking <b>${esc(reference)}</b>${step}: ${QUESTION[field]}?`,replyTo:card?.telegram_message_id||undefined,prompt:{reference,field,userId:String(user.id),version:version.booking_version,placeholder:QUESTION[field]}}});
 }
 
-/**
- * An answer in the group: a reply to a question, or the next plain message from the person who
- * was asked (within 10 minutes). Returns true when it was a booking answer.
- */
-export async function handleBookingAnswer(m: TelegramMessage, adminName: string, refresh: (reference: string) => Promise<unknown>) {
-  const text = (m.text ?? "").trim();
-  if (!text || !m.from) return false;
-  let prompt = m.reply_to_message
-    ? await db().prepare("SELECT * FROM telegram_booking_prompts WHERE telegram_message_id=?").bind(m.reply_to_message.message_id).first<{ telegram_message_id: number; booking_reference: string; field: Field; telegram_user_id: string | null }>()
-    : null;
-  if (!prompt && !m.reply_to_message) prompt = await db().prepare("SELECT * FROM telegram_booking_prompts WHERE telegram_user_id=? AND created_at>? ORDER BY created_at DESC LIMIT 1")
-    .bind(String(m.from.id), new Date(Date.now() - 10 * 60_000).toISOString()).first();
-  if (!prompt) return false;
-  const ref = prompt.booking_reference;
-  const again = async (note: string) => { await sendCard(`${esc(note)}`, undefined, m.message_id).catch(() => undefined); await askBookingQuestion(ref, prompt!.field, m.from!); };
-  await db().prepare("DELETE FROM telegram_booking_prompts WHERE telegram_message_id=?").bind(prompt.telegram_message_id).run();
-
-  if (prompt.field === "pickup_map" || prompt.field === "dropoff_map") {
-    // The driver's Pick up / Drop buttons open this link.
-    const link = googleMapsLink(text);
-    if (!link) { await again("Please paste a Google Maps link, e.g. https://maps.app.goo.gl/…"); return true; }
-    const column = prompt.field === "pickup_map" ? "pickup_map_url" : "dropoff_map_url";
-    await db().prepare(`INSERT INTO booking_map_links(booking_reference,${column},updated_by,updated_at) VALUES(?,?,?,?)
-      ON CONFLICT(booking_reference) DO UPDATE SET ${column}=excluded.${column},updated_by=excluded.updated_by,updated_at=excluded.updated_at`)
-      .bind(ref, link, `telegram:${adminName}`, now()).run();
-    await sendCard(`${prompt.field === "pickup_map" ? "Pickup" : "Drop-off"} map saved for <b>${esc(ref)}</b> ✓`, undefined, m.message_id).catch(() => undefined);
-    await refresh(ref);
+/** Answer, state changes and prompt consumption commit atomically. Replays recover the next question. */
+export async function handleBookingAnswer(m:TelegramMessage,adminName:string,refresh:(reference:string)=>Promise<unknown>) {
+  if (!m.from || String(m.chat.id)!==telegramChatId() || !m.text?.trim()) return false;
+  await ensureReliabilityTables();
+  const db=reliabilityDb(),text=m.text.trim(),answerId=`telegram:${m.chat.id}:${m.message_id}`;
+  type Prompt={telegram_message_id:number;booking_reference:string;field:Field;telegram_user_id:string;booking_version:number;consumed_at:string|null;current_version:number;status:string};
+  const available=await db.prepare("SELECT p.telegram_message_id FROM telegram_booking_prompts p JOIN telegram_prompt_context c ON c.message_id=p.telegram_message_id WHERE p.telegram_user_id=? AND p.created_at>? LIMIT 1").bind(String(m.from.id),new Date(Date.now()-10*60000).toISOString()).first();
+  if (!available) return false;
+  const base=`SELECT p.*,c.booking_version,c.consumed_at,b.booking_version current_version,b.status FROM telegram_booking_prompts p JOIN telegram_prompt_context c ON c.message_id=p.telegram_message_id JOIN bookings b ON b.reference=p.booking_reference WHERE p.telegram_user_id=? AND p.created_at>?`;
+  const expiry=new Date(Date.now()-10*60000).toISOString();
+  const prompt=m.reply_to_message ? await db.prepare(`${base} AND p.telegram_message_id=?`).bind(String(m.from.id),expiry,m.reply_to_message.message_id).first<Prompt>() : await db.prepare(`${base} AND c.consumed_at IS NULL ORDER BY p.created_at DESC LIMIT 1`).bind(String(m.from.id),expiry).first<Prompt>();
+  if (!prompt || prompt.status!=="confirmed" || prompt.booking_version!==prompt.current_version) return false;
+  const ref=prompt.booking_reference;
+  const replay=await db.prepare("SELECT answer_id,next_field FROM telegram_prompt_answers WHERE prompt_id=?").bind(prompt.telegram_message_id).first<{answer_id:string;next_field:Field|null}>();
+  if (replay) {
+    if (replay.answer_id!==answerId) return false;
+    if (replay.next_field) await askBookingQuestion(ref,replay.next_field,m.from,answerId);
+    else {await postAssignmentWhenReady(ref,adminName);await refresh(ref);}
     return true;
   }
-  if (prompt.field === "cost") {
-    const cost = Number(text.replace(/[,\s฿]|THB|บาท/gi, ""));
-    if (!Number.isInteger(cost) || cost < 0 || cost > 500000) { await again("Please send the cost as a number, e.g. 900."); return true; }
-    await saveDriverCost(ref, cost, adminName);
-    // The driver's trip page shows this as the Price.
-    await sendCard(`Price THB ${cost.toLocaleString("en-US")} saved for <b>${esc(ref)}</b> ✓ (shown on the driver page)`, undefined, m.message_id).catch(() => undefined);
-  } else {
-    const row = await db().prepare("SELECT driver_form_json FROM telegram_booking_cards WHERE booking_reference=?").bind(ref).first<{ driver_form_json: string | null }>();
-    const form: DriverForm = row?.driver_form_json ? JSON.parse(row.driver_form_json) : {};
-    const value = text.slice(0, 120);
-    if (prompt.field === "driver_name") { if (value.length < 3) { await again("Please send the driver's full name."); return true; } form.name = value; }
-    if (prompt.field === "driver_phone") { if (!/^[+\d][\d\s()-]{7,}$/.test(value)) { await again("Please send a phone number, e.g. 081 234 5678."); return true; } form.phone = value.replace(/\s+/g, " "); }
-    if (prompt.field === "driver_plate") form.plate = value;
-    if (prompt.field === "driver_model") form.model = value;
-    if (prompt.field === "driver_license") form.license = value;
-    const next = DRIVER_STEPS[DRIVER_STEPS.indexOf(prompt.field) + 1];
-    if (next) {
-      await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=? WHERE booking_reference=?").bind(JSON.stringify(form), ref).run();
-      await askBookingQuestion(ref, next, m.from);
-      return true;
+  if (prompt.consumed_at) return false;
+  const at=now(),writes=[];
+  const owned="EXISTS(SELECT 1 FROM telegram_prompt_answers WHERE prompt_id=? AND answer_id=?)";
+  let next:Field|null=null,formJson:string|null=null;
+  const invalid=async(note:string)=>{await queueTelegram({id:`answer-invalid:${answerId}`,destination:telegramChatId(),payload:{text:esc(note),replyTo:m.message_id}});return true;};
+  if (prompt.field==='cost'||prompt.field==='return_cost') {
+    const cleaned=text.replace(/[,\s฿]|THB|บาท/gi,"");
+    const cost=Number(cleaned);
+    if (!cleaned || !Number.isSafeInteger(cost) || cost<0 || cost>500000) return invalid("Please send the cost as a number, e.g. 900.");
+    if (prompt.field==='return_cost') {
+      writes.push(db.prepare(`INSERT INTO telegram_driver_leg_costs(booking_reference,leg,cost_minor,updated_at) SELECT ?,'return',?,? WHERE ${owned} ON CONFLICT(booking_reference,leg) DO UPDATE SET cost_minor=excluded.cost_minor,updated_at=excluded.updated_at`).bind(ref,toSatang(cost),at,prompt.telegram_message_id,answerId));
+    } else {
+      writes.push(db.prepare(`INSERT INTO booking_costs(booking_reference,agreed_driver_cost,additional_costs,total_driver_cost,payment_status,updated_by,created_at,updated_at) SELECT ?,?,0,?,'unpaid',?,?,? WHERE ${owned} ON CONFLICT(booking_reference) DO UPDATE SET agreed_driver_cost=excluded.agreed_driver_cost,total_driver_cost=excluded.agreed_driver_cost+booking_costs.additional_costs,updated_by=excluded.updated_by,updated_at=excluded.updated_at`).bind(ref,cost,cost,`telegram:${adminName}`,at,at,prompt.telegram_message_id,answerId));
+      writes.push(db.prepare(`UPDATE telegram_booking_cards SET cost_done=1 WHERE booking_reference=? AND ${owned}`).bind(ref,prompt.telegram_message_id,answerId));
     }
-    form.driverId = await saveDriver(form);
-    await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=?,driver_done=1 WHERE booking_reference=?").bind(JSON.stringify(form), ref).run();
+  } else if (prompt.field==='pickup_map'||prompt.field==='dropoff_map') {
+    const link=googleMapsLink(text);
+    if (!link) return invalid("Please paste a Google Maps share link.");
+    const column=prompt.field==='pickup_map'?'pickup_map_url':'dropoff_map_url';
+    writes.push(db.prepare(`INSERT INTO booking_map_links(booking_reference,${column},updated_by,updated_at) SELECT ?,?,?,? WHERE ${owned} ON CONFLICT(booking_reference) DO UPDATE SET ${column}=excluded.${column},updated_by=excluded.updated_by,updated_at=excluded.updated_at`).bind(ref,link,`telegram:${adminName}`,at,prompt.telegram_message_id,answerId));
+  } else {
+    const row=await db.prepare("SELECT driver_form_json FROM telegram_booking_cards WHERE booking_reference=?").bind(ref).first<{driver_form_json:string|null}>();
+    formJson=row?.driver_form_json??null;
+    const form:DriverForm=JSON.parse(formJson??"{}");
+    const value=text.slice(0,120);
+    if (prompt.field==='driver_name') {if(value.length<3)return invalid("Please send the driver's full name.");form.name=value;}
+    if (prompt.field==='driver_phone') {if(!/^[+\d][\d\s()-]{7,}$/.test(value))return invalid("Please send a valid phone number.");form.phone=value;}
+    if (prompt.field==='driver_plate') form.plate=value;
+    if (prompt.field==='driver_model') form.model=value;
+    if (prompt.field==='driver_license') form.license=value;
+    next=DRIVER_STEPS[DRIVER_STEPS.indexOf(prompt.field)+1]??null;
+    if (!next) {
+      const digits=(form.phone??'').replace(/\D/g,'');
+      if (!form.name || digits.length<8) return invalid("Driver name and phone are required. Start the driver questions again.");
+      const existing=await db.prepare("SELECT id FROM drivers WHERE REPLACE(REPLACE(REPLACE(phone,' ',''),'-',''),'+','') LIKE ? LIMIT 1").bind(`%${digits.slice(-9)}`).first<{id:string}>();
+      form.driverId=existing?.id??crypto.randomUUID();
+      if (existing) writes.push(db.prepare(`UPDATE drivers SET full_name=?,car_plate=?,vehicle=?,license_number=?,updated_at=? WHERE id=? AND ${owned}`).bind(form.name,form.plate??null,form.model??null,form.license??null,at,existing.id,prompt.telegram_message_id,answerId));
+      else writes.push(db.prepare(`INSERT INTO drivers(id,full_name,phone,vehicle,car_plate,license_number,driver_type,status,created_at,updated_at) SELECT ?,?,?,?,?,?,'outsource','active',?,? WHERE ${owned}`).bind(form.driverId,form.name,form.phone,form.model??null,form.plate??null,form.license??null,at,at,prompt.telegram_message_id,answerId));
+    }
+    writes.push(db.prepare(`UPDATE telegram_booking_cards SET driver_form_json=?,driver_done=CASE WHEN ? THEN 1 ELSE driver_done END WHERE booking_reference=? AND ${owned}`).bind(JSON.stringify(form),next?0:1,ref,prompt.telegram_message_id,answerId));
   }
-  // Assign first, so the redrawn card can show the driver's (now working) link.
-  await postAssignmentWhenReady(ref, adminName);
-  await refresh(ref);
+  const [claimed]=await db.batch([
+    db.prepare(`INSERT OR IGNORE INTO telegram_prompt_answers(prompt_id,answer_id,next_field,applied_at) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM telegram_prompt_context c JOIN telegram_booking_prompts p ON p.telegram_message_id=c.message_id JOIN bookings b ON b.reference=p.booking_reference WHERE c.message_id=? AND c.consumed_at IS NULL AND b.status='confirmed' AND b.booking_version=c.booking_version AND p.telegram_user_id=? AND p.created_at>?) ${DRIVER_STEPS.includes(prompt.field)?"AND EXISTS(SELECT 1 FROM telegram_booking_cards WHERE booking_reference=? AND driver_form_json IS ?)":""}`).bind(prompt.telegram_message_id,answerId,next,at,prompt.telegram_message_id,String(m.from.id),expiry,...(DRIVER_STEPS.includes(prompt.field)?[ref,formJson]:[])),
+    ...writes,
+    db.prepare(`UPDATE telegram_prompt_context SET consumed_at=? WHERE message_id=? AND ${owned}`).bind(at,prompt.telegram_message_id,prompt.telegram_message_id,answerId),
+  ]);
+  if (!claimed.meta.changes) return false;
+  if (next) await askBookingQuestion(ref,next,m.from,answerId);
+  else {await postAssignmentWhenReady(ref,adminName);await refresh(ref);}
   return true;
 }
 
@@ -130,77 +141,23 @@ export async function pickDriver(reference: string, driverId: string, adminName:
   return true;
 }
 
-/** Same phone = same driver: details are updated; otherwise a new driver is added. */
-async function saveDriver(f: DriverForm) {
-  const digits = (f.phone ?? "").replace(/\D/g, "");
-  const existing = await db().prepare("SELECT id FROM drivers WHERE REPLACE(REPLACE(REPLACE(phone,' ',''),'-',''),'+','') LIKE ? LIMIT 1").bind(`%${digits.slice(-9)}`).first<{ id: string }>();
-  if (existing) {
-    await db().prepare("UPDATE drivers SET full_name=?,car_plate=?,vehicle=?,license_number=?,status='active',updated_at=? WHERE id=?").bind(f.name, f.plate, f.model, f.license, now(), existing.id).run();
-    return existing.id;
-  }
-  const id = crypto.randomUUID();
-  await db().prepare("INSERT INTO drivers(id,full_name,phone,vehicle,car_plate,license_number,driver_type,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'outsource','active',?,?)")
-    .bind(id, f.name, f.phone, f.model, f.plate, f.license, now(), now()).run();
-  return id;
-}
-
 type BookingRow = { reference: string; customer_name: string; customer_surname: string | null; passengers: number; luggage: number; pickup_date: string; pickup_time: string; flight_number: string | null;
-  pickup: string; dropoff: string; vehicle: string; payment_method: string; total: number; amount_paid: number;
+  pickup: string; dropoff: string; vehicle: string; booking_version:number; status:string; payment_method: string; total: number; amount_paid: number;
   service_type: string | null; pricing_area: string | null; booked_hours: number | null; driver_cost: number | null };
 
 /** When cost and driver are both done: assign the driver (one trip link) and post the job in Thai. */
-export async function postAssignmentWhenReady(reference: string, by: string, header?: string) {
+export async function postAssignmentWhenReady(reference: string, by: string, header?: string, offer?:{offerKey:string;holderId:string}) {
   const card = await db().prepare("SELECT cost_done,driver_done,assignment_posted,driver_form_json,telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference)
     .first<{ cost_done: number; driver_done: number; assignment_posted: number; driver_form_json: string | null; telegram_message_id: number }>();
   if (!card?.cost_done || !card.driver_done || card.assignment_posted) return false;
-  const claimed = await db().prepare("UPDATE telegram_booking_cards SET assignment_posted=1 WHERE booking_reference=? AND assignment_posted=0").bind(reference).run();
-  if (!claimed.meta.changes) return false;
-  const b = await db().prepare(`SELECT b.reference,b.customer_name,b.customer_surname,b.passengers,b.luggage,b.pickup_date,b.pickup_time,b.flight_number,b.pickup,b.dropoff,b.vehicle,b.payment_method,b.total,b.amount_paid,
+  const b = await db().prepare(`SELECT b.reference,b.customer_name,b.customer_surname,b.passengers,b.luggage,b.pickup_date,b.pickup_time,b.flight_number,b.pickup,b.dropoff,b.vehicle,b.booking_version,b.status,b.payment_method,b.total,b.amount_paid,
       b.service_type,b.pricing_area,b.booked_hours,NULLIF(COALESCE(NULLIF(c.total_driver_cost,0),c.agreed_driver_cost),0) AS driver_cost
     FROM bookings b LEFT JOIN booking_costs c ON c.booking_reference=b.reference WHERE b.reference=?`).bind(reference).first<BookingRow>();
   const form = JSON.parse(card.driver_form_json ?? "{}") as DriverForm;
-  if (!b || !form.driverId) { await db().prepare("UPDATE telegram_booking_cards SET assignment_posted=0 WHERE booking_reference=?").bind(reference).run(); return false; }
+  if (!b || b.status!=="confirmed" || !form.driverId) return false;
   // The driver's trip link: the driver updates status there, and the same page shows the trip's progress.
-  const token = await driverTokenForAssignment(reference, "outbound"), at = now();
-  const pickupAt = new Date(`${b.pickup_date}T${b.pickup_time}:00+07:00`).getTime();
-  const expires = new Date(Math.max(Date.now() + 48 * 3600_000, pickupAt + 24 * 3600_000)).toISOString();
-  await db().prepare("UPDATE booking_assignments SET revoked_at=?,updated_at=? WHERE booking_reference=? AND leg='outbound' AND revoked_at IS NULL").bind(at, at, reference).run();
-  await db().prepare("INSERT INTO booking_assignments(id,booking_reference,leg,driver_id,token_hash,current_status,assigned_by,assigned_at,token_expires_at,updated_at) VALUES(?,?,'outbound',?,?,'assigned',?,?,?,?)")
-    .bind(crypto.randomUUID(), reference, form.driverId, await sha256(token), `telegram:${by}`, at, expires, at).run();
-  const link = `${SITE_URL}/driver/trip/${token}`;
-  const [y, mo, d] = b.pickup_date.split("-");
-  const cashDue = b.payment_method === "cash" ? Math.max(0, b.total - (b.amount_paid ?? 0)) : 0;
-  const baht = (n: number) => `${n.toLocaleString("en-US")} บาท`;
-  // What the customer still pays the driver, if anything.
-  const collect = cashDue ? `เก็บเงินสดจากลูกค้า ${baht(cashDue)}` : b.payment_method === "transfer" && (b.amount_paid ?? 0) < b.total ? paymentLabelThai("transfer", "pending") : "";
-  const lines = [
-    ...(header ? [header, ""] : []),
-    `${esc(jobVehicleName(b.vehicle))} 🚗`,
-    "",
-    `ชื่อลูกค้า: ${esc(fullName(b.customer_name, b.customer_surname))}`,
-    `จำนวน: ${b.passengers} คน, ${b.luggage} กระเป๋า`,
-    `วันที่: ${d}/${mo}/${y}`,
-    `เวลา: ${esc(b.pickup_time)}`,
-    `ไฟลท์: ${esc(b.flight_number || "-")}`,
-    `รับ: ${esc(b.pickup)}`,
-    `ส่ง: ${esc(b.dropoff)}`,
-    `ราคา: ${b.driver_cost ? baht(b.driver_cost) : "-"}${collect ? ` (${esc(collect)})` : ""}`,
-    "",
-    `คนขับ: ${esc(form.name ?? "")}`,
-    `เบอร์: ${esc(form.phone ?? "")}`,
-    `รถ: ${esc(form.model ?? "")}`,
-    `ทะเบียน: ${esc(form.plate ?? "")}`,
-    "",
-    `ลิงก์งาน (สถานะการเดินทาง/คนขับ): ${link}`,
-  ];
-  await sendCard(lines.join("\n"), undefined, card.telegram_message_id || undefined);
-  // The driver who took the job in the driver group gets the ใบงาน privately (never in the group),
-  // with what to collect and their trip link.
-  // Read on their own, so the job still posts if the map-link table isn't there yet.
-  const maps = await db().prepare("SELECT pickup_map_url,dropoff_map_url FROM booking_map_links WHERE booking_reference=?").bind(reference).first<{ pickup_map_url: string | null; dropoff_map_url: string | null }>().catch(() => null);
-  const sheet = [esc(driverJobText({ reference: b.reference, vehicle: b.vehicle, customerName: b.customer_name, customerSurname: b.customer_surname, passengers: b.passengers, luggage: b.luggage,
-    pickupDate: b.pickup_date, pickupTime: b.pickup_time, pickup: b.pickup, dropoff: b.dropoff, serviceType: b.service_type, pricingArea: b.pricing_area, bookedHours: b.booked_hours },
-    b.driver_cost, { pickup: maps?.pickup_map_url, dropoff: maps?.dropoff_map_url })), ...(collect ? [esc(collect)] : []), "", `ลิงก์งาน: ${link}`].join("\n");
-  await import("./driver-group").then((m) => m.sendJobToLinkedDriver(form.driverId!, sheet)).catch(() => undefined);
+  const committed=await assignDriver({reference,leg:"outbound",driverId:form.driverId,by:`telegram:${by}`,expectedVersion:b.booking_version,expectedAssignmentId:null,idempotencyKey:`telegram:${reference}:outbound:${b.booking_version}:${form.driverId}`,telegramHeader:header??"",telegramDriverDm:true,telegramReplyTo:card.telegram_message_id||undefined,...offer});
+  if (!committed.ok) return false;
+  await deliverAssignmentTelegram(committed.assignment.id);
   return true;
 }

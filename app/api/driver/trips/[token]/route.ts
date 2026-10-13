@@ -1,3 +1,4 @@
+import { ensureReliabilityTables } from "@/lib/telegram/reliability-db";
 import { evidenceDb, evidencePolicy, evidenceOverride, type EvidenceRow } from "@/lib/trip-evidence";
 import { evidenceTypeFor, type EvidencePolicy } from "@/lib/evidence-rules";
 import { journeyFor, parseLeg } from "@/lib/journey-legs";
@@ -60,7 +61,8 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
   const pickupMapUrl = (assignment.leg === "return" ? maps?.dropoff_map_url : maps?.pickup_map_url) ?? null;
   const dropoffMapUrl = (assignment.leg === "return" ? maps?.pickup_map_url : maps?.dropoff_map_url) ?? null;
   // The price for this trip: what staff typed with "Set cost" on the Telegram booking card (null until then).
-  const cost = (await env.DB.prepare("SELECT total_driver_cost FROM booking_costs WHERE booking_reference=?").bind(booking.reference).first().catch(() => null)) as { total_driver_cost: number | null } | null;
+  await ensureReliabilityTables();
+  const cost = (await env.DB.prepare(assignment.leg==='return'?"SELECT cost_minor/100.0 total_driver_cost FROM telegram_driver_leg_costs WHERE booking_reference=? AND leg='return'":"SELECT total_driver_cost FROM booking_costs WHERE booking_reference=?").bind(booking.reference).first().catch(() => null)) as { total_driver_cost:number|null }|null;
   return NextResponse.json({
     // Viewing the trip never fails on the photo settings (status changes still enforce them).
     evidencePolicy: await evidencePolicy().catch((): EvidencePolicy => ({ pickup_required: 0, dropoff_required: 0, gps_required: 0, gps_timeout_ms: 20000, max_accuracy_m: 2000, retention_days: 30 })),

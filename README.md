@@ -198,3 +198,21 @@ The timeout defaults can be overridden for a controlled canary with `SITES_INSTA
 
 - [vinext Documentation](https://github.com/cloudflare/vinext)
 - [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+
+
+### Telegram delivery reliability
+
+Admin and Telegram assignments now share the same transactional dispatch service. Booking status, version, driver availability and overlapping jobs are checked before token rotation, assignment replacement and notification enqueueing commit together. Outbound and return legs remain independent.
+
+Telegram booking cards, driver offers/job DMs, trip photos, completion albums, prompts, request cards and handovers use durable delivery records. Definite rejections retry; timeouts/interrupted sends become **uncertain**, so the system does not blindly duplicate them. Admin → Website chat → Telegram shows outstanding notifications, destinations, attempts, next retry and provider errors. Only the owner may confirm a message is missing before retrying an uncertain delivery. Existing zero-ID claims are treated as uncertain and require that review.
+
+Customer cancellation requests are saved before Telegram delivery, with the original request time and accepted policy version. They remain visible in Telegram settings when delivery is unavailable. Refund text uses the accepted-policy calculation; approving cancellation does not automatically issue money.
+
+New outbound messaging is off by default:
+
+- `TELEGRAM_DRIVER_UPDATES=1`: enable private linked-driver cancellation/change notices and Admin assignment job messages. Existing Telegram driver-group job DMs continue to work without this flag.
+- `TELEGRAM_RETURN_DRIVER_JOBS=1`: enable independent return offers. Staff must tap **Set return cost** before a return offer is posted; the outbound cost is never assumed to be the return cost.
+
+Apply additive migration `drizzle/0105_telegram_reliability.sql` when managing migrations manually. The new tables are also created on first use because Workers Builds does not apply D1 migrations. See `docs/telegram-reliability-release.md` for verification and recovery.
+
+Expired bin entries are archived rather than deleting parent bookings referenced by financial documents, accepted policies or trip evidence. Archival runs in the scheduled worker; a cleanup failure cannot block an unrelated Bin/Restore request.

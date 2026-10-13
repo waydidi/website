@@ -1,8 +1,8 @@
+import { queueTelegram } from "./outbox";
 import { env } from "cloudflare:workers";
-import { getFile } from "@/lib/file-store";
 import type { EvidenceRow } from "@/lib/trip-evidence";
 import { esc } from "./cards";
-import { sendCard, sendPhoto, sendPhotoAlbum, sendTo, telegramConfigured, type InlineKeyboard } from "./client";
+import { telegramChatId, type InlineKeyboard } from "./client";
 import { driverOfferMessage } from "./driver-group";
 
 // A driver's Stand by / Pick up / Drop photo, posted to the group under the booking's card. The Drop
@@ -15,26 +15,15 @@ export const completedJobKeyboard = (eventId: string): InlineKeyboard => [[{ tex
 
 /** `done`: the job was already completed (all three photos in), so the Drop needs no button. */
 export async function postTripPhoto(input: { reference: string; status: string; eventId: string; driverName: string; evidence: EvidenceRow | null; done?: boolean }) {
-  if (!telegramConfigured()) return;
   const card = await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(input.reference).first<{ telegram_message_id: number }>().catch(() => null);
   const keyboard = input.status === "completed" && !input.done ? completedJobKeyboard(input.eventId) : undefined;
   const e = input.evidence;
-  const stored = e ? await getFile(e.original_key) : null;
-  // "✅Stand by (FMBNUW)" and when the photo was taken: "11/10/2026 — 6:05 AM" (Thailand time).
   const lines = [`✅<b>${esc(STEP_PHOTO_LABEL[input.status] ?? input.status)}</b> (${esc(input.reference)})`, esc(stepTime(e?.device_captured_at ?? new Date().toISOString()))];
-  const photo = stored ? await new Response(stored.body).arrayBuffer() : null;
-  // The driver group sees the same photo and text under the job's offer, without the staff-only button.
-  if (photo) await toDriverGroup(input.reference, (chatId, replyTo) => sendPhoto(photo, lines.join("\n"), replyTo, undefined, undefined, chatId));
-  if (keyboard) lines.push("", "Check the photo, then tap Completed job.");
-  if (photo) return sendPhoto(photo, lines.join("\n"), card?.telegram_message_id || undefined, keyboard);
-  // A Drop without a photo (an admin exception) still needs the button.
-  if (keyboard) return sendCard([...lines.slice(0, 2), "No photo", ...lines.slice(2)].join("\n"), keyboard, card?.telegram_message_id || undefined);
-}
-
-/** A copy for the driver group (when it's on); a failure there never blocks the team group's post. */
-async function toDriverGroup(reference: string, send: (chatId: string, replyTo?: number) => Promise<unknown>) {
-  const offer = await driverOfferMessage(reference).catch(() => null);
-  if (offer) await send(offer.chatId, offer.messageId).catch((error) => console.error("driver group photo failed", error instanceof Error ? error.message : "unknown"));
+  const photos=e?[{key:e.original_key,mime:"image/jpeg"}]:undefined;
+  const offer=await driverOfferMessage(input.reference,input.evidence?.leg??"outbound").catch(()=>null);
+  if (photos && offer) await queueTelegram({id:`step:${input.eventId}:driver-group`,reference:input.reference,destination:offer.chatId,payload:{text:lines.join("\n"),photos,replyTo:offer.messageId}});
+  if (keyboard) lines.push("","Check the photo, then tap Completed job.");
+  if (photos || keyboard) return queueTelegram({id:`step:${input.eventId}:team`,reference:input.reference,destination:telegramChatId(),payload:{text:(photos?lines:[...lines.slice(0,2),"No photo",...lines.slice(2)]).join("\n"),photos,keyboard,replyTo:card?.telegram_message_id||undefined}});
 }
 
 /** "2026-10-11" → "11/10/2026". */
@@ -59,18 +48,16 @@ export function stepTime(iso: string) {
  * added by staff): the three photos go to the group as one album, under the booking's card.
  */
 export async function postJobCompleted(reference: string, leg: string) {
-  if (!telegramConfigured()) return;
   type Row = { step: string; key: string; mime: string; at: string };
   const driverRows = await db().prepare(`SELECT COALESCE(s.status, CASE WHEN e.event_type='dropoff' THEN 'completed' END) AS step, e.original_key AS key, 'image/jpeg' AS mime, e.received_at AS at
     FROM driver_trip_evidence e LEFT JOIN driver_status_events s ON s.id=e.status_event_id WHERE e.booking_reference=? AND e.leg=? AND e.deleted_at IS NULL`).bind(reference, leg).all<Row>().catch(() => ({ results: [] as Row[] }));
   const staffRows = await db().prepare("SELECT step, file_key AS key, mime, created_at AS at FROM admin_evidence_photos WHERE booking_reference=? AND leg=?").bind(reference, leg).all<Row>().catch(() => ({ results: [] as Row[] }));
   // One photo per step, newest first; the driver's own photo wins over one added by staff.
   const pick = (step: string) => [...driverRows.results.filter((r) => r.step === step).sort((a, b) => b.at.localeCompare(a.at)), ...staffRows.results.filter((r) => r.step === step).sort((a, b) => b.at.localeCompare(a.at))][0];
-  const photos: { bytes: ArrayBuffer; mime: string }[] = [];
+  const photos: { key: string; mime: string }[] = [];
   for (const step of ["standby", "trip_started", "completed"]) {
     const row = pick(step);
-    const file = row ? await getFile(row.key).catch(() => null) : null;
-    if (file) photos.push({ bytes: await new Response(file.body).arrayBuffer(), mime: row!.mime || "image/jpeg" });
+    if (row) photos.push({key:row.key,mime:row.mime||"image/jpeg"});
   }
   type Info = { pickup: string; dropoff: string; pickupDate: string; pickupTime: string; returnDate: string | null; returnTime: string | null; returnPickup: string | null; returnDropoff: string | null;
     serviceType: string | null; bookedHours: number | null; driver: string | null; phone: string | null; plate: string | null; car: string | null };
@@ -88,13 +75,22 @@ export async function postJobCompleted(reference: string, leg: string) {
   if (info?.returnDate && leg === "outbound") lines.push("", "Next: the second trip.");
   // A reply under the booking's card, quoting its "Reference: …" line; without the quote if Telegram can't
   // find that text (e.g. the card was changed), and as a plain message if the card was never posted.
-  await toDriverGroup(reference, (chatId, offerId) => photos.length >= 2 ? sendPhotoAlbum(photos, lines.join("\n"), offerId, undefined, chatId)
-    : photos.length === 1 ? sendPhoto(photos[0].bytes, lines.join("\n"), offerId, undefined, undefined, chatId)
-    : sendTo(chatId, lines.join("\n"), undefined, offerId));
-  const replyTo = card?.telegram_message_id || undefined;
-  const send = (quote?: string): Promise<unknown> => photos.length >= 2 ? sendPhotoAlbum(photos, lines.join("\n"), replyTo, quote)
-    : photos.length === 1 ? sendPhoto(photos[0].bytes, lines.join("\n"), replyTo, undefined, quote)
-    : sendCard(lines.join("\n"), undefined, replyTo, quote);
-  if (!replyTo) return send();
-  return send(`Reference: ${reference}`).catch((error) => { console.error("Completed job quote failed, sending without it", error); return send(); });
+  const offer=await driverOfferMessage(reference,leg).catch(()=>null);
+  if (offer) await queueTelegram({id:`completed:${reference}:${leg}:driver-group`,reference,leg,destination:offer.chatId,payload:{text:lines.join("\n"),photos,replyTo:offer.messageId}});
+  const replyTo=card?.telegram_message_id||undefined;
+  return queueTelegram({id:`completed:${reference}:${leg}:team`,reference,leg,destination:telegramChatId(),payload:{text:lines.join("\n"),photos,replyTo,quote:replyTo?`Reference: ${reference}`:undefined}});
+}
+
+/** Repair a Worker interruption between a saved driver step and its notification enqueue. */
+export async function recoverTripNotifications(limit=20) {
+  const {ensureReliabilityTables,reliabilityDb}=await import('./reliability-db');
+  await ensureReliabilityTables();
+  const rows=(await reliabilityDb().prepare(`SELECT s.id event_id,s.status step,s.booking_reference reference,a.leg,d.full_name driver,
+    e.*,j.status journey_status FROM driver_status_events s JOIN booking_assignments a ON a.id=s.assignment_id JOIN drivers d ON d.id=a.driver_id
+    LEFT JOIN driver_trip_evidence e ON e.status_event_id=s.id AND e.deleted_at IS NULL
+    LEFT JOIN journey_legs j ON j.booking_reference=s.booking_reference AND j.leg=a.leg
+    WHERE s.status IN ('standby','trip_started','completed') AND (e.id IS NOT NULL OR s.status='completed')
+      AND NOT EXISTS(SELECT 1 FROM telegram_delivery_jobs n WHERE n.id='step:'||s.id||':team')
+    ORDER BY s.created_at DESC LIMIT ?`).bind(limit).all<EvidenceRow & {event_id:string;step:string;reference:string;leg:string;driver:string;journey_status:string|null}>()).results;
+  for (const row of rows) await postTripPhoto({reference:row.reference,status:row.step,eventId:row.event_id,driverName:row.driver,evidence:row.id?row:null,done:row.journey_status==='completed'});
 }
