@@ -100,7 +100,7 @@ export const STEP_QUESTION: Record<FormStep, string> = {
   id_photo: "ส่งรูปใบขับขี่หรือบัตรประชาชน",
   car_photo: "ส่งรูปรถ (เห็นทะเบียน)",
 };
-export type DriverDraft = { mode?: "driver" | "car"; name?: string; phone?: string; plate?: string; idPhoto?: boolean; carPhoto?: boolean };
+export type DriverDraft = { name?: string; phone?: string; plate?: string; idPhoto?: boolean; carPhoto?: boolean };
 
 /** Checks one typed answer; returns the cleaned value or a Thai error to show. */
 export function checkTextAnswer(step: FormStep, raw: string): { value: string } | { error: string } {
@@ -112,10 +112,7 @@ export function checkTextAnswer(step: FormStep, raw: string): { value: string } 
   return { error: "กรุณาส่งเป็นรูปภาพ" };
 }
 
-/** A returning driver on another car («รถอื่นๆ») only answers the car questions. */
-export const CAR_STEPS: FormStep[] = ["plate", "car_photo"];
-export const stepsFor = (mode: "driver" | "car") => (mode === "car" ? CAR_STEPS : FORM_STEPS);
-export const nextStep = (step: FormStep, mode: "driver" | "car" = "driver"): FormStep | null => stepsFor(mode)[stepsFor(mode).indexOf(step) + 1] ?? null;
+export const nextStep = (step: FormStep): FormStep | null => FORM_STEPS[FORM_STEPS.indexOf(step) + 1] ?? null;
 
 /** The group's members who may take jobs (Telegram's getChatMember statuses). */
 export const isGroupMember = (member: { status?: string; is_member?: boolean } | null) =>

@@ -79,7 +79,7 @@ test('the sign-up link, "my jobs" and the sign-up answers are checked',()=>{
  assert.deepEqual(rules.checkTextAnswer('name','Mary Jane Watson'),{value:'Mary Jane Watson'});
  assert.deepEqual(rules.checkTextAnswer('plate','  กข  1234 '),{value:'กข 1234'});
  assert.ok('error' in rules.checkTextAnswer('id_photo','hello'));
- assert.equal(rules.nextStep("plate"),"id_photo");assert.equal(rules.nextStep("car_photo"),null);assert.equal(rules.nextStep("plate","car"),"car_photo");
+ assert.equal(rules.nextStep("plate"),"id_photo");assert.equal(rules.nextStep("car_photo"),null);assert.equal(rules.nextStep("id_photo"),"car_photo");
  assert.ok(rules.isGroupMember({status:'member'}));assert.ok(!rules.isGroupMember({status:'left'}));assert.ok(!rules.isGroupMember({status:'kicked'}));
  assert.ok(rules.isGroupMember({status:'restricted',is_member:true}));assert.ok(!rules.isGroupMember(null));
 });
@@ -239,21 +239,24 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  assert.match(sent.find(s=>s.method==='answerCallbackQuery').body.text,/ได้งาน DG0007 แล้ว เลือกรถในแชทส่วนตัว/);
  const choice=sent.filter(s=>s.body.chat_id==='1004').at(-1).body;
  assert.deepEqual(choice.reply_markup.inline_keyboard.map(r=>r.map(b=>[b.text,b.callback_data])),[[['รถของฉัน — นง 8384','dj_use:DG0007']],[['รถอื่นๆ','dj_other:DG0007']],[['ยกเลิกการรับงาน','dj_x:DG0007']]]);
- // «รถอื่นๆ»: only the car questions (2), then the job is hers with the new car.
+ // «รถอื่นๆ»: the same five questions as a new driver (another driver and car), then the job is theirs.
  await group.handleDriverCallback({id:'oth',from:carol,data:'dj_other:DG0007',message:{message_id:79,chat:{id:1004,type:'private'}}});
- assert.match(sent.filter(s=>s.body.chat_id==='1004').at(-1).body.text,/\(1\/2\): ทะเบียนรถ/);
- await say({text:'กท 5555'});
- assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/\(2\/2\): ส่งรูปรถ/);
+ assert.match(sent.filter(s=>s.body.chat_id==='1004').at(-1).body.text,/\(1\/5\): ชื่อ-นามสกุลคนขับ/);
+ for(const text of ['Dan Saetang','081 111 2222','กท 5555'])await say({text});
+ assert.match(sent.filter(s=>s.body.chat_id==='1004').at(-1).body.text,/\(4\/5\): ส่งรูปใบขับขี่/);
+ await say({photo:[{file_id:'id2',width:1280,height:960}]});
+ assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/\(5\/5\): ส่งรูปรถ/);
  await say({photo:[{file_id:'car2',width:1280,height:960}]});
- const updated=await d1.prepare("SELECT full_name,car_plate,vehicle,vehicle_type FROM drivers WHERE id=?").bind(link.driver_id).first();
- assert.deepEqual(updated,{full_name:'Carol Saetang',car_plate:'กท 5555',vehicle:'',vehicle_type:null});
- assert.deepEqual(await d1.prepare("SELECT status,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0007'").first(),{status:'taken',driver_id:link.driver_id});
- assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/บันทึกข้อมูลรถแล้ว ✓\n✅ งาน <b>DG0007<\/b> เป็นของคุณ/);
- assert.equal(await d1.prepare("SELECT COUNT(*) n FROM drivers WHERE full_name='Carol Saetang'").first('n'),1); // same driver, new car
- // Her licence/ID (on file) and the new car photo go to the team group.
+ const other=await d1.prepare("SELECT d.id,d.full_name,d.phone,d.car_plate,d.vehicle,d.vehicle_type FROM telegram_driver_links l JOIN drivers d ON d.id=l.driver_id WHERE l.telegram_user_id='1004'").first();
+ assert.deepEqual([other.full_name,other.phone,other.car_plate,other.vehicle,other.vehicle_type],['Dan Saetang','081 111 2222','กท 5555','',null]);
+ assert.notEqual(other.id,link.driver_id); // a new driver record; the first one is kept
+ assert.equal(await d1.prepare("SELECT COUNT(*) n FROM drivers WHERE full_name='Carol Saetang'").first('n'),1);
+ assert.deepEqual(await d1.prepare("SELECT status,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0007'").first(),{status:'taken',driver_id:other.id});
+ assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/บันทึกข้อมูลคนขับแล้ว ✓\n✅ งาน <b>DG0007<\/b> เป็นของคุณ/);
+ // Their licence/ID and car photo go to the team group, as for any new driver.
  const docs=JSON.parse(sent.filter(s=>s.method==='sendMediaGroup').at(-1).body.get('media'));
  assert.equal(docs.length,2);
- assert.match(docs[0].caption,/^🪪 เอกสารคนขับ \(เปลี่ยนรถ\): <b>Carol Saetang<\/b>[\s\S]*ทะเบียน: กท 5555\nรูป: ใบขับขี่\/บัตรประชาชน, รถ \(ใหม่\)\nงาน: DG0007$/);
+ assert.match(docs[0].caption,/^🪪 เอกสารคนขับใหม่: <b>Dan Saetang<\/b>[\s\S]*ทะเบียน: กท 5555\nรูป: ใบขับขี่\/บัตรประชาชน, รถ\nงาน: DG0007$/);
 });
 
 test('a first-time driver who never opened the bot is sent to it with the sign-up link',async()=>{

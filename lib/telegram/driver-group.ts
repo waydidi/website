@@ -6,14 +6,14 @@ import { esc } from "./cards";
 import { answerCallback, downloadFile, editIn, sendPhoto, sendPhotoAlbum, sendPrivate, sendTo, telegramBotUsername, telegramChatId, tg, type InlineKeyboard, type TelegramMessage, type TelegramUser } from "./client";
 import { jobVehicleName } from "./job-text";
 import {
-  SIGNUP_MINUTES, STEP_QUESTION, checkTextAnswer, driverGroupConfig, groupChatFor, isDriverGroupChat, isGroupMember, isMyJobsCommand, nextStep, offerText, parseSignupStart, signupLink, stepsFor,
+  SIGNUP_MINUTES, STEP_QUESTION, checkTextAnswer, driverGroupConfig, groupChatFor, isDriverGroupChat, isGroupMember, isMyJobsCommand, nextStep, FORM_STEPS, offerText, parseSignupStart, signupLink,
   type DriverDraft, type FormStep, type OfferJob, type OfferState,
 } from "./driver-group-rules";
 
 // The driver group: once staff set a booking's driver cost, it is offered there in Thai with a
 // "รับงาน (Assign)" button. The first driver to tap it gets the job and the post changes to show who
 // took it, with no button. In their private chat with the bot, a driver already linked to Telegram
-// picks the car («model — plate» or «รถอื่นๆ» to give another car); a first-time driver answers the
+// picks the car («car — plate», or «รถอื่นๆ» to answer the full sign-up questions for another car); a first-time driver answers the
 // sign-up questions. Either way within SIGNUP_MINUTES, otherwise the job is offered again. Admin sees the driver and the customer's details in the team
 // group; the driver gets the full job privately. One guarded write decides who tapped first.
 
@@ -281,8 +281,8 @@ export async function reopenLapsedSignups(at = new Date()) {
 const cancelKeyboard = (reference: string): InlineKeyboard => [[{ text: "ยกเลิกการรับงาน", callback_data: `dj_x:${reference}` }]];
 const carLabel = (d: { vehicle: string; car_plate: string | null }) => `${d.vehicle || "รถของฉัน"} — ${d.car_plate || "-"}`.slice(0, 60);
 
-async function ask(chatId: string, reference: string, step: FormStep, mode: "driver" | "car" = "driver") {
-  const steps = stepsFor(mode);
+async function ask(chatId: string, reference: string, step: FormStep) {
+  const steps = FORM_STEPS;
   await say(chatId, `งาน <b>${esc(reference)}</b> (${steps.indexOf(step) + 1}/${steps.length}): ${STEP_QUESTION[step]}`);
 }
 
@@ -298,18 +298,18 @@ async function signupJob(userId: number, reference: string) {
 }
 
 /**
- * Starts (or restarts) the questions in the private chat: the whole sign-up for a first-time driver, or
- * only the car for a returning driver on another car. Returns false if Telegram can't reach the person yet.
+ * Starts (or restarts) the sign-up questions in the private chat. A first-time driver and a returning driver on
+ * another car («รถอื่นๆ») answer the same questions: the other car is a new driver record with its own details
+ * and photos (e.g. a fleet owner sending another of their drivers). Returns false if Telegram can't reach the person yet.
  */
-async function startForm(user: TelegramUser, chatId: string, reference: string, car?: Driver) {
-  const mode = car ? "car" : "driver";
-  const intro = await say(chatId, car ? `ใส่ข้อมูลรถที่ใช้วิ่งงาน <b>${esc(reference)}</b> ตอบทีละข้อ`
+async function startForm(user: TelegramUser, chatId: string, reference: string, other = false) {
+  const intro = await say(chatId, other ? `ใส่ข้อมูลคนขับและรถที่ใช้วิ่งงาน <b>${esc(reference)}</b> ตอบทีละข้อ`
     : [`✅ คุณได้งาน <b>${esc(reference)}</b>`, `กรอกข้อมูลคนขับครั้งแรกภายใน ${SIGNUP_MINUTES} นาที ตอบทีละข้อ`, "ครั้งต่อไปกด «รับงาน» แล้วเลือกรถได้เลย"].join("\n"), cancelKeyboard(reference)).then(() => true).catch(() => false);
   if (!intro) return false;
-  const first = stepsFor(mode)[0];
+  const first = FORM_STEPS[0];
   await db().prepare("INSERT INTO telegram_driver_forms(telegram_user_id,booking_reference,step,driver_id,form_json,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(telegram_user_id) DO UPDATE SET booking_reference=excluded.booking_reference,step=excluded.step,driver_id=excluded.driver_id,form_json=excluded.form_json,updated_at=excluded.updated_at")
-    .bind(String(user.id), reference, first, car?.id ?? crypto.randomUUID(), JSON.stringify({ mode }), now()).run();
-  await ask(chatId, reference, first, mode);
+    .bind(String(user.id), reference, first, crypto.randomUUID(), "{}", now()).run();
+  await ask(chatId, reference, first);
   return true;
 }
 
@@ -319,10 +319,10 @@ async function activeForm(userId: number) {
 }
 
 async function saveStep(form: FormRow, draft: DriverDraft, chatId: string, user: TelegramUser) {
-  const next = nextStep(form.step, draft.mode);
+  const next = nextStep(form.step);
   if (next) {
     await db().prepare("UPDATE telegram_driver_forms SET step=?,form_json=?,updated_at=? WHERE telegram_user_id=?").bind(next, JSON.stringify(draft), now(), form.telegram_user_id).run();
-    await ask(chatId, form.booking_reference, next, draft.mode);
+    await ask(chatId, form.booking_reference, next);
     return;
   }
   await finishForm(form, draft, chatId, user);
@@ -333,28 +333,24 @@ async function saveStep(form: FormRow, draft: DriverDraft, chatId: string, user:
  * driver's car (plate, photo) is updated. Then the job becomes theirs.
  */
 async function finishForm(form: FormRow, draft: DriverDraft, chatId: string, user: TelegramUser) {
-  const car = draft.mode === "car";
   // Neither the car's model nor its type is asked: the plate and the car photo identify it.
-  const complete = draft.plate && draft.carPhoto && (car || (draft.name && draft.phone && draft.idPhoto));
-  const me = car ? await linkedDriver(user.id) : null;
-  if (!complete || (car && me?.id !== form.driver_id)) { await startForm(user, chatId, form.booking_reference, me ?? undefined); return; }
+  const complete = draft.name && draft.phone && draft.plate && draft.idPhoto && draft.carPhoto;
+  if (!complete) { await startForm(user, chatId, form.booking_reference); return; }
   const at = now(), id = form.driver_id;
   const carKey = `driver-verification/${id}/vehicle.jpg`;
   await db().batch([
-    car
-      ? db().prepare("UPDATE drivers SET car_plate=?,car_image_key=?,car_image_mime='image/jpeg',updated_at=? WHERE id=?").bind(draft.plate, carKey, at, id)
-      : db().prepare("INSERT INTO drivers(id,full_name,phone,base_location,vehicle,car_plate,id_image_key,id_image_mime,car_image_key,car_image_mime,driver_type,status,created_at,updated_at) VALUES(?,?,?,'Telegram','',?,?,'image/jpeg',?,'image/jpeg','outsource','active',?,?) ON CONFLICT(id) DO NOTHING")
-        .bind(id, draft.name, draft.phone, draft.plate, `driver-verification/${id}/identity.jpg`, carKey, at, at),
+    db().prepare("INSERT INTO drivers(id,full_name,phone,base_location,vehicle,car_plate,id_image_key,id_image_mime,car_image_key,car_image_mime,driver_type,status,created_at,updated_at) VALUES(?,?,?,'Telegram','',?,?,'image/jpeg',?,'image/jpeg','outsource','active',?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(id, draft.name, draft.phone, draft.plate, `driver-verification/${id}/identity.jpg`, carKey, at, at),
     db().prepare("INSERT INTO telegram_driver_links(telegram_user_id,driver_id,linked_at) VALUES(?,?,?) ON CONFLICT(telegram_user_id) DO UPDATE SET driver_id=excluded.driver_id,linked_at=excluded.linked_at").bind(String(user.id), id, at),
     db().prepare("DELETE FROM telegram_driver_forms WHERE telegram_user_id=?").bind(String(user.id)),
   ]);
-  const d: Driver = { id, full_name: car ? me!.full_name : draft.name!, phone: car ? me!.phone : draft.phone!, car_plate: draft.plate!, vehicle: car ? me!.vehicle : "", license_number: car ? me!.license_number : null };
-  const ok = await completeTake(user, form.booking_reference, d, car ? "new_car" : "new_driver");
-  await say(chatId, `${car ? "บันทึกข้อมูลรถแล้ว ✓" : "บันทึกข้อมูลคนขับแล้ว ✓"}\n${ok ? `✅ งาน <b>${esc(form.booking_reference)}</b> เป็นของคุณ ใบงานพร้อมข้อมูลลูกค้าและลิงก์งานส่งมาในแชทนี้`
+  const d: Driver = { id, full_name: draft.name!, phone: draft.phone!, car_plate: draft.plate!, vehicle: "", license_number: null };
+  const ok = await completeTake(user, form.booking_reference, d, "new_driver");
+  await say(chatId, `บันทึกข้อมูลคนขับแล้ว ✓\n${ok ? `✅ งาน <b>${esc(form.booking_reference)}</b> เป็นของคุณ ใบงานพร้อมข้อมูลลูกค้าและลิงก์งานส่งมาในแชทนี้`
     : "❌ แต่หมดเวลาหรืองานนี้มีคนขับแล้ว"}`);
 }
 
-type DocsKind = "new_driver" | "new_car" | "saved";
+type DocsKind = "new_driver" | "saved";
 
 /**
  * The driver's documents under the booking's card in the team group: licence/ID and car photos from their
@@ -366,11 +362,11 @@ async function postDriverPhotos(reference: string, driverId: string, kind: DocsK
     .first<{ full_name: string; phone: string; vehicle: string; car_plate: string | null; id_image_key: string | null; id_image_mime: string | null; car_image_key: string | null; car_image_mime: string | null }>();
   if (!d) return;
   const photos: { bytes: ArrayBuffer; mime: string }[] = [], names: string[] = [];
-  for (const [key, mime, name] of [[d.id_image_key, d.id_image_mime, "ใบขับขี่/บัตรประชาชน"], [d.car_image_key, d.car_image_mime, kind === "new_car" ? "รถ (ใหม่)" : "รถ"]] as const) {
+  for (const [key, mime, name] of [[d.id_image_key, d.id_image_mime, "ใบขับขี่/บัตรประชาชน"], [d.car_image_key, d.car_image_mime, "รถ"]] as const) {
     const file = key ? await getFile(key).catch(() => null) : null;
     if (file) { photos.push({ bytes: await new Response(file.body).arrayBuffer(), mime: mime || "image/jpeg" }); names.push(name); }
   }
-  const title = kind === "new_driver" ? "🪪 เอกสารคนขับใหม่" : kind === "new_car" ? "🪪 เอกสารคนขับ (เปลี่ยนรถ)" : "🪪 เอกสารคนขับ";
+  const title = kind === "new_driver" ? "🪪 เอกสารคนขับใหม่" : "🪪 เอกสารคนขับ";
   const caption = [`${title}: <b>${esc(d.full_name)}</b>`, `เบอร์: ${esc(d.phone)}`, `รถ: ${esc(d.vehicle || "-")}`, `ทะเบียน: ${esc(d.car_plate || "-")}`,
     names.length ? `รูป: ${names.join(", ")}` : "⚠️ ไม่มีรูปเอกสารในระบบ — เพิ่มได้ใน Admin → Drivers", `งาน: ${esc(reference)}`].join("\n");
   const replyTo = await teamCardMessage(reference);
@@ -400,7 +396,7 @@ export async function handleDriverPrivate(m: TelegramMessage) {
   const draft = JSON.parse(form.form_json || "{}") as DriverDraft;
   if (form.step === "id_photo" || form.step === "car_photo") {
     const photo = m.photo?.at(-1);
-    if (!photo) { await ask(chatId, form.booking_reference, form.step, draft.mode); return true; }
+    if (!photo) { await ask(chatId, form.booking_reference, form.step); return true; }
     const bytes = await downloadFile(photo.file_id, 8 * 1024 * 1024).catch(() => null);
     const image = bytes ? await prepareDriverImage(new File([bytes], "photo.jpg", { type: "image/jpeg" }), form.step === "id_photo" ? "ID photo" : "car photo").catch(() => null) : null;
     if (!image) { await say(chatId, "รับรูปไม่สำเร็จ กรุณาส่งใหม่เป็นรูปภาพ (JPG)"); return true; }
@@ -409,7 +405,7 @@ export async function handleDriverPrivate(m: TelegramMessage) {
     await saveStep(form, draft, chatId, m.from);
     return true;
   }
-  if (!text || text.startsWith("/")) { await ask(chatId, form.booking_reference, form.step, draft.mode); return true; }
+  if (!text || text.startsWith("/")) { await ask(chatId, form.booking_reference, form.step); return true; }
   const checked = checkTextAnswer(form.step, text);
   if ("error" in checked) { await say(chatId, esc(checked.error)); return true; }
   if (form.step === "name") draft.name = checked.value;
@@ -459,7 +455,7 @@ export async function handleDriverCallback(q: { id: string; from: TelegramUser; 
     if (!me || !await signupJob(q.from.id, reference)) return answerCallback(q.id, "หมดเวลาหรืองานนี้ไม่ได้รอคุณแล้ว", true);
     if (q.message) await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
     await answerCallback(q.id);
-    if (action === "dj_other") { await startForm(q.from, chatId, reference, me); return; }
+    if (action === "dj_other") { await startForm(q.from, chatId, reference, true); return; }
     const ok = await completeTake(q.from, reference, me, "saved");
     await say(chatId, ok ? `✅ งาน <b>${esc(reference)}</b> เป็นของคุณ (${esc(carLabel(me))})\nใบงานพร้อมข้อมูลลูกค้าและลิงก์งานส่งมาในแชทนี้` : "❌ หมดเวลาหรืองานนี้มีคนขับแล้ว");
     return;
