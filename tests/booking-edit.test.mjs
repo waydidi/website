@@ -21,7 +21,7 @@ const vite = await createServer({ root, configFile: false, appType: 'custom', re
   load(id) {
     if (id === '\0be-env') return 'export const env=globalThis.__beEnv';
     if (id === '\0be-admin') return 'export async function getWaydidiAdmin(){return globalThis.__admin}';
-    if (id === '\0be-tg') return 'export async function republishJob(ref){globalThis.__republished.push(ref)}';
+    if (id === '\0be-tg') return 'export async function notifyBookingEdited(ref){globalThis.__republished.push(ref)}';
   } }] });
 after(async () => { await vite.close(); await mf.dispose(); });
 const rules = await vite.ssrLoadModule('/lib/booking-edit.ts');

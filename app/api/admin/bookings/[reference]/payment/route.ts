@@ -43,7 +43,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     }
   }
   console.info("Admin changed booking payment", { reference, to: target, admin: admin.email });
-  // The driver's job says whether to collect cash; send the updated job.
-  await import("@/lib/telegram/booking-changes").then((m) => m.republishJob(reference, admin.displayName || admin.email, "แก้ไขการชำระเงินโดยแอดมิน")).catch(() => undefined);
+  // The driver's job says whether to collect cash: the Admin group chooses what happens with the driver.
+  await import("@/lib/telegram/booking-changes").then((m) => m.notifyBookingEdited(reference, admin.displayName || admin.email, "แก้ไขการชำระเงิน")).catch(() => undefined);
   return NextResponse.json({ ok: true, changed: true });
 }
