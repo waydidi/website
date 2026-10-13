@@ -2,6 +2,7 @@
 
 import { Camera, IdCard, LoaderCircle, Plus, UserRound } from "lucide-react";
 import { FormEvent, useRef, useState } from "react";
+import { shrinkFormImages } from "@/lib/shrink-image";
 import { THAI_BANKS } from "@/lib/thai-banks";
 
 export type CreatedDriver = {
@@ -31,16 +32,18 @@ export function DriverCreateForm({
     setBusy(true);
     setError("");
     try {
+      const form = new FormData(event.currentTarget);
+      await shrinkFormImages(form);
       const response = await fetch("/api/admin/drivers", {
         method: "POST",
-        body: new FormData(event.currentTarget),
+        body: form,
       });
-      const result = (await response.json()) as {
+      const result = (await response.json().catch(() => ({}))) as {
         error?: string;
         driver?: CreatedDriver;
       };
       if (!response.ok || !result.driver)
-        throw new Error(result.error ?? "Driver could not be added.");
+        throw new Error(result.error ?? `Driver could not be added (error ${response.status}).`);
       formRef.current?.reset();
       setBankCode("");
       await onCreated(result.driver);
