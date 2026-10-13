@@ -6,15 +6,16 @@ import { esc } from "./cards";
 import { answerCallback, downloadFile, editIn, sendPrivate, sendTo, telegramBotUsername, telegramChatId, tg, type InlineKeyboard, type TelegramMessage, type TelegramUser } from "./client";
 import { jobVehicleName } from "./job-text";
 import {
-  CAR_TYPES, HOLD_MINUTES, STEP_QUESTION, checkTextAnswer, driverGroupConfig, isCarType, isGroupMember, isMyJobsCommand, jobStartLink, nextStep, offerText, parseJobStart,
+  CAR_TYPES, SIGNUP_MINUTES, STEP_QUESTION, checkTextAnswer, driverGroupConfig, isCarType, isGroupMember, isMyJobsCommand, nextStep, offerText, parseSignupStart, signupLink,
   type DriverDraft, type FormStep, type OfferJob, type OfferState,
 } from "./driver-group-rules";
 
-// The driver group: every new booking is offered there in Thai with an "Assign" (รับงาน) link. The link
-// opens the driver's private chat with the bot; a first-time driver answers the sign-up questions there
-// (name, phone, car, licence/ID and car photos), and the job is theirs. Admin sees the driver and the
-// customer's details in the team group; the driver gets the full job privately. Being in the group is
-// checked with Telegram on every claim, and one guarded write means only one driver can win a job.
+// The driver group: once staff set a booking's driver cost, it is offered there in Thai with a
+// "รับงาน (Assign)" button. The first driver to tap it gets the job and the post changes to show who
+// took it, with no button. A driver already linked to Telegram is assigned at once; a first-time
+// driver answers the sign-up questions in their private chat with the bot (within SIGNUP_MINUTES,
+// otherwise the job is offered again). Admin sees the driver and the customer's details in the team
+// group; the driver gets the full job privately. One guarded write decides who tapped first.
 
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<{ meta: { changes: number } }> };
 const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt; batch: (s: Stmt[]) => Promise<unknown> };
@@ -25,7 +26,7 @@ let ready: Promise<unknown> | null = null;
 /** Workers Builds doesn't run migrations: the tables are created on first use (same as drizzle/0103). */
 function ensureTables() {
   ready ??= db().batch([
-    db().prepare("CREATE TABLE IF NOT EXISTS telegram_driver_jobs (booking_reference TEXT PRIMARY KEY, telegram_message_id INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'open', holder_telegram_id TEXT, hold_until TEXT, driver_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"),
+    db().prepare("CREATE TABLE IF NOT EXISTS telegram_driver_jobs (booking_reference TEXT PRIMARY KEY, telegram_message_id INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'open', holder_telegram_id TEXT, holder_name TEXT, hold_until TEXT, driver_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"),
     db().prepare("CREATE TABLE IF NOT EXISTS telegram_driver_links (telegram_user_id TEXT PRIMARY KEY, driver_id TEXT NOT NULL, linked_at TEXT NOT NULL)"),
     db().prepare("CREATE INDEX IF NOT EXISTS idx_telegram_driver_links_driver ON telegram_driver_links(driver_id)"),
     db().prepare("CREATE TABLE IF NOT EXISTS telegram_driver_forms (telegram_user_id TEXT PRIMARY KEY, booking_reference TEXT NOT NULL, step TEXT NOT NULL, driver_id TEXT NOT NULL, form_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL)"),
@@ -35,7 +36,9 @@ function ensureTables() {
 
 type BookingRow = { reference: string; status: string; vehicle: string; pickup_date: string; pickup_time: string; pickup: string; dropoff: string; service_type: string | null; booked_hours: number | null;
   passengers: number; luggage: number; return_date: string | null; return_time: string | null; payment_method: string; payment_status: string; total: number; amount_paid: number | null; driver_cost: number | null };
-type JobRow = { booking_reference: string; telegram_message_id: number; status: string; holder_telegram_id: string | null; hold_until: string | null; driver_id: string | null };
+// status: open → taken (a linked driver tapped) | signing_up (a first-time driver tapped) → taken; or closed.
+type JobRow = { booking_reference: string; telegram_message_id: number; status: string; holder_telegram_id: string | null; holder_name: string | null; hold_until: string | null; driver_id: string | null };
+type Driver = { id: string; full_name: string; phone: string; car_plate: string | null; vehicle: string; license_number: string | null };
 
 async function bookingFor(reference: string) {
   return db().prepare(`SELECT b.reference,b.status,b.vehicle,b.pickup_date,b.pickup_time,b.pickup,b.dropoff,b.service_type,b.booked_hours,b.passengers,b.luggage,b.return_date,b.return_time,
@@ -64,16 +67,14 @@ async function stateFor(b: BookingRow, job: JobRow | null): Promise<OfferState> 
     const d = await db().prepare("SELECT full_name,car_plate FROM drivers WHERE id=?").bind(job.driver_id).first<{ full_name: string; car_plate: string | null }>();
     return { kind: "taken", driverName: d?.full_name ?? "-", plate: d?.car_plate ?? null };
   }
+  if (job?.status === "signing_up") return { kind: "signing_up", name: job.holder_name ?? "-" };
   if (await driverSet(b.reference)) return { kind: "closed", reason: "assigned" };
   if (pickupPassed(b)) return { kind: "closed", reason: "past" };
   return { kind: "open" };
 }
 
-async function offerKeyboard(reference: string, state: OfferState): Promise<InlineKeyboard> {
-  if (state.kind !== "open") return [];
-  const bot = await telegramBotUsername();
-  return bot ? [[{ text: "✋ รับงาน (Assign)", url: jobStartLink(bot, reference) }]] : [];
-}
+const offerKeyboard = (reference: string, state: OfferState): InlineKeyboard =>
+  state.kind === "open" ? [[{ text: "✋ รับงาน (Assign)", callback_data: `dj_take:${reference}` }]] : [];
 
 /** Posts a booking to the driver group once its cost is set (safe to call again). Off unless the owner turned it on. */
 export async function postDriverOffer(reference: string) {
@@ -87,7 +88,7 @@ export async function postDriverOffer(reference: string) {
   if (!claimed.meta.changes) return false;
   try {
     const state: OfferState = { kind: "open" };
-    const sent = await sendTo(group.chatId, offerText(offerJob(b), state), await offerKeyboard(reference, state));
+    const sent = await sendTo(group.chatId, offerText(offerJob(b), state), offerKeyboard(reference, state));
     await db().prepare("UPDATE telegram_driver_jobs SET telegram_message_id=?,updated_at=? WHERE booking_reference=?").bind(sent.message_id, now(), reference).run();
     return true;
   } catch (error) {
@@ -106,8 +107,8 @@ export async function syncDriverOffer(reference: string) {
   const b = job.telegram_message_id ? await bookingFor(reference) : null;
   if (!b) return;
   const state = await stateFor(b, job);
-  if (state.kind === "closed" && job.status === "open") await db().prepare("UPDATE telegram_driver_jobs SET status='closed',holder_telegram_id=NULL,updated_at=? WHERE booking_reference=? AND status='open'").bind(now(), reference).run();
-  await editIn(group.chatId, job.telegram_message_id, offerText(offerJob(b), state), await offerKeyboard(reference, state));
+  if (state.kind === "closed" && job.status !== "closed" && job.status !== "taken") await db().prepare("UPDATE telegram_driver_jobs SET status='closed',holder_telegram_id=NULL,hold_until=NULL,updated_at=? WHERE booking_reference=? AND status IN ('open','signing_up')").bind(now(), reference).run();
+  await editIn(group.chatId, job.telegram_message_id, offerText(offerJob(b), state), offerKeyboard(reference, state));
 }
 
 /** The driver-group message of a booking's offer, for posting trip photos under it. */
@@ -127,18 +128,23 @@ async function inDriverGroup(userId: number) {
 }
 
 async function linkedDriver(userId: number) {
-  return db().prepare(`SELECT d.id,d.full_name,d.phone,d.car_plate,d.vehicle,d.vehicle_type FROM telegram_driver_links l JOIN drivers d ON d.id=l.driver_id
-    WHERE l.telegram_user_id=? AND d.status='active'`).bind(String(userId)).first<{ id: string; full_name: string; phone: string; car_plate: string | null; vehicle: string; vehicle_type: string | null }>();
+  return db().prepare(`SELECT d.id,d.full_name,d.phone,d.car_plate,d.vehicle,d.license_number FROM telegram_driver_links l JOIN drivers d ON d.id=l.driver_id
+    WHERE l.telegram_user_id=? AND d.status='active'`).bind(String(userId)).first<Driver>();
 }
 
 const say = (chatId: string, text: string, keyboard?: InlineKeyboard) =>
   keyboard ? tg<TelegramMessage>("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: keyboard } }) : sendPrivate(chatId, text);
 
+const displayName = (u: TelegramUser) => [u.first_name, u.last_name].filter(Boolean).join(" ").trim().slice(0, 60) || (u.username ? `@${u.username}` : "คนขับ");
+
+export type TakeResult = { ok: true; driver: Driver | null } | { ok: false; reason: string };
+
 /**
- * Holds a job for this driver for HOLD_MINUTES while they confirm or sign up. Only one person can hold
- * an open job; the same person may tap again. Returns a Thai reason when they can't.
+ * A tap on «รับงาน» in the driver group. The first tap wins (one guarded write on the open offer);
+ * the post then shows who took it, with no button. A linked driver is assigned straight away; a
+ * first-time driver must send their details within SIGNUP_MINUTES.
  */
-export async function holdJob(user: TelegramUser, reference: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+export async function takeJob(user: TelegramUser, reference: string): Promise<TakeResult> {
   if (!driverGroup()) return { ok: false, reason: "ระบบรับงานทาง Telegram ยังไม่เปิดใช้งาน" };
   await ensureTables();
   if (!await inDriverGroup(user.id)) return { ok: false, reason: "รับงานได้เฉพาะสมาชิกกลุ่มคนขับ Waydidi" };
@@ -148,61 +154,62 @@ export async function holdJob(user: TelegramUser, reference: string): Promise<{ 
   const state = await stateFor(b, job);
   if (state.kind !== "open" || job.status !== "open") {
     await syncDriverOffer(reference).catch(() => undefined);
-    return { ok: false, reason: state.kind === "closed" && state.reason === "cancelled" ? "งานนี้ถูกยกเลิกแล้ว" : state.kind === "closed" && state.reason === "past" ? "เลยเวลารับงานนี้แล้ว" : "มีคนขับรับงานนี้แล้ว" };
+    return { ok: false, reason: state.kind === "closed" && state.reason === "cancelled" ? "งานนี้ถูกยกเลิกแล้ว" : state.kind === "closed" && state.reason === "past" ? "เลยเวลารับงานนี้แล้ว" : "มีคนรับงานนี้แล้ว" };
   }
-  const at = now(), until = new Date(Date.now() + HOLD_MINUTES * 60_000).toISOString(), me = String(user.id);
-  const held = await db().prepare("UPDATE telegram_driver_jobs SET holder_telegram_id=?,hold_until=?,updated_at=? WHERE booking_reference=? AND status='open' AND (holder_telegram_id IS NULL OR holder_telegram_id=? OR hold_until<?)")
-    .bind(me, until, at, reference, me, at).run();
-  return held.meta.changes ? { ok: true } : { ok: false, reason: `มีคนขับกำลังรับงานนี้อยู่ ลองใหม่ได้ใน ${HOLD_MINUTES} นาที` };
+  const me = await linkedDriver(user.id);
+  const at = now(), until = new Date(Date.now() + SIGNUP_MINUTES * 60_000).toISOString();
+  const won = await db().prepare("UPDATE telegram_driver_jobs SET status=?,holder_telegram_id=?,holder_name=?,hold_until=?,driver_id=?,updated_at=? WHERE booking_reference=? AND status='open'")
+    .bind(me ? "taken" : "signing_up", String(user.id), me?.full_name ?? displayName(user), me ? null : until, me?.id ?? null, at, reference).run();
+  if (!won.meta.changes) return { ok: false, reason: "มีคนรับงานนี้แล้ว" };
+  if (!me) { await syncDriverOffer(reference).catch(() => undefined); return { ok: true, driver: null }; }
+  const assigned = await assignTaken(reference, me);
+  return assigned ? { ok: true, driver: me } : { ok: false, reason: "งานนี้มีคนขับแล้ว" };
 }
 
 /**
- * Gives the held job to the driver: one guarded write on the offer (still open, still held by this
- * person), then the team group's driver slot (still empty). Staff assigning first always wins.
+ * Puts the driver who won the job in the team group's driver slot (still empty: staff choosing a driver
+ * first always wins), then posts the job to the team group and privately to the driver.
  */
-export async function claimJob(user: TelegramUser, reference: string, driverId: string): Promise<{ ok: true } | { ok: false; reason: string }> {
-  await ensureTables();
-  if (!await inDriverGroup(user.id)) return { ok: false, reason: "รับงานได้เฉพาะสมาชิกกลุ่มคนขับ Waydidi" };
-  const d = await db().prepare("SELECT id,full_name,phone,car_plate,vehicle,license_number FROM drivers WHERE id=? AND status='active'").bind(driverId)
-    .first<{ id: string; full_name: string; phone: string; car_plate: string | null; vehicle: string; license_number: string | null }>();
-  if (!d) return { ok: false, reason: "ไม่พบข้อมูลคนขับ" };
-  const at = now();
-  const taken = await db().prepare("UPDATE telegram_driver_jobs SET status='taken',driver_id=?,holder_telegram_id=NULL,hold_until=NULL,updated_at=? WHERE booking_reference=? AND status='open' AND holder_telegram_id=? AND hold_until>=?")
-    .bind(d.id, at, reference, String(user.id), at).run();
-  if (!taken.meta.changes) return { ok: false, reason: "หมดเวลาหรือมีคนรับงานนี้แล้ว กดรับงานในกลุ่มอีกครั้ง" };
+async function assignTaken(reference: string, d: Driver) {
   const b = await bookingFor(reference);
   const form = { name: d.full_name, phone: d.phone, plate: d.car_plate ?? undefined, model: d.vehicle || undefined, license: d.license_number ?? undefined, driverId: d.id };
   const slot = b?.status === "confirmed"
     ? await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=?,driver_done=1 WHERE booking_reference=? AND driver_done=0").bind(JSON.stringify(form), reference).run()
     : { meta: { changes: 0 } };
+  if (slot.meta.changes && b?.driver_cost) {
+    // The offer was posted because a cost exists (set in Telegram or in Admin): the card counts it as set.
+    await db().prepare("UPDATE telegram_booking_cards SET cost_done=1 WHERE booking_reference=? AND cost_done=0").bind(reference).run();
+  }
   if (!slot.meta.changes || await liveAssignmentByOther(reference, d.id)) {
-    // Staff set a driver (or the booking changed) in the meantime: the offer closes, the driver is told.
-    await db().prepare("UPDATE telegram_driver_jobs SET status='closed',driver_id=NULL,updated_at=? WHERE booking_reference=? AND driver_id=?").bind(now(), reference, d.id).run();
+    await db().prepare("UPDATE telegram_driver_jobs SET status='closed',driver_id=NULL,holder_telegram_id=NULL,updated_at=? WHERE booking_reference=?").bind(now(), reference).run();
     if (slot.meta.changes) await db().prepare("UPDATE telegram_booking_cards SET driver_form_json=NULL,driver_done=0 WHERE booking_reference=? AND driver_form_json=?").bind(reference, JSON.stringify(form)).run();
     await syncDriverOffer(reference).catch(() => undefined);
-    return { ok: false, reason: "งานนี้มีคนขับแล้ว" };
+    return false;
   }
   const tasks = await import("./booking-tasks");
   const bookings = await import("./bookings");
-  // The Thai job with the customer's details goes to the team group (and privately to the driver) once
-  // the driver cost is set; until then the team group is told who took it.
-  const posted = await tasks.postAssignmentWhenReady(reference, `คนขับ ${d.full_name}`, `✋ <b>${esc(d.full_name)}</b> รับงานจากกลุ่มคนขับ`).catch(() => false);
+  // The Thai job with the customer's details goes to the team group and privately to the driver
+  // (the cost is always set by now); without a cost the team group is told who took it.
+  const posted = await tasks.postAssignmentWhenReady(reference, `คนขับ ${d.full_name}`, `✋ <b>${esc(d.full_name)}</b> รับงานจากกลุ่มคนขับ${await samePhoneWarning(d)}`).catch(() => false);
   if (!posted) await noteTeamGroup(reference, d).catch(() => undefined);
   await bookings.refreshBookingCard(reference).catch(() => undefined);
   await syncDriverOffer(reference).catch(() => undefined);
-  return { ok: true };
+  return true;
 }
 
 async function liveAssignmentByOther(reference: string, driverId: string) {
   return db().prepare("SELECT 1 x FROM booking_assignments WHERE booking_reference=? AND leg='outbound' AND revoked_at IS NULL AND driver_id<>?").bind(reference, driverId).first().catch(() => null);
 }
 
-async function noteTeamGroup(reference: string, d: { id: string; full_name: string; phone: string; car_plate: string | null; vehicle: string }) {
-  const card = await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>();
+async function samePhoneWarning(d: Driver) {
   const digits = d.phone.replace(/\D/g, "").slice(-9);
-  const same = digits.length >= 9 ? await db().prepare("SELECT full_name FROM drivers WHERE id<>? AND status='active' AND REPLACE(REPLACE(REPLACE(phone,' ',''),'-',''),'+','') LIKE ? LIMIT 1").bind(d.id, `%${digits}`).first<{ full_name: string }>() : null;
-  const lines = [`✋ <b>${esc(d.full_name)}</b> รับงาน <b>${esc(reference)}</b> จากกลุ่มคนขับ`, `โทร: ${esc(d.phone)}`, `รถ: ${esc(d.vehicle || "-")} · ทะเบียน ${esc(d.car_plate || "-")}`,
-    ...(same ? [`⚠️ เบอร์นี้ตรงกับคนขับเดิม: ${esc(same.full_name)} — ตรวจสอบใน Admin → Drivers`] : []),
+  const same = digits.length >= 9 ? await db().prepare("SELECT full_name FROM drivers WHERE id<>? AND status='active' AND REPLACE(REPLACE(REPLACE(phone,' ',''),'-',''),'+','') LIKE ? LIMIT 1").bind(d.id, `%${digits}`).first<{ full_name: string }>().catch(() => null) : null;
+  return same ? `\n⚠️ เบอร์นี้ตรงกับคนขับเดิม: ${esc(same.full_name)} — ตรวจสอบใน Admin → Drivers` : "";
+}
+
+async function noteTeamGroup(reference: string, d: Driver) {
+  const card = await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>();
+  const lines = [`✋ <b>${esc(d.full_name)}</b> รับงาน <b>${esc(reference)}</b> จากกลุ่มคนขับ${await samePhoneWarning(d)}`, `โทร: ${esc(d.phone)}`, `รถ: ${esc(d.vehicle || "-")} · ทะเบียน ${esc(d.car_plate || "-")}`,
     "", "ตั้งราคาค่างาน (Set cost) เพื่อส่งใบงานให้คนขับ"];
   await sendTo(telegramChatId(), lines.join("\n"), undefined, card?.telegram_message_id || undefined);
 }
@@ -215,9 +222,25 @@ export async function sendJobToLinkedDriver(driverId: string, text: string) {
   for (const r of results) await sendPrivate(r.telegram_user_id, text).catch((error) => console.error("driver job DM failed", error instanceof Error ? error.message : "unknown"));
 }
 
-// ——— The private chat ———
+/** Every minute: a first-time driver who didn't finish signing up in time loses the job; it is offered again. */
+export async function reopenLapsedSignups(at = new Date()) {
+  if (!driverGroup()) return;
+  await ensureTables();
+  const { results } = await db().prepare("SELECT booking_reference,holder_telegram_id FROM telegram_driver_jobs WHERE status='signing_up' AND hold_until<? LIMIT 20").bind(at.toISOString()).all<{ booking_reference: string; holder_telegram_id: string | null }>();
+  for (const r of results) {
+    const reopened = await db().prepare("UPDATE telegram_driver_jobs SET status='open',holder_telegram_id=NULL,holder_name=NULL,hold_until=NULL,updated_at=? WHERE booking_reference=? AND status='signing_up' AND hold_until<?").bind(now(), r.booking_reference, at.toISOString()).run();
+    if (!reopened.meta.changes) continue;
+    if (r.holder_telegram_id) {
+      await db().prepare("DELETE FROM telegram_driver_forms WHERE telegram_user_id=? AND booking_reference=?").bind(r.holder_telegram_id, r.booking_reference).run();
+      await sendPrivate(r.holder_telegram_id, `⏱ หมดเวลากรอกข้อมูล งาน <b>${esc(r.booking_reference)}</b> ถูกเปิดให้คนขับอื่นรับแล้ว`).catch(() => undefined);
+    }
+    await syncDriverOffer(r.booking_reference).catch((error) => console.error("driver offer reopen failed", error instanceof Error ? error.message : "unknown"));
+  }
+}
 
-const confirmKeyboard = (reference: string): InlineKeyboard => [[{ text: "✅ ยืนยันรับงาน", callback_data: `dj_ok:${reference}` }], [{ text: "✏️ แก้ไขข้อมูลคนขับ/รถ", callback_data: `dj_new:${reference}` }], [{ text: "ยกเลิก", callback_data: `dj_x:${reference}` }]];
+// ——— The private chat (first-time sign-up) ———
+
+const cancelKeyboard = (reference: string): InlineKeyboard => [[{ text: "ยกเลิกการรับงาน", callback_data: `dj_x:${reference}` }]];
 const carTypeKeyboard = (reference: string): InlineKeyboard => [Object.entries(CAR_TYPES).map(([k, label]) => ({ text: label, callback_data: `dj_car:${reference}:${k}` }))];
 
 async function ask(chatId: string, reference: string, step: FormStep) {
@@ -225,28 +248,24 @@ async function ask(chatId: string, reference: string, step: FormStep) {
   await say(chatId, `งาน <b>${esc(reference)}</b> (${n}/7): ${STEP_QUESTION[step]}`, step === "car_type" ? carTypeKeyboard(reference) : undefined);
 }
 
-async function startForm(user: TelegramUser, chatId: string, reference: string, driverId: string) {
-  await db().prepare("INSERT INTO telegram_driver_forms(telegram_user_id,booking_reference,step,driver_id,form_json,updated_at) VALUES(?,?,?,?,'{}',?) ON CONFLICT(telegram_user_id) DO UPDATE SET booking_reference=excluded.booking_reference,step=excluded.step,driver_id=excluded.driver_id,form_json='{}',updated_at=excluded.updated_at")
-    .bind(String(user.id), reference, "name", driverId, now()).run();
-  await say(chatId, "กรอกข้อมูลคนขับครั้งแรก ตอบทีละข้อ (ข้อมูลจะถูกบันทึกไว้ ครั้งต่อไปกดยืนยันได้เลย)");
-  await ask(chatId, reference, "name");
+/** The job this person tapped and must now sign up for (still theirs, still in time). */
+async function signupJob(userId: number, reference: string) {
+  return db().prepare("SELECT * FROM telegram_driver_jobs WHERE booking_reference=? AND status='signing_up' AND holder_telegram_id=? AND hold_until>=?").bind(reference, String(userId), now()).first<JobRow>();
 }
 
-/** "/start job_REF" from the Assign link. */
-async function startClaim(user: TelegramUser, chatId: string, reference: string) {
-  const held = await holdJob(user, reference);
-  if (!held.ok) { await say(chatId, `❌ ${esc(held.reason)}`); return; }
-  const me = await linkedDriver(user.id);
-  if (me) {
-    await say(chatId, [`งาน <b>${esc(reference)}</b> — ยืนยันรับงานด้วยข้อมูลนี้?`, `คนขับ: ${esc(me.full_name)} · ${esc(me.phone)}`, `รถ: ${esc(me.vehicle || "-")} · ทะเบียน ${esc(me.car_plate || "-")}`, "", `ยืนยันภายใน ${HOLD_MINUTES} นาที`].join("\n"), confirmKeyboard(reference));
-    return;
-  }
-  await startForm(user, chatId, reference, crypto.randomUUID());
+/** Starts (or restarts) the sign-up questions in the private chat. Returns false if Telegram can't reach the person yet. */
+async function startForm(user: TelegramUser, chatId: string, reference: string) {
+  const intro = await say(chatId, [`✅ คุณได้งาน <b>${esc(reference)}</b>`, `กรอกข้อมูลคนขับครั้งแรกภายใน ${SIGNUP_MINUTES} นาที ตอบทีละข้อ`, "ครั้งต่อไปกด «รับงาน» ในกลุ่มแล้วได้งานทันที"].join("\n"), cancelKeyboard(reference)).then(() => true).catch(() => false);
+  if (!intro) return false;
+  await db().prepare("INSERT INTO telegram_driver_forms(telegram_user_id,booking_reference,step,driver_id,form_json,updated_at) VALUES(?,?,?,?,'{}',?) ON CONFLICT(telegram_user_id) DO UPDATE SET booking_reference=excluded.booking_reference,step=excluded.step,driver_id=excluded.driver_id,form_json='{}',updated_at=excluded.updated_at")
+    .bind(String(user.id), reference, "name", crypto.randomUUID(), now()).run();
+  await ask(chatId, reference, "name");
+  return true;
 }
 
 type FormRow = { telegram_user_id: string; booking_reference: string; step: FormStep; driver_id: string; form_json: string; updated_at: string };
 async function activeForm(userId: number) {
-  return db().prepare("SELECT * FROM telegram_driver_forms WHERE telegram_user_id=? AND updated_at>?").bind(String(userId), new Date(Date.now() - 30 * 60_000).toISOString()).first<FormRow>();
+  return db().prepare("SELECT * FROM telegram_driver_forms WHERE telegram_user_id=? AND updated_at>?").bind(String(userId), new Date(Date.now() - SIGNUP_MINUTES * 60_000).toISOString()).first<FormRow>();
 }
 
 async function saveStep(form: FormRow, draft: DriverDraft, chatId: string, user: TelegramUser) {
@@ -259,38 +278,38 @@ async function saveStep(form: FormRow, draft: DriverDraft, chatId: string, user:
   await finishForm(form, draft, chatId, user);
 }
 
-/** All answers in: the driver is saved (or updated) and linked to this Telegram account, then the job is claimed. */
+/** All answers in: the driver is saved and linked to this Telegram account, then the job becomes theirs. */
 async function finishForm(form: FormRow, draft: DriverDraft, chatId: string, user: TelegramUser) {
-  if (!draft.name || !draft.phone || !draft.plate || !draft.model || !draft.carType || !draft.idPhoto || !draft.carPhoto) { await startForm(user, chatId, form.booking_reference, form.driver_id); return; }
+  if (!draft.name || !draft.phone || !draft.plate || !draft.model || !draft.carType || !draft.idPhoto || !draft.carPhoto) { await startForm(user, chatId, form.booking_reference); return; }
   const at = now(), id = form.driver_id;
-  const existing = await db().prepare("SELECT id FROM drivers WHERE id=?").bind(id).first();
   const idKey = `driver-verification/${id}/identity.jpg`, carKey = `driver-verification/${id}/vehicle.jpg`;
-  if (existing) {
-    await db().prepare("UPDATE drivers SET full_name=?,phone=?,car_plate=?,vehicle=?,vehicle_type=?,id_image_key=?,id_image_mime='image/jpeg',car_image_key=?,car_image_mime='image/jpeg',status='active',updated_at=? WHERE id=?")
-      .bind(draft.name, draft.phone, draft.plate, draft.model, draft.carType, idKey, carKey, at, id).run();
-  } else {
-    await db().prepare("INSERT INTO drivers(id,full_name,phone,base_location,vehicle,vehicle_type,car_plate,id_image_key,id_image_mime,car_image_key,car_image_mime,driver_type,status,created_at,updated_at) VALUES(?,?,?,'Telegram',?,?,?,?,'image/jpeg',?,'image/jpeg','outsource','active',?,?)")
-      .bind(id, draft.name, draft.phone, draft.model, draft.carType, draft.plate, idKey, carKey, at, at).run();
-  }
   await db().batch([
+    db().prepare("INSERT INTO drivers(id,full_name,phone,base_location,vehicle,vehicle_type,car_plate,id_image_key,id_image_mime,car_image_key,car_image_mime,driver_type,status,created_at,updated_at) VALUES(?,?,?,'Telegram',?,?,?,?,'image/jpeg',?,'image/jpeg','outsource','active',?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(id, draft.name, draft.phone, draft.model, draft.carType, draft.plate, idKey, carKey, at, at),
     db().prepare("INSERT INTO telegram_driver_links(telegram_user_id,driver_id,linked_at) VALUES(?,?,?) ON CONFLICT(telegram_user_id) DO UPDATE SET driver_id=excluded.driver_id,linked_at=excluded.linked_at").bind(String(user.id), id, at),
     db().prepare("DELETE FROM telegram_driver_forms WHERE telegram_user_id=?").bind(String(user.id)),
   ]);
-  await say(chatId, "บันทึกข้อมูลคนขับแล้ว ✓");
-  await finishClaim(user, chatId, form.booking_reference, id);
-}
-
-async function finishClaim(user: TelegramUser, chatId: string, reference: string, driverId: string) {
-  const result = await claimJob(user, reference, driverId);
-  await say(chatId, result.ok ? `✅ รับงาน <b>${esc(reference)}</b> เรียบร้อย\nใบงานพร้อมข้อมูลลูกค้าและลิงก์งานจะส่งมาที่แชทนี้เมื่อแอดมินยืนยันราคา` : `❌ ${esc(result.reason)}`);
+  const d: Driver = { id, full_name: draft.name, phone: draft.phone, car_plate: draft.plate, vehicle: draft.model, license_number: null };
+  // Still theirs and still in time? Then the job is assigned.
+  const taken = await db().prepare("UPDATE telegram_driver_jobs SET status='taken',driver_id=?,holder_name=?,hold_until=NULL,updated_at=? WHERE booking_reference=? AND status='signing_up' AND holder_telegram_id=? AND hold_until>=?")
+    .bind(id, draft.name, now(), form.booking_reference, String(user.id), now()).run();
+  const ok = taken.meta.changes ? await assignTaken(form.booking_reference, d) : false;
+  await say(chatId, ok ? `บันทึกข้อมูลคนขับแล้ว ✓\n✅ งาน <b>${esc(form.booking_reference)}</b> เป็นของคุณ ใบงานพร้อมข้อมูลลูกค้าและลิงก์งานส่งมาในแชทนี้`
+    : "บันทึกข้อมูลคนขับแล้ว ✓\n❌ แต่หมดเวลาหรืองานนี้มีคนขับแล้ว ครั้งต่อไปกด «รับงาน» ในกลุ่มแล้วได้งานทันที");
 }
 
 /** Private messages for drivers. Returns true when handled (otherwise the staff chat handler runs). */
 export async function handleDriverPrivate(m: TelegramMessage) {
   if (!m.from || m.from.is_bot) return false;
   const text = (m.text ?? "").trim(), chatId = String(m.chat.id);
-  const reference = parseJobStart(text);
-  if (reference) { await startClaim(m.from, chatId, reference); return true; }
+  const reference = parseSignupStart(text);
+  if (reference) {
+    if (!driverGroup()) { await say(chatId, "ระบบรับงานทาง Telegram ยังไม่เปิดใช้งาน"); return true; }
+    await ensureTables();
+    if (!await signupJob(m.from.id, reference)) { await say(chatId, `❌ งาน <b>${esc(reference)}</b> ไม่ได้รอข้อมูลจากคุณแล้ว (หมดเวลาหรือมีคนขับแล้ว)`); return true; }
+    await startForm(m.from, chatId, reference);
+    return true;
+  }
   if (!driverGroup()) return false;
   await ensureTables();
   if (isMyJobsCommand(text)) { await sendMyJobs(m.from, chatId); return true; }
@@ -319,35 +338,38 @@ export async function handleDriverPrivate(m: TelegramMessage) {
   return true;
 }
 
-/** Buttons in a driver's private chat (dj_…). */
+/** «รับงาน» in the driver group (dj_take). The answer is shown only to the person who tapped. */
+export async function handleDriverTake(q: { id: string; from: TelegramUser; data?: string; message?: TelegramMessage }) {
+  const reference = (q.data ?? "").split(":")[1] ?? "";
+  if (!/^[A-Z0-9-]{4,24}$/.test(reference)) return answerCallback(q.id, "ไม่พบงานนี้", true);
+  const result = await takeJob(q.from, reference);
+  if (!result.ok) return answerCallback(q.id, result.reason, true);
+  if (result.driver) return answerCallback(q.id, `✅ ได้งาน ${reference} แล้ว ใบงานส่งไปที่แชทส่วนตัวกับบอท`, true);
+  // First time: the questions go to their private chat. If they've never opened the bot, Telegram
+  // opens it for them with the sign-up link (the form then starts from /start reg_REF).
+  if (await startForm(q.from, String(q.from.id), reference)) return answerCallback(q.id, `✅ ได้งาน ${reference} แล้ว กรอกข้อมูลคนขับในแชทส่วนตัวกับบอทภายใน ${SIGNUP_MINUTES} นาที`, true);
+  const bot = await telegramBotUsername().catch(() => null);
+  return bot ? tg("answerCallbackQuery", { callback_query_id: q.id, url: signupLink(bot, reference) }).catch(() => undefined) : answerCallback(q.id, "กดเริ่มแชทกับบอทก่อน", true);
+}
+
+/** Buttons in a driver's private chat (dj_car, dj_x). */
 export async function handleDriverCallback(q: { id: string; from: TelegramUser; data?: string; message?: TelegramMessage }) {
   const [action, reference, extra] = (q.data ?? "").split(":");
   const chatId = String(q.message?.chat.id ?? q.from.id);
   if (!reference || !/^[A-Z0-9-]{4,24}$/.test(reference) || !driverGroup()) return answerCallback(q.id, "ไม่พบงานนี้", true);
   await ensureTables();
-  if (q.message) await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
   if (action === "dj_x") {
-    await db().prepare("UPDATE telegram_driver_jobs SET holder_telegram_id=NULL,hold_until=NULL,updated_at=? WHERE booking_reference=? AND holder_telegram_id=? AND status='open'").bind(now(), reference, String(q.from.id)).run();
-    await db().prepare("DELETE FROM telegram_driver_forms WHERE telegram_user_id=?").bind(String(q.from.id)).run();
-    return answerCallback(q.id, "ยกเลิกแล้ว");
-  }
-  if (action === "dj_ok") {
-    const me = await linkedDriver(q.from.id);
-    if (!me) { await startForm(q.from, chatId, reference, crypto.randomUUID()); return answerCallback(q.id); }
-    await answerCallback(q.id);
-    await finishClaim(q.from, chatId, reference, me.id);
-    return;
-  }
-  if (action === "dj_new") {
-    const held = await holdJob(q.from, reference);
-    if (!held.ok) { await say(chatId, `❌ ${esc(held.reason)}`); return answerCallback(q.id); }
-    const me = await linkedDriver(q.from.id);
-    await startForm(q.from, chatId, reference, me?.id ?? crypto.randomUUID());
-    return answerCallback(q.id);
+    // Gives the job back before signing up: it is offered to the group again.
+    const released = await db().prepare("UPDATE telegram_driver_jobs SET status='open',holder_telegram_id=NULL,holder_name=NULL,hold_until=NULL,updated_at=? WHERE booking_reference=? AND status='signing_up' AND holder_telegram_id=?").bind(now(), reference, String(q.from.id)).run();
+    await db().prepare("DELETE FROM telegram_driver_forms WHERE telegram_user_id=? AND booking_reference=?").bind(String(q.from.id), reference).run();
+    if (q.message) await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
+    if (released.meta.changes) await syncDriverOffer(reference).catch(() => undefined);
+    return answerCallback(q.id, released.meta.changes ? "ยกเลิกแล้ว งานถูกเปิดให้คนขับอื่น" : "ยกเลิกแล้ว");
   }
   if (action === "dj_car") {
     const form = await activeForm(q.from.id);
-    if (!form || form.booking_reference !== reference || form.step !== "car_type" || !isCarType(extra)) return answerCallback(q.id, "กรุณาเริ่มใหม่: กดรับงานในกลุ่มคนขับ", true);
+    if (!form || form.booking_reference !== reference || form.step !== "car_type" || !isCarType(extra)) return answerCallback(q.id, "กรุณาเริ่มใหม่: กด «รับงาน» ในกลุ่มคนขับ", true);
+    if (q.message) await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
     const draft = JSON.parse(form.form_json || "{}") as DriverDraft;
     draft.carType = extra;
     await answerCallback(q.id, CAR_TYPES[extra]);

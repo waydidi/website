@@ -54,11 +54,11 @@ test('off unless the owner turns it on, and never the team group',()=>{
  assert.deepEqual(rules.driverGroupConfig({TELEGRAM_DRIVER_JOBS:'1',TELEGRAM_DRIVER_CHAT_ID:'-100222',TELEGRAM_CHAT_ID:'-100111'}),{chatId:'-100222'});
 });
 
-test('the Assign link payload, "my jobs" and the sign-up answers are checked',()=>{
- assert.equal(rules.parseJobStart('/start job_fmbnuw'),'FMBNUW');
- assert.equal(rules.parseJobStart('/start job_FMB NUW'),null);
- assert.equal(rules.parseJobStart('/start'),null);
- assert.equal(rules.jobStartLink('waydidi_bot','FMBNUW'),'https://t.me/waydidi_bot?start=job_FMBNUW');
+test('the sign-up link, "my jobs" and the sign-up answers are checked',()=>{
+ assert.equal(rules.parseSignupStart('/start reg_fmbnuw'),'FMBNUW');
+ assert.equal(rules.parseSignupStart('/start reg_FMB NUW'),null);
+ assert.equal(rules.parseSignupStart('/start'),null);
+ assert.equal(rules.signupLink('waydidi_bot','FMBNUW'),'https://t.me/waydidi_bot?start=reg_FMBNUW');
  assert.ok(rules.isMyJobsCommand('งานของฉัน'));assert.ok(rules.isMyJobsCommand('/myjobs@waydidi_bot'));assert.ok(!rules.isMyJobsCommand('งาน'));
  assert.deepEqual(rules.checkTextAnswer('phone','081 234 5678'),{value:'081 234 5678'});
  assert.ok('error' in rules.checkTextAnswer('phone','12'));
@@ -70,7 +70,7 @@ test('the Assign link payload, "my jobs" and the sign-up answers are checked',()
  assert.ok(rules.isGroupMember({status:'restricted',is_member:true}));assert.ok(!rules.isGroupMember(null));
 });
 
-test('a new booking is offered to the driver group in Thai, with the Assign link and no customer details',async()=>{
+test('a booking is offered to the driver group in Thai, with the Assign button and no customer details',async()=>{
  await booking('DG0001');
  sent.length=0;
  await group.postDriverOffer('DG0001');
@@ -80,7 +80,8 @@ test('a new booking is offered to the driver group in Thai, with the Assign link
  assert.match(post.body.text,/รถ: ตู้ VIP\nวันที่\/เวลา: 15\/01\/2099 09:30\nรับ: Suvarnabhumi Airport\nส่ง: Pattaya Hilton\nจำนวน: 4 คน, 3 กระเป๋า/);
  assert.match(post.body.text,/ค่างาน: 1,800 บาท\nการชำระ: เก็บเงินสด 2,500 บาท/);
  for(const secret of ['Jessica','Moore','+66811112222','jess@example.com','TG101'])assert.ok(!post.body.text.includes(secret),secret);
- assert.deepEqual(post.body.reply_markup.inline_keyboard,[[{text:'✋ รับงาน (Assign)',url:'https://t.me/waydidi_bot?start=job_DG0001'}]]);
+ assert.deepEqual(post.body.reply_markup.inline_keyboard,[[{text:'✋ รับงาน (Assign)',callback_data:'dj_take:DG0001'}]]);
+ assert.match(post.body.text,/คนแรกที่กด «รับงาน» ได้งานนี้/);
  sent.length=0;
  await group.postDriverOffer('DG0001'); // safe to call again
  assert.equal(sent.filter(s=>s.method==='sendMessage').length,0);
@@ -109,43 +110,44 @@ test('nothing goes to the driver group while the feature is off',async()=>{
 });
 
 test('only members of the driver group can take a job',async()=>{
- const r=await group.holdJob(stranger,'DG0001');
+ const r=await group.takeJob(stranger,'DG0001');
  assert.deepEqual(r,{ok:false,reason:'รับงานได้เฉพาะสมาชิกกลุ่มคนขับ Waydidi'});
 });
 
-test('two drivers tapping Assign at once: exactly one holds the job, the other is told to wait',async()=>{
- const [a,b]=await Promise.all([group.holdJob(alice,'DG0001'),group.holdJob(bob,'DG0001')]);
- assert.equal([a,b].filter(r=>r.ok).length,1);
- const winner=a.ok?alice:bob, loser=a.ok?bob:alice;
- assert.ok((await group.holdJob(winner,'DG0001')).ok); // tapping again is fine
- assert.match((await group.holdJob(loser,'DG0001')).reason,/กำลังรับงานนี้อยู่/);
- // The loser can't claim it either, even with a driver record.
- await driver('drv-loser','Loser');
- assert.equal((await group.claimJob(loser,'DG0001','drv-loser')).ok,false);
- await driver('drv-win','Somchai Jaidee');
+test('two linked drivers tapping Assign at once: the first tap gets the job and the post shows it, no button',async()=>{
+ await driver('drv-a','Somchai Jaidee');await driver('drv-b','Anan Suksai');
+ await d1.prepare("INSERT INTO telegram_driver_links(telegram_user_id,driver_id,linked_at) VALUES('1001','drv-a',?),('1002','drv-b',?)").bind(at,at).run();
  sent.length=0;
- assert.deepEqual(await group.claimJob(winner,'DG0001','drv-win'),{ok:true});
- const job=await d1.prepare("SELECT status,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0001'").first();
- assert.deepEqual(job,{status:'taken',driver_id:'drv-win'});
- const card=await d1.prepare("SELECT driver_done,driver_form_json FROM telegram_booking_cards WHERE booking_reference='DG0001'").first();
- assert.equal(card.driver_done,1);
- assert.equal(JSON.parse(card.driver_form_json).driverId,'drv-win');
- // The team group is told who took it (cost not set yet), and the offer shows it as taken with no button.
- const note=sent.find(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111');
- assert.match(note.body.text,/Somchai Jaidee<\/b> รับงาน <b>DG0001<\/b> จากกลุ่มคนขับ/);
- const edit=sent.find(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222');
- assert.match(edit.body.text,/✅ รับงานแล้ว: Somchai Jaidee · กข 1234/);
+ const [a,b]=await Promise.all([group.takeJob(alice,'DG0001'),group.takeJob(bob,'DG0001')]);
+ assert.equal([a,b].filter(r=>r.ok).length,1);
+ const winner=a.ok?{user:alice,id:'drv-a',name:'Somchai Jaidee'}:{user:bob,id:'drv-b',name:'Anan Suksai'};
+ const loser=a.ok?b:a;
+ assert.equal(loser.reason,'มีคนรับงานนี้แล้ว');
+ assert.deepEqual(await d1.prepare("SELECT status,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0001'").first(),{status:'taken',driver_id:winner.id});
+ const card=await d1.prepare("SELECT driver_done,driver_form_json,assignment_posted FROM telegram_booking_cards WHERE booking_reference='DG0001'").first();
+ assert.equal(card.driver_done,1);assert.equal(JSON.parse(card.driver_form_json).driverId,winner.id);
+ assert.equal(card.assignment_posted,1); // the cost is set, so the job was assigned and posted
+ // The team group gets the Thai job with the customer's details, headed by who took it.
+ const job=sent.find(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111');
+ assert.match(job.body.text,new RegExp(`^✋ <b>${winner.name}</b> รับงานจากกลุ่มคนขับ`));
+ assert.match(job.body.text,/ชื่อลูกค้า: Jessica Moore/);
+ assert.match(job.body.text,/ลิงก์งาน/);
+ // The winner gets the same job privately.
+ const dm=sent.find(s=>s.method==='sendMessage'&&s.body.chat_id===String(winner.user.id));
+ assert.equal(dm.body.text,job.body.text);
+ // The driver group post now says who took it, with no button.
+ const edit=sent.filter(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222').at(-1);
+ assert.match(edit.body.text,new RegExp(`✅ รับงานแล้ว: ${winner.name} · กข 1234`));
  assert.deepEqual(edit.body.reply_markup.inline_keyboard,[]);
- // Taken: nobody else can hold it now.
- assert.match((await group.holdJob(loser,'DG0001')).reason,/มีคนขับรับงานนี้แล้ว/);
+ assert.doesNotMatch(edit.body.text,/Jessica|\+66811112222/);
+ assert.equal((await group.takeJob(winner.user,'DG0001')).ok,false); // tapping again changes nothing
 });
 
-test('when staff already set a driver in the team group, the driver group claim is refused',async()=>{
+test('when staff already set a driver in the team group, the driver group tap is refused',async()=>{
  await booking('DG0003');
  await group.postDriverOffer('DG0003');
- assert.ok((await group.holdJob(alice,'DG0003')).ok);
  await d1.prepare("UPDATE telegram_booking_cards SET driver_done=1,driver_form_json='{\"driverId\":\"staff-pick\"}' WHERE booking_reference='DG0003'").run();
- assert.deepEqual(await group.claimJob(alice,'DG0003','drv-win'),{ok:false,reason:'งานนี้มีคนขับแล้ว'});
+ assert.deepEqual(await group.takeJob(alice,'DG0003'),{ok:false,reason:'มีคนรับงานนี้แล้ว'});
  const card=await d1.prepare("SELECT driver_form_json FROM telegram_booking_cards WHERE booking_reference='DG0003'").first();
  assert.equal(JSON.parse(card.driver_form_json).driverId,'staff-pick'); // staff's choice is untouched
 });
@@ -154,33 +156,30 @@ test('a cancelled booking cannot be taken',async()=>{
  await booking('DG0004');
  await group.postDriverOffer('DG0004');
  await d1.prepare("UPDATE bookings SET status='cancelled' WHERE reference='DG0004'").run();
- assert.deepEqual(await group.holdJob(alice,'DG0004'),{ok:false,reason:'งานนี้ถูกยกเลิกแล้ว'});
-});
-
-test('a held job that ran out of time cannot be claimed by its old holder',async()=>{
- await booking('DG0005');
- await group.postDriverOffer('DG0005');
- assert.ok((await group.holdJob(bob,'DG0005')).ok);
- await d1.prepare("UPDATE telegram_driver_jobs SET hold_until='2020-01-01T00:00:00Z' WHERE booking_reference='DG0005'").run();
- assert.equal((await group.claimJob(bob,'DG0005','drv-loser')).ok,false);
- assert.ok((await group.holdJob(alice,'DG0005')).ok); // and someone else can now take it
+ assert.deepEqual(await group.takeJob(alice,'DG0004'),{ok:false,reason:'งานนี้ถูกยกเลิกแล้ว'});
 });
 
 test('the full job reaches the driver privately once they are linked',async()=>{
- await d1.prepare("INSERT INTO telegram_driver_links(telegram_user_id,driver_id,linked_at) VALUES('1001','drv-win',?)").bind(at).run();
  sent.length=0;
- await group.sendJobToLinkedDriver('drv-win','job text');
+ await group.sendJobToLinkedDriver('drv-a','job text');
  assert.deepEqual(sent.map(s=>[s.method,s.body.chat_id,s.body.text]),[['sendMessage','1001','job text']]);
 });
 
-test('a first-time driver signs up in the private chat and gets the job',async()=>{
+test('a first-time driver gets the job on the first tap, then signs up in the private chat',async()=>{
  await booking('DG0006');
  await group.postDriverOffer('DG0006');
  const carol={id:1004,first_name:'Carol'};members.set(1004,'member');
- let n=1;const say=(extra)=>group.handleDriverPrivate({message_id:n++,chat:{id:1004,type:'private'},from:carol,...extra});
  sent.length=0;
- assert.equal(await say({text:'/start job_DG0006'}),true);
- assert.match(sent.at(-1).body.text,/\(1\/7\): ชื่อ-นามสกุลคนขับ/);
+ await group.handleDriverTake({id:'tap1',from:carol,data:'dj_take:DG0006',message:{message_id:1,chat:{id:-100222,type:'supergroup'}}});
+ assert.deepEqual(await d1.prepare("SELECT status,holder_telegram_id,holder_name,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0006'").first(),{status:'signing_up',holder_telegram_id:'1004',holder_name:'Carol',driver_id:null});
+ const edit=sent.find(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222');
+ assert.match(edit.body.text,/✅ รับงานแล้ว: Carol \(กำลังกรอกข้อมูลคนขับ\)/);
+ assert.deepEqual(edit.body.reply_markup.inline_keyboard,[]);
+ assert.match(sent.find(s=>s.method==='answerCallbackQuery').body.text,/ได้งาน DG0006 แล้ว กรอกข้อมูลคนขับ/);
+ assert.match(sent.filter(s=>s.body.chat_id==='1004').at(-1).body.text,/\(1\/7\): ชื่อ-นามสกุลคนขับ/);
+ // Someone else tapping now is told it's taken.
+ assert.deepEqual(await group.takeJob(alice,'DG0006'),{ok:false,reason:'มีคนรับงานนี้แล้ว'});
+ let n=1;const say=(extra)=>group.handleDriverPrivate({message_id:n++,chat:{id:1004,type:'private'},from:carol,...extra});
  await say({text:'A'}); // too short: asked again
  assert.match(sent.at(-1).body.text,/กรุณาพิมพ์ชื่อ-นามสกุล/);
  for(const text of ['Carol Saetang','089 999 8888','นง 8384','Toyota Commuter สีเงิน'])await say({text});
@@ -189,21 +188,69 @@ test('a first-time driver signs up in the private chat and gets the job',async()
  assert.match(sent.filter(s=>s.method==='sendMessage').at(-1).body.text,/ใบขับขี่หรือบัตรประชาชน/);
  await say({text:'no photo'}); // a photo is needed here
  await say({photo:[{file_id:'small',width:90,height:90},{file_id:'big',width:1280,height:960}]});
+ sent.length=0;
  await say({photo:[{file_id:'car',width:1280,height:960}]});
  const link=await d1.prepare("SELECT driver_id FROM telegram_driver_links WHERE telegram_user_id='1004'").first();
  const d=await d1.prepare("SELECT full_name,phone,car_plate,vehicle,vehicle_type,driver_type,id_image_key,car_image_key FROM drivers WHERE id=?").bind(link.driver_id).first();
  assert.deepEqual(d,{full_name:'Carol Saetang',phone:'089 999 8888',car_plate:'นง 8384',vehicle:'Toyota Commuter สีเงิน',vehicle_type:'minivan',driver_type:'outsource',id_image_key:`driver-verification/${link.driver_id}/identity.jpg`,car_image_key:`driver-verification/${link.driver_id}/vehicle.jpg`});
  assert.deepEqual(await d1.prepare("SELECT status,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0006'").first(),{status:'taken',driver_id:link.driver_id});
- assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/รับงาน <b>DG0006<\/b> เรียบร้อย/);
+ assert.match(sent.find(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111').body.text,/Carol Saetang<\/b> รับงานจากกลุ่มคนขับ[\s\S]*ชื่อลูกค้า: Jessica Moore/);
+ assert.match(sent.filter(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222').at(-1).body.text,/✅ รับงานแล้ว: Carol Saetang · นง 8384/);
+ assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/งาน <b>DG0006<\/b> เป็นของคุณ/);
  assert.equal(await d1.prepare("SELECT COUNT(*) n FROM telegram_driver_forms").first('n'),0);
- // Next time: the saved details are shown with a confirm button, no questions.
+ // Next time: one tap and the job is hers, no questions.
  await booking('DG0007');await group.postDriverOffer('DG0007');
  sent.length=0;
- await say({text:'/start job_DG0007'});
- assert.match(sent.at(-1).body.text,/ยืนยันรับงานด้วยข้อมูลนี้\?\nคนขับ: Carol Saetang · 089 999 8888/);
- assert.equal(sent.at(-1).body.reply_markup.inline_keyboard[0][0].callback_data,'dj_ok:DG0007');
- await group.handleDriverCallback({id:'cb2',from:carol,data:'dj_ok:DG0007',message:{message_id:78,chat:{id:1004,type:'private'}}});
+ await group.handleDriverTake({id:'tap2',from:carol,data:'dj_take:DG0007',message:{message_id:2,chat:{id:-100222,type:'supergroup'}}});
  assert.equal(await d1.prepare("SELECT status FROM telegram_driver_jobs WHERE booking_reference='DG0007'").first('status'),'taken');
+ assert.match(sent.find(s=>s.method==='answerCallbackQuery').body.text,/ได้งาน DG0007 แล้ว ใบงานส่งไปที่แชทส่วนตัว/);
+});
+
+test('a first-time driver who never opened the bot is sent to it with the sign-up link',async()=>{
+ await booking('DG0008');await group.postDriverOffer('DG0008');
+ const erin={id:1005,first_name:'Erin'};members.set(1005,'member');
+ const realSend=globalThis.fetch;
+ globalThis.fetch=async(url,init)=>{ // Telegram refuses to message someone who never started the bot
+  if(String(url).endsWith('/sendMessage')&&JSON.parse(init.body).chat_id==='1005')return Response.json({ok:false,description:"Forbidden: bot can't initiate conversation with a user"},{status:403});
+  return realSend(url,init);
+ };
+ sent.length=0;
+ await group.handleDriverTake({id:'tap3',from:erin,data:'dj_take:DG0008',message:{message_id:3,chat:{id:-100222,type:'supergroup'}}});
+ globalThis.fetch=realSend;
+ assert.equal(sent.find(s=>s.method==='answerCallbackQuery').body.url,'https://t.me/waydidi_bot?start=reg_DG0008');
+ sent.length=0;
+ assert.equal(await group.handleDriverPrivate({message_id:9,chat:{id:1005,type:'private'},from:erin,text:'/start reg_DG0008'}),true);
+ assert.match(sent.filter(s=>s.body.chat_id==='1005').at(-1).body.text,/\(1\/7\)/);
+ // Someone else can't use her sign-up link.
+ sent.length=0;
+ await group.handleDriverPrivate({message_id:10,chat:{id:1001,type:'private'},from:alice,text:'/start reg_DG0008'});
+ assert.match(sent.at(-1).body.text,/ไม่ได้รอข้อมูลจากคุณแล้ว/);
+});
+
+test('a first-time driver who does not finish in time loses the job and it is offered again',async()=>{
+ const dave={id:1006,first_name:'Dave'};members.set(1006,'member');
+ await booking('DG0009');await group.postDriverOffer('DG0009');
+ assert.deepEqual(await group.takeJob(dave,'DG0009'),{ok:true,driver:null});
+ await group.reopenLapsedSignups(new Date()); // still in time: nothing changes
+ assert.equal(await d1.prepare("SELECT status FROM telegram_driver_jobs WHERE booking_reference='DG0009'").first('status'),'signing_up');
+ await d1.prepare("UPDATE telegram_driver_jobs SET hold_until='2020-01-01T00:00:00Z' WHERE booking_reference='DG0009'").run();
+ sent.length=0;
+ await group.reopenLapsedSignups(new Date());
+ assert.deepEqual(await d1.prepare("SELECT status,holder_telegram_id FROM telegram_driver_jobs WHERE booking_reference='DG0009'").first(),{status:'open',holder_telegram_id:null});
+ assert.match(sent.find(s=>s.body.chat_id==='1006').body.text,/หมดเวลากรอกข้อมูล/);
+ const edit=sent.find(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222');
+ assert.deepEqual(edit.body.reply_markup.inline_keyboard,[[{text:'✋ รับงาน (Assign)',callback_data:'dj_take:DG0009'}]]);
+ assert.equal((await group.takeJob(alice,'DG0009')).ok,true); // the next tap gets it
+});
+
+test('a first-time driver can give the job back before signing up',async()=>{
+ const fon={id:1007,first_name:'Fon'};members.set(1007,'member');
+ await booking('DG0011');await group.postDriverOffer('DG0011');
+ assert.equal((await group.takeJob(fon,'DG0011')).ok,true);
+ await group.handleDriverCallback({id:'x1',from:bob,data:'dj_x:DG0011',message:{message_id:5,chat:{id:1002,type:'private'}}}); // not hers to give back
+ assert.equal(await d1.prepare("SELECT status FROM telegram_driver_jobs WHERE booking_reference='DG0011'").first('status'),'signing_up');
+ await group.handleDriverCallback({id:'x2',from:fon,data:'dj_x:DG0011',message:{message_id:6,chat:{id:1007,type:'private'}}});
+ assert.equal(await d1.prepare("SELECT status FROM telegram_driver_jobs WHERE booking_reference='DG0011'").first('status'),'open');
 });
 
 test("a driver's trip photo is also posted to the driver group under the job's offer, without the staff button",async()=>{
@@ -266,4 +313,14 @@ test('a new booking card goes to the team group only; the driver group waits for
  sent.length=0;
  await notifyBookingTelegram('NEW001');
  assert.deepEqual(sent.filter(s=>s.method==='sendMessage').map(s=>s.body.chat_id),['-100111']);
+});
+
+test('the Completed job message goes to both groups with the same text',async()=>{
+ const {postJobCompleted}=await vite.ssrLoadModule('/lib/telegram/trip-photos.ts');
+ sent.length=0;
+ await postJobCompleted('DG0001','outbound');
+ const posts=sent.filter(s=>s.method==='sendMessage');
+ assert.deepEqual(posts.map(p=>p.body.chat_id),['-100222','-100111']);
+ assert.equal(posts[0].body.text,posts[1].body.text);
+ assert.match(posts[1].body.text,/^✅ <b>Completed job<\/b>\nReference ID: DG0001/);
 });

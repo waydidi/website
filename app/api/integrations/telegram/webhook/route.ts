@@ -11,7 +11,8 @@ import { askBookingQuestion, driverChoices, handleBookingAnswer, pickDriver } fr
 import { waitHandover } from "@/lib/telegram/handover";
 import { parseBulkCost } from "@/lib/telegram/bulk-cost-rules";
 import { setCostsFromMessage } from "@/lib/telegram/bulk-cost";
-import { driverGroup, handleDriverCallback, handleDriverGroupMessage, handleDriverPrivate } from "@/lib/telegram/driver-group";
+import { driverGroup, handleDriverCallback, handleDriverGroupMessage, handleDriverPrivate, handleDriverTake } from "@/lib/telegram/driver-group";
+import { postJobCompleted } from "@/lib/telegram/trip-photos";
 import { verifyTripCompletion } from "@/lib/trip-completion";
 import { approveChange, cancelBookingFromTelegram, declineChange, keepBooking } from "@/lib/telegram/booking-changes";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus, telegramClientId } from "@/lib/website-chat";
@@ -61,6 +62,8 @@ export async function POST(request: Request) {
 async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   // A driver's buttons in their private chat with the bot (sign-up and confirming a job).
   if (q.message?.chat.type === "private" && (q.data ?? "").startsWith("dj_")) return handleDriverCallback(q);
+  // «รับงาน» on a job in the driver group: the first tap gets the job.
+  if (driverGroup() && String(q.message?.chat.id ?? "") === driverGroup()!.chatId) return (q.data ?? "").startsWith("dj_take:") ? handleDriverTake(q) : answerCallback(q.id);
   if (String(q.message?.chat.id ?? "") !== telegramChatId()) return answerCallback(q.id, "This chat isn't connected to Waydidi.", true);
   const admin = await approved(q.from);
   if (!admin) return answerCallback(q.id, `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: ${q.from.id}`, true);
@@ -74,6 +77,8 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
     if (done.result === "invalid") return answerCallback(q.id, "This job can't be completed from here any more. Open the booking to check it.", true);
     if (q.message) await tg("editMessageReplyMarkup", { chat_id: telegramChatId(), message_id: q.message.message_id, reply_markup: { inline_keyboard: [[{ text: `✅ Completed · ${admin.display_name}`, callback_data: `trip_done:${target}` }]] } }).catch(() => undefined);
     if (done.reference) await refreshBookingCard(done.reference).catch(() => undefined);
+    // The same Completed job message (route, driver, photos) as when the driver's photos complete it, in both groups.
+    if (done.result === "done" && done.reference) await postJobCompleted(done.reference, done.leg ?? "outbound").catch((error) => console.error("Telegram completed job message failed", error));
     return answerCallback(q.id, done.result === "done" ? "Job completed ✓" : "Already completed.");
   }
   if (action === "bk_pmap" || action === "bk_dmap") {

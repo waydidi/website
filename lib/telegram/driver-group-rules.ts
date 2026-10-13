@@ -1,4 +1,4 @@
-// Pure rules for the Telegram driver group: the Thai job offer, the "Assign" link, and the
+// Pure rules for the Telegram driver group: the Thai job offer, the sign-up link, and the
 // one-time sign-up questions a driver answers in their private chat with the bot.
 // No runtime imports, so every rule is unit tested directly (tests/telegram-driver-group.test.mjs).
 
@@ -12,17 +12,18 @@ export function driverGroupConfig(env: Record<string, unknown>): DriverGroupConf
   return { chatId };
 }
 
-export const HOLD_MINUTES = 15;
+/** A first-time driver who tapped Assign has this long to send their details, then the job is offered again. */
+export const SIGNUP_MINUTES = 30;
 const REFERENCE = /^[A-Z0-9-]{4,24}$/;
 
-/** "/start job_FMBNUW" (sent by the Assign link) → "FMBNUW". */
-export function parseJobStart(text: string) {
-  const m = text.trim().match(/^\/start\s+job_([A-Za-z0-9-]{4,24})$/);
+/** "/start reg_FMBNUW" (the link that opens the sign-up after tapping Assign) → "FMBNUW". */
+export function parseSignupStart(text: string) {
+  const m = text.trim().match(/^\/start\s+reg_([A-Za-z0-9-]{4,24})$/);
   const reference = m?.[1].toUpperCase();
   return reference && REFERENCE.test(reference) ? reference : null;
 }
 
-export const jobStartLink = (botUsername: string, reference: string) => `https://t.me/${botUsername}?start=job_${encodeURIComponent(reference)}`;
+export const signupLink = (botUsername: string, reference: string) => `https://t.me/${botUsername}?start=reg_${encodeURIComponent(reference)}`;
 
 export const isMyJobsCommand = (text: string) => /^(งานของฉัน|\/myjobs(@\w+)?|\/jobs(@\w+)?)$/i.test(text.trim());
 
@@ -39,7 +40,7 @@ export type OfferJob = {
   returnDate: string | null; returnTime: string | null;
   driverCost: number | null; paymentMethod: string; paymentStatus: string; cashDue: number;
 };
-export type OfferState = { kind: "open" } | { kind: "taken"; driverName: string; plate: string | null } | { kind: "closed"; reason: "cancelled" | "past" | "assigned" };
+export type OfferState = { kind: "open" } | { kind: "taken"; driverName: string; plate: string | null } | { kind: "signing_up"; name: string } | { kind: "closed"; reason: "cancelled" | "past" | "assigned" };
 
 /** The job as the driver group sees it: no customer name, phone or flight. Thai only. */
 export function offerText(job: OfferJob, state: OfferState) {
@@ -59,8 +60,9 @@ export function offerText(job: OfferJob, state: OfferState) {
     `การชำระ: ${payment}`,
   ];
   if (state.kind === "taken") lines.push("", `✅ รับงานแล้ว: ${escHtml(state.driverName)}${state.plate ? ` · ${escHtml(state.plate)}` : ""}`);
+  if (state.kind === "signing_up") lines.push("", `✅ รับงานแล้ว: ${escHtml(state.name)} (กำลังกรอกข้อมูลคนขับ)`);
   if (state.kind === "closed") lines.push("", state.reason === "cancelled" ? "❌ งานนี้ถูกยกเลิก" : state.reason === "past" ? "⏱ เลยเวลารับงานแล้ว" : "✅ มีคนขับแล้ว");
-  if (state.kind === "open") lines.push("", "กด «รับงาน» แล้วตอบคำถามในแชทส่วนตัวกับบอท");
+  if (state.kind === "open") lines.push("", "คนแรกที่กด «รับงาน» ได้งานนี้");
   return lines.join("\n");
 }
 
