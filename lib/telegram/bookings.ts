@@ -40,6 +40,8 @@ export async function notifyBookingTelegram(reference: string) {
     if (!c) return;
     const sent = await sendCard(bookingCard(c), bookingKeyboard(c, adminUrl(reference)));
     await db().prepare("UPDATE telegram_booking_cards SET telegram_message_id=? WHERE booking_reference=?").bind(sent.message_id, reference).run();
+    // Every new booking is also offered to the driver group (when the owner has turned it on).
+    await import("./driver-group").then((m) => m.postDriverOffer(reference)).catch((error) => console.error("driver group offer failed", error instanceof Error ? error.message : "unknown"));
   } catch (error) {
     // Release the claim so a later confirmation retry can post it.
     await db().prepare("DELETE FROM telegram_booking_cards WHERE booking_reference=? AND telegram_message_id=0").bind(reference).run();
@@ -66,9 +68,13 @@ export async function acknowledgeBooking(reference: string, name: string) {
   return true;
 }
 
+const syncDriverGroup = (reference: string) => import("./driver-group").then((m) => m.syncDriverOffer(reference)).catch(() => undefined);
+
 /** Re-draws a booking card (after cost or driver details are added). */
 export async function refreshBookingCard(reference: string) {
   const row = await db().prepare("SELECT telegram_message_id,acknowledged_by FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number; acknowledged_by: string | null }>();
   const c = await card(reference, row?.acknowledged_by ?? null);
   if (row?.telegram_message_id && c) await editCard(row.telegram_message_id, bookingCard(c), bookingKeyboard(c, adminUrl(reference))).catch(() => undefined);
+  // The driver group's offer follows: driver cost shown, closed once a driver is set or the booking is cancelled.
+  await syncDriverGroup(reference);
 }

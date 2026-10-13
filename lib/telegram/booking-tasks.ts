@@ -181,5 +181,7 @@ export async function postAssignmentWhenReady(reference: string, by: string, hea
     `ลิงก์งาน (สถานะการเดินทาง/คนขับ): ${link}`,
   ];
   await sendCard(lines.join("\n"), undefined, card.telegram_message_id || undefined);
+  // A driver who took the job in the driver group also gets it privately (never in the group).
+  await import("./driver-group").then((m) => m.sendJobToLinkedDriver(form.driverId!, lines.join("\n"))).catch(() => undefined);
   return true;
 }
