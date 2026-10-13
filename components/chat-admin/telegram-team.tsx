@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Modal } from "@/components/ui/modal";
 
 type Member = { id: string; telegram_user_id: string; telegram_username: string | null; display_name: string; enabled: number; staff_name: string | null };
-type Data = { canEdit: boolean; secrets: Record<string, boolean>; webhook: { url: string; pending: number; lastError: string | null } | null; team: Member[]; destination?: { label: string; type: string } | null; connectionError?: string | null; delivery?: { chat: { status: string; count: number }[]; assignments: { status: string; count: number }[] } };
+type Data = { canEdit: boolean; secrets: Record<string, boolean>; webhook: { url: string; pending: number; lastError: string | null } | null; team: Member[]; destination?: { label: string; type: string } | null; connectionError?: string | null; delivery?: { chat: { status: string; count: number }[]; assignments: { status: string; count: number }[]; jobs?: {kind?:string;id:string;booking_reference:string|null;leg:string|null;destination:string;status:string;attempts:number;next_attempt_at:string;last_error:string|null}[]; cancellationRequests?:{id:string;booking_reference:string;requested_at:string;policy_version:string|null}[];assistantReservations?:{count:number;reserved_microusd:number} } };
 
 // Approved Telegram admins (only these can reply, assign or close) and the bot connection.
 export function TelegramTeam() {
@@ -50,6 +50,17 @@ export function TelegramTeam() {
       </div>}
     </section>
 
+    {!!data.delivery?.jobs?.length && <section className="rounded-2xl border border-slate-200 bg-white p-5">
+      <h2 className="text-[16px] font-bold">Notifications needing attention</h2>
+      <ul className="mt-3 divide-y divide-slate-100">{data.delivery.jobs.map(job=><li key={job.id} className="py-3 text-[13px]">
+        <p className="font-semibold">{job.booking_reference??job.id.split(':')[0]}{job.leg?` · ${job.leg}`:''} · {job.status}</p>
+        <p className="text-slate-600">Destination {job.destination||'not configured'} · {job.attempts} attempts · next attempt {job.next_attempt_at}</p>
+        {job.last_error&&<p className="text-amber-800">{job.last_error}</p>}
+        {data.canEdit&&['uncertain','failed','queued','pending'].includes(job.status)&&<button disabled={busy} type="button" className="mt-2 font-semibold text-brand-darker" onClick={()=>{if(window.confirm('Check Telegram first. Confirm this message was NOT delivered before sending it again.'))void post({action:'review_delivery',jobId:job.id,jobKind:job.kind,confirmedAbsent:true},'Notification reviewed.');}}>Confirm missing and retry</button>}
+      </li>)}</ul>
+    </section>}
+    {!!data.delivery?.cancellationRequests?.length&&<section className="rounded-2xl border border-slate-200 bg-white p-5"><h2 className="font-bold">Pending cancellation requests</h2><ul className="mt-3 text-[13px]">{data.delivery.cancellationRequests.map(r=><li key={r.id}>{r.booking_reference} · received {r.requested_at} · {r.policy_version??'original terms need review'}</li>)}</ul></section>}
+    {!!data.delivery?.assistantReservations?.count&&<p className="text-[13px] text-amber-800">Assistant calls with unconfirmed outcomes: {data.delivery.assistantReservations.count}. Their budget remains reserved until the provider usage is reviewed.</p>}
     <section className="rounded-2xl border border-slate-200 bg-white p-5">
       <h2 className="text-[16px] font-bold">Telegram team</h2>
       <p className="mt-1 text-[13.5px] text-slate-600">Only these people can answer customers, assign or close chats from Telegram. Customers see the name you set here, never the Telegram account. Anyone can send <code>/id</code> in the group to see their Telegram ID.</p>

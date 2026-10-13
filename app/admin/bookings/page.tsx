@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, like } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, like , isNotNull} from "drizzle-orm";
 import {
   BookOpen,
   CalendarDays,
@@ -62,7 +62,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const taxByBooking = new Map(taxRows.map((tax) => [tax.bookingReference, tax]));
   const formsReceived = (await getDb().select({ token: bookingForms.token }).from(bookingForms).where(eq(bookingForms.status, "submitted")).catch(() => [])).length;
   // The bin is read on its own so older binned bookings still show.
-  const binRows = await getDb().select().from(bookings).where(eq(bookings.status, "binned")).orderBy(desc(bookings.binnedAt)).limit(200);
+  const binRows = await getDb().select().from(bookings).where(and(eq(bookings.status, "binned"),isNotNull(bookings.purgeAfter))).orderBy(desc(bookings.binnedAt)).limit(200);
   const activeRows = allRows.filter((row) => row.status !== "binned");
   const [driverRows, assignmentRows, doneLegs] = await Promise.all([
     getDb().select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, plate: drivers.carPlate, vehicleType: drivers.vehicleType, photoKey: drivers.photoKey, status: drivers.status }).from(drivers),
@@ -145,7 +145,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               Bookings
             </h1>
             <p className="mt-2 text-slate-500">
-              {view === "bin" ? "Bookings are permanently deleted 30 days after they enter the bin." : `Latest 100 bookings · signed in as ${access.user.email}`}
+              {view === "bin" ? "Bookings are archived after 30 days in the bin. Financial documents and policy records are retained." : `Latest 100 bookings · signed in as ${access.user.email}`}
             </p>
           </div>
           <div className="flex gap-2 text-sm font-bold">

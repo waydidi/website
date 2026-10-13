@@ -169,7 +169,7 @@ test('Admin sees this month\'s questions and spend against the limit', async () 
 test('the webhook routes customer replies and job lookups before the assistant, for team members only', async () => {
   const route = await readFile(new URL('../app/api/integrations/telegram/webhook/route.ts', import.meta.url), 'utf8');
   const at = route.indexOf('answerInGroup(');
-  assert.ok(at > route.indexOf('conversationForTelegramMessage(m.reply_to_message.message_id)'));
+  assert.ok(at > route.indexOf('conversationForTelegramMessage(m.reply_to_message.message_id, String(m.chat.id))'));
   assert.ok(at > route.indexOf('if (!teamMember) {'));
   assert.ok(at > route.indexOf('await answerJobLookup(query'));
 });

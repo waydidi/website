@@ -260,6 +260,20 @@ test('conversation ids read as WD_chat_DDMMYYYYHHMM in Bangkok time, with _2 for
  const a=await chat.createConversation('id-a',{email:'a@b.co'});const b=await chat.createConversation('id-b',{email:'a@b.co'});
  assert.match(a.public_id,/^WD_chat_\d{12}(_\d+)?$/);assert.match(b.public_id,/^WD_chat_\d{12}(_\d+)?$/);assert.notEqual(a.public_id,b.public_id);
 });
+async function ensureDispatchSchema() {
+ for(const sql of migrationStatements(await readFile(root+'/drizzle/0100_booking_map_links.sql','utf8')))await db.prepare(sql).run();
+ const {getTableConfig}=await import('drizzle-orm/sqlite-core');
+ const schema=await vite.ssrLoadModule('/db/schema.ts');
+ for(const key of ['bookings','drivers','bookingAssignments','bookingNotifications','driverAvailability','journeyLegs','bookingPayments','cashReceipts','bookingRefunds','bookingPolicySnapshots','bookingEvents']) {
+  const table=getTableConfig(schema[key]);
+  const defaultSql=c=>c.default===undefined?'':typeof c.default==='number'?` DEFAULT ${c.default}`:typeof c.default==='string'?` DEFAULT '${c.default.replaceAll("'","''")}'`:'';
+  const definition=c=>`"${c.name}" ${c.getSQLType()}${c.primary?' PRIMARY KEY':''}${defaultSql(c)}`;
+  await db.exec(`CREATE TABLE IF NOT EXISTS "${table.name}" (${table.columns.map(definition).join(',')})`);
+  const existing=new Set((await db.prepare(`PRAGMA table_info("${table.name}")`).all()).results.map(c=>c.name));
+  for(const c of table.columns)if(!existing.has(c.name))await db.exec(`ALTER TABLE "${table.name}" ADD COLUMN "${c.name}" ${c.getSQLType()}${defaultSql(c)}`);
+ }
+}
+
 test('Telegram booking: assign → Set cost → Add driver information step by step → Thai job post with one trip link',async()=>{
  await db.exec("CREATE TABLE IF NOT EXISTS bookings(reference TEXT PRIMARY KEY,customer_name TEXT,customer_surname TEXT,customer_email TEXT,customer_phone TEXT,pickup TEXT,dropoff TEXT,pickup_date TEXT,pickup_time TEXT,passengers INTEGER,luggage INTEGER,vehicle TEXT,payment_method TEXT,total INTEGER,amount_paid INTEGER DEFAULT 0,flight_number TEXT,status TEXT);");
  await db.exec("CREATE TABLE IF NOT EXISTS booking_costs(booking_reference TEXT PRIMARY KEY,accepted_offer_id TEXT,agreed_driver_cost INTEGER NOT NULL DEFAULT 0,additional_costs INTEGER NOT NULL DEFAULT 0,total_driver_cost INTEGER NOT NULL DEFAULT 0,payment_status TEXT NOT NULL DEFAULT 'unpaid',paid_at TEXT,payment_reference TEXT,notes TEXT,updated_by TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);");
@@ -271,12 +285,13 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
  const sent=[];const real=globalThis.fetch;let mid=7000;
  globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://api.telegram.org')){const body=JSON.parse(init.body);sent.push({method:u.split('/').pop(),...body});return new Response(JSON.stringify({ok:true,result:{message_id:++mid,chat:{id:-100}}}));}return real(url,init);};
  try{
-  await db.prepare("INSERT INTO bookings VALUES('MC7Q2P','Mansi','Choksi Choksi','m@x.co','','Trat airport','Dinso Resort & Villas Ko Chang','2026-10-14','12:45',2,2,'economy_sedan','card',2400,2400,'PG305','confirmed')").run();
+  await ensureDispatchSchema();
+  await db.prepare("INSERT INTO bookings(reference,customer_name,customer_surname,customer_email,customer_phone,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,amount_paid,flight_number,status) VALUES('MC7Q2P','Mansi','Choksi Choksi','m@x.co','','Trat airport','Dinso Resort & Villas Ko Chang','2026-10-14','12:45',2,2,'economy_sedan','card',2400,2400,'PG305','confirmed')").run();
   for(const c of ['created_at TEXT','return_date TEXT','payment_status TEXT','service_type TEXT','pricing_area TEXT','booked_hours INTEGER'])try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${c};`);}catch{}
   await db.prepare("UPDATE bookings SET created_at=? WHERE reference='MC7Q2P'").bind(new Date().toISOString()).run();
   await db.prepare("INSERT INTO telegram_booking_cards(booking_reference,telegram_message_id,created_at) VALUES('MC7Q2P',6999,?)").bind(new Date().toISOString()).run();
   let u=500;const call=(update)=>hook.POST(new Request('https://example.invalid/api/integrations/telegram/webhook',{method:'POST',headers:{'content-type':'application/json','x-telegram-bot-api-secret-token':'s'.repeat(24)},body:JSON.stringify({update_id:++u,...update})}));
-  const tap=(data)=>call({callback_query:{id:'q',from:{id:777,first_name:'Alex'},data,message:{message_id:6999,chat:{id:-100}}}});
+  const tap=(data)=>call({callback_query:{id:'q'+u,from:{id:777,first_name:'Alex'},data,message:{message_id:6999,chat:{id:-100}}}});
   const say=(text,replyTo)=>call({message:{message_id:++mid,chat:{id:-100},from:{id:777},text,...(replyTo?{reply_to_message:{message_id:replyTo,chat:{id:-100}}}:{})}});
   const lastPrompt=()=>[...sent].reverse().find((m)=>m.reply_markup?.force_reply);
   await tap('bk_cost:MC7Q2P');assert.equal(lastPrompt(),undefined); // must be assigned first
@@ -284,7 +299,7 @@ test('Telegram booking: assign → Set cost → Add driver information step by s
   const kb=sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text);assert.deepEqual(kb,['Set cost','Open booking']);
   assert.doesNotMatch(sent.filter((m)=>m.method==='editMessageText').at(-1).text,/Driver link/); // no driver link before a driver is assigned
   await tap('bk_cost:MC7Q2P');assert.match(lastPrompt().text,/Driver cost/);
-  await say('abc');assert.match(sent.filter((m)=>m.method==='sendMessage').at(-2).text,/number/); // asked again
+  await say('abc');assert.match(sent.filter((m)=>m.method==='sendMessage').at(-1).text,/number/); // original prompt remains answerable
   await say('900');
   assert.equal((await db.prepare("SELECT total_driver_cost FROM booking_costs WHERE booking_reference='MC7Q2P'").first()).total_driver_cost,900);
   assert.deepEqual(sent.filter((m)=>m.method==='editMessageText').at(-1).reply_markup.inline_keyboard.flat().map((b)=>b.text),['Open booking']);
@@ -359,9 +374,9 @@ test('Telegram cancellation and change requests: cards with buttons, booking upd
  for(const column of changeColumns)try{await db.exec(`ALTER TABLE bookings ADD COLUMN ${column};`);}catch{}
  await db.exec('ALTER TABLE booking_change_requests ADD COLUMN fare_quote_id TEXT;');
  await db.exec('ALTER TABLE booking_change_requests ADD COLUMN return_fare_quote_id TEXT;');
- await db.exec('CREATE TABLE fare_quotes(id TEXT PRIMARY KEY,pickup_place_id TEXT,dropoff_place_id TEXT,pickup_text TEXT,dropoff_text TEXT,departure_date TEXT,departure_time TEXT,pickup_latitude REAL,pickup_longitude REAL,dropoff_latitude REAL,dropoff_longitude REAL,distance_meters INTEGER,duration_seconds INTEGER,route_polyline TEXT,area_name TEXT,pricing_version INTEGER,vehicle_prices_json TEXT);');
- await db.exec('CREATE TABLE booking_payments(id TEXT PRIMARY KEY,booking_reference TEXT,provider TEXT,status TEXT,amount_expected INTEGER,amount_expected_minor INTEGER,updated_at TEXT);');
- await db.exec('CREATE TABLE journey_legs(id TEXT PRIMARY KEY,booking_reference TEXT,pickup_date TEXT,pickup_time TEXT,flight_date TEXT,arrival_pickup_offset_minutes INTEGER,updated_at TEXT);');
+ await db.exec('CREATE TABLE IF NOT EXISTS fare_quotes(id TEXT PRIMARY KEY,pickup_place_id TEXT,dropoff_place_id TEXT,pickup_text TEXT,dropoff_text TEXT,departure_date TEXT,departure_time TEXT,pickup_latitude REAL,pickup_longitude REAL,dropoff_latitude REAL,dropoff_longitude REAL,distance_meters INTEGER,duration_seconds INTEGER,route_polyline TEXT,area_name TEXT,pricing_version INTEGER,vehicle_prices_json TEXT);');
+ await db.exec('CREATE TABLE IF NOT EXISTS booking_payments(id TEXT PRIMARY KEY,booking_reference TEXT,provider TEXT,status TEXT,amount_expected INTEGER,amount_expected_minor INTEGER,updated_at TEXT);');
+ await db.exec('CREATE TABLE IF NOT EXISTS journey_legs(id TEXT PRIMARY KEY,booking_reference TEXT,pickup_date TEXT,pickup_time TEXT,flight_date TEXT,arrival_pickup_offset_minutes INTEGER,updated_at TEXT);');
  await db.prepare("INSERT INTO fare_quotes(id,pickup_place_id,dropoff_place_id,pickup_text,dropoff_text,departure_date,departure_time,distance_meters,duration_seconds,area_name,pricing_version,vehicle_prices_json) VALUES('change-quote','trat','hotel','Trat airport','KC Grande Resort, Ko Chang','2026-10-14','15:00',10000,900,'Trat',1,?)").bind(JSON.stringify({comfort_suv:{total:2900}})).run();
  const hook=await vite.ssrLoadModule('/app/api/integrations/telegram/webhook/route.ts');
  const ch=await vite.ssrLoadModule('/lib/telegram/booking-changes.ts');
@@ -387,11 +402,11 @@ test('Telegram cancellation and change requests: cards with buttons, booking upd
   // Cancellation request → Cancel booking.
   assert.equal(await ch.notifyCancellationRequest('MC7Q2P'),true);
   const cancel=msgs().at(-1);console.log(cancel+'\n');assert.match(cancel,/คำขอยกเลิกการจอง MC7Q2P/);
-  await tap('bk_cancel:MC7Q2P');
+  await tap(sent.at(-1).reply_markup.inline_keyboard[0][0].callback_data);
   assert.equal((await db.prepare("SELECT status FROM bookings WHERE reference='MC7Q2P'").first()).status,'cancelled');
   assert.equal((await db.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='MC7Q2P' AND revoked_at IS NULL").first()).n,0);
   const gone=msgs().at(-1);console.log(gone+'\n');assert.match(gone,/ยกเลิกงาน MC7Q2P/);assert.match(gone,/คนขับไม่ต้องไปรับ/);
-  assert.match(sent.filter((m)=>m.method==='editMessageText').at(-1).text,/ยกเลิกแล้ว โดย/);
+  assert.ok(sent.filter((m)=>m.method==='editMessageText').some(m=>/ยกเลิกแล้ว โดย/.test(m.text))); // request card closes even after the booking card refreshes
  }finally{globalThis.fetch=real;delete globalThis.__chatTest.env.TELEGRAM_BOT_TOKEN;}
 });
 test('site translation: cached lines come from D1, new lines are translated once by AI, staff corrections are kept',async()=>{

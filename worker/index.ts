@@ -141,12 +141,15 @@ const worker = {
     return withSecurityHeaders(response, url);
   },
   async scheduled(controller: { scheduledTime: number; cron?: string }, _env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(import("../lib/telegram/trip-photos").then(m=>m.recoverTripNotifications()).catch(()=>console.error("Telegram trip notification recovery failed")));
+    ctx.waitUntil(import("../lib/cancellation-requests").then(m=>m.recoverCancellationCards()).catch(()=>console.error("Cancellation notification recovery failed")));
+    ctx.waitUntil(import("../lib/telegram/outbox").then(m=>m.retryTelegramOutbox()).catch(()=>console.error("Telegram notification recovery failed")));
     ctx.waitUntil(import("../lib/website-chat").then(m => m.retryFailedTelegram()).catch(() => console.error("Telegram chat retry failed")));
     ctx.waitUntil(import("../lib/telegram/assignments").then(m => m.retryAssignmentTelegram()).catch(() => console.error("Telegram assignment retry failed")));
     // Every minute: chat check-ins ("Are you still with us?") and ending website chats idle for 30 minutes.
     if (controller.cron === "* * * * *") {
       ctx.waitUntil(import("../lib/chat-idle").then(async (m) => { const at = new Date(controller.scheduledTime); await m.sendIdleNudges(at); await m.closeIdleChats(at); await import("../lib/telegram/handover").then((h) => h.remindWaiting(at)); }).catch((e) => console.error("chat check-in failed", e)));
-      ctx.waitUntil(import("../lib/telegram/driver-group").then((m) => m.reopenLapsedSignups(new Date(controller.scheduledTime))).catch((e) => console.error("driver group sign-up check failed", e)));
+      ctx.waitUntil(import("../lib/telegram/driver-group").then(async m => {await m.recoverDriverGroup();await m.reopenLapsedSignups(new Date(controller.scheduledTime));}).catch((e) => console.error("driver group sign-up check failed", e)));
       // Once a day (after 02:00 Thailand time): yesterday's flight stats for /flights.
       ctx.waitUntil(import("../lib/aerodatabox").then((m) => m.dailyStatsIfDue(new Date(controller.scheduledTime))).catch(() => undefined));
       // Every 30 minutes: thank-you coupons for members whose invited friend has completed a ride.
@@ -160,6 +163,7 @@ const worker = {
     ctx.waitUntil(import("../lib/trip-evidence").then(m=>m.cleanupTripEvidence()).catch(()=>console.error("Evidence retention cleanup failed")));
     // Every 5 minutes: journeys whose Stand by, Pick up and Drop photos are all in but not yet completed.
     ctx.waitUntil(import("../lib/evidence-auto-complete").then(m=>m.completeFilledJourneys()).catch((e)=>console.error("Evidence auto-complete sweep failed", e)));
+    ctx.waitUntil(import("../lib/booking-bin").then(m=>m.purgeExpiredBookings()).catch(()=>console.error("Booking archive sweep failed")));
     ctx.waitUntil(runOperationsAutomation(new Date(controller.scheduledTime)));
   },
 };

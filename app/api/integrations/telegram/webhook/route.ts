@@ -83,14 +83,14 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
     return answerCallback(q.id, done.result === "done" ? "Job completed ✓" : "Already completed.");
   }
   if (action === "bk_pmap" || action === "bk_dmap") {
-    await askBookingQuestion(target, action === "bk_pmap" ? "pickup_map" : "dropoff_map", q.from);
+    await askBookingQuestion(target, action === "bk_pmap" ? "pickup_map" : "dropoff_map", q.from,q.id);
     return answerCallback(q.id, "Paste the Google Maps share link.");
   }
-  if (action === "bk_cost" || action === "bk_drv") {
+  if (action === "bk_cost" || action === "bk_rcost" || action === "bk_drv") {
     const taken = await db().prepare("SELECT acknowledged_by FROM telegram_booking_cards WHERE booking_reference=?").bind(target).first<{ acknowledged_by: string | null }>();
     if (!taken?.acknowledged_by) return answerCallback(q.id, "Assign the booking first.", true);
-    await askBookingQuestion(target, action === "bk_cost" ? "cost" : "driver_name", q.from);
-    return answerCallback(q.id, action === "bk_cost" ? "Type the driver cost." : "Answer the driver questions one by one.");
+    await askBookingQuestion(target, action === "bk_rcost" ? "return_cost" : action === "bk_cost" ? "cost" : "driver_name", q.from,q.id);
+    return answerCallback(q.id, (action === "bk_cost" || action === "bk_rcost") ? "Type the driver cost." : "Answer the driver questions one by one.");
   }
   if (action === "bk_dl" || action === "bk_dp" || action === "bk_dx") {
     const card = await db().prepare("SELECT acknowledged_by,driver_done FROM telegram_booking_cards WHERE booking_reference=?").bind(target).first<{ acknowledged_by: string | null; driver_done: number }>();
@@ -108,8 +108,8 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
     return answerCallback(q.id, picked ? "Driver assigned." : "That driver isn't available.", !picked);
   }
   if (action === "noop") return answerCallback(q.id);
-  if (action === "bk_cancel") return answerCallback(q.id, await cancelBookingFromTelegram(target, admin.display_name), true);
-  if (action === "bk_keep") return answerCallback(q.id, await keepBooking(target, admin.display_name), true);
+  if (action === "bk_cancel") return answerCallback(q.id, await cancelBookingFromTelegram(target, admin.display_name, extra), true);
+  if (action === "bk_keep") return answerCallback(q.id, await keepBooking(target, admin.display_name, extra), true);
   if (action === "chg_ok") return answerCallback(q.id, await approveChange(target, admin.display_name), true);
   if (action === "chg_no") return answerCallback(q.id, await declineChange(target, admin.display_name), true);
   if (action === "booking_assign") {
@@ -209,7 +209,7 @@ async function handleMessage(m: TelegramMessage) {
   // who tapped "Reply" in the last 10 minutes. Anything else a team member writes is answered by the assistant.
   if (!text || (text.startsWith("/") && !parseJobLookup(text) && !/^\/ask(@\w+)?(\s|$)/i.test(text))) return;
   const saved = await db().prepare("SELECT conversation_id FROM website_chat_messages WHERE client_id=? AND sender='staff' LIMIT 1").bind(telegramClientId(String(m.chat.id), m.message_id)).first<{ conversation_id: string }>();
-  let conversationId = saved?.conversation_id ?? (m.reply_to_message ? await conversationForTelegramMessage(m.reply_to_message.message_id) : null);
+  let conversationId = saved?.conversation_id ?? (m.reply_to_message ? await conversationForTelegramMessage(m.reply_to_message.message_id, String(m.chat.id)) : null);
   if (!conversationId && !m.reply_to_message && m.from) {
     const recent = await db().prepare("SELECT conversation_id FROM telegram_reply_prompts WHERE telegram_user_id=? AND created_at>? ORDER BY created_at DESC LIMIT 1")
       .bind(String(m.from.id), new Date(Date.now() - 10 * 60 * 1000).toISOString()).first<{ conversation_id: string }>();

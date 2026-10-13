@@ -1,3 +1,4 @@
+import { ensureReliabilityTables } from "@/lib/telegram/reliability-db";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -39,6 +40,7 @@ type Quote = { id: string; pickup_place_id: string; dropoff_place_id: string; pi
 
 /** D1 batches are transactions: claim, route, ledger and request commit together. */
 export async function applyBookingChange(id: string, at: string) {
+  await ensureReliabilityTables();
   const db = env.DB as unknown as SecurityDatabase;
   const c = await db.prepare("SELECT * FROM booking_change_requests WHERE id=?").bind(id).first<Change>();
   if (!c || c.status !== "pending") return "handled";
@@ -60,6 +62,7 @@ export async function applyBookingChange(id: string, at: string) {
     db.prepare(`UPDATE journey_legs SET pickup_date=NULL,pickup_time=NULL,flight_date=NULL,arrival_pickup_offset_minutes=NULL,updated_at=? WHERE booking_reference=? AND ${owned}`).bind(at, c.booking_reference, id, claim),
     // Saved driver map links refer to the old route.
     db.prepare(`DELETE FROM booking_map_links WHERE booking_reference=? AND ${owned}`).bind(c.booking_reference, id, claim),
+    db.prepare(`UPDATE dispatch_revision SET version=version+1 WHERE id=1 AND ${owned}`).bind(id,claim),
     db.prepare("UPDATE booking_change_requests SET status='approved',resolved_at=? WHERE id=? AND status=?").bind(at, id, claim),
   ];
   const results = await db.batch(statements);

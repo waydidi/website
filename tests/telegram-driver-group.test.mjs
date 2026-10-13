@@ -234,7 +234,7 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  assert.equal(media.length,2);
  assert.match(media[0].caption,/^🪪 เอกสารคนขับใหม่: <b>Carol Saetang<\/b>\nเบอร์: 089 999 8888\nรถ: Toyota Commuter สีเงิน\nทะเบียน: นง 8384\nรูป: ใบขับขี่\/บัตรประชาชน, รถ\nงาน: DG0006$/);
  // Next time: one tap, then the bot asks which car — her saved one, or «รถอื่นๆ».
- await booking('DG0007');await group.postDriverOffer('DG0007');
+ await booking('DG0007',{date:'2099-01-16'});await group.postDriverOffer('DG0007');
  sent.length=0;
  await group.handleDriverTake({id:'tap2',from:carol,data:'dj_take:DG0007',message:{message_id:2,chat:{id:-100222,type:'supergroup'}}});
  assert.equal(await d1.prepare("SELECT status FROM telegram_driver_jobs WHERE booking_reference='DG0007'").first('status'),'signing_up');

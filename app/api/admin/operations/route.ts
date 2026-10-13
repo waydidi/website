@@ -1,4 +1,5 @@
-import { assignmentTelegramNotification, deliverAssignmentTelegram } from "@/lib/telegram/assignments";
+import { assignDriver } from "@/lib/assignment-service";
+import { deliverAssignmentTelegram } from "@/lib/telegram/assignments";
 import { completeJourney, journeysFor, journeyFor, parseLeg } from "@/lib/journey-legs";
 import { driverTokenForAssignment } from "@/lib/trip-links";
 import { and, count, desc, eq, isNull } from "drizzle-orm";
@@ -7,7 +8,6 @@ import { getDb } from "@/db";
 import { bookingAssignments, bookingEvents, bookingNotifications, bookings, drivers, driverAvailability, driverStatusEvents, journeyExceptions, journeyLocations, passengerVerifications } from "@/db/schema";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { sendDriverAssignmentEmail } from "@/lib/email";
-import { bookingWindow, rangesOverlap } from "@/lib/operations-calendar";
 import { isJsonRequest, safeOrigin, sameOrigin, secureToken, sha256 } from "@/lib/security";
 
 function phoneValid(value: string) {
@@ -105,45 +105,18 @@ export async function POST(request: Request) {
       await getDb().insert(bookingEvents).values({bookingReference,eventType:"driver_link_rotated",providerEventId:`rotation:${crypto.randomUUID()}`,createdAt:now});
       return NextResponse.json({assignment:{id:updated.id,bookingReference,leg,driverId,currentStatus:updated.currentStatus,assignedAt:updated.assignedAt,tokenExpiresAt},driverUrl:`${safeOrigin(request)}/driver/trip/${token}`});
     }
-    if (input.action === "assign") {
-      const [driverAssignments, allBookings, unavailableRows] = await Promise.all([
-        getDb().select().from(bookingAssignments).where(and(eq(bookingAssignments.driverId, driverId), isNull(bookingAssignments.revokedAt))),
-        getDb().select().from(bookings),
-        getDb().select().from(driverAvailability).where(eq(driverAvailability.driverId, driverId)),
-      ]);
-      const candidate = bookingWindow(booking);
-      const bookingMap = new Map((await journeysFor(allBookings)).map((row) => [row.journeyId, row]));
-      const conflicts: string[] = [];
-      for (const assignment of driverAssignments.filter((row) => (row.bookingReference !== bookingReference || row.leg !== leg) && row.currentStatus !== "completed" && row.currentStatus !== "no_show")) {
-        const assignedBooking = bookingMap.get(`${assignment.bookingReference}:${assignment.leg}`);
-        if (!assignedBooking || assignedBooking.status !== "confirmed") continue;
-        const occupied = bookingWindow(assignedBooking);
-        if (rangesOverlap(candidate.startsAt, candidate.endsAt, occupied.startsAt, occupied.endsAt)) conflicts.push(`Overlaps ${assignedBooking.reference} at ${assignedBooking.pickupTime}`);
-      }
-      for (const unavailable of unavailableRows) {
-        if (rangesOverlap(candidate.startsAt, candidate.endsAt, new Date(unavailable.startsAt).getTime(), new Date(unavailable.endsAt).getTime())) conflicts.push(unavailable.reason ? `Driver unavailable: ${unavailable.reason}` : "Driver unavailable during this journey");
-      }
-      if (conflicts.length) return NextResponse.json({ error: `Driver schedule conflict: ${conflicts.join("; ")}. Use Operations Calendar to review or override.` }, { status: 409 });
-    }
-    const token = await driverTokenForAssignment(bookingReference, leg);
-    const pickup = new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime();
-    const expiry = new Date(Math.max(Date.now() + 48 * 60 * 60 * 1000, pickup + 24 * 60 * 60 * 1000)).toISOString();
-    const assignment = { id: crypto.randomUUID(), bookingReference, leg, driverId, tokenHash: await sha256(token), currentStatus: "assigned", assignedBy: admin.email, assignedAt: now, tokenExpiresAt: expiry, updatedAt: now };
-    await getDb().batch([
-      getDb().update(bookingAssignments).set({revokedAt:now,updatedAt:now}).where(and(eq(bookingAssignments.bookingReference,bookingReference),eq(bookingAssignments.leg,leg),isNull(bookingAssignments.revokedAt))),
-      getDb().insert(bookingAssignments).values(assignment),
-      getDb().insert(bookingNotifications).values(assignmentTelegramNotification(assignment)),
-    ]);
-    await getDb().insert(bookingEvents).values({ bookingReference, eventType: input.action === "rotate_link" ? "driver_link_rotated" : "driver_assigned", providerEventId: `assignment:${assignment.id}`, createdAt: now });
+    const committed = await assignDriver({reference:bookingReference,leg,driverId,by:admin.email,expectedVersion:parentBooking!.bookingVersion});
+    if (!committed.ok) return NextResponse.json({error:committed.conflicts?.length?`Driver schedule conflict: ${committed.conflicts.join("; ")}. Use Operations Calendar to review or override.`:committed.error,conflicts:committed.conflicts},{status:409});
+    const {assignment,token} = committed;
     const driverUrl = `${safeOrigin(request)}/driver/trip/${token}`;
-    const telegramNotification = await deliverAssignmentTelegram(assignment.id).catch(() => "queued");
+    const telegramNotification = await deliverAssignmentTelegram(assignment.id).catch(error => { console.error("Telegram assignment delivery failed", error instanceof Error ? error.message : "unknown"); return "queued"; });
     // Day trips from the planner: the stop-by-stop plan goes to the staff LINE group to forward.
     await import("@/lib/trip-driver").then((m) => m.sendDriverPlanToLine(bookingReference, driver.fullName, driverUrl)).catch((error) => console.error("driver plan LINE failed", error));
     if (driver.email && driver.remindersEnabled) {
       const delivery = await sendDriverAssignmentEmail({ to: driver.email, driverName: driver.fullName, driverUrl, reference: booking.reference, pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate, pickupTime: booking.pickupTime, vehicle: booking.vehicle });
       await getDb().insert(bookingNotifications).values({ id: crypto.randomUUID(), bookingReference, assignmentId: assignment.id, notificationType: "driver_assignment", channel: "email", recipient: driver.email, dedupeKey: `driver-assignment:${assignment.id}`, scheduledFor: now, status: delivery.status === "sent" ? "sent" : "failed", attemptCount: 1, lastAttemptAt: now, sentAt: delivery.status === "sent" ? now : null, errorMessage: delivery.status === "sent" ? null : delivery.status, createdAt: now, updatedAt: now });
     }
-    return NextResponse.json({ assignment: { id: assignment.id, bookingReference, driverId, currentStatus: assignment.currentStatus, assignedAt: now, tokenExpiresAt: expiry }, driverUrl, telegramNotification });
+    return NextResponse.json({ assignment: { id: assignment.id, bookingReference, driverId, currentStatus: assignment.currentStatus, assignedAt: now, tokenExpiresAt: assignment.tokenExpiresAt }, driverUrl, telegramNotification });
   }
 
   if (input.action === "revoke") {
