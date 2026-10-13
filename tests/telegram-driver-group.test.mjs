@@ -85,7 +85,7 @@ test('a booking is offered to the driver group in Thai, with the Assign button a
  await group.postDriverOffer('DG0001');
  const post=sent.find(s=>s.method==='sendMessage');
  assert.equal(post.body.chat_id,'-100222');
- assert.equal(post.body.text,['ตู้สวย งานใหม่🚗','','วันที่: 15/01/2099','เวลา: 09:30','รับ: Suvarnabhumi Airport','ส่ง: Pattaya Hilton','จำนวน: 4 คน, 3 กระเป๋า','ค่างาน: 1,800 บาท','','คนแรกที่กด «รับงาน» ได้งานนี้'].join('\n'));
+ assert.equal(post.body.text,['ตู้สวย งานใหม่🚗','','วันที่: 15/01/2099','เวลา: 09:30','รับ: Suvarnabhumi Airport','ส่ง: Pattaya Hilton','จำนวน: 4 คน, 3 กระเป๋า','ค่างาน: 1,800 บาท','','คนแรกที่กด «รับงาน» ได้งานนี้','*กดรับงานแล้วยกเลิก ปรับ 20'].join('\n'));
  for(const secret of ['Jessica','Moore','+66811112222','jess@example.com','TG101'])assert.ok(!post.body.text.includes(secret),secret);
  assert.deepEqual(post.body.reply_markup.inline_keyboard,[[{text:'✋ รับงาน (Assign)',callback_data:'dj_take:DG0001'}]]);
  assert.match(post.body.text,/คนแรกที่กด «รับงาน» ได้งานนี้/);

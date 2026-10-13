@@ -58,7 +58,7 @@ export function offerText(job: OfferJob, state: OfferState) {
     ...(job.returnDate ? [`ขากลับ: ${escHtml(thaiDate(job.returnDate, job.returnTime))}`] : []),
     `ค่างาน: ${job.driverCost ? `${job.driverCost.toLocaleString("en-US")} บาท` : "รอแจ้งราคา"}`,
   ];
-  if (state.kind === "open") return [`${escHtml(job.vehicleName)} งานใหม่🚗`, "", ...trip, "", "คนแรกที่กด «รับงาน» ได้งานนี้"].join("\n");
+  if (state.kind === "open") return [`${escHtml(job.vehicleName)} งานใหม่🚗`, "", ...trip, "", "คนแรกที่กด «รับงาน» ได้งานนี้", "*กดรับงานแล้วยกเลิก ปรับ 20"].join("\n");
   // The group only sees whether the job is paid or cash; the amount to collect is in the driver's private ใบงาน.
   const payment = job.paymentMethod === "cash" ? "งานเงินสด" : "งานชำระแล้ว";
   const status = state.kind === "taken" ? `✅ รับงานแล้ว: ${escHtml(state.driverName)}`
