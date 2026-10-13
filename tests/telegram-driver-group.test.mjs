@@ -34,10 +34,12 @@ after(async()=>{globalThis.fetch=realFetch;await vite.close();await mf.dispose()
 
 const rules=await vite.ssrLoadModule('/lib/telegram/driver-group-rules.ts');
 const group=await vite.ssrLoadModule('/lib/telegram/driver-group.ts');
+const bulkRules=await vite.ssrLoadModule('/lib/telegram/bulk-cost-rules.ts');
 const at='2026-10-13T00:00:00Z';
-async function booking(ref,{status='confirmed',method='cash',date='2099-01-15'}={}){
+async function booking(ref,{status='confirmed',method='cash',date='2099-01-15',cost=1800}={}){
  await d1.prepare("INSERT INTO bookings(reference,customer_name,customer_surname,customer_email,customer_phone,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,amount_paid,flight_number,status,created_at,access_token_hash,updated_at) VALUES(?,'Jessica','Moore','jess@example.com','+66811112222','Suvarnabhumi Airport','Pattaya Hilton',?,'09:30',4,3,'premium_minivan',?,2500,0,'TG101',?,?,?,?)").bind(ref,date,method,status,at,'tok-'+ref,at).run();
  await d1.prepare("INSERT INTO telegram_booking_cards(booking_reference,telegram_message_id,created_at) VALUES(?,9000,?)").bind(ref,at).run();
+ if(cost)await d1.prepare("INSERT INTO booking_costs(booking_reference,agreed_driver_cost,additional_costs,total_driver_cost,payment_status,updated_by,created_at,updated_at) VALUES(?,?,0,?,'unpaid','test',?,?)").bind(ref,cost,cost,at,at).run();
 }
 async function driver(id,name){
  await d1.prepare("INSERT INTO drivers(id,full_name,phone,vehicle,car_plate,driver_type,status,created_at,updated_at) VALUES(?,?,'0812345678','Toyota Commuter','กข 1234','outsource','active',?,?)").bind(id,name,at,at).run();
@@ -76,12 +78,25 @@ test('a new booking is offered to the driver group in Thai, with the Assign link
  assert.equal(post.body.chat_id,'-100222');
  assert.match(post.body.text,/งานใหม่ · <b>DG0001<\/b>/);
  assert.match(post.body.text,/รถ: ตู้ VIP\nวันที่\/เวลา: 15\/01\/2099 09:30\nรับ: Suvarnabhumi Airport\nส่ง: Pattaya Hilton\nจำนวน: 4 คน, 3 กระเป๋า/);
- assert.match(post.body.text,/ค่างาน: รอแจ้งราคา\nการชำระ: เก็บเงินสด 2,500 บาท/);
+ assert.match(post.body.text,/ค่างาน: 1,800 บาท\nการชำระ: เก็บเงินสด 2,500 บาท/);
  for(const secret of ['Jessica','Moore','+66811112222','jess@example.com','TG101'])assert.ok(!post.body.text.includes(secret),secret);
  assert.deepEqual(post.body.reply_markup.inline_keyboard,[[{text:'✋ รับงาน (Assign)',url:'https://t.me/waydidi_bot?start=job_DG0001'}]]);
  sent.length=0;
  await group.postDriverOffer('DG0001'); // safe to call again
  assert.equal(sent.filter(s=>s.method==='sendMessage').length,0);
+});
+
+test('a booking without a driver cost is not offered; setting the cost posts it',async()=>{
+ await booking('DG0010',{cost:0});
+ sent.length=0;
+ assert.equal(await group.postDriverOffer('DG0010'),false);
+ assert.equal(sent.length,0);
+ const {saveDriverCost}=await vite.ssrLoadModule('/lib/telegram/booking-tasks.ts');
+ const {refreshBookingCard}=await vite.ssrLoadModule('/lib/telegram/bookings.ts');
+ await saveDriverCost('DG0010',2100,'Admin');
+ await refreshBookingCard('DG0010');
+ const post=sent.find(s=>s.method==='sendMessage'&&s.body.chat_id==='-100222');
+ assert.match(post.body.text,/DG0010[\s\S]*ค่างาน: 2,100 บาท/);
 });
 
 test('nothing goes to the driver group while the feature is off',async()=>{
@@ -204,4 +219,51 @@ test("a driver's trip photo is also posted to the driver group under the job's o
  assert.equal(JSON.parse(photos[0].body.get('reply_parameters')).message_id,offer);
  assert.equal(photos[0].body.get('reply_markup'),null);
  assert.ok(photos[1].body.get('reply_markup')); // the team group keeps the Completed job button
+});
+
+test('the bulk cost message: "ราคา" then one booking and cost per line',()=>{
+ const {parseBulkCost}=bulkRules;
+ assert.equal(parseBulkCost('FMBNUW 1800'),null); // needs the first word
+ assert.equal(parseBulkCost('ราคาเท่าไหร่'),null);
+ assert.deepEqual(parseBulkCost('ราคา\nfmbnuw 1800\n52LLDS: 2,200 บาท\nABCD12 - ฿900'),{items:[{reference:'FMBNUW',cost:1800},{reference:'52LLDS',cost:2200},{reference:'ABCD12',cost:900}],invalid:[]});
+ assert.deepEqual(parseBulkCost('/cost FMBNUW 1800, 52LLDS 2,200'),{items:[{reference:'FMBNUW',cost:1800},{reference:'52LLDS',cost:2200}],invalid:[]});
+ assert.deepEqual(parseBulkCost('cost\nFMBNUW 1800\nFMBNUW 1900'),{items:[{reference:'FMBNUW',cost:1900}],invalid:[]}); // the last one counts
+ assert.deepEqual(parseBulkCost('ราคา\nFMBNUW 0\nFMBNUW abc\nXY 100\nGOOD12 600000'),{items:[],invalid:['FMBNUW 0','FMBNUW abc','XY 100','GOOD12 600000']});
+ const many=parseBulkCost('ราคา\n'+Array.from({length:22},(_,i)=>`REF${String(i).padStart(3,'0')} 1000`).join('\n'));
+ assert.equal(many.items.length,20);assert.deepEqual(many.invalid,['REF020','REF021']);
+});
+
+test('setting costs for several bookings in one message posts them all to the driver group, earliest first',async()=>{
+ const {setCostsFromMessage}=await vite.ssrLoadModule('/lib/telegram/bulk-cost.ts');
+ await booking('BK0003',{cost:0,date:'2099-03-03'});
+ await booking('BK0001',{cost:0,date:'2099-03-01'});
+ await booking('BK0002',{cost:0,date:'2099-03-02'});
+ await booking('BKGONE',{cost:0,status:'cancelled'});
+ sent.length=0;
+ await setCostsFromMessage(bulkRules.parseBulkCost('ราคา\nBK0003 1500\nBK0001 1200\nBK0002 1300\nBKGONE 900\nNOPE99 800\nbad line'),'Nok',4242);
+ const offers=sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='-100222');
+ assert.deepEqual(offers.map(o=>o.body.text.match(/<b>(\w+)<\/b>/)[1]),['BK0001','BK0002','BK0003']);
+ assert.match(offers[0].body.text,/ค่างาน: 1,200 บาท/);
+ for(const [ref,cost] of [['BK0001',1200],['BK0002',1300],['BK0003',1500]]){
+  assert.equal(await d1.prepare("SELECT total_driver_cost FROM booking_costs WHERE booking_reference=?").bind(ref).first('total_driver_cost'),cost);
+  assert.deepEqual(await d1.prepare("SELECT cost_done,acknowledged_by FROM telegram_booking_cards WHERE booking_reference=?").bind(ref).first(),{cost_done:1,acknowledged_by:'Nok'});
+ }
+ assert.equal(await d1.prepare("SELECT COUNT(*) n FROM booking_costs WHERE booking_reference='BKGONE'").first('n'),0);
+ const summary=sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111').at(-1).body;
+ assert.equal(summary.reply_parameters.message_id,4242);
+ assert.equal(summary.text,['<b>ตั้งราคาค่างาน</b> · Nok','✓ <b>BK0001</b> 1,200 บาท · ส่งเข้ากลุ่มคนขับแล้ว','✓ <b>BK0002</b> 1,300 บาท · ส่งเข้ากลุ่มคนขับแล้ว','✓ <b>BK0003</b> 1,500 บาท · ส่งเข้ากลุ่มคนขับแล้ว','✗ <b>BKGONE</b> ไม่พบการจองที่ยืนยันแล้ว','✗ <b>NOPE99</b> ไม่พบการจองที่ยืนยันแล้ว','✗ อ่านไม่ได้: bad line'].join('\n'));
+ // Sending the same costs again doesn't post the jobs twice.
+ sent.length=0;
+ await setCostsFromMessage(bulkRules.parseBulkCost('ราคา BK0001 1250'),'Nok',4243);
+ assert.equal(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='-100222').length,0);
+ assert.match(sent.find(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222').body.text,/ค่างาน: 1,250 บาท/);
+});
+
+test('a new booking card goes to the team group only; the driver group waits for the cost',async()=>{
+ const {notifyBookingTelegram}=await vite.ssrLoadModule('/lib/telegram/bookings.ts');
+ await booking('NEW001',{cost:0});
+ await d1.prepare("DELETE FROM telegram_booking_cards WHERE booking_reference='NEW001'").run();
+ sent.length=0;
+ await notifyBookingTelegram('NEW001');
+ assert.deepEqual(sent.filter(s=>s.method==='sendMessage').map(s=>s.body.chat_id),['-100111']);
 });

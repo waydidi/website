@@ -9,6 +9,8 @@ import { esc, pickKeyboard } from "@/lib/telegram/cards";
 import { acknowledgeBooking, refreshBookingCard } from "@/lib/telegram/bookings";
 import { askBookingQuestion, driverChoices, handleBookingAnswer, pickDriver } from "@/lib/telegram/booking-tasks";
 import { waitHandover } from "@/lib/telegram/handover";
+import { parseBulkCost } from "@/lib/telegram/bulk-cost-rules";
+import { setCostsFromMessage } from "@/lib/telegram/bulk-cost";
 import { driverGroup, handleDriverCallback, handleDriverGroupMessage, handleDriverPrivate } from "@/lib/telegram/driver-group";
 import { verifyTripCompletion } from "@/lib/trip-completion";
 import { approveChange, cancelBookingFromTelegram, declineChange, keepBooking } from "@/lib/telegram/booking-changes";
@@ -194,6 +196,9 @@ async function handleMessage(m: TelegramMessage) {
   // Answers to "Set cost" / "Add driver information" questions on booking cards.
   const teamMember = await approved(m.from);
   if (teamMember && await handleBookingAnswer(m, teamMember.display_name, refreshBookingCard)) return;
+  // "ราคา" + "REF cost" lines: driver costs for many bookings at once; each then goes to the driver group.
+  const bulk = teamMember ? parseBulkCost(text) : null;
+  if (bulk && teamMember) { await setCostsFromMessage(bulk, teamMember.display_name, m.message_id); return; }
   // Customer answers: replies to a Waydidi card or prompt, or the next plain message from someone
   // who tapped "Reply" in the last 10 minutes. Anything else a team member writes is answered by the assistant.
   if (!text || (text.startsWith("/") && !parseJobLookup(text) && !/^\/ask(@\w+)?(\s|$)/i.test(text))) return;

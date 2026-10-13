@@ -75,33 +75,36 @@ async function offerKeyboard(reference: string, state: OfferState): Promise<Inli
   return bot ? [[{ text: "✋ รับงาน (Assign)", url: jobStartLink(bot, reference) }]] : [];
 }
 
-/** Posts a new booking to the driver group once (safe to call again). Off unless the owner turned it on. */
+/** Posts a booking to the driver group once its cost is set (safe to call again). Off unless the owner turned it on. */
 export async function postDriverOffer(reference: string) {
   const group = driverGroup();
-  if (!group) return;
+  if (!group) return false;
   await ensureTables();
   const b = await bookingFor(reference);
-  if (!b || b.status !== "confirmed" || pickupPassed(b) || await driverSet(reference)) return;
+  // Offered only once staff have set the driver cost, and only while it still needs a driver.
+  if (!b || b.status !== "confirmed" || !b.driver_cost || pickupPassed(b) || await driverSet(reference)) return false;
   const claimed = await db().prepare("INSERT INTO telegram_driver_jobs(booking_reference,created_at,updated_at) VALUES(?,?,?) ON CONFLICT(booking_reference) DO NOTHING").bind(reference, now(), now()).run();
-  if (!claimed.meta.changes) return;
+  if (!claimed.meta.changes) return false;
   try {
     const state: OfferState = { kind: "open" };
     const sent = await sendTo(group.chatId, offerText(offerJob(b), state), await offerKeyboard(reference, state));
     await db().prepare("UPDATE telegram_driver_jobs SET telegram_message_id=?,updated_at=? WHERE booking_reference=?").bind(sent.message_id, now(), reference).run();
+    return true;
   } catch (error) {
     await db().prepare("DELETE FROM telegram_driver_jobs WHERE booking_reference=? AND telegram_message_id=0").bind(reference).run();
     throw error;
   }
 }
 
-/** Redraws a booking's offer: driver cost set, taken, assigned by staff, cancelled or past. */
+/** Posts the offer once the cost is set, then keeps it current: new cost, taken, assigned by staff, cancelled or past. */
 export async function syncDriverOffer(reference: string) {
   const group = driverGroup();
   if (!group) return;
   await ensureTables();
   const job = await db().prepare("SELECT * FROM telegram_driver_jobs WHERE booking_reference=?").bind(reference).first<JobRow>();
-  const b = job?.telegram_message_id ? await bookingFor(reference) : null;
-  if (!job || !b) return;
+  if (!job) { await postDriverOffer(reference); return; }
+  const b = job.telegram_message_id ? await bookingFor(reference) : null;
+  if (!b) return;
   const state = await stateFor(b, job);
   if (state.kind === "closed" && job.status === "open") await db().prepare("UPDATE telegram_driver_jobs SET status='closed',holder_telegram_id=NULL,updated_at=? WHERE booking_reference=? AND status='open'").bind(now(), reference).run();
   await editIn(group.chatId, job.telegram_message_id, offerText(offerJob(b), state), await offerKeyboard(reference, state));
