@@ -2,7 +2,6 @@
 import { useCloseOutside } from "@/lib/use-close-outside";
 import { directionsTo } from "@/lib/maps-link";
 import { includesKohChangFerry } from "@/lib/booking-form";
-import { paymentPill } from "@/lib/payment-pill";
 import { DriverWelcome } from "@/components/driver/welcome-scene";
 import { driverHeaders, rememberDriverToken } from "@/lib/driver-token";
 import { StepCamera } from "@/components/drivers/step-camera";
@@ -136,20 +135,20 @@ const STEPPER: { label: string; reachedBy: string[] }[] = [
 function PriceRow({ booking }: { booking: Trip["booking"] }) {
   const [open, setOpen] = useState(false);
   const box = useCloseOutside<HTMLDivElement>(open, () => setOpen(false));
-  const items = ["Private vehicle with driver", "Fuel and driver costs", ...(includesKohChangFerry(booking.pickup, booking.dropoff) ? [`Koh Chang car ferry tickets for all ${booking.passengers} ${booking.passengers === 1 ? "passenger" : "passengers"}`] : [])];
+  const items = ["รถส่วนตัวพร้อมคนขับ", "ค่าน้ำมันและค่าคนขับ", ...(includesKohChangFerry(booking.pickup, booking.dropoff) ? [`ตั๋วเรือเฟอร์รี่เกาะช้างสำหรับผู้โดยสารทั้ง ${booking.passengers} คน`] : [])];
   return <div ref={box} className="relative flex justify-between gap-3">
-    <dt className="shrink-0 text-slate-500">Price</dt>
-    <dd className="flex items-center justify-end gap-1.5 text-right font-semibold"><button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="What's included" className="grid size-[19px] place-items-center rounded-full bg-brand text-[12px] font-black leading-none text-white">!</button>{booking.price != null ? `THB ${booking.price.toLocaleString("en-US")}` : "Not set"}</dd>
-    {open && <div role="dialog" aria-label="What's included" className="absolute right-0 top-[calc(100%+6px)] z-20 w-[260px] rounded-xl border border-slate-200 bg-white p-3 text-[14px] shadow-lg">
-      <p className="mb-1.5 font-bold">What&apos;s included</p>
-      <ul className="grid gap-1">{items.map((i) => <li key={i} className={`flex gap-1.5 ${i.startsWith("Koh Chang") ? "font-semibold text-[#2F7A6B]" : "text-slate-700"}`}><span aria-hidden>✓</span>{i}</li>)}</ul>
+    <dt className="shrink-0 text-slate-500">ราคา</dt>
+    <dd className="flex items-center justify-end gap-1.5 text-right font-semibold"><button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="ราคานี้รวมอะไรบ้าง" className="grid size-[19px] place-items-center rounded-full bg-brand text-[12px] font-black leading-none text-white">!</button>{booking.price != null ? `${booking.price.toLocaleString("en-US")} บาท` : "รอแจ้งราคา"}</dd>
+    {open && <div role="dialog" aria-label="ราคานี้รวมอะไรบ้าง" className="absolute right-0 top-[calc(100%+6px)] z-20 w-[260px] rounded-xl border border-slate-200 bg-white p-3 text-[14px] shadow-lg">
+      <p className="mb-1.5 font-bold">ราคานี้รวม</p>
+      <ul className="grid gap-1">{items.map((i) => <li key={i} className={`flex gap-1.5 ${i.startsWith("ตั๋วเรือ") ? "font-semibold text-[#2F7A6B]" : "text-slate-700"}`}><span aria-hidden>✓</span>{i}</li>)}</ul>
     </div>}
   </div>;
 }
 
 function TripStepper({ status }: { status: string }) {
   const reached = STEPPER.reduce((count, step, index) => (STEPPER.slice(index).some((later) => later.reachedBy.includes(status)) ? index + 1 : count), 0);
-  return <ol className="grid grid-cols-3" aria-label="Trip steps">
+  return <ol className="grid grid-cols-3" aria-label="ขั้นตอนการเดินทาง">
     {STEPPER.map((step, index) => {
       const done = index < reached, current = index === reached;
       return <li key={step.label} aria-current={current ? "step" : undefined} className="relative flex flex-col items-center">
@@ -158,15 +157,18 @@ function TripStepper({ status }: { status: string }) {
         {index < STEPPER.length - 1 && <span aria-hidden="true" className={`absolute left-1/2 top-[51px] h-[5px] w-full -translate-y-1/2 ${done ? "bg-white" : "bg-[#FFAD50]"}`} />}
         <span className={`relative mt-3 grid size-[38px] place-items-center rounded-full ${done ? "bg-white text-brand" : current ? "border-[3px] border-white bg-brand" : "bg-[#FFAD50]"}`}>
           {done && <Check size={20} strokeWidth={3.5} aria-hidden="true" />}
-          <span className="sr-only">{done ? "done" : current ? "current step" : "next"}</span>
+          <span className="sr-only">{done ? "เสร็จแล้ว" : current ? "ขั้นตอนปัจจุบัน" : "ถัดไป"}</span>
         </span>
       </li>;
     })}
   </ol>;
 }
 
-// "11/10/2026 — 09:00 am", as on the admin booking card.
-const tripDateTime = (date: string, time: string) => { const [y, m, d] = date.split("-"); const [h = 0, min = 0] = time.split(":").map(Number); return `${d}/${m}/${y} — ${String(h % 12 || 12).padStart(2, "0")}:${String(min).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`; };
+// "11/10/2026 — 09:00 น." (24-hour, as Thai drivers read it).
+const tripDateTime = (date: string, time: string) => { const [y, m, d] = date.split("-"); const [h = 0, min = 0] = time.split(":").map(Number); return `${d}/${m}/${y} — ${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")} น.`; };
+
+/** Payment status as a Thai pill (the driver link is Thai). */
+const paymentThai = (status?: string | null): [string, string] => status === "paid" || status === "partially_refunded" ? ["ชำระแล้ว", "bg-emerald-50 text-emerald-700"] : status === "cash_due" ? ["เก็บเงินสด", "bg-red-50 text-red-700"] : ["ยังไม่ชำระ", "bg-amber-50 text-amber-800"];
 
 export default function DriverTripClient({ token: initialToken }: { token: string }) {
   const token="session";
@@ -202,7 +204,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
         exchange.current??=fetch("/api/driver/session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:initialToken})});
         const session=await exchange.current;
         // Let "Try again" make a fresh attempt.
-        if(!session.ok) { exchange.current=null; throw new Error("Driver link expired or revoked."); }
+        if(!session.ok) { exchange.current=null; throw new Error("ลิงก์คนขับหมดอายุหรือถูกยกเลิก"); }
         // The address keeps the real link, so "Open in browser" (Telegram, LINE) or a refresh still opens this trip.
         rememberDriverToken(initialToken);
       }
@@ -211,8 +213,8 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
         { cache: "no-store", headers: driverHeaders() },
       );
       // A server error page isn't JSON (Safari then says "The string did not match the expected pattern").
-      const result = (await response.json().catch(() => ({ error: "The trip could not be loaded right now. Please try again in a minute, or contact Waydidi operations." }))) as Trip & { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Trip unavailable.");
+      const result = (await response.json().catch(() => ({ error: "โหลดข้อมูลงานไม่สำเร็จในขณะนี้ กรุณาลองอีกครั้งในอีกสักครู่ หรือติดต่อฝ่ายปฏิบัติการ Waydidi" }))) as Trip & { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "ไม่พบข้อมูลงาน");
     setTrip(result);
     if (result.assignment?.currentStatus === "assigned") {
       let seen = false;
@@ -221,7 +223,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
     }
 
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Trip unavailable.");
+      setError(cause instanceof Error ? cause.message : "ไม่พบข้อมูลงาน");
     } finally {
       setLoading(false);
     }
@@ -426,15 +428,15 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       <main className="grid min-h-screen place-items-center bg-slate-100 p-5 text-plum">
         <div className="max-w-md rounded-[28px] bg-white p-8 text-center shadow-xl">
           <CircleAlert className="mx-auto text-brand-text" size={44} />
-          <h1 className="mt-5 text-2xl font-black">Driver link unavailable</h1>
+          <h1 className="mt-5 text-2xl font-black">ลิงก์คนขับใช้ไม่ได้</h1>
           <p className="mt-3 text-slate-600">
-            {error || "Ask Waydidi operations for a new driver link."}
+            {error || "ติดต่อฝ่ายปฏิบัติการ Waydidi เพื่อขอลิงก์คนขับใหม่"}
           </p>
           <button
             onClick={load}
             className="mt-6 inline-flex h-12 items-center gap-2 rounded-full bg-brand px-6 font-bold text-white"
           >
-            <RefreshCw size={18} /> Try again
+            <RefreshCw size={18} /> ลองอีกครั้ง
           </button>
         </div>
       </main>
@@ -453,10 +455,10 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       {welcome && <DriverWelcome onStart={() => { try { localStorage.setItem(welcomeKey(trip.assignment.id), "1"); } catch { /* storage blocked */ } setWelcome(false); }} />}
       <header className="bg-brand px-5 pb-7 pt-6 text-white">
         <div className="mx-auto max-w-xl">
-          <h1 className="sr-only">Trip {trip.booking.reference}</h1>
+          <h1 className="sr-only">งาน {trip.booking.reference}</h1>
           {!online && (
             <p className="mb-4 flex justify-center"><span className="inline-flex items-center gap-2 rounded-full bg-red-700 px-3 py-2 text-xs font-bold">
-              <WifiOff size={15} /> Offline
+              <WifiOff size={15} /> ออฟไลน์
             </span></p>
           )}
           <TripStepper status={trip.assignment.currentStatus} />
@@ -464,21 +466,21 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       </header>
       <div className="mx-auto max-w-xl space-y-5 px-4 py-5">
         <section className="rounded-[26px] bg-white p-5 shadow-sm">
-          <p className="text-[13px] font-bold uppercase tracking-[.12em] text-slate-500">Customer name</p>
+          <p className="text-[13px] font-bold uppercase tracking-[.12em] text-slate-500">ชื่อลูกค้า</p>
           <h2 className="mt-1 text-[21px] font-black leading-tight">
             {trip.booking.customerName}
           </h2>
           {/* Trip details laid out like the admin booking card. */}
           <dl className="mt-5 grid gap-2 rounded-2xl bg-slate-50 p-4 text-[14.5px]">
             {([
-              ["Passengers & luggage", <span key="pl" className="inline-flex items-center gap-3"><span className="inline-flex items-center gap-1" aria-label={`${trip.booking.passengers} passengers`}><Users size={15} aria-hidden="true" />{trip.booking.passengers}</span><span className="inline-flex items-center gap-1" aria-label={`${trip.booking.luggage} bags`}><Luggage size={15} aria-hidden="true" />{trip.booking.luggage}</span></span>],
-              ["Vehicle", trip.booking.vehicle],
-              ["Date & time", tripDateTime(trip.booking.pickupDate, trip.booking.pickupTime)],
-              ["From", trip.booking.pickup],
-              ["To", trip.booking.dropoff],
-              ["Price", null],
-              ["Payment", <span key="pay" className={`rounded-full px-2.5 py-0.5 text-[13px] font-bold ${paymentPill(trip.booking.paymentStatus)[1]}`}>{paymentPill(trip.booking.paymentStatus)[0]}</span>],
-            ] as [string, React.ReactNode][]).map(([label, value]) => label === "Price" ? <PriceRow key={label} booking={trip.booking} /> : <div key={label} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{label}</dt><dd className="text-right font-semibold">{value}</dd></div>)}
+              ["ผู้โดยสาร / กระเป๋า", <span key="pl" className="inline-flex items-center gap-3"><span className="inline-flex items-center gap-1" aria-label={`ผู้โดยสาร ${trip.booking.passengers} คน`}><Users size={15} aria-hidden="true" />{trip.booking.passengers}</span><span className="inline-flex items-center gap-1" aria-label={`กระเป๋า ${trip.booking.luggage} ใบ`}><Luggage size={15} aria-hidden="true" />{trip.booking.luggage}</span></span>],
+              ["รถ", trip.booking.vehicle],
+              ["วันที่และเวลา", tripDateTime(trip.booking.pickupDate, trip.booking.pickupTime)],
+              ["จุดรับ", trip.booking.pickup],
+              ["จุดส่ง", trip.booking.dropoff],
+              ["ราคา", null],
+              ["การชำระเงิน", <span key="pay" className={`rounded-full px-2.5 py-0.5 text-[13px] font-bold ${paymentThai(trip.booking.paymentStatus)[1]}`}>{paymentThai(trip.booking.paymentStatus)[0]}</span>],
+            ] as [string, React.ReactNode][]).map(([label, value]) => label === "ราคา" ? <PriceRow key={label} booking={trip.booking} /> : <div key={label} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{label}</dt><dd className="text-right font-semibold">{value}</dd></div>)}
           </dl>
         </section>
         {/* Pick up / Drop: the Google Maps link an admin set in Telegram, or directions to the address */}
@@ -493,7 +495,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
         </div>
         {pending ? (
           <section className="rounded-[26px] border border-amber-200 bg-amber-50 p-6 text-amber-900" aria-live="polite">
-            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[.14em]"><WifiOff size={15} /> Waiting to send</p>
+            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[.14em]"><WifiOff size={15} /> รอส่งข้อมูล</p>
             <h2 className="mt-2 text-2xl font-black">
               {pending.status === "no_show" ? "แจ้งไม่พบผู้โดยสาร" : steps.find((step) => step.status === pending.status)?.thai ?? pending.status}
             </h2>

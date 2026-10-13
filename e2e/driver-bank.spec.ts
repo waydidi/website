@@ -38,7 +38,7 @@ test("after the Drop the link opens กรอกข้อมูลบัญช�
   await expect(page.getByLabel("ชื่อบัญชี")).toHaveValue("สมชาย ใจดี");
   await expect(page.getByText("ต้องตรงกับชื่อคนขับ:")).toContainText("สมชาย ใจดี");
   await expect(page.getByRole("button", { name: "ส่งข้อมูล" })).toBeVisible();
-  await expect(page.getByText("Customer name")).toHaveCount(0); // the trip page waits until the details are in
+  await expect(page.getByText("ชื่อลูกค้า")).toHaveCount(0); // the trip page waits until the details are in
 });
 
 test("the bank is chosen in a bottom sheet; sending shows the tick and the details were posted with the link's token", async ({ page }) => {
@@ -55,7 +55,7 @@ test("the bank is chosen in a bottom sheet; sending shows the tick and the detai
   await expect(page.getByText("ธนาคารกสิกรไทย").first()).toBeVisible();
   // "เสร็จสิ้น" goes back to the trip page, which now stays (the details are in).
   await page.getByRole("button", { name: "เสร็จสิ้น" }).click();
-  await expect(page.getByText("Customer name")).toBeVisible();
+  await expect(page.getByText("ชื่อลูกค้า")).toBeVisible();
   await expect(page.getByRole("heading", { name: "กรอกข้อมูลบัญชี" })).toHaveCount(0);
 });
 
@@ -99,13 +99,13 @@ test("from the tick the driver can edit the details", async ({ page }) => {
 
 test("a driver who already sent the details goes straight to the trip page", async ({ page }) => {
   await open(page, { saved: true });
-  await expect(page.getByText("Customer name")).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText("ชื่อลูกค้า")).toBeVisible({ timeout: 30000 });
   await expect(page.getByRole("heading", { name: "กรอกข้อมูลบัญชี" })).toHaveCount(0);
 });
 test("a cash job skips กรอกข้อมูลบัญชี and shows the completed trip page as before", async ({ page }) => {
   await page.route("**/api/driver/trips/session", (r) => r.fulfill({ json: trip({ payoutNeeded: false }) }));
   await page.route("**/api/driver/trips/session/plan", (r) => r.fulfill({ json: { days: [] } }));
   await page.goto("/driver/trip/session");
-  await expect(page.getByText("Customer name")).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText("ชื่อลูกค้า")).toBeVisible({ timeout: 30000 });
   await expect(page.getByRole("heading", { name: "กรอกข้อมูลบัญชี" })).toHaveCount(0);
 });

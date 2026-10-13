@@ -47,7 +47,7 @@ function eligibleAtIso(booking: typeof bookings.$inferSelect) {
 export async function GET(_request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
   const trip = await tripForToken(token);
-  if (!trip) return NextResponse.json({ error: "This driver link is invalid, expired, or revoked." }, { status: 404 });
+  if (!trip) return NextResponse.json({ error: "ลิงก์คนขับไม่ถูกต้อง หมดอายุ หรือถูกยกเลิก" }, { status: 404 });
   const { assignment, booking, driver, events } = trip;
   const [[{ failedAttempts }], [activeStop], [payout], [openStopAlert]] = await Promise.all([
     getDb().select({ failedAttempts: count() }).from(passengerVerifications).where(and(eq(passengerVerifications.assignmentId, assignment.id), eq(passengerVerifications.result, "failed"))),
@@ -88,44 +88,44 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
 }
 
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
-  if (!sameOrigin(request)) return NextResponse.json({ error: "Request blocked." }, { status: 403 });
+  if (!sameOrigin(request)) return NextResponse.json({ error: "คำขอถูกบล็อก" }, { status: 403 });
   const { token } = await context.params;
   const trip = await tripForToken(token);
-  if (!trip) return NextResponse.json({ error: "This driver link is invalid, expired, or revoked." }, { status: 404 });
+  if (!trip) return NextResponse.json({ error: "ลิงก์คนขับไม่ถูกต้อง หมดอายุ หรือถูกยกเลิก" }, { status: 404 });
   // Replay is checked before status validation so a lost completion response remains recoverable.
-  if (Number(request.headers.get("content-length")??0)>9*1024*1024) return NextResponse.json({error:"Upload too large"},{status:413});
+  if (Number(request.headers.get("content-length")??0)>9*1024*1024) return NextResponse.json({error:"ไฟล์ใหญ่เกินไป"},{status:413});
   const form = await request.formData();
   const replayId=String(form.get("clientEventId")??"").toLowerCase();
   const replay=trip.events.find(event=>event.id===replayId);
-  if(replay) return replay.status===String(form.get("status")) ? NextResponse.json({ok:true,status:replay.status,eventId:replay.id,duplicate:true}) : NextResponse.json({error:"Update id already used"},{status:409});
-  if (trip.booking.status !== "confirmed") return NextResponse.json({ error: "This booking is no longer active." }, { status: 409 });
+  if(replay) return replay.status===String(form.get("status")) ? NextResponse.json({ok:true,status:replay.status,eventId:replay.id,duplicate:true}) : NextResponse.json({error:"รหัสอัปเดตนี้ถูกใช้แล้ว"},{status:409});
+  if (trip.booking.status !== "confirmed") return NextResponse.json({ error: "การจองนี้ไม่ใช้งานแล้ว" }, { status: 409 });
   const storedCurrent = trip.assignment.currentStatus;
   const current = storedCurrent === "standby" && trip.assignment.passengerVerifiedAt ? "passenger_verified" : storedCurrent;
-  if (!isDriverStatus(current)) return NextResponse.json({ error: "Current status is invalid." }, { status: 409 });
+  if (!isDriverStatus(current)) return NextResponse.json({ error: "สถานะปัจจุบันไม่ถูกต้อง" }, { status: 409 });
 
   const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const [{ attempts }] = await getDb().select({ attempts: count() }).from(driverStatusEvents).where(and(eq(driverStatusEvents.assignmentId, trip.assignment.id), gt(driverStatusEvents.createdAt, since)));
-  if (attempts >= 10) return NextResponse.json({ error: "Too many updates. Wait a few minutes and try again." }, { status: 429 });
+  if (attempts >= 10) return NextResponse.json({ error: "อัปเดตบ่อยเกินไป รอสักครู่แล้วลองอีกครั้ง" }, { status: 429 });
 
   const requestedStatus = String(form.get("status") ?? "");
   const clientEventId = String(form.get("clientEventId") ?? "").toLowerCase();
-  if (clientEventId && !UUID_PATTERN.test(clientEventId)) return NextResponse.json({ error: "Invalid update id." }, { status: 400 });
+  if (clientEventId && !UUID_PATTERN.test(clientEventId)) return NextResponse.json({ error: "รหัสอัปเดตไม่ถูกต้อง" }, { status: 400 });
   // A queued offline update may be re-sent after the first attempt was saved.
   if (clientEventId && trip.events.some((event) => event.id === clientEventId)) return NextResponse.json({ ok: true, status: requestedStatus, eventId: clientEventId, duplicate: true });
-  if (!isDriverStatus(requestedStatus)) return NextResponse.json({ error: "Complete the trip steps in order." }, { status: 409 });
+  if (!isDriverStatus(requestedStatus)) return NextResponse.json({ error: "กรุณาทำตามขั้นตอนของงานตามลำดับ" }, { status: 409 });
   const noShow = requestedStatus === "no_show";
-  if (noShow ? current !== "standby" : NEXT_DRIVER_STATUS[current] !== requestedStatus) return NextResponse.json({ error: noShow ? "A no-show can only be reported while waiting at pickup." : "Complete the trip steps in order." }, { status: 409 });
+  if (noShow ? current !== "standby" : NEXT_DRIVER_STATUS[current] !== requestedStatus) return NextResponse.json({ error: noShow ? "A no-show can only be reported while waiting at pickup." : "กรุณาทำตามขั้นตอนของงานตามลำดับ" }, { status: 409 });
   const note = String(form.get("note") ?? "").trim();
-  if (note.length > 500) return NextResponse.json({ error: "The note is too long." }, { status: 400 });
-  if (noShow && note.length < NO_SHOW_MIN_NOTE_LENGTH) return NextResponse.json({ error: "Describe how you tried to find the passenger." }, { status: 400 });
+  if (note.length > 500) return NextResponse.json({ error: "หมายเหตุยาวเกินไป" }, { status: 400 });
+  if (noShow && note.length < NO_SHOW_MIN_NOTE_LENGTH) return NextResponse.json({ error: "อธิบายสั้น ๆ ว่าคุณติดต่อหรือตามหาผู้โดยสารอย่างไร" }, { status: 400 });
 
   const nowMs = Date.now();
   const lastEventAt = trip.events[0] ? new Date(trip.events[0].createdAt).getTime() : null;
   const occurredAt = acceptedOccurredAt(form.get("occurredAt"), nowMs, lastEventAt);
-  if (!occurredAt) return NextResponse.json({ error: "This update is too old or out of order. Refresh the page and try again." }, { status: 409 });
+  if (!occurredAt) return NextResponse.json({ error: "ข้อมูลนี้เก่าเกินไปหรือผิดลำดับ รีเฟรชหน้าแล้วลองอีกครั้ง" }, { status: 409 });
   if (noShow) {
     const eligibleAt = noShowEligibleAt(trip.booking);
-    if (eligibleAt === null || new Date(occurredAt).getTime() < eligibleAt) return NextResponse.json({ error: "The free waiting time is not over yet.", eligibleAt: eligibleAt === null ? null : new Date(eligibleAt).toISOString() }, { status: 409 });
+    if (eligibleAt === null || new Date(occurredAt).getTime() < eligibleAt) return NextResponse.json({ error: "ยังไม่พ้นเวลารอฟรี", eligibleAt: eligibleAt === null ? null : new Date(eligibleAt).toISOString() }, { status: 409 });
   }
 
   const type = evidenceTypeFor(requestedStatus);
@@ -133,10 +133,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const override = type ? await evidenceOverride(trip.assignment.id,type) : null;
   const evidenceId = String(form.get("evidenceId")??"") || null;
   const storedEvidence = evidenceId ? await evidenceDb().prepare("SELECT * FROM driver_trip_evidence WHERE id=? AND assignment_id=? AND deleted_at IS NULL AND expires_at>?").bind(evidenceId,trip.assignment.id,new Date().toISOString()).first<EvidenceRow>() : null;
-  if(evidenceId && (!storedEvidence || storedEvidence.event_type!==type || storedEvidence.status_event_id)) return NextResponse.json({error:"Photo does not match this trip step. Refresh and retry."},{status:409});
+  if(evidenceId && (!storedEvidence || storedEvidence.event_type!==type || storedEvidence.status_event_id)) return NextResponse.json({error:"รูปไม่ตรงกับขั้นตอนนี้ รีเฟรชแล้วลองอีกครั้ง"},{status:409});
   const required = requestedStatus === "standby" ? policy.pickup_required : requestedStatus === "completed" ? policy.dropoff_required : 0;
-  if(required && !storedEvidence && !override) return NextResponse.json({error:"Save a photo first, or contact operations for an audited exception."},{status:409});
-  if(storedEvidence && policy.gps_required && !override && (storedEvidence.latitude===null || storedEvidence.accuracy_metres===null || storedEvidence.accuracy_metres>policy.max_accuracy_m)) return NextResponse.json({error:"Photo GPS is unavailable or inaccurate. Retake with GPS, or contact operations."},{status:409});
+  if(required && !storedEvidence && !override) return NextResponse.json({error:"กรุณาบันทึกรูปก่อน หรือติดต่อฝ่ายปฏิบัติการ"},{status:409});
+  if(storedEvidence && policy.gps_required && !override && (storedEvidence.latitude===null || storedEvidence.accuracy_metres===null || storedEvidence.accuracy_metres>policy.max_accuracy_m)) return NextResponse.json({error:"ไม่มีตำแหน่ง GPS ของรูป หรือไม่แม่นยำ กรุณาถ่ายใหม่ หรือติดต่อฝ่ายปฏิบัติการ"},{status:409});
   const needsEvidence = requestedStatus === "no_show" && evidenceRequired(requestedStatus);
   // Evidence GPS is optional by default; existing tracking requirements on other steps remain.
   const needsLocation = locationRequired(requestedStatus);
@@ -144,7 +144,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const longitude = form.has("longitude") ? Number(form.get("longitude")) : NaN;
   const accuracy = Math.round(Number(form.get("accuracy")));
   const coordinatesValid = Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180 && Number.isFinite(accuracy) && accuracy > 0 && accuracy <= 2_000;
-  if (needsLocation && !coordinatesValid) return NextResponse.json({ error: "Allow location access and capture your current position before submitting." }, { status: 400 });
+  if (needsLocation && !coordinatesValid) return NextResponse.json({ error: "กรุณาอนุญาตตำแหน่งและอ่านตำแหน่งปัจจุบันก่อนส่ง" }, { status: 400 });
 
   let expectedDistance: number | null = null;
   if (coordinatesValid) {
@@ -164,10 +164,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   let evidenceSha256: string | null = null;
   const evidence = form.get("evidence");
   if (needsEvidence) {
-    if (!(evidence instanceof File) || !evidence.size) return NextResponse.json({ error: "Take or choose a picture before submitting." }, { status: 400 });
-    if (evidence.size > MAX_PHOTO_BYTES || !ACCEPTED_TYPES.has(evidence.type)) return NextResponse.json({ error: "Use a JPG, PNG, or WebP picture smaller than 8 MB." }, { status: 400 });
+    if (!(evidence instanceof File) || !evidence.size) return NextResponse.json({ error: "กรุณาถ่ายรูปก่อนส่ง" }, { status: 400 });
+    if (evidence.size > MAX_PHOTO_BYTES || !ACCEPTED_TYPES.has(evidence.type)) return NextResponse.json({ error: "ใช้รูป JPG, PNG หรือ WebP ที่ไม่เกิน 8 MB" }, { status: 400 });
     const bytes = new Uint8Array(await evidence.arrayBuffer());
-    if (!validImage(bytes, evidence.type)) return NextResponse.json({ error: "The selected file is not a valid picture." }, { status: 400 });
+    if (!validImage(bytes, evidence.type)) return NextResponse.json({ error: "ไฟล์ที่เลือกไม่ใช่รูปภาพที่ถูกต้อง" }, { status: 400 });
     const extension = evidence.type === "image/jpeg" ? "jpg" : evidence.type === "image/png" ? "png" : "webp";
     evidenceKey = `driver-evidence/${trip.booking.reference}/${requestedStatus}/${crypto.randomUUID()}.${extension}`;
     evidenceMime = evidence.type;
@@ -203,14 +203,14 @@ export async function POST(request: Request, context: { params: Promise<{ token:
       if (evidenceKey) await deleteFile(evidenceKey).catch(() => undefined);
       const duplicate = await evidenceDb().prepare("SELECT status FROM driver_status_events WHERE id=? AND assignment_id=?").bind(id,trip.assignment.id).first<{status:string}>();
       if(duplicate?.status===requestedStatus) return NextResponse.json({ok:true,status:requestedStatus,eventId:id,duplicate:true});
-      return NextResponse.json({error:"The journey changed while this update was uploading. Refresh and retry."},{status:409});
+      return NextResponse.json({error:"สถานะงานเปลี่ยนระหว่างที่กำลังส่ง รีเฟรชแล้วลองอีกครั้ง"},{status:409});
     }
   } catch (error) {
     if (evidenceKey) await deleteFile(evidenceKey).catch(() => undefined);
     void error;
     const duplicate = await evidenceDb().prepare("SELECT status FROM driver_status_events WHERE id=? AND assignment_id=?").bind(id,trip.assignment.id).first<{status:string}>();
     if(duplicate?.status===requestedStatus) return NextResponse.json({ok:true,status:requestedStatus,eventId:id,duplicate:true});
-    return NextResponse.json({ error: "The update could not be saved. Please try again." }, { status: 503 });
+    return NextResponse.json({ error: "บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง" }, { status: 503 });
   }
   // The step's photo goes to the Telegram group, under the booking card.
   // The Drop always goes (with a "Completed job" button), even without a photo.

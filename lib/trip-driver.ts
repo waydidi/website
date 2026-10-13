@@ -26,7 +26,7 @@ export async function driverPlan(reference: string): Promise<DriverDay[]> {
     const skipped = s.liveSkipped ?? [];
     return [{
       ref: t.ref, dayNumber: t.dayNumber, date: s.tripDate, title: s.title, pickupTime: s.startTime, pickup: s.pickupText, returnAt: hhmm(s.returnAt), end: s.endText,
-      guests: `${s.adults} adult${s.adults > 1 ? "s" : ""}${s.children ? `, ${s.children} child${s.children > 1 ? "ren" : ""}` : ""}${t.customerName ? ` · ${t.customerName}` : ""}${t.customerPhone ? ` · ${t.customerPhone}` : ""}`,
+      guests: `ผู้ใหญ่ ${s.adults} คน${s.children ? `, เด็ก ${s.children} คน` : ""}${t.customerName ? ` · ${t.customerName}` : ""}${t.customerPhone ? ` · ${t.customerPhone}` : ""}`,
       notes: s.notes, skipped: s.stops.filter((x) => skipped.includes(x.id)).map((x) => x.name),
       stops: s.stops.filter((x) => !skipped.includes(x.id)).map((x) => {
         const a = rows.find((r) => r.id === byStop[x.id]);
