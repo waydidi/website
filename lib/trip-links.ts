@@ -9,7 +9,7 @@ import { rideUrl } from "@/lib/trip-access";
 // Assigning a driver uses the prepared driver link; a different driver later gets a fresh one,
 // so a replaced driver's link stops working.
 
-type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
+type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<{ meta: { changes: number } }> };
 const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
 
 /** Creates the booking's driver link(s) once; safe to call again. */
@@ -39,6 +39,22 @@ export async function assignedDriverUrl(reference: string, leg: string) {
   if (!row) return null;
   const live = await db().prepare("SELECT 1 x FROM booking_assignments WHERE token_hash=? AND revoked_at IS NULL AND token_expires_at>?").bind(await sha256(row.driver_token), new Date().toISOString()).first();
   return live ? driverUrl(row.driver_token) : null;
+}
+
+/** assignedDriverUrl for many bookings at once (two reads in all, not two per booking). Keys are `reference:leg`. */
+export async function assignedDriverUrls(pairs: { reference: string; leg: string }[]) {
+  const urls = new Map<string, string>();
+  const now = new Date().toISOString();
+  for (let i = 0; i < pairs.length; i += 40) {
+    const chunk = pairs.slice(i, i + 40);
+    const links = (await db().prepare(`SELECT booking_reference,leg,driver_token FROM booking_links WHERE booking_reference IN (${chunk.map(() => "?").join(",")})`).bind(...chunk.map((p) => p.reference)).all<{ booking_reference: string; leg: string; driver_token: string }>()).results
+      .filter((l) => chunk.some((p) => p.reference === l.booking_reference && p.leg === l.leg));
+    if (!links.length) continue;
+    const hashes = await Promise.all(links.map((l) => sha256(l.driver_token)));
+    const live = new Set((await db().prepare(`SELECT token_hash FROM booking_assignments WHERE revoked_at IS NULL AND token_expires_at>? AND token_hash IN (${hashes.map(() => "?").join(",")})`).bind(now, ...hashes).all<{ token_hash: string }>()).results.map((r) => r.token_hash));
+    links.forEach((l, n) => { if (live.has(hashes[n])) urls.set(`${l.booking_reference}:${l.leg}`, driverUrl(l.driver_token)); });
+  }
+  return urls;
 }
 
 /** The customer's ride-status link, and the driver links once a driver is assigned. */
