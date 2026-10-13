@@ -18,7 +18,7 @@ Admin → Journey details contains private photos, assignment/leg/driver context
 
 ### Stamp on the picture
 
-The browser burns **latitude, longitude and the time** (Thailand time, UTC+7) into the bottom 30% of the photo itself, on a dark fade so it reads on any picture (`lib/photo-stamp.ts`, drawn in `components/drivers/step-camera.tsx`). The driver sees it in the preview, and because it is part of the saved JPEG it also appears in Admin → Journey details and in the photos posted to Telegram. The coordinates come from the phone's GPS at the moment of the shot; the time is the phone's clock shown in Thailand time (device time, as before, not server-verified). Photos taken before this change have no stamp.
+The browser burns **latitude, longitude and the time** (Thailand time, UTC+7) into the bottom 30% of the photo itself, under an even 30% dark overlay, with the Waydidi logo (white) at the section's top right, so it reads on any picture (`lib/photo-stamp.ts`, drawn in `components/drivers/step-camera.tsx`). The driver sees it in the preview, and because it is part of the saved JPEG it also appears in Admin → Journey details and in the photos posted to Telegram. The coordinates come from the phone's GPS at the moment of the shot; the time is the phone's clock shown in Thailand time (device time, as before, not server-verified). Photos taken before this change have no stamp.
 
 ## Data and access control
 

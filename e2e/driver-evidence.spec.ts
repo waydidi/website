@@ -77,7 +77,7 @@ test("Stand by: the button opens the camera; the photo is uploaded and sent with
   expect(pings).toHaveLength(0); // no live location sharing
 });
 
-test("the saved picture has latitude, longitude and the time burned into its bottom 30%", async ({ page }) => {
+test("the saved picture has the logo, latitude, longitude and the time burned into its bottom 30%, under a 30% overlay", async ({ page }) => {
   await setup(page, "going_to_standby");
   await page.getByRole("button", { name: "ยืนยันว่าถึงจุดรับแล้ว" }).click({ timeout: 30000 });
   const camera = page.getByRole("dialog", { name: "รอที่จุดรับ" });
@@ -92,13 +92,22 @@ test("the saved picture has latitude, longitude and the time burned into its bot
     const ctx = canvas.getContext("2d")!; ctx.drawImage(img, 0, 0);
     const edge = Math.round(canvas.height * 0.7);
     const white = (y0: number, y1: number) => { const d = ctx.getImageData(0, y0, canvas.width, y1 - y0).data; let n = 0; for (let k = 0; k < d.length; k += 4) if (d[k] > 235 && d[k + 1] > 235 && d[k + 2] > 235) n++; return n; };
-    const px = (y: number) => Array.from(ctx.getImageData(5, y, 1, 1).data);
-    return { whiteBottom: white(edge, canvas.height), whiteTop: white(0, edge), grey: px(Math.round(canvas.height * 0.2)), dark: px(canvas.height - 3) };
+    const px = (x: number, y: number) => Array.from(ctx.getImageData(x, y, 1, 1).data);
+    const whiteIn = (x0: number, y0: number, x1: number, y1: number) => { const d = ctx.getImageData(x0, y0, x1 - x0, y1 - y0).data; let n = 0; for (let k = 0; k < d.length; k += 4) if (d[k] > 235 && d[k + 1] > 235 && d[k + 2] > 235) n++; return n; };
+    return {
+      whiteBottom: white(edge, canvas.height), whiteTop: white(0, edge),
+      logoCorner: whiteIn(Math.round(canvas.width * 0.6), edge, canvas.width, edge + 40), // top right of the section
+      leftOfLogo: whiteIn(0, edge, Math.round(canvas.width * 0.5), edge + 40), // top left of the section: only overlay
+      grey: px(5, Math.round(canvas.height * 0.2)), overlay: px(5, edge + 8),
+    };
   });
-  expect(result.whiteBottom).toBeGreaterThan(300); // the stamp text
+  expect(result.whiteBottom).toBeGreaterThan(300); // the stamp text and logo
   expect(result.whiteTop).toBe(0); // nothing above the bottom 30%
-  expect(result.grey[0]).toBeGreaterThan(80); // the top of the picture is untouched
-  expect(result.dark[0]).toBeLessThan(50); // the bottom fades to dark so the text reads
+  expect(result.logoCorner).toBeGreaterThan(60); // the logo, top right of the 30% section
+  expect(result.leftOfLogo).toBe(0);
+  expect(result.grey[0]).toBeGreaterThan(90); // the top of the picture is untouched
+  expect(result.overlay[0]).toBeLessThan(result.grey[0] - 15); // the 30% section sits under a dark overlay
+  expect(result.overlay[0]).toBeGreaterThan(50); // ...a light one: the picture still shows through
 });
 
 test("before the camera: step 1 asks for location, step 2 for the camera, then the camera opens", async ({ page }) => {

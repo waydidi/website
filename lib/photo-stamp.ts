@@ -6,6 +6,9 @@ export type StampGps = { latitude: number; longitude: number; accuracy?: number 
 /** Share of the picture's height, from the bottom, that carries the stamp. */
 export const STAMP_HEIGHT_SHARE = 0.3;
 
+/** How dark the overlay over that section is (0.3 = a 30% black overlay). */
+export const STAMP_OVERLAY_OPACITY = 0.3;
+
 /** "13/10/2026 17:39:05" in Asia/Bangkok, whatever the phone's own time zone. */
 export function stampTime(iso: string) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })

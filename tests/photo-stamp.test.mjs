@@ -20,6 +20,7 @@ test('the date rolls over at Thailand midnight, and southern/western coordinates
   assert.equal(stamp.stampLines({ latitude: -33.8688, longitude: -70.5 }, '2026-10-13T10:39:05Z')[1], 'Latitude: -33.868800');
 });
 
-test('the stamp covers the bottom 30% of the picture', () => {
+test('the stamp covers the bottom 30% of the picture, under a 30% dark overlay', () => {
   assert.equal(stamp.STAMP_HEIGHT_SHARE, 0.3);
+ assert.equal(stamp.STAMP_OVERLAY_OPACITY, 0.3);
 });
