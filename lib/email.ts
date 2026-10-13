@@ -6,6 +6,7 @@ import { env } from "cloudflare:workers";
 
 import { publicSiteUrl } from "@/lib/site";
 import { fullName as personFullName } from "@/lib/person-name";
+import { WHATSAPP } from "@/lib/contact";
 
 type ConfirmationEmailInput = {
   to: string;
@@ -100,7 +101,6 @@ function letterDate(date: string, time: string) {
   return `${day} — ${clock}`;
 }
 
-const WHATSAPP = "+66 63 206 4884";
 
 export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
   const roundTrip = Boolean(input.returnDate && input.returnTime);

@@ -10,6 +10,7 @@ import {
   TicketX,
 } from "lucide-react";
 import { GoogleRoutePicker, type RouteInfo } from "@/components/google-route-picker";
+import { SUPPORT_EMAIL } from "@/lib/contact";
 type Booking = {
   tripKey?: string;
   reference: string;
@@ -461,10 +462,10 @@ export default function BookingLookup() {
                       To cancel, or to ask about a refund, email Waydidi with your booking reference. We reply by email.
                     </p>
                     <a
-                      href={`mailto:support@waydidi.com?subject=${encodeURIComponent(`Cancel booking ${b.reference}`)}&body=${encodeURIComponent(`Booking reference: ${b.reference}\nPickup: ${b.pickupDate} ${b.pickupTime}\nReason:\n`)}`}
+                      href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Cancel booking ${b.reference}`)}&body=${encodeURIComponent(`Booking reference: ${b.reference}\nPickup: ${b.pickupDate} ${b.pickupTime}\nReason:\n`)}`}
                       className="mt-6 inline-flex h-13 items-center rounded-full bg-plum px-7 font-bold text-white"
                     >
-                      Email support@waydidi.com
+                      Email {SUPPORT_EMAIL}
                     </a>
                   </>
                 )}

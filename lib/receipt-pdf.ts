@@ -3,6 +3,7 @@ import fontkit from "@pdf-lib/fontkit";
 import { receiptFontBase64 } from "@/lib/pdf-receipt-font";
 import { logoPng } from "@/lib/pdf-addon-images";
 import type { Receipt } from "@/lib/receipt";
+import { WHATSAPP } from "@/lib/contact";
 
 const orange = rgb(1, 0.541, 0.02), ink = rgb(0.122, 0.09, 0.149), muted = rgb(0.38, 0.43, 0.52), line = rgb(0.9, 0.91, 0.93);
 const amount = (minor: number) => (minor / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -64,7 +65,7 @@ export async function createReceiptPdf(r: Receipt) {
     for (const value of values.filter(Boolean)) for (const row of wrap(value, 235, 10)) { text(row, x, at); at -= 15; }
     return at;
   };
-  const issuerEnd = block("ISSUED BY", [r.issuer.name, r.issuer.address, r.issuer.taxId ? `Tax ID: ${r.issuer.taxId}` : "", r.issuer.branch, "WhatsApp: +66 63 206 4884"], 46);
+  const issuerEnd = block("ISSUED BY", [r.issuer.name, r.issuer.address, r.issuer.taxId ? `Tax ID: ${r.issuer.taxId}` : "", r.issuer.branch, `WhatsApp: ${WHATSAPP}`], 46);
   const customerEnd = block("CUSTOMER / BILL TO", [r.customer.name, r.customer.address, r.customer.taxId ? `Tax ID: ${r.customer.taxId}` : "", r.customer.branch, r.customer.email], 314);
   y = Math.min(issuerEnd, customerEnd) - 13;
   const tableHeader = () => {

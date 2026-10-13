@@ -6,6 +6,7 @@ import { VEHICLES } from "./vehicles";
 import { formToken } from "./booking-form";
 import { SITE_URL } from "./site";
 import type { SecurityDatabase } from "./worker-db";
+import { COMMITTED_SQL, isCommittedStatus } from "@/lib/booking-status";
 export const crmDb = () => env.DB as unknown as SecurityDatabase;
 export type Contact = {
     id: string;
@@ -70,7 +71,7 @@ async function staffExists(id: string) {
 }
 export async function crmList(view: string, search: string, page: number, filter: string) {
     const offset = (page - 1) * 25, q = `%${search.replace(/[%_^]/g, "^$&")}%`;
-    const contactSelect = `SELECT c.*,(SELECT count(*) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN ('confirmed','completed')) trips,(SELECT coalesce(sum(b.total),0) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN ('confirmed','completed')) spend FROM crm_contacts c`;
+    const contactSelect = `SELECT c.*,(SELECT count(*) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN (${COMMITTED_SQL})) trips,(SELECT coalesce(sum(b.total),0) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN (${COMMITTED_SQL})) spend FROM crm_contacts c`;
     let from = "crm_contacts c", where = "c.merged_into IS NULL AND (c.name LIKE ? ESCAPE '^' OR coalesce(c.email,'') LIKE ? ESCAPE '^' OR coalesce(c.phone,'') LIKE ? ESCAPE '^')", args: unknown[] = [q, q, q], select = contactSelect;
     if (view === 'pipeline') {
         from = 'crm_leads l JOIN crm_contacts c ON c.id=l.contact_id';
@@ -141,7 +142,7 @@ export async function crmDashboard() {
         rows("SELECT status,count(*) count FROM crm_quotes GROUP BY status"),
         rows("SELECT source,count(*) leads,sum(stage='won') won,sum(CASE WHEN stage='won' THEN value_minor ELSE 0 END) revenue_minor FROM crm_leads GROUP BY source"),
         rows("SELECT status,count(*) count FROM crm_outbox GROUP BY status"),
-        first("SELECT (SELECT count(*) FROM crm_contacts c WHERE c.merged_into IS NULL AND (SELECT count(*) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN ('confirmed','completed'))>=2) repeat_customers,avg((julianday((SELECT min(m.created_at) FROM website_chat_messages m WHERE m.conversation_id=w.id AND m.sender='staff' AND m.is_bot=0 AND m.created_at>=(SELECT min(v.created_at) FROM website_chat_messages v WHERE v.conversation_id=w.id AND v.sender='visitor')))-julianday((SELECT min(v.created_at) FROM website_chat_messages v WHERE v.conversation_id=w.id AND v.sender='visitor')))*1440) response_minutes FROM website_conversations w")
+        first(`SELECT (SELECT count(*) FROM crm_contacts c WHERE c.merged_into IS NULL AND (SELECT count(*) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN (${COMMITTED_SQL}))>=2) repeat_customers,avg((julianday((SELECT min(m.created_at) FROM website_chat_messages m WHERE m.conversation_id=w.id AND m.sender='staff' AND m.is_bot=0 AND m.created_at>=(SELECT min(v.created_at) FROM website_chat_messages v WHERE v.conversation_id=w.id AND v.sender='visitor')))-julianday((SELECT min(v.created_at) FROM website_chat_messages v WHERE v.conversation_id=w.id AND v.sender='visitor')))*1440) response_minutes FROM website_conversations w`)
     ]);
     return { contacts, stages, tasks, quotes, sources, retention, service };
 }
@@ -283,7 +284,7 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
             status: string;
             total: number;
         }>('SELECT status,total FROM bookings WHERE reference=?', ref);
-        if (!q || !['sent', 'accepted'].includes(q.status) || !b || !['confirmed', 'completed'].includes(b.status))
+        if (!q || !['sent', 'accepted'].includes(q.status) || !b || !isCommittedStatus(b.status))
             throw new CrmError('Choose a confirmed booking and valid quote.');
         // The database trigger reconciles all CRM relationships in this same transaction.
         const result = await db.batch([db.prepare("UPDATE crm_quotes SET status='converted',booking_reference=?,token_hash=NULL,updated_at=? WHERE id=? AND status IN ('sent','accepted')").bind(ref, stamp, id), eventStatement(q.contact_id, id, 'quote', `Staff requested booking link ${ref}`, staffId)]);

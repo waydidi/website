@@ -2,6 +2,7 @@ import { getWaydidiAdmin } from "@/lib/admin";
 import { crmAction, crmDashboard, crmList, profile, exportContacts, CrmError, crmDb } from "@/lib/crm";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { ZodError } from "zod";
+import { COMMITTED_SQL } from "@/lib/booking-status";
 const headers = { "Cache-Control": "no-store" };
 export async function GET(request: Request) {
     const staff = await getWaydidiAdmin();
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
             if (staff.role === 'support')
                 return Response.json({ error: 'Partner access required' }, { status: 403 });
             const id = u.searchParams.get('agencyId');
-            const [members, stats] = await Promise.all([crmDb().prepare('SELECT email,role,active FROM agency_members WHERE agency_id=? ORDER BY email').bind(id).all(), crmDb().prepare("SELECT count(*) bookings,sum(b.total) revenue FROM booking_sources s JOIN bookings b ON b.reference=s.booking_reference WHERE s.source=? AND b.status IN ('confirmed','completed')").bind('agency:' + id).first()]);
+            const [members, stats] = await Promise.all([crmDb().prepare('SELECT email,role,active FROM agency_members WHERE agency_id=? ORDER BY email').bind(id).all(), crmDb().prepare(`SELECT count(*) bookings,sum(b.total) revenue FROM booking_sources s JOIN bookings b ON b.reference=s.booking_reference WHERE s.source=? AND b.status IN (${COMMITTED_SQL})`).bind('agency:' + id).first()]);
             return Response.json({ members: members.results, stats }, { headers });
         }
         if (!['customers', 'pipeline', 'tasks', 'quotes', 'partners', 'retention', 'emails'].includes(view))

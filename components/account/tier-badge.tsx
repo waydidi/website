@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRight, Crown, Gem, Medal, Star } from "lucide-react";
 import { TIERS, type memberTier, type Tier, type TierId } from "@/lib/member-tier-rules";
 import { GIFTS, nearNextTier, TIER_GIFTS } from "@/lib/gift-rules";
+import { LOYALTY_CAP, LOYALTY_EVERY, LOYALTY_PERCENT } from "@/lib/loyalty-rules";
 
 const ICONS: Record<TierId, typeof Medal> = { bronze: Medal, gold: Star, diamond: Gem, platinum: Crown };
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
@@ -45,7 +46,7 @@ export function TierTable({ current }: { current: TierId }) {
         <div className="min-w-0 flex-1"><p className="text-lg font-black">{t.name}</p><p className="text-xs text-slate-500">{t.rides === 0 ? "When you create an account" : `${t.rides} completed rides or ${thb(t.spend)} in 12 months`}</p></div>
         {t.id === current && <span className="rounded-full bg-brand-tint px-2.5 py-1 text-xs font-black text-brand-darker">You</span>}
       </div>
-      <ul className="mt-3 grid gap-1.5 text-sm text-slate-700">{t.perks.map((p) => <li key={p}>✓ {p}</li>)}<li>✓ Every 5th ride 10% off (up to THB 500)</li>{TIER_GIFTS[t.id] && <li className="font-semibold text-brand-darker">🎁 Badge gift: {GIFTS[TIER_GIFTS[t.id]!].name}</li>}</ul>
+      <ul className="mt-3 grid gap-1.5 text-sm text-slate-700">{t.perks.map((p) => <li key={p}>✓ {p}</li>)}<li>✓ Every {LOYALTY_EVERY}th ride {LOYALTY_PERCENT}% off (up to THB {LOYALTY_CAP.toLocaleString("en-US")})</li>{TIER_GIFTS[t.id] && <li className="font-semibold text-brand-darker">🎁 Badge gift: {GIFTS[TIER_GIFTS[t.id]!].name}</li>}</ul>
     </li>)}
   </ol>;
 }

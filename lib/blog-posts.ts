@@ -1,5 +1,6 @@
 // Waydidi travel guides. Written for Waydidi (not copied from other sites);
 // covers are brand graphics, optionally over one of our own photos.
+import { FULL_REFUND_HOURS } from "@/lib/refund-policy";
 
 export type BlogCategory = "getting-there" | "airport-tips" | "day-trips" | "itineraries" | "travel-tips";
 
@@ -87,7 +88,7 @@ export const BLOG_POSTS: BlogPost[] = [
       { heading: "How far is it?", paragraphs: ["Pattaya is roughly 120 km south-east of Suvarnabhumi Airport. By road the drive usually takes about 1 hour 30 minutes, longer on Friday evenings and holiday weekends when traffic out of Bangkok builds up."] },
       { heading: "Option 1: airport bus", paragraphs: ["Buses to Pattaya leave from the airport's ground floor. They are the cheapest option, but you'll need to wait for the next departure, carry your own luggage and take another ride from the bus stop to your hotel."], tip: "Fine for light travellers on a budget, less so with children or big suitcases." },
       { heading: "Option 2: public taxi", paragraphs: ["Metered taxis queue outside arrivals. Agree on tolls and any airport surcharge before you set off, and expect the price to change with traffic."] },
-      { heading: "Option 3: private transfer", paragraphs: ["A private transfer is booked before you fly: the price is fixed, your driver waits in the arrivals hall with a name sign, and the car is chosen for your group and luggage. With Waydidi, airport pickups include 60 minutes of free waiting after landing, and tolls are included on the Bangkok ⇄ Pattaya route."], list: ["Fixed price agreed before you book", "Meet & Greet in the arrivals hall", "Child seats available as an add-on", "Free cancellation up to 24 hours before pickup"] },
+      { heading: "Option 3: private transfer", paragraphs: ["A private transfer is booked before you fly: the price is fixed, your driver waits in the arrivals hall with a name sign, and the car is chosen for your group and luggage. With Waydidi, airport pickups include 60 minutes of free waiting after landing, and tolls are included on the Bangkok ⇄ Pattaya route."], list: ["Fixed price agreed before you book", "Meet & Greet in the arrivals hall", "Child seats available as an add-on", `Free cancellation up to ${FULL_REFUND_HOURS} hours before pickup`] },
       { heading: "Which should you choose?", paragraphs: ["Travelling alone with a backpack in daytime? The bus works. Arriving late, with family, or with more than two suitcases? A private transfer removes the waiting and the second ride at the other end."] },
     ],
   },

@@ -5,6 +5,7 @@ import { bookings, memberCoupons, promoCodes, promoRedemptions } from "@/db/sche
 import { evaluatePromo, normalizeCode, type PromoResult } from "./promo";
 import { LOYALTY_CODE, LOYALTY_TITLE, loyaltyDiscount, loyaltyStatus } from "./loyalty";
 import { availableGift, couponValue, FREE_TRANSFER_CODE, freeTransferDiscount, listMemberGifts, REWARD_CODE, REWARD_MIN_FARE, rewardDiscount } from "./gifts";
+import { COMMITTED_BOOKING_STATUSES } from "@/lib/booking-status";
 
 // Bookings in these states no longer hold a use of their code.
 // Only bookings that were never paid give the use back; cancelled or refunded bookings keep it.
@@ -35,7 +36,7 @@ async function priorBooking(email: string, phone: string) {
   const [row] = await getDb()
     .select({ n: count() })
     .from(bookings)
-    .where(and(inArray(bookings.status, ["confirmed", "completed"]), or(sql`lower(${bookings.customerEmail}) = ${email}`, sql`replace(replace(replace(replace(replace(${bookings.customerPhone}, ' ', ''), '-', ''), '(', ''), ')', ''), '.', '') = ${phone}`)));
+    .where(and(inArray(bookings.status, [...COMMITTED_BOOKING_STATUSES]), or(sql`lower(${bookings.customerEmail}) = ${email}`, sql`replace(replace(replace(replace(replace(${bookings.customerPhone}, ' ', ''), '-', ''), '(', ''), ')', ''), '.', '') = ${phone}`)));
   return (row?.n ?? 0) > 0;
 }
 
