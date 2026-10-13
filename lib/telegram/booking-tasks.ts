@@ -3,7 +3,7 @@ import { fullName } from "@/lib/person-name";
 import { sha256 } from "@/lib/security";
 import { driverTokenForAssignment } from "@/lib/trip-links";
 import { SITE_URL } from "@/lib/site";
-import { jobVehicleName } from "./job-text";
+import { driverJobText, jobVehicleName } from "./job-text";
 import { googleMapsLink } from "@/lib/maps-link";
 import { esc } from "./cards";
 import { sendCard, telegramChatId, tg, type TelegramMessage } from "./client";
@@ -145,7 +145,8 @@ async function saveDriver(f: DriverForm) {
 }
 
 type BookingRow = { reference: string; customer_name: string; customer_surname: string | null; passengers: number; luggage: number; pickup_date: string; pickup_time: string; flight_number: string | null;
-  pickup: string; dropoff: string; vehicle: string; payment_method: string; total: number; amount_paid: number };
+  pickup: string; dropoff: string; vehicle: string; payment_method: string; total: number; amount_paid: number;
+  service_type: string | null; pricing_area: string | null; booked_hours: number | null; driver_cost: number | null };
 
 /** When cost and driver are both done: assign the driver (one trip link) and post the job in Thai. */
 export async function postAssignmentWhenReady(reference: string, by: string, header?: string) {
@@ -154,7 +155,9 @@ export async function postAssignmentWhenReady(reference: string, by: string, hea
   if (!card?.cost_done || !card.driver_done || card.assignment_posted) return false;
   const claimed = await db().prepare("UPDATE telegram_booking_cards SET assignment_posted=1 WHERE booking_reference=? AND assignment_posted=0").bind(reference).run();
   if (!claimed.meta.changes) return false;
-  const b = await db().prepare("SELECT reference,customer_name,customer_surname,passengers,luggage,pickup_date,pickup_time,flight_number,pickup,dropoff,vehicle,payment_method,total,amount_paid FROM bookings WHERE reference=?").bind(reference).first<BookingRow>();
+  const b = await db().prepare(`SELECT b.reference,b.customer_name,b.customer_surname,b.passengers,b.luggage,b.pickup_date,b.pickup_time,b.flight_number,b.pickup,b.dropoff,b.vehicle,b.payment_method,b.total,b.amount_paid,
+      b.service_type,b.pricing_area,b.booked_hours,NULLIF(COALESCE(NULLIF(c.total_driver_cost,0),c.agreed_driver_cost),0) AS driver_cost
+    FROM bookings b LEFT JOIN booking_costs c ON c.booking_reference=b.reference WHERE b.reference=?`).bind(reference).first<BookingRow>();
   const form = JSON.parse(card.driver_form_json ?? "{}") as DriverForm;
   if (!b || !form.driverId) { await db().prepare("UPDATE telegram_booking_cards SET assignment_posted=0 WHERE booking_reference=?").bind(reference).run(); return false; }
   // The driver's trip link: the driver updates status there, and the same page shows the trip's progress.
@@ -167,26 +170,37 @@ export async function postAssignmentWhenReady(reference: string, by: string, hea
   const link = `${SITE_URL}/driver/trip/${token}`;
   const [y, mo, d] = b.pickup_date.split("-");
   const cashDue = b.payment_method === "cash" ? Math.max(0, b.total - (b.amount_paid ?? 0)) : 0;
-  const vehicleName = jobVehicleName(b.vehicle);
+  const baht = (n: number) => `${n.toLocaleString("en-US")} บาท`;
+  // What the customer still pays the driver, if anything.
+  const collect = cashDue ? `เก็บเงินสดจากลูกค้า ${baht(cashDue)}` : b.payment_method === "transfer" && (b.amount_paid ?? 0) < b.total ? paymentLabelThai("transfer", "pending") : "";
   const lines = [
     ...(header ? [header, ""] : []),
-    `${esc(vehicleName)} 🚗`,
+    `${esc(jobVehicleName(b.vehicle))} 🚗`,
     "",
     `ชื่อลูกค้า: ${esc(fullName(b.customer_name, b.customer_surname))}`,
     `จำนวน: ${b.passengers} คน, ${b.luggage} กระเป๋า`,
-    `วันที่/เวลา: ${d}/${mo}/${y} ${esc(b.pickup_time)}`,
+    `วันที่: ${d}/${mo}/${y}`,
+    `เวลา: ${esc(b.pickup_time)}`,
     `ไฟลท์: ${esc(b.flight_number || "-")}`,
     `รับ: ${esc(b.pickup)}`,
     `ส่ง: ${esc(b.dropoff)}`,
-    `ราคา: ${cashDue ? `${cashDue.toLocaleString("en-US")} บาท (เก็บเงินสดจากลูกค้า)` : b.payment_method === "transfer" && (b.amount_paid ?? 0) < b.total ? paymentLabelThai("transfer", "pending") : "-"}`,
+    `ราคา: ${b.driver_cost ? baht(b.driver_cost) : "-"}${collect ? ` (${esc(collect)})` : ""}`,
     "",
-    `คนขับ: ${esc(form.name ?? "")} · ${esc(form.phone ?? "")}`,
-    `รถ: ${esc(form.model ?? "")} · ทะเบียน ${esc(form.plate ?? "")}`,
+    `คนขับ: ${esc(form.name ?? "")}`,
+    `เบอร์: ${esc(form.phone ?? "")}`,
+    `รถ: ${esc(form.model ?? "")}`,
+    `ทะเบียน: ${esc(form.plate ?? "")}`,
     "",
     `ลิงก์งาน (สถานะการเดินทาง/คนขับ): ${link}`,
   ];
   await sendCard(lines.join("\n"), undefined, card.telegram_message_id || undefined);
-  // A driver who took the job in the driver group also gets it privately (never in the group).
-  await import("./driver-group").then((m) => m.sendJobToLinkedDriver(form.driverId!, lines.join("\n"))).catch(() => undefined);
+  // The driver who took the job in the driver group gets the ใบงาน privately (never in the group),
+  // with what to collect and their trip link.
+  // Read on their own, so the job still posts if the map-link table isn't there yet.
+  const maps = await db().prepare("SELECT pickup_map_url,dropoff_map_url FROM booking_map_links WHERE booking_reference=?").bind(reference).first<{ pickup_map_url: string | null; dropoff_map_url: string | null }>().catch(() => null);
+  const sheet = [esc(driverJobText({ reference: b.reference, vehicle: b.vehicle, customerName: b.customer_name, customerSurname: b.customer_surname, passengers: b.passengers, luggage: b.luggage,
+    pickupDate: b.pickup_date, pickupTime: b.pickup_time, pickup: b.pickup, dropoff: b.dropoff, serviceType: b.service_type, pricingArea: b.pricing_area, bookedHours: b.booked_hours },
+    b.driver_cost, { pickup: maps?.pickup_map_url, dropoff: maps?.dropoff_map_url })), ...(collect ? [esc(collect)] : []), "", `ลิงก์งาน: ${link}`].join("\n");
+  await import("./driver-group").then((m) => m.sendJobToLinkedDriver(form.driverId!, sheet)).catch(() => undefined);
   return true;
 }

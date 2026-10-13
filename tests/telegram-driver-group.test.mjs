@@ -136,13 +136,20 @@ test('two linked drivers tapping Assign at once: the first tap gets the job, the
  assert.equal(card.driver_done,1);assert.equal(JSON.parse(card.driver_form_json).driverId,winner.id);
  assert.equal(card.assignment_posted,1); // the cost is set, so the job was assigned and posted
  // The team group gets the Thai job with the customer's details, headed by who took it.
- const job=sent.find(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111');
- assert.match(job.body.text,new RegExp(`^✋ <b>${winner.name}</b> รับงานจากกลุ่มคนขับ`));
+ const team=sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111');
+ // First a short line under the booking card, then the job headed by the car plate.
+ assert.equal(team[0].body.text,'รถทะเบียน <b>กข 1234</b> รับงาน <b>DG0001</b>');
+ assert.equal(team[0].body.reply_parameters.message_id,9000);
+ const job=team[1];
+ assert.equal(job.body.text.split('\n')[0],'✋ กข 1234 รับงานจากกลุ่มคนขับ');
+ assert.match(job.body.text,/\n⚠️ เบอร์นี้ตรงกับคนขับเดิม: [^\n]+\n\nตู้สวย 🚗\n/); // both test drivers share a phone number
+ assert.match(job.body.text,/\nราคา: 1,800 บาท \(เก็บเงินสดจากลูกค้า 2,500 บาท\)\n\nคนขับ: (Somchai Jaidee|Anan Suksai)\nเบอร์: 0812345678\nรถ: Toyota Commuter\nทะเบียน: กข 1234\n\nลิงก์งาน/);
  assert.match(job.body.text,/ชื่อลูกค้า: Jessica Moore/);
  assert.match(job.body.text,/ลิงก์งาน/);
  // The winner gets the same job privately, after the confirmation naming the car.
  const dms=sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id===String(winner.user.id));
- assert.equal(dms[0].body.text,job.body.text);
+ // Privately: the ใบงาน (with map links), what to collect and the trip link.
+ assert.match(dms[0].body.text,/^DG0001\n\nตู้สวย 🚗\n\nชื่อลูกค้า: Jessica Moore\n[\s\S]*\nhttps:\/\/www\.google\.com\/maps\/dir\/[\s\S]*\nราคา: 1,800 บาท\nเก็บเงินสดจากลูกค้า 2,500 บาท\n\nลิงก์งาน: https:\/\/\S+\/driver\/trip\//);
  assert.match(dms.at(-1).body.text,/เป็นของคุณ \(Toyota Commuter — กข 1234\)/);
  assert.doesNotMatch(sent.filter(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222').at(-1).body.text,/Jessica|\+66811112222/);
 });
@@ -198,7 +205,7 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  const d=await d1.prepare("SELECT full_name,phone,car_plate,vehicle,vehicle_type,driver_type,id_image_key,car_image_key FROM drivers WHERE id=?").bind(link.driver_id).first();
  assert.deepEqual(d,{full_name:'Carol Saetang',phone:'089 999 8888',car_plate:'นง 8384',vehicle:'Toyota Commuter สีเงิน',vehicle_type:'minivan',driver_type:'outsource',id_image_key:`driver-verification/${link.driver_id}/identity.jpg`,car_image_key:`driver-verification/${link.driver_id}/vehicle.jpg`});
  assert.deepEqual(await d1.prepare("SELECT status,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0006'").first(),{status:'taken',driver_id:link.driver_id});
- assert.match(sent.find(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111').body.text,/Carol Saetang<\/b> รับงานจากกลุ่มคนขับ[\s\S]*ชื่อลูกค้า: Jessica Moore/);
+ assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111')[1].body.text,/^✋ นง 8384 รับงานจากกลุ่มคนขับ[\s\S]*ชื่อลูกค้า: Jessica Moore[\s\S]*คนขับ: Carol Saetang\nเบอร์: 089 999 8888/);
  assert.match(sent.filter(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222').at(-1).body.text,/\n\n✅ รับงานแล้ว: Carol Saetang$/);
  assert.match(sent.filter(s=>s.method==='sendMessage'&&s.body.chat_id==='1004').at(-1).body.text,/งาน <b>DG0006<\/b> เป็นของคุณ/);
  assert.equal(await d1.prepare("SELECT COUNT(*) n FROM telegram_driver_forms").first('n'),0);

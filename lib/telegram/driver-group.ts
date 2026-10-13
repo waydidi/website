@@ -197,7 +197,9 @@ async function assignTaken(reference: string, d: Driver) {
   const bookings = await import("./bookings");
   // The Thai job with the customer's details goes to the team group and privately to the driver
   // (the cost is always set by now); without a cost the team group is told who took it.
-  const posted = await tasks.postAssignmentWhenReady(reference, `คนขับ ${d.full_name}`, `✋ <b>${esc(d.full_name)}</b> รับงานจากกลุ่มคนขับ${await samePhoneWarning(d)}`).catch(() => false);
+  // A short line first ("รถทะเบียน … รับงาน REF"), then the job with the customer's details.
+  await sendTo(telegramChatId(), `รถทะเบียน <b>${esc(d.car_plate || "-")}</b> รับงาน <b>${esc(reference)}</b>`, undefined, await teamCardMessage(reference)).catch(() => undefined);
+  const posted = await tasks.postAssignmentWhenReady(reference, `คนขับ ${d.full_name}`, `✋ ${esc(d.car_plate || d.full_name)} รับงานจากกลุ่มคนขับ${await samePhoneWarning(d)}`).catch(() => false);
   if (!posted) await noteTeamGroup(reference, d).catch(() => undefined);
   await bookings.refreshBookingCard(reference).catch(() => undefined);
   await syncDriverOffer(reference).catch(() => undefined);
@@ -214,8 +216,11 @@ async function samePhoneWarning(d: Driver) {
   return same ? `\n⚠️ เบอร์นี้ตรงกับคนขับเดิม: ${esc(same.full_name)} — ตรวจสอบใน Admin → Drivers` : "";
 }
 
+const teamCardMessage = async (reference: string) =>
+  (await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>().catch(() => null))?.telegram_message_id || undefined;
+
 async function noteTeamGroup(reference: string, d: Driver) {
-  const card = await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ telegram_message_id: number }>();
+  const card = { telegram_message_id: await teamCardMessage(reference) };
   const lines = [`✋ <b>${esc(d.full_name)}</b> รับงาน <b>${esc(reference)}</b> จากกลุ่มคนขับ${await samePhoneWarning(d)}`, `โทร: ${esc(d.phone)}`, `รถ: ${esc(d.vehicle || "-")} · ทะเบียน ${esc(d.car_plate || "-")}`,
     "", "ตั้งราคาค่างาน (Set cost) เพื่อส่งใบงานให้คนขับ"];
   await sendTo(telegramChatId(), lines.join("\n"), undefined, card?.telegram_message_id || undefined);
