@@ -89,6 +89,8 @@ export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions, noA
           ...(r.rideUrl ? [["Customer link", <CopyTextButton key="ride" icon="link" text={r.rideUrl} label={`Copy customer link for ${r.reference}`} />] as [string, React.ReactNode]] : []),
           ...(r.driverUrl ? [["Driver link", <CopyTextButton key="drv" icon="link" text={r.driverUrl} label={`Copy driver link for ${r.reference}`} />] as [string, React.ReactNode]] : []),
           ["Evidence", <button key="ev" type="button" onClick={() => setEvidence(true)} className="font-semibold text-brand-darker underline underline-offset-4">See</button>],
+          // Built from the booking's current details each time, so an edited booking downloads as a new PDF with the same reference.
+          ["PDF", <a key="pdf" href={`/api/admin/bookings/${encodeURIComponent(r.reference)}/confirmation`} download className="font-semibold text-brand-darker underline underline-offset-4">Download</a>],
         ] as [string, React.ReactNode][]).map(([k, v]) => k === "Price" ? <PriceRow key={k} r={r} /> : <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
       </dl>}
     </div>

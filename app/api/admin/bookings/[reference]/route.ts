@@ -97,6 +97,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ refer
   ]);
   if (!committed.meta.changes) return NextResponse.json({error:"The booking changed. Refresh and retry."},{status:409});
   console.info("Admin edited booking", { reference, admin: admin.email });
+  // The confirmation PDF is made again from the new details (same reference).
+  await import("@/lib/confirmation-refresh").then((m) => m.refreshStoredConfirmationPdf(reference)).catch(() => undefined);
   await import("@/lib/telegram/booking-changes").then((m) => m.notifyBookingEdited(reference, admin.displayName || admin.email, "แก้ไขโดยแอดมิน")).catch(() => undefined);
   return NextResponse.json({ ok: true, changed: true });
 }

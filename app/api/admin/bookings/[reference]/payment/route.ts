@@ -44,6 +44,8 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   }
   console.info("Admin changed booking payment", { reference, to: target, admin: admin.email });
   // The driver's job says whether to collect cash: the Admin group chooses what happens with the driver.
+  // The confirmation PDF is made again from the new details (same reference).
+  await import("@/lib/confirmation-refresh").then((m) => m.refreshStoredConfirmationPdf(reference)).catch(() => undefined);
   await import("@/lib/telegram/booking-changes").then((m) => m.notifyBookingEdited(reference, admin.displayName || admin.email, "แก้ไขการชำระเงิน")).catch(() => undefined);
   return NextResponse.json({ ok: true, changed: true });
 }
