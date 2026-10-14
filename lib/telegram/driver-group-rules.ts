@@ -91,16 +91,15 @@ export function offerText(job: OfferJob, state: OfferState) {
 }
 
 // The first-time questions, asked one at a time in the private chat.
-export type FormStep = "name" | "phone" | "plate" | "id_photo" | "car_photo";
-export const FORM_STEPS: FormStep[] = ["name", "phone", "plate", "id_photo", "car_photo"];
+export type FormStep = "name" | "phone" | "plate" | "car_photo";
+export const FORM_STEPS: FormStep[] = ["name", "phone", "plate", "car_photo"];
 export const STEP_QUESTION: Record<FormStep, string> = {
   name: "ชื่อ-นามสกุลคนขับ (พิมพ์ชื่อและนามสกุล เว้นวรรคระหว่างกัน เช่น สมชาย ใจดี)",
   phone: "เบอร์โทรศัพท์",
   plate: "ทะเบียนรถ (เช่น กข 1234)",
-  id_photo: "ส่งรูปใบขับขี่หรือบัตรประชาชน",
   car_photo: "ส่งรูปรถ (เห็นทะเบียน)",
 };
-export type DriverDraft = { name?: string; phone?: string; plate?: string; idPhoto?: boolean; carPhoto?: boolean };
+export type DriverDraft = { name?: string; phone?: string; plate?: string; carPhoto?: boolean };
 
 /** Checks one typed answer; returns the cleaned value or a Thai error to show. */
 export function checkTextAnswer(step: FormStep, raw: string): { value: string } | { error: string } {

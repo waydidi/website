@@ -227,7 +227,7 @@ async function completeTake(user: TelegramUser, reference: string, d: Driver, ki
   const ok=held ? await assignTaken(reference,d,String(user.id)) : false;
   if (ok) await db().prepare("UPDATE telegram_driver_jobs SET status='taken',driver_id=?,holder_name=?,hold_until=NULL,updated_at=? WHERE booking_reference=? AND holder_telegram_id=? AND status='signing_up'").bind(d.id,d.full_name,now(),reference,String(user.id)).run();
   if (ok) await syncDriverOffer(reference);
-  // Every job taken from the driver group: the driver's licence/ID and car photos go to the team group for checking.
+  // Every job taken from the driver group: the driver's car photo (and licence/ID if staff added one) goes to the team group for checking.
   if (ok) await postDriverPhotos(reference, d.id, kind).catch((error) => console.error("driver photos to team group failed", error instanceof Error ? error.message : "unknown"));
   return ok;
 }
@@ -395,14 +395,14 @@ async function saveStep(form: FormRow, draft: DriverDraft, chatId: string, user:
  * driver's car (plate, photo) is updated. Then the job becomes theirs.
  */
 async function finishForm(form: FormRow, draft: DriverDraft, chatId: string, user: TelegramUser) {
-  // Neither the car's model nor its type is asked: the plate and the car photo identify it.
-  const complete = draft.name && draft.phone && draft.plate && draft.idPhoto && draft.carPhoto;
+  // Not asked: the car's model or type (the plate and the car photo identify it), nor the driving licence or ID card.
+  const complete = draft.name && draft.phone && draft.plate && draft.carPhoto;
   if (!complete) { await startForm(user, chatId, form.booking_reference); return; }
   const at = now(), id = form.driver_id;
   const carKey = `driver-verification/${id}/vehicle.jpg`;
   await db().batch([
-    db().prepare("INSERT INTO drivers(id,full_name,phone,base_location,vehicle,car_plate,id_image_key,id_image_mime,car_image_key,car_image_mime,driver_type,status,created_at,updated_at) VALUES(?,?,?,'Telegram','',?,?,'image/jpeg',?,'image/jpeg','outsource','active',?,?) ON CONFLICT(id) DO NOTHING")
-      .bind(id, draft.name, draft.phone, draft.plate, `driver-verification/${id}/identity.jpg`, carKey, at, at),
+    db().prepare("INSERT INTO drivers(id,full_name,phone,base_location,vehicle,car_plate,id_image_key,id_image_mime,car_image_key,car_image_mime,driver_type,status,created_at,updated_at) VALUES(?,?,?,'Telegram','',?,NULL,NULL,?,'image/jpeg','outsource','active',?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(id, draft.name, draft.phone, draft.plate, carKey, at, at),
     db().prepare("INSERT INTO telegram_driver_links(telegram_user_id,driver_id,linked_at) VALUES(?,?,?) ON CONFLICT(telegram_user_id) DO UPDATE SET driver_id=excluded.driver_id,linked_at=excluded.linked_at").bind(String(user.id), id, at),
     db().prepare("DELETE FROM telegram_driver_forms WHERE telegram_user_id=?").bind(String(user.id)),
   ]);
@@ -429,7 +429,7 @@ async function postDriverPhotos(reference: string, driverId: string, kind: DocsK
   }
   const title = kind === "new_driver" ? "🪪 เอกสารคนขับใหม่" : "🪪 เอกสารคนขับ";
   const caption = [`${title}: <b>${esc(d.full_name)}</b>`, `เบอร์: ${esc(d.phone)}`, `รถ: ${esc(d.vehicle || "-")}`, `ทะเบียน: ${esc(d.car_plate || "-")}`,
-    names.length ? `รูป: ${names.join(", ")}` : "⚠️ ไม่มีรูปเอกสารในระบบ — เพิ่มได้ใน Admin → Drivers", `งาน: ${esc(reference)}`].join("\n");
+    names.length ? `รูป: ${names.join(", ")}` : "⚠️ ไม่มีรูปรถในระบบ — เพิ่มได้ใน Admin → Drivers", `งาน: ${esc(reference)}`].join("\n");
   const replyTo = await teamCardMessage(reference);
   const identity=driverJobLeg(reference);
   const assignment=await db().prepare("SELECT id FROM booking_assignments WHERE booking_reference=? AND leg=? AND driver_id=? AND revoked_at IS NULL ORDER BY assigned_at DESC LIMIT 1").bind(identity.reference,identity.leg,driverId).first<{id:string}>();
@@ -456,14 +456,14 @@ export async function handleDriverPrivate(m: TelegramMessage) {
   const form = await activeForm(m.from.id);
   if (!form) return false;
   const draft = JSON.parse(form.form_json || "{}") as DriverDraft;
-  if (form.step === "id_photo" || form.step === "car_photo") {
+  if (form.step === "car_photo") {
     const photo = m.photo?.at(-1);
     if (!photo) { await ask(chatId, form.booking_reference, form.step); return true; }
     const bytes = await downloadFile(photo.file_id, 8 * 1024 * 1024).catch(() => null);
-    const image = bytes ? await prepareDriverImage(new File([bytes], "photo.jpg", { type: "image/jpeg" }), form.step === "id_photo" ? "ID photo" : "car photo").catch(() => null) : null;
+    const image = bytes ? await prepareDriverImage(new File([bytes], "photo.jpg", { type: "image/jpeg" }), "car photo").catch(() => null) : null;
     if (!image) { await say(chatId, "รับรูปไม่สำเร็จ กรุณาส่งใหม่เป็นรูปภาพ (JPG)"); return true; }
-    await putFile(`driver-verification/${form.driver_id}/${form.step === "id_photo" ? "identity" : "vehicle"}.jpg`, image.bytes, image.mime);
-    if (form.step === "id_photo") draft.idPhoto = true; else draft.carPhoto = true;
+    await putFile(`driver-verification/${form.driver_id}/vehicle.jpg`, image.bytes, image.mime);
+    draft.carPhoto = true;
     await saveStep(form, draft, chatId, m.from);
     return true;
   }
