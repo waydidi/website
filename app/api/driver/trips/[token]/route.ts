@@ -84,8 +84,8 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     stopAlert: Boolean(openStopAlert) && !activeStop,
     noShow: { eligibleAt: eligibleAtIso(booking), airport: isAirportPickup(booking), freeWaitMinutes: isAirportPickup(booking) ? AIRPORT_FREE_WAIT_MINUTES : STANDARD_FREE_WAIT_MINUTES, maxDistanceMetres: NO_SHOW_MAX_DISTANCE_METRES },
     payoutDetails: payout ? { submittedAt: payout.submittedAt } : null,
-    // Only prepaid bookings ask for bank details after the Drop; a cash job goes straight to the completed trip page.
-    payoutNeeded: booking.paymentMethod !== "cash",
+    // After the Drop the job simply completes. The bank-details page (prepaid bookings only) is off unless the owner sets DRIVER_BANK_DETAILS=1.
+    payoutNeeded: (env as unknown as Record<string, unknown>).DRIVER_BANK_DETAILS === "1" && booking.paymentMethod !== "cash",
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
