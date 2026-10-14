@@ -51,11 +51,11 @@ test('the taken post only says whether the job is paid or cash, never an amount 
  const job={reference:'PC0001',vehicleName:'SUV',serviceType:'transfer',bookedHours:null,pickupDate:'2099-01-15',pickupTime:'09:30',pickup:'A',dropoff:'B',passengers:2,luggage:1,returnDate:null,returnTime:null,driverCost:800,paymentMethod:'card',paymentStatus:'paid',cashDue:0};
  const taken={kind:'taken',driverName:'Somchai'};
  const paid=rules.offerText(job,taken), cash=rules.offerText({...job,paymentMethod:'cash',paymentStatus:'pending',cashDue:2500},taken);
- assert.match(paid,/\nงานชำระแล้ว\n\n✅ รับงานแล้ว: Somchai$/);
+ assert.match(paid,/\nค่างาน: 800 บาท\n\n✅ รับงานแล้ว: Somchai$/); // a paid job has no payment line
  const confirming=rules.offerText(job,{kind:'confirming'});
- assert.match(confirming,/\nงานชำระแล้ว\n\nคนขับรับงานแล้ว✅: รอยืนยันข้อมูล$/);assert.doesNotMatch(confirming,/Somchai/);
+ assert.match(confirming,/\nค่างาน: 800 บาท\n\nคนขับรับงานแล้ว✅: รอยืนยันข้อมูล$/);assert.doesNotMatch(confirming,/Somchai/);
  assert.match(cash,/\nงานเงินสด\n\n✅ รับงานแล้ว: Somchai$/);
- for(const text of [paid,cash])assert.doesNotMatch(text,/การชำระ|ไม่ต้องเก็บเงิน|เก็บเงินสด|2,500/);
+ for(const text of [paid,cash,confirming])assert.doesNotMatch(text,/การชำระ|ไม่ต้องเก็บเงิน|เก็บเงินสด|2,500|งานชำระแล้ว/);
 });
 
 test('off unless the owner turns it on, and never the team group',()=>{
