@@ -19,6 +19,7 @@ import { BookingCards } from "@/components/bookings-admin/booking-cards";
 import { fullName } from "@/lib/person-name";
 import { bookingAddonLabels } from "@/lib/booking-addon-requests";
 import { CreateMenu } from "@/components/bookings-admin/create-menu";
+import { BookingFilterButton } from "@/components/bookings-admin/filter-button";
 import { ViewPicker } from "@/components/bookings-admin/view-picker";
 import { FormsTable } from "@/components/bookings-admin/form-requests";
 import { requireWaydidiAdmin } from "@/lib/admin";
@@ -194,7 +195,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           </Link>
         </nav>
         {/* Phone: the view picker sits at the top right (the page name is in the header). */}
-        <div className="mb-1 flex justify-end md:hidden"><ViewPicker mode={mode} type={type} /></div>
+        <div className="mb-1 flex items-center justify-end gap-2 md:hidden">{mode === "list" && view === "active" && <BookingFilterButton />}<ViewPicker mode={mode} type={type} /></div>
         {/* Transfer / By the hour, each with a list or calendar view. */}
         <div className={`mt-2 flex-wrap items-center justify-between gap-3 ${mode === "list" && view === "active" ? "hidden md:flex" : "flex"}`}>
           <div role="tablist" aria-label="Service" className={`${mode === "list" && view === "active" ? "hidden md:inline-flex" : "inline-flex"} rounded-xl bg-[#E8EAEE] p-1`}>
