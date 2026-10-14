@@ -10,12 +10,13 @@ import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/dri
 import { includesKohChangFerry } from "@/lib/booking-form";
 import { paymentPill } from "@/lib/payment-pill";
 import { shrinkFormImages } from "@/lib/shrink-image";
+import { LegPriceSheet } from "@/components/bookings-admin/leg-price-sheet";
 import { ResendCardButton } from "@/components/bookings-admin/resend-card";
 import { EvidenceSheet } from "@/components/drivers/evidence-sheet";
 import type { EditableBooking } from "@/components/bookings-admin/booking-edit";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 
-export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return"; /** The customer's ride-status page. */ rideUrl?: string | null; /** The assigned driver's job page. */ driverUrl?: string | null; /** Driver cost set in Telegram ("Set cost"); null until then. */ cost?: number | null; /** What "Edit" on the card changes (booking cards). */ edit?: EditableBooking };
+export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return"; /** Round trip: false for the booking's other journey, listed only by the Completed filter. */ primary?: boolean; /** This journey is done (its Drop is confirmed). */ legDone?: boolean; /** Round trip paid in two parts: the price to collect for each trip; `total` is then this trip's part. */ split?: { first: number; second: number } | null; /** The booking's whole price. */ bookingTotal?: number; /** The customer's ride-status page. */ rideUrl?: string | null; /** The assigned driver's job page. */ driverUrl?: string | null; /** Driver cost set in Telegram ("Set cost"); null until then. */ cost?: number | null; /** What "Edit" on the card changes (booking cards). */ edit?: EditableBooking };
 
 // The badge follows the driver's trip status once a driver is assigned.
 const STATUS: Record<string, [string, string]> = {
@@ -43,6 +44,7 @@ const vehicleName = (v: string) => { const t = v.replace(/_/g, " "); return t.ch
 /** The Price row with a "!" on the left that opens what the price includes (Koh Chang car ferry tickets when the ride starts or ends there). */
 function PriceRow({ r }: { r: UpcomingRide }) {
   const [open, setOpen] = useState(false);
+  const [splitting, setSplitting] = useState(false);
   const box = useCloseOutside<HTMLDivElement>(open, () => setOpen(false));
   const ferry = includesKohChangFerry(r.pickup, r.dropoff);
   const items = ["Private vehicle with driver", "Fuel and driver costs", ...(ferry ? [`Koh Chang car ferry tickets for all ${r.passengers} ${r.passengers === 1 ? "passenger" : "passengers"}`] : [])];
@@ -50,7 +52,8 @@ function PriceRow({ r }: { r: UpcomingRide }) {
     <dt className="shrink-0 text-slate-500">
       Price
     </dt>
-    <dd className="flex items-center justify-end gap-1.5 text-right font-semibold"><button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="What's included" className="grid size-[18px] place-items-center rounded-full bg-brand text-[11px] font-black leading-none text-white hover:bg-brand-strong">!</button>{r.total ? `THB ${r.total.toLocaleString("en-US")}` : "Not set"}</dd>
+    <dd className="flex items-center justify-end gap-1.5 text-right font-semibold"><button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="What's included" className="grid size-[18px] place-items-center rounded-full bg-brand text-[11px] font-black leading-none text-white hover:bg-brand-strong">!</button>{r.roundtrip && r.status === "confirmed" && r.bookingTotal ? <button type="button" onClick={() => setSplitting(true)} aria-label={r.split ? `Price ${r.total?.toLocaleString("en-US")} baht, change the split` : "Split the price into two payments"} className="font-semibold underline decoration-dotted underline-offset-4">{`THB ${(r.total ?? 0).toLocaleString("en-US")}`}</button> : r.total ? `THB ${r.total.toLocaleString("en-US")}` : "Not set"}</dd>
+    {splitting && r.bookingTotal ? <LegPriceSheet reference={r.reference} total={r.bookingTotal} split={r.split ?? null} onClose={() => setSplitting(false)} /> : null}
     {open && <div role="dialog" aria-label="What's included" className="absolute right-0 top-[calc(100%+6px)] z-20 w-[260px] rounded-xl border border-slate-200 bg-white p-3 text-[13px] shadow-lg">
       <p className="mb-1.5 font-bold">What&apos;s included</p>
       <ul className="grid gap-1">{items.map((i) => <li key={i} className={`flex gap-1.5 ${i.startsWith("Koh Chang") ? "font-semibold text-[#2F7A6B]" : "text-slate-700"}`}><span aria-hidden>✓</span>{i}</li>)}</ul>

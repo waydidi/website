@@ -15,7 +15,9 @@ export const FILTER_OPTIONS: { key: keyof BookingFilter; label: string; options:
   { key: "status", label: "Status", options: [["all", "All"], ["confirmed", "Confirmed"], ["pending_payment", "Awaiting payment"], ["completed", "Completed"], ["cancelled", "Cancelled"]] },
 ];
 
-type Ride = { pickupDate: string; driverId: string | null; paymentStatus?: string | null; status: string };
+/** `primary: false` is a round trip's other journey; `legDone` says this journey itself is finished. */
+type Ride = { pickupDate: string; driverId: string | null; paymentStatus?: string | null; status: string; primary?: boolean; legDone?: boolean };
+const isDone = (r: Ride) => r.legDone === true || r.status === "completed" || r.status === "no_show";
 
 const addDays = (date: string, days: number) => { const [y, m, d] = date.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10); };
 /** Thailand's date today ("2026-10-14"). */
@@ -33,11 +35,18 @@ export function matchesFilter(r: Ride, f: BookingFilter, today: string) {
   if (f.driver === "assigned" && !r.driverId) return false;
   if (f.driver === "not_assigned" && r.driverId) return false;
   if (f.payment !== "all" && paymentGroup(r.paymentStatus) !== f.payment) return false;
-  if (f.status === "completed" ? !["completed", "no_show"].includes(r.status) : f.status !== "all" && r.status !== f.status) return false;
+  if (f.status === "completed" ? !isDone(r) : f.status !== "all" && r.status !== f.status) return false;
   return true;
 }
 
-export const applyFilter = <T extends Ride>(rides: T[], f: BookingFilter, today: string) => (activeFilters(f) ? rides.filter((r) => matchesFilter(r, f, today)) : rides);
+/**
+ * A round trip shows one card (its current trip). Under the Completed filter each finished trip is its own card: the
+ * first trip as soon as it is done, even while the second trip is still to come, and the second trip once it ends.
+ */
+export const applyFilter = <T extends Ride>(rides: T[], f: BookingFilter, today: string) => {
+  const pool = f.status === "completed" ? rides : rides.filter((r) => r.primary !== false);
+  return activeFilters(f) ? pool.filter((r) => matchesFilter(r, f, today)) : pool;
+};
 
 /** Reads a saved filter, ignoring anything that is not one of the known options. */
 export function parseFilter(raw: unknown): BookingFilter {

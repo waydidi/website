@@ -54,3 +54,21 @@ test('Thailand\'s date, and a saved filter is only read if it is a known choice'
  assert.deepEqual(f.parseFilter(null),f.NO_FILTER);
  assert.deepEqual(f.parseFilter('junk'),f.NO_FILTER);
 });
+
+test('round trips: the first trip is listed under Completed as soon as it is done, and the second trip once it ends',()=>{
+ const trip=(leg,over)=>ride({reference:'RT1',leg,pickupDate:leg==='outbound'?'2026-10-10':'2026-10-20',driverId:'d1',status:'confirmed',...over});
+ // First trip done, second trip still to come: the booking card shows the second trip.
+ const secondUp=[trip('return',{primary:true,legDone:false}),trip('outbound',{primary:false,legDone:true})];
+ assert.deepEqual(f.applyFilter(secondUp,f.NO_FILTER,today).map(r=>r.leg),['return']); // no filter: one card per booking, as before
+ assert.deepEqual(f.applyFilter(secondUp,{...f.NO_FILTER,status:'confirmed'},today).map(r=>r.leg),['return']);
+ assert.deepEqual(f.applyFilter(secondUp,{...f.NO_FILTER,status:'completed'},today).map(r=>r.leg),['outbound']); // the first trip, although the booking is still open
+ // Both trips done (the booking is completed): two separate completed trips.
+ const both=[trip('return',{primary:true,legDone:true,status:'completed'}),trip('outbound',{primary:false,legDone:true,status:'completed'})];
+ assert.deepEqual(f.applyFilter(both,{...f.NO_FILTER,status:'completed'},today).map(r=>r.leg).sort(),['outbound','return']);
+ assert.deepEqual(f.applyFilter(both,f.NO_FILTER,today).map(r=>r.leg),['return']);
+ // Other choices still apply to each trip's own card.
+ assert.deepEqual(f.applyFilter(secondUp,{...f.NO_FILTER,status:'completed',when:'past'},today).map(r=>r.leg),['outbound']);
+ assert.deepEqual(f.applyFilter(secondUp,{...f.NO_FILTER,status:'completed',when:'week'},today).map(r=>r.leg),[]);
+ // A one-way trip that is not done is not listed as completed.
+ assert.deepEqual(f.applyFilter([ride({reference:'ONE',primary:true,legDone:false})],{...f.NO_FILTER,status:'completed'},today),[]);
+});
