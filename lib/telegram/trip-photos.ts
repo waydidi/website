@@ -76,7 +76,6 @@ export async function postJobCompleted(reference: string, leg: string) {
   const date = info ? (back ? info.returnDate : info.pickupDate) : null, time = info ? (back ? info.returnTime : info.pickupTime) : null;
   const lines = ["✅ <b>Completed job</b>", `Reference ID: ${esc(reference)}`];
   if (info) lines.push(`Route: ${esc(from)} – ${esc(to)}`, `Date: ${esc(dayMonthYear(date))}`, `Time: ${esc(clock(time))}`);
-  if (info?.returnDate && leg === "outbound") lines.push("", "Next: the second trip.");
   // A reply under the booking's card, quoting its "Reference: …" line; without the quote if Telegram can't
   // find that text (e.g. the card was changed), and as a plain message if the card was never posted.
   const offer=await driverOfferMessage(reference,leg).catch(()=>null);
