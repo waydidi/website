@@ -83,12 +83,13 @@ export function offerText(job: OfferJob, state: OfferState) {
     `ค่างาน: ${job.driverCost ? `${job.driverCost.toLocaleString("en-US")} บาท` : "รอแจ้งราคา"}`,
   ];
   if (state.kind === "open") return [`${escHtml(job.vehicleName)} งานใหม่🚗`, "", ...trip, "", "คนแรกที่กด «รับงาน» ได้งานนี้", "*กดรับงานแล้วยกเลิก ปรับ 20 บาท"].join("\n");
-  // The group only sees whether the job is paid or cash; the amount to collect is in the driver's private ใบงาน.
-  const payment = job.paymentMethod === "cash" ? "งานเงินสด" : "งานชำระแล้ว";
+  // The group only sees whether the job is cash; the amount to collect is in the driver's private ใบงาน.
+  // Only a cash job is marked; a paid job carries no payment line.
+  const payment = job.paymentMethod === "cash" ? ["งานเงินสด"] : [];
   const status = state.kind === "confirming" ? "คนขับรับงานแล้ว✅: รอยืนยันข้อมูล"
     : state.kind === "taken" ? `✅ รับงานแล้ว: ${escHtml(state.driverName)}`
     : state.reason === "cancelled" ? "❌ งานนี้ถูกยกเลิก" : state.reason === "past" ? "⏱ เลยเวลารับงานแล้ว" : "✅ มีคนขับแล้ว";
-  return [`🚗 งาน Ref ID: ${escHtml(job.reference)}`, `รถ: ${escHtml(job.vehicleName)}`, ...trip, payment, "", status].join("\n");
+  return [`🚗 งาน Ref ID: ${escHtml(job.reference)}`, `รถ: ${escHtml(job.vehicleName)}`, ...trip, ...payment, "", status].join("\n");
 }
 
 // The first-time questions, asked one at a time in the private chat.
