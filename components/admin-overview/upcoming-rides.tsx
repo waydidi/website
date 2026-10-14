@@ -10,6 +10,7 @@ import { DriverPicker, type PickerDriver } from "@/components/bookings-admin/dri
 import { includesKohChangFerry } from "@/lib/booking-form";
 import { paymentPill } from "@/lib/payment-pill";
 import { shrinkFormImages } from "@/lib/shrink-image";
+import { ResendCardButton } from "@/components/bookings-admin/resend-card";
 import { EvidenceSheet } from "@/components/drivers/evidence-sheet";
 import type { EditableBooking } from "@/components/bookings-admin/booking-edit";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
@@ -88,6 +89,7 @@ export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions, noA
           ["Payment", <span key="pay" className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold ${payment(r.paymentStatus)[1]}`}>{payment(r.paymentStatus)[0]}</span>],
           ...(r.rideUrl ? [["Customer link", <CopyTextButton key="ride" icon="link" text={r.rideUrl} label={`Copy customer link for ${r.reference}`} />] as [string, React.ReactNode]] : []),
           ...(r.driverUrl ? [["Driver link", <CopyTextButton key="drv" icon="link" text={r.driverUrl} label={`Copy driver link for ${r.reference}`} />] as [string, React.ReactNode]] : []),
+          ...(r.status === "confirmed" ? [["Telegram", <ResendCardButton key="tg" reference={r.reference} />] as [string, React.ReactNode]] : []),
           ["Evidence", <button key="ev" type="button" onClick={() => setEvidence(true)} className="font-semibold text-brand-darker underline underline-offset-4">See</button>],
           // Built from the booking's current details each time, so an edited booking downloads as a new PDF with the same reference.
           ["PDF", <a key="pdf" href={`/api/admin/bookings/${encodeURIComponent(r.reference)}/confirmation`} download className="font-semibold text-brand-darker underline underline-offset-4">Download</a>],
