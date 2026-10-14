@@ -79,8 +79,8 @@ async function stateFor(b: BookingRow, job: JobRow | null): Promise<OfferState> 
     const d = await db().prepare("SELECT full_name FROM drivers WHERE id=?").bind(job.driver_id).first<{ full_name: string }>();
     return { kind: "taken", driverName: d?.full_name ?? job.holder_name ?? "-" };
   }
-  // Tapped and now confirming the car or signing up in the private chat: shown as taken by them.
-  if (job?.status === "signing_up") return { kind: "taken", driverName: job.holder_name ?? "-" };
+  // Tapped and now confirming the car or signing up in the private chat: taken, waiting for their details (no name yet).
+  if (job?.status === "signing_up") return { kind: "confirming" };
   if (await driverSet(b.reference)) return { kind: "closed", reason: "assigned" };
   if (pickupPassed(b)) return { kind: "closed", reason: "past" };
   return { kind: "open" };

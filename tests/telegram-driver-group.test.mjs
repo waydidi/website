@@ -52,6 +52,8 @@ test('the taken post only says whether the job is paid or cash, never an amount 
  const taken={kind:'taken',driverName:'Somchai'};
  const paid=rules.offerText(job,taken), cash=rules.offerText({...job,paymentMethod:'cash',paymentStatus:'pending',cashDue:2500},taken);
  assert.match(paid,/\nงานชำระแล้ว\n\n✅ รับงานแล้ว: Somchai$/);
+ const confirming=rules.offerText(job,{kind:'confirming'});
+ assert.match(confirming,/\nงานชำระแล้ว\n\nคนขับรับงานแล้ว✅: รอยืนยันข้อมูล$/);assert.doesNotMatch(confirming,/Somchai/);
  assert.match(cash,/\nงานเงินสด\n\n✅ รับงานแล้ว: Somchai$/);
  for(const text of [paid,cash])assert.doesNotMatch(text,/การชำระ|ไม่ต้องเก็บเงิน|เก็บเงินสด|2,500/);
 });
@@ -139,7 +141,7 @@ test('two linked drivers tapping Assign at once: the first tap gets the job, the
  assert.equal((a.ok?a:b).driver.id,winner.id);
  // The post changes at once: the reference, the trip, what to collect and who took it, no button.
  const edit=sent.filter(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222').at(-1);
- assert.equal(edit.body.text,['🚗 งาน Ref ID: DG0001','รถ: ตู้สวย','วันที่: 15/01/2099','เวลา: 09:30','รับ: Suvarnabhumi Airport','ส่ง: Pattaya Hilton','จำนวน: 4 คน, 3 กระเป๋า','ค่างาน: 1,800 บาท','งานเงินสด','',`✅ รับงานแล้ว: ${winner.name}`].join('\n'));
+ assert.equal(edit.body.text,['🚗 งาน Ref ID: DG0001','รถ: ตู้สวย','วันที่: 15/01/2099','เวลา: 09:30','รับ: Suvarnabhumi Airport','ส่ง: Pattaya Hilton','จำนวน: 4 คน, 3 กระเป๋า','ค่างาน: 1,800 บาท','งานเงินสด','','คนขับรับงานแล้ว✅: รอยืนยันข้อมูล'].join('\n'));
  assert.deepEqual(edit.body.reply_markup.inline_keyboard,[]);
  assert.equal((await group.takeJob(winner.user,'DG0001')).ok,false); // tapping again changes nothing
  // In the private chat they pick their saved car: the job is assigned with it.
@@ -201,7 +203,7 @@ test('a first-time driver gets the job on the first tap, then signs up in the pr
  await group.handleDriverTake({id:'tap1',from:carol,data:'dj_take:DG0006',message:{message_id:1,chat:{id:-100222,type:'supergroup'}}});
  assert.deepEqual(await d1.prepare("SELECT status,holder_telegram_id,holder_name,driver_id FROM telegram_driver_jobs WHERE booking_reference='DG0006'").first(),{status:'signing_up',holder_telegram_id:'1004',holder_name:'Carol',driver_id:null});
  const edit=sent.find(s=>s.method==='editMessageText'&&s.body.chat_id==='-100222');
- assert.match(edit.body.text,/^🚗 งาน Ref ID: DG0006\n[\s\S]*\n\n✅ รับงานแล้ว: Carol$/);
+ assert.match(edit.body.text,/^🚗 งาน Ref ID: DG0006\n[\s\S]*\n\nคนขับรับงานแล้ว✅: รอยืนยันข้อมูล$/);
  assert.deepEqual(edit.body.reply_markup.inline_keyboard,[]);
  assert.match(sent.find(s=>s.method==='answerCallbackQuery').body.text,/ได้งาน DG0006 แล้ว กรอกข้อมูลคนขับ/);
  assert.match(sent.filter(s=>s.body.chat_id==='1004').at(-1).body.text,/\(1\/4\): ชื่อ-นามสกุลคนขับ/);
