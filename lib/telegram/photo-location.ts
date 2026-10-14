@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { esc } from "./cards";
 import { sendCard, telegramChatId } from "./client";
-import { mapsUrl, nearestPlace } from "@/lib/place-name";
+import { describeLocation, locationLines } from "@/lib/place-name";
 
 // A team member replies to a driver's step photo in the Admin group asking where it was taken
 // ("Read the location and show me name or Google Maps link"): the bot answers with the place name and a Maps link.
@@ -27,11 +27,6 @@ export async function answerPhotoLocation(repliedMessageId: number, replyToMessa
     await sendCard(`📍 No GPS location was saved with this photo${job.booking_reference ? ` (${esc(job.booking_reference)})` : ""}.`, undefined, replyToMessageId);
     return true;
   }
-  const place = await nearestPlace(photo.latitude, photo.longitude);
-  await sendCard([
-    place ? `📍 <b>${esc(place.name)}</b>${place.address ? ` — ${esc(place.address)}` : ""}` : "📍 No named place within 150 m of the photo.",
-    mapsUrl(photo.latitude, photo.longitude),
-    ...(photo.accuracy_metres != null ? [`GPS accuracy ±${Math.round(photo.accuracy_metres)} m`] : []),
-  ].join("\n"), undefined, replyToMessageId);
+  await sendCard(locationLines(photo.latitude, photo.longitude, photo.accuracy_metres, await describeLocation(photo.latitude, photo.longitude)).join("\n"), undefined, replyToMessageId);
   return true;
 }
