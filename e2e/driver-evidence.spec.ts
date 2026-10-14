@@ -22,7 +22,7 @@ async function setup(page: Page, currentStatus: string, { camera = true, locatio
     // Whether location and camera were allowed before ("prompt" shows the permission cards).
     Object.defineProperty(navigator.permissions, "query", { value: async () => ({ state: granted ? "granted" : "prompt" }) });
     Object.defineProperty(navigator.mediaDevices, "getUserMedia", { value: async () => {
-      if (!camera) throw new Error("NotAllowedError");
+      if (!camera) throw new DOMException("Permission denied", "NotAllowedError");
       const canvas = document.createElement("canvas"); canvas.width = 480; canvas.height = 640;
       const ctx = canvas.getContext("2d")!; ctx.fillStyle = "#64748b"; ctx.fillRect(0, 0, 480, 640);
       ctx.fillStyle = "#FE8B05"; ctx.fillRect(50, 150, 380, 180);
@@ -134,6 +134,24 @@ test("location refused: the card explains how to turn it on and the camera stays
   await expect(sheet.getByRole("button", { name: "ลองอีกครั้ง" })).toBeVisible();
   await expect(sheet.getByText("ขั้นตอน 2 จาก 2")).toHaveCount(0);
   await expect(sheet.locator("video")).toHaveCount(0);
+});
+
+test("camera refused at step 2: the card says how to allow it and offers the phone's camera app, which still takes the photo", async ({ page }) => {
+  const { sent, uploads } = await setup(page, "going_to_standby", { granted: false, camera: false });
+  await page.getByRole("button", { name: "ยืนยันว่าถึงจุดรับแล้ว" }).click({ timeout: 30000 });
+  const sheet = page.getByRole("dialog", { name: "รอที่จุดรับ" });
+  await sheet.getByRole("button", { name: "อนุญาตตำแหน่ง" }).click();
+  await sheet.getByRole("button", { name: "อนุญาตกล้อง" }).click();
+  await expect(sheet.getByRole("alert")).toContainText("เปิดสิทธิ์กล้องให้ waydidi.com");
+  await expect(sheet.getByRole("button", { name: "ลองอีกครั้ง" })).toBeVisible();
+  await sheet.getByRole("button", { name: "ถ่ายด้วยแอปกล้องของโทรศัพท์" }).click();
+  await expect(sheet.getByText("เปิดกล้องในหน้านี้ไม่ได้", { exact: false })).toBeVisible();
+  await expect(sheet.locator('input[type="file"]')).toHaveAttribute("capture", "environment");
+  const jpegBytes = jpeg.encode({ width: 20, height: 40, data: new Uint8Array(20 * 40 * 4).fill(200) }, 80).data;
+  await sheet.locator('input[type="file"]').setInputFiles({ name: "camera.jpg", mimeType: "image/jpeg", buffer: jpegBytes });
+  await sheet.getByRole("button", { name: "ใช้รูปนี้" }).click();
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0].evidenceId).toBe(uploads[0]);
 });
 
 test("Pick up and Drop also use the camera; without a live camera the phone's camera app is used", async ({ page }) => {
