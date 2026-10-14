@@ -138,7 +138,8 @@ export async function pickDriver(reference: string, driverId: string, adminName:
   if (!done.meta.changes) return false;
   await postAssignmentWhenReady(reference, adminName);
   await refresh(reference);
-  return true;
+  // Not assigned after all (schedule conflict…): the slot was freed and the team group told why.
+  return Boolean(await db().prepare("SELECT 1 x FROM telegram_booking_cards WHERE booking_reference=? AND driver_done=1").bind(reference).first());
 }
 
 type BookingRow = { reference: string; customer_name: string; customer_surname: string | null; passengers: number; luggage: number; pickup_date: string; pickup_time: string; flight_number: string | null;
@@ -157,7 +158,16 @@ export async function postAssignmentWhenReady(reference: string, by: string, hea
   if (!b || b.status!=="confirmed" || !form.driverId) return false;
   // The driver's trip link: the driver updates status there, and the same page shows the trip's progress.
   const committed=await assignDriver({reference,leg:"outbound",driverId:form.driverId,by:`telegram:${by}`,expectedVersion:b.booking_version,expectedAssignmentId:null,idempotencyKey:`telegram:${reference}:outbound:${b.booking_version}:${form.driverId}`,telegramHeader:header??"",telegramDriverDm:true,telegramReplyTo:card.telegram_message_id||undefined,...offer});
-  if (!committed.ok) return false;
+  if (!committed.ok) {
+    // A driver chosen by staff who cannot be assigned (schedule conflict, booking changed) must not stay "set":
+    // the slot is freed so staff can choose again, and the team group is told why. The driver-group take path
+    // (offer) undoes and reports its own failure.
+    if (!offer) {
+      await db().prepare("UPDATE telegram_booking_cards SET driver_done=0,driver_form_json=NULL WHERE booking_reference=? AND driver_form_json=? AND assignment_posted=0").bind(reference, card.driver_form_json).run();
+      await queueTelegram({ id: `assign-failed:${reference}:${b.booking_version}:${form.driverId}`, reference, destination: telegramChatId(), payload: { text: `⚠️ มอบหมายงาน <b>${esc(reference)}</b> ให้ ${esc(form.name ?? "คนขับ")} ไม่สำเร็จ: ${esc(committed.error)}\nเลือกคนขับใหม่ในการ์ดการจอง`, replyTo: card.telegram_message_id || undefined } }).catch(() => undefined);
+    }
+    return false;
+  }
   await deliverAssignmentTelegram(committed.assignment.id);
   return true;
 }

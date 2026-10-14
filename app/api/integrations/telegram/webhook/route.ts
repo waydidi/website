@@ -105,7 +105,7 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
       return answerCallback(q.id, "Choose a driver.");
     }
     const picked = extra ? await pickDriver(target, extra, admin.display_name, refreshBookingCard) : false;
-    return answerCallback(q.id, picked ? "Driver assigned." : "That driver isn't available.", !picked);
+    return answerCallback(q.id, picked ? "Driver assigned." : "Couldn't assign that driver (see the message in the group).", !picked);
   }
   if (action === "noop") return answerCallback(q.id);
   if (action === "bk_cancel") return answerCallback(q.id, await cancelBookingFromTelegram(target, admin.display_name, extra), true);
