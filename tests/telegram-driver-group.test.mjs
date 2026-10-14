@@ -414,3 +414,19 @@ test('a take that fails while assigning gives the job back, tells the team why, 
  await useCar('RS0002',bob);
  assert.equal((await d1.prepare("SELECT status FROM telegram_driver_jobs WHERE booking_reference='RS0002'").first()).status,'taken');
 });
+
+test('staff choosing a driver who cannot be assigned (schedule conflict): the slot is freed and the team group is told why',async()=>{
+ const tasks=await vite.ssrLoadModule('/lib/telegram/booking-tasks.ts');
+ await d1.prepare("INSERT INTO drivers(id,full_name,phone,vehicle,car_plate,driver_type,status,created_at,updated_at) VALUES('own-1','Own Driver','0899999999','Toyota','ขข 1','own','active',?,?)").bind(at,at).run();
+ await booking('PK0001',{date:'2099-03-01'});await booking('PK0002',{date:'2099-03-01'});
+ for(const r of ['PK0001','PK0002'])await d1.prepare("UPDATE telegram_booking_cards SET cost_done=1,acknowledged_by='Admin' WHERE booking_reference=?").bind(r).run();
+ const refresh=async()=>undefined;
+ assert.equal(await tasks.pickDriver('PK0001','own-1','Admin',refresh),true);
+ assert.equal((await d1.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='PK0001' AND revoked_at IS NULL").first()).n,1);
+ sent.length=0;
+ assert.equal(await tasks.pickDriver('PK0002','own-1','Admin',refresh),false); // the same driver, the same time
+ assert.deepEqual(await d1.prepare("SELECT driver_done,driver_form_json FROM telegram_booking_cards WHERE booking_reference='PK0002'").first(),{driver_done:0,driver_form_json:null});
+ assert.equal((await d1.prepare("SELECT COUNT(*) n FROM booking_assignments WHERE booking_reference='PK0002'").first()).n,0);
+ assert.ok(sent.some(s=>s.method==='sendMessage'&&s.body.chat_id==='-100111'&&/PK0002/.test(s.body.text)&&/conflict/.test(s.body.text)));
+ assert.equal(await tasks.pickDriver('PK0002','own-1','Admin',refresh),false); // can try again, with a clear result each time
+});
