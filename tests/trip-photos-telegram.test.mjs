@@ -128,3 +128,46 @@ test('Google refusing, finding nothing, or switched off with TELEGRAM_PHOTO_PLAC
   assert.equal(await run('ev-nogps',evidence({latitude:null,longitude:null})),'✅<b>Stand by</b> (52LLDS)\n14/10/2026 — 1:17 PM');
  }finally{env.GOOGLE_MAPS_SERVER_KEY=undefined;places=null;}
 });
+
+// Replying to a step photo in the Admin group: "where is this?" → place name and Google Maps link.
+async function stepPhoto(ref,{lat=12.932185,lng=100.890614,acc=9,message=77}={}){
+ const at='2026-10-14T06:00:00Z';
+ await d1.prepare("INSERT OR IGNORE INTO bookings(reference,customer_name,customer_email,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status,access_token_hash,created_at,updated_at) VALUES(?,'T','t@x.co','A','B','2026-10-14','13:00',1,0,'economy_sedan','card',1800,'confirmed',?,?,?)").bind(ref,'h-'+ref,at,at).run();
+ await d1.prepare("INSERT OR IGNORE INTO drivers(id,full_name,phone,vehicle,car_plate,driver_type,status,created_at,updated_at) VALUES('dl','Driver','0812345678','Van','กข 1','outsource','active',?,?)").bind(at,at).run();
+ await d1.prepare("INSERT INTO booking_assignments(id,booking_reference,leg,driver_id,token_hash,current_status,assigned_by,assigned_at,token_expires_at,updated_at) VALUES(?,?,'outbound','dl',?,'standby','t',?,'2099-01-01T00:00:00Z',?)").bind('as-'+ref,ref,'th-'+ref,at,at).run();
+ await d1.prepare("INSERT INTO driver_status_events(id,assignment_id,booking_reference,status,previous_status,verification_status,created_at,confirmed_at) VALUES(?,?,?,'standby','going_to_standby','verified',?,?)").bind('ev-'+ref,'as-'+ref,ref,at,at).run();
+ await d1.prepare("INSERT INTO driver_trip_evidence(id,assignment_id,booking_reference,leg,driver_id,event_type,status_event_id,device_captured_at,received_at,latitude,longitude,accuracy_metres,original_key,stamped_key,file_bytes,expires_at) VALUES(?,?,?,'outbound','dl','pickup',?,?,?,?,?,?,'k','k2',4,'2099-01-01T00:00:00Z')").bind('evd-'+ref,'as-'+ref,ref,'ev-'+ref,at,at,lat,lng,acc).run();
+ await d1.prepare("INSERT INTO telegram_delivery_jobs(id,booking_reference,destination,payload_json,status,next_attempt_at,telegram_message_id,sent_at,created_at,updated_at) VALUES(?,?,'-100','{}','sent',?,?,?,?,?)").bind(`step:ev-${ref}:team`,ref,at,message,at,at,at).run();
+}
+test('a reply to a step photo asking for its location gets the place name, a Maps link and the GPS accuracy',async()=>{
+ const {answerPhotoLocation,isLocationQuestion}=await vite.ssrLoadModule('/lib/telegram/photo-location.ts');
+ assert.ok(isLocationQuestion('Read the location and show me name or Google Maps link'));
+ assert.ok(isLocationQuestion('ที่นี่ที่ไหน ขอพิกัดหน่อย'));
+ assert.ok(isLocationQuestion('where is this?'));
+ assert.ok(!isLocationQuestion('ok thanks')&&!isLocationQuestion('x'.repeat(300)+' location'));
+ await stepPhoto('LOC001',{message:501});
+ globalThis.__tripPhotos.env.GOOGLE_MAPS_SERVER_KEY='server-key';
+ places=()=>Response.json({places:[{displayName:{text:'Roadside Shop <1>'},formattedAddress:'Pattaya, Chon Buri, Thailand'}]});
+ sent.length=0;
+ try{assert.equal(await answerPhotoLocation(501,9001),true);}finally{globalThis.__tripPhotos.env.GOOGLE_MAPS_SERVER_KEY=undefined;places=null;}
+ const body=JSON.parse(sent[0].form);
+ assert.equal(body.chat_id,'-100');
+ assert.deepEqual(body.reply_parameters,{message_id:9001,allow_sending_without_reply:true});
+ assert.equal(body.text,'📍 <b>Roadside Shop &lt;1&gt;</b> — Pattaya, Chon Buri, Thailand\nhttps://www.google.com/maps?q=12.932185,100.890614\nGPS accuracy ±9 m');
+});
+
+test('with no named place nearby the link is still given; a photo without GPS says so; any other message is left alone',async()=>{
+ const {answerPhotoLocation}=await vite.ssrLoadModule('/lib/telegram/photo-location.ts');
+ await stepPhoto('LOC002',{message:502});await stepPhoto('LOC003',{message:503,lat:null,lng:null,acc:null});
+ sent.length=0;
+ assert.equal(await answerPhotoLocation(502,9002),true); // no Google key here: no name, still the link
+ assert.equal(JSON.parse(sent[0].form).text,'📍 No named place within 150 m of the photo.\nhttps://www.google.com/maps?q=12.932185,100.890614\nGPS accuracy ±9 m');
+ sent.length=0;
+ assert.equal(await answerPhotoLocation(503,9003),true);
+ assert.equal(JSON.parse(sent[0].form).text,'📍 No GPS location was saved with this photo (LOC003).');
+ sent.length=0;
+ assert.equal(await answerPhotoLocation(999,9004),false); // not one of our step photos
+ assert.equal(sent.length,0);
+ await d1.prepare("UPDATE telegram_delivery_jobs SET destination='-555' WHERE id='step:ev-LOC002:team'").run();
+ assert.equal(await answerPhotoLocation(502,9005),false); // a photo in another chat is not answered here
+});

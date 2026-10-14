@@ -13,6 +13,7 @@ import { parseBulkCost } from "@/lib/telegram/bulk-cost-rules";
 import { setCostsFromMessage } from "@/lib/telegram/bulk-cost";
 import { driverGroup, handleDriverCallback, handleDriverGroupMessage, handleDriverPrivate, handleDriverTake } from "@/lib/telegram/driver-group";
 import { isDriverGroupChat } from "@/lib/telegram/driver-group-rules";
+import { answerPhotoLocation, isLocationQuestion } from "@/lib/telegram/photo-location";
 import { postJobCompleted } from "@/lib/telegram/trip-photos";
 import { verifyTripCompletion } from "@/lib/trip-completion";
 import { acknowledgeEdit, approveChange, cancelBookingFromTelegram, declineChange, editKeepDriver, editNewDriver, keepBooking } from "@/lib/telegram/booking-changes";
@@ -209,6 +210,8 @@ async function handleMessage(m: TelegramMessage) {
   // "ราคา" + "REF cost" lines: driver costs for many bookings at once; each then goes to the driver group.
   const bulk = teamMember ? parseBulkCost(text) : null;
   if (bulk && teamMember) { await setCostsFromMessage(bulk, teamMember.display_name, m.message_id); return; }
+  // A reply to a driver's step photo asking where it was taken: the place name and a Google Maps link.
+  if (teamMember && m.reply_to_message && isLocationQuestion(text) && await answerPhotoLocation(m.reply_to_message.message_id, m.message_id)) return;
   // Customer answers: replies to a Waydidi card or prompt, or the next plain message from someone
   // who tapped "Reply" in the last 10 minutes. Anything else a team member writes is answered by the assistant.
   if (!text || (text.startsWith("/") && !parseJobLookup(text) && !/^\/ask(@\w+)?(\s|$)/i.test(text))) return;
