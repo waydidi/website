@@ -17,8 +17,9 @@ for(const name of (await readdir(root+'/drizzle')).filter(n=>n.endsWith('.sql'))
 globalThis.__tripPhotos={env:{DB:d1,TELEGRAM_BOT_TOKEN:'test-token',TELEGRAM_CHAT_ID:'-100'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},plugins:[{name:'env',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0env';},load(id){if(id==='\0env')return 'export const env=globalThis.__tripPhotos.env';}}],server:{middlewareMode:true}});
 const realFetch=globalThis.fetch, sent=[];
-let places=null;const placeCalls=[];
+let places=null,geocode=null;const placeCalls=[],geoCalls=[];
 globalThis.fetch=async(url,init)=>{
+ if(String(url).startsWith('https://maps.googleapis.com/maps/api/geocode/')){geoCalls.push(String(url));return geocode?geocode():Response.json({status:'REQUEST_DENIED',error_message:'This API is not activated'});}
  if(String(url).startsWith('https://places.googleapis.com/')){placeCalls.push({url:String(url),body:JSON.parse(init.body),key:init.headers['X-Goog-Api-Key']});return places?places():new Response('no',{status:403});}
  if(!String(url).startsWith('https://api.telegram.org'))return realFetch(url,init);
  sent.push({method:String(url).split('/').pop(),form:init.body});
@@ -39,8 +40,8 @@ test('the step photo goes to the group under the booking card as "✅Stand by (R
  assert.deepEqual(JSON.parse(form.get('reply_parameters')),{message_id:4321,allow_sending_without_reply:true});
  const caption=form.get('caption');
  // Taken 14:24 UTC = 9:24 PM in Thailand.
- // No Google key in this test: the Admin group still gets where it was taken, as a Google Maps link.
- assert.equal(caption,'✅<b>Stand by</b> (52LLDS)\n10/10/2026 — 9:24 PM\n📍 Location\nhttps://www.google.com/maps?q=13.739900,100.500000');
+ // No Google key in this test: the Admin group still gets the exact stamped point and a Google Maps link to it.
+ assert.equal(caption,'✅<b>Stand by</b> (52LLDS)\n10/10/2026 — 9:24 PM\n📍 <b>13.739900, 100.500000</b> (±6 m)\nhttps://www.google.com/maps/search/?api=1&query=13.739900,100.500000');
  const photo=form.get('photo');
  assert.equal(photo.type,'image/jpeg');
  assert.deepEqual([...new Uint8Array(await photo.arrayBuffer())],[0xff,0xd8,0xff,0xd9]);
@@ -87,46 +88,49 @@ test('Completed job: route, date and time only (no driver details), under the bo
 
 const evidence=(over={})=>({id:'ep',assignment_id:'a1',booking_reference:'52LLDS',leg:'outbound',driver_id:'d1',event_type:'pickup',status_event_id:null,device_captured_at:'2026-10-14T06:17:41.000Z',received_at:'2026-10-14T06:17:50.000Z',confirmed_at:null,latitude:12.932185,longitude:100.890614,accuracy_metres:9,original_key:'driver-private-evidence/a1/x.jpg',stamped_key:'',expires_at:'2099-01-01T00:00:00Z',deleted_at:null,...over});
 
-test('with a Google key the Admin group gets the nearest place name and a Maps link; the driver group gets neither',async()=>{
+const LINK='https://www.google.com/maps/search/?api=1&query=12.932185,100.890614';
+const withKey=async(fn)=>{globalThis.__tripPhotos.env.GOOGLE_MAPS_SERVER_KEY='server-key';try{return await fn();}finally{globalThis.__tripPhotos.env.GOOGLE_MAPS_SERVER_KEY=undefined;places=null;geocode=null;}};
+
+test('with a Google key the Admin group gets the exact point, its address, the nearest place and a Maps link; the driver group gets none',async()=>{
  const {postTripPhoto}=await vite.ssrLoadModule('/lib/telegram/trip-photos.ts');
- globalThis.__tripPhotos.env.GOOGLE_MAPS_SERVER_KEY='server-key';
- places=()=>Response.json({places:[{displayName:{text:'ร้านอาหารตามสั่ง Pattaya <Corner>'},formattedAddress:'Pattaya City, Chon Buri 20150, Thailand'}]});
- sent.length=0;placeCalls.length=0;
- try{
+ places=()=>Response.json({places:[{displayName:{text:'Roadside Shop <1>'},location:{latitude:12.932185,longitude:100.890614+0.0004}}]}); // about 43 m east
+ geocode=()=>Response.json({status:'OK',results:[{formatted_address:'123 Soi Test, Pattaya City, Chon Buri 20150, Thailand'},{formatted_address:'Pattaya, Thailand'}]});
+ sent.length=0;placeCalls.length=0;geoCalls.length=0;
+ await withKey(async()=>{
   await d1.prepare("INSERT OR REPLACE INTO telegram_driver_jobs(booking_reference,telegram_message_id,status,created_at,updated_at) VALUES('52LLDS',8000,'taken','2026-10-10T00:00:00Z','2026-10-10T00:00:00Z')").run();
   await d1.prepare("INSERT OR REPLACE INTO telegram_driver_job_chats(booking_reference,chat_id) VALUES('52LLDS','-200200')").run();
   globalThis.__tripPhotos.env.TELEGRAM_DRIVER_CHAT_ID='-200200';globalThis.__tripPhotos.env.TELEGRAM_DRIVER_JOBS='1';
-  await postTripPhoto({reference:'52LLDS',status:'standby',eventId:'ev-place',driverName:'T',evidence:evidence()});
- }finally{globalThis.__tripPhotos.env.GOOGLE_MAPS_SERVER_KEY=undefined;delete globalThis.__tripPhotos.env.TELEGRAM_DRIVER_CHAT_ID;delete globalThis.__tripPhotos.env.TELEGRAM_DRIVER_JOBS;}
+  try{await postTripPhoto({reference:'52LLDS',status:'standby',eventId:'ev-place',driverName:'T',evidence:evidence()});}finally{delete globalThis.__tripPhotos.env.TELEGRAM_DRIVER_CHAT_ID;delete globalThis.__tripPhotos.env.TELEGRAM_DRIVER_JOBS;}
+ });
+ assert.equal(geoCalls.length,1);assert.match(geoCalls[0],/latlng=12\.932185,100\.890614/);
  assert.equal(placeCalls.length,1);
- assert.equal(placeCalls[0].url,'https://places.googleapis.com/v1/places:searchNearby');
- assert.equal(placeCalls[0].key,'server-key');
  assert.deepEqual(placeCalls[0].body.locationRestriction.circle,{center:{latitude:12.932185,longitude:100.890614},radius:150});
  const team=sent.find(s=>s.form.get('chat_id')==='-100').form.get('caption');
- assert.equal(team,'✅<b>Stand by</b> (52LLDS)\n14/10/2026 — 1:17 PM\n📍 <b>ร้านอาหารตามสั่ง Pattaya &lt;Corner&gt;</b> — Pattaya City, Chon Buri 20150, Thailand\nhttps://www.google.com/maps?q=12.932185,100.890614');
- const driverGroup=sent.find(s=>s.form.get('chat_id')==='-200200');
- assert.equal(driverGroup.form.get('caption'),'✅<b>Stand by</b> (52LLDS)\n14/10/2026 — 1:17 PM');
+ assert.equal(team,'✅<b>Stand by</b> (52LLDS)\n14/10/2026 — 1:17 PM\n📍 <b>12.932185, 100.890614</b> (±9 m)\n123 Soi Test, Pattaya City, Chon Buri 20150, Thailand\nNearest place: <b>Roadside Shop &lt;1&gt;</b> (about 45 m away)\n'+LINK);
+ assert.equal(sent.find(s=>s.form.get('chat_id')==='-200200').form.get('caption'),'✅<b>Stand by</b> (52LLDS)\n14/10/2026 — 1:17 PM');
 });
 
-test('Google refusing, finding nothing, or switched off with TELEGRAM_PHOTO_PLACE_NAME=0 still posts the Maps link; no GPS adds no location',async()=>{
+test('whatever Google says, the exact point and the Maps link are always there; a refusal is kept for setup; off means Google is not called',async()=>{
  const {postTripPhoto}=await vite.ssrLoadModule('/lib/telegram/trip-photos.ts');
- const env=globalThis.__tripPhotos.env,link='https://www.google.com/maps?q=12.932185,100.890614';
+ const env=globalThis.__tripPhotos.env,base='✅<b>Stand by</b> (52LLDS)\n14/10/2026 — 1:17 PM\n📍 <b>12.932185, 100.890614</b> (±9 m)\n';
  const run=async(id,ev)=>{sent.length=0;await postTripPhoto({reference:'52LLDS',status:'standby',eventId:id,driverName:'T',evidence:ev});return sent[0].form.get('caption');};
- env.GOOGLE_MAPS_SERVER_KEY='server-key';
- try{
-  places=null; // 403: API not enabled for the key
-  assert.equal(await run('ev-403',evidence()),'✅<b>Stand by</b> (52LLDS)\n14/10/2026 — 1:17 PM\n📍 Location\n'+link);
-  places=()=>Response.json({}); // nothing named within 150 m
-  assert.equal(await run('ev-none',evidence()),'✅<b>Stand by</b> (52LLDS)\n14/10/2026 — 1:17 PM\n📍 Location\n'+link);
-  places=()=>{throw new Error('timeout');};
-  assert.equal(await run('ev-err',evidence()),'✅<b>Stand by</b> (52LLDS)\n14/10/2026 — 1:17 PM\n📍 Location\n'+link);
-  places=()=>Response.json({places:[{displayName:{text:'Somewhere'}}]});
-  env.TELEGRAM_PHOTO_PLACE_NAME='0';placeCalls.length=0;
-  assert.equal(await run('ev-off',evidence()),'✅<b>Stand by</b> (52LLDS)\n14/10/2026 — 1:17 PM\n📍 Location\n'+link);
-  assert.equal(placeCalls.length,0); // off: Google is not called at all
+ await withKey(async()=>{
+  places=null; // 403 and geocoding "not activated": only the point and the link
+  assert.equal(await run('ev-403',evidence()),base+LINK);
+  const note=await d1.prepare("SELECT value FROM app_settings WHERE key='photo_location_error'").first();
+  assert.match(note.value,/geocoding|places/); // so a key that is not allowed can be found out
+  geocode=()=>Response.json({status:'ZERO_RESULTS',results:[]});places=()=>Response.json({});
+  assert.equal(await run('ev-none',evidence()),base+LINK);
+  geocode=()=>{throw new Error('timeout');};places=()=>{throw new Error('timeout');};
+  assert.equal(await run('ev-err',evidence()),base+LINK);
+  geocode=()=>Response.json({status:'OK',results:[{formatted_address:'Somewhere'}]});places=()=>Response.json({}); // address only
+  assert.equal(await run('ev-addr',evidence()),base+'Somewhere\n'+LINK);
+  env.TELEGRAM_PHOTO_PLACE_NAME='0';placeCalls.length=0;geoCalls.length=0;
+  assert.equal(await run('ev-off',evidence()),base+LINK);
+  assert.equal(placeCalls.length+geoCalls.length,0);
   delete env.TELEGRAM_PHOTO_PLACE_NAME;
   assert.equal(await run('ev-nogps',evidence({latitude:null,longitude:null})),'✅<b>Stand by</b> (52LLDS)\n14/10/2026 — 1:17 PM');
- }finally{env.GOOGLE_MAPS_SERVER_KEY=undefined;places=null;}
+ });
 });
 
 // Replying to a step photo in the Admin group: "where is this?" → place name and Google Maps link.
@@ -139,29 +143,29 @@ async function stepPhoto(ref,{lat=12.932185,lng=100.890614,acc=9,message=77}={})
  await d1.prepare("INSERT INTO driver_trip_evidence(id,assignment_id,booking_reference,leg,driver_id,event_type,status_event_id,device_captured_at,received_at,latitude,longitude,accuracy_metres,original_key,stamped_key,file_bytes,expires_at) VALUES(?,?,?,'outbound','dl','pickup',?,?,?,?,?,?,'k','k2',4,'2099-01-01T00:00:00Z')").bind('evd-'+ref,'as-'+ref,ref,'ev-'+ref,at,at,lat,lng,acc).run();
  await d1.prepare("INSERT INTO telegram_delivery_jobs(id,booking_reference,destination,payload_json,status,next_attempt_at,telegram_message_id,sent_at,created_at,updated_at) VALUES(?,?,'-100','{}','sent',?,?,?,?,?)").bind(`step:ev-${ref}:team`,ref,at,message,at,at,at).run();
 }
-test('a reply to a step photo asking for its location gets the place name, a Maps link and the GPS accuracy',async()=>{
+test('a reply to a step photo asking for its location gets the exact point, address, nearest place and Maps link',async()=>{
  const {answerPhotoLocation,isLocationQuestion}=await vite.ssrLoadModule('/lib/telegram/photo-location.ts');
  assert.ok(isLocationQuestion('Read the location and show me name or Google Maps link'));
  assert.ok(isLocationQuestion('ที่นี่ที่ไหน ขอพิกัดหน่อย'));
  assert.ok(isLocationQuestion('where is this?'));
  assert.ok(!isLocationQuestion('ok thanks')&&!isLocationQuestion('x'.repeat(300)+' location'));
  await stepPhoto('LOC001',{message:501});
- globalThis.__tripPhotos.env.GOOGLE_MAPS_SERVER_KEY='server-key';
- places=()=>Response.json({places:[{displayName:{text:'Roadside Shop <1>'},formattedAddress:'Pattaya, Chon Buri, Thailand'}]});
+ places=()=>Response.json({places:[{displayName:{text:'Roadside Shop'},location:{latitude:12.932185,longitude:100.890614}}]});
+ geocode=()=>Response.json({status:'OK',results:[{formatted_address:'Pattaya, Chon Buri, Thailand'}]});
  sent.length=0;
- try{assert.equal(await answerPhotoLocation(501,9001),true);}finally{globalThis.__tripPhotos.env.GOOGLE_MAPS_SERVER_KEY=undefined;places=null;}
+ await withKey(async()=>assert.equal(await answerPhotoLocation(501,9001),true));
  const body=JSON.parse(sent[0].form);
  assert.equal(body.chat_id,'-100');
  assert.deepEqual(body.reply_parameters,{message_id:9001,allow_sending_without_reply:true});
- assert.equal(body.text,'📍 <b>Roadside Shop &lt;1&gt;</b> — Pattaya, Chon Buri, Thailand\nhttps://www.google.com/maps?q=12.932185,100.890614\nGPS accuracy ±9 m');
+ assert.equal(body.text,'📍 <b>12.932185, 100.890614</b> (±9 m)\nPattaya, Chon Buri, Thailand\nNearest place: <b>Roadside Shop</b> (about 5 m away)\n'+LINK);
 });
 
-test('with no named place nearby the link is still given; a photo without GPS says so; any other message is left alone',async()=>{
+test('with no Google answer the exact point and link are still given; a photo without GPS says so; any other message is left alone',async()=>{
  const {answerPhotoLocation}=await vite.ssrLoadModule('/lib/telegram/photo-location.ts');
  await stepPhoto('LOC002',{message:502});await stepPhoto('LOC003',{message:503,lat:null,lng:null,acc:null});
  sent.length=0;
- assert.equal(await answerPhotoLocation(502,9002),true); // no Google key here: no name, still the link
- assert.equal(JSON.parse(sent[0].form).text,'📍 No named place within 150 m of the photo.\nhttps://www.google.com/maps?q=12.932185,100.890614\nGPS accuracy ±9 m');
+ assert.equal(await answerPhotoLocation(502,9002),true); // no Google key here
+ assert.equal(JSON.parse(sent[0].form).text,'📍 <b>12.932185, 100.890614</b> (±9 m)\n'+LINK);
  sent.length=0;
  assert.equal(await answerPhotoLocation(503,9003),true);
  assert.equal(JSON.parse(sent[0].form).text,'📍 No GPS location was saved with this photo (LOC003).');
