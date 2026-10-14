@@ -38,10 +38,33 @@ export async function notifyBookingTelegram(reference: string) {
   const inserted=await db().prepare("INSERT INTO telegram_booking_cards(booking_reference,telegram_message_id,created_at) VALUES(?,0,?) ON CONFLICT(booking_reference) DO NOTHING").bind(reference,new Date().toISOString()).run();
   const row=await db().prepare("SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{telegram_message_id:number}>();
   if (row?.telegram_message_id) return;
+  // A re-sent card (Admin → Re-send card) still on its way: the catch-up must not post another.
+  if (await db().prepare("SELECT 1 x FROM telegram_delivery_jobs WHERE booking_reference=? AND id LIKE 'booking-card:%:resend:%' AND status IN ('queued','failed')").bind(reference).first().catch(() => null)) return;
   const c=await card(reference,null);
   if (!c) return;
   await queueTelegram({id:`booking-card:${reference}`,reference,legacyUncertain:!inserted.meta.changes,destination:telegramChatId(),payload:{text:bookingCard(c),keyboard:bookingKeyboard(c,adminUrl(reference)),target:{kind:"booking_card",id:reference},activeBooking:true}});
 
+}
+
+/**
+ * Admin → "Re-send card": posts the booking's card to the team group again (as a new message, with its current
+ * state and the Assign / cost / driver buttons), for a booking whose card was missed or lost. The old card message is
+ * no longer updated; the new one takes over. Only a confirmed booking.
+ */
+export async function resendBookingCard(reference: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!telegramConfigured()) return { ok: false, error: "Telegram isn't set up yet." };
+  await ensureReliabilityTables();
+  const b = await db().prepare("SELECT status FROM bookings WHERE reference=? AND binned_at IS NULL").bind(reference).first<{ status: string }>();
+  if (!b) return { ok: false, error: "Booking not found." };
+  if (b.status !== "confirmed") return { ok: false, error: "Only a confirmed booking has a card." };
+  await db().prepare("INSERT INTO telegram_booking_cards(booking_reference,telegram_message_id,created_at) VALUES(?,0,?) ON CONFLICT(booking_reference) DO NOTHING").bind(reference, new Date().toISOString()).run();
+  const row = await db().prepare("SELECT acknowledged_by FROM telegram_booking_cards WHERE booking_reference=?").bind(reference).first<{ acknowledged_by: string | null }>();
+  const c = await card(reference, row?.acknowledged_by ?? null);
+  if (!c) return { ok: false, error: "Booking not found." };
+  await db().prepare("UPDATE telegram_booking_cards SET telegram_message_id=0 WHERE booking_reference=?").bind(reference).run();
+  const sent = await queueTelegram({ id: `booking-card:${reference}:resend:${Date.now().toString(36)}`, reference, destination: telegramChatId(), payload: { text: bookingCard(c), keyboard: bookingKeyboard(c, adminUrl(reference)), target: { kind: "booking_card", id: reference }, activeBooking: true } });
+  // Not sent yet (Telegram busy): it stays queued and is retried; the catch-up will not post a second one.
+  return sent === "sent" || sent === "queued" ? { ok: true } : { ok: false, error: "Couldn't send to Telegram. It will be retried." };
 }
 
 /** Catch-up: a confirmed upcoming booking whose card never reached the group (saved without emailing, or
