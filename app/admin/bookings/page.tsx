@@ -26,6 +26,7 @@ import { requireWaydidiAdmin } from "@/lib/admin";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { rideUrl } from "@/lib/trip-access";
+import { legSplits } from "@/lib/leg-prices";
 import { assignedDriverUrls } from "@/lib/trip-links";
 import Link from "next/link";
 import { NotionCalendar } from "@/components/bookings-admin/notion-calendar";
@@ -68,10 +69,11 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const [driverRows, assignmentRows, doneLegs] = await Promise.all([
     getDb().select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, plate: drivers.carPlate, vehicleType: drivers.vehicleType, photoKey: drivers.photoKey, status: drivers.status }).from(drivers),
     getDb().select({ ref: bookingAssignments.bookingReference, leg: bookingAssignments.leg, driverId: bookingAssignments.driverId, status: bookingAssignments.currentStatus }).from(bookingAssignments).where(isNull(bookingAssignments.revokedAt)),
-    // First trips already completed (driver's Drop confirmed, or all three evidence photos in).
-    getDb().select({ ref: journeyLegs.bookingReference }).from(journeyLegs).where(and(eq(journeyLegs.leg, "outbound"), inArray(journeyLegs.status, ["completed", "no_show"]))).catch(() => []),
+    // Trips already completed (driver's Drop confirmed, or all three evidence photos in).
+    getDb().select({ ref: journeyLegs.bookingReference, leg: journeyLegs.leg }).from(journeyLegs).where(inArray(journeyLegs.status, ["completed", "no_show"])).catch(() => []),
   ]);
-  const firstTripDone = new Set(doneLegs.map((l) => l.ref));
+  const firstTripDone = new Set(doneLegs.filter((l) => l.leg === "outbound").map((l) => l.ref));
+  const secondTripDone = new Set(doneLegs.filter((l) => l.leg === "return").map((l) => l.ref));
   const driverOptions = driverRows.filter((d) => d.status === "active").map((d) => ({ id: d.id, name: d.name, phone: d.phone, email: d.email, area: d.area ?? "", vehicle: d.vehicle, plate: d.plate, vehicleType: d.vehicleType, hasPhoto: Boolean(d.photoKey) }));
   const assigned = new Map(assignmentRows.map((a) => [a.ref, a.driverId]));
   const legAssignment = (leg: string) => new Map(assignmentRows.filter((a) => a.leg === leg).map((a) => [a.ref, a]));
@@ -115,7 +117,9 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   for (let i = 0; i < cardRefs.length; i += 90) costRows.push(...await getDb().select({ ref: bookingCosts.bookingReference, cost: bookingCosts.totalDriverCost }).from(bookingCosts).where(inArray(bookingCosts.bookingReference, cardRefs.slice(i, i + 90))).catch(() => []));
   const driverCosts = new Map(costRows.map((c) => [c.ref, c.cost]));
   // …and the assigned driver's job link for the leg the card shows.
-  const cardDriverLinks = await assignedDriverUrls(rows.filter((r) => r.status === "confirmed").map((r) => ({ reference: r.reference, leg: journey(r).shown.leg })));
+  const cardDriverLinks = await assignedDriverUrls(rows.filter((r) => r.status === "confirmed").flatMap((r) => (r.returnDate && r.returnTime ? (["outbound", "return"] as const) : ([journey(r).shown.leg] as const)).map((leg) => ({ reference: r.reference, leg }))));
+  // Round trips the customer pays in two parts: the price to collect for each trip.
+  const splits = await legSplits(activeRows.filter((r) => r.returnDate && r.returnTime).map((r) => r.reference)).catch(() => new Map());
   const confirmed = activeRows.filter((row) => row.status === "confirmed").length;
   const pending = activeRows.filter((row) => row.status === "pending_payment").length;
   const emailIssues = activeRows.filter(
@@ -213,14 +217,19 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
           const list = activeRows.filter((row) => (row.serviceType ?? "transfer") === service);
           return <section key={service} aria-labelledby={`phone-${service}`} className="mt-6">
             <h2 id={`phone-${service}`} className="mb-3 text-[20px] font-black tracking-[-.02em]">{title}</h2>
-            {list.length ? <BookingCards label={`${title} bookings`} drivers={driverOptions} openRef={q.open?.toUpperCase()} rides={list.map((row) => { const { roundtrip, shown } = journey(row); const driverId = shown.assignment?.driverId ?? null; return {
-              reference: row.reference, pickupDate: shown.date, pickupTime: shown.time, pickup: shown.from, dropoff: shown.to, roundtrip, leg: shown.leg,
-              name: fullName(row.customerName, row.customerSurname), vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage,
-              total: row.total, paymentStatus: row.paymentStatus, status: row.status,
-              driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: shown.assignment?.status ?? null,
-              rideUrl: cardRideLinks.get(row.reference) ?? null, cost: driverCosts.get(row.reference) ?? null,
-              edit: editableFrom(row), driverUrl: cardDriverLinks.get(`${row.reference}:${shown.leg}`) ?? null,
-            }; }).sort(nearestFirst)} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
+            {list.length ? <BookingCards label={`${title} bookings`} drivers={driverOptions} openRef={q.open?.toUpperCase()} rides={list.flatMap((row) => {
+              const { roundtrip, shown, other } = journey(row), split = splits.get(row.reference) ?? null, finished = ["completed", "no_show"].includes(row.status);
+              // The journey shown for the booking, and (round trip) its other journey, which the Completed filter lists as its own card once it is done.
+              const ride = (side: typeof shown, primary: boolean) => { const driverId = side.assignment?.driverId ?? null, done = finished || ["completed", "no_show"].includes(side.assignment?.status ?? "") || (side.leg === "return" ? secondTripDone : firstTripDone).has(row.reference); return {
+                reference: row.reference, pickupDate: side.date, pickupTime: side.time, pickup: side.from, dropoff: side.to, roundtrip, leg: side.leg, primary, legDone: done,
+                name: fullName(row.customerName, row.customerSurname), vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage,
+                total: split ? (side.leg === "return" ? split.second : split.first) : row.total, bookingTotal: row.total, split, paymentStatus: row.paymentStatus, status: row.status,
+                driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: side.assignment?.status ?? null,
+                rideUrl: cardRideLinks.get(row.reference) ?? null, cost: primary ? driverCosts.get(row.reference) ?? null : undefined,
+                edit: editableFrom(row), driverUrl: cardDriverLinks.get(`${row.reference}:${side.leg}`) ?? null,
+              }; };
+              return other ? [ride(shown, true), ride(other, false)] : [ride(shown, true)];
+            }).sort(nearestFirst)} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}
           </section>;
         })}
         </div>}
