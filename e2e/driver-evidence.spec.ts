@@ -154,6 +154,31 @@ test("camera refused at step 2: the card says how to allow it and offers the pho
   expect(sent[0].evidenceId).toBe(uploads[0]);
 });
 
+test("a photo from the phone's camera app: the bottom 30% is solid, so a map or weather panel that app printed there is hidden", async ({ page }) => {
+  const { sent, uploads } = await setup(page, "standby", { camera: false });
+  await page.getByRole("button", { name: "เริ่มการเดินทาง" }).click({ timeout: 30000 });
+  const camera = page.getByRole("dialog", { name: "เริ่มการเดินทาง" });
+  // A picture with a bright panel across its bottom quarter, like another camera app's map/weather box.
+  const width = 120, height = 200, data = new Uint8Array(width * height * 4);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) { const i = (y * width + x) * 4, panel = y > height * 0.75; data.set(panel ? [250, 240, 120, 255] : [100, 116, 139, 255], i); }
+  await camera.locator('input[type="file"]').setInputFiles({ name: "camera.jpg", mimeType: "image/jpeg", buffer: Buffer.from(jpeg.encode({ width, height, data }, 90).data) });
+  const shot = camera.getByRole("img", { name: "รูปที่ถ่าย" });
+  await expect(shot).toBeVisible();
+  const result = await shot.evaluate(async (node) => {
+    const img = node as HTMLImageElement; await img.decode();
+    const canvas = document.createElement("canvas"); canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d")!; ctx.drawImage(img, 0, 0);
+    const px = (x: number, y: number) => Array.from(ctx.getImageData(x, y, 1, 1).data);
+    return { above: px(3, Math.round(canvas.height * 0.5)), underBand: px(3, Math.round(canvas.height * 0.8)), bottom: px(3, canvas.height - 3) };
+  });
+  expect(result.above[0]).toBeGreaterThan(80); // the picture above the section is untouched
+  expect(result.underBand[0]).toBeLessThan(25); // the other app's bright panel is gone: solid black
+  expect(result.bottom[0]).toBeLessThan(25);
+  await camera.getByRole("button", { name: "ใช้รูปนี้" }).click();
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0].evidenceId).toBe(uploads[0]);
+});
+
 test("Pick up and Drop also use the camera; without a live camera the phone's camera app is used", async ({ page }) => {
   const { sent, uploads } = await setup(page, "standby", { camera: false });
   await page.getByRole("button", { name: "เริ่มการเดินทาง" }).click({ timeout: 30000 });

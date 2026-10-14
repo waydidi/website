@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 import { driverHeaders } from "@/lib/driver-token";
 import type { EvidencePolicy, EvidenceType } from "@/lib/evidence-rules";
-import { STAMP_HEIGHT_SHARE, STAMP_OVERLAY_OPACITY, stampLines, type StampGps } from "@/lib/photo-stamp";
+import { STAMP_COVER_OPACITY, STAMP_HEIGHT_SHARE, STAMP_OVERLAY_OPACITY, stampLines, type StampGps } from "@/lib/photo-stamp";
 
 // Waydidi's GPS camera, used to confirm Stand by, Pick up and Drop. Before the camera opens the driver
 // allows two things, one after the other, each from its own card and button (like Google's "use your
@@ -37,10 +37,10 @@ function whiteLogo() {
 }
 
 /** Burns the stamp into the bottom 30% of the picture: a 30% dark overlay over that section, the logo at its top right, then latitude, longitude and time. */
-function drawStamp(context: CanvasRenderingContext2D, width: number, height: number, lines: string[], logo: HTMLCanvasElement | null) {
+function drawStamp(context: CanvasRenderingContext2D, width: number, height: number, lines: string[], logo: HTMLCanvasElement | null, cover = false) {
   if (!lines.length) return;
   const top = height * (1 - STAMP_HEIGHT_SHARE);
-  context.fillStyle = `rgba(0,0,0,${STAMP_OVERLAY_OPACITY})`; context.fillRect(0, top, width, height - top);
+  context.fillStyle = `rgba(0,0,0,${cover ? STAMP_COVER_OPACITY : STAMP_OVERLAY_OPACITY})`; context.fillRect(0, top, width, height - top);
   // The text is sized to fit the longest line across the width and the lines inside the 30%.
   const margin = width * 0.04, size = Math.max(12, Math.min(width * 0.055, (height * STAMP_HEIGHT_SHARE - margin) / (lines.length * 1.35)));
   if (logo) { const logoWidth = width * 0.24, logoHeight = logoWidth * (logo.height / logo.width); context.drawImage(logo, width - margin - logoWidth, top + margin * 0.6, logoWidth, logoHeight); }
@@ -53,13 +53,13 @@ function drawStamp(context: CanvasRenderingContext2D, width: number, height: num
   context.shadowBlur = 0;
 }
 
-async function toJpeg(source: HTMLVideoElement | HTMLImageElement, width: number, height: number, stamp: string[], logo: HTMLCanvasElement | null) {
+async function toJpeg(source: HTMLVideoElement | HTMLImageElement, width: number, height: number, stamp: string[], logo: HTMLCanvasElement | null, cover = false) {
   if (!width || !height) throw new Error("กล้องยังไม่พร้อม ลองอีกครั้ง");
   const ratio = Math.min(1, 1280 / Math.max(width, height)), canvas = document.createElement("canvas");
   canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
   const context = canvas.getContext("2d")!;
   context.drawImage(source, 0, 0, canvas.width, canvas.height);
-  drawStamp(context, canvas.width, canvas.height, stamp, logo);
+  drawStamp(context, canvas.width, canvas.height, stamp, logo, cover);
   return new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("เตรียมรูปไม่สำเร็จ"))), "image/jpeg", 0.82));
 }
 
@@ -186,7 +186,7 @@ export function StepCamera({ title, type, policy, onCancel, onSaved }: {
   async function fromCameraApp(file: File | undefined) {
     if (!file) return;
     const url = URL.createObjectURL(file);
-    try { const img = new Image(); img.src = url; await img.decode(); const at = new Date().toISOString(); keep(await toJpeg(img, img.naturalWidth, img.naturalHeight, stampFor(gps, at), await whiteLogo()), at); }
+    try { const img = new Image(); img.src = url; await img.decode(); const at = new Date().toISOString(); keep(await toJpeg(img, img.naturalWidth, img.naturalHeight, stampFor(gps, at), await whiteLogo(), true), at); } // solid: hides any panel the phone's camera app printed
     catch { setError("เปิดรูปนี้ไม่ได้ ลองถ่ายใหม่"); }
     finally { URL.revokeObjectURL(url); }
   }
