@@ -9,6 +9,13 @@ export const STAMP_HEIGHT_SHARE = 0.3;
 /** How dark the overlay over that section is (0.3 = a 30% black overlay). */
 export const STAMP_OVERLAY_OPACITY = 0.3;
 
+/**
+ * A photo from the phone's own camera app may already carry that app's panel at the bottom (a map, weather, clock,
+ * address). Waydidi cannot remove what another app printed, so for those photos the section is solid black and
+ * hides it; the live Waydidi camera keeps the 30% overlay.
+ */
+export const STAMP_COVER_OPACITY = 1;
+
 /** "13/10/2026 17:39:05" in Asia/Bangkok, whatever the phone's own time zone. */
 export function stampTime(iso: string) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })

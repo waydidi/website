@@ -23,4 +23,5 @@ test('the date rolls over at Thailand midnight, and southern/western coordinates
 test('the stamp covers the bottom 30% of the picture, under a 30% dark overlay', () => {
   assert.equal(stamp.STAMP_HEIGHT_SHARE, 0.3);
  assert.equal(stamp.STAMP_OVERLAY_OPACITY, 0.3);
+ assert.equal(stamp.STAMP_COVER_OPACITY, 1); // photos from the phone's camera app: solid, hiding that app's own panel
 });
