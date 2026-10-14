@@ -136,3 +136,15 @@ test('a link only changes its own driver, and two requests at once announce once
  assert.deepEqual(await rows(a.reference),{payout:1,events:1});
  assert.equal(await d1.prepare('SELECT bank_account_number FROM drivers WHERE id=?').bind(b.driverId).first('bank_account_number'),'');
 });
+
+test('after the Drop the job just completes: the trip link only asks for bank details when DRIVER_BANK_DETAILS=1 (and never for cash)',async()=>{
+ const trips=await vite.ssrLoadModule('/app/api/driver/trips/[token]/route.ts');
+ const needed=async(s)=>(await (await trips.GET(new Request('https://example.invalid/api/driver/trips/'+s.token),{params:Promise.resolve({token:s.token})})).json()).payoutNeeded;
+ const card=await seed('completed','card'),cash=await seed('completed','cash');
+ assert.equal(await needed(card),false); // off by default
+ globalThis.__bankTest.env.DRIVER_BANK_DETAILS='1';
+ try{
+  assert.equal(await needed(card),true);
+  assert.equal(await needed(cash),false);
+ }finally{delete globalThis.__bankTest.env.DRIVER_BANK_DETAILS;}
+});
