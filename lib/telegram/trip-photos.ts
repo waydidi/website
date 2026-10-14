@@ -4,6 +4,7 @@ import type { EvidenceRow } from "@/lib/trip-evidence";
 import { esc } from "./cards";
 import { telegramChatId, type InlineKeyboard } from "./client";
 import { driverOfferMessage } from "./driver-group";
+import { mapsUrl, nearestPlace } from "@/lib/place-name";
 
 // A driver's Stand by / Pick up / Drop photo, posted to the group under the booking's card. The Drop
 // carries a "Completed job" button: an admin checks the photo and confirms, which completes the job.
@@ -23,6 +24,11 @@ export async function postTripPhoto(input: { reference: string; status: string; 
   const offer=await driverOfferMessage(input.reference,input.evidence?.leg??"outbound").catch(()=>null);
   if (photos && offer) await queueTelegram({id:`step:${input.eventId}:driver-group`,reference:input.reference,destination:offer.chatId,payload:{text:lines.join("\n"),photos,replyTo:offer.messageId}});
   if (keyboard) lines.push("","Check the photo, then tap Completed job.");
+  // The Admin group also gets where the photo was taken: the nearest named place and a Google Maps link (not in the driver group).
+  if (e && e.latitude != null && e.longitude != null) {
+    const place = await nearestPlace(e.latitude, e.longitude);
+    lines.splice(2, 0, ...(place ? [`📍 <b>${esc(place.name)}</b>${place.address ? ` — ${esc(place.address)}` : ""}`] : ["📍 Location"]), mapsUrl(e.latitude, e.longitude));
+  }
   if (photos || keyboard) return queueTelegram({id:`step:${input.eventId}:team`,reference:input.reference,destination:telegramChatId(),payload:{text:(photos?lines:[...lines.slice(0,2),"No photo",...lines.slice(2)]).join("\n"),photos,keyboard,replyTo:card?.telegram_message_id||undefined}});
 }
 
