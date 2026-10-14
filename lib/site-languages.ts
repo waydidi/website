@@ -26,7 +26,7 @@ export const LANG_COOKIE = "waydidi-lang";
  */
 export const untranslatedPath = (path: string) => /^\/(admin|admin-setup|driver|drivers\/portal|account|partner|trip|booking|checkout|pay|chat-pay|itinerary|f|s|agency|th|zh)(\/|$)/.test(path);
 /** Legal pages: the translation is shown, with a note that the English text is the official one. */
-export const legalPath = (path: string) => /^\/(terms|privacy|refund-policy)(\/|$)/.test(path);
+export const legalPath = (path: string) => /^\/(terms|privacy|data-deletion|refund-policy)(\/|$)/.test(path);
 
 /** How each language should sound: polite and natural for travellers. */
 export const STYLE: Record<Exclude<SiteLang, "en">, string> = {

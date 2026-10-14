@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 // Every important page must load without a server error or a browser console error.
-const PAGES = ["/", "/flights", "/partners", "/destinations", "/blog", "/refund-policy", "/terms", "/privacy", "/maintenance", "/account/sign-in", "/admin"];
+const PAGES = ["/", "/flights", "/partners", "/destinations", "/blog", "/refund-policy", "/terms", "/privacy", "/data-deletion", "/maintenance", "/account/sign-in", "/admin"];
 
 for (const path of PAGES) {
   test(`${path} loads cleanly`, async ({ page }) => {

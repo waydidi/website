@@ -48,5 +48,6 @@ export function sitemapEntries(input: {
     page("/partners", "monthly", .4),
     page("/terms", "yearly", .3),
     page("/privacy", "yearly", .3),
+    page("/data-deletion", "yearly", .2),
   ];
 }
