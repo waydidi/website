@@ -1,5 +1,6 @@
 "use client";
 
+import { cameraProblem, isInAppBrowser } from "@/lib/camera-errors";
 import { Camera, LoaderCircle, MapPin, RotateCcw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Modal, ModalTitle } from "@/components/ui/modal";
@@ -71,8 +72,10 @@ const stampFor = (gps: StampGps | null, at: string) => (gps ? stampLines(gps, at
 const fix = (p: GeolocationPosition): Gps => ({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy });
 
 /** One permission card: icon, step, what is asked and why, and the button that asks the phone. */
-function PermissionCard({ icon, step, title, text, action, busy, denied, onAllow, onCancel }: {
+function PermissionCard({ icon, step, title, text, action, busy, denied, onAllow, onCancel, onPhoneCamera }: {
   icon: React.ReactNode; step: string; title: string; text: string; action: string; busy: boolean; denied: string; onAllow: () => void; onCancel: () => void;
+  /** The phone's own camera app, offered when the live camera can't be opened. */
+  onPhoneCamera?: () => void;
 }) {
   return <div className="grid size-full place-items-center p-6">
     <div className="w-full max-w-sm rounded-[24px] bg-white p-6 text-center text-plum shadow-2xl">
@@ -82,6 +85,7 @@ function PermissionCard({ icon, step, title, text, action, busy, denied, onAllow
       <p className="mt-2 text-[14.5px] leading-6 text-slate-600">{text}</p>
       {denied && <p role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 text-left text-[13.5px] font-semibold leading-5 text-amber-900">{denied}</p>}
       <button type="button" onClick={onAllow} disabled={busy} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand font-black text-white disabled:opacity-60">{busy && <LoaderCircle className="animate-spin" size={18} />}{denied ? "ลองอีกครั้ง" : action}</button>
+      {denied && onPhoneCamera && <button type="button" onClick={onPhoneCamera} className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-brand font-black text-brand-text"><Camera size={18} />ถ่ายด้วยแอปกล้องของโทรศัพท์</button>}
       <button type="button" onClick={onCancel} className="mt-2 h-11 w-full rounded-full font-bold text-slate-500">ไม่ใช่ตอนนี้</button>
     </div>
   </div>;
@@ -148,8 +152,9 @@ export function StepCamera({ title, type, policy, onCancel, onSaved }: {
       const test = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
       test.getTracks().forEach((t) => t.stop());
       setStage("ready");
-    } catch {
-      setDenied("กล้องถูกปิดไว้ เปิดสิทธิ์กล้องให้ waydidi.com ในการตั้งค่าโทรศัพท์ (การตั้งค่า › เบราว์เซอร์ › กล้อง) แล้วกดลองอีกครั้ง");
+    } catch (error) {
+      // Not one message for everything: denied, no camera, camera busy; and a hint when the link is open inside another app.
+      setDenied(cameraProblem((error as Error)?.name ?? "", isInAppBrowser(navigator.userAgent)));
     } finally { setAsking(false); }
   }
 
@@ -217,7 +222,7 @@ export function StepCamera({ title, type, policy, onCancel, onSaved }: {
         busy={asking} denied={denied} onAllow={allowLocation} onCancel={onCancel} /></div>
     : stage === "camera" ? <div className="flex-1"><PermissionCard icon={<Camera size={26} />} step="ขั้นตอน 2 จาก 2" title="อนุญาตให้ Waydidi ใช้กล้อง"
         text="ใช้กล้องหลังเพื่อถ่ายรูปยืนยันงาน รูปจะส่งให้ฝ่ายปฏิบัติการของ Waydidi เท่านั้น" action="อนุญาตกล้อง"
-        busy={asking} denied={denied} onAllow={() => void allowCamera()} onCancel={onCancel} /></div>
+        busy={asking} denied={denied} onAllow={() => void allowCamera()} onCancel={onCancel} onPhoneCamera={() => { setDenied(""); setNoLive(true); setStage("ready"); }} /></div>
     : <>
       <div className="relative flex-1 overflow-hidden">
         {photo
