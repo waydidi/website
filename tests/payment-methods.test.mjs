@@ -86,3 +86,15 @@ test('card bookings cannot take offline receipts; transfer bookings take slips',
   assert.equal(acceptsSlips({ payment_method: 'transfer', status: 'confirmed', outstandingMinor: 100 }), true);
   assert.equal(acceptsSlips({ payment_method: 'stripe', status: 'confirmed', outstandingMinor: 100 }), false);
 });
+
+test('the confirmation PDF and email follow what was paid: a transfer or cash booking marked paid is not "waiting"', () => {
+  const label = pm.offlineConfirmationLabel;
+  assert.equal(label('transfer', 'pending', 2500), 'Waiting for payment (bank transfer)');
+  assert.equal(label('transfer', 'paid', 2500), 'Paid by bank transfer');
+  assert.equal(label('transfer', 'partially_refunded', 2500), 'Paid by bank transfer');
+  assert.equal(label('transfer', null, 2500), 'Waiting for payment (bank transfer)'); // status unknown: as before
+  assert.equal(label('cash', 'cash_due', 2500), 'Pay in cash');
+  assert.equal(label('cash', 'paid', 2500), 'Cash collected');
+  assert.equal(label('transfer', 'paid', 0), 'Nothing to pay');
+  for (const other of ['stripe', 'payso', 'manual', 'card']) assert.equal(label(other, 'paid', 2500), null); // other methods keep their wording
+});

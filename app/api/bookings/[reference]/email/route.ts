@@ -26,7 +26,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate,
     pickupTime: booking.pickupTime, vehicle: booking.vehicle, customerPhone: booking.customerPhone,
     passengers: booking.passengers, luggage: booking.luggage, total: booking.total,
-    paymentMethod: booking.paymentMethod, retryId: crypto.randomUUID(),
+    paymentMethod: booking.paymentMethod, paymentStatus: booking.paymentStatus, retryId: crypto.randomUUID(),
     serviceType: booking.serviceType, bookedHours: booking.bookedHours,
     returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
     returnDate: booking.returnDate, returnTime: booking.returnTime,

@@ -27,8 +27,9 @@ after(async()=>{await vite.close();await mf.dispose();delete globalThis.__pdfTes
 const refresh=await vite.ssrLoadModule('/lib/confirmation-refresh.ts');
 const download=await vite.ssrLoadModule('/app/api/admin/bookings/[reference]/confirmation/route.ts');
 const at='2026-10-13T00:00:00Z';
-async function booking(ref,{status='confirmed',pdfKey=`confirmations/${ref}.pdf`}={}){
- await d1.prepare("INSERT INTO bookings(reference,customer_name,customer_email,customer_phone,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status,created_at,access_token_hash,updated_at,pdf_key) VALUES(?,'Jessica','jess@example.com','+66811112222','Chiang Mai Airport','Nimman Hotel','2099-11-24','14:30',2,0,'economy_sedan','card',2500,?,?,?,?,?)").bind(ref,status,at,'tok-'+ref,at,pdfKey).run();
+async function booking(ref,{status='confirmed',pdfKey=`confirmations/${ref}.pdf`,method='card',pay=null}={}){
+ await d1.prepare("INSERT INTO bookings(reference,customer_name,customer_email,customer_phone,pickup,dropoff,pickup_date,pickup_time,passengers,luggage,vehicle,payment_method,total,status,created_at,access_token_hash,updated_at,pdf_key) VALUES(?,'Jessica','jess@example.com','+66811112222','Chiang Mai Airport','Nimman Hotel','2099-11-24','14:30',2,0,'economy_sedan',?,2500,?,?,?,?,?)").bind(ref,method,status,at,'tok-'+ref,at,pdfKey).run();
+ if(pay)await d1.prepare("UPDATE bookings SET payment_status=? WHERE reference=?").bind(pay,ref).run();
 }
 const get=(ref)=>download.GET(new Request('https://example.invalid/x'),{params:Promise.resolve({reference:ref})});
 const bytes=async(res)=>new Uint8Array(await res.arrayBuffer());
@@ -67,4 +68,16 @@ test('no stored PDF to refresh (never stored, not confirmed, or no storage) is q
  assert.equal(await refresh.refreshStoredConfirmationPdf('MISSING'),false);
  const bucket=state.env.BUCKET;state.env.BUCKET=undefined;
  try{assert.equal(await refresh.refreshStoredConfirmationPdf('PD0002'),false);}finally{state.env.BUCKET=bucket;}
+});
+
+test('a bank-transfer booking marked paid downloads a different PDF from the "waiting for payment" one (it states what was paid)',async()=>{
+ await booking('PD0010',{method:'transfer',pay:'pending'});
+ const waiting=await bytes(await get('PD0010'));
+ await d1.prepare("UPDATE bookings SET payment_status='paid' WHERE reference='PD0010'").run();
+ const paid=await bytes(await get('PD0010'));
+ assert.equal(same(waiting,paid),false);
+ assert.equal(same(paid,await bytes(await get('PD0010'))),true); // and it is stable
+ // The stored copy follows too.
+ assert.equal(await refresh.refreshStoredConfirmationPdf('PD0010'),true);
+ assert.equal(same(files.get('confirmations/PD0010.pdf'),paid),true);
 });
