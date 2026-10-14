@@ -76,14 +76,14 @@ test('Completed job: route, date and time only (no driver details), under the bo
  await postJobCompleted('FMB123','outbound');
  const body=JSON.parse(sent[0].form);
  assert.equal(sent[0].method,'sendMessage'); // no photos stored for this one
- assert.equal(body.text,'✅ <b>Completed job</b>\nReference ID: FMB123\nRoute: Bkk train station – Koh Chang\nDate: 11/10/2026\nTime: 6:00 AM\n\nNext: the second trip.');
+ assert.equal(body.text,'✅ <b>Completed job</b>\nReference ID: FMB123\nRoute: Bkk train station – Koh Chang\nDate: 11/10/2026\nTime: 6:00 AM');
  assert.doesNotMatch(body.text,/Driver|Tel:|Car plate|Vehicle|Aey|0639299689|1นฌ/);
  assert.deepEqual(body.reply_parameters,{message_id:149,allow_sending_without_reply:true,quote:'Reference: FMB123'});
  sent.length=0;
  await postJobCompleted('FMB123','return');
  const back=JSON.parse(sent[0].form);
  assert.match(back.text,/Route: Koh Chang – Bkk train station\nDate: 18\/10\/2026\nTime: 1:30 PM/);
- assert.doesNotMatch(back.text,/Next: the second trip|Driver|Tel:|Car plate|Vehicle/);
+ assert.doesNotMatch(back.text,/Next:|second trip|Driver|Tel:|Car plate|Vehicle/);
 });
 
 const evidence=(over={})=>({id:'ep',assignment_id:'a1',booking_reference:'52LLDS',leg:'outbound',driver_id:'d1',event_type:'pickup',status_event_id:null,device_captured_at:'2026-10-14T06:17:41.000Z',received_at:'2026-10-14T06:17:50.000Z',confirmed_at:null,latitude:12.932185,longitude:100.890614,accuracy_metres:9,original_key:'driver-private-evidence/a1/x.jpg',stamped_key:'',expires_at:'2099-01-01T00:00:00Z',deleted_at:null,...over});
