@@ -183,6 +183,7 @@ export async function approveChange(id: string, by: string) {
   }
   await close(`chg:${id}`, changeText(b, c, `\nอนุมัติแล้ว โดย ${esc(by)}${c.price_difference ? ` · ${c.price_difference > 0 ? "เก็บเงินเพิ่ม" : "คืนเงิน"} ${thb(Math.abs(c.price_difference))}` : ""}`));
   // A driver who has the job: the Admin group chooses what happens next (see notifyBookingEdited).
+  await import("@/lib/confirmation-refresh").then((m) => m.refreshStoredConfirmationPdf(b.reference)).catch(() => undefined);
   await notifyBookingEdited(b.reference, by, "ลูกค้าเปลี่ยนการเดินทาง");
   return "Change approved.";
 }
