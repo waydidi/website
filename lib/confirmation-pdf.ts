@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import type { BookingExtras } from "@/lib/booking-extras";
 import { childSeatPng, exchangePng, ferryPng, logoPng } from "@/lib/pdf-addon-images";
-import { paymentLabel } from "@/lib/payment-methods";
+import { offlineConfirmationLabel } from "@/lib/payment-methods";
 
 type Confirmation = {
   reference: string; customerName: string; customerEmail: string;
@@ -9,7 +9,7 @@ type Confirmation = {
   passengers: number; luggage: number; vehicle: string; total: number;
   customerPhone: string; flightNumber: string | null; pickupSign: string | null;
   pickupInstructions: string | null; childSeats: number; oversizedLuggage: boolean;
-  specialRequests: string | null; paymentMethod?: string;
+  specialRequests: string | null; paymentMethod?: string; paymentStatus?: string | null;
   serviceType?: string; bookedHours?: number | null; pricingArea?: string | null; includedDistanceMeters?: number | null; extraHourRate?: number | null; extraDistanceRate?: number | null;
   returnPickup?: string | null; returnDropoff?: string | null; returnDate?: string | null; returnTime?: string | null;
 };
@@ -60,7 +60,7 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
       ["Return date & time", `${booking.returnDate} at ${booking.returnTime}`],
     ] : []),
     ["Vehicle", booking.vehicle],
-    ["Payment", booking.paymentMethod === "transfer" ? paymentLabel("transfer", "pending", booking.total) : booking.total === 0 ? "Nothing to pay" : booking.paymentMethod === "cash" ? "Pay in Cash" : "PAID"],
+    ["Payment", booking.total === 0 ? "Nothing to pay" : offlineConfirmationLabel(booking.paymentMethod ?? "", booking.paymentStatus, booking.total) ?? "PAID"],
     ["Passengers & luggage", ""],
   ] as string[][];
 

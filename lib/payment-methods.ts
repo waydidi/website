@@ -30,6 +30,17 @@ export function paymentLabel(method: string, status: string, total: number) {
   return "Paid online";
 }
 
+/**
+ * The Payment line on the confirmation PDF and email for a bank transfer or cash booking, following what has
+ * actually been paid (a transfer marked paid is "Paid by bank transfer", not "Waiting for payment"). Null for
+ * other methods, which keep their usual wording.
+ */
+export function offlineConfirmationLabel(method: string, status: string | null | undefined, total: number) {
+  if (method !== "transfer" && method !== "cash") return null;
+  const settled = status === "paid" || status === "partially_refunded";
+  return paymentLabel(method, settled ? "paid" : method === "transfer" ? "pending" : "cash_due", total);
+}
+
 /** Short staff label in Thai: Telegram cards and job messages. */
 export function paymentLabelThai(method: string, status: string) {
   if (method === "transfer") return status === "paid" ? "โอนแล้ว" : "รอชำระ (โอน) — ไม่ต้องเก็บเงินสด";

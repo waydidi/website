@@ -7,7 +7,7 @@ import { env } from "cloudflare:workers";
 import { publicSiteUrl } from "@/lib/site";
 import { fullName as personFullName } from "@/lib/person-name";
 import { WHATSAPP } from "@/lib/contact";
-import { paymentLabel } from "@/lib/payment-methods";
+import { offlineConfirmationLabel, paymentLabel } from "@/lib/payment-methods";
 
 type ConfirmationEmailInput = {
   to: string;
@@ -24,6 +24,8 @@ type ConfirmationEmailInput = {
   luggage: number;
   total: number;
   paymentMethod: string;
+  /** What has been paid: a transfer or cash booking marked paid is not described as waiting. */
+  paymentStatus?: string | null;
   retryId?: string;
   serviceType?: string;
   bookedHours?: number | null;
@@ -105,7 +107,7 @@ function letterDate(date: string, time: string) {
 
 export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
   const roundTrip = Boolean(input.returnDate && input.returnTime);
-  const payment = input.paymentMethod === "transfer" ? paymentLabel("transfer", "pending", input.total) : input.total === 0 ? "Nothing to pay" : input.paymentMethod === "cash" ? "Pay in cash" : input.paymentMethod === "manual" ? "Paid" : "Paid online";
+  const payment = input.total === 0 ? "Nothing to pay" : offlineConfirmationLabel(input.paymentMethod, input.paymentStatus, input.total) ?? (input.paymentMethod === "manual" ? "Paid" : "Paid online");
   const addons = input.extras?.addons.map((line) => line.label.toLowerCase()) ?? [];
   const price = `${input.total.toLocaleString("en-US")} THB${addons.length ? ` (including ${addons.join(", ")}${roundTrip ? " for both ways" : ""})` : ""}`;
   const fullName = personFullName(input.name, input.surname);
