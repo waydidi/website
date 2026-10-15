@@ -32,3 +32,20 @@ export function stampLines(gps: StampGps, takenAtIso: string) {
     `Time: ${stampTime(takenAtIso)} (UTC+7)`,
   ];
 }
+
+/** Text size as a share of the picture's width (1.5 px smaller than before at a 480 px wide picture: 0.055 → 0.0519). */
+export const STAMP_TEXT_WIDTH_SHARE = 0.0519;
+/** The logo's width as a share of the picture's width (10% larger than before: 0.24 → 0.264). */
+export const STAMP_LOGO_WIDTH_SHARE = 0.264;
+
+/** The most the server accepts: 1600 px on a side and 2 megapixels (lib/evidence-image.ts); a little under for safety. */
+export const UPLOAD_MAX_SIDE = 1600;
+export const UPLOAD_MAX_PIXELS = 1_950_000;
+/** JPEG quality of the picture the phone sends (the server keeps it at a high quality too, so the text stays sharp). */
+export const UPLOAD_JPEG_QUALITY = 0.92;
+
+/** The size a picture is saved at: as large as the server accepts, never enlarged, aspect ratio kept. */
+export function fitForUpload(width: number, height: number) {
+  const ratio = Math.min(1, UPLOAD_MAX_SIDE / Math.max(width, height), Math.sqrt(UPLOAD_MAX_PIXELS / (width * height)));
+  return { width: Math.max(1, Math.floor(width * ratio)), height: Math.max(1, Math.floor(height * ratio)) };
+}

@@ -18,6 +18,8 @@ Admin → Journey details contains private photos, assignment/leg/driver context
 
 ### Stamp on the picture
 
+**Sharpness:** the live camera asks the phone for up to 1920 × 1080; the photo is saved as large as the server accepts (up to 1600 px on a side and under 2 megapixels, never enlarged) as a JPEG at quality 92 (a bigger one is saved at 0.8 so it stays under 2 MB), and the server re-saves it at quality 92 (it was 80, which blurred the stamp text). The stamp text is 1.5 px smaller than before (at a 480 px wide picture) and the logo 10% larger.
+
 The browser burns **latitude, longitude and the time** (Thailand time, UTC+7) into the bottom 30% of the photo itself, under an even 30% dark overlay, with the Waydidi logo (white) at the section's top right, so it reads on any picture (`lib/photo-stamp.ts`, drawn in `components/drivers/step-camera.tsx`). The driver sees it in the preview, and because it is part of the saved JPEG it also appears in Admin → Journey details and in the photos posted to Telegram. The coordinates come from the phone's GPS at the moment of the shot; the time is the phone's clock shown in Thailand time (device time, as before, not server-verified). Photos taken before this change have no stamp. A photo taken with the phone's own camera app (offered when the live camera can't open) may already carry that app's map, weather or clock panel; Waydidi cannot remove it, so for those photos the bottom 30% is solid black under the stamp and hides the panel (a panel taller than 30% would still show its top part).
 
 ## Data and access control

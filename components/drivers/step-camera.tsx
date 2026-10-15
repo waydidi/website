@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 import { driverHeaders } from "@/lib/driver-token";
 import type { EvidencePolicy, EvidenceType } from "@/lib/evidence-rules";
-import { STAMP_COVER_OPACITY, STAMP_HEIGHT_SHARE, STAMP_OVERLAY_OPACITY, stampLines, type StampGps } from "@/lib/photo-stamp";
+import { STAMP_COVER_OPACITY, STAMP_HEIGHT_SHARE, STAMP_LOGO_WIDTH_SHARE, STAMP_OVERLAY_OPACITY, STAMP_TEXT_WIDTH_SHARE, UPLOAD_JPEG_QUALITY, fitForUpload, stampLines, type StampGps } from "@/lib/photo-stamp";
 
 // Waydidi's GPS camera, used to confirm Stand by, Pick up and Drop. Before the camera opens the driver
 // allows two things, one after the other, each from its own card and button (like Google's "use your
@@ -42,8 +42,8 @@ function drawStamp(context: CanvasRenderingContext2D, width: number, height: num
   const top = height * (1 - STAMP_HEIGHT_SHARE);
   context.fillStyle = `rgba(0,0,0,${cover ? STAMP_COVER_OPACITY : STAMP_OVERLAY_OPACITY})`; context.fillRect(0, top, width, height - top);
   // The text is sized to fit the longest line across the width and the lines inside the 30%.
-  const margin = width * 0.04, size = Math.max(12, Math.min(width * 0.055, (height * STAMP_HEIGHT_SHARE - margin) / (lines.length * 1.35)));
-  if (logo) { const logoWidth = width * 0.24, logoHeight = logoWidth * (logo.height / logo.width); context.drawImage(logo, width - margin - logoWidth, top + margin * 0.6, logoWidth, logoHeight); }
+  const margin = width * 0.04, size = Math.max(12, Math.min(width * STAMP_TEXT_WIDTH_SHARE, (height * STAMP_HEIGHT_SHARE - margin) / (lines.length * 1.35)));
+  if (logo) { const logoWidth = width * STAMP_LOGO_WIDTH_SHARE, logoHeight = logoWidth * (logo.height / logo.width); context.drawImage(logo, width - margin - logoWidth, top + margin * 0.6, logoWidth, logoHeight); }
   context.textBaseline = "alphabetic"; context.shadowColor = "rgba(0,0,0,.9)"; context.shadowBlur = size * 0.15;
   lines.forEach((line, index) => {
     context.font = `${index === 0 ? 800 : 600} ${index === 0 ? size * 0.85 : size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
@@ -55,12 +55,15 @@ function drawStamp(context: CanvasRenderingContext2D, width: number, height: num
 
 async function toJpeg(source: HTMLVideoElement | HTMLImageElement, width: number, height: number, stamp: string[], logo: HTMLCanvasElement | null, cover = false) {
   if (!width || !height) throw new Error("กล้องยังไม่พร้อม ลองอีกครั้ง");
-  const ratio = Math.min(1, 1280 / Math.max(width, height)), canvas = document.createElement("canvas");
-  canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
+  const size = fitForUpload(width, height), canvas = document.createElement("canvas");
+  canvas.width = size.width; canvas.height = size.height;
   const context = canvas.getContext("2d")!;
+  context.imageSmoothingEnabled = true; context.imageSmoothingQuality = "high";
   context.drawImage(source, 0, 0, canvas.width, canvas.height);
   drawStamp(context, canvas.width, canvas.height, stamp, logo, cover);
-  return new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("เตรียมรูปไม่สำเร็จ"))), "image/jpeg", 0.82));
+  const encode = (quality: number) => new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("เตรียมรูปไม่สำเร็จ"))), "image/jpeg", quality));
+  const blob = await encode(UPLOAD_JPEG_QUALITY);
+  return blob.size > 1_800_000 ? encode(0.8) : blob; // the server takes up to 2 MB: a very detailed picture is saved a little smaller
 }
 
 /** Whether a permission was already given (browsers that can't say are treated as "ask"). */
@@ -149,7 +152,7 @@ export function StepCamera({ title, type, policy, onCancel, onSaved }: {
     if (!navigator.mediaDevices?.getUserMedia) { setNoLive(true); setStage("ready"); return; }
     setAsking(true);
     try {
-      const test = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      const test = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
       test.getTracks().forEach((t) => t.stop());
       setStage("ready");
     } catch (error) {
@@ -165,7 +168,7 @@ export function StepCamera({ title, type, policy, onCancel, onSaved }: {
     void (async () => {
       if (!navigator.mediaDevices?.getUserMedia) { setNoLive(true); return; }
       try {
-        const next = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+        const next = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
         if (cancelled) { next.getTracks().forEach((t) => t.stop()); return; }
         stream.current = next; setNoLive(false); setLive(true);
       } catch { if (!cancelled) setNoLive(true); }
