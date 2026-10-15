@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { PublicFooter } from "@/components/public-footer";
 import { Breadcrumbs, JsonLd, breadcrumbSchema } from "@/components/seo";
 import { SITE_URL } from "@/lib/public-content";
-import { REFUND_POLICY_VERSION, customerRefundMinor, refundPercent, FULL_REFUND_HOURS, PARTIAL_REFUND_HOURS, PARTIAL_REFUND_PERCENT, GENERAL_REFUND_TIERS } from "@/lib/refund-policy";
-import { WHATSAPP } from "@/lib/contact";
+import { REFUND_POLICY_VERSION, FULL_REFUND_HOURS, PARTIAL_REFUND_HOURS, PARTIAL_REFUND_PERCENT, GENERAL_REFUND_TIERS } from "@/lib/refund-policy";
 
 const URL_PATH = "/refund-policy";
 export const metadata: Metadata = {
@@ -11,11 +10,6 @@ export const metadata: Metadata = {
   description: "Read Waydidi Travel's cancellation and refund policy, including refund eligibility, booking changes, payment processing and cancellation conditions.",
   alternates: { canonical: `${SITE_URL}${URL_PATH}` },
 };
-
-const waLink = `https://wa.me/${WHATSAPP.replace(/\D/g, "")}?text=${encodeURIComponent("Hello Waydidi, I would like to cancel / request a refund.\nBooking number:\nName:\nService date:\nReason:")}`;
-const thb = (n: number) => `฿${n.toLocaleString("en-US")}`;
-// Worked examples come from the same rules the server uses.
-const example = (hours: number) => customerRefundMinor(300000, refundPercent("customer_cancellation", hours)) / 100;
 
 const cards = [
   { when: GENERAL_REFUND_TIERS[0].label, result: "100% refund", text: `Cancel more than ${FULL_REFUND_HOURS} hours before your scheduled service to receive a full refund, unless different conditions were stated for your booking.`, tone: "border-emerald-200 bg-emerald-50", accent: "text-emerald-700" },
@@ -102,25 +96,6 @@ export default function RefundPolicyPage() {
         <p>If an operator cancels because conditions are unsafe, Waydidi may offer rescheduling, an alternative service, credit where specifically agreed, or a refund under the applicable conditions.</p>
         <p>Other events outside reasonable control include severe weather, flooding, natural disasters, road closures, government restrictions, civil emergencies and major transport disruption. Refunds, rescheduling or alternatives depend on the circumstances and the service conditions.</p>
       </Section>
-
-      <Section id="examples" title="Refund examples">
-        <ul className="space-y-2">
-          <li>{thb(3000)} booking cancelled 72 hours before pickup → <strong>{thb(example(72))} refund</strong></li>
-          <li>{thb(3000)} booking cancelled 30 hours before pickup → <strong>{thb(example(30))} refund</strong></li>
-          <li>{thb(3000)} booking cancelled 8 hours before pickup → <strong>{thb(example(8))} refund</strong></li>
-          <li>Waydidi cannot provide a confirmed {thb(3000)} service and no suitable alternative can be arranged → <strong>{thb(3000)} refund</strong></li>
-        </ul>
-      </Section>
-
-      {/* Request a refund */}
-      <section id="request" aria-labelledby="request-h" className="my-12 grid gap-6 rounded-[28px] bg-plum p-7 text-white md:grid-cols-[1fr_auto] md:items-center md:p-10">
-        <div>
-          <h2 id="request-h" className="text-3xl font-black tracking-[-.035em]">Request a cancellation or refund</h2>
-          <p className="mt-3 text-white/80">Message us on WhatsApp at {WHATSAPP} with your <strong className="text-white">booking number, name, service date and reason for cancelling</strong>.</p>
-          <p className="mt-3 text-sm text-white/70">Waydidi will never ask for your full card number, CVV, banking password, OTP or payment-provider password.</p>
-        </div>
-        <a href={waLink} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand px-6 font-bold text-white hover:bg-brand-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Contact Waydidi</a>
-      </section>
     </div>
     <PublicFooter />
   </main>;
