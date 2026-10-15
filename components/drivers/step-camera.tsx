@@ -43,12 +43,15 @@ function drawStamp(context: CanvasRenderingContext2D, width: number, height: num
   context.fillStyle = `rgba(0,0,0,${cover ? STAMP_COVER_OPACITY : STAMP_OVERLAY_OPACITY})`; context.fillRect(0, top, width, height - top);
   // The text is sized to fit the longest line across the width and the lines inside the 30%.
   const margin = width * 0.04, size = Math.max(12, Math.min(width * STAMP_TEXT_WIDTH_SHARE, (height * STAMP_HEIGHT_SHARE - margin) / (lines.length * 1.35)));
-  if (logo) { const logoWidth = width * STAMP_LOGO_WIDTH_SHARE, logoHeight = logoWidth * (logo.height / logo.width); context.drawImage(logo, width - margin - logoWidth, top + margin * 0.6, logoWidth, logoHeight); }
+  // The text starts right under the logo row (not at the bottom edge), then is kept inside the picture.
+  let logoBottom = top + margin * 0.6;
+  if (logo) { const logoWidth = width * STAMP_LOGO_WIDTH_SHARE, logoHeight = logoWidth * (logo.height / logo.width); context.drawImage(logo, width - margin - logoWidth, top + margin * 0.6, logoWidth, logoHeight); logoBottom += logoHeight; }
+  const firstBaseline = Math.min(logoBottom + size * 0.9, height - margin - (lines.length - 1) * size * 1.35);
   context.textBaseline = "alphabetic"; context.shadowColor = "rgba(0,0,0,.9)"; context.shadowBlur = size * 0.15;
   lines.forEach((line, index) => {
     context.font = `${index === 0 ? 800 : 600} ${index === 0 ? size * 0.85 : size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
     context.fillStyle = index === 0 ? "#fdba74" : "#ffffff";
-    context.fillText(line, margin, height - margin - (lines.length - 1 - index) * size * 1.35, width - margin * 2);
+    context.fillText(line, margin, firstBaseline + index * size * 1.35, width - margin * 2);
   });
   context.shadowBlur = 0;
 }
