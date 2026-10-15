@@ -6,7 +6,7 @@ export function sanitizeEvidence(bytes: Uint8Array) {
   const decoded = jpeg.decode(bytes, { useTArray: true, maxResolutionInMP: 2, maxMemoryUsageInMB: 48, tolerantDecoding: false });
   if (!decoded.width || !decoded.height || decoded.width > 1600 || decoded.height > 1600) throw new Error("Photo dimensions exceed 1600 pixels.");
   // Deliberately discard decoded EXIF/comments; preserve only pixels.
-  const original = jpeg.encode({width:decoded.width,height:decoded.height,data:decoded.data}, 80).data;
+  const original = jpeg.encode({width:decoded.width,height:decoded.height,data:decoded.data}, 92).data;
   return {original, width:decoded.width, height:decoded.height};
 }
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]!));
