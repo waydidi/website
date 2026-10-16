@@ -109,6 +109,11 @@ export async function handleBookingAnswer(m:TelegramMessage,adminName:string,ref
     db.prepare(`UPDATE telegram_prompt_context SET consumed_at=? WHERE message_id=? AND ${owned}`).bind(at,prompt.telegram_message_id,prompt.telegram_message_id,answerId),
   ]);
   if (!claimed.meta.changes) return false;
+  if (prompt.field==='cost'||prompt.field==='return_cost') {
+    // Tell the group the cost is saved (the card refresh alone is easy to miss); same id on a retry, so it is sent once.
+    const saved=Number(text.replace(/[,\s฿]|THB|บาท/gi,""));
+    await queueTelegram({id:`answer-saved:${answerId}`,reference:ref,destination:telegramChatId(),payload:{text:`✅ บันทึกค่าคนขับ${prompt.field==='return_cost'?"เที่ยวกลับ":""}ของ <b>${esc(ref)}</b> แล้ว: ฿${saved.toLocaleString("en-US")}`,replyTo:m.message_id}}).catch(()=>undefined);
+  }
   if (next) await askBookingQuestion(ref,next,m.from,answerId);
   else {await postAssignmentWhenReady(ref,adminName);await refresh(ref);}
   return true;
