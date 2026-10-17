@@ -31,6 +31,7 @@ function EditSheet({ booking, onClose }: { booking: EditableBooking; onClose: ()
   // Older bookings may store the class's name ("Economy sedan") instead of its id.
   const vehicle = booking.vehicle in VEHICLES ? booking.vehicle : (Object.keys(VEHICLES) as VehicleId[]).find((id) => VEHICLES[id].name.toLowerCase() === booking.vehicle.toLowerCase()) ?? booking.vehicle;
   const [form, setForm] = useState({ ...booking, vehicle, returnDate: booking.returnDate ?? "", returnTime: booking.returnTime ?? "", payment: booking.payment });
+  const onReturn = booking.leg === "return" && Boolean(booking.returnDate);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const set = (key: keyof typeof form, value: string | number | PaymentChoice) => setForm((f) => ({ ...f, [key]: value }));
@@ -38,7 +39,7 @@ function EditSheet({ booking, onClose }: { booking: EditableBooking; onClose: ()
     event.preventDefault();
     setBusy(true); setError("");
     try {
-      const res = await fetch(`/api/admin/bookings/${encodeURIComponent(booking.reference)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerName: form.customerName, customerSurname: form.customerSurname, customerPhone: form.customerPhone, customerEmail: form.customerEmail, flightNumber: form.flightNumber, childSeats: Number(form.childSeats), specialRequests: form.specialRequests, pickup: form.pickup, dropoff: form.dropoff, pickupDate: form.pickupDate, pickupTime: form.pickupTime, returnDate: form.returnDate, returnTime: form.returnTime, vehicle: form.vehicle, passengers: Number(form.passengers), luggage: Number(form.luggage) }) });
+      const res = await fetch(`/api/admin/bookings/${encodeURIComponent(booking.reference)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerName: form.customerName, customerSurname: form.customerSurname, customerPhone: form.customerPhone, customerEmail: form.customerEmail, flightNumber: form.flightNumber, childSeats: Number(form.childSeats), specialRequests: form.specialRequests, pickup: form.pickup, dropoff: form.dropoff, ...(onReturn ? { returnPickup: form.returnPickup, returnDropoff: form.returnDropoff } : {}), pickupDate: form.pickupDate, pickupTime: form.pickupTime, returnDate: form.returnDate, returnTime: form.returnTime, vehicle: form.vehicle, passengers: Number(form.passengers), luggage: Number(form.luggage) }) });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(body.error ?? "The booking could not be saved.");
       if (form.payment && form.payment !== booking.payment) {
@@ -57,8 +58,9 @@ function EditSheet({ booking, onClose }: { booking: EditableBooking; onClose: ()
         <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
       </div>
       <form onSubmit={save} className="mt-4 grid gap-3 text-[14px]">
-        <label className="grid gap-1 text-slate-600">From<input required value={form.pickup} onChange={(e) => set("pickup", e.target.value)} className={field} /></label>
-        {booking.serviceType !== "hourly" && <label className="grid gap-1 text-slate-600">To<input required value={form.dropoff} onChange={(e) => set("dropoff", e.target.value)} className={field} /></label>}
+        {/* The second trip's card edits the second trip's own route; the first trip's card edits the first trip's. */}
+        <label className="grid gap-1 text-slate-600">From<input required value={onReturn ? form.returnPickup : form.pickup} onChange={(e) => set(onReturn ? "returnPickup" : "pickup", e.target.value)} className={field} /></label>
+        {booking.serviceType !== "hourly" && <label className="grid gap-1 text-slate-600">To<input required value={onReturn ? form.returnDropoff : form.dropoff} onChange={(e) => set(onReturn ? "returnDropoff" : "dropoff", e.target.value)} className={field} /></label>}
         {/* Date and time in one, with the same picker as the booking search. */}
         <div className="grid gap-1 text-slate-600">{booking.returnDate ? "First trip" : "Date & time"}
           <DateField value={form.pickupDate} time={form.pickupTime} min={earliest(form.pickupDate)} onChange={(v) => set("pickupDate", v)} onTimeChange={(v) => set("pickupTime", v)} className={`${field} text-slate-900`} />

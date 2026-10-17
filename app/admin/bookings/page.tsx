@@ -226,7 +226,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                 total: split ? (side.leg === "return" ? split.second : split.first) : row.total, bookingTotal: row.total, split, paymentStatus: row.paymentStatus, status: row.status,
                 driver: driverOptions.find((o) => o.id === driverId)?.name ?? null, driverId, driverStatus: side.assignment?.status ?? null,
                 rideUrl: cardRideLinks.get(row.reference) ?? null, cost: primary ? driverCosts.get(row.reference) ?? null : undefined,
-                edit: editableFrom(row), driverUrl: cardDriverLinks.get(`${row.reference}:${side.leg}`) ?? null,
+                edit: editableFrom(row, side.leg), driverUrl: cardDriverLinks.get(`${row.reference}:${side.leg}`) ?? null,
               }; };
               return other ? [ride(shown, true), ride(other, false)] : [ride(shown, true)];
             }).sort(nearestFirst)} /> : <p className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-[14px] text-slate-500">No {title.toLowerCase()} bookings yet.</p>}

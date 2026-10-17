@@ -6,7 +6,7 @@ import { getWaydidiAdmin, verifyAdminKey } from "@/lib/admin";
 import { ensureReliabilityTables, reliabilityDb } from "@/lib/telegram/reliability-db";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { VEHICLES, vehicleFits, type VehicleId } from "@/lib/vehicles";
-import { detailsChanged, parseDetails } from "@/lib/booking-edit";
+import { detailsChanged, parseDetails, storedReturnRoute } from "@/lib/booking-edit";
 
 export async function DELETE(request: Request, context: { params: Promise<{ reference: string }> }) {
   const admin = await getWaydidiAdmin();
@@ -77,13 +77,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ refer
     if (!date.test(returnDate) || !time.test(returnTime)) return NextResponse.json({ error: "Choose a valid return date and time." }, { status: 400 });
     if (`${returnDate}T${returnTime}` <= `${pickupDate}T${pickupTime}`) return NextResponse.json({ error: "The return must be after the pickup." }, { status: 400 });
   }
+  // The second trip's own From / To (sent by the second trip's card): kept empty while it is just the first trip reversed.
+  let returnRoute = { returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff };
+  if (booking.returnDate && (input.returnPickup !== undefined || input.returnDropoff !== undefined)) {
+    const backFrom = String(input.returnPickup ?? booking.returnPickup ?? booking.dropoff).trim(), backTo = String(input.returnDropoff ?? booking.returnDropoff ?? booking.pickup).trim();
+    if (backFrom.length < 2 || backFrom.length > 200 || backTo.length < 2 || backTo.length > 200) return NextResponse.json({ error: "Enter where the second trip starts and ends." }, { status: 400 });
+    returnRoute = storedReturnRoute(backFrom, backTo, pickup, dropoff);
+  }
   // Customer details and extras (fields left out keep their value; the price doesn't change).
   const details = parseDetails(input, booking);
   if ("error" in details) return NextResponse.json({ error: details.error }, { status: 400 });
-  const changed = detailsChanged(details, booking) || booking.pickup !== pickup || booking.dropoff !== dropoff || booking.pickupDate !== pickupDate || booking.pickupTime !== pickupTime || booking.vehicle !== vehicle || booking.passengers !== passengers || booking.luggage !== luggage || booking.returnDate !== returnDate || booking.returnTime !== returnTime;
+  const changed = detailsChanged(details, booking) || booking.pickup !== pickup || booking.dropoff !== dropoff || booking.pickupDate !== pickupDate || booking.pickupTime !== pickupTime || booking.vehicle !== vehicle || booking.passengers !== passengers || booking.luggage !== luggage || booking.returnDate !== returnDate || booking.returnTime !== returnTime || (booking.returnPickup ?? null) !== returnRoute.returnPickup || (booking.returnDropoff ?? null) !== returnRoute.returnDropoff;
   if (!changed) return NextResponse.json({ ok: true, changed: false });
   // A new address drops its old map point (it no longer matches).
-  const places = { pickup, dropoff, ...(pickup !== booking.pickup ? { pickupLatitude: null, pickupLongitude: null } : {}), ...(dropoff !== booking.dropoff ? { dropoffLatitude: null, dropoffLongitude: null } : {}) };
+  const places = { pickup, dropoff, ...returnRoute, ...(pickup !== booking.pickup ? { pickupLatitude: null, pickupLongitude: null } : {}), ...(dropoff !== booking.dropoff ? { dropoffLatitude: null, dropoffLongitude: null } : {}) };
   await ensureReliabilityTables();
   const changedAt=new Date().toISOString();
   const version=booking.bookingVersion;

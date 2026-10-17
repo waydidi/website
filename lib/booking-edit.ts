@@ -10,6 +10,10 @@ export type EditableBooking = {
   returnDate: string | null; returnTime: string | null; vehicle: string; passengers: number; luggage: number;
   customerName: string; customerSurname: string; customerPhone: string; customerEmail: string; flightNumber: string;
   childSeats: number; specialRequests: string;
+  /** Which journey's card opened the sheet: the second trip of a round trip edits its own From / To. */
+  leg: "outbound" | "return";
+  /** The second trip's route as shown (it follows the first trip's reversed until set). */
+  returnPickup: string; returnDropoff: string;
   /** null for card payments, which can't be changed here. */
   payment: PaymentChoice | null;
 };
@@ -19,6 +23,7 @@ type Row = {
   returnDate: string | null; returnTime: string | null; vehicle: string; passengers: number; luggage: number;
   customerName: string; customerSurname: string | null; customerPhone: string | null; customerEmail: string; flightNumber: string | null;
   childSeats: number; specialRequests: string | null; paymentMethod: string; paymentStatus: string;
+  returnPickup?: string | null; returnDropoff?: string | null;
 };
 
 /** How a booking is paid, in the three Create booking choices; null when paid by card online. */
@@ -29,14 +34,20 @@ export function paymentChoiceOf(method: string, status: string): PaymentChoice |
   return method === "transfer" ? "waiting" : "cash";
 }
 
-export function editableFrom(b: Row): EditableBooking {
+export function editableFrom(b: Row, leg: "outbound" | "return" = "outbound"): EditableBooking {
   return {
     reference: b.reference, serviceType: b.serviceType, pickup: b.pickup, dropoff: b.dropoff, pickupDate: b.pickupDate, pickupTime: b.pickupTime,
     returnDate: b.returnDate, returnTime: b.returnTime, vehicle: b.vehicle, passengers: b.passengers, luggage: b.luggage,
     customerName: b.customerName, customerSurname: b.customerSurname ?? "", customerPhone: b.customerPhone ?? "", customerEmail: b.customerEmail,
     flightNumber: b.flightNumber ?? "", childSeats: b.childSeats, specialRequests: b.specialRequests ?? "",
+    leg, returnPickup: b.returnPickup || b.dropoff, returnDropoff: b.returnDropoff || b.pickup,
     payment: paymentChoiceOf(b.paymentMethod, b.paymentStatus),
   };
+}
+
+/** The second trip's stored route: empty (null) while it is just the first trip reversed, so it keeps following the first trip. */
+export function storedReturnRoute(pickup: string, dropoff: string, firstPickup: string, firstDropoff: string) {
+  return { returnPickup: pickup === firstDropoff ? null : pickup, returnDropoff: dropoff === firstPickup ? null : dropoff };
 }
 
 export type Details = { customerName: string; customerSurname: string | null; customerPhone: string; customerEmail: string; flightNumber: string | null; childSeats: number; specialRequests: string | null };
