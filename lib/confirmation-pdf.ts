@@ -32,7 +32,8 @@ function latin(value: string) {
 }
 
 export async function createConfirmationPdf(booking: Confirmation, extras?: BookingExtras) {
-  const pdf = await PDFDocument.create();
+  // No creation/modification time is written: the same booking always makes the same bytes (a download is stable, and a stored copy can be compared).
+  const pdf = await PDFDocument.create({ updateMetadata: false });
   const page = pdf.addPage([595, 842]);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);

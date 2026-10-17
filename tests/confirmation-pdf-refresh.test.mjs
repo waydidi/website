@@ -77,6 +77,8 @@ test('a bank-transfer booking marked paid downloads a different PDF from the "wa
  const paid=await bytes(await get('PD0010'));
  assert.equal(same(waiting,paid),false);
  assert.equal(same(paid,await bytes(await get('PD0010'))),true); // and it is stable
+ await new Promise((r)=>setTimeout(r,1100)); // no creation time inside, so it is the same even a second later
+ assert.equal(same(paid,await bytes(await get('PD0010'))),true);
  // The stored copy follows too.
  assert.equal(await refresh.refreshStoredConfirmationPdf('PD0010'),true);
  assert.equal(same(files.get('confirmations/PD0010.pdf'),paid),true);
