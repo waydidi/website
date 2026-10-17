@@ -130,3 +130,18 @@ test('Edit booking saves customer details and extras without changing the price'
   const bad = await bookingRoute.PATCH(new Request(`https://waydidi.com/api/admin/bookings/${ref}`, { method: 'PATCH', headers: { 'content-type': 'application/json', origin: 'https://waydidi.com' }, body: JSON.stringify({ ...body, customerEmail: 'nope' }) }), { params: Promise.resolve({ reference: ref }) });
   assert.equal(bad.status, 400);
 });
+
+test('Edit from the second trip changes the second trip\'s From / To only; the first trip keeps its own', async () => {
+  const ref = await seed('cash', 'cash_due', 1500);
+  await d1.prepare("UPDATE bookings SET return_date='2099-01-05',return_time='10:00' WHERE reference=?").bind(ref).run();
+  const patch = (extra) => bookingRoute.PATCH(new Request(`https://waydidi.com/api/admin/bookings/${ref}`, { method: 'PATCH', headers: { 'content-type': 'application/json', origin: 'https://waydidi.com' }, body: JSON.stringify({ pickup: 'BKK', dropoff: 'Pattaya', pickupDate: '2099-01-01', pickupTime: '09:00', returnDate: '2099-01-05', returnTime: '10:00', vehicle: 'economy_sedan', passengers: 2, luggage: 1, ...extra }) }), { params: Promise.resolve({ reference: ref }) });
+  const route = () => d1.prepare('SELECT pickup,dropoff,return_pickup,return_dropoff FROM bookings WHERE reference=?').bind(ref).first();
+  assert.equal((await patch({ returnPickup: 'Jomtien Hotel', returnDropoff: 'Don Mueang' })).status, 200);
+  assert.deepEqual(await route(), { pickup: 'BKK', dropoff: 'Pattaya', return_pickup: 'Jomtien Hotel', return_dropoff: 'Don Mueang' });
+  // Back to the first trip reversed: stored empty again, so it follows the first trip.
+  assert.equal((await patch({ returnPickup: 'Pattaya', returnDropoff: 'BKK' })).status, 200);
+  assert.deepEqual(await route(), { pickup: 'BKK', dropoff: 'Pattaya', return_pickup: null, return_dropoff: null });
+  assert.equal((await patch({ returnPickup: 'x', returnDropoff: 'Don Mueang' })).status, 400);
+  const sheet = rules.editableFrom({ ...row, returnDate: '2099-01-05', returnTime: '10:00', returnPickup: null, returnDropoff: null }, 'return');
+  assert.deepEqual([sheet.leg, sheet.returnPickup, sheet.returnDropoff], ['return', 'Pattaya', 'BKK']);
+});

@@ -87,7 +87,7 @@ export async function adminOverview(at = new Date()) {
       total: b.total, flightNumber: onReturn ? null : b.flightNumber, flightStatus: onReturn ? null : b.flightStatus, driver: a?.driver ?? null, driverId: a?.driverId ?? null, driverStatus: a?.status ?? null,
       attention: b.attentionStatus === "attention",
       roundtrip, leg,
-      edit: editableFrom(b),
+      edit: editableFrom(b, onReturn ? "return" : "outbound"),
     };
   }).sort((x, y) => `${x.pickupDate} ${x.pickupTime}`.localeCompare(`${y.pickupDate} ${y.pickupTime}`));
   // Customer link, driver link (once assigned) and driver cost for the nearest rides shown in Upcoming rides.
