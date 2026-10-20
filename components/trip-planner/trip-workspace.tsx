@@ -14,6 +14,7 @@ import { api, areaCls, btnPrimary, btnQuiet, Field, inputCls } from "./ui";
 import { Modal, ModalTitle } from "@/components/ui/modal";
 
 type Mode = "admin" | "agency";
+type Step = "setup" | "stops" | "plan";
 type PlanResult = {
   stops: TripStop[]; plan: Plan; source: "google" | "estimate"; fees: { included: number; onSite: number }; total: number;
   suggestedTransport: { total: number; city: string } | null; packing: string[];
@@ -60,6 +61,9 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
   const [selected, setSelected] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [sameEnd, setSameEnd] = useState(true);
+  // Phones show one step at a time; wide screens show everything. The extra fields stay folded away on a new trip.
+  const [tab, setTab] = useState<Step>("setup");
+  const [more, setMore] = useState(Boolean(tripId));
 
   const load = useCallback(async () => {
     const [a, t] = await Promise.all([
@@ -125,6 +129,9 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
 
   const plannedById = useMemo(() => Object.fromEntries((result?.plan.stops ?? []).map((s) => [s.id, s])), [result]) as Record<string, PlannedStop>;
   const byId = useMemo(() => Object.fromEntries(attractions.map((a) => [a.id, a])), [attractions]);
+  // Quick-add suggestions: places in this trip's area (or anywhere), most used first, not already in the trip.
+  const inTrip = new Set((draft?.stops ?? []).map((x) => x.attractionId));
+  const popular = attractions.filter((a) => !inTrip.has(a.id) && (!draft?.area || a.area === draft.area)).sort((x, y) => y.usedIn - x.usedIn || x.name.localeCompare(y.name)).slice(0, 6);
   const errors = (result?.plan.problems ?? []).filter((p) => p.level === "error");
   const warnings = (result?.plan.problems ?? []).filter((p) => p.level === "warning");
   const locked = meta?.status === "accepted";
@@ -152,13 +159,13 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
     const [item] = list.splice(from, 1); list.splice(to, 0, item);
     setStops(list as TripStop[]);
   }
-  function addAttraction(a: Attraction, programId: string | null, session: string | null, priority: Priority) {
+  function addAttraction(a: Attraction, programId: string | null, session: string | null, priority: Priority, keepOpen = false) {
     const program = a.programs.find((p) => p.id === programId);
     const stop: TripStop = { id: uid(), kind: "attraction", name: a.customerName || a.name, attractionId: a.id, programId: program?.id, sessionTime: session ?? undefined,
       lat: a.latitude, lng: a.longitude, durationMin: program?.durationMin ?? a.durationMin, priority: session ? "fixed" : priority };
     setStops([...(draft!.stops as TripStop[]), stop]);
     if (!draft!.area && a.area) update({ area: a.area });
-    setPicker(false);
+    if (!keepOpen) setPicker(false);
   }
 
   return <main className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6">
@@ -184,20 +191,26 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
     {meta?.changeRequest && meta.status === "changes_requested" && <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[14px]"><p className="font-bold text-amber-900">The customer asked for changes</p><p className="mt-1 whitespace-pre-line text-amber-900">“{meta.changeRequest}”</p></div>}
     {locked && <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-[14px] text-emerald-900">Paid{meta?.bookingReference ? <> as booking <Link className="font-bold underline" href={`/admin/bookings?q=${meta.bookingReference}`}>{meta.bookingReference}</Link></> : ""}. The plan is locked; duplicate it to make another.</div>}
 
+    <nav aria-label="Steps" className="sticky top-0 z-20 -mx-4 mt-3 flex gap-1.5 border-b border-slate-200 bg-white/95 px-4 py-2 backdrop-blur lg:hidden">
+      {([["setup", "1 Trip"], ["stops", `2 Stops${draft.stops.length ? ` (${draft.stops.length})` : ""}`], ["plan", "3 Price & send"]] as const).map(([id, label]) =>
+        <button key={id} type="button" onClick={() => setTab(id)} aria-current={tab === id ? "step" : undefined} className={`h-10 flex-1 rounded-full text-[14px] font-semibold ${tab === id ? "bg-brand text-white" : "bg-slate-100 text-slate-700"}`}>{label}</button>)}
+    </nav>
+
     <section className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,45fr)_minmax(0,55fr)]">
       {/* Left: setup + itinerary */}
-      <div className="grid content-start gap-4">
-        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className={`${tab === "plan" ? "hidden lg:grid" : "grid"} content-start gap-4`}>
+        <section className={`${tab === "setup" ? "" : "hidden lg:block"} rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5`}>
           <h2 className="text-[16px] font-bold">Trip</h2>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {!draft.isTemplate && <Field label="Date"><input type="date" min={bangkokToday()} value={draft.tripDate ?? ""} onChange={(e) => update({ tripDate: e.target.value || null })} className={inputCls} /></Field>}
             <Field label="Pickup time"><input type="time" value={draft.startTime} onChange={(e) => update({ startTime: e.target.value })} className={inputCls} /></Field>
             <Field label="Hours"><input type="number" min={1} max={16} value={draft.durationHours} onChange={(e) => update({ durationHours: Math.min(16, Math.max(1, Math.round(Number(e.target.value) || 1))) })} className={inputCls} /></Field>
             <Field label="Adults"><input type="number" min={1} max={30} value={draft.adults} onChange={(e) => update({ adults: Math.max(1, Math.round(Number(e.target.value) || 1)) })} className={inputCls} /></Field>
-            <Field label="Children"><input type="number" min={0} max={20} value={draft.children} onChange={(e) => update({ children: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={inputCls} /></Field>
-            <Field label="Bags"><input type="number" min={0} max={30} value={draft.bags} onChange={(e) => update({ bags: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={inputCls} /></Field>
+            {more && <Field label="Children"><input type="number" min={0} max={20} value={draft.children} onChange={(e) => update({ children: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={inputCls} /></Field>}
+            {more && <Field label="Bags"><input type="number" min={0} max={30} value={draft.bags} onChange={(e) => update({ bags: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={inputCls} /></Field>}
           </div>
           <Field label="Pickup" className="mt-3" hint={draft.pickupLat == null && draft.pickupText ? "Pick a suggestion so drive times can be worked out" : undefined}><PlacePicker value={draft.pickupText} onChange={(p) => update({ pickupText: p.text, ...(p.lat != null ? { pickupLat: p.lat, pickupLng: p.lng } : {}) })} className={inputCls} placeholder="Hotel or address" /></Field>
+          {more && <>
           <label className="mt-2 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={sameEnd} onChange={(e) => { setSameEnd(e.target.checked); setDirty(true); }} className="size-4 accent-brand" />End where the trip starts</label>
           {!sameEnd && <Field label="Drop-off at the end" className="mt-2"><PlacePicker value={draft.endText ?? ""} onChange={(p) => update({ endText: p.text, ...(p.lat != null ? { endLat: p.lat, endLng: p.lng } : {}) })} className={inputCls} placeholder="Hotel, airport or address" /></Field>}
           <div className="mt-3 grid grid-cols-2 gap-3">
@@ -210,9 +223,12 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
             <Field label="Phone"><input value={draft.customerPhone ?? ""} onChange={(e) => update({ customerPhone: e.target.value })} className={inputCls} /></Field>
           </div>}
           <Field label="Customer request / notes" className="mt-3" hint="Shown to the customer on the itinerary"><textarea value={draft.notes ?? ""} onChange={(e) => update({ notes: e.target.value })} className={areaCls} /></Field>
+          </>}
+          <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="mt-3 text-[14px] font-semibold text-brand-darker hover:underline">{more ? "Fewer details" : "More details: customer, vehicle, children, bags, notes"}</button>
+          <button type="button" onClick={() => setTab("stops")} className={`${btnPrimary} mt-3 w-full lg:hidden`}>Next: add stops</button>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <section className={`${tab === "stops" ? "" : "hidden lg:block"} rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5`}>
           <div className="flex items-center justify-between gap-2"><h2 className="text-[16px] font-bold">Itinerary</h2>{planning && <LoaderCircle size={16} className="animate-spin text-slate-400" />}</div>
           <ol className="mt-3 grid gap-2">
             <li className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px]"><span className="grid size-7 place-items-center rounded-full bg-plum text-[12px] font-bold text-white">P</span><span className="font-bold tabular-nums">{draft.startTime}</span><span className="truncate">Pickup · {draft.pickupText || "set the pickup"}</span></li>
@@ -262,17 +278,21 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
             })}
             {result && draft.stops.length > 0 && <li className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px]"><span className="grid size-7 place-items-center rounded-full bg-plum text-[12px] font-bold text-white">{sameEnd ? "P" : "E"}</span><span className="font-bold tabular-nums">{fmt(result.plan.returnAt)}</span><span className="truncate">{sameEnd ? "Back at pickup" : `Drop-off · ${draft.endText}`}{result.plan.returnTravel ? ` (${duration(result.plan.returnTravel)} drive)` : ""}</span></li>}
           </ol>
+          {!draft.stops.length && <p className="mt-3 rounded-2xl bg-orange-50 p-3 text-[14px] text-[#9A4D00]">No stops yet. Tap a place below, or Add attraction to search. Drive times, opening hours and the price are worked out for you.</p>}
+          {!locked && popular.length > 0 && <div className="mt-3"><p className="text-[12px] font-semibold text-slate-500">{draft.area ? `Popular in ${draft.area}` : "Popular places"}: tap to add</p>
+            <div className="mt-1.5 flex flex-wrap gap-2">{popular.map((a) => <button key={a.id} type="button" onClick={() => addAttraction(a, null, null, "must", true)} className="inline-flex h-9 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-[13px] font-semibold text-slate-700 hover:border-brand"><Plus size={13} />{a.customerName || a.name}</button>)}</div></div>}
           {!locked && <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={() => setPicker(true)} className={btnPrimary}><Plus size={16} />Add attraction</button>
             <button type="button" onClick={() => setStops([...(draft.stops as TripStop[]), { id: uid(), kind: "meal", name: "Lunch", durationMin: 60, priority: "must", windowStart: "11:30", windowEnd: "13:30" }])} className={btnQuiet}><Utensils size={15} />Meal break</button>
             <button type="button" onClick={() => { const id = uid(); setStops([...(draft.stops as TripStop[]), { id, kind: "custom", name: "New stop", durationMin: 30, priority: "must" }]); setSelected(id); }} className={btnQuiet}><MapPin size={15} />Custom stop</button>
           </div>}
+          <button type="button" onClick={() => setTab("plan")} className={`${btnPrimary} mt-3 w-full lg:hidden`}>Next: price and send</button>
         </section>
       </div>
 
       {/* Right: map, checks, price */}
-      <div className="grid content-start gap-4 lg:sticky lg:top-4">
-        <RouteMap points={points} selected={selected} onSelect={setSelected} />
+      <div className={`${tab === "plan" ? "grid" : "hidden lg:grid"} content-start gap-4 lg:sticky lg:top-4`}>
+        <RouteMap key={tab} points={points} selected={selected} onSelect={setSelected} />
         {result && <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[["Driving", duration(result.plan.totalDrive)], ["Activities", duration(result.plan.totalActivity)], ["Waiting", duration(result.plan.totalWait)], ["Back at", `${fmt(result.plan.returnAt)} / ${fmt(result.plan.endLimit)}`]].map(([k, v]) =>
             <div key={k} className="rounded-2xl border border-slate-200 bg-white p-3"><p className="text-[12px] text-slate-500">{k}</p><p className={`text-[17px] font-bold ${k === "Back at" && result.plan.overBy > 0 ? "text-red-600" : ""}`}>{v}</p></div>)}
@@ -335,7 +355,7 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
       </div>
     </section>
 
-    {picker && <AttractionPicker attractions={attractions} date={draft.tripDate ?? null} area={draft.area} onClose={() => setPicker(false)} onAdd={addAttraction} />}
+    {picker && <AttractionPicker attractions={attractions} date={draft.tripDate ?? null} area={draft.area} added={new Set(draft.stops.map((x) => x.attractionId).filter(Boolean) as string[])} onClose={() => setPicker(false)} onAdd={addAttraction} />}
     {sendOpen && <SendDialog hasEmail={Boolean(draft.customerEmail)} errors={errors.length} onClose={() => setSendOpen(false)} onSend={async (note, notify) => {
       const r = await action("send", { note, notify });
       if (!r) return;
@@ -347,29 +367,31 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
   </main>;
 }
 
-function AttractionPicker({ attractions, date, area, onClose, onAdd }: { attractions: Attraction[]; date: string | null; area: string; onClose: () => void; onAdd: (a: Attraction, programId: string | null, session: string | null, priority: Priority) => void }) {
+function AttractionPicker({ attractions, date, area, added, onClose, onAdd }: { attractions: Attraction[]; date: string | null; area: string; added: Set<string>; onClose: () => void; onAdd: (a: Attraction, programId: string | null, session: string | null, priority: Priority, keepOpen?: boolean) => void }) {
   const [q, setQ] = useState("");
   const [onlyArea, setOnlyArea] = useState(Boolean(area));
   const [chosen, setChosen] = useState<Attraction | null>(null);
   const [programId, setProgramId] = useState<string>("");
   const [session, setSession] = useState<string>("");
   const [priority, setPriority] = useState<Priority>("must");
-  const list = attractions.filter((a) => (!onlyArea || !area || a.area === area) && `${a.name} ${a.customerName ?? ""} ${a.category} ${a.tags.join(" ")}`.toLowerCase().includes(q.toLowerCase()));
+  // Most used places first, so the usual ones are at the top.
+  const list = attractions.filter((a) => (!onlyArea || !area || a.area === area) && `${a.name} ${a.customerName ?? ""} ${a.category} ${a.tags.join(" ")}`.toLowerCase().includes(q.toLowerCase())).sort((x, y) => y.usedIn - x.usedIn || x.name.localeCompare(y.name));
   const program = chosen?.programs.find((p) => p.id === programId);
   const sessions = chosen && program ? sessionsOn(chosen as never, program, date) : [];
   return <Modal open onClose={() => onClose()} sheet overlayClassName="z-50 bg-black/40" asChild>
     <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-      <div className="flex items-center justify-between"><ModalTitle className="text-[20px] font-bold">{chosen ? chosen.customerName || chosen.name : "Add attraction"}</ModalTitle><button type="button" onClick={chosen ? () => setChosen(null) : onClose} aria-label={chosen ? "Back" : "Close"} className="rounded-full p-1.5 hover:bg-slate-100">{chosen ? <ArrowLeft size={20} /> : <X size={20} />}</button></div>
+      <div className="flex items-center justify-between"><ModalTitle className="text-[20px] font-bold">{chosen ? chosen.customerName || chosen.name : "Add attractions"}</ModalTitle><button type="button" onClick={chosen ? () => setChosen(null) : onClose} aria-label={chosen ? "Back" : "Close"} className="rounded-full p-1.5 hover:bg-slate-100">{chosen ? <ArrowLeft size={20} /> : <X size={20} />}</button></div>
       {!chosen ? <>
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search attractions" className={`${inputCls} mt-3`} />
         {area && <label className="mt-2 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={onlyArea} onChange={(e) => setOnlyArea(e.target.checked)} className="size-4 accent-brand" />Only {area}</label>}
         <ul className="mt-3 grid gap-2 overflow-y-auto">
-          {list.map((a) => <li key={a.id}><button type="button" onClick={() => { setChosen(a); setProgramId(a.programs[0]?.id ?? ""); setSession(""); }} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-3 text-left hover:border-brand">
+          {list.map((a) => <li key={a.id} className="flex items-center gap-2"><button type="button" onClick={() => { setChosen(a); setProgramId(a.programs[0]?.id ?? ""); setSession(""); }} className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 p-3 text-left hover:border-brand">
             {a.coverImage ? <img src={a.coverImage} alt="" className="size-12 rounded-lg object-cover" /> : <span className="grid size-12 place-items-center rounded-lg bg-orange-50 text-brand-text"><MapPin size={18} /></span>}
             <span className="min-w-0 flex-1"><span className="block font-semibold">{a.customerName || a.name}</span><span className="block text-[12px] text-slate-500">{a.area} · {a.category} · {a.openTime ? `${a.openTime}–${a.closeTime}` : "any time"}{a.programs.length ? ` · ${a.programs.length} program${a.programs.length > 1 ? "s" : ""}` : ""}{a.latitude == null ? " · no map location" : ""}</span></span>
-          </button></li>)}
+          </button>{added.has(a.id) ? <span className="w-16 shrink-0 text-center text-[12px] font-semibold text-emerald-700">Added ✓</span> : <button type="button" onClick={() => onAdd(a, null, null, "must", true)} aria-label={`Add ${a.customerName || a.name} now`} className="inline-flex h-11 w-16 shrink-0 items-center justify-center gap-1 rounded-full bg-brand text-[14px] font-semibold text-white hover:bg-brand-strong"><Plus size={15} />Add</button>}</li>)}
           {!list.length && <li className="py-8 text-center text-[14px] text-slate-500">No attractions match. Add them under Attractions.</li>}
         </ul>
+        {added.size > 0 && <button type="button" onClick={onClose} className={`${btnPrimary} mt-3 w-full`}>Done · {added.size} in the trip</button>}
       </> : <div className="mt-3 grid gap-3">
         {chosen.description && <p className="text-[14px] text-slate-600">{chosen.description}</p>}
         {chosen.programs.length > 0 && <Field label="Program"><select value={programId} onChange={(e) => { setProgramId(e.target.value); setSession(""); }} className={inputCls}><option value="">General visit ({chosen.durationMin} min)</option>{chosen.programs.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.durationMin} min)</option>)}</select></Field>}
