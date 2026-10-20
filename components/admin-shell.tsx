@@ -23,7 +23,9 @@ const FINANCIAL_TABS = [{ href: "/admin/payments", label: "Payments" }, { href: 
 const isFinancialsPath = (pathname: string) => pathname === "/admin/financials" || FINANCIAL_TABS.some(t => pathname === t.href || pathname.startsWith(`${t.href}/`));
 const isActive = (pathname: string, href: string) => href === "/admin/trips" && isFinancialsPath(pathname) ? false : (href === "/admin" ? pathname === "/admin" : (href === "/admin/partners" && isPartnersPath(pathname)) || (href === "/admin/financials" && isFinancialsPath(pathname)) || pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/seasons"))));
 
-const DESKTOP_ONLY = ["/admin/blog", "/admin/gifts", "/admin/crm", "/admin/financials", "/admin/pricing", "/admin/translations", "/admin/flights", "/admin/trips/packages", "/admin/trips/live", "/admin/trips", "/admin/attractions", "/admin/suppliers"];
+const DESKTOP_ONLY = ["/admin/blog", "/admin/gifts", "/admin/crm", "/admin/financials", "/admin/pricing", "/admin/translations", "/admin/flights", "/admin/trips/packages", "/admin/trips/live", "/admin/attractions", "/admin/suppliers"];
+// Left out of the phone menu: Partners (desktop only now); the Planner tab takes its place.
+const PHONE_HIDDEN = ["/admin/partners"];
 const tabs = [
   { href: "/admin/crm", label: "CRM", mobileLabel: "CRM", title: "Customer management", icon: Users },
   { href: "/admin/financials", label: "Financials", mobileLabel: "Financials", title: "Financials", icon: BarChart3 },
@@ -84,7 +86,7 @@ const tabs = [
   { href: "/admin/flights", label: "Flights", mobileLabel: "Flights", title: "Flight data", icon: Plane },
   { href: "/admin/trips/packages", label: "Trip packages", mobileLabel: "Packages", title: "Trip packages", icon: Route },
   { href: "/admin/trips/live", label: "Live today", mobileLabel: "Live", title: "Live today", icon: Route },
-  { href: "/admin/trips", label: "Trip planner", mobileLabel: "Trips", title: "Trip planner", icon: Route },
+  { href: "/admin/trips", label: "Trip planner", mobileLabel: "Planner", title: "Trip planner", icon: Route },
   { href: "/admin/attractions", label: "Attractions", mobileLabel: "Places", title: "Attractions", icon: Route },
   { href: "/admin/suppliers", label: "Supplier contacts", mobileLabel: "Suppliers", title: "Supplier contacts", icon: Route },
 
@@ -369,8 +371,8 @@ function MobileTabBar({ pathname }: { pathname: string }) {
   const [focused, setFocused] = useState(false);
   const hidden = useScrollHidden(pathname, open || editing !== null || focused);
   const hold = useRef<{ timer?: number; fired?: boolean }>({});
-  // Desktop-only sections are left out of the phone menu: CRM, financials, blog, giveaways, fare management, translations, flight data and the trip planner pages.
-  const phoneTabs = tabs.filter((tab) => !DESKTOP_ONLY.includes(tab.href));
+  // Desktop-only sections are left out of the phone menu: CRM, financials, blog, giveaways, fare management, translations, flight data and the trip packages / live / attractions / suppliers pages. Partners is replaced by Planner.
+  const phoneTabs = tabs.filter((tab) => !DESKTOP_ONLY.includes(tab.href) && !PHONE_HIDDEN.includes(tab.href));
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(MAIN_KEY) ?? "null") as string[] | null;
