@@ -171,7 +171,7 @@ async function defaultQuote(route: NonNullable<Routed["route"]>): Promise<QuoteR
 /** Team command `/post <text>`, or `/post` as a reply to a message. */
 export async function handlePostCommand(rawText: string, replyTo: number, replyText?: string | null) {
   const pasted = (parsePostCommand(rawText) ?? "") || (replyText ?? "").trim();
-  if (!pasted) { await sendCard("Paste a travel-group post after /p, or reply to a message with /p. I draft a comment (with web sources) and, for transport, a Waydidi price post.", undefined, replyTo); return; }
+  if (!pasted) { await sendCard("Paste a travel-group post after /comment, or reply to a message with /comment. I draft a comment (with web sources) and, for transport, a Waydidi price post.", undefined, replyTo); return; }
   if (!postHelperOn()) { await sendCard("The assistant is not switched on (ANTHROPIC_API_KEY).", undefined, replyTo); return; }
   const usage = await assistantUsage();
   if (usage.usd + 0.05 >= usage.capUsd) { await sendCard(`The assistant has reached this month's spending limit (US$${usage.capUsd}). The owner can raise TELEGRAM_ASSISTANT_MONTHLY_USD in Cloudflare.`, undefined, replyTo); return; }
