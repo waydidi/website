@@ -60,6 +60,8 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
   const [loading, setLoading] = useState(false);
   const turnstile = useTurnstile("sign_in");
   const [notice, setNotice] = useState("");
+  // Log in and sign up use the same email-code flow (a new email gets an account); the link only changes the wording.
+  const [signingUp, setSigningUp] = useState(false);
 
   async function post(path: string, body: object) {
     const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -92,7 +94,7 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
     {turnstile.widget}
     <div className="flex-1">
       {step === "email" ? <>
-        <h1 className="text-center text-[26px] font-bold text-navy">Sign in / register</h1>
+        <h1 className="text-center text-[26px] font-bold text-navy">Welcome!</h1>
         <p className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[15px] text-slate-500">
           <span className="inline-flex items-center gap-1.5"><CarFront size={17} className="text-brand" aria-hidden="true" />Manage every trip</span>
           <span className="text-slate-300" aria-hidden="true">|</span>
@@ -102,8 +104,11 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
         <form onSubmit={requestCode} noValidate className="mt-7 grid gap-4">
           <label htmlFor="account-email" className="sr-only">Email address</label>
           <input id="account-email" type="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={input} placeholder="Email" />
-          <button disabled={loading} className={primary}>{loading ? "Sending code…" : "Continue"}</button>
+          <button disabled={loading} className={primary}>{loading ? "Sending code…" : signingUp ? "Sign up" : "Continue"}</button>
         </form>
+        <p className="mt-4 text-center text-[15px] text-slate-500">{signingUp ? "Already have an account?" : "Don't have an account?"}{" "}
+          <button type="button" onClick={() => { setSigningUp(!signingUp); setError(""); }} className="font-semibold text-brand-darker underline underline-offset-2 hover:text-brand-text">{signingUp ? "Log in" : "Sign up"}</button></p>
+        {signingUp ? <p className="mt-2 text-center text-[14px] text-slate-500">Enter your email and we send a 6-digit code. No password to remember.</p> : null}
         {providers.length ? <>
           <div className="my-6 flex items-center gap-4 text-[15px] text-slate-500"><span className="h-px flex-1 bg-slate-200" />Or<span className="h-px flex-1 bg-slate-200" /></div>
           <div className="grid gap-3">{providers.map((id) => {
