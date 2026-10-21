@@ -87,3 +87,12 @@ test('closings follow the playbook: sales get one WhatsApp line, info gets a sig
   assert.equal(r.parseRouted('{"topic":"a","question":"b","replyType":"sales"}').replyType, 'sales');
   assert.equal(r.parseRouted('{"topic":"a","question":"b","replyType":"weird"}').replyType, 'info');
 });
+
+test('/p and /post both start the post helper (also with the bot name); other commands do not', () => {
+  assert.equal(r.parsePostCommand('/p Need a taxi to Pattaya'), 'Need a taxi to Pattaya');
+  assert.equal(r.parsePostCommand('/post Need a taxi\nfor 3 people'), 'Need a taxi\nfor 3 people');
+  assert.equal(r.parsePostCommand('/P@WaydidiBot hello'), 'hello');
+  assert.equal(r.parsePostCommand('/p'), '');
+  assert.equal(r.parsePostCommand('  /p   '), '');
+  for (const other of ['/payment 12', '/pa', '/posts x', '/id', 'p hello', 'please /p', '/ask p']) assert.equal(r.parsePostCommand(other), null, other);
+});

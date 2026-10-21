@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "cloudflare:workers";
-import { DEFAULT_WHATSAPP, REPEATS_TO_SAVE, REPEAT_WINDOW_DAYS, DRAFT_KEEP_DAYS, BLOCKED_DOMAINS, formatDate, jsonObject, lastRefreshDate, parseComposed, parseFacts, parseRouted, refreshDue, staleWarning, verifyFacts, withClosing, type KeptFact, type Routed } from "@/lib/post-helper-rules";
+import { DEFAULT_WHATSAPP, REPEATS_TO_SAVE, REPEAT_WINDOW_DAYS, DRAFT_KEEP_DAYS, BLOCKED_DOMAINS, formatDate, jsonObject, lastRefreshDate, parseComposed, parseFacts, parseRouted, refreshDue, parsePostCommand, staleWarning, verifyFacts, withClosing, type KeptFact, type Routed } from "@/lib/post-helper-rules";
 import { quoteTransfer, type QuoteResult } from "@/lib/cee/quotes";
 import { ASSISTANT_MODEL, assistantConfigured, assistantUsage, reserveAssistantCall, settleAssistantCall } from "@/lib/telegram/assistant";
 import { esc } from "@/lib/telegram/cards";
@@ -170,8 +170,8 @@ async function defaultQuote(route: NonNullable<Routed["route"]>): Promise<QuoteR
 
 /** Team command `/post <text>`, or `/post` as a reply to a message. */
 export async function handlePostCommand(rawText: string, replyTo: number, replyText?: string | null) {
-  const pasted = rawText.replace(/^\/post(@\w+)?\s*/i, "").trim() || (replyText ?? "").trim();
-  if (!pasted) { await sendCard("Paste a travel-group post after /post, or reply to a message with /post. I draft a comment (with web sources) and, for transport, a Waydidi price post.", undefined, replyTo); return; }
+  const pasted = (parsePostCommand(rawText) ?? "") || (replyText ?? "").trim();
+  if (!pasted) { await sendCard("Paste a travel-group post after /p, or reply to a message with /p. I draft a comment (with web sources) and, for transport, a Waydidi price post.", undefined, replyTo); return; }
   if (!postHelperOn()) { await sendCard("The assistant is not switched on (ANTHROPIC_API_KEY).", undefined, replyTo); return; }
   const usage = await assistantUsage();
   if (usage.usd + 0.05 >= usage.capUsd) { await sendCard(`The assistant has reached this month's spending limit (US$${usage.capUsd}). The owner can raise TELEGRAM_ASSISTANT_MONTHLY_USD in Cloudflare.`, undefined, replyTo); return; }

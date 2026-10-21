@@ -17,6 +17,7 @@ import { answerPhotoLocation, isLocationQuestion } from "@/lib/telegram/photo-lo
 import { postJobCompleted } from "@/lib/telegram/trip-photos";
 import { verifyTripCompletion } from "@/lib/trip-completion";
 import { acknowledgeEdit, approveChange, cancelBookingFromTelegram, declineChange, editKeepDriver, editNewDriver, keepBooking } from "@/lib/telegram/booking-changes";
+import { parsePostCommand } from "@/lib/post-helper-rules";
 import { handlePostCallback, handlePostCommand } from "@/lib/telegram/post-helper";
 import { letAiAnswer } from "@/lib/cee/ask-first";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus, telegramClientId } from "@/lib/website-chat";
@@ -214,7 +215,7 @@ async function handleMessage(m: TelegramMessage) {
   // Answers to "Set cost" / "Add driver information" questions on booking cards.
   const teamMember = await approved(m.from);
   // /post <travel-group post>: a drafted comment with web sources, and a Waydidi price post for transport questions.
-  if (teamMember && /^\/post(@\w+)?(\s|$)/i.test(text)) { await handlePostCommand(text, m.message_id, m.reply_to_message?.text ?? null); return; }
+  if (teamMember && parsePostCommand(text) !== null) { await handlePostCommand(text, m.message_id, m.reply_to_message?.text ?? null); return; }
   if (teamMember && await handleBookingAnswer(m, teamMember.display_name, refreshBookingCard)) return;
   // "ราคา" + "REF cost" lines: driver costs for many bookings at once; each then goes to the driver group.
   const bulk = teamMember ? parseBulkCost(text) : null;
