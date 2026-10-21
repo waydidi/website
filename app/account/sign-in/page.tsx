@@ -15,7 +15,8 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   // Social buttons appear only for providers whose credentials are configured.
   const providers = configuredProviders(env as unknown as Record<string, string | undefined>);
   return <main className="bg-gradient-to-b from-brand-tint via-white to-white px-5 pt-10 text-navy sm:pt-16">
-    <div className="mx-auto max-w-[460px]">
+    {/* Every element (logo, text, fields, buttons, spacing) is 10% smaller. */}
+    <div className="mx-auto max-w-[460px]" style={{ zoom: 0.9 }}>
       {/* No site header on sign-in / register: just the orange Waydidi logo, back to the home page. */}
       <Link href="/" aria-label="Waydidi home" className="mx-auto mb-8 flex w-fit text-brand"><WaydidiLogo className="h-[53px] w-[139px] sm:h-[68px] sm:w-[179px]" /></Link>
       <SignInForm next={next ?? null} initialEmail={typeof email === "string" ? email.slice(0, 254) : undefined} providers={providers} providerError={typeof error === "string" ? error : undefined} />
