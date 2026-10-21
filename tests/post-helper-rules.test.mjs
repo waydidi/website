@@ -70,6 +70,20 @@ test('the model replies are read into checked values; bad replies are refused', 
   assert.equal(r.parseRouted('no json'), null); assert.equal(r.parseRouted('{"topic":"","question":"x"}'), null);
   const facts = r.parseFacts('{"facts":[{"claim":"A","category":"visa","sources":["https://x.go.th/a",5]},{"claim":"","category":"tip","sources":[]},{"claim":"B","category":"weird","sources":[]}]}');
   assert.deepEqual(facts.map((f) => [f.claim, f.category, f.sources.length]), [['A', 'visa', 1], ['B', 'general', 0]]);
-  assert.equal(r.parseComposed('{"comment":"Hi\\nthere","template":"Line 1\\n\\n\\n\\nLine 2"}').template, 'Line 1\n\nLine 2');
+  assert.equal(r.parseComposed('{"comment":"Line 1\\n\\n\\n\\nLine 2"}').comment, 'Line 1\n\nLine 2');
   assert.equal(r.parseComposed('{"comment":""}'), null);
+});
+
+test('closings follow the playbook: sales get one WhatsApp line, info gets a sign-off, social gets nothing; em dashes are removed', () => {
+  const wa = '+66 63 206 4884';
+  const sales = r.withClosing('sales', 'Easier with bags — what date?', wa, 0);
+  assert.match(sales, /^Easier with bags, what date\?\n\nFor private trips, transfers or tour enquiries, WhatsApp \+66 63 206 4884\.$/);
+  assert.equal(r.withClosing('adjacent', 'Hi', wa, 1).includes('Want to check options for your dates?'), true);
+  assert.equal(r.withClosing('sales', 'Message us on WhatsApp +66 63 206 4884', wa, 0), 'Message us on WhatsApp +66 63 206 4884', 'no second WhatsApp line');
+  const info = r.withClosing('info', 'Karon is quieter.', wa, 2);
+  assert.match(info, /More Thailand tips and local travel ideas at Waydidi Travel\.$/); assert.doesNotMatch(info, /WhatsApp/);
+  assert.equal(r.withClosing('social', 'Welcome!', wa, 0), 'Welcome!');
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map((i) => r.pick(r.SALES_CTAS, i)).slice(0, 5).length, 5);
+  assert.equal(r.parseRouted('{"topic":"a","question":"b","replyType":"sales"}').replyType, 'sales');
+  assert.equal(r.parseRouted('{"topic":"a","question":"b","replyType":"weird"}').replyType, 'info');
 });

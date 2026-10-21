@@ -108,7 +108,9 @@ const text = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s
 const multiline = (v: unknown, max: number) => (typeof v === "string" ? v.split("\n").map((l) => l.replace(/[ \t]+/g, " ").trim()).join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, max) : "");
 
 export type Route = { pickup: string; dropoff: string; passengers: number; bags: number };
-export type Routed = { language: "en" | "th" | "zh" | "other"; kind: "transport" | "travel" | "other"; topic: string; question: string; timeSensitive: boolean; route: Route | null };
+/** The playbook's reply types: sales (asks to hire), adjacent (a transport problem Waydidi could solve), info, social. */
+export type ReplyType = "sales" | "adjacent" | "info" | "social";
+export type Routed = { language: "en" | "th" | "zh" | "other"; kind: "transport" | "travel" | "other"; replyType: ReplyType; topic: string; question: string; timeSensitive: boolean; route: Route | null };
 export function parseRouted(raw: string): Routed | null {
   const o = jsonObject(raw);
   if (!o) return null;
@@ -117,7 +119,8 @@ export function parseRouted(raw: string): Routed | null {
   const r = o.route && typeof o.route === "object" ? o.route as Record<string, unknown> : null;
   const n = (v: unknown, d: number, max: number) => { const x = Math.round(Number(v)); return Number.isFinite(x) ? Math.min(max, Math.max(0, x)) : d; };
   const route = r && text(r.pickup, 120) && text(r.dropoff, 120) ? { pickup: text(r.pickup, 120), dropoff: text(r.dropoff, 120), passengers: Math.max(1, n(r.passengers, 2, 30)), bags: n(r.bags, 2, 40) } : null;
-  return { language: o.language === "th" || o.language === "zh" || o.language === "en" ? o.language : "other", kind: o.kind === "transport" ? "transport" : o.kind === "travel" ? "travel" : "other", topic, question, timeSensitive: o.timeSensitive === true, route };
+  const replyType: ReplyType = o.replyType === "sales" || o.replyType === "adjacent" || o.replyType === "social" ? o.replyType : "info";
+  return { language: o.language === "th" || o.language === "zh" || o.language === "en" ? o.language : "other", kind: o.kind === "transport" ? "transport" : o.kind === "travel" ? "travel" : "other", replyType, topic, question, timeSensitive: o.timeSensitive === true, route };
 }
 export function parseFacts(raw: string): ProposedFact[] {
   const o = jsonObject(raw);
@@ -132,9 +135,35 @@ export function parseFacts(raw: string): ProposedFact[] {
   }
   return out;
 }
-export function parseComposed(raw: string): { comment: string; template: string | null } | null {
+export function parseComposed(raw: string): { comment: string } | null {
   const o = jsonObject(raw);
   const comment = multiline(o?.comment, 1500);
-  if (!comment) return null;
-  return { comment, template: multiline(o?.template, 1500) || null };
+  return comment ? { comment } : null;
+}
+
+// Closings follow the owner's playbook: a booking enquiry gets one WhatsApp line, an information reply gets a light
+// signoff and no number, a social comment gets nothing. The wording rotates so the same line is not used everywhere.
+export const SALES_CTAS = [
+  "For private trips, transfers or tour enquiries, WhatsApp {n}.",
+  "Want to check options for your dates? WhatsApp {n}.",
+  "Need help arranging your Thailand trip? WhatsApp {n}.",
+  "Happy to help with the planning. WhatsApp {n}.",
+  "Planning your Thailand trip? You can reach Waydidi on WhatsApp: {n}.",
+];
+export const SIGNOFFS = [
+  "For more local-style travel recommendations, have a look at Waydidi Travel.",
+  "If you enjoy Thailand travel tips like this, we share more at Waydidi Travel.",
+  "More Thailand tips and local travel ideas at Waydidi Travel.",
+];
+export const DEFAULT_WHATSAPP = "+66 63 206 4884";
+export const pick = <T,>(list: T[], seed: number) => list[Math.abs(Math.floor(seed)) % list.length];
+
+/** Removes em dashes (the playbook never uses them) and tidies spaces. */
+export const cleanComment = (s: string) => s.replace(/\s*—\s*/g, ", ").replace(/ +,/g, ",").replace(/[ \t]{2,}/g, " ").trim();
+
+export function withClosing(type: ReplyType, comment: string, whatsapp: string, seed: number): string {
+  const body = cleanComment(comment);
+  if (type === "sales" || type === "adjacent") return /whatsapp/i.test(body) ? body : `${body}\n\n${pick(SALES_CTAS, seed).replace("{n}", whatsapp)}`;
+  if (type === "info") return /waydidi/i.test(body) ? body : `${body}\n\n${pick(SIGNOFFS, seed)}`;
+  return body;
 }

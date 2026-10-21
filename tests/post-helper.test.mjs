@@ -18,7 +18,7 @@ const vite=await createServer({root,configFile:false,appType:'custom',resolve:{a
 after(async()=>{await vite.close();await mf.dispose();delete globalThis.__phTest;});
 const ph=await vite.ssrLoadModule('/lib/telegram/post-helper.ts');
 const now=new Date('2026-10-21T05:00:00Z');
-const routedJson=(over={})=>JSON.stringify({language:'en',kind:'travel',topic:'bkk-airport-to-pattaya-options',question:'How to get from Bangkok airport to Pattaya',timeSensitive:false,route:null,...over});
+const routedJson=(over={})=>JSON.stringify({language:'en',replyType:'info',kind:'travel',topic:'bkk-airport-to-pattaya-options',question:'How to get from Bangkok airport to Pattaya',timeSensitive:false,route:null,...over});
 const searchBlocks=()=>[{type:'web_search_tool_result',content:[{type:'web_search_result',url:'https://www.airportthai.co.th/transport',title:'AOT',page_age:'September 2, 2026'},{type:'web_search_result',url:'https://blog.example.com/pattaya-tips',title:'Blog',page_age:'1 month ago'},{type:'web_search_result',url:'https://www.facebook.com/groups/x/posts/1',title:'FB',page_age:'1 day ago'}]},{type:'text',text:JSON.stringify({facts:[
  {claim:'Airport rail link runs to the city',category:'schedule',sources:['https://www.airportthai.co.th/transport']},
  {claim:'A blog says the visa fee is 2,000 baht',category:'fees',sources:['https://blog.example.com/pattaya-tips']},
@@ -64,18 +64,36 @@ test('"Wrong or outdated" pauses the saved facts until checked',async()=>{
  const s=m.calls.search;await ph.draftForPost('BKK to Pattaya once more',{client:m,now:()=>now});assert.equal(m.calls.search,s+1,'paused knowledge is not reused');
 });
 
-test('transport posts get a Waydidi price post from the real quote, with the disclosure line; no quote says so',async()=>{
- const transport=routedJson({kind:'transport',topic:'phuket-airport-to-patong',question:'Phuket airport to Patong transport',route:{pickup:'Phuket Airport',dropoff:'Patong',passengers:2,bags:2}});
+test('a sales post gets the real quote in the comment, one WhatsApp line and no em dashes; no quote means no price',async()=>{
+ const sales=routedJson({replyType:'sales',kind:'transport',topic:'phuket-airport-to-patong',question:'Phuket airport to Patong transport',route:{pickup:'Phuket Airport',dropoff:'Patong',passengers:2,bags:2}});
  const quote=async()=>({ok:true,kind:'transfer',summary:'Phuket Airport to Patong',notes:[],cars:[{vehicle:'economy_sedan',name:'Economy sedan',seats:2,bags:2,price:900,bookUrl:'https://waydidi.com/?x=1'}]});
- const m=model({router:transport,template:'Private transfer from THB 900 in an Economy sedan.\nBook: https://waydidi.com/?x=1'});
+ const m=model({router:sales,compose:JSON.stringify({comment:'Hi! 😊 A private car is easier with bags — from THB 900 in an Economy sedan. What is your travel date and hotel?'})});
  const d=await ph.draftForPost('Need a taxi Phuket airport to Patong for 2',{client:m,quote,now:()=>now});
  assert.equal(m.calls.composeInputs[0].waydidiQuote.cars[0].priceThb,900);
- const out=text(d);assert.match(out,/Waydidi price post/);assert.match(out,/THB 900/);assert.match(out,/Disclosure: I work with Waydidi\./);
- await db.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('post_helper_disclosure','never','x')").run();
- assert.doesNotMatch(text(await ph.draftForPost('Need a taxi Phuket airport to Patong for 2',{client:m,quote,now:()=>now})),/Disclosure/);
- await db.prepare("DELETE FROM app_settings WHERE key='post_helper_disclosure'").run();
- const none=await ph.draftForPost('Need a taxi Phuket airport to Patong for 2',{client:model({router:transport}),quote:async()=>({ok:false,reason:'No price for that route.',handover:false}),now:()=>now});
- assert.match(text(none),/No Waydidi price found automatically/);assert.doesNotMatch(text(none),/Waydidi price post/);
+ const out=text(d);assert.match(out,/Sales \(wants to hire\)/);assert.match(out,/from THB 900/);assert.match(out,/WhatsApp[: ]+\+66 63 206 4884/);assert.doesNotMatch(out,/—/);
+ assert.equal((out.match(/WhatsApp/g)||[]).length,1);
+ const none=await ph.draftForPost('Need a taxi Phuket airport to Patong for 2',{client:model({router:sales}),quote:async()=>({ok:false,reason:'No price for that route.',handover:false}),now:()=>now});
+ assert.match(text(none),/No Waydidi price in the comment/);
+ const inputs=m.calls.composeInputs;assert.equal(inputs.length,1);
+});
+
+test('an information post gets a light sign-off and no WhatsApp; a social post gets no promotion; the number can be changed',async()=>{
+ const info=await ph.draftForPost('Kata or Karon for a family?',{client:model({router:routedJson({replyType:'info',topic:'kata-or-karon'})}),now:()=>now});
+ assert.match(text(info),/Information only/);assert.match(text(info),/Waydidi Travel/);assert.doesNotMatch(text(info),/WhatsApp/);
+ const social=await ph.draftForPost('First time in Thailand, anyone around?',{client:model({router:routedJson({replyType:'social',topic:'first-time-hello'})}),now:()=>now});
+ assert.doesNotMatch(text(social),/WhatsApp|have a look at Waydidi|tips like this|local travel ideas/);
+ await db.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('post_helper_whatsapp','+66 99 000 0000','x')").run();
+ const sales=await ph.draftForPost('Looking for a private driver Bangkok',{client:model({router:routedJson({replyType:'sales',kind:'transport',topic:'bkk-private-driver'})}),now:()=>now});
+ assert.match(text(sales),/\+66 99 000 0000/);
+ await db.prepare("DELETE FROM app_settings WHERE key='post_helper_whatsapp'").run();
+});
+
+test('the owner playbook is given to the writer, and its reference prices are marked as not quotes',async()=>{
+ await db.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('post_helper_notes','PLAYBOOK: help first. Sedan 1,300','x')").run();
+ let system='';const m=model();const wrapped={create:async(b)=>{if(String(JSON.stringify(b.system)).includes('Facebook community adviser'))system=JSON.stringify(b.system);return m.create({...b,system:Array.isArray(b.system)?b.system[0].text:b.system});}};
+ await ph.draftForPost('Kata or Karon?',{client:wrapped,now:()=>now});
+ assert.match(system,/PLAYBOOK: help first/);assert.match(system,/reference prices are NOT quotes/);
+ await db.prepare("DELETE FROM app_settings WHERE key='post_helper_notes'").run();
 });
 
 test('unreadable model replies stop with an error',async()=>{
