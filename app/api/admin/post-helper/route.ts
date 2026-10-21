@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   if (input?.action === "save") {
     const notes = typeof input.notes === "string" ? input.notes.replace(/\r\n/g, "\n") : null, whatsapp = typeof input.whatsapp === "string" ? input.whatsapp.trim() : null;
     if (notes === null || notes.length > MAX_NOTES) return reply(`Paste the playbook as text, up to ${MAX_NOTES.toLocaleString("en-US")} characters.`, 400);
-    if (whatsapp === null || !/^\+?[\d\s()-]{7,20}$/.test(whatsapp)) return reply("Enter the WhatsApp number, for example +66 63 206 4884.", 400);
+    if (whatsapp === null || !/^\+?[\d\s()-]{7,20}$/.test(whatsapp)) return reply("Enter the WhatsApp number with the country code.", 400);
     const blocked = Array.isArray(input.blocked) ? input.blocked.map((d) => String(d).trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "")).filter(Boolean) : null;
     if (!blocked || blocked.length > 100 || blocked.some((d) => !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(d))) return reply("The blocked sites must be website names like example.com, up to 100.", 400);
     await put("post_helper_notes", notes); await put("post_helper_whatsapp", whatsapp); await put("post_helper_blocked_domains", JSON.stringify([...new Set(blocked)]));

@@ -155,7 +155,7 @@ export const SIGNOFFS = [
   "If you enjoy Thailand travel tips like this, we share more at Waydidi Travel.",
   "More Thailand tips and local travel ideas at Waydidi Travel.",
 ];
-export const DEFAULT_WHATSAPP = "+66 63 206 4884";
+export { WHATSAPP as DEFAULT_WHATSAPP } from "./contact";
 export const pick = <T,>(list: T[], seed: number) => list[Math.abs(Math.floor(seed)) % list.length];
 
 /** Removes em dashes (the playbook never uses them) and tidies spaces. */
