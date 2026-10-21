@@ -343,6 +343,14 @@
     "text": "สำรวจสิ่งที่คุณทำได้กับ Waydidi",
     "status": "machine"
   },
+  "home.tagline.title": {
+    "text": "เดินทางอย่างสบายใจ",
+    "status": "machine"
+  },
+  "home.tagline.text": {
+    "text": "การเดินทางที่ราบรื่น ความทรงจำอันล้ำค่าให้จดจำไปตลอด",
+    "status": "machine"
+  },
   "services.details": {
     "text": "รายละเอียด",
     "status": "machine"
