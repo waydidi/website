@@ -88,7 +88,7 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
   const primary = "flex h-[52px] w-full items-center justify-center rounded-lg bg-brand text-lg font-medium text-white transition hover:bg-[#F07F00] disabled:opacity-60";
   const nextParam = encodeURIComponent(safeNext(next));
 
-  return <div className="flex min-h-[calc(100dvh-59px)] flex-col lg:min-h-[calc(100dvh-97px)]">
+  return <div className="flex min-h-[calc(100dvh-150px)] flex-col sm:min-h-[calc(100dvh-190px)]">
     {turnstile.widget}
     <div className="flex-1">
       {step === "email" ? <>
