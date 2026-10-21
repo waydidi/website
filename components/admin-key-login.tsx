@@ -11,7 +11,8 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
   const [mfa, setMfa] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState("");
-  const [remember, setRemember] = useState(false);
+  // On by default: without it the session ends after 8 hours, and after 30 minutes without use (the cause of signing in again and again).
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
