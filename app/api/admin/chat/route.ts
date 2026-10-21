@@ -3,6 +3,7 @@ import { crmAction,crmDb } from "@/lib/crm";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { askFirstMinutes, askFirstOn, setAskFirst } from "@/lib/cee/ask-first";
 import { ceeEnabled, setCeeEnabled } from "@/lib/cee/bot";
 import { addStaffMessage, assign, pauseBot, conversationById, deliverVisitorMessage, messagesFor, setStatus, STATUSES } from "@/lib/website-chat";
 import type { ChatStatus } from "@/lib/telegram/cards";
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
   }
   const team = (await env.DB.prepare("SELECT id,display_name name FROM staff_accounts WHERE active=1 AND role IN ('owner','support','operations') ORDER BY display_name").all().catch(() => ({ results: [] }))).results;
   return NextResponse.json({ conversations, conversation, messages, selectionError, team, me: { id: staff.id, name: staff.displayName },
-    cee: { enabled: await ceeEnabled(), keySet: Boolean((env as unknown as Record<string, unknown>).ANTHROPIC_API_KEY) } }, { headers });
+    cee: { enabled: await ceeEnabled(), keySet: Boolean((env as unknown as Record<string, unknown>).ANTHROPIC_API_KEY), askFirst: await askFirstOn(), askMinutes: await askFirstMinutes() } }, { headers });
 }
 
 export async function POST(request: Request) {
@@ -78,6 +79,13 @@ export async function POST(request: Request) {
   if (input?.action === "cee_enabled") {
     if (staff.role !== "owner") return reply("Only the owner can switch Non on or off.", 403);
     await setCeeEnabled(input.on === true);
+    return NextResponse.json({ ok: true }, { headers });
+  }
+  // "Ask me first": new chats wait in Telegram for Let AI answer / I'll answer (owner only).
+  if (input?.action === "ask_first") {
+    if (staff.role !== "owner") return reply("Only the owner can change who answers new chats.", 403);
+    const minutes = (input as { minutes?: unknown }).minutes;
+    await setAskFirst(input.on === true, typeof minutes === "number" ? minutes : undefined);
     return NextResponse.json({ ok: true }, { headers });
   }
   if (typeof input?.id !== "string" || !input.id || input.id.length > 100) return reply("Choose a conversation.", 400);

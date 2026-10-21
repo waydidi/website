@@ -154,6 +154,8 @@ const worker = {
       ctx.waitUntil(import("../lib/aerodatabox").then((m) => m.dailyStatsIfDue(new Date(controller.scheduledTime))).catch(() => undefined));
       // Every 30 minutes: thank-you coupons for members whose invited friend has completed a ride.
       ctx.waitUntil(import("../lib/referrals").then((m) => m.referralRewardsIfDue(new Date(controller.scheduledTime))).catch((e) => console.error("referral rewards failed", e)));
+      // "Ask me first": chats nobody chose for within the wait are given to Non.
+      ctx.waitUntil(import("../lib/cee/ask-first").then((m) => m.releaseWaitingChats(new Date(controller.scheduledTime))).catch((e) => console.error("ask-first release failed", e)));
       // A confirmed booking whose Telegram card was never posted gets one.
       ctx.waitUntil(import("../lib/telegram/bookings").then((m) => m.postMissingBookingCards(new Date(controller.scheduledTime))).catch((e) => console.error("missing booking cards failed", e)));
       // Every 15 minutes: flights of upcoming airport pickups; the team is told about delays in Telegram.

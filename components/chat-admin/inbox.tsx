@@ -8,7 +8,7 @@ import { countryLabel } from "@/lib/country";
 type Row = { id: string; public_id: string; status: string; customer_name: string | null; customer_email: string | null; source_title: string | null; source_url: string | null; assigned_name: string | null; assigned_staff_id: string | null; last_message_at: string | null; unread: number; preview: string | null; last_sender: string | null; channel?: string; follow_up_at?: string | null; read_by?: string | null; read_at?: string | null };
 type Detail = Row & { customer_country: string | null; customer_phone: string | null; customer_id: string | null; topic: string | null; created_at: string; on_telegram: boolean; bot_paused: boolean; read_seq?: number; quiet?: boolean; follow_up_at?: string | null };
 type Msg = { seq: number; id: string; sender: "visitor" | "staff"; sender_name: string | null; is_bot?: number; body: string; created_at: string; telegram_status: string | null };
-type Data = { conversations: Row[]; conversation: Detail | null; messages: Msg[]; selectionError: string | null; team: { id: string; name: string }[]; me: { id: string; name: string }; cee?: { enabled: boolean; keySet: boolean } };
+type Data = { conversations: Row[]; conversation: Detail | null; messages: Msg[]; selectionError: string | null; team: { id: string; name: string }[]; me: { id: string; name: string }; cee?: { enabled: boolean; keySet: boolean; askFirst?: boolean; askMinutes?: number } };
 
 const FILTERS: [string, string][] = [["active", "Active"], ["open", "Open"], ["pending", "Pending"], ["closed", "Closed"], ["mine", "Mine"], ["unassigned", "Unassigned"]];
 const STATUS: Record<string, [string, string]> = { open: ["Open", "bg-emerald-50 text-emerald-700"], pending: ["Pending", "bg-amber-50 text-amber-800"], closed: ["Closed", "bg-slate-100 text-slate-600"] };
@@ -156,6 +156,10 @@ export function ChatInbox() {
           <p className="mt-2 text-slate-600">{!data.cee.enabled ? "Non is off for all chats." : c.assigned_name || c.bot_paused ? "Non is quiet in this chat (a person has it)." : "Non is answering this chat."}</p>
           {data.cee.enabled && !c.assigned_name && <button type="button" disabled={busy} onClick={() => void act({ action: c.bot_paused ? "cee_resume" : "cee_pause" })} className="mt-2 h-9 rounded-full border border-slate-200 bg-white px-3 font-semibold">{c.bot_paused ? "Let Non answer again" : "Stop Non in this chat"}</button>}
           <label className="mt-2 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={data.cee.enabled} disabled={busy} onChange={(e) => void act({ action: "cee_enabled", on: e.target.checked })} className="accent-brand" />Non on for all chats (owner)</label>
+          {data.cee.enabled && <>
+            <label className="mt-2 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={Boolean(data.cee?.askFirst)} disabled={busy} onChange={(e) => void act({ action: "ask_first", on: e.target.checked, minutes: data.cee?.askMinutes })} className="accent-brand" />Ask me first in Telegram: Let AI answer or I&apos;ll answer (owner)</label>
+            {data.cee?.askFirst && <label className="mt-1 flex items-center gap-2 text-[12.5px] text-slate-600">If nobody chooses, Non answers after <input type="number" min={1} max={60} defaultValue={data.cee?.askMinutes ?? 5} disabled={busy} onBlur={(e) => { const n = Math.round(Number(e.target.value)); if (n >= 1 && n <= 60 && n !== data.cee?.askMinutes) void act({ action: "ask_first", on: true, minutes: n }); }} className="h-8 w-16 rounded-lg border border-slate-200 px-2" /> min</label>}
+          </>}
         </>}
         <p className="mt-5 text-[12px] text-slate-500">{c.public_id} · started {new Date(c.created_at).toLocaleString()}</p>
       </aside>}

@@ -17,6 +17,7 @@ import { answerPhotoLocation, isLocationQuestion } from "@/lib/telegram/photo-lo
 import { postJobCompleted } from "@/lib/telegram/trip-photos";
 import { verifyTripCompletion } from "@/lib/trip-completion";
 import { acknowledgeEdit, approveChange, cancelBookingFromTelegram, declineChange, editKeepDriver, editNewDriver, keepBooking } from "@/lib/telegram/booking-changes";
+import { letAiAnswer } from "@/lib/cee/ask-first";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus, telegramClientId } from "@/lib/website-chat";
 
 // Telegram → Waydidi. Verified by the secret-token header, de-duplicated by update_id, and every action
@@ -129,6 +130,10 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
       // On a "Needs a person" card: drop its buttons and say who took it.
       if (q.message && q.message.message_id !== c.telegram_message_id) await tg("editMessageReplyMarkup", { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [[{ text: done ? `Taken by ${admin.display_name}` : `Taken by ${c.assigned_name}`, callback_data: "noop:x" }]] } }).catch(() => undefined);
       return answerCallback(q.id, done ? "Assigned to you." : `Already assigned to ${c.assigned_name}.`);
+    }
+    case "chat_ai": {
+      const done = await letAiAnswer(c.id);
+      return answerCallback(q.id, done ? "Non (AI) will answer." : c.assigned_name ? `Already assigned to ${c.assigned_name}.` : "Someone already chose.");
     }
     case "chat_wait": return answerCallback(q.id, await waitHandover(c.id, admin.display_name), true);
     case "chat_pending": await setStatus(c.id, "pending"); return answerCallback(q.id, "Marked pending.");
