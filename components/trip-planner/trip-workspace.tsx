@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, Copy, Exter
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AttractionView, SupplierRow } from "@/lib/attractions";
 import type { TripInput } from "@/lib/smart-trips";
+import type { ChatDraft } from "@/lib/trip-chat-rules";
 import { duration, fmt, sessionsOn, type Plan, type PlannedStop, type Priority, type TripStop } from "@/lib/trip-plan";
 import { VEHICLES } from "@/lib/vehicles";
 import { PlacePicker } from "./place-picker";
@@ -64,6 +65,18 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
   // Phones show one step at a time; wide screens show everything. The extra fields stay folded away on a new trip.
   const [tab, setTab] = useState<Step>("setup");
   const [more, setMore] = useState(Boolean(tripId));
+  // "Paste the customer's chat": the draft plan is made from it, with a progress bar while it works.
+  const [chatText, setChatText] = useState("");
+  const [chatStage, setChatStage] = useState<0 | 1 | 2 | 3>(0);
+  const [chatPct, setChatPct] = useState(0);
+  const [chatError, setChatError] = useState("");
+  const [chatDone, setChatDone] = useState<Pick<ChatDraft, "missing" | "unmatched" | "suggested"> & { stops: number } | null>(null);
+  // While the chat is being read the bar creeps forward, slowing down as it nears the end of that stage.
+  useEffect(() => {
+    if (chatStage !== 1) return;
+    const t = window.setInterval(() => setChatPct((p) => (p < 60 ? p + (60 - p) * 0.08 + 0.4 : p)), 250);
+    return () => window.clearInterval(t);
+  }, [chatStage]);
 
   const load = useCallback(async () => {
     const [a, t] = await Promise.all([
@@ -94,6 +107,23 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
     } catch (e) { if (n === seq.current) setError((e as Error).message); }
     finally { if (n === seq.current) setPlanning(false); }
   }, [base]);
+  async function buildFromChat() {
+    setChatError(""); setChatDone(null); setError(""); setNotice("");
+    if (chatText.trim().length < 10) return setChatError("Paste the customer's chat first.");
+    setChatStage(1); setChatPct(5);
+    try {
+      const { draft: made } = await api<{ draft: ChatDraft }>(`${base}/trips/from-chat`, "POST", { text: chatText });
+      setChatStage(2); setChatPct(70);
+      const next: TripInput = { ...blankTrip(), title: made.title, area: made.area, tripDate: made.tripDate, startTime: made.startTime, durationHours: made.durationHours, adults: made.adults, children: made.children,
+        bags: made.bags, pickupText: made.pickupText, customerName: made.customerName, notes: made.notes, language: made.language, stops: made.stops as TripInput["stops"] };
+      setDraft(next); setDirty(true); setSameEnd(true); setSelected(null);
+      setChatStage(3); setChatPct(85);
+      await runPlan(next, next.stops.length > 1);
+      setChatPct(100);
+      setChatDone({ missing: made.missing, unmatched: made.unmatched, suggested: made.suggested, stops: made.stops.length });
+    } catch (e) { setChatError((e as Error).message); }
+    finally { setChatStage(0); }
+  }
   const planKey = draft ? JSON.stringify({ ...draft, customerName: 0, customerEmail: 0, customerPhone: 0, notes: 0, title: 0, templateName: 0 }) : "";
   useEffect(() => {
     if (!draft) return;
@@ -200,6 +230,24 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
       {/* Left: setup + itinerary */}
       <div className={`${tab === "plan" ? "hidden lg:grid" : "grid"} content-start gap-4`}>
         <section className={`${tab === "setup" ? "" : "hidden lg:block"} rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5`}>
+          {mode === "admin" && !tripId && !draft.isTemplate && <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50/60 p-4">
+            <h2 className="flex items-center gap-2 text-[16px] font-bold"><Sparkles size={17} className="text-brand-text" />Start from the customer&apos;s chat</h2>
+            <p className="mt-1 text-[13px] text-slate-600">Paste what the customer wrote. The date, people, pickup and the places they want are filled in, and the day is arranged. Works with a blank request too: places are suggested.</p>
+            <textarea value={chatText} onChange={(e) => setChatText(e.target.value)} disabled={chatStage > 0} rows={5} maxLength={24000} aria-label="Customer chat" placeholder="Paste the chat here…" className={`${areaCls} mt-3`} />
+            {chatStage > 0 && <div className="mt-3" role="status">
+              <div role="progressbar" aria-label="Making the plan" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(chatPct)} className="h-2.5 overflow-hidden rounded-full bg-orange-100"><div className="h-full rounded-full bg-brand transition-[width] duration-500" style={{ width: `${chatPct}%` }} /></div>
+              <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-slate-700"><LoaderCircle size={14} className="animate-spin" />{chatStage === 1 ? "Reading the chat…" : chatStage === 2 ? "Matching the places…" : "Arranging the day and checking drive times…"}</p>
+            </div>}
+            {chatError && <p role="alert" className="mt-2 text-[13px] font-semibold text-red-700">{chatError}</p>}
+            {chatDone && chatStage === 0 && <div className="mt-3 rounded-xl bg-white p-3 text-[13px]">
+              <p className="font-bold text-emerald-700">Plan ready · {chatDone.stops} stop{chatDone.stops === 1 ? "" : "s"}</p>
+              {chatDone.suggested && <p className="mt-1 text-slate-700">The customer named no places, so these are suggestions. Remove what does not fit.</p>}
+              {chatDone.unmatched.length > 0 && <p className="mt-1 text-amber-800">Not in your attractions list (added as custom stops, set the place): {chatDone.unmatched.join(", ")}</p>}
+              {chatDone.missing.filter((m) => m !== "places").length > 0 && <p className="mt-1 text-amber-800">Still to fill in: {chatDone.missing.filter((m) => m !== "places").join(", ")}.</p>}
+              <p className="mt-1 text-slate-500">Check everything before sending it to the customer.</p>
+            </div>}
+            <button type="button" onClick={() => void buildFromChat()} disabled={chatStage > 0 || !chatText.trim()} className={`${btnPrimary} mt-3 w-full sm:w-auto`}>{chatStage > 0 && <LoaderCircle size={15} className="animate-spin" />}Make a plan</button>
+          </div>}
           <h2 className="text-[16px] font-bold">Trip</h2>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {!draft.isTemplate && <Field label="Date"><input type="date" min={bangkokToday()} value={draft.tripDate ?? ""} onChange={(e) => update({ tripDate: e.target.value || null })} className={inputCls} /></Field>}
