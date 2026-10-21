@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { eq } from "drizzle-orm";
-import { Backpack, CalendarDays, Car, CheckCircle2, Clock, Download, MapPin, Shirt, Ticket, Users } from "lucide-react";
+import { Backpack, CalendarDays, Car, CheckCircle2, ChevronDown, Clock, Download, MapPin, Shirt, Ticket, Users } from "lucide-react";
 import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
@@ -133,11 +133,16 @@ function DaySection({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title:
           <div className="border-l-2 border-orange-200 pl-4">
             {st.travelMin > 0 && <p className="-mt-1 mb-2 text-[13px] text-slate-500">{fill(w.drive, { d: dur(st.travelMin) })}</p>}
             <h3 className="text-[18px] font-bold"><span className="mr-2 inline-grid size-6 place-items-center rounded-full bg-brand text-[12px] text-white">{i + 1}</span>{st.name}</h3>
-            <p className="mt-0.5 text-[14px] text-slate-600">{hhmm(st.start)}–{hhmm(st.end)}{st.program ? ` · ${st.program}` : ""}{st.openHours ? ` · ${fill(w.open, { hours: st.openHours })}` : ""}</p>
+            <p className="mt-0.5 text-[14px] text-slate-600">{hhmm(st.start)}–{hhmm(st.end)}{st.program ? ` · ${st.program}` : ""}</p>
             {st.checkIn != null && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-[#9A4D00]"><Ticket size={14} />{fill(w.sessionCheckIn, { time: st.sessionTime ?? "", checkIn: hhmm(st.checkIn) })}</p>}
             {st.cover && <img src={st.cover} alt={st.name} className="mt-3 aspect-[16/9] w-full rounded-2xl object-cover" loading="lazy" />}
-            {st.description && <p className="mt-3 text-[15px] leading-7 text-slate-700">{st.description}</p>}
             {st.highlights.length > 0 && <ul className="mt-2 grid gap-1 text-[14px] text-slate-700">{st.highlights.map((h) => <li key={h}>• {h}</li>)}</ul>}
+            {st.description && <details className="group mt-2">
+              <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 text-[14px] font-semibold text-brand-deep [&::-webkit-details-marker]:hidden">
+                {w.seeDetails}<ChevronDown aria-hidden="true" size={16} className="transition-transform group-open:rotate-180" />
+              </summary>
+              <p className="mt-1 text-[15px] leading-7 text-slate-700">{st.description}</p>
+            </details>}
             {st.gallery.length > 0 && <div className="mt-3 flex gap-2 overflow-x-auto">{st.gallery.slice(0, 6).map((g) => <img key={g} src={g} alt="" className="h-24 w-32 shrink-0 rounded-xl object-cover" loading="lazy" />)}</div>}
             {st.dressCode && <p className="mt-2 flex items-center gap-1.5 text-[14px] font-semibold"><Shirt size={15} className="text-brand-text" />{st.dressCode}</p>}
             {st.fee && <p className="mt-1 text-[13px] text-slate-500">{st.fee.included ? w.ticketsIncluded : `${fill(w.feeOnDay, { adult: thb(st.fee.adult) })}${st.fee.child ? fill(w.feeChild, { child: thb(st.fee.child) }) : ""}.`}</p>}
