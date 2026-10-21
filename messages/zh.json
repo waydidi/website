@@ -343,6 +343,14 @@
     "text": "探索 Waydidi 能为您做什么",
     "status": "machine"
   },
+  "home.tagline.title": {
+    "text": "轻松出行。",
+    "status": "machine"
+  },
+  "home.tagline.text": {
+    "text": "旅程顺畅，珍贵回忆值得铭记。",
+    "status": "machine"
+  },
   "services.details": {
     "text": "详情",
     "status": "machine"

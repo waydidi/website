@@ -11,6 +11,7 @@ import { ThailandDestinationMap } from "./destination-map";
 const SHOW_MAP: boolean = false;
 import { WaydidiFooter } from "./footer";
 import { FleetSection } from "./fleet-section";
+import { HomeTagline } from "./tagline";
 import { ServiceCards } from "./service-cards";
 import { TransferPartners } from "./transfer-partners";
 import { DealsSection } from "./deals-section";
@@ -41,6 +42,7 @@ export function homeMetadata(locale: Locale): Metadata {
 export function HomePage({ locale }: { locale: Locale }) {
   return (
     <BookingFlow locale={locale} messages={getMessages(locale)}>
+      <HomeTagline locale={locale} />
       <ServiceCards locale={locale} />
       <HowItWorks />
       {/* Hidden for now: "Where Waydidi takes you" map. */}
