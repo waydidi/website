@@ -44,6 +44,8 @@ export async function createConversation(tokenHash: string, context: { customerI
       await db().prepare(`INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status,customer_id,customer_name,customer_email,customer_phone,source_url,source_title,topic,last_message_at,customer_country,channel,channel_user_id)
         VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,?,?,?,?,?,?)`).bind(id, tokenHash, new Date(Date.now() + 30 * 86400000).toISOString(), now, now, publicId,
         context.customerId ?? null, context.name ?? null, context.email ?? null, context.phone ?? null, context.sourceUrl ?? null, context.sourceTitle ?? null, context.topic ?? null, now, context.country ?? null, context.channel ?? "web", context.channelUserId ?? null).run();
+      // "Ask me first" (Admin → Website chat): the AI waits until someone chooses in Telegram.
+      await import("@/lib/cee/ask-first").then((m) => m.gateNewConversation(id)).catch(() => false);
       return (await conversationById(id))!;
     } catch (error) { if (!/UNIQUE/i.test(String(error)) || attempt === 19) throw error; }
   }

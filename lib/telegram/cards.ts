@@ -20,7 +20,12 @@ export type CardConversation = {
   customer_country?: string | null;
   id: string; public_id: string; status: ChatStatus; customer_name: string | null; customer_email: string | null; customer_phone: string | null;
   source_title: string | null; source_url: string | null; topic: string | null; assigned_name: string | null; created_at: string;
+  bot_paused?: number; bot_state?: string | null; channel?: string;
 };
+
+/** A new chat waiting for "Let AI answer" or "I'll answer". */
+export const waitingForChoice = (c: CardConversation) => !c.assigned_name && Boolean(c.bot_paused) && c.bot_state === "ask_first" && c.status !== "closed";
+const CHANNEL_LABEL: Record<string, string> = { whatsapp: "WhatsApp chat", line: "LINE chat" };
 
 const RULE = "============================";
 
@@ -31,7 +36,7 @@ const RULE = "============================";
  */
 export function conversationCard(c: CardConversation, latest: { body: string; created_at: string; from: string } | null, fresh: boolean, nonAnswering = false) {
   const lines = [
-    fresh ? "<b>Website chat</b> (new)" : "<b>Website chat</b>",
+    fresh ? `<b>${CHANNEL_LABEL[c.channel ?? ""] ?? "Website chat"}</b> (new)` : `<b>${CHANNEL_LABEL[c.channel ?? ""] ?? "Website chat"}</b>`,
     `Conversation <b>${esc(c.public_id)}</b>`,
     ...(c.customer_name ? [`${esc(c.customer_name)}`] : []),
     "",
@@ -46,6 +51,7 @@ export function conversationCard(c: CardConversation, latest: { body: string; cr
     ...(c.customer_phone ? [`Phone: ${esc(c.customer_phone)}`] : []),
     "",
     c.assigned_name ? `Assigned to <b>${esc(c.assigned_name)}</b> · ${STATUS_LABEL[c.status]}`
+      : waitingForChoice(c) ? `<b>Who answers?</b> Tap Let AI answer (Non) or I'll answer. If nobody chooses, Non answers by itself after a few minutes.`
       : nonAnswering ? `<b>Non (AI) is answering</b> · no action needed. Tap Take over to reply yourself.`
       : `Not assigned yet · ${STATUS_LABEL[c.status]}`,
   ];
@@ -54,6 +60,8 @@ export function conversationCard(c: CardConversation, latest: { body: string; cr
 
 export function conversationKeyboard(c: CardConversation, adminUrl: string, nonAnswering = false): InlineKeyboard {
   const id = c.id;
+  // A new chat: choose who answers (the AI stays quiet until then).
+  if (waitingForChoice(c)) return [[{ text: "🤖 Let AI answer", callback_data: `chat_ai:${id}` }, { text: "🙋 I'll answer", callback_data: `chat_assign:${id}` }], [{ text: "Open in Admin", url: adminUrl }]];
   if (c.status === "closed") return [[{ text: "Reopen", callback_data: `chat_reopen:${id}` }, { text: "Open in Admin", url: adminUrl }]];
   // Non is handling it: one button to step in (same as Assign: Non stops at once).
   if (!c.assigned_name && nonAnswering) return [[{ text: "Take over", callback_data: `chat_assign:${id}` }, { text: "Open in Admin", url: adminUrl }]];
