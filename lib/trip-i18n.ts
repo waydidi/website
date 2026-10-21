@@ -1,8 +1,11 @@
+import { getMessages } from "@/lib/i18n";
+
 // Customer-facing words for smart trips (itinerary page, Your day, rating, emails), in
 // the language set on the trip. Attraction names and descriptions stay as staff wrote them.
 export type TripLang = "en" | "th" | "zh";
 
 const en = {
+  seeDetails: getMessages("en")["itinerary.seeDetails"],
   privateTrip: "Your private day trip", multiDay: "Your private {n}-day trip", preparedBy: "Prepared by {agency} with Waydidi",
   for: "For {name}", pickup: "Pickup {time}", backAround: "Back around {time}", travellers: "{n} travellers", traveller: "1 traveller",
   paidTitle: "Booked and paid", paidText: "Your confirmation is in your email. On the day, follow your driver and the next stop live.", openYourDay: "Open “Your day”",
@@ -33,6 +36,7 @@ const en = {
 export type TripWords = typeof en;
 
 const th: TripWords = {
+  seeDetails: getMessages("th")["itinerary.seeDetails"],
   privateTrip: "ทริปส่วนตัวของคุณ", multiDay: "ทริปส่วนตัว {n} วันของคุณ", preparedBy: "จัดโดย {agency} ร่วมกับ Waydidi",
   for: "สำหรับ {name}", pickup: "รับ {time}", backAround: "กลับถึงประมาณ {time}", travellers: "ผู้เดินทาง {n} คน", traveller: "ผู้เดินทาง 1 คน",
   paidTitle: "จองและชำระเงินแล้ว", paidText: "การยืนยันอยู่ในอีเมลของคุณ ในวันเดินทางติดตามคนขับและจุดถัดไปได้แบบเรียลไทม์", openYourDay: "เปิด “วันของคุณ”",
@@ -62,6 +66,7 @@ const th: TripWords = {
 };
 
 const zh: TripWords = {
+  seeDetails: getMessages("zh")["itinerary.seeDetails"],
   privateTrip: "您的私人一日游", multiDay: "您的 {n} 天私人行程", preparedBy: "{agency} 与 Waydidi 为您安排",
   for: "{name} 专属", pickup: "{time} 接送", backAround: "约 {time} 返回", travellers: "{n} 位旅客", traveller: "1 位旅客",
   paidTitle: "已预订并付款", paidText: "确认信已发送到您的邮箱。出行当天可实时查看司机位置和下一站。", openYourDay: "打开“今日行程”",
