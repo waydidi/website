@@ -143,18 +143,21 @@ export async function draftForPost(text: string, deps: Deps = {}, options: { for
   const comment = withClosing(routed.replyType, composed.comment, whatsapp, now.getTime() / 60_000 + repeats);
   const id = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
   await db().prepare("INSERT INTO post_helper_drafts(id,topic_key,text,routed_json,facts_json,mode,created_at) VALUES(?,?,?,?,?,?,?)").bind(id, routed.topic, text.slice(0, 4000), JSON.stringify(routed), JSON.stringify(facts), mode, now.toISOString()).run();
+  const stale = mode === "saved" && staleWarning({ timeSensitive: saved!.time_sensitive === 1, collectedAt: saved!.collected_at }, now);
   const status = mode === "saved"
-    ? `💾 Saved knowledge · Source from ${formatDate(saved!.collected_at)}${staleWarning({ timeSensitive: saved!.time_sensitive === 1, collectedAt: saved!.collected_at }, now) ? "\n⚠️ Time-sensitive and over 3 months old: check it, or tap Search again." : ""}`
-    : `🔎 Fresh search · Source from ${formatDate(now)}`;
+    ? `💾 Saved knowledge · Source from ${formatDate(saved!.collected_at)} (${Math.max(0, Math.floor((now.getTime() - Date.parse(saved!.collected_at)) / 86_400_000))} days ago)\n${stale ? "⚠️ Time-sensitive and over 3 months old: it may be out of date. Tap Search again before posting." : "✅ Up to date: checked when saved, and refreshed every 10 January and 10 July."}`
+    : `🔎 Fresh search · Source from ${formatDate(now)}\n${facts.length ? "✅ Up to date: searched just now." : ""}`;
   const TYPE_LABEL = { sales: "Sales (wants to hire)", adjacent: "Transport opportunity", info: "Information only", social: "Community / social" } as const;
-  const parts = [
-    `<b>Ready-to-post comment</b> · ${TYPE_LABEL[routed.replyType]}\n${esc(comment)}`,
+  // Two messages: the comment alone (long-press, Copy Text, paste into Facebook), then everything to check before posting.
+  const details = [
+    `<b>Check before posting</b> · ${TYPE_LABEL[routed.replyType]}`,
     ...(selling && routed.kind === "transport" && !wantQuote ? [`<i>No Waydidi price in the comment${quote && !quote.ok ? ` (${esc(quote.reason)})` : ""}: it invites a WhatsApp quote. Add a price yourself only if it is approved for that route.</i>`] : []),
     `${status}${facts.length ? "" : "\n⚠️ No fact passed the source checks. The comment has no web facts in it: check before posting."}`,
     ...(facts.length ? [`<b>Sources</b>\n${sourceLines(facts).join("\n")}`] : []),
     ...(dropped.length ? [`<i>Left out: ${dropped.length} statement${dropped.length === 1 ? "" : "s"} without a good enough source.</i>`] : []),
-    "<i>Draft only: nothing was posted. Check it, then post it yourself.</i>",
-  ];
+    "<i>Draft only: nothing was posted. Post it yourself.</i>",
+  ].join("\n\n");
+  const parts = [esc(comment), details];
   const keyboard: InlineKeyboard = [[{ text: "🔄 Search again", callback_data: `ph_again:${id}` }, { text: "👎 Wrong or outdated", callback_data: `ph_bad:${id}` }],
     ...(mode === "fresh" && repeats >= REPEATS_TO_SAVE && facts.length ? [[{ text: `💾 Save as knowledge (asked ${repeats}×)`, callback_data: `ph_save:${id}` }]] : [])];
   return { id, text, keyboard, parts };

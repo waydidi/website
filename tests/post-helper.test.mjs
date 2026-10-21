@@ -41,6 +41,10 @@ test('a fresh search: only facts with allowed, recent, supporting sources reach 
  assert.doesNotMatch(out,/facebook\.com|example\.com\/not-returned/);assert.match(out,/Left out: 3 statements/);assert.match(out,/Draft only/);
  assert.equal(m.calls.search,1);
  assert.ok(!JSON.stringify(d.keyboard).includes('ph_save'),'no save button before the question repeats');
+ // Two messages: the comment alone (easy to copy), then the checks with the buttons.
+ assert.equal(d.parts.length,2);assert.ok(d.parts[0].startsWith('Trains and taxis both work.'));
+ assert.doesNotMatch(d.parts[0],/Source|Sources|Check before|Fresh search|<b>/);
+ assert.match(d.parts[1],/Check before posting/);assert.match(d.parts[1],/Up to date: searched just now/);assert.match(d.parts[1],/Sources/);
 });
 
 test('asked three times it can be saved (a person taps); then it is used without a web search, with its date',async()=>{
