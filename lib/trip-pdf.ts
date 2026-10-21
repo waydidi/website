@@ -34,7 +34,8 @@ async function image(pdf: PDFDocument, url: string | null, origin: string): Prom
 }
 
 export async function createTripPdf(s: TripSnapshot, origin: string, preparedBy: string | null, dayNumber?: number) {
-  const pdf = await PDFDocument.create();
+  // No creation time inside: the same version always makes the same file (the customer's and the Admin download match).
+  const pdf = await PDFDocument.create({ updateMetadata: false });
   pdf.setTitle(`${latin(s.title)} - ${s.ref}`);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);

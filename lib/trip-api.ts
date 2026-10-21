@@ -103,6 +103,17 @@ export async function handlePlan(request: Request, actor: TripActor | null) {
   }, { headers: noStore });
 }
 
+/** Admin / Agency: the itinerary PDF exactly as the customer gets it, as a download. Only once a version was sent. */
+export async function handleItineraryPdf(request: Request, id: string, actor: TripActor | null) {
+  if (!actor) return unauthorized();
+  const trip = await getTrip(id, agencyIdOf(actor));
+  if (!trip || trip.isTemplate) return NextResponse.json({ error: "Trip not found." }, { status: 404 });
+  const { itineraryPdf } = await import("@/lib/trip-itinerary-file");
+  const file = await itineraryPdf(trip, safeOrigin(request));
+  if (!file) return NextResponse.json({ error: "Send the trip to the customer first. The PDF is made from the version the customer sees." }, { status: 409, headers: noStore });
+  return new Response(new Blob([file.bytes as BlobPart], { type: "application/pdf" }), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="Waydidi-${file.ref}-itinerary.pdf"`, "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" } });
+}
+
 export async function handleGet(id: string, actor: TripActor | null) {
   if (!actor) return unauthorized();
   const trip = await getTrip(id, agencyIdOf(actor));
