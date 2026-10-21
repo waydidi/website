@@ -50,7 +50,7 @@ export function WritingAssistant() {
     </section>
     <section className={box}>
       <h2 className="text-[16px] font-bold">Saved knowledge</h2>
-      <p className="mt-1 text-[13px] text-slate-500">Answers a person approved in Telegram. They are used without a web search and refreshed after each 10 January and 10 July. "Paused" ones are not used until you approve them again.</p>
+      <p className="mt-1 text-[13px] text-slate-500">Answers a person approved in Telegram. They are used without a web search and refreshed after each 10 January and 10 July. &ldquo;Paused&rdquo; ones are not used until you approve them again.</p>
       {data.knowledge.length === 0 ? <p className="mt-3 text-[14px] text-slate-500">Nothing saved yet. After the same question has been asked 3 times, Telegram shows a Save button.</p> : <ul className="mt-3 grid gap-2">
         {data.knowledge.map((e) => <li key={e.id} className="rounded-xl border border-slate-200 p-3 text-[14px]">
           <p className="font-semibold">{e.question} <span className={`ml-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ${STATUS[e.status]?.[1] ?? "bg-slate-100"}`}>{STATUS[e.status]?.[0] ?? e.status}</span></p>
