@@ -230,7 +230,7 @@ async function handleMessage(m: TelegramMessage) {
   }
   // Answers to "Set cost" / "Add driver information" questions on booking cards.
   const teamMember = await approved(m.from);
-  // /post <travel-group post>: a drafted comment with web sources, and a Waydidi price post for transport questions.
+  // /comment <travel-group post>: a drafted comment with web sources, and a Waydidi price post for transport questions.
   const postRoute = teamMember ? postCommandRoute(String(m.chat.id), telegramChatId(), commentChat, text) : "ignore";
   if (postRoute === "run") { await handlePostCommand(text, m.message_id, m.reply_to_message?.text ?? null, telegramChatId()); return; }
   if (postRoute === "redirect") { await sendCard("Facebook comment drafts now live in the Comment group. Send /comment there.", undefined, m.message_id); return; }

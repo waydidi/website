@@ -88,9 +88,9 @@ export function verifyFacts(facts: ProposedFact[], found: FoundSource[], now: Da
   return { kept, dropped };
 }
 
-/** `/comment <post>` (the old `/p` and `/post` still work; also with `@BotName`): the pasted text, "" when only the command was sent, null when it is not this command. */
+/** `/comment <post>` (also `/comment@BotName`). Only this command: `/p` and `/post` are not accepted: the pasted text, "" when only the command was sent, null when it is not this command. */
 export function parsePostCommand(message: string): string | null {
-  const m = /^\/(?:comment|post|p)(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
+  const m = /^\/comment(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
   return m ? (m[1] ?? "").trim() : null;
 }
 

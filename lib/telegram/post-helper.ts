@@ -7,7 +7,7 @@ import { esc } from "@/lib/telegram/cards";
 import { answerCallback, sendTo, telegramChatId, telegramCommentChatId, tg, type InlineKeyboard } from "@/lib/telegram/client";
 import { ensureReliabilityTables, reliabilityDb } from "@/lib/telegram/reliability-db";
 
-// /post <text> in the team group: the text of a travel-group post becomes a drafted comment (and, for transport, a
+// /comment <text> in the Comment group: the text of a travel-group post becomes a drafted comment (and, for transport, a
 // Waydidi price template from the real database). The web is searched for facts (checked by lib/post-helper-rules),
 // questions asked again and again become saved knowledge once a person approves them, and saved knowledge is
 // refreshed on 10 January and 10 July. It only drafts: nothing is posted or sent to anyone.
@@ -168,7 +168,7 @@ async function defaultQuote(route: NonNullable<Routed["route"]>): Promise<QuoteR
   return quoteTransfer({ pickup: route.pickup, dropoff: route.dropoff, date, time: "09:00", passengers: route.passengers, bags: route.bags });
 }
 
-/** Team command `/post <text>`, or `/post` as a reply to a message. */
+/** The command `/comment <text>`, or `/comment` as a reply to a message. */
 /** The group the drafts go to: the Comment group, or the Admin group until one is set up. */
 export const postChatId = () => telegramCommentChatId() || telegramChatId();
 
