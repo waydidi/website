@@ -19,7 +19,7 @@ globalThis.__pwTest.user={email:'owner@example.invalid',displayName:'Owner',role
 after(async()=>{await vite.close();await mf.dispose();delete globalThis.__pwTest;});
 const route=await vite.ssrLoadModule('/app/api/admin/post-helper/route.ts');
 const post=(body,origin='https://example.invalid')=>new Request('https://example.invalid/api/admin/post-helper',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(body)});
-const good={action:'save',notes:'PLAYBOOK\r\nHelp first.',whatsapp:'+66 63 206 4884',blocked:['https://www.Facebook.com/groups','reddit.com','reddit.com']};
+const good={action:'save',notes:'PLAYBOOK\r\nHelp first.',whatsapp:'+66 63 206 4884',userLimit:250,blocked:['https://www.Facebook.com/groups','reddit.com','reddit.com']};
 
 test('only the owner can read or change the playbook; other roles and other sites are refused',async()=>{
  for(const role of ['support','operations','finance']){globalThis.__pwTest.user={email:'x',displayName:'X',role};
@@ -32,8 +32,8 @@ test('only the owner can read or change the playbook; other roles and other site
 test('saving stores the playbook, the number and a cleaned blocked list; bad input is refused',async()=>{
  assert.equal((await route.POST(post(good))).status,200);
  const data=await (await route.GET()).json();
- assert.equal(data.notes,'PLAYBOOK\nHelp first.');assert.equal(data.whatsapp,'+66 63 206 4884');assert.deepEqual(data.blocked,['facebook.com','reddit.com']);
- for(const bad of [{...good,notes:'x'.repeat(40001)},{...good,whatsapp:'call me'},{...good,blocked:['not a site!']},{...good,blocked:'reddit.com'},{action:'nope'}])assert.equal((await route.POST(post(bad))).status,400);
+ assert.equal(data.notes,'PLAYBOOK\nHelp first.');assert.equal(data.whatsapp,'+66 63 206 4884');assert.deepEqual(data.blocked,['facebook.com','reddit.com']);assert.equal(data.userLimit,250);
+ for(const bad of [{...good,notes:'x'.repeat(40001)},{...good,whatsapp:'call me'},{...good,blocked:['not a site!']},{...good,blocked:'reddit.com'},{...good,userLimit:0},{...good,userLimit:100001},{...good,userLimit:1.5},{...good,userLimit:'500'},{action:'nope'}])assert.equal((await route.POST(post(bad))).status,400);
  assert.equal((await (await route.GET()).json()).notes,'PLAYBOOK\nHelp first.');
 });
 test('saved knowledge: approve a paused answer, retire, delete; a repeated click is a plain conflict',async()=>{

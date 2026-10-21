@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 type Entry = { id: string; topic_key: string; question: string; status: string; time_sensitive: number; collected_at: string; refreshed_at: string; hits: number; approved_by: string | null; facts: number };
-type Data = { notes: string; whatsapp: string; blocked: string[]; keySet: boolean; maxNotes: number; knowledge: Entry[] };
+type Data = { notes: string; whatsapp: string; userLimit: number; blocked: string[]; keySet: boolean; maxNotes: number; knowledge: Entry[] };
 
 const box = "rounded-2xl border border-slate-200 bg-white p-5";
 const field = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[14px] outline-none focus:border-brand";
@@ -14,13 +14,13 @@ const STATUS: Record<string, [string, string]> = { approved: ["In use", "bg-emer
 export function WritingAssistant() {
   const [data, setData] = useState<Data | null>(null);
   const [notes, setNotes] = useState(""), [whatsapp, setWhatsapp] = useState(""), [blocked, setBlocked] = useState("");
-  const [msg, setMsg] = useState(""), [error, setError] = useState(""), [busy, setBusy] = useState(false);
+  const [userLimit, setUserLimit] = useState("500"), [msg, setMsg] = useState(""), [error, setError] = useState(""), [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/post-helper", { cache: "no-store" });
     const body = await res.json().catch(() => ({})) as Data & { error?: string };
     if (!res.ok) { setError(body.error ?? "Could not load."); return; }
-    setData(body); setNotes(body.notes); setWhatsapp(body.whatsapp); setBlocked(body.blocked.join("\n"));
+    setData(body); setNotes(body.notes); setWhatsapp(body.whatsapp); setUserLimit(String(body.userLimit)); setBlocked(body.blocked.join("\n"));
   }, []);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
@@ -43,8 +43,9 @@ export function WritingAssistant() {
       <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={16} maxLength={data.maxNotes} aria-label="Playbook" className={`${field} mt-3 font-mono text-[13px]`} />
       <p className="mt-1 text-[12px] text-slate-500">{notes.length.toLocaleString("en-US")} / {data.maxNotes.toLocaleString("en-US")} characters</p>
       <label className="mt-3 grid gap-1 text-[13px] font-semibold">WhatsApp number in comments<input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={`${field} max-w-xs`} /></label>
+      <label className="mt-3 grid gap-1 text-[13px] font-semibold">Comments each person can draft per month (Comment group)<input type="number" min={1} max={100000} value={userLimit} onChange={(e) => setUserLimit(e.target.value)} className={`${field} max-w-[10rem]`} /></label>
       <label className="mt-3 grid gap-1 text-[13px] font-semibold">Sites never used as sources (one per line)<textarea value={blocked} onChange={(e) => setBlocked(e.target.value)} rows={5} className={`${field} font-mono text-[13px]`} /></label>
-      <button type="button" disabled={busy} onClick={() => void post({ action: "save", notes, whatsapp, blocked: blocked.split(/\n|,/) }, "Saved. The next /post uses it.")} className="mt-4 h-10 rounded-full bg-brand px-5 text-[14px] font-semibold text-white disabled:opacity-60">Save</button>
+      <button type="button" disabled={busy} onClick={() => void post({ action: "save", notes, whatsapp, userLimit: Number(userLimit), blocked: blocked.split(/\n|,/) }, "Saved. The next /post uses it.")} className="mt-4 h-10 rounded-full bg-brand px-5 text-[14px] font-semibold text-white disabled:opacity-60">Save</button>
       {msg && <p role="status" className="mt-2 text-[14px] font-semibold text-emerald-700">{msg}</p>}
       {error && <p role="alert" className="mt-2 text-[14px] font-semibold text-red-700">{error}</p>}
     </section>

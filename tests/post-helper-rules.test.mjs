@@ -88,17 +88,15 @@ test('closings follow the playbook: sales get one WhatsApp line, info gets a sig
   assert.equal(r.parseRouted('{"topic":"a","question":"b","replyType":"weird"}').replyType, 'info');
 });
 
-test('/comment starts the post helper (the old /p and /post still work, also with the bot name); other commands do not', () => {
+test('only /comment starts the post helper (also with the bot name); /p, /post and other commands do not', () => {
   assert.equal(r.parsePostCommand('/comment Need a taxi to Pattaya'), 'Need a taxi to Pattaya');
   assert.equal(r.parsePostCommand('/Comment@WaydidiBot hi'), 'hi');
   assert.equal(r.parsePostCommand('/comment'), '');
-  assert.equal(r.parsePostCommand('/p Need a taxi to Pattaya'), 'Need a taxi to Pattaya');
-  assert.equal(r.parsePostCommand('/post Need a taxi\nfor 3 people'), 'Need a taxi\nfor 3 people');
-  assert.equal(r.parsePostCommand('/P@WaydidiBot hello'), 'hello');
-  assert.equal(r.parsePostCommand('/p'), '');
-  assert.equal(r.parsePostCommand('  /p   '), '');
-  for (const other of ['/commentary x', '/comments', '/payment 12', '/pa', '/posts x', '/id', 'p hello', 'please /p', '/ask p']) assert.equal(r.parsePostCommand(other), null, other);
+  assert.equal(r.parsePostCommand('  /comment   '), '');
+  assert.equal(r.parsePostCommand('/comment Need a taxi\nfor 3 people'), 'Need a taxi\nfor 3 people');
+  for (const other of ['/p Need a taxi', '/p', '/post Need a taxi', '/post', '/commentary x', '/comments', '/payment 12', '/id', 'comment hello', 'please /comment', '/ask comment']) assert.equal(r.parsePostCommand(other), null, other);
 });
+
 
 test('/comment runs only in the Comment group once there is one; the Admin group is pointed to it; callbacks follow the same rule', () => {
   const admin = '-100', comment = '-200', other = '-300';
@@ -107,11 +105,19 @@ test('/comment runs only in the Comment group once there is one; the Admin group
   assert.equal(r.postCommandRoute(other, admin, comment, '/comment hello'), 'ignore');
   assert.equal(r.postCommandRoute(comment, admin, comment, 'just chatting'), 'ignore');
   // No Comment group yet: the Admin group works as before, nothing else does.
-  assert.equal(r.postCommandRoute(admin, admin, '', '/p hello'), 'run');
+  assert.equal(r.postCommandRoute(admin, admin, '', '/comment hello'), 'run');
   assert.equal(r.postCommandRoute(other, admin, '', '/comment hello'), 'ignore');
   assert.equal(r.postCallbackAllowed(comment, admin, comment), true);
   assert.equal(r.postCallbackAllowed(admin, admin, comment), false);
   assert.equal(r.postCallbackAllowed(admin, admin, ''), true);
   assert.equal(r.postCallbackAllowed('', admin, ''), false);
   assert.equal(r.postCallbackAllowed(other, admin, comment), false);
+});
+
+test('the monthly comment count follows the Thailand calendar month', () => {
+  assert.equal(r.DEFAULT_USER_LIMIT, 500);
+  assert.equal(r.monthKey(new Date('2026-10-31T16:59:00Z')), '2026-10');
+  assert.equal(r.monthKey(new Date('2026-10-31T17:00:00Z')), '2026-11'); // already 1 November in Thailand
+  assert.equal(r.nextMonthStart(new Date('2026-10-21T05:00:00Z')), '1 November');
+  assert.equal(r.nextMonthStart(new Date('2026-12-15T05:00:00Z')), '1 January');
 });

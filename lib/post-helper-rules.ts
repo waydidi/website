@@ -19,6 +19,13 @@ export const BLOCKED_DOMAINS = ["facebook.com", "fb.com", "instagram.com", "tikt
 const BLOG_MAX_DAYS = 365, NEWS_RISKY_MAX_DAYS = 180, NEWS_MAX_DAYS = 365;
 export const REPEATS_TO_SAVE = 3, REPEAT_WINDOW_DAYS = 30, STALE_WARNING_DAYS = 90, DRAFT_KEEP_DAYS = 7;
 
+/** Each person may draft this many comments a month (Thailand calendar month); the owner can change it in Admin. */
+export const DEFAULT_USER_LIMIT = 500;
+export const MAX_USER_LIMIT = 100_000;
+export const monthKey = (d: Date) => new Date(d.getTime() + 7 * 3_600_000).toISOString().slice(0, 7);
+/** "1 November" for the month after `d` (when a person's count starts again). */
+export const nextMonthStart = (d: Date) => { const b = new Date(d.getTime() + 7 * 3_600_000); return new Date(Date.UTC(b.getUTCFullYear(), b.getUTCMonth() + 1, 1)).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" }); };
+
 export const hostOf = (url: string) => { try { return new URL(url).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; } };
 const inList = (host: string, list: string[]) => list.some((d) => host === d || host.endsWith(`.${d}`));
 
@@ -88,9 +95,9 @@ export function verifyFacts(facts: ProposedFact[], found: FoundSource[], now: Da
   return { kept, dropped };
 }
 
-/** `/comment <post>` (the old `/p` and `/post` still work; also with `@BotName`): the pasted text, "" when only the command was sent, null when it is not this command. */
+/** `/comment <post>` (also `/comment@BotName`). Only this command: `/p` and `/post` are not accepted: the pasted text, "" when only the command was sent, null when it is not this command. */
 export function parsePostCommand(message: string): string | null {
-  const m = /^\/(?:comment|post|p)(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
+  const m = /^\/comment(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
   return m ? (m[1] ?? "").trim() : null;
 }
 

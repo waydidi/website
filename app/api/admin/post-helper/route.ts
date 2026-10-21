@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
-import { BLOCKED_DOMAINS, DEFAULT_WHATSAPP } from "@/lib/post-helper-rules";
+import { BLOCKED_DOMAINS, DEFAULT_USER_LIMIT, DEFAULT_WHATSAPP, MAX_USER_LIMIT } from "@/lib/post-helper-rules";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { ensurePostHelperTables } from "@/lib/telegram/post-helper";
 
@@ -22,7 +22,7 @@ export async function GET() {
   let blocked: string[] = BLOCKED_DOMAINS;
   try { const v = JSON.parse((await get("post_helper_blocked_domains")) ?? "null"); if (Array.isArray(v)) blocked = v.filter((d): d is string => typeof d === "string"); } catch { /* default */ }
   const knowledge = (await db().prepare("SELECT id,topic_key,question,status,time_sensitive,collected_at,refreshed_at,hits,approved_by,json_array_length(facts_json) facts FROM post_helper_knowledge ORDER BY status,topic_key LIMIT 300").bind().all()).results;
-  return NextResponse.json({ notes: (await get("post_helper_notes")) ?? "", whatsapp: (await get("post_helper_whatsapp")) || DEFAULT_WHATSAPP, blocked, keySet: Boolean((env as unknown as Record<string, unknown>).ANTHROPIC_API_KEY), maxNotes: MAX_NOTES, knowledge }, { headers });
+  return NextResponse.json({ notes: (await get("post_helper_notes")) ?? "", whatsapp: (await get("post_helper_whatsapp")) || DEFAULT_WHATSAPP, userLimit: Number(await get("post_helper_user_limit")) || DEFAULT_USER_LIMIT, blocked, keySet: Boolean((env as unknown as Record<string, unknown>).ANTHROPIC_API_KEY), maxNotes: MAX_NOTES, knowledge }, { headers });
 }
 
 export async function POST(request: Request) {
@@ -35,9 +35,11 @@ export async function POST(request: Request) {
     const notes = typeof input.notes === "string" ? input.notes.replace(/\r\n/g, "\n") : null, whatsapp = typeof input.whatsapp === "string" ? input.whatsapp.trim() : null;
     if (notes === null || notes.length > MAX_NOTES) return reply(`Paste the playbook as text, up to ${MAX_NOTES.toLocaleString("en-US")} characters.`, 400);
     if (whatsapp === null || !/^\+?[\d\s()-]{7,20}$/.test(whatsapp)) return reply("Enter the WhatsApp number with the country code.", 400);
+    const userLimit = input.userLimit;
+    if (typeof userLimit !== "number" || !Number.isInteger(userLimit) || userLimit < 1 || userLimit > MAX_USER_LIMIT) return reply(`Comments per person must be a whole number from 1 to ${MAX_USER_LIMIT.toLocaleString("en-US")}.`, 400);
     const blocked = Array.isArray(input.blocked) ? input.blocked.map((d) => String(d).trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "")).filter(Boolean) : null;
     if (!blocked || blocked.length > 100 || blocked.some((d) => !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(d))) return reply("The blocked sites must be website names like example.com, up to 100.", 400);
-    await put("post_helper_notes", notes); await put("post_helper_whatsapp", whatsapp); await put("post_helper_blocked_domains", JSON.stringify([...new Set(blocked)]));
+    await put("post_helper_notes", notes); await put("post_helper_whatsapp", whatsapp); await put("post_helper_user_limit", String(userLimit)); await put("post_helper_blocked_domains", JSON.stringify([...new Set(blocked)]));
     console.info("Writing assistant settings saved", { by: staff.email });
     return NextResponse.json({ ok: true }, { headers });
   }
