@@ -1,26 +1,12 @@
-import { eq } from "drizzle-orm";
-import { getDb } from "@/db";
-import { agencyApplications } from "@/db/schema";
 import { safeOrigin } from "@/lib/security";
-import { PDFDocument } from "pdf-lib";
-import { groupDays, tripByToken, tripSnapshot } from "@/lib/smart-trips";
-import { createTripPdf } from "@/lib/trip-pdf";
+import { tripByToken } from "@/lib/smart-trips";
+import { itineraryPdf } from "@/lib/trip-itinerary-file";
 
 // Customer (or staff with the link): the itinerary PDF, always from the frozen version.
 export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const trip = await tripByToken((await params).token);
-  const snap = trip ? tripSnapshot(trip) : null;
-  if (!trip || !snap || trip.status === "cancelled") return new Response("Not found", { status: 404 });
-  const [agency] = trip.agencyId ? await getDb().select({ name: agencyApplications.agencyName }).from(agencyApplications).where(eq(agencyApplications.id, trip.agencyId)).limit(1) : [];
-  const days = (await groupDays(trip)).map((d) => tripSnapshot(d)).filter((d): d is NonNullable<typeof d> => Boolean(d));
-  let bytes = await createTripPdf(days[0] ?? snap, safeOrigin(request), agency?.name ?? null, days.length > 1 ? 1 : undefined);
-  if (days.length > 1) {
-    const merged = await PDFDocument.create();
-    for (const [i, d] of days.entries()) {
-      const part = await PDFDocument.load(i === 0 ? bytes : await createTripPdf(d, safeOrigin(request), agency?.name ?? null, i + 1));
-      for (const page of await merged.copyPages(part, part.getPageIndices())) merged.addPage(page);
-    }
-    bytes = await merged.save();
-  }
-  return new Response(new Blob([bytes as BlobPart], { type: "application/pdf" }), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="Waydidi-${snap.ref}-itinerary.pdf"`, "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" } });
+  if (!trip || trip.status === "cancelled") return new Response("Not found", { status: 404 });
+  const file = await itineraryPdf(trip, safeOrigin(request));
+  if (!file) return new Response("Not found", { status: 404 });
+  return new Response(new Blob([file.bytes as BlobPart], { type: "application/pdf" }), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="Waydidi-${file.ref}-itinerary.pdf"`, "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" } });
 }

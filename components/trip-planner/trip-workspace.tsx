@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, Copy, ExternalLink, GripVertical, LoaderCircle, Lock, MapPin, Phone, Plus, Send, Sparkles, Trash2, Unlock, Utensils, Wand2, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, Copy, Download, ExternalLink, GripVertical, LoaderCircle, Lock, MapPin, Phone, Plus, Send, Sparkles, Trash2, Unlock, Utensils, Wand2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AttractionView, SupplierRow } from "@/lib/attractions";
 import type { TripInput } from "@/lib/smart-trips";
@@ -382,6 +382,9 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
 
         {meta && <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-[16px] font-bold">Sharing and versions</h2>
+          {!meta.isTemplate && (meta.sentAt || versions.length > 0
+            ? <a href={`${base}/trips/${meta.id}/pdf`} download className="mt-2 inline-flex items-center gap-1.5 text-[14px] font-semibold text-brand-darker hover:underline"><Download size={14} />Download PDF (version {versions[0]?.version ?? meta.version}, as the customer gets it)</a>
+            : <p className="mt-2 text-[13px] text-slate-500">The itinerary PDF can be downloaded once the trip is sent. It is made from the version the customer sees.</p>)}
           {meta.sentAt && <div className="mt-2 flex flex-wrap items-center gap-2 text-[14px]">
             <a href={`/itinerary/${meta.token}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-brand-darker hover:underline"><ExternalLink size={14} />Customer page</a>
             <button type="button" onClick={() => { void navigator.clipboard.writeText(`${location.origin}/itinerary/${meta.token}`); setNotice("Link copied."); }} className="inline-flex items-center gap-1 font-semibold text-slate-600 hover:text-brand-darker"><Copy size={14} />Copy link</button>
