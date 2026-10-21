@@ -4,7 +4,7 @@ import { answerJobLookup } from "@/lib/telegram/job-lookup";
 import { parseJobLookup } from "@/lib/telegram/job-lookup-rules";
 import { NextResponse } from "next/server";
 import { constantTimeEqual } from "@/lib/security";
-import { answerCallback, sendCard, sendPrivate, telegramChatId, tg, type TelegramMessage, type TelegramUser } from "@/lib/telegram/client";
+import { answerCallback, telegramCommentChatId, sendCard, sendPrivate, telegramChatId, tg, type TelegramMessage, type TelegramUser } from "@/lib/telegram/client";
 import { esc, pickKeyboard } from "@/lib/telegram/cards";
 import { acknowledgeBooking, refreshBookingCard } from "@/lib/telegram/bookings";
 import { askBookingQuestion, driverChoices, handleBookingAnswer, pickDriver } from "@/lib/telegram/booking-tasks";
@@ -17,6 +17,8 @@ import { answerPhotoLocation, isLocationQuestion } from "@/lib/telegram/photo-lo
 import { postJobCompleted } from "@/lib/telegram/trip-photos";
 import { verifyTripCompletion } from "@/lib/trip-completion";
 import { acknowledgeEdit, approveChange, cancelBookingFromTelegram, declineChange, editKeepDriver, editNewDriver, keepBooking } from "@/lib/telegram/booking-changes";
+import { postCallbackAllowed, postCommandRoute } from "@/lib/post-helper-rules";
+import { handlePostCallback, handlePostCommand } from "@/lib/telegram/post-helper";
 import { letAiAnswer } from "@/lib/cee/ask-first";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus, telegramClientId } from "@/lib/website-chat";
 
@@ -67,6 +69,13 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   if (q.message?.chat.type === "private" && (q.data ?? "").startsWith("dj_")) return handleDriverCallback(q);
   // «รับงาน» on a job in the driver group: the first tap gets the job.
   if (isDriverGroupChat(driverGroup(), String(q.message?.chat.id ?? ""))) return (q.data ?? "").startsWith("dj_take:") ? handleDriverTake(q) : answerCallback(q.id);
+  // Buttons under a comment draft: in the Comment group (or the Admin group until one is set up).
+  if ((q.data ?? "").startsWith("ph_") && postCallbackAllowed(String(q.message?.chat.id ?? ""), telegramChatId(), telegramCommentChatId())) {
+    const member = await approved(q.from);
+    if (!member) return answerCallback(q.id, `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: ${q.from.id}`, true);
+    const [phAction, phId] = (q.data ?? "").split(":");
+    return handlePostCallback(phAction, phId ?? "", member.display_name, q.id, q.message?.message_id, String(q.message?.chat.id));
+  }
   if (String(q.message?.chat.id ?? "") !== telegramChatId()) return answerCallback(q.id, "This chat isn't connected to Waydidi.", true);
   const admin = await approved(q.from);
   if (!admin) return answerCallback(q.id, `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: ${q.from.id}`, true);
@@ -194,15 +203,25 @@ async function handleMessage(m: TelegramMessage) {
     return;
   }
   // Setup helper for the driver group: /chatid there answers with its ID until TELEGRAM_DRIVER_CHAT_ID (or _SOUTH) is set.
-  if (telegramChatId() && String(m.chat.id) !== telegramChatId() && m.chat.type !== "private" && !isDriverGroupChat(driverGroup(), String(m.chat.id)) && (text0 === "/chatid" || text0.startsWith("/chatid@"))) {
+  if (telegramChatId() && String(m.chat.id) !== telegramChatId() && String(m.chat.id) !== telegramCommentChatId() && m.chat.type !== "private" && !isDriverGroupChat(driverGroup(), String(m.chat.id)) && (text0 === "/chatid" || text0.startsWith("/chatid@"))) {
     await tg("sendMessage", { chat_id: m.chat.id, parse_mode: "HTML", reply_parameters: { message_id: m.message_id, allow_sending_without_reply: true },
-      text: `This group's chat ID is <code>${m.chat.id}</code>. For the driver group, add it in Cloudflare as TELEGRAM_DRIVER_CHAT_ID (the south group: TELEGRAM_DRIVER_CHAT_ID_SOUTH) and set TELEGRAM_DRIVER_JOBS=1.` }).catch(() => undefined);
+      text: `This group's chat ID is <code>${m.chat.id}</code>. For the driver group, add it in Cloudflare as TELEGRAM_DRIVER_CHAT_ID (the south group: TELEGRAM_DRIVER_CHAT_ID_SOUTH) and set TELEGRAM_DRIVER_JOBS=1. For the Comment group (Facebook comment drafts), add it as TELEGRAM_COMMENT_CHAT_ID.` }).catch(() => undefined);
     return;
   }
   // Private chat with the bot: drivers taking a job or signing up, otherwise the assignee answering their chats.
   if (m.chat.type === "private") { if (!await handleDriverPrivate(m)) await handlePrivate(m); return; }
   // The driver group: only "งานของฉัน" is answered (privately); nothing from the team group is ever posted there.
   if (isDriverGroupChat(driverGroup(), String(m.chat.id))) { await handleDriverGroupMessage(m); return; }
+  // The Comment group: only /comment, for people on the team list.
+  const commentChat = telegramCommentChatId();
+  if (commentChat && String(m.chat.id) === commentChat) {
+    const commentText = (m.text ?? "").trim();
+    if (postCommandRoute(String(m.chat.id), telegramChatId(), commentChat, commentText) !== "run") return;
+    const member = await approved(m.from);
+    if (!member) { await tg("sendMessage", { chat_id: m.chat.id, parse_mode: "HTML", reply_parameters: { message_id: m.message_id, allow_sending_without_reply: true }, text: `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: <code>${m.from?.id ?? "unknown"}</code>` }).catch(() => undefined); return; }
+    await handlePostCommand(commentText, m.message_id, m.reply_to_message?.text ?? null, commentChat);
+    return;
+  }
   if (String(m.chat.id) !== telegramChatId()) return;
   const text = (m.text ?? "").trim();
   if (text === "/id" || text.startsWith("/id@")) {
@@ -211,6 +230,10 @@ async function handleMessage(m: TelegramMessage) {
   }
   // Answers to "Set cost" / "Add driver information" questions on booking cards.
   const teamMember = await approved(m.from);
+  // /post <travel-group post>: a drafted comment with web sources, and a Waydidi price post for transport questions.
+  const postRoute = teamMember ? postCommandRoute(String(m.chat.id), telegramChatId(), commentChat, text) : "ignore";
+  if (postRoute === "run") { await handlePostCommand(text, m.message_id, m.reply_to_message?.text ?? null, telegramChatId()); return; }
+  if (postRoute === "redirect") { await sendCard("Facebook comment drafts now live in the Comment group. Send /comment there.", undefined, m.message_id); return; }
   if (teamMember && await handleBookingAnswer(m, teamMember.display_name, refreshBookingCard)) return;
   // "ราคา" + "REF cost" lines: driver costs for many bookings at once; each then goes to the driver group.
   const bulk = teamMember ? parseBulkCost(text) : null;
