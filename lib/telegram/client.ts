@@ -10,6 +10,8 @@ export type TelegramUser = { id: number; username?: string; first_name?: string;
 
 export const telegramConfigured = () => Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID);
 export const telegramChatId = () => String(env.TELEGRAM_CHAT_ID ?? "");
+/** The separate Comment group (Facebook comment drafts); empty until TELEGRAM_COMMENT_CHAT_ID is set. */
+export const telegramCommentChatId = () => String((env as unknown as Record<string, string | undefined>).TELEGRAM_COMMENT_CHAT_ID ?? "");
 
 /** A Bot API rejection is safe to retry; a transport failure may have been delivered. */
 export class TelegramDeliveryError extends Error {

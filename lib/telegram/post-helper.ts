@@ -4,7 +4,7 @@ import { DEFAULT_WHATSAPP, REPEATS_TO_SAVE, REPEAT_WINDOW_DAYS, DRAFT_KEEP_DAYS,
 import { quoteTransfer, type QuoteResult } from "@/lib/cee/quotes";
 import { ASSISTANT_MODEL, assistantConfigured, assistantUsage, reserveAssistantCall, settleAssistantCall } from "@/lib/telegram/assistant";
 import { esc } from "@/lib/telegram/cards";
-import { answerCallback, sendCard, telegramChatId, tg, type InlineKeyboard } from "@/lib/telegram/client";
+import { answerCallback, sendTo, telegramChatId, telegramCommentChatId, tg, type InlineKeyboard } from "@/lib/telegram/client";
 import { ensureReliabilityTables, reliabilityDb } from "@/lib/telegram/reliability-db";
 
 // /post <text> in the team group: the text of a travel-group post becomes a drafted comment (and, for transport, a
@@ -169,13 +169,17 @@ async function defaultQuote(route: NonNullable<Routed["route"]>): Promise<QuoteR
 }
 
 /** Team command `/post <text>`, or `/post` as a reply to a message. */
-export async function handlePostCommand(rawText: string, replyTo: number, replyText?: string | null) {
+/** The group the drafts go to: the Comment group, or the Admin group until one is set up. */
+export const postChatId = () => telegramCommentChatId() || telegramChatId();
+
+export async function handlePostCommand(rawText: string, replyTo: number, replyText?: string | null, chatId: string = postChatId()) {
+  const sendCard = (text: string, keyboard?: InlineKeyboard, reply?: number) => sendTo(chatId, text, keyboard, reply);
   const pasted = (parsePostCommand(rawText) ?? "") || (replyText ?? "").trim();
-  if (!pasted) { await sendCard("Paste a travel-group post after /comment, or reply to a message with /comment. I draft a comment (with web sources) and, for transport, a Waydidi price post.", undefined, replyTo); return; }
+  if (!pasted) { await sendCard("Paste a travel-group post after /comment, or reply to a message with /comment. I draft one ready-to-post comment, then show its sources and whether it is up to date.", undefined, replyTo); return; }
   if (!postHelperOn()) { await sendCard("The assistant is not switched on (ANTHROPIC_API_KEY).", undefined, replyTo); return; }
   const usage = await assistantUsage();
   if (usage.usd + 0.05 >= usage.capUsd) { await sendCard(`The assistant has reached this month's spending limit (US$${usage.capUsd}). The owner can raise TELEGRAM_ASSISTANT_MONTHLY_USD in Cloudflare.`, undefined, replyTo); return; }
-  await tg("sendChatAction", { chat_id: telegramChatId(), action: "typing" }).catch(() => undefined);
+  await tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => undefined);
   try {
     const draft = await draftForPost(pasted);
     for (let i = 0; i < draft.parts.length; i++) await sendCard(draft.parts[i], i === draft.parts.length - 1 ? draft.keyboard : undefined, replyTo);
@@ -187,7 +191,8 @@ export async function handlePostCommand(rawText: string, replyTo: number, replyT
 }
 
 /** Buttons under a draft (team members only: the webhook checks the team list before calling this). */
-export async function handlePostCallback(action: string, id: string, who: string, queryId: string, replyTo: number | undefined) {
+export async function handlePostCallback(action: string, id: string, who: string, queryId: string, replyTo: number | undefined, chatId: string = postChatId()) {
+  const sendCard = (text: string, keyboard?: InlineKeyboard, reply?: number) => sendTo(chatId, text, keyboard, reply);
   await ensurePostHelperTables();
   const draft = await db().prepare("SELECT id,topic_key,text,routed_json,facts_json,mode FROM post_helper_drafts WHERE id=?").bind(id).first<{ id: string; topic_key: string; text: string; routed_json: string; facts_json: string; mode: string }>();
   if (!draft) return answerCallback(queryId, "This draft has expired (drafts are kept 7 days). Paste the post again.", true);
@@ -235,7 +240,7 @@ export async function refreshKnowledgeDue(now = new Date(), deps: Deps = {}, lim
   if (done && !left?.n && !(await setting(`post_helper_refresh_notice:${boundary}`))) {
     await db().prepare("INSERT OR IGNORE INTO app_settings(key,value,updated_at) VALUES(?,?,?)").bind(`post_helper_refresh_notice:${boundary}`, "1", now.toISOString()).run();
     const review = await db().prepare("SELECT COUNT(*) n FROM post_helper_knowledge WHERE status='review'").bind().first<{ n: number }>();
-    await sendCard(`Saved knowledge was refreshed (${boundary}).${review?.n ? ` ${review.n} entr${review.n === 1 ? "y needs" : "ies need"} a check: no source passed the checks this time, so ${review.n === 1 ? "it is" : "they are"} paused.` : ""}`).catch(() => undefined);
+    await sendTo(postChatId(), `Saved knowledge was refreshed (${boundary}).${review?.n ? ` ${review.n} entr${review.n === 1 ? "y needs" : "ies need"} a check: no source passed the checks this time, so ${review.n === 1 ? "it is" : "they are"} paused.` : ""}`).catch(() => undefined);
   }
   return done;
 }

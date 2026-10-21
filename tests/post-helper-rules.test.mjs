@@ -99,3 +99,19 @@ test('/comment starts the post helper (the old /p and /post still work, also wit
   assert.equal(r.parsePostCommand('  /p   '), '');
   for (const other of ['/commentary x', '/comments', '/payment 12', '/pa', '/posts x', '/id', 'p hello', 'please /p', '/ask p']) assert.equal(r.parsePostCommand(other), null, other);
 });
+
+test('/comment runs only in the Comment group once there is one; the Admin group is pointed to it; callbacks follow the same rule', () => {
+  const admin = '-100', comment = '-200', other = '-300';
+  assert.equal(r.postCommandRoute(comment, admin, comment, '/comment hello'), 'run');
+  assert.equal(r.postCommandRoute(admin, admin, comment, '/comment hello'), 'redirect');
+  assert.equal(r.postCommandRoute(other, admin, comment, '/comment hello'), 'ignore');
+  assert.equal(r.postCommandRoute(comment, admin, comment, 'just chatting'), 'ignore');
+  // No Comment group yet: the Admin group works as before, nothing else does.
+  assert.equal(r.postCommandRoute(admin, admin, '', '/p hello'), 'run');
+  assert.equal(r.postCommandRoute(other, admin, '', '/comment hello'), 'ignore');
+  assert.equal(r.postCallbackAllowed(comment, admin, comment), true);
+  assert.equal(r.postCallbackAllowed(admin, admin, comment), false);
+  assert.equal(r.postCallbackAllowed(admin, admin, ''), true);
+  assert.equal(r.postCallbackAllowed('', admin, ''), false);
+  assert.equal(r.postCallbackAllowed(other, admin, comment), false);
+});

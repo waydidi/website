@@ -94,6 +94,18 @@ export function parsePostCommand(message: string): string | null {
   return m ? (m[1] ?? "").trim() : null;
 }
 
+/**
+ * Where /comment runs. With a separate Comment group (TELEGRAM_COMMENT_CHAT_ID) it runs only there and the Admin
+ * group is pointed to it; without one it runs in the Admin group, so the feature works before the group is set up.
+ */
+export function postCommandRoute(chatId: string, adminChatId: string, commentChatId: string, message: string): "run" | "redirect" | "ignore" {
+  if (parsePostCommand(message) === null) return "ignore";
+  if (commentChatId) return chatId === commentChatId ? "run" : chatId === adminChatId ? "redirect" : "ignore";
+  return chatId === adminChatId ? "run" : "ignore";
+}
+/** May the draft's buttons be used from this chat? */
+export const postCallbackAllowed = (chatId: string, adminChatId: string, commentChatId: string) => Boolean(chatId) && (commentChatId ? chatId === commentChatId : chatId === adminChatId);
+
 export const topicKey = (raw: string) => String(raw ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 
 /** The latest 10 January / 10 July (Thailand date) on or before now: saved knowledge older than this is due a refresh. */

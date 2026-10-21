@@ -1,12 +1,17 @@
 import { env } from "cloudflare:workers";
-import { telegramChatId, telegramConfigured, tg } from "@/lib/telegram/client";
+import { telegramChatId, telegramCommentChatId, telegramConfigured, tg } from "@/lib/telegram/client";
 
-// The "/" menu in the Admin (team) group: typing "/" shows these with their descriptions and tapping one fills it in.
-// Registered once with Telegram (setMyCommands, scoped to the team group only) and again only when this list changes.
-export const TEAM_COMMANDS = [
-  { command: "comment", description: "Draft a Facebook comment from a travel-group post" },
+// The "/" menu in the team groups: typing "/" shows these with their descriptions and tapping one fills it in.
+// Registered with Telegram (setMyCommands, scoped to each group) once, and again only when the list or the groups change.
+export const COMMENT_COMMAND = { command: "comment", description: "Draft a Facebook comment from a travel-group post" };
+const ADMIN_COMMANDS = [
   { command: "ask", description: "Ask the assistant about bookings, drivers or prices" },
   { command: "id", description: "Show my Telegram ID" },
+];
+/** The menu for each group: /comment in the Comment group; the Admin group has it only until a Comment group is set up. */
+export const menus = (adminChat: string, commentChat: string) => [
+  { chat: adminChat, commands: commentChat ? ADMIN_COMMANDS : [COMMENT_COMMAND, ...ADMIN_COMMANDS] },
+  ...(commentChat && commentChat !== adminChat ? [{ chat: commentChat, commands: [COMMENT_COMMAND] }] : []),
 ];
 type Db = { prepare: (sql: string) => { bind: (...v: unknown[]) => { first: <T>() => Promise<T | null>; run: () => Promise<unknown> } } };
 const db = () => env.DB as unknown as Db;
@@ -17,13 +22,13 @@ const RETRY_MINUTES = 10;
 /** Makes the "/" menu match TEAM_COMMANDS. Cheap when nothing changed (one settings read). Returns true when it registered them. */
 export async function syncBotCommands(call: (method: string, payload: Record<string, unknown>) => Promise<unknown> = tg, now = new Date()) {
   if (!telegramConfigured()) return false;
-  const want = JSON.stringify({ chat: telegramChatId(), commands: TEAM_COMMANDS });
+  const list = menus(telegramChatId(), telegramCommentChatId()), want = JSON.stringify(list);
   if ((await setting("tg_commands_synced")) === want) return false;
   const tried = Date.parse((await setting("tg_commands_tried")) ?? "");
   if (Number.isFinite(tried) && now.getTime() - tried < RETRY_MINUTES * 60_000) return false;
   await put("tg_commands_tried", now.toISOString());
   try {
-    await call("setMyCommands", { commands: TEAM_COMMANDS, scope: { type: "chat", chat_id: telegramChatId() } });
+    for (const m of list) await call("setMyCommands", { commands: m.commands, scope: { type: "chat", chat_id: m.chat } });
     await put("tg_commands_synced", want);
     return true;
   } catch (error) { console.error("telegram commands not registered", error instanceof Error ? error.message : "unknown"); return false; }
