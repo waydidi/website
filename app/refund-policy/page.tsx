@@ -46,7 +46,6 @@ export default function RefundPolicyPage() {
             <p className="mt-2 text-[15px] leading-6 text-slate-700">{text}</p>
           </li>)}
         </ul>
-        <p className="mt-5 rounded-2xl border-l-4 border-brand bg-brand-wash p-4 text-[15px] leading-6 text-slate-700">Some tours, attraction tickets, boat trips, activities, and third-party services may have different cancellation conditions. Where specific conditions are shown before booking, those conditions take precedence over this general policy.</p>
       </section>
 
       <Section id="customer-cancellation" title="Customer cancellation">
@@ -87,13 +86,9 @@ export default function RefundPolicyPage() {
         <p>Refund fees charged by payment providers are covered by Waydidi. They are <strong>not</strong> deducted from your refund.</p>
       </Section>
 
-      <Section id="third-party" title="Tours, tickets & third-party services">
-        <p>Third-party products such as tours, attraction tickets, boat trips and activities may have their own cancellation conditions. Conditions shown or sent to you before booking take precedence over this general policy, and we keep a record of the conditions you accepted.</p>
-      </Section>
-
       <Section id="weather" title="Weather & uncontrollable events">
         <p>Bad weather alone does not make a booking refundable if the service can still run safely.</p>
-        <p>If an operator cancels because conditions are unsafe, Waydidi may offer rescheduling, an alternative service, credit where specifically agreed, or a refund under the applicable conditions.</p>
+        <p>If Waydidi cancels or changes a trip because conditions are unsafe, we may offer rescheduling, a replacement vehicle, credit where specifically agreed, or a refund under the applicable conditions.</p>
         <p>Other events outside reasonable control include severe weather, flooding, natural disasters, road closures, government restrictions, civil emergencies and major transport disruption. Refunds, rescheduling or alternatives depend on the circumstances and the service conditions.</p>
       </Section>
     </div>
