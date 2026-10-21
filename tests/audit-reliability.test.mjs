@@ -85,6 +85,7 @@ await tx.translateMissing('ko',['Alice private name','Private hotel address'],'/
 await tx.translateMissing('ko',['Alice private name','Private hotel address'],'/');
 assert.equal(globalThis.__translationCalls,privateCalls);
 const saved=await d1.prepare("SELECT source,path FROM site_translations WHERE path='/trip/ABCD23'").all();assert.equal(saved.results.length,0);console.log('Private text never reaches the translation model or cache');
+await d1.prepare('DROP TABLE site_translation_claims').run(); // as in production, where migrations are not applied: the table is made on first use
 const calls=globalThis.__translationCalls;await Promise.all(Array.from({length:5},()=>tx.translateMissing('ko',['Book a ride'],'/')));assert.equal(globalThis.__translationCalls-calls,1);console.log('Concurrent translation requests share one model call');
 assert.equal((await d1.prepare('SELECT COUNT(*) n FROM site_translation_claims').first()).n,0);
 const expiredText='Free cancellation up to 48 hours';

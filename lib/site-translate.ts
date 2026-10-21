@@ -19,6 +19,11 @@ export const translationConfigured = () => Boolean(vars().ANTHROPIC_API_KEY);
 export const textHash = (s: string) => sha256(`v1:${s}`);
 const today = () => new Date().toISOString().slice(0, 10);
 
+// Workers Builds does not run drizzle migrations, so the claims table (drizzle/0092) is also made on first use.
+// Without it every new translation failed quietly and only already-saved lines were shown.
+let claimsReady: Promise<unknown> | null = null;
+const ensureClaims = () => (claimsReady ??= db().prepare("CREATE TABLE IF NOT EXISTS site_translation_claims (lang TEXT NOT NULL, hash TEXT NOT NULL, owner TEXT NOT NULL, expires_at TEXT NOT NULL, PRIMARY KEY (lang, hash))").run().catch((e) => { claimsReady = null; throw e; }));
+
 /** Cached translations for these texts; missing ones are left out. */
 export async function cachedTranslations(lang: SiteLang, texts: string[]) {
   const out = new Map<string, string>();
@@ -81,6 +86,7 @@ export async function translateMissing(lang: SiteLang, texts: string[], path: st
   const done = await cachedTranslations(lang, texts);
   if (!translationConfigured() || !texts.length) return done;
   const missing = texts.filter((text) => !done.has(text));
+  if (missing.length) await ensureClaims();
   const batches: string[][] = [];
   for (let i = 0; i < missing.length; i += BATCH) batches.push(missing.slice(i, i + BATCH));
   for (let k = 0; k < batches.length; k += 4) {
