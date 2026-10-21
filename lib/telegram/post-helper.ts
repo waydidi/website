@@ -90,6 +90,18 @@ async function ask(client: PostClient, body: Record<string, unknown>) {
   return res;
 }
 
+/** Reads the post into a Routed value. A reply that is cut off or wrapped in prose is asked for once more, JSON only. */
+async function routePost(text: string, client: PostClient): Promise<Routed> {
+  const messages = [{ role: "user", content: `<post>\n${text.slice(0, 4000)}\n</post>` }];
+  for (const system of [ROUTER, `${ROUTER}\n- Your last reply could not be read. Reply with the JSON object only: no other text, under 150 words.`]) {
+    const res = await ask(client, { max_tokens: 1500, system, messages });
+    const routed = parseRouted(replyText(res));
+    if (routed) return routed;
+    console.error("post helper router unreadable", res.stop_reason);
+  }
+  throw new Error("UNREADABLE");
+}
+
 /** Searches the web for the question and keeps only the facts the sources support. */
 export async function researchFacts(question: string, client: PostClient, now: Date) {
   const blocked = await blockedDomains();
@@ -123,9 +135,7 @@ const sourceLines = (facts: KeptFact[]) => [...new Map(facts.flatMap((f) => f.so
 export async function draftForPost(text: string, deps: Deps = {}, options: { forceFresh?: boolean } = {}): Promise<Draft> {
   await ensurePostHelperTables();
   const now = (deps.now ?? (() => new Date()))(), client = deps.client ?? realClient();
-  const routedRes = await ask(client, { max_tokens: 700, system: ROUTER, messages: [{ role: "user", content: `<post>\n${text.slice(0, 4000)}\n</post>` }] });
-  const routed = parseRouted(replyText(routedRes));
-  if (!routed) throw new Error("UNREADABLE");
+  const routed = await routePost(text, client);
   const repeats = await countTopic(routed.topic, now);
   const saved = options.forceFresh ? null : await knowledgeFor(routed.topic);
   const useSaved = saved?.status === "approved";

@@ -28,7 +28,7 @@ const searchBlocks=()=>[{type:'web_search_tool_result',content:[{type:'web_searc
 /** A scripted model: the router, the web search and the writer, told apart by their system prompt. */
 function model(opts={}){const calls={router:0,search:0,compose:0,composeInputs:[]};
  return {calls,create:async(body)=>{const sys=String(body.system);
-  if(sys.startsWith('You read a post')){calls.router++;return {stop_reason:'end_turn',content:[{type:'text',text:opts.router??routedJson()}]};}
+  if(sys.startsWith('You read a post')){calls.router++;const r=Array.isArray(opts.router)?opts.router[calls.router-1]:opts.router;return {stop_reason:r?.stop_reason??'end_turn',content:[{type:'text',text:(r?.text??r)??routedJson()}]};}
   if(sys.startsWith('You research facts')){calls.search++;return {stop_reason:'end_turn',content:searchBlocks()};}
   calls.compose++;calls.composeInputs.push(JSON.parse(body.messages[0].content));return {stop_reason:'end_turn',content:[{type:'text',text:opts.compose??JSON.stringify({comment:'Trains and taxis both work.',template:opts.template===undefined?null:opts.template})}]};}};}
 const text=(d)=>d.parts.join('\n');
@@ -103,6 +103,18 @@ test('the owner playbook is given to the writer, and its reference prices are ma
 test('unreadable model replies stop with an error',async()=>{
  await assert.rejects(()=>ph.draftForPost('hello there friends',{client:model({router:'sorry'}),now:()=>now}),/UNREADABLE/);
  await assert.rejects(()=>ph.draftForPost('hello there friends',{client:model({compose:'nope'}),now:()=>now}),/UNREADABLE/);
+});
+
+test('a router reply cut off at the token limit is asked for once more, JSON only',async()=>{
+ const cut={stop_reason:'max_tokens',text:'Great question! The Ancient City (Muang Boran) is well worth it. {"language":"en","replyType":"adjacent","kind":"transport","topic":"ancient-ci'};
+ let systems=[];const m=model({router:[cut,routedJson({topic:'ancient-city-from-bangkok'})]});
+ const wrapped={create:async(b)=>{if(String(b.system).startsWith('You read a post'))systems.push(String(b.system));return m.create(b);}};
+ const d=await ph.draftForPost('Worth it po ba Ancient City tour? If yes, how to get there from Bangkok?',{client:wrapped,now:()=>now});
+ assert.equal(m.calls.router,2);assert.equal(m.calls.compose,1);assert.ok(d.parts.length>0);
+ assert.doesNotMatch(systems[0],/could not be read/);assert.match(systems[1],/JSON object only/);
+ const row=await db.prepare("SELECT count FROM post_helper_topics WHERE topic_key='ancient-city-from-bangkok'").first();assert.equal(row.count,1);
+ const twice=model({router:[cut,cut]});
+ await assert.rejects(()=>ph.draftForPost('Worth it po ba?',{client:twice,now:()=>now}),/UNREADABLE/);assert.equal(twice.calls.router,2,'only one retry');assert.equal(twice.calls.search,0);
 });
 
 test('twice-yearly refresh: due entries are searched again and replaced; ones with no good source are paused',async()=>{
