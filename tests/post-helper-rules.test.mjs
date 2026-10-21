@@ -113,3 +113,11 @@ test('/comment runs only in the Comment group once there is one; the Admin group
   assert.equal(r.postCallbackAllowed('', admin, ''), false);
   assert.equal(r.postCallbackAllowed(other, admin, comment), false);
 });
+
+test('the monthly comment count follows the Thailand calendar month', () => {
+  assert.equal(r.DEFAULT_USER_LIMIT, 500);
+  assert.equal(r.monthKey(new Date('2026-10-31T16:59:00Z')), '2026-10');
+  assert.equal(r.monthKey(new Date('2026-10-31T17:00:00Z')), '2026-11'); // already 1 November in Thailand
+  assert.equal(r.nextMonthStart(new Date('2026-10-21T05:00:00Z')), '1 November');
+  assert.equal(r.nextMonthStart(new Date('2026-12-15T05:00:00Z')), '1 January');
+});

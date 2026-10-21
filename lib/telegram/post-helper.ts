@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "cloudflare:workers";
-import { DEFAULT_WHATSAPP, REPEATS_TO_SAVE, REPEAT_WINDOW_DAYS, DRAFT_KEEP_DAYS, BLOCKED_DOMAINS, formatDate, jsonObject, lastRefreshDate, parseComposed, parseFacts, parseRouted, refreshDue, parsePostCommand, staleWarning, verifyFacts, withClosing, type KeptFact, type Routed } from "@/lib/post-helper-rules";
+import { DEFAULT_USER_LIMIT, DEFAULT_WHATSAPP, MAX_USER_LIMIT, monthKey, nextMonthStart, REPEATS_TO_SAVE, REPEAT_WINDOW_DAYS, DRAFT_KEEP_DAYS, BLOCKED_DOMAINS, formatDate, jsonObject, lastRefreshDate, parseComposed, parseFacts, parseRouted, refreshDue, parsePostCommand, staleWarning, verifyFacts, withClosing, type KeptFact, type Routed } from "@/lib/post-helper-rules";
 import { quoteTransfer, type QuoteResult } from "@/lib/cee/quotes";
 import { ASSISTANT_MODEL, assistantConfigured, assistantUsage, reserveAssistantCall, settleAssistantCall } from "@/lib/telegram/assistant";
 import { esc } from "@/lib/telegram/cards";
@@ -33,6 +33,7 @@ export function ensurePostHelperTables() {
     for (const sql of [
       "CREATE TABLE IF NOT EXISTS post_helper_topics (topic_key TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start TEXT NOT NULL, last_seen TEXT NOT NULL)",
       "CREATE TABLE IF NOT EXISTS post_helper_knowledge (id TEXT PRIMARY KEY, topic_key TEXT NOT NULL UNIQUE, question TEXT NOT NULL, facts_json TEXT NOT NULL, status TEXT NOT NULL, time_sensitive INTEGER NOT NULL DEFAULT 0, collected_at TEXT NOT NULL, refreshed_at TEXT NOT NULL, approved_by TEXT, approved_at TEXT, hits INTEGER NOT NULL DEFAULT 0, last_used_at TEXT)",
+      "CREATE TABLE IF NOT EXISTS post_helper_usage (telegram_user_id TEXT NOT NULL, month TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY (telegram_user_id, month))",
       "CREATE TABLE IF NOT EXISTS post_helper_drafts (id TEXT PRIMARY KEY, topic_key TEXT NOT NULL, text TEXT NOT NULL, routed_json TEXT NOT NULL, facts_json TEXT NOT NULL, mode TEXT NOT NULL, created_at TEXT NOT NULL)",
     ]) await db().prepare(sql).bind().run();
   })().catch((e) => { ready = null; throw e; }));
@@ -168,11 +169,28 @@ async function defaultQuote(route: NonNullable<Routed["route"]>): Promise<QuoteR
   return quoteTransfer({ pickup: route.pickup, dropoff: route.dropoff, date, time: "09:00", passengers: route.passengers, bags: route.bags });
 }
 
-/** The command `/comment <text>`, or `/comment` as a reply to a message. */
+/** Comments each person may draft per month (Admin → Writing assistant). */
+export async function userLimit() { const n = Number(await setting("post_helper_user_limit")); return Number.isInteger(n) && n >= 1 && n <= MAX_USER_LIMIT ? n : DEFAULT_USER_LIMIT; }
+/** Takes one comment from a person's month, atomically (two taps at once cannot pass the limit). */
+export async function claimComment(userId: string, now = new Date()) {
+  await ensurePostHelperTables();
+  const limit = await userLimit(), month = monthKey(now);
+  const row = await db().prepare("INSERT INTO post_helper_usage(telegram_user_id,month,count) VALUES(?,?,1) ON CONFLICT(telegram_user_id,month) DO UPDATE SET count=count+1 WHERE count<? RETURNING count").bind(userId, month, limit).first<{ count: number }>();
+  if (row) return { ok: true as const, used: row.count, limit };
+  const used = (await db().prepare("SELECT count FROM post_helper_usage WHERE telegram_user_id=? AND month=?").bind(userId, month).first<{ count: number }>())?.count ?? limit;
+  return { ok: false as const, used, limit };
+}
+/** Gives the comment back when the draft failed, so an error does not cost the person one. */
+export async function releaseComment(userId: string, now = new Date()) {
+  await db().prepare("UPDATE post_helper_usage SET count=MAX(0,count-1) WHERE telegram_user_id=? AND month=?").bind(userId, monthKey(now)).run();
+}
+const limitMessage = (limit: number, now = new Date()) => `You have used your ${limit} comments for this month. Your count starts again on ${nextMonthStart(now)}. Ask the owner if you need more.`;
+
 /** The group the drafts go to: the Comment group, or the Admin group until one is set up. */
 export const postChatId = () => telegramCommentChatId() || telegramChatId();
 
-export async function handlePostCommand(rawText: string, replyTo: number, replyText?: string | null, chatId: string = postChatId()) {
+/** The command `/comment <text>`, or `/comment` as a reply to a message. */
+export async function handlePostCommand(rawText: string, replyTo: number, replyText: string | null | undefined, chatId: string, user: { id: string }) {
   const sendCard = (text: string, keyboard?: InlineKeyboard, reply?: number) => sendTo(chatId, text, keyboard, reply);
   const pasted = (parsePostCommand(rawText) ?? "") || (replyText ?? "").trim();
   if (!pasted) { await sendCard("Paste a travel-group post after /comment, or reply to a message with /comment. I draft one ready-to-post comment, then show its sources and whether it is up to date.", undefined, replyTo); return; }
@@ -180,10 +198,14 @@ export async function handlePostCommand(rawText: string, replyTo: number, replyT
   const usage = await assistantUsage();
   if (usage.usd + 0.05 >= usage.capUsd) { await sendCard(`The assistant has reached this month's spending limit (US$${usage.capUsd}). The owner can raise TELEGRAM_ASSISTANT_MONTHLY_USD in Cloudflare.`, undefined, replyTo); return; }
   await tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => undefined);
+  const claim = await claimComment(user.id);
+  if (!claim.ok) { await sendCard(limitMessage(claim.limit), undefined, replyTo); return; }
   try {
     const draft = await draftForPost(pasted);
-    for (let i = 0; i < draft.parts.length; i++) await sendCard(draft.parts[i], i === draft.parts.length - 1 ? draft.keyboard : undefined, replyTo);
+    const parts = [...draft.parts]; parts[parts.length - 1] += `\n\n<i>Your comments this month: ${claim.used} of ${claim.limit}</i>`;
+    for (let i = 0; i < parts.length; i++) await sendCard(parts[i], i === parts.length - 1 ? draft.keyboard : undefined, replyTo);
   } catch (error) {
+    await releaseComment(user.id).catch(() => undefined);
     console.error("post helper failed", error instanceof Error ? error.message : "unknown");
     const m = error instanceof Error ? error.message : "";
     await sendCard(m === "ASSISTANT_BUDGET_REACHED" ? "The assistant has reached this month's spending limit." : m === "REFUSED" ? "Sorry, I can't draft that one." : "Sorry, I couldn't draft that just now. Try again in a moment.", undefined, replyTo);
@@ -191,13 +213,15 @@ export async function handlePostCommand(rawText: string, replyTo: number, replyT
 }
 
 /** Buttons under a draft (team members only: the webhook checks the team list before calling this). */
-export async function handlePostCallback(action: string, id: string, who: string, queryId: string, replyTo: number | undefined, chatId: string = postChatId()) {
+export async function handlePostCallback(action: string, id: string, who: string, queryId: string, replyTo: number | undefined, chatId: string, user: { id: string; isTeam: boolean }) {
   const sendCard = (text: string, keyboard?: InlineKeyboard, reply?: number) => sendTo(chatId, text, keyboard, reply);
   await ensurePostHelperTables();
   const draft = await db().prepare("SELECT id,topic_key,text,routed_json,facts_json,mode FROM post_helper_drafts WHERE id=?").bind(id).first<{ id: string; topic_key: string; text: string; routed_json: string; facts_json: string; mode: string }>();
   if (!draft) return answerCallback(queryId, "This draft has expired (drafts are kept 7 days). Paste the post again.", true);
   const now = new Date().toISOString();
   if (action === "ph_save") {
+    // Saved knowledge is reused for everyone, so only the Waydidi team saves it.
+    if (!user.isTeam) return answerCallback(queryId, "Only the Waydidi team can save knowledge.", true);
     if (draft.mode !== "fresh") return answerCallback(queryId, "That answer already came from saved knowledge.", true);
     const routed = JSON.parse(draft.routed_json) as Routed;
     const facts = JSON.parse(draft.facts_json) as KeptFact[];
@@ -212,9 +236,11 @@ export async function handlePostCallback(action: string, id: string, who: string
     return answerCallback(queryId, "Noted. Saved facts for this question are paused until they are checked.", true);
   }
   if (action === "ph_again") {
+    const claim = await claimComment(user.id);
+    if (!claim.ok) return answerCallback(queryId, limitMessage(claim.limit), true);
     await answerCallback(queryId, "Searching again…");
     try { const fresh = await draftForPost(draft.text, {}, { forceFresh: true }); for (let i = 0; i < fresh.parts.length; i++) await sendCard(fresh.parts[i], i === fresh.parts.length - 1 ? fresh.keyboard : undefined, replyTo); }
-    catch (error) { console.error("post helper retry failed", error instanceof Error ? error.message : "unknown"); await sendCard("Sorry, I couldn't search again just now.", undefined, replyTo); }
+    catch (error) { await releaseComment(user.id).catch(() => undefined); console.error("post helper retry failed", error instanceof Error ? error.message : "unknown"); await sendCard("Sorry, I couldn't search again just now.", undefined, replyTo); }
     return;
   }
   return answerCallback(queryId, "Unknown action.");

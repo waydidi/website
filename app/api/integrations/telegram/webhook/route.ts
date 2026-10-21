@@ -72,9 +72,10 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   // Buttons under a comment draft: in the Comment group (or the Admin group until one is set up).
   if ((q.data ?? "").startsWith("ph_") && postCallbackAllowed(String(q.message?.chat.id ?? ""), telegramChatId(), telegramCommentChatId())) {
     const member = await approved(q.from);
-    if (!member) return answerCallback(q.id, `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: ${q.from.id}`, true);
+    // In the Comment group any member may use the buttons (saving knowledge is for the team only); in the Admin group only the team.
+    if (!member && (q.from.is_bot || String(q.message?.chat.id) === telegramChatId())) return answerCallback(q.id, `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: ${q.from.id}`, true);
     const [phAction, phId] = (q.data ?? "").split(":");
-    return handlePostCallback(phAction, phId ?? "", member.display_name, q.id, q.message?.message_id, String(q.message?.chat.id));
+    return handlePostCallback(phAction, phId ?? "", member?.display_name ?? q.from.first_name ?? "member", q.id, q.message?.message_id, String(q.message?.chat.id), { id: String(q.from.id), isTeam: Boolean(member) });
   }
   if (String(q.message?.chat.id ?? "") !== telegramChatId()) return answerCallback(q.id, "This chat isn't connected to Waydidi.", true);
   const admin = await approved(q.from);
@@ -212,14 +213,13 @@ async function handleMessage(m: TelegramMessage) {
   if (m.chat.type === "private") { if (!await handleDriverPrivate(m)) await handlePrivate(m); return; }
   // The driver group: only "งานของฉัน" is answered (privately); nothing from the team group is ever posted there.
   if (isDriverGroupChat(driverGroup(), String(m.chat.id))) { await handleDriverGroupMessage(m); return; }
-  // The Comment group: only /comment, for people on the team list.
+  // The Comment group: only /comment, for every member of the group (each has a monthly limit).
   const commentChat = telegramCommentChatId();
   if (commentChat && String(m.chat.id) === commentChat) {
     const commentText = (m.text ?? "").trim();
     if (postCommandRoute(String(m.chat.id), telegramChatId(), commentChat, commentText) !== "run") return;
-    const member = await approved(m.from);
-    if (!member) { await tg("sendMessage", { chat_id: m.chat.id, parse_mode: "HTML", reply_parameters: { message_id: m.message_id, allow_sending_without_reply: true }, text: `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: <code>${m.from?.id ?? "unknown"}</code>` }).catch(() => undefined); return; }
-    await handlePostCommand(commentText, m.message_id, m.reply_to_message?.text ?? null, commentChat);
+    if (!m.from || m.from.is_bot) return;
+    await handlePostCommand(commentText, m.message_id, m.reply_to_message?.text ?? null, commentChat, { id: String(m.from.id) });
     return;
   }
   if (String(m.chat.id) !== telegramChatId()) return;
@@ -232,7 +232,7 @@ async function handleMessage(m: TelegramMessage) {
   const teamMember = await approved(m.from);
   // /comment <travel-group post>: a drafted comment with web sources, and a Waydidi price post for transport questions.
   const postRoute = teamMember ? postCommandRoute(String(m.chat.id), telegramChatId(), commentChat, text) : "ignore";
-  if (postRoute === "run") { await handlePostCommand(text, m.message_id, m.reply_to_message?.text ?? null, telegramChatId()); return; }
+  if (postRoute === "run") { await handlePostCommand(text, m.message_id, m.reply_to_message?.text ?? null, telegramChatId(), { id: String(m.from!.id) }); return; }
   if (postRoute === "redirect") { await sendCard("Facebook comment drafts now live in the Comment group. Send /comment there.", undefined, m.message_id); return; }
   if (teamMember && await handleBookingAnswer(m, teamMember.display_name, refreshBookingCard)) return;
   // "ราคา" + "REF cost" lines: driver costs for many bookings at once; each then goes to the driver group.

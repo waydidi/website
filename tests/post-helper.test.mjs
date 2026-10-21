@@ -50,7 +50,7 @@ test('a fresh search: only facts with allowed, recent, supporting sources reach 
 test('asked three times it can be saved (a person taps); then it is used without a web search, with its date',async()=>{
  const m=model();let d;for(let i=0;i<2;i++)d=await ph.draftForPost('Anyone know how to get from BKK to Pattaya? #'+i,{client:m,now:()=>now});
  assert.ok(JSON.stringify(d.keyboard).includes('ph_save:'+d.id),'3rd ask offers the save button (the 1st was counted above)');
- await ph.handlePostCallback('ph_save',d.id,'Anna','q1',undefined);
+ await ph.handlePostCallback('ph_save',d.id,'Anna','q1',undefined,'-100',{id:'78',isTeam:true});
  const row=await db.prepare("SELECT status,approved_by,collected_at FROM post_helper_knowledge WHERE topic_key='bkk-airport-to-pattaya-options'").first();
  assert.deepEqual([row.status,row.approved_by],['approved','Anna']);
  const before=m.calls.search;
@@ -63,7 +63,7 @@ test('asked three times it can be saved (a person taps); then it is used without
 
 test('"Wrong or outdated" pauses the saved facts until checked',async()=>{
  const m=model();const d=await ph.draftForPost('BKK to Pattaya again',{client:m,now:()=>now});
- await ph.handlePostCallback('ph_bad',d.id,'Anna','q2',undefined);
+ await ph.handlePostCallback('ph_bad',d.id,'Anna','q2',undefined,'-100',{id:'78',isTeam:true});
  assert.equal((await db.prepare("SELECT status FROM post_helper_knowledge WHERE topic_key='bkk-airport-to-pattaya-options'").first()).status,'review');
  const s=m.calls.search;await ph.draftForPost('BKK to Pattaya once more',{client:m,now:()=>now});assert.equal(m.calls.search,s+1,'paused knowledge is not reused');
 });
@@ -126,4 +126,34 @@ test('pasted posts are deleted after 7 days',async()=>{
  await db.prepare("INSERT INTO post_helper_drafts(id,topic_key,text,routed_json,facts_json,mode,created_at) VALUES('old1','t','x','{}','[]','fresh',?)").bind('2026-10-01T00:00:00.000Z').run();
  await ph.purgeOldDrafts(now);
  assert.equal((await db.prepare("SELECT COUNT(*) n FROM post_helper_drafts WHERE id='old1'").first()).n,0);
+});
+
+test('each person has a monthly comment limit: counted atomically, per person, per month; a failed draft gives it back', async () => {
+ await db.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('post_helper_user_limit','3','x')").run();
+ const t=new Date('2026-10-21T05:00:00Z');
+ // Five taps at once for a limit of three: exactly three get through.
+ const racing=await Promise.all(Array.from({length:5},()=>ph.claimComment('u1',t)));
+ assert.equal(racing.filter((c)=>c.ok).length,3);
+ assert.deepEqual(racing.filter((c)=>c.ok).map((c)=>c.used).sort(),[1,2,3]);
+ const over=await ph.claimComment('u1',t);assert.deepEqual([over.ok,over.used,over.limit],[false,3,3]);
+ // Other people and the next month are not affected.
+ assert.equal((await ph.claimComment('u2',t)).ok,true);
+ assert.equal((await ph.claimComment('u1',new Date('2026-11-01T01:00:00Z'))).ok,true);
+ // A failed draft gives the comment back.
+ await ph.releaseComment('u1',t);assert.equal((await ph.claimComment('u1',t)).ok,true);
+ await ph.releaseComment('nobody',t); // nothing to give back: no error, no negative count
+ assert.equal((await db.prepare("SELECT COUNT(*) n FROM post_helper_usage WHERE telegram_user_id='nobody'").first()).n,0);
+ assert.equal(await ph.userLimit(),3);
+ await db.prepare("DELETE FROM app_settings WHERE key='post_helper_user_limit'").run();
+ assert.equal(await ph.userLimit(),500);
+ await db.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('post_helper_user_limit','not a number','x')").run();assert.equal(await ph.userLimit(),500);
+ await db.prepare("DELETE FROM app_settings WHERE key='post_helper_user_limit'").run();
+});
+test('only the team can save knowledge; any group member can use the other buttons', async () => {
+ const m=model();const d=await ph.draftForPost('BKK to Pattaya again and again',{client:m,now:()=>now});
+ await db.prepare("DELETE FROM post_helper_knowledge WHERE topic_key='bkk-airport-to-pattaya-options'").run();
+ await ph.handlePostCallback('ph_save',d.id,'Guest','q9',undefined,'-100',{id:'77',isTeam:false});
+ assert.equal((await db.prepare("SELECT COUNT(*) n FROM post_helper_knowledge WHERE topic_key='bkk-airport-to-pattaya-options'").first()).n,0);
+ await ph.handlePostCallback('ph_save',d.id,'Anna','q10',undefined,'-100',{id:'78',isTeam:true});
+ assert.equal((await db.prepare("SELECT status FROM post_helper_knowledge WHERE topic_key='bkk-airport-to-pattaya-options'").first()).status,'approved');
 });
