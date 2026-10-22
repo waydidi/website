@@ -47,8 +47,13 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(photos).toHaveCount(4);
   expect(await photos.evaluateAll((els) => els.map((e) => e.getAttribute("alt")))).toEqual(["Elephant Jungle Sanctuary", "Big Buddha", "Elephant Jungle Sanctuary", "Big Buddha"]);
 
+  // The day plan is a two-column table: Time and Attractions.
+  const plan = page.locator("#itinerary").getByRole("table");
+  expect(await plan.getByRole("columnheader").allTextContents()).toEqual(["Time", "Attractions"]);
+  await expect(plan.getByRole("row", { name: /Elephant Jungle Sanctuary/ }).getByRole("cell").first()).toHaveText("09:30– 11:30");
+  if (process.env.SHOT_DIR) { await plan.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-table-${info.project.name}.png` }); await page.evaluate(() => window.scrollTo(0, 0)); }
   const tabs = page.getByRole("navigation", { name: "Trip sections" });
-  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Booking", "Overview", "Itinerary", "Highlights", "Includes/Excludes", "What to bring", "Notes"]);
+  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Overview", "Itinerary", "Highlights", "Includes/Excludes", "What to bring", "Notes", "Booking"]);
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-top-${info.project.name}.png` });
 
   await tabs.getByRole("link", { name: "Includes/Excludes" }).click();
@@ -64,4 +69,5 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await tabs.getByRole("link", { name: "Booking" }).click();
   await expect(page.locator("#booking")).toBeInViewport();
   await expect(page.getByRole("button", { name: /Accept and pay/ })).toBeVisible();
+  if (process.env.SHOT_DIR) { await page.waitForTimeout(1000); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-end-${info.project.name}.png` }); }
 });

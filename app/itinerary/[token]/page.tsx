@@ -69,9 +69,10 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const highlights = tripHighlights(allStops);
   const tickets = ticketStops(allStops);
   const tabs = [
-    { id: "booking", label: w.tabBooking }, { id: "overview", label: w.tabOverview }, { id: "itinerary", label: w.tabItinerary },
+    { id: "overview", label: w.tabOverview }, { id: "itinerary", label: w.tabItinerary },
     ...(highlights.length ? [{ id: "highlights", label: w.tabHighlights }] : []), { id: "includes", label: w.tabIncludes },
     ...(packing.length ? [{ id: "bring", label: w.tabBring }] : []), ...(days.some((d) => d.snap.notes) ? [{ id: "notes", label: w.tabNotes }] : []),
+    { id: "booking", label: w.tabBooking },
   ];
   const card = "scroll-mt-[140px] lg:scroll-mt-[168px] rounded-card bg-white p-5 shadow-sm sm:p-7";
 
@@ -93,33 +94,12 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
     <SectionTabs tabs={tabs} label={w.sectionsNav} />
 
     <div className="mx-auto mt-5 grid max-w-[880px] gap-4 px-4">
-      <section id="booking" className="grid scroll-mt-[140px] lg:scroll-mt-[168px] gap-4">
-        {paid && <div className="rounded-card bg-emerald-50 p-5 text-emerald-900 shadow-sm"><p className="flex items-center gap-2 text-[17px] font-bold"><CheckCircle2 size={20} />{w.paidTitle}{trip.bookingReference ? ` · ${trip.bookingReference}` : ""}</p>
-          <p className="mt-1 text-[15px]">{w.paidText}</p>
-          {trip.bookingReference && <Link href={`/trip/${trip.bookingReference}?day=${leadToken}`} className="mt-3 inline-flex h-11 items-center rounded-full bg-emerald-700 px-5 font-semibold text-white">{w.openYourDay}</Link>}</div>}
-        {paid && <YourDay token={leadToken} words={w} />}
-        {paid && tripStarted(s.tripDate) && <TripFeedback token={leadToken} rating={trip.feedbackRating} reviewUrl={reviewUrl()} words={w} />}
-        {trip.status === "changes_requested" && <div className="rounded-card bg-amber-50 p-5 text-amber-900 shadow-sm"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
-
-        <div className="rounded-card border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-          <p className="text-[15px] text-slate-600">{w.totalFor}</p>
-          <p className="mt-1 text-[32px] font-black tracking-[-.03em]">{thb(total)}</p>
-          <dl className="mt-3 grid gap-2 border-t border-slate-100 pt-3 text-[15px]">
-            {multi ? days.map((d) => <div key={d.trip.id} className="flex justify-between"><dt className="text-slate-600">{fill(w.day, { n: d.trip.dayNumber })}</dt><dd>{thb(d.snap.total)}</dd></div>) : <>
-              <div className="flex justify-between gap-3"><dt className="text-slate-600">{w.transport}</dt><dd>{thb(s.transportPrice)}</dd></div>
-              {s.feesIncluded > 0 && <div className="flex justify-between gap-3"><dt className="text-slate-600">{w.tickets}</dt><dd>{thb(s.feesIncluded)}</dd></div>}
-              {s.discount > 0 && <div className="flex justify-between gap-3 text-emerald-700"><dt>{w.discount}</dt><dd>−{thb(s.discount)}</dd></div>}
-            </>}
-            {sum((x) => x.feesOnSite) > 0 && <p className="text-[13px] text-slate-500">{fill(w.plusFees, { amount: thb(sum((x) => x.feesOnSite)) })}</p>}
-          </dl>
-          <div className="mt-5">
-            {paid ? null : expired ? <p className="rounded-xl bg-slate-50 p-4 text-[15px] text-slate-700">{w.expired}</p>
-              : <ItineraryActions token={leadToken} total={total} name={trip.customerName ?? ""} email={trip.customerEmail ?? ""} phone={trip.customerPhone ?? ""} words={w} />}
-          </div>
-          <a href={`/api/itinerary/${leadToken}/pdf`} className="mt-4 inline-flex min-h-tap items-center gap-1.5 text-[15px] font-semibold text-brand-darker hover:underline"><Download size={16} />{w.downloadPdf}</a>
-          <p className="mt-1 text-[12px] text-slate-500">{fill(w.refLine, { ref: s.ref, v: s.version, hours: FULL_REFUND_HOURS })} <Link href="/refund-policy" className="underline">{w.policy}</Link>.</p>
-        </div>
-      </section>
+      {paid && <div className="rounded-card bg-emerald-50 p-5 text-emerald-900 shadow-sm"><p className="flex items-center gap-2 text-[17px] font-bold"><CheckCircle2 size={20} />{w.paidTitle}{trip.bookingReference ? ` · ${trip.bookingReference}` : ""}</p>
+        <p className="mt-1 text-[15px]">{w.paidText}</p>
+        {trip.bookingReference && <Link href={`/trip/${trip.bookingReference}?day=${leadToken}`} className="mt-3 inline-flex h-11 items-center rounded-full bg-emerald-700 px-5 font-semibold text-white">{w.openYourDay}</Link>}</div>}
+      {paid && <YourDay token={leadToken} words={w} />}
+      {paid && tripStarted(s.tripDate) && <TripFeedback token={leadToken} rating={trip.feedbackRating} reviewUrl={reviewUrl()} words={w} />}
+      {trip.status === "changes_requested" && <div className="rounded-card bg-amber-50 p-5 text-amber-900 shadow-sm"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
 
       <section id="overview" className={card}>
         <h2 className="text-[22px] font-bold">{w.overview}</h2>
@@ -159,8 +139,26 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
 
       {days.some((d) => d.snap.notes) && <section id="notes" className={card}><h2 className="text-[20px] font-bold">{w.notes}</h2>
         {days.filter((d) => d.snap.notes).map((d) => <p key={d.trip.id} className="mt-2 whitespace-pre-line text-[15px] text-slate-700">{multi ? `${fill(w.day, { n: d.trip.dayNumber })}: ` : ""}{d.snap.notes}</p>)}</section>}
-    </div>
 
+      <section id="booking" className="scroll-mt-[140px] rounded-card border border-slate-200 bg-white p-5 shadow-sm sm:p-7 lg:scroll-mt-[168px]">
+        <p className="text-[15px] text-slate-600">{w.totalFor}</p>
+        <p className="mt-1 text-[32px] font-black tracking-[-.03em]">{thb(total)}</p>
+        <dl className="mt-3 grid gap-2 border-t border-slate-100 pt-3 text-[15px]">
+          {multi ? days.map((d) => <div key={d.trip.id} className="flex justify-between"><dt className="text-slate-600">{fill(w.day, { n: d.trip.dayNumber })}</dt><dd>{thb(d.snap.total)}</dd></div>) : <>
+            <div className="flex justify-between gap-3"><dt className="text-slate-600">{w.transport}</dt><dd>{thb(s.transportPrice)}</dd></div>
+            {s.feesIncluded > 0 && <div className="flex justify-between gap-3"><dt className="text-slate-600">{w.tickets}</dt><dd>{thb(s.feesIncluded)}</dd></div>}
+            {s.discount > 0 && <div className="flex justify-between gap-3 text-emerald-700"><dt>{w.discount}</dt><dd>−{thb(s.discount)}</dd></div>}
+          </>}
+          {sum((x) => x.feesOnSite) > 0 && <p className="text-[13px] text-slate-500">{fill(w.plusFees, { amount: thb(sum((x) => x.feesOnSite)) })}</p>}
+        </dl>
+        <div className="mt-5">
+          {paid ? null : expired ? <p className="rounded-xl bg-slate-50 p-4 text-[15px] text-slate-700">{w.expired}</p>
+            : <ItineraryActions token={leadToken} total={total} name={trip.customerName ?? ""} email={trip.customerEmail ?? ""} phone={trip.customerPhone ?? ""} words={w} />}
+        </div>
+        <a href={`/api/itinerary/${leadToken}/pdf`} className="mt-4 inline-flex min-h-tap items-center gap-1.5 text-[15px] font-semibold text-brand-darker hover:underline"><Download size={16} />{w.downloadPdf}</a>
+        <p className="mt-1 text-[12px] text-slate-500">{fill(w.refLine, { ref: s.ref, v: s.version, hours: FULL_REFUND_HOURS })} <Link href="/refund-policy" className="underline">{w.policy}</Link>.</p>
+      </section>
+    </div>
   </main>;
 }
 
@@ -176,37 +174,44 @@ function DaySection({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title:
     <section id={id} className="scroll-mt-[140px] lg:scroll-mt-[168px] overflow-hidden rounded-card bg-white shadow-sm"><ItineraryMap points={points} /></section>
     <section className="rounded-card bg-white p-5 shadow-sm sm:p-7">
       <h2 className="text-[22px] font-bold">{title}</h2>
-      <ol className="mt-4 grid gap-0">
-        <Row time={s.startTime} title={w.hotelPickup} sub={s.pickupText} dot="P" />
-        {stops.map((st, i) => <li key={st.id} className="relative grid grid-cols-[64px_1fr] gap-3 pb-6">
-          <span className="pt-1 text-[15px] font-bold tabular-nums">{hhmm(st.start)}</span>
-          <div className="border-l-2 border-orange-200 pl-4">
-            {st.travelMin > 0 && <p className="-mt-1 mb-2 text-[13px] text-slate-500">{fill(w.drive, { d: dur(st.travelMin) })}</p>}
-            <h3 className="text-[18px] font-bold"><span className="mr-2 inline-grid size-6 place-items-center rounded-full bg-brand text-[12px] text-white">{i + 1}</span>{st.name}</h3>
-            <p className="mt-0.5 text-[14px] text-slate-600">{hhmm(st.start)}–{hhmm(st.end)}{st.program ? ` · ${st.program}` : ""}</p>
-            {st.checkIn != null && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-[#9A4D00]"><Ticket size={14} />{fill(w.sessionCheckIn, { time: st.sessionTime ?? "", checkIn: hhmm(st.checkIn) })}</p>}
-            {st.cover && <img src={st.cover} alt={st.name} className="mt-3 aspect-[16/9] w-full rounded-2xl object-cover" loading="lazy" />}
-            {st.highlights.length > 0 && <ul className="mt-2 grid gap-1 text-[14px] text-slate-700">{st.highlights.map((h) => <li key={h}>• {h}</li>)}</ul>}
-            {st.description && <details className="group mt-2">
-              <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 text-[14px] font-semibold text-brand-deep [&::-webkit-details-marker]:hidden">
-                {w.seeDetails}<ChevronDown aria-hidden="true" size={16} className="transition-transform group-open:rotate-180" />
-              </summary>
-              <p className="mt-1 text-[15px] leading-7 text-slate-700">{st.description}</p>
-            </details>}
-            {st.gallery.length > 0 && <div className="mt-3 flex gap-2 overflow-x-auto">{st.gallery.slice(0, 6).map((g) => <img key={g} src={g} alt="" className="h-24 w-32 shrink-0 rounded-xl object-cover" loading="lazy" />)}</div>}
-            {st.dressCode && <p className="mt-2 flex items-center gap-1.5 text-[14px] font-semibold"><Shirt size={15} className="text-brand-text" />{st.dressCode}</p>}
-            {st.fee && <p className="mt-1 text-[13px] text-slate-500">{st.fee.included ? w.ticketsIncluded : `${fill(w.feeOnDay, { adult: thb(st.fee.adult) })}${st.fee.child ? fill(w.feeChild, { child: thb(st.fee.child) }) : ""}.`}</p>}
-            {st.note && <p className="mt-2 rounded-xl bg-slate-50 p-3 text-[14px] text-slate-700">{st.note}</p>}
-          </div>
-        </li>)}
-        <Row time={hhmm(s.returnAt)} title={s.end ? w.dropOff : w.backAtHotel} sub={s.endText} dot="P" />
-      </ol>
+      <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+        <table className="w-full table-fixed border-collapse text-left">
+          <thead className="bg-brand-wash text-[13px] font-bold uppercase tracking-wider text-slate-600">
+            <tr><th scope="col" className="w-[92px] border-r border-slate-200 px-3 py-2.5 sm:w-[120px]">{w.timeCol}</th><th scope="col" className="px-3 py-2.5">{w.placesCol}</th></tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 align-top">
+            <Row time={s.startTime} title={w.hotelPickup} sub={s.pickupText} dot="P" />
+            {stops.map((st, i) => <tr key={st.id}>
+              <td className="border-r border-slate-200 px-3 py-3 text-[15px] font-bold tabular-nums">{hhmm(st.start)}<span className="block font-semibold text-slate-500">– {hhmm(st.end)}</span></td>
+              <td className="min-w-0 px-3 py-3">
+                {st.travelMin > 0 && <p className="mb-1 text-[13px] text-slate-500">{fill(w.drive, { d: dur(st.travelMin) })}</p>}
+                <h3 className="text-[17px] font-bold"><span className="mr-2 inline-grid size-6 place-items-center rounded-full bg-brand text-[12px] text-ink">{i + 1}</span>{st.name}</h3>
+                {st.program && <p className="mt-0.5 text-[14px] text-slate-600">{st.program}</p>}
+                {st.checkIn != null && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-[#9A4D00]"><Ticket size={14} />{fill(w.sessionCheckIn, { time: st.sessionTime ?? "", checkIn: hhmm(st.checkIn) })}</p>}
+                {st.cover && <img src={st.cover} alt={st.name} className="mt-3 aspect-[16/9] w-full rounded-xl object-cover" loading="lazy" />}
+                {st.highlights.length > 0 && <ul className="mt-2 grid gap-1 text-[14px] text-slate-700">{st.highlights.map((h) => <li key={h}>• {h}</li>)}</ul>}
+                {st.description && <details className="group mt-2">
+                  <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 text-[14px] font-semibold text-brand-deep [&::-webkit-details-marker]:hidden">
+                    {w.seeDetails}<ChevronDown aria-hidden="true" size={16} className="transition-transform group-open:rotate-180" />
+                  </summary>
+                  <p className="mt-1 text-[15px] leading-7 text-slate-700">{st.description}</p>
+                </details>}
+                {st.gallery.length > 0 && <div className="mt-3 flex gap-2 overflow-x-auto">{st.gallery.slice(0, 6).map((g) => <img key={g} src={g} alt="" className="h-20 w-28 shrink-0 rounded-lg object-cover" loading="lazy" />)}</div>}
+                {st.dressCode && <p className="mt-2 flex items-center gap-1.5 text-[14px] font-semibold"><Shirt size={15} className="text-brand-text" />{st.dressCode}</p>}
+                {st.fee && <p className="mt-1 text-[13px] text-slate-500">{st.fee.included ? w.ticketsIncluded : `${fill(w.feeOnDay, { adult: thb(st.fee.adult) })}${st.fee.child ? fill(w.feeChild, { child: thb(st.fee.child) }) : ""}.`}</p>}
+                {st.note && <p className="mt-2 rounded-lg bg-slate-50 p-3 text-[14px] text-slate-700">{st.note}</p>}
+              </td>
+            </tr>)}
+            <Row time={hhmm(s.returnAt)} title={s.end ? w.dropOff : w.backAtHotel} sub={s.endText} dot="P" />
+          </tbody>
+        </table>
+      </div>
       <p className="mt-2 text-[13px] text-slate-500">{w.timesNote}</p>
     </section>
   </>;
 }
 
 function Row({ time, title, sub, dot }: { time: string; title: string; sub: string; dot: string }) {
-  return <li className="grid grid-cols-[64px_1fr] gap-3 pb-6"><span className="pt-0.5 text-[15px] font-bold tabular-nums">{time}</span>
-    <div className="border-l-2 border-orange-200 pl-4"><p className="flex items-center gap-2 text-[16px] font-bold"><span className="grid size-6 place-items-center rounded-full bg-plum text-[12px] text-white">{dot}</span>{title}</p><p className="mt-0.5 flex items-start gap-1 text-[14px] text-slate-600"><MapPin size={14} className="mt-0.5 shrink-0" />{sub}</p></div></li>;
+  return <tr><td className="border-r border-slate-200 px-3 py-3 text-[15px] font-bold tabular-nums">{time}</td>
+    <td className="px-3 py-3"><p className="flex items-center gap-2 text-[16px] font-bold"><span className="grid size-6 place-items-center rounded-full bg-plum text-[12px] text-white">{dot}</span>{title}</p><p className="mt-0.5 flex items-start gap-1 text-[14px] text-slate-600"><MapPin size={14} className="mt-0.5 shrink-0" />{sub}</p></td></tr>;
 }
