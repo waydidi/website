@@ -56,27 +56,37 @@ export async function createTripPdf(s: TripSnapshot, origin: string, preparedBy:
   y = H - 180;
 
   // Trip facts
-  const facts: [string, string][] = [["Prepared for", s.customerName || "Guest"], ["Pickup", `${s.startTime} · ${s.pickupText}`], ["Passengers", `${s.adults} adult${s.adults > 1 ? "s" : ""}${s.children ? ` + ${s.children} child${s.children > 1 ? "ren" : ""}` : ""}`], ["Vehicle", s.vehicleName], ["Trip length", `About ${s.durationHours} hours, back around ${hhmm(s.returnAt)}`]];
+  const facts: [string, string][] = [["Prepared for", s.customerName || "Guest"], ["Pickup", s.pickupText ? `${s.startTime} · ${s.pickupText}` : s.startTime], ["Passengers", `${s.adults} adult${s.adults > 1 ? "s" : ""}${s.children ? ` + ${s.children} child${s.children > 1 ? "ren" : ""}` : ""}`], ["Vehicle", s.vehicleName], ["Trip length", `About ${s.durationHours} hours, back around ${hhmm(s.returnAt)}`]];
   for (const [k, v] of facts) { text(k.toUpperCase(), M, y, 8, bold, muted); const lines = wrap(v, regular, 11, W - M * 2 - 120); lines.forEach((l, i) => text(l, M + 120, y - i * 14, 11)); y -= Math.max(1, lines.length) * 14 + 8; }
   y -= 8;
 
-  // Plan table
-  text("YOUR DAY", M, y, 9, bold, orange); y -= 18;
-  const row = (time: string, title: string, sub: string | null) => {
-    const subLines = sub ? wrap(sub, regular, 9, W - M * 2 - 110) : [];
-    need(22 + subLines.length * 12);
-    page.drawLine({ start: { x: M, y: y + 12 }, end: { x: W - M, y: y + 12 }, thickness: 0.6, color: line });
-    text(time, M, y, 10, bold); text(title, M + 100, y, 11, bold);
-    subLines.forEach((l, i) => text(l, M + 100, y - 13 - i * 12, 9, regular, muted));
-    y -= 22 + subLines.length * 12;
+  // Plan table: two columns, Time and Attractions, with the header repeated on each new page.
+  text("YOUR DAY", M, y, 9, bold, orange); y -= 12;
+  const TW = W - M * 2, TC = 110, PAD = 8, textW = TW - TC - PAD * 2;
+  const cell = (x: number, top: number, w: number, h: number, fill?: typeof pale) => page.drawRectangle({ x, y: top - h, width: w, height: h, borderColor: line, borderWidth: 0.8, ...(fill ? { color: fill } : {}) });
+  const head = () => {
+    cell(M, y, TC, 24, pale); cell(M + TC, y, TW - TC, 24, pale);
+    text("TIME", M + PAD, y - 16, 9, bold, muted); text("ATTRACTIONS", M + TC + PAD, y - 16, 9, bold, muted);
+    y -= 24;
   };
-  row(s.startTime, "Hotel pickup", s.pickupText);
+  head();
+  const row = (time: string, title: string, sub: string | null) => {
+    const titleLines = wrap(title, bold, 11, textW), subLines = sub ? wrap(sub, regular, 9, textW) : [];
+    const h = PAD * 2 + titleLines.length * 14 + subLines.length * 12;
+    if (y - h < 60) { page = pdf.addPage([W, H]); y = H - M; head(); }
+    cell(M, y, TC, h); cell(M + TC, y, TW - TC, h);
+    text(time, M + PAD, y - PAD - 10, 10, bold);
+    titleLines.forEach((l, i) => text(l, M + TC + PAD, y - PAD - 10 - i * 14, 11, bold));
+    subLines.forEach((l, i) => text(l, M + TC + PAD, y - PAD - 8 - titleLines.length * 14 - i * 12, 9, regular, muted));
+    y -= h;
+  };
+  row(s.startTime, "Hotel pickup", s.pickupText || null);
   for (const st of s.stops.filter((x) => !(s.liveSkipped ?? []).includes(x.id))) {
     const sub = [st.travelMin ? `${st.travelMin} min drive` : "", st.program ? `${st.program}${st.sessionTime ? ` at ${st.sessionTime}` : ""}` : "", st.checkIn != null ? `Please be ready to check in by ${hhmm(st.checkIn)}` : "", st.note ?? ""].filter(Boolean).join(" · ");
     row(`${hhmm(st.start)}-${hhmm(st.end)}`, st.name, sub || null);
   }
-  row(hhmm(s.returnAt), s.endText === s.pickupText ? "Back at your hotel" : "Drop-off", s.endText);
-  y -= 6;
+  row(hhmm(s.returnAt), s.endText === s.pickupText ? "Back at your hotel" : "Drop-off", s.endText || null);
+  y -= 18;
 
   // Summary and price
   need(110);
