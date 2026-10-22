@@ -7,24 +7,26 @@ import type { TripPhoto } from "@/lib/trip-photos";
 
 type Words = { galleryLabel: string; galleryButton: string; photoOf: string; prevPhoto: string; nextPhoto: string; closeLabel: string };
 const fill = (t: string, v: Record<string, string | number>) => t.replace(/\{(\w+)\}/g, (_, k: string) => String(v[k] ?? ""));
-const SLIDE_MS = 5000;
+const SLIDE_MS = 3000; // matches the 3 s zoom and loading-bar animations in app/globals.css
 
 /**
- * The trip's photos at the top of the page, like a story: each one slowly zooms in, then the next fades in, with one
- * loading bar per photo filling at the bottom. Swipe or the arrows change photo; "Gallery" opens them full screen. With
+ * The trip's photos at the top of the page, like a story: each one zooms in for 3 seconds while its loading bar fills,
+ * then the next fades in and starts zooming (the one leaving keeps its zoom as it fades, so the motion never stops). Swipe or the arrows change photo; "Gallery" opens them full screen. With
  * reduced motion the photos neither zoom nor change by themselves.
  */
 export function TripGallery({ photos, words }: { photos: TripPhoto[]; words: Words }) {
-  const [index, setIndex] = useState(0);
+  // index: the photo shown; prev: the one fading out; cycle: counts changes, so each new turn restarts its zoom and bar.
+  const [shown, setShown] = useState({ index: 0, prev: -1, cycle: 0 });
+  const { index, prev, cycle } = shown;
   const [still, setStill] = useState(false);
   const [viewing, setViewing] = useState(false);
   const touch = useRef<number | null>(null);
   const count = photos.length;
-  const go = (i: number) => setIndex(((i % count) + count) % count);
+  const go = (i: number) => setShown((s) => ({ index: ((i % count) + count) % count, prev: s.index, cycle: s.cycle + 1 }));
   useEffect(() => { setStill(window.matchMedia("(prefers-reduced-motion: reduce)").matches); }, []); // eslint-disable-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (still || viewing || count < 2) return; // paused while the full-screen gallery is open
-    const timer = setTimeout(() => setIndex((i) => (i + 1) % count), SLIDE_MS);
+    const timer = setTimeout(() => setShown((s) => ({ index: (s.index + 1) % count, prev: s.index, cycle: s.cycle + 1 })), SLIDE_MS);
     return () => clearTimeout(timer);
   }, [index, still, viewing, count]);
   if (!count) return null;
@@ -34,14 +36,15 @@ export function TripGallery({ photos, words }: { photos: TripPhoto[]; words: Wor
     {photos.map((p, i) => <figure key={p.src} aria-roledescription="slide" aria-label={fill(words.photoOf, { n: i + 1, total: count })} aria-hidden={i !== index}
       className={`absolute inset-0 transition-opacity duration-700 ${i === index ? "opacity-100" : "opacity-0"}`}>
       <img src={p.src} alt={p.stop} loading={i === 0 ? "eager" : "lazy"}
-        className={`h-full w-full object-cover ${i === index && !still && count > 1 ? "animate-[trip-photo-zoom_5s_linear_forwards]" : ""}`} key={i === index ? `${p.src}-${index}` : p.src} />
+        className={`h-full w-full object-cover ${(i === index || i === prev) && !still && count > 1 ? "animate-[trip-photo-zoom_3s_linear_forwards]" : ""}`}
+        key={i === index ? `${p.src}-${cycle}` : i === prev ? `${p.src}-${cycle - 1}` : p.src} />
     </figure>)}
     <button type="button" onClick={() => setViewing(true)} className="absolute bottom-14 right-3 inline-flex min-h-tap items-center gap-2 rounded-xl bg-black/60 px-4 text-[16px] font-semibold text-white backdrop-blur-sm"><Images size={19} aria-hidden />{words.galleryButton}</button>
     <PhotoViewer photos={photos} start={index} open={viewing} onOpenChange={setViewing} words={words} />
     {count > 1 && <>
       <div aria-hidden className="absolute inset-x-3 bottom-8 flex gap-1.5">
         {photos.map((p, i) => <span key={p.src} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/40">
-          <span key={i === index ? index : "bar"} className={`block h-full rounded-full bg-white ${i < index || (still && i === index) ? "w-full" : i === index ? "w-0 animate-[trip-photo-progress_5s_linear_forwards]" : "w-0"}`} />
+          <span key={i === index ? cycle : "bar"} className={`block h-full rounded-full bg-white ${i < index || (still && i === index) ? "w-full" : i === index ? "w-0 animate-[trip-photo-progress_3s_linear_forwards]" : "w-0"}`} />
         </span>)}
       </div>
       <p className="sr-only" aria-live="polite">{fill(words.photoOf, { n: index + 1, total: count })}</p>
