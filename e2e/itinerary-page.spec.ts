@@ -104,5 +104,7 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await tabs.getByRole("link", { name: "Booking" }).click();
   await expect(page.locator("#booking")).toBeInViewport();
   await expect(page.getByRole("button", { name: /Accept and pay/ })).toBeVisible();
+  // Every section runs full width: no rounded cards.
+  for (const id of ["overview", "highlights", "includes", "booking"]) expect(await page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).borderTopLeftRadius), id).toBe("0px");
   if (process.env.SHOT_DIR) { await page.waitForTimeout(1000); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-end-${info.project.name}.png` }); }
 });

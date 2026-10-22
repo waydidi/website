@@ -74,7 +74,8 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   ];
   const lastReturn = hhmm(days.at(-1)!.snap.returnAt);
   const dressCodes = [...new Map(allStops.filter((x) => x.dressCode).map((x) => [x.dressCode!, x.name])).entries()];
-  const card = "scroll-mt-[140px] lg:scroll-mt-[168px] rounded-card bg-white p-5 shadow-sm sm:p-7";
+  // Every section runs the full width of the page (no card), like the Overview.
+  const card = "-mx-4 scroll-mt-[140px] bg-white px-4 py-6 sm:px-7 lg:scroll-mt-[168px]";
 
   return <main className="bg-canvas pb-16 text-plum">
     <div className="mx-auto max-w-[880px] bg-white px-4 py-3 sm:px-7">
@@ -96,14 +97,14 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
     <SectionTabs tabs={tabs} label={w.sectionsNav} />
 
     <div className="mx-auto mt-5 grid max-w-[880px] gap-4 px-4">
-      {paid && <div className="rounded-card bg-emerald-50 p-5 text-emerald-900 shadow-sm"><p className="flex items-center gap-2 text-[17px] font-bold"><CheckCircle2 size={20} />{w.paidTitle}{trip.bookingReference ? ` · ${trip.bookingReference}` : ""}</p>
+      {paid && <div className="-mx-4 bg-emerald-50 px-4 py-5 text-emerald-900 sm:px-7"><p className="flex items-center gap-2 text-[17px] font-bold"><CheckCircle2 size={20} />{w.paidTitle}{trip.bookingReference ? ` · ${trip.bookingReference}` : ""}</p>
         <p className="mt-1 text-[15px]">{w.paidText}</p>
         {trip.bookingReference && <Link href={`/trip/${trip.bookingReference}?day=${leadToken}`} className="mt-3 inline-flex h-11 items-center rounded-full bg-emerald-700 px-5 font-semibold text-white">{w.openYourDay}</Link>}</div>}
       {paid && <YourDay token={leadToken} words={w} />}
       {paid && tripStarted(s.tripDate) && <TripFeedback token={leadToken} rating={trip.feedbackRating} reviewUrl={reviewUrl()} words={w} />}
-      {trip.status === "changes_requested" && <div className="rounded-card bg-amber-50 p-5 text-amber-900 shadow-sm"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
+      {trip.status === "changes_requested" && <div className="-mx-4 bg-amber-50 px-4 py-5 text-amber-900 sm:px-7"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
 
-      <section id="overview" className="-mx-4 scroll-mt-[140px] bg-white px-4 py-6 sm:px-7 lg:scroll-mt-[168px]">
+      <section id="overview" className={card}>
         <h2 className="text-[22px] font-bold">{w.overview}</h2>
         {s.customerName && <p className="mt-1 text-[15px] text-slate-600">{fill(w.for, { name: s.customerName })}</p>}
         <ul className="mt-4 grid gap-3.5 text-[16px]">
@@ -150,7 +151,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
         </div>
       </section>
 
-      <section id="booking" className="scroll-mt-[140px] rounded-card border border-slate-200 bg-white p-5 shadow-sm sm:p-7 lg:scroll-mt-[168px]">
+      <section id="booking" className={card}>
         <p className="text-[15px] text-slate-600">{w.totalFor}</p>
         <p className="mt-1 text-[32px] font-black tracking-[-.03em]">{thb(total)}</p>
         <dl className="mt-3 grid gap-2 border-t border-slate-100 pt-3 text-[15px]">
