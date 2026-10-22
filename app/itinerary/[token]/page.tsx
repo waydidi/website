@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { eq } from "drizzle-orm";
-import { Backpack, CalendarDays, Car, Check, CheckCircle2, ChevronDown, ChevronRight, Clock, Download, MapPin, Shirt, Sparkles, Ticket, Users, X } from "lucide-react";
+import type { ReactNode } from "react";
+import { Backpack, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, Download, Landmark, MapPin, MapPinned, ShieldCheck, Shirt, Sparkles, Ticket, Users, X } from "lucide-react";
 import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
+import { FullItinerarySheet } from "@/components/itinerary/full-itinerary-sheet";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
@@ -69,11 +71,11 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const highlights = tripHighlights(allStops);
   const tickets = ticketStops(allStops);
   const tabs = [
-    { id: "overview", label: w.tabOverview }, { id: "itinerary", label: w.tabItinerary },
-    ...(highlights.length ? [{ id: "highlights", label: w.tabHighlights }] : []), { id: "includes", label: w.tabIncludes },
-    ...(packing.length ? [{ id: "bring", label: w.tabBring }] : []), ...(days.some((d) => d.snap.notes) ? [{ id: "notes", label: w.tabNotes }] : []),
-    { id: "booking", label: w.tabBooking },
+    { id: "overview", label: w.tabOverview }, ...(highlights.length ? [{ id: "highlights", label: w.tabHighlights }] : []),
+    { id: "includes", label: w.tabIncludes }, { id: "booking", label: w.tabBooking },
   ];
+  const lastReturn = hhmm(days.at(-1)!.snap.returnAt);
+  const dressCodes = [...new Map(allStops.filter((x) => x.dressCode).map((x) => [x.dressCode!, x.name])).entries()];
   const card = "scroll-mt-[140px] lg:scroll-mt-[168px] rounded-card bg-white p-5 shadow-sm sm:p-7";
 
   return <main className="bg-canvas pb-16 text-plum">
@@ -103,18 +105,18 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
 
       <section id="overview" className={card}>
         <h2 className="text-[22px] font-bold">{w.overview}</h2>
-        {s.customerName && <p className="mt-2 text-[15px] text-slate-600">{fill(w.for, { name: s.customerName })}</p>}
-        <ul className="mt-4 grid gap-3 text-[15px] sm:grid-cols-2">
-          <li className="flex items-start gap-2.5"><Clock size={18} className="mt-0.5 shrink-0 text-brand-text" /><span>{fill(w.pickup, { time: s.startTime })}<span className="block text-slate-600">{s.pickupText}</span></span></li>
-          {!multi && <li className="flex items-start gap-2.5"><CalendarDays size={18} className="mt-0.5 shrink-0 text-brand-text" />{fill(w.backAround, { time: hhmm(s.returnAt) })}</li>}
-          <li className="flex items-start gap-2.5"><Users size={18} className="mt-0.5 shrink-0 text-brand-text" />{travellers > 1 ? fill(w.travellers, { n: travellers }) : w.traveller}</li>
-          <li className="flex items-start gap-2.5"><Car size={18} className="mt-0.5 shrink-0 text-brand-text" />{fill(w.vehicleLine, { car: s.vehicleName })}</li>
+        {s.customerName && <p className="mt-1 text-[15px] text-slate-600">{fill(w.for, { name: s.customerName })}</p>}
+        <ul className="mt-4 grid gap-3.5 text-[16px]">
+          {allStops.length > 0 && <li className="flex items-start gap-3"><Landmark size={20} className="mt-0.5 shrink-0 text-brand-text" /><ul className="grid gap-2">{allStops.map((x) => <li key={x.id}>{x.name}</li>)}</ul></li>}
+          <li className="flex items-start gap-3"><Clock size={20} className="mt-0.5 shrink-0 text-brand-text" />{multi ? `${s.startTime} · ${fill(w.multiDay, { n: days.length })}` : `${s.startTime} - ${lastReturn}`}</li>
+          <li className="flex items-start gap-3"><MapPinned size={20} className="mt-0.5 shrink-0 text-brand-text" />{w.departureType}</li>
+          <li className="flex items-start gap-3"><Users size={20} className="mt-0.5 shrink-0 text-brand-text" />{travellers > 1 ? fill(w.travellers, { n: travellers }) : w.traveller} · {s.vehicleName}</li>
+          <li className="flex items-start gap-3"><ShieldCheck size={20} className="mt-0.5 shrink-0 text-brand-text" />{fill(w.freeCancel, { hours: FULL_REFUND_HOURS })}</li>
         </ul>
-      </section>
-
-      <section id="itinerary" className="grid scroll-mt-[140px] lg:scroll-mt-[168px] gap-4">
-        {multi && <nav aria-label="Days" className="flex gap-2 overflow-x-auto rounded-card bg-white p-3 shadow-sm">{days.map((d) => <a key={d.trip.id} href={`#day-${d.trip.dayNumber}`} className="shrink-0 rounded-full border border-slate-200 px-4 py-2 text-[14px] font-semibold hover:border-brand">{fill(w.day, { n: d.trip.dayNumber })} · {d.snap.tripDate ? new Date(`${d.snap.tripDate}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { day: "numeric", month: "short", timeZone: "UTC" }) : ""}</a>)}</nav>}
-        {days.map((d) => <DaySection key={d.trip.id} s={d.snap} w={w} title={multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ${longDate(d.snap.tripDate, lang)}` : w.yourDay} id={multi ? `day-${d.trip.dayNumber}` : undefined} />)}
+        <FullItinerarySheet label={w.viewFull} title={s.title} close={w.closeLabel}>
+          {multi && <nav aria-label="Days" className="flex gap-2 overflow-x-auto rounded-card bg-white p-3 shadow-sm">{days.map((d) => <a key={d.trip.id} href={`#day-${d.trip.dayNumber}`} className="shrink-0 rounded-full border border-slate-200 px-4 py-2 text-[14px] font-semibold hover:border-brand">{fill(w.day, { n: d.trip.dayNumber })} · {d.snap.tripDate ? new Date(`${d.snap.tripDate}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { day: "numeric", month: "short", timeZone: "UTC" }) : ""}</a>)}</nav>}
+          {days.map((d) => <DaySection key={d.trip.id} s={d.snap} w={w} title={multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ${longDate(d.snap.tripDate, lang)}` : w.yourDay} id={multi ? `day-${d.trip.dayNumber}` : undefined} />)}
+        </FullItinerarySheet>
       </section>
 
       {highlights.length > 0 && <section id="highlights" className={card}>
@@ -124,21 +126,31 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
       </section>}
 
       <section id="includes" className={card}>
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div><h2 className="text-[20px] font-bold">{w.included}</h2>
-            <ul className="mt-3 grid gap-2 text-[15px]">
-              {[w.transport, w.hotelTransfer, ...(tickets.included.length ? [fill(w.ticketsAt, { places: tickets.included.join(", ") })] : [])].map((x) => <li key={x} className="flex gap-2"><Check size={18} className="mt-0.5 shrink-0 text-emerald-600" />{x}</li>)}
-            </ul></div>
-          {tickets.onSite.length > 0 && <div><h2 className="text-[20px] font-bold">{w.notIncluded}</h2>
-            <ul className="mt-3 grid gap-2 text-[15px]">{tickets.onSite.map((place) => <li key={place} className="flex gap-2"><X size={18} className="mt-0.5 shrink-0 text-slate-400" />{fill(w.feeAt, { place })}</li>)}</ul></div>}
+        <h2 className="text-[22px] font-bold">{w.included}</h2>
+        <ul className="mt-4 grid gap-3 text-[16px]">
+          {[w.transport, w.hotelTransfer, ...(tickets.included.length ? [fill(w.ticketsAt, { places: tickets.included.join(", ") })] : [])].map((x) => <li key={x} className="flex items-start gap-3"><CheckCircle2 size={20} className="mt-0.5 shrink-0 text-emerald-600" />{x}</li>)}
+          {tickets.onSite.map((place) => <li key={place} className="flex items-start gap-3"><X size={20} className="mt-0.5 shrink-0 text-slate-400" /><span><span className="sr-only">{w.notIncluded}: </span>{fill(w.feeAt, { place })}</span></li>)}
+        </ul>
+        <div className="mt-6 divide-y divide-slate-200 border-y border-slate-200">
+          <More title={w.accPickup}>
+            <ul className="grid gap-1.5">{days.map((d) => <li key={d.trip.id}>{multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ` : ""}{fill(w.pickupAt, { time: d.snap.startTime, place: d.snap.pickupText || w.hotelPickup })}</li>)}</ul>
+            {!multi && <p className="mt-1.5">{fill(w.backAround, { time: lastReturn })}{s.endText && s.endText !== s.pickupText ? ` · ${s.endText}` : ""}</p>}
+          </More>
+          {(packing.length > 0 || dressCodes.length > 0 || days.some((d) => d.snap.notes)) && <More title={w.accBefore}>
+            {packing.length > 0 && <><p className="font-semibold text-plum">{w.whatToBring}</p><ul className="mt-1.5 grid gap-1.5">{packing.map((p) => <li key={p} className="flex gap-2"><Backpack size={16} className="mt-1 shrink-0 text-brand-text" />{p}</li>)}</ul></>}
+            {dressCodes.length > 0 && <ul className="mt-3 grid gap-1.5">{dressCodes.map(([code, place]) => <li key={code} className="flex gap-2"><Shirt size={16} className="mt-1 shrink-0 text-brand-text" />{place}: {code}</li>)}</ul>}
+            {days.filter((d) => d.snap.notes).map((d) => <p key={d.trip.id} className="mt-3 whitespace-pre-line"><span className="font-semibold text-plum">{w.notes}{multi ? ` (${fill(w.day, { n: d.trip.dayNumber })})` : ""}: </span>{d.snap.notes}</p>)}
+          </More>}
+          <More title={w.accTerms}>
+            <p>{fill(w.refLine, { ref: s.ref, v: s.version, hours: FULL_REFUND_HOURS })} <Link href="/refund-policy" className="font-semibold text-brand-deep underline">{w.policy}</Link>.</p>
+            {!paid && <p className="mt-2">{fill(w.priceHeld, { n: trip.holdDays })}</p>}
+            <p className="mt-2">{w.timesNote}</p>
+          </More>
+          <More title={w.accHow}>
+            <ol className="grid list-decimal gap-1.5 pl-5">{[w.howStep1, w.howStep2, w.howStep3].map((x) => <li key={x}>{x}</li>)}</ol>
+          </More>
         </div>
       </section>
-
-      {packing.length > 0 && <section id="bring" className={card}><h2 className="flex items-center gap-2 text-[20px] font-bold"><Backpack size={20} className="text-brand-text" />{w.whatToBring}</h2>
-        <ul className="mt-3 grid gap-2 text-[15px] sm:grid-cols-2">{packing.map((p) => <li key={p} className="flex gap-2"><CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-600" />{p}</li>)}</ul></section>}
-
-      {days.some((d) => d.snap.notes) && <section id="notes" className={card}><h2 className="text-[20px] font-bold">{w.notes}</h2>
-        {days.filter((d) => d.snap.notes).map((d) => <p key={d.trip.id} className="mt-2 whitespace-pre-line text-[15px] text-slate-700">{multi ? `${fill(w.day, { n: d.trip.dayNumber })}: ` : ""}{d.snap.notes}</p>)}</section>}
 
       <section id="booking" className="scroll-mt-[140px] rounded-card border border-slate-200 bg-white p-5 shadow-sm sm:p-7 lg:scroll-mt-[168px]">
         <p className="text-[15px] text-slate-600">{w.totalFor}</p>
@@ -171,7 +183,7 @@ function DaySection({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title:
     ...(s.end ? [{ id: "end", lat: s.end.lat, lng: s.end.lng, label: "E", title: s.endText, kind: "end" as const }] : s.pickup && stops.length ? [{ id: "back", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: w.backAtHotel, kind: "end" as const }] : []),
   ];
   return <>
-    <section id={id} className="scroll-mt-[140px] lg:scroll-mt-[168px] overflow-hidden rounded-card bg-white shadow-sm"><ItineraryMap points={points} /></section>
+    <section id={id} className="scroll-mt-4 overflow-hidden rounded-card bg-white shadow-sm"><ItineraryMap points={points} /></section>
     <section className="rounded-card bg-white p-5 shadow-sm sm:p-7">
       <h2 className="text-[22px] font-bold">{title}</h2>
       <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
@@ -209,6 +221,16 @@ function DaySection({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title:
       <p className="mt-2 text-[13px] text-slate-500">{w.timesNote}</p>
     </section>
   </>;
+}
+
+/** One collapsible row under What's included (no script needed: native details/summary). */
+function More({ title, children }: { title: string; children: ReactNode }) {
+  return <details className="group">
+    <summary className="flex min-h-[60px] cursor-pointer list-none items-center justify-between gap-3 text-[18px] font-bold [&::-webkit-details-marker]:hidden">
+      {title}<ChevronRight aria-hidden size={22} className="shrink-0 transition-transform group-open:rotate-90" />
+    </summary>
+    <div className="pb-5 text-[15px] leading-7 text-slate-700">{children}</div>
+  </details>;
 }
 
 function Row({ time, title, sub, dot }: { time: string; title: string; sub: string; dot: string }) {

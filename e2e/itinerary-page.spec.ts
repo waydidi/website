@@ -47,13 +47,23 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(photos).toHaveCount(4);
   expect(await photos.evaluateAll((els) => els.map((e) => e.getAttribute("alt")))).toEqual(["Elephant Jungle Sanctuary", "Big Buddha", "Elephant Jungle Sanctuary", "Big Buddha"]);
 
-  // The day plan is a two-column table: Time and Attractions.
-  const plan = page.locator("#itinerary").getByRole("table");
+  // The Overview card: places, times, departure type and cancellation; the full plan opens in a sheet.
+  const overview = page.locator("#overview");
+  for (const line of ["Elephant Jungle Sanctuary", "Big Buddha", "08:30 - 17:00", "Departure type: Hotel pickup", "Free cancellation (48 hours notice)"]) await expect(overview.getByText(line, { exact: true })).toBeVisible();
+  if (process.env.SHOT_DIR) { await overview.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-overview-${info.project.name}.png` }); }
+  await expect(page.getByRole("table")).toHaveCount(0); // the long plan is not on the page itself
+  await overview.getByRole("button", { name: "View full itinerary" }).click();
+  const sheet = page.getByRole("dialog", { name: snapshot.title });
+  const plan = sheet.getByRole("table");
   expect(await plan.getByRole("columnheader").allTextContents()).toEqual(["Time", "Attractions"]);
   await expect(plan.getByRole("row", { name: /Elephant Jungle Sanctuary/ }).getByRole("cell").first()).toHaveText("09:30– 11:30");
-  if (process.env.SHOT_DIR) { await plan.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-table-${info.project.name}.png` }); await page.evaluate(() => window.scrollTo(0, 0)); }
+  if (process.env.SHOT_DIR) { await page.waitForTimeout(700); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-sheet-${info.project.name}.png` }); }
+  await sheet.getByRole("button", { name: "Close" }).click();
+  await expect(sheet).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo(0, 0));
+
   const tabs = page.getByRole("navigation", { name: "Trip sections" });
-  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Overview", "Itinerary", "Highlights", "Includes/Excludes", "What to bring", "Notes", "Booking"]);
+  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Overview", "Highlights", "Includes/Excludes", "Booking"]);
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-top-${info.project.name}.png` });
 
   await tabs.getByRole("link", { name: "Includes/Excludes" }).click();
@@ -63,6 +73,13 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(tabs.getByRole("link", { name: "Includes/Excludes" })).toHaveAttribute("aria-current", "location");
   await expect(includes.getByText("Entrance tickets: Elephant Jungle Sanctuary")).toBeVisible();
   await expect(includes.getByText("Entrance fee at Big Buddha, paid on the day")).toBeVisible();
+  // Collapsible rows under What's included, filled from the trip itself.
+  for (const name of ["Pick-up & meet-up information", "Before you book", "Terms & Conditions", "How to use"]) await expect(includes.getByText(name, { exact: true })).toBeVisible();
+  await includes.getByText("Pick-up & meet-up information", { exact: true }).click();
+  await expect(includes.getByText("Pickup at 08:30 from Kata Beach Resort")).toBeVisible();
+  await includes.getByText("Before you book", { exact: true }).click();
+  await expect(includes.getByText("Swimwear", { exact: true })).toBeVisible();
+  await expect(includes.getByText("Bring swimwear for the elephant bath.")).toBeVisible();
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-includes-${info.project.name}.png` });
 
   await expect(page.getByRole("link", { name: "Book now" })).toHaveCount(0); // no floating bar at the bottom
