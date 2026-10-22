@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { eq } from "drizzle-orm";
 import type { ReactNode } from "react";
-import { Backpack, CalendarDays, CheckCircle2, ChevronRight, Download, Landmark, MapPin, MapPinned, ShieldCheck, Shirt, Sparkles, Ticket, Users, X } from "lucide-react";
+import { Backpack, CalendarDays, CheckCircle2, ChevronRight, Clock, Download, Landmark, MapPin, Shirt, Ticket, X } from "lucide-react";
 import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
+import { HighlightsCard } from "@/components/itinerary/highlights-card";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
-import { Breadcrumbs } from "@/components/seo";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
 import { TripGallery } from "@/components/itinerary/trip-gallery";
@@ -68,18 +68,18 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const photos = tripPhotos(allStops);
   const highlights = tripHighlights(allStops);
   const tickets = ticketStops(allStops);
+  const highlightItems = [...new Set(highlights.flatMap((h) => h.items))];
   const tabs = [
-    { id: "overview", label: w.tabOverview }, ...(highlights.length ? [{ id: "highlights", label: w.tabHighlights }] : []),
+    ...(highlightItems.length ? [{ id: "highlights", label: w.highlights }] : []), { id: "expect", label: w.tabExpect },
     { id: "includes", label: w.tabIncludes }, { id: "booking", label: w.tabBooking },
   ];
   const lastReturn = hhmm(days.at(-1)!.snap.returnAt);
   const dressCodes = [...new Map(allStops.filter((x) => x.dressCode).map((x) => [x.dressCode!, x.name])).entries()];
-  const card = "scroll-mt-[140px] lg:scroll-mt-[168px] rounded-card bg-white p-5 shadow-sm sm:p-7";
+  // Every section runs the full width of the page (no card); headings carry a short coloured bar, like Klook's.
+  const card = "-mx-4 scroll-mt-[140px] bg-white px-4 py-6 sm:px-7 lg:scroll-mt-[168px]";
+  const heading = "border-l-4 border-brand pl-3 text-[22px] font-bold leading-7";
 
   return <main className="bg-canvas pb-16 text-plum">
-    <div className="mx-auto max-w-[880px] bg-white px-4 py-3 sm:px-7">
-      <Breadcrumbs crumbs={[{ name: w.crumbHome, path: "/" }, { name: s.title, path: `/itinerary/${leadToken}` }]} separator={<ChevronRight size={16} className="inline" />} className="text-[15px] text-slate-600" />
-    </div>
     <div className="mx-auto max-w-[880px]"><TripGallery photos={photos} words={w} /></div>
     <div className={`relative z-10 mx-auto max-w-[880px] bg-white px-4 pb-6 pt-6 sm:px-7 ${photos.length ? "-mt-5 rounded-t-card" : ""}`}>
       <h1 className="text-[28px] font-black leading-tight tracking-[-.035em] sm:text-[38px]">{s.title}</h1>
@@ -90,41 +90,36 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
         <span className="inline-flex items-center gap-1.5 text-slate-700"><CalendarDays size={15} className="text-slate-500" />{longDate(s.tripDate, lang)}{multi ? ` – ${longDate(days.at(-1)!.snap.tripDate, lang)}` : ""}</span>
       </p>
       <ul className="mt-4 flex flex-wrap gap-2 text-[15px] text-slate-700">
-        {[w.privateCarChip, w.hotelPickup, multi ? fill(w.daysChip, { n: days.length }) : fill(w.hoursChip, { n: s.durationHours }), allStops.length === 1 ? w.stopCount : fill(w.stopsCount, { n: allStops.length })].map((c) => <li key={c} className="rounded-md bg-slate-100 px-3 py-1.5">{c}</li>)}
+        {[w.privateCarChip, w.hotelPickup, travellers > 1 ? fill(w.travellers, { n: travellers }) : w.traveller, multi ? fill(w.daysChip, { n: days.length }) : fill(w.hoursChip, { n: s.durationHours }), allStops.length === 1 ? w.stopCount : fill(w.stopsCount, { n: allStops.length })].map((c) => <li key={c} className="rounded-md bg-slate-100 px-3 py-1.5">{c}</li>)}
       </ul>
     </div>
     <SectionTabs tabs={tabs} label={w.sectionsNav} />
 
     <div className="mx-auto mt-5 grid max-w-[880px] gap-4 px-4">
-      {paid && <div className="rounded-card bg-emerald-50 p-5 text-emerald-900 shadow-sm"><p className="flex items-center gap-2 text-[17px] font-bold"><CheckCircle2 size={20} />{w.paidTitle}{trip.bookingReference ? ` · ${trip.bookingReference}` : ""}</p>
+      {paid && <div className="-mx-4 bg-emerald-50 px-4 py-5 text-emerald-900 sm:px-7"><p className="flex items-center gap-2 text-[17px] font-bold"><CheckCircle2 size={20} />{w.paidTitle}{trip.bookingReference ? ` · ${trip.bookingReference}` : ""}</p>
         <p className="mt-1 text-[15px]">{w.paidText}</p>
         {trip.bookingReference && <Link href={`/trip/${trip.bookingReference}?day=${leadToken}`} className="mt-3 inline-flex h-11 items-center rounded-full bg-emerald-700 px-5 font-semibold text-white">{w.openYourDay}</Link>}</div>}
       {paid && <YourDay token={leadToken} words={w} />}
       {paid && tripStarted(s.tripDate) && <TripFeedback token={leadToken} rating={trip.feedbackRating} reviewUrl={reviewUrl()} words={w} />}
-      {trip.status === "changes_requested" && <div className="rounded-card bg-amber-50 p-5 text-amber-900 shadow-sm"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
+      {trip.status === "changes_requested" && <div className="-mx-4 bg-amber-50 px-4 py-5 text-amber-900 sm:px-7"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
 
-      <section id="overview" className="-mx-4 scroll-mt-[140px] bg-white px-4 py-6 sm:px-7 lg:scroll-mt-[168px]">
-        <h2 className="text-[22px] font-bold">{w.overview}</h2>
-        {s.customerName && <p className="mt-1 text-[15px] text-slate-600">{fill(w.for, { name: s.customerName })}</p>}
-        <ul className="mt-4 grid gap-3.5 text-[16px]">
-          <li className="flex items-start gap-3"><MapPinned size={20} className="mt-0.5 shrink-0 text-brand-text" />{w.departureType}</li>
-          <li className="flex items-start gap-3"><Users size={20} className="mt-0.5 shrink-0 text-brand-text" />{travellers > 1 ? fill(w.travellers, { n: travellers }) : w.traveller} · {s.vehicleName}</li>
-          <li className="flex items-start gap-3"><ShieldCheck size={20} className="mt-0.5 shrink-0 text-brand-text" />{fill(w.freeCancel, { hours: FULL_REFUND_HOURS })}</li>
-        </ul>
-        <div className="mt-6 grid gap-8 border-t border-slate-100 pt-6">
+      {highlightItems.length > 0 && <section id="highlights" className={card}>
+        <h2 className={heading}>{w.highlights}</h2>
+        <div className="mt-4"><HighlightsCard items={highlightItems} words={w} /></div>
+      </section>}
+
+      <section id="expect" className={card}>
+        <h2 className={heading}>{w.tabExpect}</h2>
+        <WhatToExpect days={days.map((d) => ({ id: d.trip.id, label: multi ? fill(w.day, { n: d.trip.dayNumber }) : "", s: d.snap }))} stops={allStops} w={w} />
+        <h3 className="mt-8 text-[20px] font-bold">{w.itineraryHeading}</h3>
+        <div className="mt-5 grid gap-8">
           {multi && <nav aria-label="Days" className="flex gap-2 overflow-x-auto">{days.map((d) => <a key={d.trip.id} href={`#day-${d.trip.dayNumber}`} className="shrink-0 rounded-full border border-slate-200 px-4 py-2 text-[14px] font-semibold hover:border-brand">{fill(w.day, { n: d.trip.dayNumber })} · {d.snap.tripDate ? new Date(`${d.snap.tripDate}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { day: "numeric", month: "short", timeZone: "UTC" }) : ""}</a>)}</nav>}
           {days.map((d) => <DayTimeline key={d.trip.id} s={d.snap} w={w} title={multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ${longDate(d.snap.tripDate, lang)}` : undefined} id={multi ? `day-${d.trip.dayNumber}` : undefined} />)}
         </div>
       </section>
 
-      {highlights.length > 0 && <section id="highlights" className={card}>
-        <h2 className="text-[22px] font-bold">{w.highlights}</h2>
-        <div className="mt-4 grid gap-5">{highlights.map((h) => <div key={h.stop}><h3 className="text-[16px] font-bold">{h.stop}</h3>
-          <ul className="mt-2 grid gap-1.5 text-[15px] text-slate-700">{h.items.map((x) => <li key={x} className="flex gap-2"><Sparkles size={16} className="mt-1 shrink-0 text-brand-text" />{x}</li>)}</ul></div>)}</div>
-      </section>}
-
       <section id="includes" className={card}>
-        <h2 className="text-[22px] font-bold">{w.included}</h2>
+        <h2 className={heading}>{w.included}</h2>
         <ul className="mt-4 grid gap-3 text-[16px]">
           {[w.transport, w.hotelTransfer, ...(tickets.included.length ? [fill(w.ticketsAt, { places: tickets.included.join(", ") })] : [])].map((x) => <li key={x} className="flex items-start gap-3"><CheckCircle2 size={20} className="mt-0.5 shrink-0 text-emerald-600" />{x}</li>)}
           {tickets.onSite.map((place) => <li key={place} className="flex items-start gap-3"><X size={20} className="mt-0.5 shrink-0 text-slate-400" /><span><span className="sr-only">{w.notIncluded}: </span>{fill(w.feeAt, { place })}</span></li>)}
@@ -150,7 +145,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
         </div>
       </section>
 
-      <section id="booking" className="scroll-mt-[140px] rounded-card border border-slate-200 bg-white p-5 shadow-sm sm:p-7 lg:scroll-mt-[168px]">
+      <section id="booking" className={card}>
         <p className="text-[15px] text-slate-600">{w.totalFor}</p>
         <p className="mt-1 text-[32px] font-black tracking-[-.03em]">{thb(total)}</p>
         <dl className="mt-3 grid gap-2 border-t border-slate-100 pt-3 text-[15px]">
@@ -170,6 +165,39 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
       </section>
     </div>
   </main>;
+}
+
+/**
+ * "What to expect", like Klook's: one line about the day, a bullet per place, then a board of the places numbered in
+ * visiting order with their photos, and a dashed box with the meeting point, how long the day runs and entrance fees.
+ */
+function WhatToExpect({ days, stops, w }: { days: { id: string; label: string; s: TripSnapshot }[]; stops: TripSnapshot["stops"]; w: TripWords }) {
+  const s = days[0].s;
+  const fees = [...new Map(stops.filter((x) => x.fee && x.fee.adult + x.fee.child > 0).map((x) => [x.name, x.fee!])).entries()];
+  const prefix = (label: string) => (label ? `${label} · ` : "");
+  return <>
+    <p className="mt-4 text-[17px] leading-7">{fill(w.expectIntro, { place: s.pickupText || w.hotelPickup })}</p>
+    <ul className="mt-3 grid gap-2.5 text-[17px] leading-7">
+      {stops.map((x) => <li key={x.id} className="flex gap-3"><span aria-hidden className="mt-[11px] size-1.5 shrink-0 rounded-full bg-plum" />{x.description?.trim() || fill(w.visitPlace, { place: x.name })}</li>)}
+    </ul>
+    {stops.length > 0 && <div className="mt-6 rounded-card bg-brand-wash p-4 sm:p-5">
+      <ol className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3">
+        {stops.map((x, i) => { const photo = x.cover ?? x.gallery[0]; return <li key={x.id} className="relative">
+          <span aria-hidden className="absolute -left-1.5 -top-1.5 z-10 grid size-9 place-items-center rounded-full border-2 border-white bg-brand-deep text-[17px] font-black text-white shadow">{i + 1}</span>
+          {photo ? <img src={photo} alt={x.name} loading="lazy" className="aspect-[4/3] w-full rounded-xl object-cover" /> : <span className="grid aspect-[4/3] w-full place-items-center rounded-xl bg-white text-brand-deep"><Landmark size={28} aria-hidden /></span>}
+          <p className="mt-2 text-center text-[15px] font-bold leading-5">{x.name}</p>
+        </li>; })}
+      </ol>
+      <dl className="mt-5 grid gap-3 rounded-xl border-2 border-dashed border-brand/60 bg-white p-4 text-[15px] leading-6">
+        <div><dt className="flex items-center gap-1.5 font-bold"><MapPin size={16} className="text-brand-deep" aria-hidden />{w.meetingPoint}</dt>
+          {days.map((d) => <dd key={d.id}>{prefix(d.label)}{fill(w.pickupAt, { time: d.s.startTime, place: d.s.pickupText || w.hotelPickup })}</dd>)}</div>
+        <div><dt className="flex items-center gap-1.5 font-bold"><Clock size={16} className="text-brand-deep" aria-hidden />{w.durationLabel}</dt>
+          {days.map((d) => <dd key={d.id}>{prefix(d.label)}{fill(w.durationValue, { start: d.s.startTime, end: hhmm(d.s.returnAt) })}</dd>)}</div>
+        {fees.length > 0 && <div><dt className="flex items-center gap-1.5 font-bold"><Ticket size={16} className="text-brand-deep" aria-hidden />{w.entranceFees}</dt>
+          {fees.map(([place, f]) => <dd key={place}>{fill(w.feePerAdult, { place, adult: f.adult.toLocaleString("en-US") })}{f.child > 0 ? fill(w.feePerChild, { child: f.child.toLocaleString("en-US") }) : ""} <span className={f.included ? "font-semibold text-emerald-700" : "text-slate-600"}>({f.included ? w.feeIncludedTag : w.feeOnDayTag})</span></dd>)}</div>}
+      </dl>
+    </div>}
+  </>;
 }
 
 /** One collapsible row under What's included (no script needed: native details/summary). */
