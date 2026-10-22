@@ -54,9 +54,18 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(slides.nth(0)).toHaveAttribute("aria-hidden", "false");
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-top-${info.project.name}.png` });
   await expect(slides.nth(1)).toHaveAttribute("aria-hidden", "false", { timeout: 8_000 });
+  // "Gallery": full screen, the photo that was showing first, swiped sideways, no names.
   await gallery.getByRole("button", { name: "Gallery" }).click();
   const all = page.getByRole("dialog", { name: "Photos of your trip" });
   await expect(all.getByRole("img")).toHaveCount(4);
+  const box = await all.boundingBox(), screen = page.viewportSize();
+  expect([box?.width, box?.height]).toEqual([screen?.width, screen?.height]);
+  await expect(all.getByText(/^\d \/ 4$/)).toHaveText("2 / 4");
+  await expect(all.locator("figcaption")).toHaveCount(0);
+  const strip = all.locator("figure").first().locator("..");
+  await strip.evaluate((el) => el.scrollTo({ left: el.clientWidth * 2, behavior: "instant" }));
+  await expect(all.getByText(/^\d \/ 4$/)).toHaveText("3 / 4");
+  if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-gallery-${info.project.name}.png` });
   await all.getByRole("button", { name: "Close" }).click();
   await expect(all).toHaveCount(0);
 
