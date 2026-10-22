@@ -34,7 +34,6 @@ export function TripGallery({ photos, words }: { photos: TripPhoto[]; words: Wor
       className={`absolute inset-0 transition-opacity duration-700 ${i === index ? "opacity-100" : "opacity-0"}`}>
       <img src={p.src} alt={p.stop} loading={i === 0 ? "eager" : "lazy"}
         className={`h-full w-full object-cover ${i === index && !still && count > 1 ? "animate-[trip-photo-zoom_5s_linear_forwards]" : ""}`} key={i === index ? `${p.src}-${index}` : p.src} />
-      <figcaption className="absolute left-3 top-3 max-w-[70%] truncate rounded-full bg-black/55 px-3 py-1 text-[13px] font-semibold text-white">{p.stop}</figcaption>
     </figure>)}
     <Sheet>
       <SheetTrigger className="absolute bottom-14 right-3 inline-flex min-h-tap items-center gap-2 rounded-xl bg-black/60 px-4 text-[16px] font-semibold text-white backdrop-blur-sm"><Images size={19} aria-hidden />{words.galleryButton}</SheetTrigger>

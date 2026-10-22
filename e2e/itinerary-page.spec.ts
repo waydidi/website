@@ -49,6 +49,7 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(photos).toHaveCount(4);
   expect(await photos.evaluateAll((els) => els.map((e) => e.getAttribute("alt")))).toEqual(["Elephant Jungle Sanctuary", "Big Buddha", "Elephant Jungle Sanctuary", "Big Buddha"]);
   await expect(gallery.locator("div[aria-hidden] > span")).toHaveCount(4);
+  await expect(gallery.locator("figcaption")).toHaveCount(0); // no place names over the photos
   const slides = gallery.locator("figure");
   await expect(slides.nth(0)).toHaveAttribute("aria-hidden", "false");
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-top-${info.project.name}.png` });
