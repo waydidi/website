@@ -60,7 +60,8 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(includes.getByText("Entrance fee at Big Buddha, paid on the day")).toBeVisible();
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-includes-${info.project.name}.png` });
 
-  await page.getByRole("link", { name: "Book now" }).click();
+  await expect(page.getByRole("link", { name: "Book now" })).toHaveCount(0); // no floating bar at the bottom
+  await tabs.getByRole("link", { name: "Booking" }).click();
   await expect(page.locator("#booking")).toBeInViewport();
   await expect(page.getByRole("button", { name: /Accept and pay/ })).toBeVisible();
 });

@@ -68,7 +68,6 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const photos = tripPhotos(allStops);
   const highlights = tripHighlights(allStops);
   const tickets = ticketStops(allStops);
-  const payable = !paid && !expired && trip.status !== "changes_requested";
   const tabs = [
     { id: "booking", label: w.tabBooking }, { id: "overview", label: w.tabOverview }, { id: "itinerary", label: w.tabItinerary },
     ...(highlights.length ? [{ id: "highlights", label: w.tabHighlights }] : []), { id: "includes", label: w.tabIncludes },
@@ -76,7 +75,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   ];
   const card = "scroll-mt-[140px] lg:scroll-mt-[168px] rounded-card bg-white p-5 shadow-sm sm:p-7";
 
-  return <main className={`bg-canvas text-plum ${payable ? "pb-32" : "pb-16"}`}>
+  return <main className="bg-canvas pb-16 text-plum">
     <div className="bg-white">
       <div className="mx-auto max-w-[880px] px-4 pb-5 pt-5">
         <Breadcrumbs crumbs={[{ name: w.crumbHome, path: "/" }, { name: s.title, path: `/itinerary/${leadToken}` }]} separator={<ChevronRight size={16} className="inline" />} className="text-[15px] text-slate-600" />
@@ -162,12 +161,6 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
         {days.filter((d) => d.snap.notes).map((d) => <p key={d.trip.id} className="mt-2 whitespace-pre-line text-[15px] text-slate-700">{multi ? `${fill(w.day, { n: d.trip.dayNumber })}: ` : ""}{d.snap.notes}</p>)}</section>}
     </div>
 
-    {payable && <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,.08)] backdrop-blur" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-      <div className="mx-auto flex max-w-[880px] items-center gap-3">
-        <p className="min-w-0 flex-1"><span className="block text-[13px] text-slate-600">{w.total}</span><span className="text-[20px] font-black">{thb(total)}</span></p>
-        <a href="#booking" className="inline-flex h-12 items-center rounded-full bg-brand px-7 text-[17px] font-bold text-ink hover:bg-brand-hover">{w.bookNow}</a>
-      </div>
-    </div>}
   </main>;
 }
 
