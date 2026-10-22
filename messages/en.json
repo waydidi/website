@@ -329,6 +329,5 @@
   "trip.live.waiting": "Waiting for the driver's location.",
   "trip.leg.outbound": "Outbound",
   "trip.leg.return": "Return",
-  "trip.legs": "Journey direction",
-  "itinerary.seeDetails": "See details"
+  "trip.legs": "Journey direction"
 }

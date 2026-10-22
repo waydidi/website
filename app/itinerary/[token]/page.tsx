@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { eq } from "drizzle-orm";
 import type { ReactNode } from "react";
-import { Backpack, CalendarDays, Car, CheckCircle2, ChevronDown, ChevronRight, Clock, Download, Landmark, MapPin, MapPinned, ShieldCheck, Shirt, Sparkles, Ticket, Users, X } from "lucide-react";
+import { Backpack, CalendarDays, Car, CheckCircle2, ChevronRight, Clock, Download, Landmark, MapPin, MapPinned, ShieldCheck, Shirt, Sparkles, Ticket, Users, X } from "lucide-react";
 import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
@@ -204,25 +204,17 @@ function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title
         const photos = [st.cover, ...st.gallery].filter((x, i, all): x is string => Boolean(x) && all.indexOf(x) === i);
         return <li key={st.id} className="relative pl-14">
           <span aria-hidden className={`${dot} bg-emerald-50 text-emerald-700`}><Landmark size={19} /></span>
-          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 text-[15px] text-slate-600">
-            <span className="inline-flex items-center gap-1.5"><Clock size={16} />{hhmm(st.start)}–{hhmm(st.end)} · {dur(st.end - st.start)}</span>
-            {st.travelMin > 0 && <span className="inline-flex items-center gap-1.5"><Car size={16} />{fill(w.drive, { d: dur(st.travelMin) })}</span>}
+          <p className="grid grid-cols-2 items-center gap-3 pt-2 text-[15px] text-slate-700">
+            <span className="inline-flex items-center gap-1.5"><Clock size={17} className="shrink-0" /><span className="tabular-nums">{hhmm(st.start)}</span> · {dur(st.end - st.start)}</span>
+            {st.travelMin > 0 && <span className="inline-flex items-center gap-1.5"><Car size={17} className="shrink-0" />{fill(w.drive, { d: dur(st.travelMin) })}</span>}
           </p>
-          <h4 className="mt-2 text-[18px] font-bold">{st.name}</h4>
+          <h4 className="mt-3 flex items-start gap-2 text-[18px] font-bold"><Landmark size={19} aria-hidden className="mt-1 shrink-0 text-emerald-700" />{st.name}</h4>
           {st.program && <p className="mt-0.5 text-[14px] text-slate-600">{st.program}</p>}
           {st.checkIn != null && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-[#9A4D00]"><Ticket size={14} />{fill(w.sessionCheckIn, { time: st.sessionTime ?? "", checkIn: hhmm(st.checkIn) })}</p>}
           {photos.length > 0 && <div className="relative mt-3 overflow-hidden rounded-2xl">
             <img src={photos[0]} alt={st.name} className="aspect-[16/10] w-full object-cover" loading="lazy" />
             {photos.length > 1 && <span className="absolute bottom-2.5 right-2.5 rounded-lg bg-black/65 px-2 py-0.5 text-[14px] font-bold text-white">+{photos.length - 1}</span>}
           </div>}
-          {st.description && <details className="group mt-2">
-            <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 text-[14px] font-semibold text-brand-deep [&::-webkit-details-marker]:hidden">
-              {w.seeDetails}<ChevronDown aria-hidden="true" size={16} className="transition-transform group-open:rotate-180" />
-            </summary>
-            <p className="mt-1 text-[15px] leading-7 text-slate-700">{st.description}</p>
-          </details>}
-          {st.fee && <p className="mt-2 text-[13px] text-slate-500">{st.fee.included ? w.ticketsIncluded : `${fill(w.feeOnDay, { adult: thb(st.fee.adult) })}${st.fee.child ? fill(w.feeChild, { child: thb(st.fee.child) }) : ""}.`}</p>}
-          {st.note && <p className="mt-2 rounded-lg bg-slate-50 p-3 text-[14px] text-slate-700">{st.note}</p>}
         </li>;
       })}
       <li className="relative min-h-10 pl-14">
