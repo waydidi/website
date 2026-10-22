@@ -50,7 +50,7 @@ test('a fresh search: only facts with allowed, recent, supporting sources reach 
 test('asked three times it can be saved (a person taps); then it is used without a web search, with its date',async()=>{
  const m=model();let d;for(let i=0;i<2;i++)d=await ph.draftForPost('Anyone know how to get from BKK to Pattaya? #'+i,{client:m,now:()=>now});
  assert.ok(JSON.stringify(d.keyboard).includes('ph_save:'+d.id),'3rd ask offers the save button (the 1st was counted above)');
- await ph.handlePostCallback('ph_save',d.id,'Anna','q1',undefined,'-100',{id:'78',isTeam:true});
+ await ph.handlePostCallback('ph_save',d.id,'Anna','q1',undefined,'-100',{id:'78',isTeam:true},now);
  const row=await db.prepare("SELECT status,approved_by,collected_at FROM post_helper_knowledge WHERE topic_key='bkk-airport-to-pattaya-options'").first();
  assert.deepEqual([row.status,row.approved_by],['approved','Anna']);
  const before=m.calls.search;

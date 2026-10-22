@@ -223,12 +223,12 @@ export async function handlePostCommand(rawText: string, replyTo: number, replyT
 }
 
 /** Buttons under a draft (team members only: the webhook checks the team list before calling this). */
-export async function handlePostCallback(action: string, id: string, who: string, queryId: string, replyTo: number | undefined, chatId: string, user: { id: string; isTeam: boolean }) {
+export async function handlePostCallback(action: string, id: string, who: string, queryId: string, replyTo: number | undefined, chatId: string, user: { id: string; isTeam: boolean }, at = new Date()) {
   const sendCard = (text: string, keyboard?: InlineKeyboard, reply?: number) => sendTo(chatId, text, keyboard, reply);
   await ensurePostHelperTables();
   const draft = await db().prepare("SELECT id,topic_key,text,routed_json,facts_json,mode FROM post_helper_drafts WHERE id=?").bind(id).first<{ id: string; topic_key: string; text: string; routed_json: string; facts_json: string; mode: string }>();
   if (!draft) return answerCallback(queryId, "This draft has expired (drafts are kept 7 days). Paste the post again.", true);
-  const now = new Date().toISOString();
+  const now = at.toISOString();
   if (action === "ph_save") {
     // Saved knowledge is reused for everyone, so only the Waydidi team saves it.
     if (!user.isTeam) return answerCallback(queryId, "Only the Waydidi team can save knowledge.", true);
