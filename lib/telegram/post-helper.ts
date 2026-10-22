@@ -7,7 +7,7 @@ import { esc } from "@/lib/telegram/cards";
 import { answerCallback, sendTo, telegramChatId, telegramCommentChatId, tg, type InlineKeyboard } from "@/lib/telegram/client";
 import { ensureReliabilityTables, reliabilityDb } from "@/lib/telegram/reliability-db";
 
-// /comment <text> in the Comment group: the text of a travel-group post becomes a drafted comment (and, for transport, a
+// /c <text> in the Comment group: the text of a travel-group post becomes a drafted comment (and, for transport, a
 // Waydidi price template from the real database). The web is searched for facts (checked by lib/post-helper-rules),
 // questions asked again and again become saved knowledge once a person approves them, and saved knowledge is
 // refreshed on 10 January and 10 July. It only drafts: nothing is posted or sent to anyone.
@@ -90,6 +90,18 @@ async function ask(client: PostClient, body: Record<string, unknown>) {
   return res;
 }
 
+/** Reads the post into a Routed value. A reply that is cut off or wrapped in prose is asked for once more, JSON only. */
+async function routePost(text: string, client: PostClient): Promise<Routed> {
+  const messages = [{ role: "user", content: `<post>\n${text.slice(0, 4000)}\n</post>` }];
+  for (const system of [ROUTER, `${ROUTER}\n- Your last reply could not be read. Reply with the JSON object only: no other text, under 150 words.`]) {
+    const res = await ask(client, { max_tokens: 1500, system, messages });
+    const routed = parseRouted(replyText(res));
+    if (routed) return routed;
+    console.error("post helper router unreadable", res.stop_reason);
+  }
+  throw new Error("UNREADABLE");
+}
+
 /** Searches the web for the question and keeps only the facts the sources support. */
 export async function researchFacts(question: string, client: PostClient, now: Date) {
   const blocked = await blockedDomains();
@@ -123,9 +135,7 @@ const sourceLines = (facts: KeptFact[]) => [...new Map(facts.flatMap((f) => f.so
 export async function draftForPost(text: string, deps: Deps = {}, options: { forceFresh?: boolean } = {}): Promise<Draft> {
   await ensurePostHelperTables();
   const now = (deps.now ?? (() => new Date()))(), client = deps.client ?? realClient();
-  const routedRes = await ask(client, { max_tokens: 700, system: ROUTER, messages: [{ role: "user", content: `<post>\n${text.slice(0, 4000)}\n</post>` }] });
-  const routed = parseRouted(replyText(routedRes));
-  if (!routed) throw new Error("UNREADABLE");
+  const routed = await routePost(text, client);
   const repeats = await countTopic(routed.topic, now);
   const saved = options.forceFresh ? null : await knowledgeFor(routed.topic);
   const useSaved = saved?.status === "approved";
@@ -189,11 +199,11 @@ const limitMessage = (limit: number, now = new Date()) => `You have used your ${
 /** The group the drafts go to: the Comment group, or the Admin group until one is set up. */
 export const postChatId = () => telegramCommentChatId() || telegramChatId();
 
-/** The command `/comment <text>`, or `/comment` as a reply to a message. */
+/** The command `/c <text>`, or `/c` as a reply to a message. */
 export async function handlePostCommand(rawText: string, replyTo: number, replyText: string | null | undefined, chatId: string, user: { id: string }) {
   const sendCard = (text: string, keyboard?: InlineKeyboard, reply?: number) => sendTo(chatId, text, keyboard, reply);
   const pasted = (parsePostCommand(rawText) ?? "") || (replyText ?? "").trim();
-  if (!pasted) { await sendCard("Paste a travel-group post after /comment, or reply to a message with /comment. I draft one ready-to-post comment, then show its sources and whether it is up to date.", undefined, replyTo); return; }
+  if (!pasted) { await sendCard("Paste a travel-group post after /c, or reply to a message with /c. I draft one ready-to-post comment, then show its sources and whether it is up to date.", undefined, replyTo); return; }
   if (!postHelperOn()) { await sendCard("The assistant is not switched on (ANTHROPIC_API_KEY).", undefined, replyTo); return; }
   const usage = await assistantUsage();
   if (usage.usd + 0.05 >= usage.capUsd) { await sendCard(`The assistant has reached this month's spending limit (US$${usage.capUsd}). The owner can raise TELEGRAM_ASSISTANT_MONTHLY_USD in Cloudflare.`, undefined, replyTo); return; }
@@ -213,12 +223,12 @@ export async function handlePostCommand(rawText: string, replyTo: number, replyT
 }
 
 /** Buttons under a draft (team members only: the webhook checks the team list before calling this). */
-export async function handlePostCallback(action: string, id: string, who: string, queryId: string, replyTo: number | undefined, chatId: string, user: { id: string; isTeam: boolean }) {
+export async function handlePostCallback(action: string, id: string, who: string, queryId: string, replyTo: number | undefined, chatId: string, user: { id: string; isTeam: boolean }, at = new Date()) {
   const sendCard = (text: string, keyboard?: InlineKeyboard, reply?: number) => sendTo(chatId, text, keyboard, reply);
   await ensurePostHelperTables();
   const draft = await db().prepare("SELECT id,topic_key,text,routed_json,facts_json,mode FROM post_helper_drafts WHERE id=?").bind(id).first<{ id: string; topic_key: string; text: string; routed_json: string; facts_json: string; mode: string }>();
   if (!draft) return answerCallback(queryId, "This draft has expired (drafts are kept 7 days). Paste the post again.", true);
-  const now = new Date().toISOString();
+  const now = at.toISOString();
   if (action === "ph_save") {
     // Saved knowledge is reused for everyone, so only the Waydidi team saves it.
     if (!user.isTeam) return answerCallback(queryId, "Only the Waydidi team can save knowledge.", true);
