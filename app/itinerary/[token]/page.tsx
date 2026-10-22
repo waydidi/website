@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { eq } from "drizzle-orm";
 import type { ReactNode } from "react";
-import { Backpack, CalendarDays, CheckCircle2, ChevronRight, Download, Landmark, MapPin, MapPinned, ShieldCheck, Shirt, Sparkles, Ticket, Users, X } from "lucide-react";
+import { Backpack, CalendarDays, CheckCircle2, ChevronRight, Download, Landmark, MapPin, Shirt, Ticket, X } from "lucide-react";
 import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
+import { HighlightsCard } from "@/components/itinerary/highlights-card";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
 import { Breadcrumbs } from "@/components/seo";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
@@ -69,7 +70,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const highlights = tripHighlights(allStops);
   const tickets = ticketStops(allStops);
   const tabs = [
-    { id: "overview", label: w.tabOverview }, ...(highlights.length ? [{ id: "highlights", label: w.tabHighlights }] : []),
+    { id: "overview", label: w.tabOverview },
     { id: "includes", label: w.tabIncludes }, { id: "booking", label: w.tabBooking },
   ];
   const lastReturn = hhmm(days.at(-1)!.snap.returnAt);
@@ -91,7 +92,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
         <span className="inline-flex items-center gap-1.5 text-slate-700"><CalendarDays size={15} className="text-slate-500" />{longDate(s.tripDate, lang)}{multi ? ` – ${longDate(days.at(-1)!.snap.tripDate, lang)}` : ""}</span>
       </p>
       <ul className="mt-4 flex flex-wrap gap-2 text-[15px] text-slate-700">
-        {[w.privateCarChip, w.hotelPickup, multi ? fill(w.daysChip, { n: days.length }) : fill(w.hoursChip, { n: s.durationHours }), allStops.length === 1 ? w.stopCount : fill(w.stopsCount, { n: allStops.length })].map((c) => <li key={c} className="rounded-md bg-slate-100 px-3 py-1.5">{c}</li>)}
+        {[w.privateCarChip, w.hotelPickup, travellers > 1 ? fill(w.travellers, { n: travellers }) : w.traveller, multi ? fill(w.daysChip, { n: days.length }) : fill(w.hoursChip, { n: s.durationHours }), allStops.length === 1 ? w.stopCount : fill(w.stopsCount, { n: allStops.length })].map((c) => <li key={c} className="rounded-md bg-slate-100 px-3 py-1.5">{c}</li>)}
       </ul>
     </div>
     <SectionTabs tabs={tabs} label={w.sectionsNav} />
@@ -105,24 +106,13 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
       {trip.status === "changes_requested" && <div className="-mx-4 bg-amber-50 px-4 py-5 text-amber-900 sm:px-7"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
 
       <section id="overview" className={card}>
-        <h2 className="text-[22px] font-bold">{w.overview}</h2>
-        {s.customerName && <p className="mt-1 text-[15px] text-slate-600">{fill(w.for, { name: s.customerName })}</p>}
-        <ul className="mt-4 grid gap-3.5 text-[16px]">
-          <li className="flex items-start gap-3"><MapPinned size={20} className="mt-0.5 shrink-0 text-brand-text" />{w.departureType}</li>
-          <li className="flex items-start gap-3"><Users size={20} className="mt-0.5 shrink-0 text-brand-text" />{travellers > 1 ? fill(w.travellers, { n: travellers }) : w.traveller} · {s.vehicleName}</li>
-          <li className="flex items-start gap-3"><ShieldCheck size={20} className="mt-0.5 shrink-0 text-brand-text" />{fill(w.freeCancel, { hours: FULL_REFUND_HOURS })}</li>
-        </ul>
-        <div className="mt-6 grid gap-8 border-t border-slate-100 pt-6">
+        <HighlightsCard items={[...new Set(highlights.flatMap((h) => h.items))]} words={w} />
+        <h2 className={`text-[22px] font-bold ${highlights.length ? "mt-8" : ""}`}>{w.itineraryHeading}</h2>
+        <div className="mt-5 grid gap-8">
           {multi && <nav aria-label="Days" className="flex gap-2 overflow-x-auto">{days.map((d) => <a key={d.trip.id} href={`#day-${d.trip.dayNumber}`} className="shrink-0 rounded-full border border-slate-200 px-4 py-2 text-[14px] font-semibold hover:border-brand">{fill(w.day, { n: d.trip.dayNumber })} · {d.snap.tripDate ? new Date(`${d.snap.tripDate}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { day: "numeric", month: "short", timeZone: "UTC" }) : ""}</a>)}</nav>}
           {days.map((d) => <DayTimeline key={d.trip.id} s={d.snap} w={w} title={multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ${longDate(d.snap.tripDate, lang)}` : undefined} id={multi ? `day-${d.trip.dayNumber}` : undefined} />)}
         </div>
       </section>
-
-      {highlights.length > 0 && <section id="highlights" className={card}>
-        <h2 className="text-[22px] font-bold">{w.highlights}</h2>
-        <div className="mt-4 grid gap-5">{highlights.map((h) => <div key={h.stop}><h3 className="text-[16px] font-bold">{h.stop}</h3>
-          <ul className="mt-2 grid gap-1.5 text-[15px] text-slate-700">{h.items.map((x) => <li key={x} className="flex gap-2"><Sparkles size={16} className="mt-1 shrink-0 text-brand-text" />{x}</li>)}</ul></div>)}</div>
-      </section>}
 
       <section id="includes" className={card}>
         <h2 className="text-[22px] font-bold">{w.included}</h2>

@@ -45,7 +45,7 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   expect(above).toBe(true);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(snapshot.title);
   await expect(page.getByText("Departing from Kata Beach Resort")).toBeVisible();
-  for (const chip of ["Private car", "Hotel pickup", "8hr duration", "2 stops"]) await expect(page.getByRole("listitem").filter({ hasText: new RegExp(`^${chip}$`) })).toBeVisible();
+  for (const chip of ["Private car", "Hotel pickup", "3 travellers", "8hr duration", "2 stops"]) await expect(page.getByRole("listitem").filter({ hasText: new RegExp(`^${chip}$`) })).toBeVisible();
 
   // Photos at the top: covers first in visiting order, then gallery photos, each labelled with its stop; one
   // loading bar per photo, and the next photo comes by itself.
@@ -66,7 +66,14 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
 
   // The Overview card: the whole day as a timeline on one grey line (departure, each place with its photo, return).
   const overview = page.locator("#overview");
-  for (const line of ["Departure type: Hotel pickup", "Free cancellation (48 hours notice)"]) await expect(overview.getByText(line, { exact: true })).toBeVisible();
+  // The highlights card shows the first highlight; "See more" opens all of them in a sheet from the bottom.
+  await expect(overview.getByText("Feed and bathe rescued elephants")).toBeVisible();
+  await overview.getByRole("button", { name: "See more" }).click();
+  const sheet = page.getByRole("dialog", { name: "Highlights" });
+  expect(await sheet.getByRole("listitem").allTextContents()).toEqual(["Feed and bathe rescued elephants", "45-metre marble Buddha with views over Chalong Bay"]);
+  if (process.env.SHOT_DIR) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-highlights-sheet-${info.project.name}.png` }); }
+  await sheet.getByRole("button", { name: "Close" }).click();
+  await expect(sheet).toHaveCount(0);
   const timeline = overview.getByRole("list").last();
   const steps = timeline.locator(":scope > li");
   await expect(steps).toHaveCount(4);
@@ -82,7 +89,7 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await page.evaluate(() => window.scrollTo(0, 0));
 
   const tabs = page.getByRole("navigation", { name: "Trip sections" });
-  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Overview", "Highlights", "Includes/Excludes", "Booking"]);
+  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Overview", "Includes/Excludes", "Booking"]);
 
   await tabs.getByRole("link", { name: "Includes/Excludes" }).click();
   const includes = page.locator("#includes");
@@ -105,6 +112,6 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(page.locator("#booking")).toBeInViewport();
   await expect(page.getByRole("button", { name: /Accept and pay/ })).toBeVisible();
   // Every section runs full width: no rounded cards.
-  for (const id of ["overview", "highlights", "includes", "booking"]) expect(await page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).borderTopLeftRadius), id).toBe("0px");
+  for (const id of ["overview", "includes", "booking"]) expect(await page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).borderTopLeftRadius), id).toBe("0px");
   if (process.env.SHOT_DIR) { await page.waitForTimeout(1000); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-end-${info.project.name}.png` }); }
 });
