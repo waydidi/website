@@ -88,25 +88,25 @@ test('closings follow the playbook: sales get one WhatsApp line, info gets a sig
   assert.equal(r.parseRouted('{"topic":"a","question":"b","replyType":"weird"}').replyType, 'info');
 });
 
-test('only /comment starts the post helper (also with the bot name); /p, /post and other commands do not', () => {
-  assert.equal(r.parsePostCommand('/comment Need a taxi to Pattaya'), 'Need a taxi to Pattaya');
-  assert.equal(r.parsePostCommand('/Comment@WaydidiBot hi'), 'hi');
-  assert.equal(r.parsePostCommand('/comment'), '');
-  assert.equal(r.parsePostCommand('  /comment   '), '');
-  assert.equal(r.parsePostCommand('/comment Need a taxi\nfor 3 people'), 'Need a taxi\nfor 3 people');
-  for (const other of ['/p Need a taxi', '/p', '/post Need a taxi', '/post', '/commentary x', '/comments', '/payment 12', '/id', 'comment hello', 'please /comment', '/ask comment']) assert.equal(r.parsePostCommand(other), null, other);
+test('only /c starts the post helper (also with the bot name); /comment, /p, /post and other commands do not', () => {
+  assert.equal(r.parsePostCommand('/c Need a taxi to Pattaya'), 'Need a taxi to Pattaya');
+  assert.equal(r.parsePostCommand('/C@WaydidiBot hi'), 'hi');
+  assert.equal(r.parsePostCommand('/c'), '');
+  assert.equal(r.parsePostCommand('  /c   '), '');
+  assert.equal(r.parsePostCommand('/c Need a taxi\nfor 3 people'), 'Need a taxi\nfor 3 people');
+  for (const other of ['/comment Need a taxi', '/comment', '/comment@WaydidiBot hi', '/chatid', '/cancel 12', '/p Need a taxi', '/p', '/post Need a taxi', '/post', '/commentary x', '/cx', '/payment 12', '/id', 'c hello', 'please /c', '/ask comment']) assert.equal(r.parsePostCommand(other), null, other);
 });
 
 
-test('/comment runs only in the Comment group once there is one; the Admin group is pointed to it; callbacks follow the same rule', () => {
+test('/c runs only in the Comment group once there is one; the Admin group is pointed to it; callbacks follow the same rule', () => {
   const admin = '-100', comment = '-200', other = '-300';
-  assert.equal(r.postCommandRoute(comment, admin, comment, '/comment hello'), 'run');
-  assert.equal(r.postCommandRoute(admin, admin, comment, '/comment hello'), 'redirect');
-  assert.equal(r.postCommandRoute(other, admin, comment, '/comment hello'), 'ignore');
+  assert.equal(r.postCommandRoute(comment, admin, comment, '/c hello'), 'run');
+  assert.equal(r.postCommandRoute(admin, admin, comment, '/c hello'), 'redirect');
+  assert.equal(r.postCommandRoute(other, admin, comment, '/c hello'), 'ignore');
   assert.equal(r.postCommandRoute(comment, admin, comment, 'just chatting'), 'ignore');
   // No Comment group yet: the Admin group works as before, nothing else does.
-  assert.equal(r.postCommandRoute(admin, admin, '', '/comment hello'), 'run');
-  assert.equal(r.postCommandRoute(other, admin, '', '/comment hello'), 'ignore');
+  assert.equal(r.postCommandRoute(admin, admin, '', '/c hello'), 'run');
+  assert.equal(r.postCommandRoute(other, admin, '', '/c hello'), 'ignore');
   assert.equal(r.postCallbackAllowed(comment, admin, comment), true);
   assert.equal(r.postCallbackAllowed(admin, admin, comment), false);
   assert.equal(r.postCallbackAllowed(admin, admin, ''), true);

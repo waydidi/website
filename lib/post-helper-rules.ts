@@ -95,14 +95,14 @@ export function verifyFacts(facts: ProposedFact[], found: FoundSource[], now: Da
   return { kept, dropped };
 }
 
-/** `/comment <post>` (also `/comment@BotName`). Only this command: `/p` and `/post` are not accepted: the pasted text, "" when only the command was sent, null when it is not this command. */
+/** `/c <post>` (also `/c@BotName`). Only this command: `/comment`, `/p` and `/post` are not accepted: the pasted text, "" when only the command was sent, null when it is not this command. */
 export function parsePostCommand(message: string): string | null {
-  const m = /^\/comment(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
+  const m = /^\/c(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
   return m ? (m[1] ?? "").trim() : null;
 }
 
 /**
- * Where /comment runs. With a separate Comment group (TELEGRAM_COMMENT_CHAT_ID) it runs only there and the Admin
+ * Where /c runs. With a separate Comment group (TELEGRAM_COMMENT_CHAT_ID) it runs only there and the Admin
  * group is pointed to it; without one it runs in the Admin group, so the feature works before the group is set up.
  */
 export function postCommandRoute(chatId: string, adminChatId: string, commentChatId: string, message: string): "run" | "redirect" | "ignore" {

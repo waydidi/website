@@ -3,12 +3,12 @@ import { telegramChatId, telegramCommentChatId, telegramConfigured, tg } from "@
 
 // The "/" menu in the team groups: typing "/" shows these with their descriptions and tapping one fills it in.
 // Registered with Telegram (setMyCommands, scoped to each group) once, and again only when the list or the groups change.
-export const COMMENT_COMMAND = { command: "comment", description: "Draft a Facebook comment from a travel-group post" };
+export const COMMENT_COMMAND = { command: "c", description: "Draft a Facebook comment from a travel-group post" };
 const ADMIN_COMMANDS = [
   { command: "ask", description: "Ask the assistant about bookings, drivers or prices" },
   { command: "id", description: "Show my Telegram ID" },
 ];
-/** The menu for each group: /comment in the Comment group; the Admin group has it only until a Comment group is set up. */
+/** The menu for each group: /c in the Comment group; the Admin group has it only until a Comment group is set up. */
 export const menus = (adminChat: string, commentChat: string) => [
   { chat: adminChat, commands: commentChat ? ADMIN_COMMANDS : [COMMENT_COMMAND, ...ADMIN_COMMANDS] },
   ...(commentChat && commentChat !== adminChat ? [{ chat: commentChat, commands: [COMMENT_COMMAND] }] : []),

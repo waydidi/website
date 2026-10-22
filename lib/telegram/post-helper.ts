@@ -7,7 +7,7 @@ import { esc } from "@/lib/telegram/cards";
 import { answerCallback, sendTo, telegramChatId, telegramCommentChatId, tg, type InlineKeyboard } from "@/lib/telegram/client";
 import { ensureReliabilityTables, reliabilityDb } from "@/lib/telegram/reliability-db";
 
-// /comment <text> in the Comment group: the text of a travel-group post becomes a drafted comment (and, for transport, a
+// /c <text> in the Comment group: the text of a travel-group post becomes a drafted comment (and, for transport, a
 // Waydidi price template from the real database). The web is searched for facts (checked by lib/post-helper-rules),
 // questions asked again and again become saved knowledge once a person approves them, and saved knowledge is
 // refreshed on 10 January and 10 July. It only drafts: nothing is posted or sent to anyone.
@@ -199,11 +199,11 @@ const limitMessage = (limit: number, now = new Date()) => `You have used your ${
 /** The group the drafts go to: the Comment group, or the Admin group until one is set up. */
 export const postChatId = () => telegramCommentChatId() || telegramChatId();
 
-/** The command `/comment <text>`, or `/comment` as a reply to a message. */
+/** The command `/c <text>`, or `/c` as a reply to a message. */
 export async function handlePostCommand(rawText: string, replyTo: number, replyText: string | null | undefined, chatId: string, user: { id: string }) {
   const sendCard = (text: string, keyboard?: InlineKeyboard, reply?: number) => sendTo(chatId, text, keyboard, reply);
   const pasted = (parsePostCommand(rawText) ?? "") || (replyText ?? "").trim();
-  if (!pasted) { await sendCard("Paste a travel-group post after /comment, or reply to a message with /comment. I draft one ready-to-post comment, then show its sources and whether it is up to date.", undefined, replyTo); return; }
+  if (!pasted) { await sendCard("Paste a travel-group post after /c, or reply to a message with /c. I draft one ready-to-post comment, then show its sources and whether it is up to date.", undefined, replyTo); return; }
   if (!postHelperOn()) { await sendCard("The assistant is not switched on (ANTHROPIC_API_KEY).", undefined, replyTo); return; }
   const usage = await assistantUsage();
   if (usage.usd + 0.05 >= usage.capUsd) { await sendCard(`The assistant has reached this month's spending limit (US$${usage.capUsd}). The owner can raise TELEGRAM_ASSISTANT_MONTHLY_USD in Cloudflare.`, undefined, replyTo); return; }

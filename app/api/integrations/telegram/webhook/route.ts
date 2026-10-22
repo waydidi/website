@@ -213,7 +213,7 @@ async function handleMessage(m: TelegramMessage) {
   if (m.chat.type === "private") { if (!await handleDriverPrivate(m)) await handlePrivate(m); return; }
   // The driver group: only "งานของฉัน" is answered (privately); nothing from the team group is ever posted there.
   if (isDriverGroupChat(driverGroup(), String(m.chat.id))) { await handleDriverGroupMessage(m); return; }
-  // The Comment group: only /comment, for every member of the group (each has a monthly limit).
+  // The Comment group: only /c, for every member of the group (each has a monthly limit).
   const commentChat = telegramCommentChatId();
   if (commentChat && String(m.chat.id) === commentChat) {
     const commentText = (m.text ?? "").trim();
@@ -230,10 +230,10 @@ async function handleMessage(m: TelegramMessage) {
   }
   // Answers to "Set cost" / "Add driver information" questions on booking cards.
   const teamMember = await approved(m.from);
-  // /comment <travel-group post>: a drafted comment with web sources, and a Waydidi price post for transport questions.
+  // /c <travel-group post>: a drafted comment with web sources, and a Waydidi price post for transport questions.
   const postRoute = teamMember ? postCommandRoute(String(m.chat.id), telegramChatId(), commentChat, text) : "ignore";
   if (postRoute === "run") { await handlePostCommand(text, m.message_id, m.reply_to_message?.text ?? null, telegramChatId(), { id: String(m.from!.id) }); return; }
-  if (postRoute === "redirect") { await sendCard("Facebook comment drafts now live in the Comment group. Send /comment there.", undefined, m.message_id); return; }
+  if (postRoute === "redirect") { await sendCard("Facebook comment drafts now live in the Comment group. Send /c there.", undefined, m.message_id); return; }
   if (teamMember && await handleBookingAnswer(m, teamMember.display_name, refreshBookingCard)) return;
   // "ราคา" + "REF cost" lines: driver costs for many bookings at once; each then goes to the driver group.
   const bulk = teamMember ? parseBulkCost(text) : null;
