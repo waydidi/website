@@ -8,7 +8,7 @@ import { overRateLimit } from "@/lib/customer-auth";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
 import { groupDays, tripByToken, tripSnapshot } from "@/lib/smart-trips";
 import { startTripCheckout } from "@/lib/trip-booking";
-import { notifyTripReply } from "@/lib/trip-notify";
+import { notifyTripRating, notifyTripReply } from "@/lib/trip-notify";
 
 const acceptSchema = z.object({
   action: z.literal("accept"),
@@ -37,8 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     if (trip.feedbackAt) return NextResponse.json({ error: "Thanks, we already have your feedback." }, { status: 409 });
     await getDb().update(smartTrips).set({ feedbackRating: parsed.data.rating, feedbackComment: parsed.data.comment || null, feedbackAt: new Date().toISOString() }).where(eq(smartTrips.id, trip.id));
     // Staff hear about every rating; low ones need a reply.
-    const { pushLine } = await import("@/lib/line");
-    await pushLine([{ type: "text", text: `${"★".repeat(parsed.data.rating)}${"☆".repeat(5 - parsed.data.rating)} ${trip.customerName || "Guest"} rated trip ${trip.ref}${parsed.data.rating <= 3 ? " — please follow up" : ""}${parsed.data.comment ? `\n“${parsed.data.comment.slice(0, 400)}”` : ""}\n${origin}/admin/trips/${trip.id}` }]).catch(() => undefined);
+    await notifyTripRating(trip, parsed.data.rating, parsed.data.comment, origin);
     return NextResponse.json({ ok: true });
   }
 
