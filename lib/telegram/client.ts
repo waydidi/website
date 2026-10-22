@@ -81,6 +81,22 @@ export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: n
   return data.result as TelegramMessage;
 }
 
+/** A file (e.g. an itinerary PDF) to a chat, with an HTML caption, optionally as a reply. */
+export async function sendDocument(bytes: Uint8Array, filename: string, contentType: string, caption: string, chatId = telegramChatId(), replyTo?: number) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) throw new Error("TELEGRAM_NOT_CONFIGURED");
+  const form = new FormData();
+  form.set("chat_id", chatId);
+  form.set("caption", caption);
+  form.set("parse_mode", "HTML");
+  if (replyTo) form.set("reply_parameters", JSON.stringify(replyParameters(replyTo)));
+  form.set("document", new Blob([new Uint8Array(bytes)], { type: contentType }), filename);
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, { method: "POST", body: form, signal: AbortSignal.timeout(20000) }).catch(() => { throw new TelegramDeliveryError("Telegram sendDocument: delivery outcome unknown", false); });
+  const data = await res.json().catch(() => ({})) as { ok?: boolean; result?: TelegramMessage; description?: string };
+  if (!data.ok) throw new TelegramDeliveryError(`Telegram sendDocument failed: ${String(data.description ?? res.status).replaceAll(token, "[redacted]")}`, res.status >= 400 && res.status < 500);
+  return data.result as TelegramMessage;
+}
+
 /** Up to 10 photos to the group as one album (the caption shows under the first), optionally as a reply. */
 export async function sendPhotoAlbum(photos: { bytes: ArrayBuffer; mime: string }[], caption: string, replyTo?: number, quote?: string, chatId = telegramChatId()) {
   const token = env.TELEGRAM_BOT_TOKEN;

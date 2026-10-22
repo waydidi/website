@@ -229,6 +229,23 @@ export async function tripByToken(token: string) {
   return row ?? null;
 }
 
+/**
+ * Sends a trip (every day of a multi-day trip): each day is frozen as the version the customer sees and marked sent.
+ * Used by Admin → Send and by /trip in Telegram, so both send the same way. Callers check the date and price first.
+ */
+export async function sendTripDays(days: TripRow[], by: string, note?: string | null) {
+  const now = new Date().toISOString();
+  let total = 0, version = 0;
+  const warnings: string[] = [];
+  for (const d of days) {
+    const { snapshot, problems } = await snapshotTrip(d, by, note?.slice(0, 200) || (d.version ? "Updated itinerary" : "First itinerary"));
+    total += snapshot.total; version = Math.max(version, snapshot.version);
+    warnings.push(...problems.filter((p) => p.level === "error").map((e) => (days.length > 1 ? `Day ${d.dayNumber}: ${e.message}` : e.message)));
+    await getDb().update(smartTrips).set({ status: "sent", sentAt: now, changeRequest: null, updatedAt: now }).where(eq(smartTrips.id, d.id));
+  }
+  return { total, version, warnings };
+}
+
 /** A copy for another customer or date: new reference, new link, back to draft. */
 export async function duplicateTrip(trip: TripRow, by: { name: string; agencyId?: string | null; commissionPercent?: number }, asTemplate = false) {
   const input = inputFromRow(trip);
