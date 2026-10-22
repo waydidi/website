@@ -7,7 +7,7 @@ import { agencyForCustomer } from "@/lib/agency";
 import { listAttractions } from "@/lib/attractions";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
-import { addDay, arrange, duplicateTrip, groupDays, removeDay, getTrip, inputFromRow, listTrips, planFor, saveTrip, snapshotTrip, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
+import { addDay, arrange, duplicateTrip, groupDays, removeDay, getTrip, inputFromRow, listTrips, planFor, saveTrip, sendTripDays, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
 import { notifyAgencyPriced, notifyTripSent } from "@/lib/trip-notify";
 import { z } from "zod";
 import { VEHICLES } from "@/lib/vehicles";
@@ -155,14 +155,7 @@ export async function handleAction(request: Request, id: string, actor: TripActo
         if (!d.tripDate) return NextResponse.json({ error: `${label}set the trip date first.` }, { status: 400 });
         if (d.total <= 0 && d.transportPrice <= 0) return NextResponse.json({ error: `${label}${actor.kind === "agency" ? "this trip needs a price from Waydidi first. Use “Ask Waydidi for a price”." : "set the transport price first."}` }, { status: 400 });
       }
-      let total = 0, version = 0;
-      const warnings: string[] = [];
-      for (const d of days) {
-        const { snapshot, problems } = await snapshotTrip(d, actor.name, note?.slice(0, 200) || (d.version ? "Updated itinerary" : "First itinerary"));
-        total += snapshot.total; version = Math.max(version, snapshot.version);
-        warnings.push(...problems.filter((p) => p.level === "error").map((e) => (days.length > 1 ? `Day ${d.dayNumber}: ${e.message}` : e.message)));
-        await getDb().update(smartTrips).set({ status: "sent", sentAt: now, changeRequest: null, updatedAt: now }).where(eq(smartTrips.id, d.id));
-      }
+      const { total, version, warnings } = await sendTripDays(days, actor.name, note);
       const lead = days[0];
       const link = `${origin}/itinerary/${lead.token}`;
       const delivery = notify && lead.customerEmail ? await notifyTripSent({ ...lead, total, holdDays: lead.holdDays }, link, actor.kind === "agency" ? actor.agencyName : null, days.length).catch(() => "failed") : "not_sent";

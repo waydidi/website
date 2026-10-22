@@ -15,6 +15,7 @@ import { driverGroup, handleDriverCallback, handleDriverGroupMessage, handleDriv
 import { isDriverGroupChat } from "@/lib/telegram/driver-group-rules";
 import { answerPhotoLocation, isLocationQuestion } from "@/lib/telegram/photo-location";
 import { postJobCompleted } from "@/lib/telegram/trip-photos";
+import { handlePlacePhotoReply, handleTripBuilder } from "@/lib/telegram/trip-builder";
 import { verifyTripCompletion } from "@/lib/trip-completion";
 import { acknowledgeEdit, approveChange, cancelBookingFromTelegram, declineChange, editKeepDriver, editNewDriver, keepBooking } from "@/lib/telegram/booking-changes";
 import { postCallbackAllowed, postCommandRoute } from "@/lib/post-helper-rules";
@@ -230,6 +231,9 @@ async function handleMessage(m: TelegramMessage) {
   }
   // Answers to "Set cost" / "Add driver information" questions on booking cards.
   const teamMember = await approved(m.from);
+  // /trip and /place (and photos replying to a /place confirmation): smart trips and attractions from Telegram.
+  if (await handleTripBuilder(m, teamMember)) return;
+  if (await handlePlacePhotoReply(m, teamMember)) return;
   // /c <travel-group post>: a drafted comment with web sources, and a Waydidi price post for transport questions.
   const postRoute = teamMember ? postCommandRoute(String(m.chat.id), telegramChatId(), commentChat, text) : "ignore";
   if (postRoute === "run") { await handlePostCommand(text, m.message_id, m.reply_to_message?.text ?? null, telegramChatId(), { id: String(m.from!.id) }); return; }

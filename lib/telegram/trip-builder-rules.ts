@@ -1,0 +1,108 @@
+// /trip and /place in the Admin group: staff type a trip (or a new place) and the bot builds it. Pure (no runtime
+// imports) so the reading of staff text is unit tested directly (tests/trip-builder-rules.test.mjs). Staff text is
+// read once here into checked values; the price is never guessed: no clear price in the message, no trip.
+import { smallestFittingVehicle, vehicleFits, type VehicleId } from "@/lib/vehicles";
+
+/** `/trip <details>` (also `/trip@BotName`): the details, "" when only the command was sent, null when it is not /trip. */
+export function parseTripCommand(message: string): string | null {
+  const m = /^\/trip(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
+  return m ? (m[1] ?? "").trim() : null;
+}
+
+/** `/place <details>` (also as a photo caption): the details, "" when only the command was sent, null otherwise. */
+export function parsePlaceCommand(message: string): string | null {
+  const m = /^\/place(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
+  return m ? (m[1] ?? "").trim() : null;
+}
+
+const AMOUNT = /(?:(?:THB|฿)\s*(\d[\d,]*(?:\.\d+)?))|(?:(\d[\d,]*(?:\.\d+)?)\s*(?:THB|บาท|baht|฿))/gi;
+const PRICE_WORD = /(price|ราคา|total|รวม|cost)\W{0,3}$/i;
+
+/**
+ * The trip price staff typed, in whole baht. It must carry a currency (THB, ฿, บาท, baht). When several different
+ * amounts appear, the one labelled "price" / "ราคา" / "total" wins; otherwise the message is ambiguous.
+ */
+export function parseStaffPrice(text: string): { ok: true; thb: number } | { ok: false; reason: "missing" | "ambiguous"; amounts: number[] } {
+  const found: { thb: number; labelled: boolean }[] = [];
+  for (const m of text.matchAll(AMOUNT)) {
+    const thb = Math.round(Number((m[1] ?? m[2]).replace(/,/g, "")));
+    if (!Number.isFinite(thb) || thb <= 0 || thb > 1_000_000) continue;
+    found.push({ thb, labelled: PRICE_WORD.test(text.slice(Math.max(0, (m.index ?? 0) - 16), m.index)) });
+  }
+  const amounts = [...new Set(found.map((f) => f.thb))];
+  if (!amounts.length) return { ok: false, reason: "missing", amounts };
+  if (amounts.length === 1) return { ok: true, thb: amounts[0] };
+  const labelled = [...new Set(found.filter((f) => f.labelled).map((f) => f.thb))];
+  return labelled.length === 1 ? { ok: true, thb: labelled[0] } : { ok: false, reason: "ambiguous", amounts };
+}
+
+const VEHICLE_WORDS: [RegExp, VehicleId][] = [
+  [/\b(mini\s*van|minivan|van|commuter|alphard)\b|รถตู้/i, "premium_minivan"],
+  [/\b(suv|fortuner|pajero)\b|ฟอร์จูนเนอร์/i, "comfort_suv"],
+  [/\bbmw\b/i, "comfort_bmw"],
+  [/\b(economy|sedan|camry|altis)\b|รถเก๋ง/i, "economy_sedan"],
+];
+
+/** The car staff named, or else the smallest car that fits the group; not ok when the named car is too small. */
+export function pickVehicle(text: string, passengers: number, bags: number): { ok: true; vehicle: VehicleId } | { ok: false; vehicle: VehicleId | null } {
+  const named = VEHICLE_WORDS.find(([re]) => re.test(text))?.[1];
+  if (named) return vehicleFits(named, passengers, bags) ? { ok: true, vehicle: named } : { ok: false, vehicle: named };
+  const smallest = smallestFittingVehicle(passengers, bags);
+  return smallest ? { ok: true, vehicle: smallest } : { ok: false, vehicle: null };
+}
+
+export type PlaceDetails = { name: string; openTime: string | null; closeTime: string | null; durationMin: number | null; area: string };
+
+const pad = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+function clock(raw: string): string | null {
+  const m = /^(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|น\.?)?$/i.exec(raw.trim());
+  if (!m) return null;
+  let h = Number(m[1]); const min = Number(m[2] ?? 0), ap = m[3]?.toLowerCase();
+  if (ap === "pm" && h < 12) h += 12;
+  if (ap === "am" && h === 12) h = 0;
+  return h <= 24 && min < 60 ? pad(h === 24 ? 23 : h, h === 24 ? 59 : min) : null;
+}
+
+/** "09:00-17:00", "9-17", "8.30–16.30", "9am - 5pm", "24 hours" / "24 ชม." → open and close times. */
+export function parseOpeningHours(raw: string): { openTime: string; closeTime: string } | null {
+  const text = raw.replace(/^(open|opening hours|hours|เปิด|เวลาเปิด)\s*:?\s*/i, "").trim();
+  if (/^(24\s*(h|hrs?|hours?|ชม\.?|ชั่วโมง)|open 24)/i.test(text)) return { openTime: "00:00", closeTime: "23:59" };
+  const m = /^(.+?)\s*(?:-|–|—|to|ถึง)\s*(.+)$/i.exec(text);
+  if (!m) return null;
+  const open = clock(m[1]), close = clock(m[2]);
+  return open && close && open < close ? { openTime: open, closeTime: close } : null;
+}
+
+/** "90 min", "90 นาที", "2 hr", "1.5 ชม." → minutes (5 to 720). */
+export function parseDuration(raw: string): number | null {
+  const m = /^(\d+(?:\.\d+)?)\s*(min|mins|minutes?|นาที|h|hr|hrs|hours?|ชม\.?|ชั่วโมง)$/i.exec(raw.trim());
+  if (!m) return null;
+  const minutes = Math.round(Number(m[1]) * (/^(min|นาที)/i.test(m[2]) ? 1 : 60));
+  return minutes >= 5 && minutes <= 720 ? minutes : null;
+}
+
+/**
+ * `/place <name> | <opening hours> | <area> | <time spent>`: only the name is required, and the other parts are
+ * recognised by their shape in any order. Null when there is no usable name.
+ */
+export function parsePlaceDetails(details: string): PlaceDetails | null {
+  const parts = details.split(/\s*[|\n]\s*/).map((p) => p.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const name = (parts.shift() ?? "").slice(0, 120);
+  if (name.length < 2) return null;
+  let hours: ReturnType<typeof parseOpeningHours> = null, durationMin: number | null = null, area = "";
+  for (const p of parts) {
+    const h = parseOpeningHours(p), d = parseDuration(p);
+    if (h && !hours) hours = h;
+    else if (d && !durationMin) durationMin = d;
+    else if (!area) area = p.slice(0, 60);
+  }
+  return { name, openTime: hours?.openTime ?? null, closeTime: hours?.closeTime ?? null, durationMin, area };
+}
+
+export const tripBuilderOn = (vars: Record<string, string | undefined>) => vars.TELEGRAM_TRIP_BUILDER === "1";
+
+/** Thai words for the parts the AI could not find in the message. */
+export const MISSING_TH: Record<string, string> = { date: "วันที่", "pickup place": "จุดรับ", places: "สถานที่" };
+
+export const TRIP_HELP = "พิมพ์รายละเอียดทริปหลัง /trip เช่น\n<code>/trip 12 Dec, 2 adults, Hilton Sukhumvit 08:00, Grand Palace, Wat Pho, Wat Arun, SUV, THB 3,500</code>\nต้องมี วันที่ จุดรับ สถานที่ และราคา (THB/บาท)";
+export const PLACE_HELP = "เพิ่มสถานที่: <code>/place ชื่อสถานที่ | 09:00-17:00 | พื้นที่ | 90 นาที</code>\nใส่เป็นคำบรรยายรูปได้ (ส่งรูปพร้อมพิมพ์ /place …) หรือตอบกลับข้อความยืนยันของบอทด้วยรูปเพื่อเพิ่มรูป";
