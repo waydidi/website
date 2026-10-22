@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { eq } from "drizzle-orm";
 import type { ReactNode } from "react";
-import { Backpack, CalendarDays, Car, CheckCircle2, ChevronRight, Clock, Download, Landmark, MapPin, MapPinned, ShieldCheck, Shirt, Sparkles, Ticket, Users, X } from "lucide-react";
+import { Backpack, CalendarDays, CheckCircle2, ChevronRight, Download, Landmark, MapPin, MapPinned, ShieldCheck, Shirt, Sparkles, Ticket, Users, X } from "lucide-react";
 import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
+import { Breadcrumbs } from "@/components/seo";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
 import { TripGallery } from "@/components/itinerary/trip-gallery";
-import { Breadcrumbs } from "@/components/seo";
 import { ticketStops, tripHighlights, tripPhotos } from "@/lib/trip-photos";
 import { YourDay } from "@/components/itinerary/your-day";
 import { TripFeedback } from "@/components/itinerary/trip-feedback";
@@ -24,7 +24,6 @@ export const metadata: Metadata = { title: "Your itinerary · Waydidi", robots: 
 
 const hhmm = (min: number) => { const m = ((Math.round(min) % 1440) + 1440) % 1440; return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
 const longDate = (d: string | null, lang: string) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : "—");
-const dur = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} hr${m % 60 ? ` ${m % 60} min` : ""}` : `${m} min`);
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 
 /** Past trip date, or the price hold is over. */
@@ -78,19 +77,21 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const card = "scroll-mt-[140px] lg:scroll-mt-[168px] rounded-card bg-white p-5 shadow-sm sm:p-7";
 
   return <main className="bg-canvas pb-16 text-plum">
-    <div className="bg-white">
-      <div className="mx-auto max-w-[880px] px-4 pb-5 pt-5">
-        <Breadcrumbs crumbs={[{ name: w.crumbHome, path: "/" }, { name: s.title, path: `/itinerary/${leadToken}` }]} separator={<ChevronRight size={16} className="inline" />} className="text-[15px] text-slate-600" />
-        <h1 className="mt-3 text-[30px] font-black leading-tight tracking-[-.035em] sm:text-[40px]">{s.title}</h1>
-        <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[16px]">
-          <span className="font-semibold text-brand-deep">{agency ? fill(w.preparedBy, { agency: agency.name }) : multi ? fill(w.multiDay, { n: days.length }) : w.privateTrip}</span>
-          <span aria-hidden className="size-1 rounded-full bg-slate-300" />
-          <span className="inline-flex items-center gap-1.5"><CalendarDays size={16} className="text-slate-500" />{longDate(s.tripDate, lang)}{multi ? ` – ${longDate(days.at(-1)!.snap.tripDate, lang)}` : ""}</span>
-          <span aria-hidden className="size-1 rounded-full bg-slate-300" />
-          <span className="inline-flex items-center gap-1.5"><MapPin size={16} className="text-slate-500" />{allStops.length === 1 ? w.stopCount : fill(w.stopsCount, { n: allStops.length })}</span>
-        </p>
-      </div>
-      <div className="mx-auto max-w-[880px] sm:px-4 sm:pb-5"><TripGallery photos={photos} words={w} /></div>
+    <div className="mx-auto max-w-[880px] bg-white px-4 py-3 sm:px-7">
+      <Breadcrumbs crumbs={[{ name: w.crumbHome, path: "/" }, { name: s.title, path: `/itinerary/${leadToken}` }]} separator={<ChevronRight size={16} className="inline" />} className="text-[15px] text-slate-600" />
+    </div>
+    <div className="mx-auto max-w-[880px]"><TripGallery photos={photos} words={w} /></div>
+    <div className={`relative z-10 mx-auto max-w-[880px] bg-white px-4 pb-6 pt-6 sm:px-7 ${photos.length ? "-mt-5 rounded-t-card" : ""}`}>
+      <h1 className="text-[28px] font-black leading-tight tracking-[-.035em] sm:text-[38px]">{s.title}</h1>
+      {s.pickupText && <p className="mt-2 text-[17px] text-slate-600">{fill(w.departingFrom, { place: "" })}<span className="font-semibold text-plum">{s.pickupText}</span></p>}
+      <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[15px]">
+        <span className="font-semibold text-brand-deep">{agency ? fill(w.preparedBy, { agency: agency.name }) : multi ? fill(w.multiDay, { n: days.length }) : w.privateTrip}</span>
+        <span aria-hidden className="text-slate-300">•</span>
+        <span className="inline-flex items-center gap-1.5 text-slate-700"><CalendarDays size={15} className="text-slate-500" />{longDate(s.tripDate, lang)}{multi ? ` – ${longDate(days.at(-1)!.snap.tripDate, lang)}` : ""}</span>
+      </p>
+      <ul className="mt-4 flex flex-wrap gap-2 text-[15px] text-slate-700">
+        {[w.privateCarChip, w.hotelPickup, multi ? fill(w.daysChip, { n: days.length }) : fill(w.hoursChip, { n: s.durationHours }), allStops.length === 1 ? w.stopCount : fill(w.stopsCount, { n: allStops.length })].map((c) => <li key={c} className="rounded-md bg-slate-100 px-3 py-1.5">{c}</li>)}
+      </ul>
     </div>
     <SectionTabs tabs={tabs} label={w.sectionsNav} />
 
@@ -204,11 +205,7 @@ function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title
         const photos = [st.cover, ...st.gallery].filter((x, i, all): x is string => Boolean(x) && all.indexOf(x) === i);
         return <li key={st.id} className="relative pl-14">
           <span aria-hidden className={`${dot} bg-emerald-50 text-emerald-700`}><Landmark size={19} /></span>
-          <p className="grid grid-cols-2 items-center gap-3 pt-2 text-[15px] text-slate-700">
-            <span className="inline-flex items-center gap-1.5"><Clock size={17} className="shrink-0" /><span className="tabular-nums">{hhmm(st.start)}</span> · {dur(st.end - st.start)}</span>
-            {st.travelMin > 0 && <span className="inline-flex items-center gap-1.5"><Car size={17} className="shrink-0" />{fill(w.drive, { d: dur(st.travelMin) })}</span>}
-          </p>
-          <h4 className="mt-3 flex items-start gap-2 text-[18px] font-bold"><Landmark size={19} aria-hidden className="mt-1 shrink-0 text-emerald-700" />{st.name}</h4>
+          <h4 className="pt-1.5 text-[18px] font-bold">{st.name}</h4>
           {st.program && <p className="mt-0.5 text-[14px] text-slate-600">{st.program}</p>}
           {st.checkIn != null && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-[#9A4D00]"><Ticket size={14} />{fill(w.sessionCheckIn, { time: st.sessionTime ?? "", checkIn: hhmm(st.checkIn) })}</p>}
           {photos.length > 0 && <div className="relative mt-3 overflow-hidden rounded-2xl">

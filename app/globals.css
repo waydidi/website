@@ -483,3 +483,7 @@ html.wd-tx body { visibility: hidden; }
 
 /* Airport boxes on /flights: no dropdown arrow on inputs with suggestions. */
 .wd-noarrow::-webkit-calendar-picker-indicator { display: none !important; opacity: 0; }
+
+/* Itinerary page photos (components/itinerary/trip-gallery.tsx): slow zoom, and the loading bar of the photo shown. */
+@keyframes trip-photo-zoom { from { transform: scale(1); } to { transform: scale(1.12); } }
+@keyframes trip-photo-progress { from { width: 0; } to { width: 100%; } }
