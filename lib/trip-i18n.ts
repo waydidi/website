@@ -1,18 +1,14 @@
-import { getMessages } from "@/lib/i18n";
-
 // Customer-facing words for smart trips (itinerary page, Your day, rating, emails), in
 // the language set on the trip. Attraction names and descriptions stay as staff wrote them.
 export type TripLang = "en" | "th" | "zh";
 
 const en = {
-  seeDetails: getMessages("en")["itinerary.seeDetails"],
   privateTrip: "Your private day trip", multiDay: "Your private {n}-day trip", preparedBy: "Prepared by {agency} with Waydidi",
   for: "For {name}", pickup: "Pickup {time}", backAround: "Back around {time}", travellers: "{n} travellers", traveller: "1 traveller",
   paidTitle: "Booked and paid", paidText: "Your confirmation is in your email. On the day, follow your driver and the next stop live.", openYourDay: "Open “Your day”",
   updating: "We're updating your itinerary", updatingText: "Thanks for your request. You'll get a new version soon; this page will show it.",
-  yourDay: "Your day", day: "Day {n}", hotelPickup: "Hotel pickup", dropOff: "Drop-off", backAtHotel: "Back at your hotel", drive: "{d} drive",
-  open: "open {hours}", sessionCheckIn: "Session at {time}: check in by {checkIn}", ticketsIncluded: "Tickets included in your price.",
-  feeOnDay: "Entrance fee on the day: {adult} adult", feeChild: ", {child} child", timesNote: "Times are estimates and may change with traffic. Your driver may adjust the route for weather or local conditions.",
+  yourDay: "Your day", day: "Day {n}", hotelPickup: "Hotel pickup", backAtHotel: "Back at your hotel",
+  open: "open {hours}", sessionCheckIn: "Session at {time}: check in by {checkIn}", timesNote: "Times are estimates and may change with traffic. Your driver may adjust the route for weather or local conditions.",
   whatToBring: "What to bring", notes: "Notes", price: "Price", transport: "Private car, driver, fuel and tolls", tickets: "Tickets included", discount: "Discount", total: "Total",
   plusFees: "Plus about {amount} in entrance fees paid on the day.", expired: "This price has expired. Please contact us and we'll confirm it again.",
   downloadPdf: "Download the itinerary (PDF)", refLine: "Reference {ref} · version {v}. Free cancellation up to {hours} hours before pickup; see the", policy: "cancellation policy",
@@ -28,7 +24,10 @@ const en = {
   next: "Next", arriving: "arriving about", session: "session", behind: "Running about {n} min behind plan; your driver will adjust.", onPlan: "Running to plan.", backAt: "Back around {time}.",
   notFound: "Itinerary not found", notFoundText: "This link isn't valid or the itinerary isn't ready yet. Please check the link or contact us.",
   withdrawn: "This itinerary was withdrawn", withdrawnText: "Please contact us if you'd still like to travel; we'll gladly plan a new one.", home: "Waydidi home",
-  crumbHome: "Home", sectionsNav: "Trip sections", tabBooking: "Booking", tabOverview: "Overview", tabItinerary: "Itinerary", tabHighlights: "Highlights", tabIncludes: "Includes/Excludes", tabBring: "What to bring", tabNotes: "Notes", timeCol: "Time", placesCol: "Attractions",
+  departureType: "Departure type: Hotel pickup", departure: "Departure", returnLabel: "Return", crumbHome: "Home", galleryButton: "Gallery", closeLabel: "Close", departingFrom: "Departing from {place}", privateCarChip: "Private car", hoursChip: "{n}hr duration", daysChip: "{n} days", freeCancel: "Free cancellation ({hours} hours notice)", pickupAt: "Pickup at {time} from {place}",
+  accPickup: "Pick-up & meet-up information", accBefore: "Before you book", accTerms: "Terms & Conditions", accHow: "How to use", priceHeld: "This price is held for {n} days.",
+  howStep1: "Check your plan, then tap Accept and pay, or ask for a change.", howStep2: "Your confirmation arrives by email.", howStep3: "On the day, open this page to follow your driver and the next stop live.",
+  sectionsNav: "Trip sections", tabBooking: "Booking", tabOverview: "Overview", tabHighlights: "Highlights", tabIncludes: "Includes/Excludes", timeCol: "Time", placesCol: "Attractions",
   galleryLabel: "Photos of your trip", photoOf: "Photo {n} of {total}", prevPhoto: "Previous photo", nextPhoto: "Next photo", stopsCount: "{n} stops", stopCount: "1 stop",
   overview: "Overview", highlights: "Highlights", included: "Included", notIncluded: "Not included", hotelTransfer: "Pickup and drop-off at your hotel", vehicleLine: "Your car: {car}",
   ticketsAt: "Entrance tickets: {places}", feeAt: "Entrance fee at {place}, paid on the day", totalFor: "Total for your group",
@@ -40,14 +39,12 @@ const en = {
 export type TripWords = typeof en;
 
 const th: TripWords = {
-  seeDetails: getMessages("th")["itinerary.seeDetails"],
   privateTrip: "ทริปส่วนตัวของคุณ", multiDay: "ทริปส่วนตัว {n} วันของคุณ", preparedBy: "จัดโดย {agency} ร่วมกับ Waydidi",
   for: "สำหรับ {name}", pickup: "รับ {time}", backAround: "กลับถึงประมาณ {time}", travellers: "ผู้เดินทาง {n} คน", traveller: "ผู้เดินทาง 1 คน",
   paidTitle: "จองและชำระเงินแล้ว", paidText: "การยืนยันอยู่ในอีเมลของคุณ ในวันเดินทางติดตามคนขับและจุดถัดไปได้แบบเรียลไทม์", openYourDay: "เปิด “วันของคุณ”",
   updating: "เรากำลังปรับแผนการเดินทางของคุณ", updatingText: "ขอบคุณสำหรับคำขอ เราจะส่งเวอร์ชันใหม่ให้เร็วๆ นี้ และหน้านี้จะแสดงเวอร์ชันล่าสุด",
-  yourDay: "วันของคุณ", day: "วันที่ {n}", hotelPickup: "รับที่โรงแรม", dropOff: "ส่ง", backAtHotel: "กลับถึงโรงแรม", drive: "ขับรถ {d}",
-  open: "เปิด {hours}", sessionCheckIn: "รอบ {time}: เช็กอินก่อน {checkIn}", ticketsIncluded: "รวมค่าตั๋วในราคาแล้ว",
-  feeOnDay: "ค่าเข้าชมชำระหน้างาน: ผู้ใหญ่ {adult}", feeChild: ", เด็ก {child}", timesNote: "เวลาเป็นค่าประมาณและอาจเปลี่ยนตามสภาพการจราจร คนขับอาจปรับเส้นทางตามสภาพอากาศหรือสถานการณ์",
+  yourDay: "วันของคุณ", day: "วันที่ {n}", hotelPickup: "รับที่โรงแรม", backAtHotel: "กลับถึงโรงแรม",
+  open: "เปิด {hours}", sessionCheckIn: "รอบ {time}: เช็กอินก่อน {checkIn}", timesNote: "เวลาเป็นค่าประมาณและอาจเปลี่ยนตามสภาพการจราจร คนขับอาจปรับเส้นทางตามสภาพอากาศหรือสถานการณ์",
   whatToBring: "สิ่งที่ควรเตรียม", notes: "หมายเหตุ", price: "ราคา", transport: "รถส่วนตัว คนขับ น้ำมัน และค่าทางด่วน", tickets: "รวมค่าตั๋ว", discount: "ส่วนลด", total: "รวมทั้งหมด",
   plusFees: "บวกค่าเข้าชมประมาณ {amount} ชำระหน้างาน", expired: "ราคานี้หมดอายุแล้ว กรุณาติดต่อเราเพื่อยืนยันราคาอีกครั้ง",
   downloadPdf: "ดาวน์โหลดแผนการเดินทาง (PDF)", refLine: "หมายเลข {ref} · เวอร์ชัน {v} ยกเลิกฟรีถึง {hours} ชั่วโมงก่อนเวลารับ ดู", policy: "นโยบายการยกเลิก",
@@ -63,7 +60,10 @@ const th: TripWords = {
   next: "ถัดไป", arriving: "ถึงประมาณ", session: "รอบ", behind: "ช้ากว่าแผนประมาณ {n} นาที คนขับจะปรับเส้นทาง", onPlan: "เป็นไปตามแผน", backAt: "กลับถึงประมาณ {time}",
   notFound: "ไม่พบแผนการเดินทาง", notFoundText: "ลิงก์ไม่ถูกต้องหรือแผนยังไม่พร้อม กรุณาตรวจสอบลิงก์หรือติดต่อเรา",
   withdrawn: "แผนการเดินทางนี้ถูกยกเลิก", withdrawnText: "หากยังต้องการเดินทาง ติดต่อเราได้เลย เรายินดีวางแผนให้ใหม่", home: "หน้าแรก Waydidi",
-  crumbHome: "หน้าแรก", sectionsNav: "ส่วนต่างๆ ของทริป", tabBooking: "การจอง", tabOverview: "ภาพรวม", tabItinerary: "แผนการเดินทาง", tabHighlights: "ไฮไลต์", tabIncludes: "รวม/ไม่รวม", tabBring: "สิ่งที่ควรเตรียม", tabNotes: "หมายเหตุ", timeCol: "เวลา", placesCol: "สถานที่ท่องเที่ยว",
+  departureType: "รูปแบบการเดินทาง: รับที่โรงแรม", departure: "ออกเดินทาง", returnLabel: "เดินทางกลับ", crumbHome: "หน้าแรก", galleryButton: "แกลเลอรี", closeLabel: "ปิด", departingFrom: "ออกเดินทางจาก {place}", privateCarChip: "รถส่วนตัว", hoursChip: "ระยะเวลา {n} ชม.", daysChip: "{n} วัน", freeCancel: "ยกเลิกฟรี (แจ้งล่วงหน้า {hours} ชั่วโมง)", pickupAt: "รับเวลา {time} ที่ {place}",
+  accPickup: "ข้อมูลการรับและจุดนัดพบ", accBefore: "ก่อนจอง", accTerms: "ข้อกำหนดและเงื่อนไข", accHow: "วิธีใช้งาน", priceHeld: "ราคานี้ยืนยันไว้ {n} วัน",
+  howStep1: "ตรวจสอบแผนการเดินทาง แล้วกดยอมรับและชำระเงิน หรือขอเปลี่ยนแปลง", howStep2: "คุณจะได้รับอีเมลยืนยันการจอง", howStep3: "ในวันเดินทาง เปิดหน้านี้เพื่อติดตามคนขับและจุดแวะถัดไปแบบสด",
+  sectionsNav: "ส่วนต่างๆ ของทริป", tabBooking: "การจอง", tabOverview: "ภาพรวม", tabHighlights: "ไฮไลต์", tabIncludes: "รวม/ไม่รวม", timeCol: "เวลา", placesCol: "สถานที่ท่องเที่ยว",
   galleryLabel: "รูปภาพทริปของคุณ", photoOf: "รูปที่ {n} จาก {total}", prevPhoto: "รูปก่อนหน้า", nextPhoto: "รูปถัดไป", stopsCount: "{n} จุดแวะ", stopCount: "1 จุดแวะ",
   overview: "ภาพรวม", highlights: "ไฮไลต์", included: "รวมในราคา", notIncluded: "ไม่รวมในราคา", hotelTransfer: "รับและส่งที่โรงแรมของคุณ", vehicleLine: "รถของคุณ: {car}",
   ticketsAt: "ค่าเข้าชม: {places}", feeAt: "ค่าเข้าชม {place} ชำระในวันเดินทาง", totalFor: "ราคารวมสำหรับกลุ่มของคุณ",
@@ -74,14 +74,12 @@ const th: TripWords = {
 };
 
 const zh: TripWords = {
-  seeDetails: getMessages("zh")["itinerary.seeDetails"],
   privateTrip: "您的私人一日游", multiDay: "您的 {n} 天私人行程", preparedBy: "{agency} 与 Waydidi 为您安排",
   for: "{name} 专属", pickup: "{time} 接送", backAround: "约 {time} 返回", travellers: "{n} 位旅客", traveller: "1 位旅客",
   paidTitle: "已预订并付款", paidText: "确认信已发送到您的邮箱。出行当天可实时查看司机位置和下一站。", openYourDay: "打开“今日行程”",
   updating: "我们正在更新您的行程", updatingText: "感谢您的要求。我们会尽快发送新版本，本页面将显示最新行程。",
-  yourDay: "今日行程", day: "第 {n} 天", hotelPickup: "酒店接送", dropOff: "送达", backAtHotel: "返回酒店", drive: "车程 {d}",
-  open: "开放 {hours}", sessionCheckIn: "{time} 场次：请于 {checkIn} 前签到", ticketsIncluded: "门票已包含在价格中。",
-  feeOnDay: "门票现场支付：成人 {adult}", feeChild: "，儿童 {child}", timesNote: "时间为预估，可能因交通而变化。司机可能根据天气或当地情况调整路线。",
+  yourDay: "今日行程", day: "第 {n} 天", hotelPickup: "酒店接送", backAtHotel: "返回酒店",
+  open: "开放 {hours}", sessionCheckIn: "{time} 场次：请于 {checkIn} 前签到", timesNote: "时间为预估，可能因交通而变化。司机可能根据天气或当地情况调整路线。",
   whatToBring: "携带物品", notes: "备注", price: "价格", transport: "私人专车、司机、油费及过路费", tickets: "含门票", discount: "折扣", total: "合计",
   plusFees: "另需现场支付约 {amount} 门票。", expired: "此报价已过期，请联系我们重新确认。",
   downloadPdf: "下载行程 (PDF)", refLine: "编号 {ref} · 第 {v} 版。接送前 {hours} 小时可免费取消，详见", policy: "取消政策",
@@ -97,7 +95,10 @@ const zh: TripWords = {
   next: "下一站", arriving: "预计到达", session: "场次", behind: "比计划晚约 {n} 分钟，司机会调整。", onPlan: "按计划进行。", backAt: "约 {time} 返回。",
   notFound: "未找到行程", notFoundText: "链接无效或行程尚未准备好，请检查链接或联系我们。",
   withdrawn: "此行程已撤回", withdrawnText: "如仍想出行，请联系我们，我们很乐意重新安排。", home: "Waydidi 首页",
-  crumbHome: "首页", sectionsNav: "行程栏目", tabBooking: "预订", tabOverview: "概览", tabItinerary: "行程安排", tabHighlights: "亮点", tabIncludes: "包含/不包含", tabBring: "携带物品", tabNotes: "备注", timeCol: "时间", placesCol: "景点",
+  departureType: "出发方式：酒店接送", departure: "出发", returnLabel: "返回", crumbHome: "首页", galleryButton: "相册", closeLabel: "关闭", departingFrom: "出发地：{place}", privateCarChip: "私人专车", hoursChip: "{n} 小时", daysChip: "{n} 天", freeCancel: "免费取消（提前 {hours} 小时通知）", pickupAt: "{time} 在 {place} 接您",
+  accPickup: "接送及集合信息", accBefore: "预订须知", accTerms: "条款和条件", accHow: "使用方法", priceHeld: "此价格保留 {n} 天。",
+  howStep1: "查看行程，然后点击接受并付款，或申请修改。", howStep2: "确认信息将通过电子邮件发送给您。", howStep3: "出行当天，打开此页面即可实时查看司机位置和下一站。",
+  sectionsNav: "行程栏目", tabBooking: "预订", tabOverview: "概览", tabHighlights: "亮点", tabIncludes: "包含/不包含", timeCol: "时间", placesCol: "景点",
   galleryLabel: "行程照片", photoOf: "第 {n} 张，共 {total} 张", prevPhoto: "上一张", nextPhoto: "下一张", stopsCount: "{n} 个景点", stopCount: "1 个景点",
   overview: "概览", highlights: "亮点", included: "费用包含", notIncluded: "费用不包含", hotelTransfer: "酒店接送", vehicleLine: "您的车辆：{car}",
   ticketsAt: "门票：{places}", feeAt: "{place}门票，当天支付", totalFor: "全团总价",

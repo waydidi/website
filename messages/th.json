@@ -1322,6 +1322,5 @@
   "trip.legs": {
     "text": "เที่ยวการเดินทาง",
     "status": "machine"
-  },
-  "itinerary.seeDetails": {"text": "ดูรายละเอียด", "status": "machine"}
+  }
 }

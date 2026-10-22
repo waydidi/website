@@ -1322,6 +1322,5 @@
   "trip.legs": {
     "text": "行程方向",
     "status": "machine"
-  },
-  "itinerary.seeDetails": {"text": "查看详情", "status": "machine"}
+  }
 }
