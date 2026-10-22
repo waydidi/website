@@ -3,14 +3,15 @@ import { and, eq, isNull } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db";
 import { smartTrips } from "@/db/schema";
-import { pushLine } from "@/lib/line";
+import { alertStaff } from "@/lib/staff-alert";
+import { esc } from "@/lib/telegram/cards";
 import { inputFromRow, planFor } from "@/lib/smart-trips";
 
 const siteUrl = () => publicSiteUrl((env as unknown as Record<string, string | undefined>).WAYDIDI_PUBLIC_URL);
 
 /**
  * The day before each booked trip (from 16:00 Bangkok time): re-check it against the
- * latest attraction data (closures, changed sessions, opening hours) and alert staff on LINE.
+ * latest attraction data (closures, changed sessions, opening hours) and alert staff (LINE and the Telegram Admin group).
  */
 export async function checkTomorrowsTrips(at = new Date()) {
   const bangkok = new Date(at.getTime() + 7 * 3600_000);
@@ -25,7 +26,9 @@ export async function checkTomorrowsTrips(at = new Date()) {
     const problems = planned?.plan.problems.filter((p) => p.level === "error").map((p) => p.message) ?? [];
     if (!problems.length) continue;
     alerts++;
-    await pushLine([{ type: "text", text: `⚠️ Tomorrow's trip ${trip.ref} needs a look (${trip.customerName ?? "guest"}, pickup ${trip.startTime}):\n${problems.slice(0, 5).map((p) => `• ${p}`).join("\n")}\n${siteUrl()}/admin/trips/${trip.id}` }]).catch(() => undefined);
+    const link = `${siteUrl()}/admin/trips/${trip.id}`, list = problems.slice(0, 5);
+    await alertStaff(`⚠️ Tomorrow's trip ${trip.ref} needs a look (${trip.customerName ?? "guest"}, pickup ${trip.startTime}):\n${list.map((p) => `• ${p}`).join("\n")}\n${link}`,
+      `⚠️ ทริปพรุ่งนี้ <b>${esc(trip.ref)}</b> ต้องตรวจสอบ (${esc(trip.customerName ?? "ลูกค้า")}, รับ ${esc(trip.startTime)})\n${list.map((p) => `• ${esc(p)}`).join("\n")}\n${esc(link)}`);
   }
   return alerts;
 }

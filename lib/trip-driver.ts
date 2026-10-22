@@ -1,7 +1,8 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { attractions, smartTrips, suppliers } from "@/db/schema";
-import { pushLine } from "@/lib/line";
+import { alertStaff } from "@/lib/staff-alert";
+import { esc } from "@/lib/telegram/cards";
 import { tripSnapshot, tripStops } from "@/lib/smart-trips";
 
 const hhmm = (min: number) => { const m = ((Math.round(min) % 1440) + 1440) % 1440; return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
@@ -39,7 +40,7 @@ export async function driverPlan(reference: string): Promise<DriverDay[]> {
   });
 }
 
-/** Plain-text plan for LINE, so staff can forward it to the driver when they assign the trip. */
+/** Plain-text plan for staff (LINE and Telegram), so they can forward it to the driver when they assign the trip. */
 export function driverPlanText(days: DriverDay[], driverName: string, driverUrl: string) {
   const lines = [`🚗 Day plan for ${driverName}`];
   for (const d of days) {
@@ -51,10 +52,11 @@ export function driverPlanText(days: DriverDay[], driverName: string, driverUrl:
   return lines.join("\n").slice(0, 4900);
 }
 
-/** After a driver is assigned to a smart-trip booking: send the day plan to the staff LINE group to forward. */
-export async function sendDriverPlanToLine(reference: string, driverName: string, driverUrl: string) {
+/** After a driver is assigned to a smart-trip booking: send the day plan to staff (LINE and the Telegram Admin group) to forward. */
+export async function sendDriverPlanToStaff(reference: string, driverName: string, driverUrl: string) {
   const days = await driverPlan(reference);
   if (!days.length) return false;
-  await pushLine([{ type: "text", text: driverPlanText(days, driverName, driverUrl) }]);
+  const plan = driverPlanText(days, driverName, driverUrl);
+  await alertStaff(plan, `🚗 แผนงานทริป <b>${esc(reference)}</b> สำหรับคนขับ ${esc(driverName)} (ส่งต่อให้คนขับ)\n\n${esc(plan)}`.slice(0, 4000));
   return true;
 }

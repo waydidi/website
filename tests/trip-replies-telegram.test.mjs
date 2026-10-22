@@ -82,3 +82,23 @@ test('a paid trip is announced in Telegram; without Telegram set up nothing brea
   assert.equal(sent.length, before);
   globalThis.__trEnv.TELEGRAM_BOT_TOKEN = token;
 });
+
+test('the day before a paid trip, a closed attraction is flagged in Telegram once', async () => {
+  const check = await vite.ssrLoadModule('/lib/trip-day-check.ts');
+  const at = new Date('2026-10-22T10:00:00Z'); // 17:00 in Bangkok
+  await d1.prepare("INSERT INTO attractions(id,name,area,duration_min,open_time,close_time,closed_days_json,status,created_at,updated_at) VALUES('closed-place','Closed Temple','Bangkok',60,'08:00','17:00','[0,1,2,3,4,5,6]','active',?,?)").bind(now, now).run();
+  const stops = JSON.stringify([{ id: 's1', kind: 'attraction', name: 'Closed Temple', attractionId: 'closed-place', durationMin: 60, priority: 'must' }]);
+  await d1.prepare("INSERT INTO smart_trips(id,ref,status,title,token,customer_name,trip_date,start_time,stops_json,vehicle,created_at,updated_at) VALUES('7005A','TP-7005A','accepted','Tomorrow trip','DAYCHECKTOKENABCDEFG','Mai','2026-10-23','09:00',?,'comfort_suv',?,?)").bind(stops, now, now).run();
+  assert.equal(await check.checkTomorrowsTrips(at), 1);
+  assert.equal(await check.checkTomorrowsTrips(at), 0, 'checked once');
+  const alert = sent.filter((s) => /TP-7005A/.test(s.body.text));
+  assert.equal(alert.length, 1);
+  assert.match(alert[0].body.text, /ทริปพรุ่งนี้ <b>TP-7005A<\/b> ต้องตรวจสอบ \(Mai, รับ 09:00\)\n• /);
+});
+
+test('a staff alert never throws, even when Telegram refuses it', async () => {
+  const { alertStaff } = await vite.ssrLoadModule('/lib/staff-alert.ts');
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ ok: false, description: 'Bad Request: chat not found' }, { status: 400 });
+  try { await alertStaff('x', 'x'); } finally { globalThis.fetch = real; }
+});
