@@ -107,7 +107,6 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             {t(link.labelKey)}
           </Link>
         ))}
-        <LocalePicker />
         <Link
           href={accountHref}
           className={`flex items-center gap-2 rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current ${account ? "" : "invisible"}`}
@@ -123,7 +122,6 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         </Link>
       </nav>
       <div className="flex shrink-0 items-center gap-2 min-[360px]:gap-4 xl:hidden">
-        <LocalePicker className="-mr-[3px]" />
         <button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
