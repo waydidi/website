@@ -47,19 +47,20 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(photos).toHaveCount(4);
   expect(await photos.evaluateAll((els) => els.map((e) => e.getAttribute("alt")))).toEqual(["Elephant Jungle Sanctuary", "Big Buddha", "Elephant Jungle Sanctuary", "Big Buddha"]);
 
-  // The Overview card: places, times, departure type and cancellation; the full plan opens in a sheet.
+  // The Overview card: the whole day as a timeline on one grey line (departure, each place with its photo, return).
   const overview = page.locator("#overview");
-  for (const line of ["Elephant Jungle Sanctuary", "Big Buddha", "08:30 - 17:00", "Departure type: Hotel pickup", "Free cancellation (48 hours notice)"]) await expect(overview.getByText(line, { exact: true })).toBeVisible();
-  if (process.env.SHOT_DIR) { await overview.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-overview-${info.project.name}.png` }); }
-  await expect(page.getByRole("table")).toHaveCount(0); // the long plan is not on the page itself
-  await overview.getByRole("button", { name: "View full itinerary" }).click();
-  const sheet = page.getByRole("dialog", { name: snapshot.title });
-  const plan = sheet.getByRole("table");
-  expect(await plan.getByRole("columnheader").allTextContents()).toEqual(["Time", "Attractions"]);
-  await expect(plan.getByRole("row", { name: /Elephant Jungle Sanctuary/ }).getByRole("cell").first()).toHaveText("09:30– 11:30");
-  if (process.env.SHOT_DIR) { await page.waitForTimeout(700); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-sheet-${info.project.name}.png` }); }
-  await sheet.getByRole("button", { name: "Close" }).click();
-  await expect(sheet).toHaveCount(0);
+  for (const line of ["Departure type: Hotel pickup", "Free cancellation (48 hours notice)"]) await expect(overview.getByText(line, { exact: true })).toBeVisible();
+  const timeline = overview.getByRole("list").last();
+  const steps = timeline.locator(":scope > li");
+  await expect(steps).toHaveCount(4);
+  await expect(steps.first()).toContainText("08:30 · Departure");
+  await expect(steps.nth(1).getByRole("heading", { name: "Elephant Jungle Sanctuary" })).toBeVisible();
+  await expect(steps.nth(1).getByRole("img", { name: "Elephant Jungle Sanctuary" })).toBeVisible();
+  await expect(steps.nth(1).getByText("+1", { exact: true })).toBeVisible(); // one more gallery photo
+  await expect(steps.nth(2).getByRole("heading", { name: "Big Buddha" })).toBeVisible();
+  await expect(steps.last()).toContainText("17:00 · Return");
+  await expect(page.getByRole("button", { name: "View full itinerary" })).toHaveCount(0);
+  if (process.env.SHOT_DIR) { await overview.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-overview-${info.project.name}.png` }); await steps.nth(2).scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-timeline-${info.project.name}.png` }); }
   await page.evaluate(() => window.scrollTo(0, 0));
 
   const tabs = page.getByRole("navigation", { name: "Trip sections" });
