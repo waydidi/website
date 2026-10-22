@@ -102,7 +102,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
       {paid && tripStarted(s.tripDate) && <TripFeedback token={leadToken} rating={trip.feedbackRating} reviewUrl={reviewUrl()} words={w} />}
       {trip.status === "changes_requested" && <div className="rounded-card bg-amber-50 p-5 text-amber-900 shadow-sm"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
 
-      <section id="overview" className={card}>
+      <section id="overview" className="-mx-4 scroll-mt-[140px] bg-white px-4 py-6 sm:px-7 lg:scroll-mt-[168px]">
         <h2 className="text-[22px] font-bold">{w.overview}</h2>
         {s.customerName && <p className="mt-1 text-[15px] text-slate-600">{fill(w.for, { name: s.customerName })}</p>}
         <ul className="mt-4 grid gap-3.5 text-[16px]">
