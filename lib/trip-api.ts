@@ -9,6 +9,8 @@ import { customerFromRequest } from "@/lib/customer-auth";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
 import { addDay, arrange, duplicateTrip, groupDays, removeDay, getTrip, inputFromRow, listTrips, planFor, saveTrip, sendTripDays, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
 import { notifyAgencyPriced, notifyTripSent } from "@/lib/trip-notify";
+import { alertStaff } from "@/lib/staff-alert";
+import { esc } from "@/lib/telegram/cards";
 import { z } from "zod";
 import { VEHICLES } from "@/lib/vehicles";
 
@@ -220,6 +222,7 @@ export async function handleAction(request: Request, id: string, actor: TripActo
 }
 
 async function notifyPricingRequest(trip: TripRow, agencyName: string, origin: string) {
-  const { pushLine } = await import("@/lib/line");
-  await pushLine([{ type: "text", text: `${agencyName} asks for a price for trip ${trip.ref} (${trip.title}${trip.tripDate ? `, ${trip.tripDate}` : ""}).\n${origin}/admin/trips/${trip.id}` }]);
+  const link = `${origin}/admin/trips/${trip.id}`;
+  await alertStaff(`${agencyName} asks for a price for trip ${trip.ref} (${trip.title}${trip.tripDate ? `, ${trip.tripDate}` : ""}).\n${link}`,
+    `💬 เอเจนซี่ <b>${esc(agencyName)}</b> ขอราคาทริป <b>${esc(trip.ref)}</b>\n${esc(trip.title)}${trip.tripDate ? ` · ${esc(trip.tripDate)}` : ""}\nใส่ราคาที่ Admin: ${esc(link)}`);
 }

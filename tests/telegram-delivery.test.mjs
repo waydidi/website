@@ -23,7 +23,7 @@ const vite=await createServer({root,configFile:false,appType:'custom',resolve:{a
  if(id==='\0delivery-env')return 'export const env=globalThis.__telegramDelivery.env';
  if(id==='\0delivery-admin')return 'export async function getWaydidiAdmin(){return globalThis.__telegramDelivery.user}';
  if(id==='\0delivery-email')return 'export async function sendDriverAssignmentEmail(){return {status:"sent"}}';
- if(id==='\0delivery-plan')return 'export async function sendDriverPlanToLine(){return false}';
+ if(id==='\0delivery-plan')return 'export async function sendDriverPlanToStaff(){return false}';
 }}],server:{middlewareMode:true}});
 const realFetch=globalThis.fetch, sends=[];let mode='ok';
 globalThis.fetch=async(url,init)=>{

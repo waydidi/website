@@ -1,5 +1,6 @@
 import { sendTripEmail } from "@/lib/email";
-import { pushLine } from "@/lib/line";
+import { alertStaff } from "@/lib/staff-alert";
+import { esc } from "@/lib/telegram/cards";
 import type { TripRow } from "@/lib/smart-trips";
 import { dateLocale, fill, tripWords } from "@/lib/trip-i18n";
 
@@ -22,10 +23,26 @@ export async function notifyTripSent(trip: TripRow, link: string, agencyName: st
   return result.status;
 }
 
-/** Tells staff on LINE that a customer replied. */
+/** Tells staff that a customer paid for their trip or asked for a change. */
 export async function notifyTripReply(trip: TripRow, kind: "accepted" | "change", message: string, origin: string) {
   const head = kind === "accepted" ? `✅ ${trip.customerName || "Customer"} accepted trip ${trip.ref}` : `✏️ ${trip.customerName || "Customer"} asked for changes to ${trip.ref}`;
-  await pushLine([{ type: "text", text: `${head}\n${trip.title}${trip.tripDate ? ` · ${trip.tripDate}` : ""}${message ? `\n“${message.slice(0, 400)}”` : ""}\n${origin}/admin/trips/${trip.id}` }]).catch(() => undefined);
+  const link = `${origin}/admin/trips/${trip.id}`;
+  await alertStaff(`${head}\n${trip.title}${trip.tripDate ? ` · ${trip.tripDate}` : ""}${message ? `\n“${message.slice(0, 400)}”` : ""}\n${link}`, [
+    kind === "accepted" ? `✅ ลูกค้ายืนยันและชำระเงินทริป <b>${esc(trip.ref)}</b> แล้ว` : `✏️ ลูกค้าขอแก้ไขทริป <b>${esc(trip.ref)}</b>`,
+    `${esc(trip.customerName || "ลูกค้า")} · ${esc(trip.title)}${trip.tripDate ? ` · ${esc(trip.tripDate)}` : ""}`,
+    ...(message ? [`“${esc(message.slice(0, 400))}”`] : []),
+    kind === "change" ? `แก้แผนแล้วกดส่งใหม่ที่ Admin: ${esc(link)}` : `ดูทริปใน Admin: ${esc(link)}`,
+  ].join("\n"));
+}
+
+/** Tells staff how a customer rated their day; three stars or fewer need a reply. */
+export async function notifyTripRating(trip: TripRow, rating: number, comment: string, origin: string) {
+  const stars = `${"★".repeat(rating)}${"☆".repeat(5 - rating)}`, link = `${origin}/admin/trips/${trip.id}`;
+  await alertStaff(`${stars} ${trip.customerName || "Guest"} rated trip ${trip.ref}${rating <= 3 ? " — please follow up" : ""}${comment ? `\n“${comment.slice(0, 400)}”` : ""}\n${link}`, [
+    `${stars} ${esc(trip.customerName || "ลูกค้า")} ให้คะแนนทริป <b>${esc(trip.ref)}</b>${rating <= 3 ? " ⚠️ กรุณาติดต่อกลับ" : ""}`,
+    ...(comment ? [`“${esc(comment.slice(0, 400))}”`] : []),
+    esc(link),
+  ].join("\n"));
 }
 
 /** Tells an agency that Waydidi has priced the trip they asked about. */

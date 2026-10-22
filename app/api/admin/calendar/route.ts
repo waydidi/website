@@ -244,7 +244,7 @@ export async function POST(request: Request) {
     const driverUrl = `${safeOrigin(request)}/driver/trip/${token}`;
     const telegramNotification = await deliverAssignmentTelegram(assignment.id).catch(error => { console.error("Telegram assignment delivery failed", error instanceof Error ? error.message : "unknown"); return "queued"; });
     // Day trips from the planner: the stop-by-stop plan goes to the staff LINE group to forward.
-    await import("@/lib/trip-driver").then((m) => m.sendDriverPlanToLine(bookingReference, driver.fullName, driverUrl)).catch((error) => console.error("driver plan LINE failed", error));
+    await import("@/lib/trip-driver").then((m) => m.sendDriverPlanToStaff(bookingReference, driver.fullName, driverUrl)).catch((error) => console.error("driver plan alert failed", error));
     if (driver.email && driver.remindersEnabled) {
       const delivery = await sendDriverAssignmentEmail({ to: driver.email, driverName: driver.fullName, driverUrl, reference: booking.reference, pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate, pickupTime: booking.pickupTime, vehicle: booking.vehicle });
       await getDb().insert(bookingNotifications).values({ id: crypto.randomUUID(), bookingReference, assignmentId: assignment.id, notificationType: "driver_assignment", channel: "email", recipient: driver.email, dedupeKey: `driver-assignment:${assignment.id}`, scheduledFor: now, status: delivery.status === "sent" ? "sent" : "failed", attemptCount: 1, lastAttemptAt: now, sentAt: delivery.status === "sent" ? now : null, errorMessage: delivery.status === "sent" ? null : delivery.status, createdAt: now, updatedAt: now });
