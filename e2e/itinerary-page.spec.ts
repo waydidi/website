@@ -37,12 +37,7 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await page.goto(`/itinerary/${TOKEN}`);
   await page.waitForLoadState("networkidle"); // the tabs mark the section once the page is interactive
   expect(await page.evaluate(() => window.scrollY), "the page opens at the top").toBe(0);
-  const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
-  await expect(crumbs.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
-  await expect(crumbs.getByText(snapshot.title)).toHaveAttribute("aria-current", "page");
-  // The breadcrumb sits above the photos.
-  const above = await page.evaluate(() => { const c = document.querySelector('nav[aria-label="Breadcrumb"]')!.getBoundingClientRect(), g = document.querySelector('section[aria-roledescription="carousel"]')!.getBoundingClientRect(); return c.bottom <= g.top; });
-  expect(above).toBe(true);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0); // no breadcrumb: the photos come first
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(snapshot.title);
   await expect(page.getByText("Departing from Kata Beach Resort")).toBeVisible();
   for (const chip of ["Private car", "Hotel pickup", "3 travellers", "8hr duration", "2 stops"]) await expect(page.getByRole("listitem").filter({ hasText: new RegExp(`^${chip}$`) })).toBeVisible();

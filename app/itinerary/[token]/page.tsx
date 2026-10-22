@@ -7,7 +7,6 @@ import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
 import { HighlightsCard } from "@/components/itinerary/highlights-card";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
-import { Breadcrumbs } from "@/components/seo";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
 import { TripGallery } from "@/components/itinerary/trip-gallery";
@@ -79,9 +78,6 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const card = "-mx-4 scroll-mt-[140px] bg-white px-4 py-6 sm:px-7 lg:scroll-mt-[168px]";
 
   return <main className="bg-canvas pb-16 text-plum">
-    <div className="mx-auto max-w-[880px] bg-white px-4 py-3 sm:px-7">
-      <Breadcrumbs crumbs={[{ name: w.crumbHome, path: "/" }, { name: s.title, path: `/itinerary/${leadToken}` }]} separator={<ChevronRight size={16} className="inline" />} className="text-[15px] text-slate-600" />
-    </div>
     <div className="mx-auto max-w-[880px]"><TripGallery photos={photos} words={w} /></div>
     <div className={`relative z-10 mx-auto max-w-[880px] bg-white px-4 pb-6 pt-6 sm:px-7 ${photos.length ? "-mt-5 rounded-t-card" : ""}`}>
       <h1 className="text-[28px] font-black leading-tight tracking-[-.035em] sm:text-[38px]">{s.title}</h1>
