@@ -291,7 +291,7 @@ test('paste a chat: /trip sent as a reply to the customer chat reads the chat; t
 
 test('a place with packages: staff choose the package in Telegram first, then the trip is built with it; one tap per question', async () => {
   const programs = [
-    { id: 'morning', name: 'Half-day morning', durationMin: 240, arrivalBufferMin: 0, feeAdult: 3000, feeChild: 1500, feeIncluded: true, bookingRequired: true, sessions: [{ time: '09:00' }] },
+    { id: 'morning', name: 'Half-day morning', durationMin: 240, arrivalBufferMin: 0, feeAdult: 3000, feeChild: 1500, feeIncluded: false, bookingRequired: true, sessions: [{ time: '09:00' }] },
     { id: 'full', name: 'Full day', durationMin: 420, arrivalBufferMin: 0, feeAdult: 5000, feeChild: 2500, feeIncluded: true, bookingRequired: true, sessions: [] },
   ];
   await d1.prepare("INSERT INTO attractions(id,name,area,latitude,longitude,duration_min,open_time,close_time,booking_required,programs_json,status,created_at,updated_at) VALUES('pes','Phuket Elephant Sanctuary','Bangkok',13.76,100.5,240,'08:00','18:00',1,?,'active',?,?)")
@@ -312,7 +312,10 @@ test('a place with packages: staff choose the package in Telegram first, then th
   assert.equal((await trips()).length, before + 1);
   const stop = JSON.parse(t.stops_json).find((x) => x.attractionId === 'pes');
   assert.deepEqual([stop.programId, stop.sessionTime, stop.priority, stop.durationMin], ['morning', '09:00', 'fixed', 240]);
+  // Not ticked "included" on the attraction, but chosen for this trip: the car price plus the package for 2 adults.
+  assert.equal(stop.feeIncluded, true);
   assert.equal(t.total, 3500 + 2 * 3000, 'the package price for 2 adults is in the total');
+  assert.match(sent.findLast((x) => x.method === 'sendMessage').body.text, /💰 THB 9,500 \(รถ THB 3,500 \+ แพ็กเกจ\/ตั๋ว THB 6,000\)/);
   assert.match(sent.find((x) => x.method === 'editMessageText').body.text, /Phuket Elephant Sanctuary<\/b>: Half-day morning 09:00/);
 
   // The same button tapped again (or by a second person at once): nothing more is built.
