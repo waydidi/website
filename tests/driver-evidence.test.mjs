@@ -103,7 +103,10 @@ test('expired/revoked links cannot upload/list/view/confirm; retention removes m
  await d1.prepare('UPDATE driver_trip_evidence SET expires_at=? WHERE id=?').bind('2020-01-01',saved.id).run();await retention.cleanupTripEvidence();
  const row=await d1.prepare('SELECT * FROM driver_trip_evidence WHERE id=?').bind(saved.id).first();assert.ok(row.deleted_at);assert.equal(row.latitude,null);assert.equal(state.files.has(row.original_key),false);assert.equal(state.files.has(row.stamped_key),false);
 });
-test('role permissions and upload validation fail closed',async()=>{
+test('role permissions and upload validation fail closed',async(t)=>{
+ // The upload limit counts attempts per 10-minute window on the clock. Hold the clock mid-window so the burst below can't
+ // straddle a window boundary (when it did, the count reset and the last upload was allowed).
+ t.mock.timers.enable({apis:['Date'],now:Math.floor(Date.now()/600000)*600000+300000});
  await seed();state.user={id:'support',role:'support'};assert.equal((await admin.GET(new Request('https://example.invalid'))).status,403);state.user={id:'owner',role:'owner'};
  const invalid=form();invalid.set('photo',new File(['not a photo'],'x.jpg',{type:'image/jpeg'}));assert.equal((await uploads.POST(req(invalid),context())).status,400);
  assert.equal((await uploads.POST(new Request('https://example.invalid',{method:'POST',headers:{origin:'https://evil.invalid'},body:form()}),context())).status,403);
