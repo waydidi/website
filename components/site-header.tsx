@@ -87,12 +87,12 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
 
   return (
     <header
-      className={`z-40 flex h-[74px] w-full items-center justify-between px-5 transition-[background-color,color,box-shadow] duration-300 lg:h-[102px] lg:px-8 ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-brand text-white" : "bg-transparent text-white"}`}
+      className={`z-40 flex h-[70px] w-full items-center justify-between px-5 transition-[background-color,color,box-shadow] duration-300 lg:h-[98px] lg:px-8 ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-brand text-white" : "bg-transparent text-white"}`}
     >
       <Link href="/" className={`inline-flex shrink-0 transition-colors duration-300 ${light ? "text-brand" : "text-white"}`} aria-label={t("nav.home")}>
         {/* Explicit widths (logo is 810:308): Safari collapses a width-less
             mask span to 0px when its container is allowed to shrink. */}
-        <WaydidiLogo className="h-[40px] w-[105px] min-[360px]:h-[53px] min-[360px]:w-[139px] sm:h-[68px] sm:w-[179px] lg:h-[91px] lg:w-[240px]" />
+        <WaydidiLogo className="h-[38px] w-[100px] min-[360px]:h-[50px] min-[360px]:w-[132px] sm:h-[65px] sm:w-[170px] lg:h-[86px] lg:w-[228px]" />
       </Link>
       <nav className="hidden items-center gap-10 text-[16px] font-semibold xl:flex">
         {navMenus.map((menu) => (
@@ -126,9 +126,9 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         <Link
           href={accountHref}
           aria-label={accountLabel}
-          className="grid size-10 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
+          className="grid size-[38px] place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
         >
-          <UserRound size={26} />
+          <UserRound size={25} />
         </Link>
         <button
           type="button"
@@ -136,9 +136,9 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           aria-expanded={menuOpen}
           aria-controls="mobile-menu"
           aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
-          className="grid size-10 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
+          className="grid size-[38px] place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
         >
-          {menuOpen ? <X size={28} /> : <Menu size={28} />}
+          {menuOpen ? <X size={27} /> : <Menu size={27} />}
         </button>
       </div>
       {menuOpen && (
