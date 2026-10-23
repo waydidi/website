@@ -7,7 +7,6 @@ import { agencyApplications, smartTrips } from "@/db/schema";
 import { HighlightsCard } from "@/components/itinerary/highlights-card";
 import { InfoRow } from "@/components/itinerary/info-row";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
-import { ItineraryMap } from "@/components/itinerary/itinerary-map";
 import { MapsSheet } from "@/components/itinerary/maps-sheet";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
 import { StopPhoto } from "@/components/itinerary/stop-photo";
@@ -202,15 +201,13 @@ function dayPoints(s: TripSnapshot, w: TripWords) {
   ];
 }
 
-/** One day as a timeline: map, then departure, each place (name, time, photo) and the return, on one grey line. */
+/** One day as a timeline: departure, each place (name and photo) and the return, on one grey line. The route map is behind "View maps". */
 function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title?: string; id?: string }) {
   const skipped = s.liveSkipped ?? [];
   const stops = s.stops.filter((x) => !skipped.includes(x.id));
-  const points = dayPoints(s, w);
   const dot = "absolute left-0 top-0 grid size-10 place-items-center rounded-full";
   return <div id={id} className="scroll-mt-[135px] lg:scroll-mt-[163px]">
     {title && <h3 className="mb-3 text-[19px] font-bold">{title}</h3>}
-    {points.length > 0 && <div className="mb-5 overflow-hidden rounded-2xl border border-slate-200"><ItineraryMap points={points} /></div>}
     <ol className="relative grid gap-6 before:absolute before:bottom-5 before:left-5 before:top-5 before:w-0.5 before:-translate-x-1/2 before:bg-slate-200">
       <li className="relative min-h-10 pl-14">
         <span aria-hidden className={`${dot} bg-brand-wash text-brand-deep`}><MapPin size={20} /></span>
