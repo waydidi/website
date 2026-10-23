@@ -85,7 +85,8 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const card = "-mx-4 scroll-mt-[135px] bg-white px-4 py-6 sm:px-7 lg:scroll-mt-[163px]";
   const heading = "border-l-4 border-brand pl-3 text-[22px] font-bold leading-7";
 
-  return <main className="bg-canvas pb-16 text-plum">
+  // Room under the page for the booking bar while the trip can still be booked.
+  return <main className={`bg-canvas text-plum ${paid || expired ? "pb-16" : "pb-40"}`}>
     <div className="mx-auto max-w-[880px]"><TripGallery photos={photos} words={w} /></div>
     <div className={`relative z-10 mx-auto max-w-[880px] bg-white px-4 pb-6 pt-6 sm:px-7 ${photos.length ? "-mt-5 rounded-t-card" : ""}`}>
       <h1 className="text-[28px] font-black leading-tight tracking-[-.035em] sm:text-[38px]">{s.title}</h1>
