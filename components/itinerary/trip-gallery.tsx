@@ -13,7 +13,7 @@ const SLIDE_MS = 5000; // matches the 5 s zoom and loading-bar animations in app
 
 /**
  * The trip's photos at the top of the page, like a story: each one zooms in for 5 seconds while its loading bar fills,
- * then the next fades in and starts zooming (the one leaving keeps its zoom as it fades, so the motion never stops). Swipe or the arrows change photo; "Gallery" opens them full screen. With
+ * then the next fades in and starts zooming (the one leaving keeps its zoom as it fades, so the motion never stops). Tapping the left or right half, swiping or the arrows change photo; "Gallery" opens them full screen. With
  * reduced motion the photos neither zoom nor change by themselves.
  */
 export function TripGallery({ photos, words }: { photos: TripPhoto[]; words: Words }) {
@@ -47,6 +47,11 @@ export function TripGallery({ photos, words }: { photos: TripPhoto[]; words: Wor
         className={`h-full w-full object-cover ${(i === index || i === prev) && !still && count > 1 ? "animate-[trip-photo-zoom_5s_linear_forwards]" : ""}`}
         key={i === index ? `${p.src}-${cycle}` : i === prev ? `${p.src}-${cycle - 1}` : p.src} />
     </figure>)}
+    {/* Tap the left half for the previous photo, the right half for the next (the arrows below serve keyboards). */}
+    {count > 1 && <>
+      <button type="button" tabIndex={-1} aria-hidden onClick={() => go(index - 1)} className="absolute inset-y-0 left-0 w-1/2 cursor-w-resize" />
+      <button type="button" tabIndex={-1} aria-hidden onClick={() => go(index + 1)} className="absolute inset-y-0 right-0 w-1/2 cursor-e-resize" />
+    </>}
     <button type="button" onClick={() => { setStartAt(index); setViewing(true); }} className="absolute bottom-14 right-3 inline-flex min-h-tap items-center gap-2 rounded-xl bg-black/60 px-4 text-[16px] font-semibold text-white backdrop-blur-sm"><Images size={19} aria-hidden />{words.galleryButton}</button>
     <PhotoViewer photos={photos} start={startAt} open={viewing} onOpenChange={setViewing} words={words} />
     {count > 1 && <>

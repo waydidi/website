@@ -58,6 +58,14 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   expect(await slides.nth(0).locator("img").evaluate((el) => getComputedStyle(el).animationName)).toBe("trip-photo-zoom");
   expect(await slides.nth(1).locator("img").evaluate((el) => getComputedStyle(el).animationName)).toBe("trip-photo-zoom");
   expect(await slides.nth(2).locator("img").evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
+  // Tapping the right half of the photo shows the next one, the left half the one before.
+  const box0 = (await gallery.boundingBox())!;
+  const shown = async () => Number(await slides.evaluateAll((els) => els.findIndex((el) => el.getAttribute("aria-hidden") === "false")));
+  const before = await shown();
+  await page.mouse.click(box0.x + box0.width * 0.85, box0.y + box0.height * 0.4);
+  await expect.poll(shown).toBe((before + 1) % 4);
+  await page.mouse.click(box0.x + box0.width * 0.15, box0.y + box0.height * 0.4);
+  await expect.poll(shown).toBe(before);
   // "Gallery": full screen, the photo that was showing first, swiped sideways, no names.
   await gallery.getByRole("button", { name: "Gallery" }).click();
   const all = page.getByRole("dialog", { name: "Photos of your trip" });
