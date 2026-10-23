@@ -120,5 +120,34 @@ export const tripBuilderOn = (vars: Record<string, string | undefined>) => vars.
 /** Thai words for the parts the AI could not find in the message. */
 export const MISSING_TH: Record<string, string> = { date: "วันที่", "pickup place": "จุดรับ", places: "สถานที่" };
 
-export const TRIP_HELP = "พิมพ์รายละเอียดทริปหลัง /trip เช่น\n<code>/trip 12 Dec, 2 adults, Hilton Sukhumvit 08:00, Grand Palace, Wat Pho, Wat Arun, SUV, THB 3,500</code>\nต้องมี วันที่ จุดรับ สถานที่ และราคา (THB/บาท)";
+/**
+ * True when the text after /trip is a request for help rather than a trip, e.g. "/trip", "/trip help" or "/trip create
+ * a new trip": a trip always has a date, a pickup time and a price, so text with no digits at all cannot be one.
+ */
+export function wantsTripGuide(details: string): boolean {
+  const text = details.trim();
+  return !text || /^((help|how|guide)\b|\?|วิธี|ช่วย|คู่มือ)/i.test(text) || !/[0-9\u0E50-\u0E59]/.test(text);
+}
+
+/** What staff need to type after /trip (Thai, for the Admin group). */
+export const TRIP_HELP = [
+  "📝 <b>วิธีสร้างทริปผ่าน Telegram</b>",
+  "พิมพ์ /trip ตามด้วยรายละเอียดทั้งหมดในข้อความเดียว",
+  "",
+  "<b>ต้องมี</b>",
+  "• วันที่ เช่น 12 Dec หรือ 12/12",
+  "• จุดรับและเวลารับ เช่น Hilton Sukhumvit 08:00",
+  "• สถานที่ที่จะไป (ต้องมีในรายการสถานที่) เช่น Grand Palace, Wat Pho",
+  "• ราคา เช่น THB 3,500 หรือ ราคา 3500 บาท",
+  "",
+  "<b>ใส่เพิ่มได้</b>",
+  "• จำนวนผู้ใหญ่/เด็ก เช่น 2 adults 1 child",
+  "• รถ เช่น SUV หรือ Van และจำนวนกระเป๋า",
+  "• ชื่อลูกค้า ภาษา (en/th/zh) และหมายเหตุ",
+  "",
+  "<b>ตัวอย่าง</b>",
+  "<code>/trip 12 Dec, 2 adults, Hilton Sukhumvit 08:00, Grand Palace, Wat Pho, Wat Arun, SUV, THB 3,500</code>",
+  "",
+  "สถานที่ที่ยังไม่มีในรายการ เพิ่มก่อนด้วย /place",
+].join("\n");
 export const PLACE_HELP = "เพิ่มสถานที่: <code>/place ชื่อสถานที่ | 09:00-17:00 | พื้นที่ | 90 นาที</code>\nใส่เป็นคำบรรยายรูปได้ (ส่งรูปพร้อมพิมพ์ /place …) หรือตอบกลับข้อความยืนยันของบอทด้วยรูปเพื่อเพิ่มรูป";

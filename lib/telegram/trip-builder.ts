@@ -13,7 +13,7 @@ import { itineraryPdf } from "@/lib/trip-itinerary-file";
 import { VEHICLES } from "@/lib/vehicles";
 import { esc } from "./cards";
 import { downloadFile, sendDocument, sendTo, tg, telegramChatId, type TelegramMessage } from "./client";
-import { MISSING_TH, PLACE_HELP, TRIP_HELP, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn } from "./trip-builder-rules";
+import { MISSING_TH, PLACE_HELP, TRIP_HELP, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, wantsTripGuide } from "./trip-builder-rules";
 
 // /trip and /place in the Admin group (team list only; the webhook checks that). /trip builds a smart trip from the
 // staff's text, sends it (freezes the version and makes the link) and posts the link and the PDF back to the Admin
@@ -66,7 +66,7 @@ export async function handleTripBuilder(m: TelegramMessage, member: { display_na
 
 async function buildTrip(details: string, m: TelegramMessage, member: { display_name: string }, reply: (t: string) => Promise<unknown>, deps: BuilderDeps) {
   const chatId = String(m.chat.id);
-  if (!details) { await reply(TRIP_HELP); return; }
+  if (wantsTripGuide(details)) { await reply(TRIP_HELP); return; } // "/trip", "/trip help", "/trip create a new trip"
   // The price comes from the staff's own words, before any AI: no clear price, no trip.
   const price = parseStaffPrice(details);
   if (!price.ok) {
