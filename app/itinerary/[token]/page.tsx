@@ -7,8 +7,8 @@ import { agencyApplications, smartTrips } from "@/db/schema";
 import { HighlightsCard } from "@/components/itinerary/highlights-card";
 import { InfoRow } from "@/components/itinerary/info-row";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
-import { MapsSheet } from "@/components/itinerary/maps-sheet";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
+import { TripMap, type MapPlace } from "@/components/itinerary/trip-map";
 import { StopPhoto } from "@/components/itinerary/stop-photo";
 import { TripGallery } from "@/components/itinerary/trip-gallery";
 import { ticketStops, tripHighlights, tripPhotos, withCurrentPhotos } from "@/lib/trip-photos";
@@ -75,6 +75,17 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const highlights = tripHighlights(allStops);
   const tickets = ticketStops(allStops);
   const highlightItems = [...new Set(highlights.flatMap((h) => h.items))];
+  // "View maps": a pin and card for each day's pickup and each place with a location (address from the attraction).
+  const mapPlaces: MapPlace[] = days.flatMap((d) => {
+    const s = d.snap, day = multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ` : "";
+    return [
+      ...(s.pickup ? [{ id: `pickup-${d.trip.id}`, kind: "pickup" as const, lat: s.pickup.lat, lng: s.pickup.lng, name: s.pickupText || w.hotelPickup, photo: null, subtitle: `${day}${w.departure} · ${s.startTime}`, detail: "" }] : []),
+      ...s.stops.filter((x) => !(s.liveSkipped ?? []).includes(x.id) && x.lat != null && x.lng != null).map((x) => {
+        const a = current[attractionOf[x.id] ?? ""];
+        return { id: `${d.trip.id}-${x.id}`, kind: "stop" as const, lat: x.lat!, lng: x.lng!, name: x.name, photo: x.cover ?? x.gallery[0] ?? null, subtitle: `${day}${w.mapAttraction}`, detail: a?.address || a?.area || "" };
+      }),
+    ];
+  });
   const tabs = [
     ...(highlightItems.length ? [{ id: "highlights", label: w.highlights }] : []), { id: "includes", label: w.tabIncludes },
     { id: "expect", label: w.tabExpect }, { id: "booking", label: w.tabBooking },
@@ -117,7 +128,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
             <li className="flex gap-3"><MapPin size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" />{fill(w.departureType, { type: w.hotelPickup })}</li>
             <li className="flex gap-3"><ShieldCheck size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" />{fill(w.freeCancelNotice, { hours: FULL_REFUND_HOURS })}</li>
           </ul>
-          <MapsSheet days={days.map((d) => ({ id: d.trip.id, label: multi ? fill(w.day, { n: d.trip.dayNumber }) : "", points: dayPoints(d.snap, w) }))} words={w} />
+          <TripMap places={mapPlaces} words={w} />
         </div>
       </section>
 
@@ -189,16 +200,6 @@ function WhatToExpect({ days, stops, w }: { days: { id: string; label: string; s
       {stops.map((x) => <li key={x.id} className="flex gap-3"><span aria-hidden className="mt-[11px] size-1.5 shrink-0 rounded-full bg-plum" />{x.description?.trim() || fill(w.visitPlace, { place: x.name })}</li>)}
     </ul>
   </>;
-}
-
-/** One day's map pins: pickup, each place with a location (numbered in visiting order), then the drop-off. */
-function dayPoints(s: TripSnapshot, w: TripWords) {
-  const stops = s.stops.filter((x) => !(s.liveSkipped ?? []).includes(x.id));
-  return [
-    ...(s.pickup ? [{ id: "pickup", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: s.pickupText, kind: "pickup" as const }] : []),
-    ...stops.filter((x) => x.lat != null && x.lng != null).map((x, i) => ({ id: x.id, lat: x.lat!, lng: x.lng!, label: String(i + 1), title: x.name, kind: "stop" as const })),
-    ...(s.end ? [{ id: "end", lat: s.end.lat, lng: s.end.lng, label: "E", title: s.endText, kind: "end" as const }] : s.pickup && stops.length ? [{ id: "back", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: w.backAtHotel, kind: "end" as const }] : []),
-  ];
 }
 
 /** One day as a timeline: departure, each place (name and photo) and the return, on one grey line. The route map is behind "View maps". */
