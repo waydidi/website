@@ -14,15 +14,6 @@ const LANGS: [TripLang, string][] = [["en", "English"], ["th", "ไทย"], ["z
 const box = "relative flex h-[54px] min-w-0 items-center rounded-2xl border-2 border-slate-200 bg-white";
 const select = "h-full w-full min-w-0 cursor-pointer appearance-none truncate rounded-2xl bg-transparent pl-6 pr-12 text-[17px] text-plum outline-none focus-visible:ring-2 focus-visible:ring-brand";
 
-/** The trip total in the customer's chosen currency; anything but THB is an estimate, so the THB charge shows under it. */
-export function ShownTotal({ thb, words }: { thb: number; words: TripWords }) {
-  const { currency, money } = useCurrency();
-  return <>
-    <p className="mt-1 text-[32px] font-black tracking-[-.03em]">{money(thb)}</p>
-    {currency !== "THB" && <p className="text-[13px] text-slate-500">{fill(words.chargedIn, { amount: `THB ${thb.toLocaleString("en-US")}` })}</p>}
-  </>;
-}
-
 /**
  * The end of the itinerary, like Klook's: language and currency boxes, Help, social icons, a round Share button
  * and the copyright line.

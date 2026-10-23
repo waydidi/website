@@ -156,7 +156,7 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await page.evaluate(() => window.scrollTo(0, 0));
 
   const tabs = page.getByRole("navigation", { name: "Trip sections" });
-  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Highlights", "What to expect", "Includes/Excludes", "Booking"]);
+  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Highlights", "What to expect", "Includes/Excludes"]);
 
   await tabs.getByRole("link", { name: "Includes/Excludes" }).click();
   const includes = page.locator("#includes");
@@ -203,37 +203,25 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await bar.getByRole("button", { name: "Ask for a change" }).click();
   await expect(page.getByRole("textbox", { name: "Your request" })).toBeInViewport();
   await page.getByRole("button", { name: "Back" }).click();
-  await tabs.getByRole("link", { name: "Booking" }).click();
-  await expect(page.locator("#booking")).toBeInViewport();
-  await expect(page.getByRole("button", { name: /Accept and pay/ })).toBeVisible();
+  await expect(tabs.getByRole("link", { name: "Booking" })).toHaveCount(0);
   // Every section runs full width: no rounded cards.
-  for (const id of ["highlights", "expect", "includes", "booking"]) expect(await page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).borderTopLeftRadius), id).toBe("0px");
+  for (const id of ["highlights", "expect", "includes"]) expect(await page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).borderTopLeftRadius), id).toBe("0px");
   if (process.env.SHOT_DIR) { await page.waitForTimeout(1000); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-end-${info.project.name}.png` }); }
 });
 
-test("under the total: language and currency boxes, Help, Share and the copyright line", async ({ page, context }, info) => {
+test("end of the page: language and currency boxes, Help, Share and the copyright line", async ({ page, context }, info) => {
   await page.goto(`/itinerary/${TOKEN}`);
-  const total = page.locator("#booking");
-  await expect(total.getByText("THB 7,200", { exact: true })).toBeVisible();
   const language = page.getByRole("combobox", { name: "Language" });
   const currency = page.getByRole("combobox", { name: "Currency" });
-  // Both boxes sit side by side, right after the total.
-  const [l, c, b] = [await language.boundingBox(), await currency.boundingBox(), await total.boundingBox()];
+  // Both boxes sit side by side.
+  const [l, c] = [await language.boundingBox(), await currency.boundingBox()];
   expect(Math.abs(l!.y - c!.y)).toBeLessThan(2);
   expect(l!.x).toBeLessThan(c!.x);
-  expect(l!.y).toBeGreaterThan(b!.y + b!.height);
   await expect(page.getByRole("link", { name: "Help", exact: true })).toHaveAttribute("href", "/help");
   await expect(page.getByText(`© ${new Date().getFullYear()} Waydidi Travel. All rights reserved.`)).toBeVisible();
   await expect(page.getByRole("button", { name: "Share this itinerary" })).toBeVisible();
   await language.scrollIntoViewIfNeeded();
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-page-tools-${info.project.name}.png` });
-
-  // Currency: the total turns into an estimate and the THB charge shows under it.
-  await currency.selectOption("USD");
-  await expect(total.getByText(/^USD [\d,]+\.\d{2}$/)).toBeVisible();
-  await expect(total.getByText("Charged in THB 7,200")).toBeVisible();
-  await currency.selectOption("THB");
-  await expect(total.getByText("THB 7,200", { exact: true })).toBeVisible();
 
   // Share copies the link where the phone's share sheet isn't available.
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
@@ -244,6 +232,6 @@ test("under the total: language and currency boxes, Help, Share and the copyrigh
   // Language: the whole page switches.
   await language.selectOption("th");
   await expect(page).toHaveURL(/\?lang=th$/);
-  await expect(page.getByRole("navigation", { name: "ส่วนต่างๆ ของทริป" }).getByRole("link", { name: "การจอง" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "ส่วนต่างๆ ของทริป" }).getByRole("link").first()).toBeVisible();
   await expect(page.getByRole("combobox", { name: "ภาษา" })).toHaveValue("th");
 });

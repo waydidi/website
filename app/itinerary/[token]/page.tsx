@@ -7,7 +7,7 @@ import { agencyApplications, smartTrips } from "@/db/schema";
 import { HighlightsCard } from "@/components/itinerary/highlights-card";
 import { InfoRow } from "@/components/itinerary/info-row";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
-import { PageTools, ShownTotal } from "@/components/itinerary/page-tools";
+import { PageTools } from "@/components/itinerary/page-tools";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
 import { TripMap, type MapPlace } from "@/components/itinerary/trip-map";
 import { StopPhoto } from "@/components/itinerary/stop-photo";
@@ -27,7 +27,6 @@ export const metadata: Metadata = { title: "Your itinerary · Waydidi", robots: 
 
 const hhmm = (min: number) => { const m = ((Math.round(min) % 1440) + 1440) % 1440; return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
 const longDate = (d: string | null, lang: string) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : "—");
-const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 
 /** Past trip date, or the price hold is over. */
 function quoteExpired(tripDate: string | null, sentAt: string | null, holdDays: number) {
@@ -94,7 +93,7 @@ export default async function ItineraryPage({ params, searchParams }: { params: 
   });
   const tabs = [
     ...(highlightItems.length ? [{ id: "highlights", label: w.highlights }] : []), { id: "expect", label: w.tabExpect },
-    { id: "includes", label: w.tabIncludes }, { id: "booking", label: w.tabBooking },
+    { id: "includes", label: w.tabIncludes }
   ];
   const lastReturn = hhmm(days.at(-1)!.snap.returnAt);
   const dressCodes = [...new Map(allStops.filter((x) => x.dressCode).map((x) => [x.dressCode!, x.name])).entries()];
@@ -176,18 +175,8 @@ export default async function ItineraryPage({ params, searchParams }: { params: 
         </div>
       </section>
 
-      <section id="booking" className={card}>
-        <p className="text-[15px] text-slate-600">{w.totalFor}</p>
-        <ShownTotal thb={total} words={w} />
-        <dl className="mt-3 grid gap-2 border-t border-slate-100 pt-3 text-[15px]">
-          {multi ? days.map((d) => <div key={d.trip.id} className="flex justify-between"><dt className="text-slate-600">{fill(w.day, { n: d.trip.dayNumber })}</dt><dd>{thb(d.snap.total)}</dd></div>) : <>
-            <div className="flex justify-between gap-3"><dt className="text-slate-600">{w.transport}</dt><dd>{thb(s.transportPrice)}</dd></div>
-            {s.feesIncluded > 0 && <div className="flex justify-between gap-3"><dt className="text-slate-600">{w.tickets}</dt><dd>{thb(s.feesIncluded)}</dd></div>}
-            {s.discount > 0 && <div className="flex justify-between gap-3 text-emerald-700"><dt>{w.discount}</dt><dd>−{thb(s.discount)}</dd></div>}
-          </>}
-          {sum((x) => x.feesOnSite) > 0 && <p className="text-[13px] text-slate-500">{fill(w.plusFees, { amount: thb(sum((x) => x.feesOnSite)) })}</p>}
-        </dl>
-        <div className="mt-5">
+      <section className={card}>
+        <div>
           {paid ? null : expired ? <p className="rounded-xl bg-slate-50 p-4 text-[15px] text-slate-700">{w.expired}</p>
             : <ItineraryActions token={leadToken} total={total} name={trip.customerName ?? ""} email={trip.customerEmail ?? ""} phone={trip.customerPhone ?? ""} words={w} />}
         </div>
