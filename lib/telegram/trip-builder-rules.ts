@@ -129,6 +129,16 @@ export function wantsTripGuide(details: string): boolean {
   return !text || /^((help|how|guide)\b|\?|วิธี|ช่วย|คู่มือ)/i.test(text) || !/[0-9\u0E50-\u0E59]/.test(text);
 }
 
+/**
+ * The text the AI reads for a /trip: the customer chat staff replied to (pasted or forwarded into the group), with the
+ * staff's own /trip line as a note; or just the /trip line. The price never comes from here: it is read from the staff's
+ * /trip line alone (parseStaffPrice), so a price the customer mentioned is never used.
+ */
+export function tripText(staffLine: string, repliedChat: string): string {
+  const chat = repliedChat.trim();
+  return chat ? `${chat}\n\n(Staff note: ${staffLine.trim() || "none"})` : staffLine.trim();
+}
+
 /** What staff need to type after /trip (Thai, for the Admin group). */
 export const TRIP_HELP = [
   "📝 <b>วิธีสร้างทริปผ่าน Telegram</b>",
@@ -147,6 +157,9 @@ export const TRIP_HELP = [
   "",
   "<b>ตัวอย่าง</b>",
   "<code>/trip 12 Dec, 2 adults, Hilton Sukhumvit 08:00, Grand Palace, Wat Pho, Wat Arun, SUV, THB 3,500</code>",
+  "",
+  "<b>หรือวางแชตลูกค้า</b>",
+  "วางหรือส่งต่อแชตของลูกค้าในกลุ่ม แล้วกดตอบกลับข้อความนั้นด้วย <code>/trip THB 3,500</code> บอทจะอ่านรายละเอียดจากแชต (ราคาต้องพิมพ์เองในบรรทัด /trip เสมอ)",
   "",
   "สถานที่ที่ยังไม่มีในรายการ เพิ่มก่อนด้วย /place",
 ].join("\n");

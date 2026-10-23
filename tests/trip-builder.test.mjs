@@ -45,7 +45,7 @@ const today = '2026-10-22';
 const plan = (over = {}) => JSON.stringify({ title: 'Bangkok temples', area: 'Bangkok', date: '2026-12-12', startTime: '08:00', hours: 6, adults: 2, children: 0, bags: 1,
   pickup: 'Hilton Sukhumvit', customerName: 'Jane', language: 'en', notes: '', suggested: false,
   stops: [{ placeId: 'grand-palace', name: 'Grand Palace', priority: 'must' }, { placeId: 'wat-pho', name: 'Wat Pho', priority: 'must' }], ...over });
-function model(answer = plan()) { const m = { calls: 0, call: async () => { m.calls++; return answer; } }; return m; }
+function model(answer = plan()) { const m = { calls: 0, prompts: [], call: async (_system, user) => { m.calls++; m.prompts.push(user); return answer; } }; return m; }
 const anna = { display_name: 'Anna' };
 let msg = 1000;
 const message = (text, extra = {}) => ({ message_id: ++msg, chat: { id: Number(ADMIN), type: 'supergroup' }, from: { id: 42, first_name: 'Anna' }, text, ...extra });
@@ -172,4 +172,28 @@ test('/place with a shorter name adds the photo to the place trips already use, 
   await tb.handleTripBuilder(message(undefined, { caption: '/place Wat Arun', photo: [{ file_id: 'arun2', file_unique_id: 'u-arun2', width: 800, height: 600 }] }), anna, deps(model()));
   assert.equal(JSON.parse((await d1.prepare("SELECT gallery_json FROM attractions WHERE id='wat-arun-old'").first()).gallery_json).length, 1);
   assert.equal((await d1.prepare("SELECT cover_image FROM attractions WHERE id='wat-arun-dup'").first()).cover_image, null);
+});
+
+test('paste a chat: /trip sent as a reply to the customer chat reads the chat; the price comes only from the staff line', async () => {
+  const chat = message('Customer (LINE): Hi! We are 2 adults, 12 Dec, please pick us up at Hilton Sukhumvit 08:00. We want Grand Palace and Wat Pho. Our budget is THB 9,999.', { from: { id: 42, first_name: 'Anna' } });
+  const m = model(), before = (await trips()).length;
+  await tb.handleTripBuilder(message('/trip THB 3,500', { reply_to_message: chat }), anna, deps(m));
+  assert.equal(m.calls, 1);
+  assert.match(m.prompts[0], /pick us up at Hilton Sukhumvit 08:00[\s\S]*Staff note: THB 3,500/, 'the AI reads the customer chat');
+  const all = await trips();
+  assert.equal(all.length, before + 1);
+  assert.equal(all.at(-1).transport_price, 3500, "the staff's price, never the customer's 9,999");
+
+  // No price on the staff line: nothing is created and the model is not asked, even though the chat mentions one.
+  const m2 = model();
+  await tb.handleTripBuilder(message('/trip', { reply_to_message: chat }), anna, deps(m2));
+  assert.match(replies().at(-1), /ใส่ราคาด้วย[\s\S]*\/trip THB 3,500[\s\S]*ไม่อ่านจากแชตลูกค้า/);
+  assert.equal(m2.calls, 0);
+  assert.equal((await trips()).length, before + 1);
+
+  // Replying to one of the bot's own messages is not a customer chat: plain /trip still shows the guide.
+  const botMessage = message('ยังไม่ได้สร้างทริป', { from: { id: 7, first_name: 'Waydidi Bot', is_bot: true } });
+  await tb.handleTripBuilder(message('/trip', { reply_to_message: botMessage }), anna, deps(m2));
+  assert.match(replies().at(-1), /วิธีสร้างทริปผ่าน Telegram[\s\S]*หรือวางแชตลูกค้า/);
+  assert.equal(m2.calls, 0);
 });

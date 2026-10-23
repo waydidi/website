@@ -94,3 +94,9 @@ test('"/trip create a new trip" and other text with no date, time or price asks 
   for (const trip of ['12 Dec, Hilton 08:00, Grand Palace, THB 3,500', 'tomorrow Hilton 8am Grand Palace 3500 baht', '๑๒ ธ.ค. รับ Hilton', 'Helping hands tour 12 Dec THB 2,000']) assert.equal(r.wantsTripGuide(trip), false, trip);
   for (const line of ['วันที่', 'จุดรับและเวลารับ', 'สถานที่ที่จะไป', 'ราคา', '/trip 12 Dec', '/place']) assert.ok(r.TRIP_HELP.includes(line), line);
 });
+
+test('paste a chat: the AI reads the replied chat with the staff line as a note; without a chat, just the staff line', () => {
+  assert.equal(r.tripText('THB 3,500', '  Hi, 2 adults on 12 Dec  '), 'Hi, 2 adults on 12 Dec\n\n(Staff note: THB 3,500)');
+  assert.equal(r.tripText('12 Dec, Grand Palace, THB 3,000', ''), '12 Dec, Grand Palace, THB 3,000');
+  assert.equal(r.tripText('', 'Hi'), 'Hi\n\n(Staff note: none)');
+});
