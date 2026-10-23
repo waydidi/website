@@ -87,8 +87,8 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
     ];
   });
   const tabs = [
-    ...(highlightItems.length ? [{ id: "highlights", label: w.highlights }] : []), { id: "includes", label: w.tabIncludes },
-    { id: "expect", label: w.tabExpect }, { id: "booking", label: w.tabBooking },
+    ...(highlightItems.length ? [{ id: "highlights", label: w.highlights }] : []), { id: "expect", label: w.tabExpect },
+    { id: "includes", label: w.tabIncludes }, { id: "booking", label: w.tabBooking },
   ];
   const lastReturn = hhmm(days.at(-1)!.snap.returnAt);
   const dressCodes = [...new Map(allStops.filter((x) => x.dressCode).map((x) => [x.dressCode!, x.name])).entries()];
@@ -132,6 +132,16 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
         </div>
       </section>
 
+      <section id="expect" className={card}>
+        <h2 className={heading}>{w.tabExpect}</h2>
+        <WhatToExpect days={days.map((d) => ({ id: d.trip.id, label: multi ? fill(w.day, { n: d.trip.dayNumber }) : "", s: d.snap }))} stops={allStops} w={w} />
+        <h3 className="mt-8 text-[20px] font-bold">{w.itineraryHeading}</h3>
+        <div className="mt-5 grid gap-8">
+          {multi && <nav aria-label="Days" className="flex gap-2 overflow-x-auto">{days.map((d) => <a key={d.trip.id} href={`#day-${d.trip.dayNumber}`} className="shrink-0 rounded-full border border-slate-200 px-4 py-2 text-[14px] font-semibold hover:border-brand">{fill(w.day, { n: d.trip.dayNumber })} · {d.snap.tripDate ? new Date(`${d.snap.tripDate}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { day: "numeric", month: "short", timeZone: "UTC" }) : ""}</a>)}</nav>}
+          {days.map((d) => <DayTimeline key={d.trip.id} s={d.snap} w={w} title={multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ${longDate(d.snap.tripDate, lang)}` : undefined} id={multi ? `day-${d.trip.dayNumber}` : undefined} />)}
+        </div>
+      </section>
+
       <section id="includes" className={card}>
         <h2 className={heading}>{w.included}</h2>
         <ul className="mt-4 grid gap-3 text-[16px]">
@@ -156,16 +166,6 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
           <InfoRow title={w.accHow} closeLabel={w.closeLabel}>
             <ol className="grid list-decimal gap-1.5 pl-5">{[w.howStep1, w.howStep2, w.howStep3].map((x) => <li key={x}>{x}</li>)}</ol>
           </InfoRow>
-        </div>
-      </section>
-
-      <section id="expect" className={card}>
-        <h2 className={heading}>{w.tabExpect}</h2>
-        <WhatToExpect days={days.map((d) => ({ id: d.trip.id, label: multi ? fill(w.day, { n: d.trip.dayNumber }) : "", s: d.snap }))} stops={allStops} w={w} />
-        <h3 className="mt-8 text-[20px] font-bold">{w.itineraryHeading}</h3>
-        <div className="mt-5 grid gap-8">
-          {multi && <nav aria-label="Days" className="flex gap-2 overflow-x-auto">{days.map((d) => <a key={d.trip.id} href={`#day-${d.trip.dayNumber}`} className="shrink-0 rounded-full border border-slate-200 px-4 py-2 text-[14px] font-semibold hover:border-brand">{fill(w.day, { n: d.trip.dayNumber })} · {d.snap.tripDate ? new Date(`${d.snap.tripDate}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { day: "numeric", month: "short", timeZone: "UTC" }) : ""}</a>)}</nav>}
-          {days.map((d) => <DayTimeline key={d.trip.id} s={d.snap} w={w} title={multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ${longDate(d.snap.tripDate, lang)}` : undefined} id={multi ? `day-${d.trip.dayNumber}` : undefined} />)}
         </div>
       </section>
 
