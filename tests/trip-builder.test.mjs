@@ -49,7 +49,7 @@ function model(answer = plan()) { const m = { calls: 0, prompts: [], call: async
 const anna = { display_name: 'Anna' };
 let msg = 1000;
 const message = (text, extra = {}) => ({ message_id: ++msg, chat: { id: Number(ADMIN), type: 'supergroup' }, from: { id: 42, first_name: 'Anna' }, text, ...extra });
-const deps = (m, place = async () => ({ lat: 13.74, lng: 100.55, hours: null })) => ({ call: m.call, locate: async () => ({ lat: 13.74, lng: 100.55 }), place, today });
+const deps = (m, place = async () => ({ lat: 13.74, lng: 100.55, hours: null }), rate = async () => null) => ({ call: m.call, locate: async () => ({ lat: 13.74, lng: 100.55 }), place, rate, today });
 const trips = async () => (await d1.prepare('SELECT * FROM smart_trips ORDER BY created_at').all()).results;
 
 test('a typed trip is built, sent and posted back with its link and PDF; the customer is not messaged', async () => {
@@ -86,38 +86,73 @@ test('"/trip create a new trip" replies with the guide: nothing is created and t
   const m = model(), before = (await trips()).length;
   for (const text of ['/trip create a new trip', '/trip', '/trip help']) {
     await tb.handleTripBuilder(message(text), anna, deps(m));
-    assert.match(replies().at(-1), /วิธีสร้างทริปผ่าน Telegram[\s\S]*ต้องมี[\s\S]*ราคา[\s\S]*<code>\/trip 12 Dec/, text);
+    assert.match(replies().at(-1), /วิธีสร้างทริปผ่าน Telegram[\s\S]*ต้องมี[\s\S]*วันที่[\s\S]*สถานที่ที่จะไป[\s\S]*<code>\/trip Big Buddha/, text);
   }
   assert.equal(m.calls, 0);
   assert.equal((await trips()).length, before);
 });
 
-test('no price, or two prices and neither labelled: nothing is created and the model is not asked', async () => {
-  const m = model(), before = (await trips()).length;
-  await tb.handleTripBuilder(message('/trip 12 Dec, Grand Palace, Wat Pho, SUV'), anna, deps(m));
-  assert.match(replies().at(-1), /ใส่ราคาด้วย/);
+test('no price typed: the hourly rate for the car and hours is the price; two unclear prices: nothing is created', async () => {
+  const before = (await trips()).length;
+  const rates = [];
+  await tb.handleTripBuilder(message('/trip 12 Dec, Grand Palace, Wat Pho, SUV'), anna, deps(model(), undefined, async (city, hours, vehicle) => { rates.push([city, hours, vehicle]); return 4200; }));
+  const t = (await trips()).at(-1);
+  assert.equal((await trips()).length, before + 1);
+  assert.deepEqual([t.status, t.transport_price], ['sent', 4200]);
+  assert.deepEqual(rates, [['Hilton Sukhumvit', 6, 'comfort_suv']], 'the pickup decides the city; the day is 6 hours');
+  assert.match(replies().join('\n'), /ราคารถตามเรทรายชั่วโมง แก้ได้ที่ Admin/);
+
+  const m = model();
   await tb.handleTripBuilder(message('/trip 12 Dec, Grand Palace, car THB 3,000, tickets THB 1,000'), anna, deps(m));
   assert.match(replies().at(-1), /พบหลายราคา/);
-  assert.equal(m.calls, 0);
-  assert.equal((await trips()).length, before);
+  assert.equal(m.calls, 0, 'the AI is not asked');
+  assert.equal((await trips()).length, before + 1);
 });
 
-test('a place not in the attractions list stops the trip and explains /place', async () => {
-  const m = model(plan({ stops: [{ placeId: 'grand-palace', name: 'Grand Palace' }, { placeId: null, name: 'Wat Saket' }] })), before = (await trips()).length;
-  await tb.handleTripBuilder(message('/trip 12 Dec, Grand Palace, Wat Saket, THB 3,000'), anna, deps(m));
-  assert.equal((await trips()).length, before);
-  assert.match(replies().at(-1), /ไม่พบสถานที่เหล่านี้[\s\S]*Wat Saket[\s\S]*\/place/);
+test('no price and no hourly rate for the area: the trip is kept as a draft and staff are asked to set the price', async () => {
+  await tb.handleTripBuilder(message('/trip 12 Dec, Grand Palace, Wat Pho'), anna, deps(model()));
+  const t = (await trips()).at(-1);
+  assert.deepEqual([t.status, t.transport_price, t.snapshot_json], ['draft', 0, null], 'not sent, no link frozen for the customer');
+  assert.match(replies().at(-1), new RegExp(`ยังไม่ได้ส่ง: ไม่มีเรทรายชั่วโมง[\\s\\S]*/admin/trips/${t.id}`));
 });
 
-test('missing date or pickup, suggested places, or a car too small: nothing is created', async () => {
+test('a place not in the attractions list is added from Google Maps; one Google cannot find is left out and listed', async () => {
+  const lookups = [];
+  const google = async (q) => { lookups.push(q); return q.startsWith('Lumphini Park') ? { lat: 13.73, lng: 100.54, hours: { openTime: '04:30', closeTime: '21:00', closedDays: [], varies: false } } : null; };
+  const m = model(plan({ stops: [{ placeId: 'grand-palace', name: 'Grand Palace' }, { placeId: null, name: 'Lumphini Park' }, { placeId: null, name: 'Nowhere Cafe' }] }));
+  await tb.handleTripBuilder(message('/trip 12 Dec, Grand Palace, Lumphini Park, Nowhere Cafe, THB 3,000'), anna, deps(m, google));
+  const park = await d1.prepare("SELECT * FROM attractions WHERE name='Lumphini Park'").first();
+  assert.deepEqual([park.open_time, park.close_time, park.latitude], ['04:30', '21:00', 13.73]);
+  assert.match(park.internal_notes, /Added from Telegram \(\/trip\); opening hours from Google Maps/);
+  const t = (await trips()).at(-1);
+  assert.deepEqual(JSON.parse(t.stops_json).map((x) => [x.name, x.attractionId ?? null]), [['Grand Palace', 'grand-palace'], ['Lumphini Park', park.id]]);
+  const text = replies().join('\n');
+  assert.match(text, /เพิ่มสถานที่ใหม่จาก Google Maps: Lumphini Park/);
+  assert.match(text, /ไม่พบใน Google Maps \(ไม่ได้ใส่ในทริป\): Nowhere Cafe/);
+  assert.deepEqual(lookups, ['Lumphini Park, Bangkok', 'Nowhere Cafe, Bangkok']);
+
+  // Sent again later: the park is now in the list and is not added twice.
+  const again = model(plan({ stops: [{ placeId: null, name: 'Lumphini Park' }] }));
+  await tb.handleTripBuilder(message('/trip 13 Dec, Lumphini Park, THB 2,000'), anna, deps(again, google));
+  assert.equal((await d1.prepare("SELECT COUNT(*) n FROM attractions WHERE name='Lumphini Park'").first()).n, 1);
+});
+
+test('missing date, suggested places, or a car too small: nothing is created; no pickup is fine', async () => {
   const before = (await trips()).length;
   await tb.handleTripBuilder(message('/trip Grand Palace, Wat Pho, THB 3,000'), anna, deps(model(plan({ date: null, pickup: null }))));
-  assert.match(replies().at(-1), /ขาดวันที่, จุดรับ/);
+  assert.equal(replies().at(-1).split('\n')[0], '⚠️ ยังไม่ได้สร้างทริป: ขาดวันที่', 'only the date is missing; the pickup is not required');
   await tb.handleTripBuilder(message('/trip temples tomorrow, THB 3,000'), anna, deps(model(plan({ suggested: true }))));
   assert.match(replies().at(-1), /ระบุชื่อสถานที่/);
   await tb.handleTripBuilder(message('/trip 6 adults, sedan, Grand Palace, THB 3,000'), anna, deps(model(plan({ adults: 6 }))));
   assert.match(replies().at(-1), /Economy sedan นั่งได้ 2 คน/);
   assert.equal((await trips()).length, before);
+
+  // Free form with no hotel: the trip is built and says the pickup is still to be confirmed.
+  await tb.handleTripBuilder(message('/trip Grand Palace, Wat Pho 12 Dec 2026, 2 people, THB 3,000'), anna, deps(model(plan({ pickup: null, customerName: null }))));
+  const t = (await trips()).at(-1);
+  assert.equal((await trips()).length, before + 1);
+  assert.deepEqual([t.status, t.pickup_text, t.pickup_lat], ['sent', '', null]);
+  assert.match(replies().join('\n'), /จุดรับ: รอยืนยัน/);
 });
 
 test('only the Telegram team, only the Admin group, only when switched on', async () => {
@@ -238,16 +273,92 @@ test('paste a chat: /trip sent as a reply to the customer chat reads the chat; t
   assert.equal(all.length, before + 1);
   assert.equal(all.at(-1).transport_price, 3500, "the staff's price, never the customer's 9,999");
 
-  // No price on the staff line: nothing is created and the model is not asked, even though the chat mentions one.
+  // No price on the staff line: the hourly rate is used, never the price the customer mentioned in the chat.
   const m2 = model();
-  await tb.handleTripBuilder(message('/trip', { reply_to_message: chat }), anna, deps(m2));
-  assert.match(replies().at(-1), /ใส่ราคาด้วย[\s\S]*\/trip THB 3,500[\s\S]*ไม่อ่านจากแชตลูกค้า/);
-  assert.equal(m2.calls, 0);
-  assert.equal((await trips()).length, before + 1);
+  await tb.handleTripBuilder(message('/trip', { reply_to_message: chat }), anna, deps(m2, undefined, async () => 4200));
+  assert.equal(m2.calls, 1);
+  const latest = await trips();
+  assert.equal(latest.length, before + 2);
+  assert.equal(latest.at(-1).transport_price, 4200, "the hourly rate, never the customer's 9,999");
 
   // Replying to one of the bot's own messages is not a customer chat: plain /trip still shows the guide.
   const botMessage = message('ยังไม่ได้สร้างทริป', { from: { id: 7, first_name: 'Waydidi Bot', is_bot: true } });
-  await tb.handleTripBuilder(message('/trip', { reply_to_message: botMessage }), anna, deps(m2));
+  const m3 = model();
+  await tb.handleTripBuilder(message('/trip', { reply_to_message: botMessage }), anna, deps(m3));
   assert.match(replies().at(-1), /วิธีสร้างทริปผ่าน Telegram[\s\S]*หรือวางแชตลูกค้า/);
-  assert.equal(m2.calls, 0);
+  assert.equal(m3.calls, 0);
+});
+
+test('a place with packages: staff choose the package in Telegram first, then the trip is built with it; one tap per question', async () => {
+  const programs = [
+    { id: 'morning', name: 'Half-day morning', durationMin: 240, arrivalBufferMin: 0, feeAdult: 3000, feeChild: 1500, feeIncluded: true, bookingRequired: true, sessions: [{ time: '09:00' }] },
+    { id: 'full', name: 'Full day', durationMin: 420, arrivalBufferMin: 0, feeAdult: 5000, feeChild: 2500, feeIncluded: true, bookingRequired: true, sessions: [] },
+  ];
+  await d1.prepare("INSERT INTO attractions(id,name,area,latitude,longitude,duration_min,open_time,close_time,booking_required,programs_json,status,created_at,updated_at) VALUES('pes','Phuket Elephant Sanctuary','Bangkok',13.76,100.5,240,'08:00','18:00',1,?,'active',?,?)")
+    .bind(JSON.stringify(programs), now, now).run();
+  const before = (await trips()).length;
+  const m = model(plan({ stops: [{ placeId: 'pes', name: 'Phuket Elephant Sanctuary', priority: 'must' }, { placeId: 'wat-pho', name: 'Wat Pho', priority: 'must' }] }));
+  await tb.handleTripBuilder(message('/trip 12 Dec, Elephant Sanctuary, Wat Pho, THB 3,500'), anna, deps(m));
+  assert.equal((await trips()).length, before, 'nothing is built before the package is chosen');
+  const question = sent.findLast((x) => x.method === 'sendMessage');
+  assert.match(question.body.text, /Phuket Elephant Sanctuary<\/b> มีแพ็กเกจ เลือกแพ็กเกจสำหรับทริปนี้ \(1\/1\)/);
+  const buttons = question.body.reply_markup.inline_keyboard.map((row) => row[0]);
+  assert.deepEqual(buttons.map((b) => b.text), ['Half-day morning 09:00 · 4 ชม. · 3,000 บาท/คน', 'Full day · 7 ชม. · 5,000 บาท/คน', 'เข้าชมทั่วไป (ไม่ใช้แพ็กเกจ)']);
+  const questionId = nextId - 1;
+  const tap = (data, id = 'cb') => tb.handleTripPackageChoice({ id, data, message: { message_id: questionId, chat: { id: Number(ADMIN) } } }, anna, deps(m));
+
+  await tap(buttons[0].callback_data, 'cb1');
+  const t = (await trips()).at(-1);
+  assert.equal((await trips()).length, before + 1);
+  const stop = JSON.parse(t.stops_json).find((x) => x.attractionId === 'pes');
+  assert.deepEqual([stop.programId, stop.sessionTime, stop.priority, stop.durationMin], ['morning', '09:00', 'fixed', 240]);
+  assert.equal(t.total, 3500 + 2 * 3000, 'the package price for 2 adults is in the total');
+  assert.match(sent.find((x) => x.method === 'editMessageText').body.text, /Phuket Elephant Sanctuary<\/b>: Half-day morning 09:00/);
+
+  // The same button tapped again (or by a second person at once): nothing more is built.
+  await tap(buttons[1].callback_data, 'cb2');
+  assert.equal((await trips()).length, before + 1);
+  assert.match(sent.findLast((x) => x.method === 'answerCallbackQuery').body.text, /ไม่พบทริปนี้|เลือกไปแล้ว/);
+});
+
+test('package questions expire after two days; a forged choice is refused', async () => {
+  const m = model(plan({ stops: [{ placeId: 'pes', name: 'Phuket Elephant Sanctuary', priority: 'must' }] }));
+  await tb.handleTripBuilder(message('/trip 12 Dec, Elephant Sanctuary, THB 3,500'), anna, deps(m));
+  const buttons = sent.findLast((x) => x.method === 'sendMessage').body.reply_markup.inline_keyboard.map((row) => row[0]);
+  const id = buttons[0].callback_data.split(':')[1];
+  const before = (await trips()).length;
+  await tb.handleTripPackageChoice({ id: 'f1', data: `tp_pkg:${id}:0.9` }, anna, deps(m));
+  assert.match(sent.findLast((x) => x.method === 'answerCallbackQuery').body.text, /ใช้ไม่ได้แล้ว/);
+  await d1.prepare('UPDATE telegram_trip_pending SET created_at=? WHERE id=?').bind(new Date(Date.now() - 49 * 3600_000).toISOString(), id).run();
+  await tb.handleTripPackageChoice({ id: 'f2', data: buttons[2].callback_data }, anna, deps(m));
+  assert.match(sent.findLast((x) => x.method === 'answerCallbackQuery').body.text, /หมดเวลา/);
+  assert.equal((await trips()).length, before);
+});
+
+test('TRIP_MULTIDAY=1: places that need more than a day become several days; the typed price is shared and adds up', async () => {
+  // Seven 3-hour places: 21 hours on site, so three days of at most 12 hours.
+  const names = ['Big Buddha', 'Phuket Old Town', 'Wat Chalong', 'Bangla Road', 'Promthep Cape', 'Patong Beach', 'Kata Beach'];
+  for (const [i, n] of names.entries())
+    await d1.prepare("INSERT INTO attractions(id,name,area,latitude,longitude,duration_min,open_time,close_time,status,created_at,updated_at) VALUES(?,?,'Phuket',?,98.3,180,'00:00','23:59','active',?,?)").bind(`pk${i}`, n, 7.8 + i * 0.01, now, now).run();
+  const stops = names.map((n, i) => ({ placeId: `pk${i}`, name: n, priority: 'must' }));
+  const freeForm = model(plan({ area: 'Phuket', date: '2026-11-29', pickup: null, customerName: null, hours: null, stops }));
+  const before = (await trips()).length;
+
+  globalThis.__tbEnv.TRIP_MULTIDAY = '';
+  await tb.handleTripBuilder(message('/trip Big Buddha, Phuket Old Town, Wat Chalong, Bangla Road, Promthep Cape, Patong Beach, Kata Beach 29 Nov 2026, 2 people THB 9,000'), anna, deps(freeForm));
+  assert.equal((await trips()).length, before + 1, 'switched off: one day, as before');
+
+  globalThis.__tbEnv.TRIP_MULTIDAY = '1';
+  await tb.handleTripBuilder(message('/trip Big Buddha, Phuket Old Town, Wat Chalong, Bangla Road, Promthep Cape, Patong Beach, Kata Beach 29 Nov 2026, 2 people THB 9,000'), anna, deps(freeForm));
+  const lead = await d1.prepare('SELECT * FROM smart_trips WHERE day_number=1 AND group_id=id ORDER BY created_at DESC LIMIT 1').first();
+  const days = (await d1.prepare('SELECT * FROM smart_trips WHERE group_id=? ORDER BY day_number').bind(lead.id).all()).results;
+  assert.equal(days.length, 3);
+  assert.deepEqual(days.map((d) => d.trip_date), ['2026-11-29', '2026-11-30', '2026-12-01']);
+  assert.equal(days.reduce((n, d) => n + d.transport_price, 0), 9000, 'the typed price is shared and adds up');
+  assert.ok(days.every((d) => d.status === 'sent' && d.duration_hours <= 12));
+  assert.equal(days.flatMap((d) => JSON.parse(d.stops_json)).length, 7, 'every place once');
+  const text = replies().join('\n');
+  assert.match(text, /\(3 วัน\)[\s\S]*วันที่ 1 \(29 พ\.ย\. 2569\)[\s\S]*วันที่ 3 \(1 ธ\.ค\. 2569\)/);
+  assert.match(text, /จุดรับ: รอยืนยัน/);
+  globalThis.__tbEnv.TRIP_MULTIDAY = '';
 });

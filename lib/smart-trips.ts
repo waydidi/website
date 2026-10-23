@@ -296,8 +296,9 @@ export async function addDay(trip: TripRow, by: { name: string; agencyId?: strin
  * The transport price and the discount are shared across the days by each day's hourly rate for its hours (the
  * price staff set covers the whole trip; tickets are added on the day they are used), so the shares add up exactly.
  * Null when the places already fit one day, or the trip is already split (a second click at the same time loses).
+ * `options.days` is the number of days the customer asked for; `options.pinned` keeps a stop on a day (0 is day 1).
  */
-export async function splitTrip(trip: TripRow, by: { name: string }) {
+export async function splitTrip(trip: TripRow, by: { name: string }, options: { days?: number | null; pinned?: Record<string, number> } = {}) {
   // Claim the trip first: only one request can turn it into a group.
   const claimed = await getDb().update(smartTrips).set({ groupId: trip.id }).where(and(eq(smartTrips.id, trip.id), isNull(smartTrips.groupId))).returning({ id: smartTrips.id });
   if (!claimed.length) return null;
@@ -306,7 +307,7 @@ export async function splitTrip(trip: TripRow, by: { name: string }) {
     const input = inputFromRow(trip);
     const { planInput } = await planFor(input);
     const { startMin, from, end, attractions, travel } = planInput;
-    const split = splitIntoDays(input.stops as TripStop[], { startMin, from, end, attractions, travel, startDate: input.tripDate ?? null, hours: input.durationHours });
+    const split = splitIntoDays(input.stops as TripStop[], { startMin, from, end, attractions, travel, startDate: input.tripDate ?? null, hours: input.durationHours }, options);
     if (split.days.length < 2) throw new Error("FITS");
     const weights = await Promise.all(split.days.map(async (d) => (await suggestedTransport(input.pickupText, d.hours, input.vehicle))?.total ?? d.hours));
     const transport = shareByWeight(input.transportPrice, weights), discount = shareByWeight(input.discount, weights);

@@ -15,7 +15,7 @@ import { driverGroup, handleDriverCallback, handleDriverGroupMessage, handleDriv
 import { isDriverGroupChat } from "@/lib/telegram/driver-group-rules";
 import { answerPhotoLocation, isLocationQuestion } from "@/lib/telegram/photo-location";
 import { postJobCompleted } from "@/lib/telegram/trip-photos";
-import { handlePlacePhotoReply, handleTripBuilder } from "@/lib/telegram/trip-builder";
+import { handlePlacePhotoReply, handleTripBuilder, handleTripPackageChoice } from "@/lib/telegram/trip-builder";
 import { verifyTripCompletion } from "@/lib/trip-completion";
 import { acknowledgeEdit, approveChange, cancelBookingFromTelegram, declineChange, editKeepDriver, editNewDriver, keepBooking } from "@/lib/telegram/booking-changes";
 import { postCallbackAllowed, postCommandRoute } from "@/lib/post-helper-rules";
@@ -83,6 +83,8 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   if (!admin) return answerCallback(q.id, `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: ${q.from.id}`, true);
   const [action, target, extra] = (q.data ?? "").split(":");
   if (!target || target.length > 60) return answerCallback(q.id, "Unknown action.");
+  // A package choice under a /trip question (the team member is checked above).
+  if (action === "tp_pkg") return handleTripPackageChoice(q, admin);
   const who = { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(q.from.id) };
 
   if (action === "trip_done") {

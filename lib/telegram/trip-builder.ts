@@ -2,19 +2,21 @@ import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { attractions } from "@/db/schema";
-import { attractionSchema, listAttractions, saveAttraction } from "@/lib/attractions";
+import { attractionSchema, attractionsById, listAttractions, saveAttraction } from "@/lib/attractions";
 import { findPlace } from "@/lib/cee/quotes";
 import { MAX_GALLERY_PHOTOS } from "@/lib/place-taxonomy";
 import { putFile } from "@/lib/file-store";
 import { publicSiteUrl } from "@/lib/site";
-import { getTrip, groupDays, saveTrip, sendTripDays, tripSchema, tripSnapshot, type TripInput } from "@/lib/smart-trips";
+import { HOURLY_MIN_HOURS } from "@/lib/hourly-area-pricing";
+import { getTrip, groupDays, inputFromRow, planFor, saveTrip, sendTripDays, splitTrip, suggestedTransport, tripSchema, tripSnapshot, type TripInput } from "@/lib/smart-trips";
 import type { PlaceOption } from "@/lib/trip-chat-rules";
 import { chatPlanConfigured, draftFromChat, type ModelCall } from "@/lib/trip-from-chat";
 import { itineraryPdf } from "@/lib/trip-itinerary-file";
+import { MAX_DAY_HOURS } from "@/lib/trip-split";
 import { VEHICLES } from "@/lib/vehicles";
 import { esc } from "./cards";
-import { downloadFile, sendDocument, sendTo, tg, telegramChatId, type TelegramMessage } from "./client";
-import { MISSING_TH, PLACE_HELP, TRIP_HELP, hoursFromGoogle, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, tripText, wantsTripGuide, placeHoursLineTh, type GooglePeriod, type PlaceHours } from "./trip-builder-rules";
+import { downloadFile, sendDocument, sendTo, tg, telegramChatId, type InlineKeyboard, type TelegramMessage } from "./client";
+import { BLOCKING, MISSING_TH, PLACE_HELP, TRIP_HELP, hoursFromGoogle, packageOptions, tripMultidayOn, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, tripText, wantsTripGuide, placeHoursLineTh, type GooglePeriod, type PlaceHours } from "./trip-builder-rules";
 
 // /trip and /place in the Admin group (team list only; the webhook checks that). /trip builds a smart trip from the
 // staff's text, sends it (freezes the version and makes the link) and posts the link and the PDF back to the Admin
@@ -26,7 +28,9 @@ type Db = { prepare: (sql: string) => { bind: (...v: unknown[]) => { first: <T>(
 const db = () => env.DB as unknown as Db;
 const vars = () => env as unknown as Record<string, string | undefined>;
 export type PlaceInfo = { lat: number; lng: number; hours: PlaceHours | null };
-export type BuilderDeps = { call?: ModelCall; locate?: (text: string) => Promise<{ lat: number; lng: number } | null>; place?: (text: string) => Promise<PlaceInfo | null>; today?: string };
+export type BuilderDeps = { call?: ModelCall; locate?: (text: string) => Promise<{ lat: number; lng: number } | null>; place?: (text: string) => Promise<PlaceInfo | null>;
+  /** The hourly-rate price of a day (city text, hours, car); null when the area has no rate. */
+  rate?: (city: string, hours: number, vehicle: string) => Promise<number | null>; today?: string };
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
 let ready: Promise<unknown> | null = null;
@@ -86,11 +90,10 @@ async function buildTrip(details: string, m: TelegramMessage, member: { display_
   // "Paste a chat": /trip sent as a reply to the customer's chat (pasted or forwarded into the group). Not to a bot message.
   const replied = m.reply_to_message && !m.reply_to_message.from?.is_bot ? (m.reply_to_message.text ?? m.reply_to_message.caption ?? "").trim() : "";
   if (!replied && wantsTripGuide(details)) { await reply(TRIP_HELP); return; } // "/trip", "/trip help", "/trip create a new trip"
-  // The price comes from the staff's own words, before any AI: no clear price, no trip.
+  // The price comes from the staff's own words, before any AI. None typed: the hourly rates set it later. Two prices: ask.
   const price = parseStaffPrice(details);
-  if (!price.ok) {
-    await reply(price.reason === "missing" ? `⚠️ ยังไม่ได้สร้างทริป: ใส่ราคาด้วย เช่น <code>${replied ? "/trip " : ""}THB 3,500</code> หรือ <code>${replied ? "/trip " : ""}ราคา 3500 บาท</code>${replied ? " (ราคาไม่อ่านจากแชตลูกค้า)" : ""}`
-      : `⚠️ ยังไม่ได้สร้างทริป: พบหลายราคา (${price.amounts.map(thb).join(", ")}) เขียนราคาทริปให้ชัด เช่น <code>ราคา 3500 บาท</code>`);
+  if (!price.ok && price.reason === "ambiguous") {
+    await reply(`⚠️ ยังไม่ได้สร้างทริป: พบหลายราคา (${price.amounts.map(thb).join(", ")}) เขียนราคาทริปให้ชัด เช่น <code>ราคา 3500 บาท</code> หรือไม่ใส่ราคาเพื่อใช้ราคาตามเรทรายชั่วโมง`);
     return;
   }
   if (!deps.call && !chatPlanConfigured()) { await reply("ยังไม่ได้เปิดผู้ช่วย AI (ANTHROPIC_API_KEY) จึงอ่านรายละเอียดทริปไม่ได้"); return; }
@@ -102,51 +105,178 @@ async function buildTrip(details: string, m: TelegramMessage, member: { display_
   if (!drafted) { await reply("⚠️ สร้างทริปไม่สำเร็จ ลองส่ง /trip อีกครั้ง"); return; }
   if (!drafted.ok) { await reply(`⚠️ ยังไม่ได้สร้างทริป: ${esc(drafted.error)}`); return; }
   const d = drafted.draft;
-  if (d.unmatched.length) {
-    await reply(`⚠️ ยังไม่ได้สร้างทริป: ไม่พบสถานที่เหล่านี้ในรายการสถานที่\n${d.unmatched.map((n) => `• ${esc(n)}`).join("\n")}\n\n${PLACE_HELP}\nแล้วส่ง /trip อีกครั้ง`);
+  if (d.suggested) { await reply("⚠️ ยังไม่ได้สร้างทริป: ระบุชื่อสถานที่ที่จะไปด้วย (บอทไม่เลือกสถานที่ให้เอง)"); return; }
+  // A place not in Admin → Attractions is looked up on Google Maps and added, like /place; one Google can't find is left out.
+  const added: string[] = [], notFound: string[] = [];
+  const stops: TripInput["stops"] = [];
+  for (const s of d.stops) {
+    let stop: TripInput["stops"][number] | null = { id: s.id, kind: s.kind, name: s.name, attractionId: s.attractionId, lat: s.lat ?? null, lng: s.lng ?? null, durationMin: s.durationMin, priority: s.priority, ...(s.note ? { note: s.note } : {}) };
+    if (s.kind === "custom") {
+      const row = await findByName(s.name) ?? await addFromGoogle(s.name, d.area, deps);
+      if (row && !list.some((a) => a.id === row.id)) added.push(row.name);
+      stop = row ? { ...stop, kind: "attraction", name: row.customerName || row.name, attractionId: row.id, lat: row.latitude, lng: row.longitude, durationMin: row.durationMin } : null;
+      if (!stop) notFound.push(s.name);
+    }
+    if (stop) stops.push(stop);
+  }
+  const missing = d.missing.filter((x) => BLOCKING.includes(x) && !(x === "places" && stops.length));
+  if (!stops.length) missing.push("places");
+  if ([...new Set(missing)].length) {
+    await reply(`⚠️ ยังไม่ได้สร้างทริป: ขาด${[...new Set(missing)].map((x) => MISSING_TH[x] ?? x).join(", ")}${notFound.length ? `\nไม่พบใน Google Maps: ${notFound.map(esc).join(", ")}` : ""}\n\n${TRIP_HELP}`);
     return;
   }
-  if (d.missing.length) { await reply(`⚠️ ยังไม่ได้สร้างทริป: ขาด${d.missing.map((x) => MISSING_TH[x] ?? x).join(", ")}\n\n${TRIP_HELP}`); return; }
-  if (d.suggested) { await reply("⚠️ ยังไม่ได้สร้างทริป: ระบุชื่อสถานที่ที่จะไปด้วย (บอทไม่เลือกสถานที่ให้เอง)"); return; }
   const car = pickVehicle(details, d.adults + d.children, d.bags);
   if (!car.ok) {
     await reply(car.vehicle ? `⚠️ ยังไม่ได้สร้างทริป: ${VEHICLES[car.vehicle].name} นั่งได้ ${VEHICLES[car.vehicle].passengers} คน ${VEHICLES[car.vehicle].bags} กระเป๋า ไม่พอสำหรับ ${d.adults + d.children} คน ${d.bags} กระเป๋า`
       : `⚠️ ยังไม่ได้สร้างทริป: ไม่มีรถที่นั่งพอสำหรับ ${d.adults + d.children} คน ${d.bags} กระเป๋า`);
     return;
   }
-  const pickup = await (deps.locate ?? defaultLocate)(d.pickupText);
-  const input: TripInput = tripSchema.parse({
-    title: d.title, area: d.area, tripDate: d.tripDate, startTime: d.startTime, pickupText: d.pickupText, pickupLat: pickup?.lat ?? null, pickupLng: pickup?.lng ?? null,
-    durationHours: d.durationHours, adults: d.adults, children: d.children, bags: d.bags, vehicle: car.vehicle, language: d.language,
-    customerName: d.customerName, notes: d.notes, transportPrice: price.thb, holdDays: 7,
-    stops: d.stops.map((s) => ({ id: s.id, kind: s.kind, name: s.name, attractionId: s.attractionId, lat: s.lat ?? null, lng: s.lng ?? null, durationMin: s.durationMin, priority: s.priority, ...(s.note ? { note: s.note } : {}) })),
-  });
-  const by = `Telegram · ${member.display_name}`.slice(0, 80);
-  const saved = await saveTrip(input, { name: by });
-  await remember(chatId, m.message_id, "trip", saved.id);
-  const row = await getTrip(saved.id);
-  if (!row) return;
-  const { total, warnings } = await sendTripDays(await groupDays(row), by, "First itinerary (Telegram)");
-  const sent = await getTrip(saved.id);
-  const snap = sent ? tripSnapshot(sent) : null;
-  if (!sent || !snap) return;
+  const multiday = tripMultidayOn(vars());
+  const pinned = multiday ? Object.fromEntries(d.stops.flatMap((s) => (s.day && stops.some((x) => x.id === s.id) ? [[s.id, s.day - 1]] : []))) : {};
+  const pending: Pending = {
+    chatId, messageId: m.message_id, by: `Telegram · ${member.display_name}`.slice(0, 80), member: member.display_name, price: price.ok ? price.thb : null,
+    days: multiday ? d.days : null, pinned, hoursGiven: d.hoursGiven, multiday, added, notFound, cityHint: d.area || list.find((a) => a.id === stops.find((x) => x.attractionId)?.attractionId)?.area || "",
+    input: { title: d.title, area: d.area, tripDate: d.tripDate, startTime: d.startTime, pickupText: d.pickupText, durationHours: multiday && !d.hoursGiven ? MAX_DAY_HOURS : d.durationHours,
+      adults: d.adults, children: d.children, bags: d.bags, vehicle: car.vehicle, language: d.language, customerName: d.customerName, notes: d.notes, stops },
+    // Places with packages: staff choose the package in Telegram before the trip is built.
+    queue: stops.filter((x) => (list.find((a) => a.id === x.attractionId)?.programs.length ?? 0) > 0).map((x) => x.id),
+  };
+  if (!pending.queue.length) { await finishTrip(pending, deps); return; }
+  const id = crypto.randomUUID();
+  await ensurePending();
+  await db().prepare("INSERT INTO telegram_trip_pending(id,chat_id,message_id,step,payload_json,created_at) VALUES(?,?,?,0,?,?)").bind(id, chatId, m.message_id, JSON.stringify(pending), new Date().toISOString()).run();
+  await askPackage(id, pending, 0);
+}
+
+/** A /trip waiting for package choices (telegram_trip_pending.payload_json). */
+type Pending = {
+  chatId: string; messageId: number; by: string; member: string; price: number | null; days: number | null; pinned: Record<string, number>;
+  hoursGiven: boolean; multiday: boolean; added: string[]; notFound: string[]; cityHint: string; queue: string[];
+  input: Omit<TripInput, "pickupLat" | "pickupLng" | "endText" | "endLat" | "endLng" | "transportPrice" | "discount" | "holdDays" | "isTemplate" | "templateName" | "customerEmail" | "customerPhone"> & { customerPhone?: null };
+};
+
+let pendingReady: Promise<unknown> | null = null;
+const ensurePending = () => (pendingReady ??= db().prepare("CREATE TABLE IF NOT EXISTS telegram_trip_pending (id TEXT PRIMARY KEY, chat_id TEXT NOT NULL, message_id INTEGER NOT NULL, step INTEGER NOT NULL DEFAULT 0, payload_json TEXT NOT NULL, created_at TEXT NOT NULL)").bind().run()
+  .catch((e) => { pendingReady = null; throw e; }));
+const PENDING_HOURS = 48;
+
+/** Asks which package of the place at queue[step] the trip uses: one button per package and start time, or a general visit. */
+async function askPackage(id: string, p: Pending, step: number) {
+  const stop = p.input.stops.find((x) => x.id === p.queue[step]);
+  const place = stop?.attractionId ? (await attractionsById([stop.attractionId]))[stop.attractionId] : undefined;
+  const options = packageOptions(place?.programs ?? []);
+  const keyboard: InlineKeyboard = [...options.map((o, k) => [{ text: o.label, callback_data: `tp_pkg:${id}:${step}.${k}` }]), [{ text: "เข้าชมทั่วไป (ไม่ใช้แพ็กเกจ)", callback_data: `tp_pkg:${id}:${step}.g` }]];
+  await sendTo(p.chatId, `🎟 <b>${esc(stop?.name ?? "")}</b> มีแพ็กเกจ เลือกแพ็กเกจสำหรับทริปนี้ (${step + 1}/${p.queue.length})`, keyboard, p.messageId);
+}
+
+/** A package button under a /trip question (Admin group, team only; the webhook checks both). */
+export async function handleTripPackageChoice(q: { id: string; data?: string; message?: TelegramMessage }, member: { display_name: string }, deps: BuilderDeps = {}) {
+  const answer = (text: string, alert = false) => tg("answerCallbackQuery", { callback_query_id: q.id, text, show_alert: alert }).catch(() => undefined);
+  const [, id = "", choice = ""] = (q.data ?? "").split(":");
+  const [stepText, pick] = choice.split(".");
+  const step = Number(stepText);
+  if (!tripBuilderOn(vars())) return answer("คำสั่ง /trip ยังไม่ได้เปิดใช้", true);
+  await ensurePending();
+  const row = await db().prepare("SELECT step, payload_json, created_at FROM telegram_trip_pending WHERE id = ?").bind(id).first<{ step: number; payload_json: string; created_at: string }>();
+  if (!row || !Number.isInteger(step)) return answer("ไม่พบทริปนี้ ส่ง /trip ใหม่", true);
+  if (Date.now() - Date.parse(row.created_at) > PENDING_HOURS * 3600_000) return answer("หมดเวลาเลือกแล้ว ส่ง /trip ใหม่", true);
+  if (row.step !== step) return answer("ข้อนี้เลือกไปแล้ว");
+  const p = JSON.parse(row.payload_json) as Pending;
+  const stop = p.input.stops.find((x) => x.id === p.queue[step]);
+  const place = stop?.attractionId ? (await attractionsById([stop.attractionId]))[stop.attractionId] : undefined;
+  if (!stop) return answer("ไม่พบทริปนี้ ส่ง /trip ใหม่", true);
+  const option = pick === "g" ? null : packageOptions(place?.programs ?? [])[Number(pick)];
+  if (pick !== "g" && !option) return answer("ตัวเลือกนี้ใช้ไม่ได้แล้ว ส่ง /trip ใหม่", true);
+  const program = option ? place?.programs.find((x) => x.id === option.programId) : undefined;
+  if (option && program) Object.assign(stop, { programId: program.id, durationMin: program.durationMin, ...(option.session ? { sessionTime: option.session, priority: "fixed" as const } : {}) });
+  // Only one tap per question counts: the step moves on only from the step this button was for.
+  const moved = await db().prepare("UPDATE telegram_trip_pending SET step = step + 1, payload_json = ? WHERE id = ? AND step = ?").bind(JSON.stringify(p), id, step).run();
+  if (!moved.meta.changes) return answer("ข้อนี้เลือกไปแล้ว");
+  await answer("บันทึกแล้ว");
+  if (q.message) await tg("editMessageText", { chat_id: p.chatId, message_id: q.message.message_id, parse_mode: "HTML",
+    text: `✅ <b>${esc(stop.name)}</b>: ${esc(option?.label ?? "เข้าชมทั่วไป (ไม่ใช้แพ็กเกจ)")} · ${esc(member.display_name)}` }).catch(() => undefined);
+  if (step + 1 < p.queue.length) { await askPackage(id, p, step + 1); return; }
+  await db().prepare("DELETE FROM telegram_trip_pending WHERE id = ?").bind(id).run();
+  try { await finishTrip(p, deps); }
+  catch (error) {
+    console.error("trip builder failed", error instanceof Error ? error.message : "unknown");
+    await sendTo(p.chatId, "⚠️ สร้างทริปไม่สำเร็จ ส่ง /trip ใหม่อีกครั้ง (ข้อความใหม่)", undefined, p.messageId).catch(() => undefined);
+  }
+}
+
+/** Builds, prices and sends the trip (several days when TRIP_MULTIDAY=1 and the places need them), then posts it back. */
+async function finishTrip(p: Pending, deps: BuilderDeps) {
+  const reply = (text: string) => sendTo(p.chatId, text, undefined, p.messageId).catch(() => undefined);
+  const pickup = p.input.pickupText ? await (deps.locate ?? defaultLocate)(p.input.pickupText) : null;
+  const input = tripSchema.parse({ ...p.input, pickupLat: pickup?.lat ?? null, pickupLng: pickup?.lng ?? null, transportPrice: p.price ?? 0, holdDays: 7 });
+  const saved = await saveTrip(input, { name: p.by });
+  await remember(p.chatId, p.messageId, "trip", saved.id);
+  let lead = await getTrip(saved.id);
+  if (!lead) return;
+  if (p.multiday) {
+    const split = await splitTrip(lead, { name: p.by }, { days: p.days, pinned: p.pinned });
+    // One day after all, and the customer gave no hours: book the hours the day takes, not the 12-hour planning cap.
+    if (!split && !p.hoursGiven) {
+      const { plan } = await planFor(input);
+      const hours = Math.min(MAX_DAY_HOURS, Math.max(HOURLY_MIN_HOURS, Math.ceil((plan.returnAt - plan.startAt) / 60)));
+      await saveTrip({ ...inputFromRow(lead), id: lead.id, durationHours: hours }, { name: p.by });
+    }
+    lead = await getTrip(saved.id);
+    if (!lead) return;
+  }
+  // groupDays returns a one-day trip's own row as given, so each step reads the trip again after writing to it.
+  const current = async () => { const row = await getTrip(saved.id); return row ? groupDays(row) : []; };
+  let days = await current();
   const origin = publicSiteUrl(vars().WAYDIDI_PUBLIC_URL);
-  const link = `${origin}/itinerary/${sent.token}`;
-  const people = `${snap.adults} ผู้ใหญ่${snap.children ? ` ${snap.children} เด็ก` : ""}`;
+  // No price typed: each day's price is the hourly rate for its car and hours. No rate for the area: staff set it first.
+  if (p.price == null) {
+    const city = p.input.pickupText || p.cityHint;
+    const rates = await Promise.all(days.map((d) => (deps.rate ?? defaultRate)(city, d.durationHours, d.vehicle)));
+    if (rates.some((r) => r == null)) {
+      await reply([`⚠️ สร้างทริป <b>${esc(lead.ref)}</b> ไว้แล้วแต่ยังไม่ได้ส่ง: ไม่มีเรทรายชั่วโมงสำหรับพื้นที่นี้`,
+        `ใส่ราคาที่ Admin → Smart trips แล้วกดส่ง: ${esc(`${origin}/admin/trips/${lead.id}`)}`, "หรือส่ง /trip ใหม่พร้อมราคา เช่น <code>THB 3,500</code>"].join("\n"));
+      return;
+    }
+    for (const [i, d] of days.entries()) await saveTrip({ ...inputFromRow(d), id: d.id, transportPrice: rates[i]! }, { name: p.by, agencyId: d.agencyId });
+    days = await current();
+  }
+  const { total, warnings } = await sendTripDays(days, p.by, "First itinerary (Telegram)");
+  const snaps = (await current()).map((d) => tripSnapshot(d)).filter((x): x is NonNullable<typeof x> => Boolean(x));
+  const first = snaps[0];
+  if (!first) return;
+  const link = `${origin}/itinerary/${lead.token}`;
+  const transport = snaps.reduce((n, x) => n + x.transportPrice, 0), tickets = snaps.reduce((n, x) => n + x.feesIncluded, 0), onSite = snaps.reduce((n, x) => n + x.feesOnSite, 0);
+  const people = `${first.adults} ผู้ใหญ่${first.children ? ` ${first.children} เด็ก` : ""}`;
+  const route = (x: (typeof snaps)[number]) => x.stops.map((s) => esc(s.name)).join(" → ");
   const lines = [
-    `✅ สร้างและส่งทริป <b>${esc(snap.ref)}</b> แล้ว (โดย ${esc(member.display_name)})`,
-    `<b>${esc(snap.title)}</b>`,
-    `📅 ${thaiDate(snap.tripDate)} · รับ ${snap.startTime} ${esc(snap.pickupText)}`,
-    `📍 ${snap.stops.map((s) => esc(s.name)).join(" → ")}`,
-    `🚗 ${esc(snap.vehicleName)} · ${people}`,
-    `💰 ${thb(total)}${snap.feesIncluded ? ` (รถ ${thb(snap.transportPrice)} + ตั๋ว ${thb(snap.feesIncluded)})` : ""}${snap.feesOnSite ? ` · ค่าเข้าชมจ่ายหน้างานประมาณ ${thb(snap.feesOnSite)}` : ""}`,
+    `✅ สร้างและส่งทริป <b>${esc(first.ref)}</b> แล้ว${snaps.length > 1 ? ` (${snaps.length} วัน)` : ""} (โดย ${esc(p.member)})`,
+    `<b>${esc(first.title)}</b>`,
+    `📅 ${thaiDate(first.tripDate)}${snaps.length > 1 ? ` – ${thaiDate(snaps.at(-1)!.tripDate)}` : ""} · รับ ${first.startTime} ${first.pickupText ? esc(first.pickupText) : "(จุดรับ: รอยืนยัน ใส่โรงแรมได้ที่ Admin)"}`,
+    ...(snaps.length > 1 ? snaps.map((x, i) => `📍 วันที่ ${i + 1} (${thaiDate(x.tripDate)}): ${route(x)}`) : [`📍 ${route(first)}`]),
+    `🚗 ${esc(first.vehicleName)} · ${people}`,
+    `💰 ${thb(total)}${tickets ? ` (รถ ${thb(transport)} + ตั๋ว ${thb(tickets)})` : ""}${p.price == null ? " · ราคารถตามเรทรายชั่วโมง แก้ได้ที่ Admin" : ""}${onSite ? ` · ค่าเข้าชมจ่ายหน้างานประมาณ ${thb(onSite)}` : ""}`,
+    ...(p.added.length ? [`➕ เพิ่มสถานที่ใหม่จาก Google Maps: ${p.added.map(esc).join(", ")}`] : []),
+    ...(p.notFound.length ? [`⚠️ ไม่พบใน Google Maps (ไม่ได้ใส่ในทริป): ${p.notFound.map(esc).join(", ")} เพิ่มได้ด้วย /place`] : []),
     ...(warnings.length ? [`⚠️ ตรวจก่อนส่งลูกค้า:\n${warnings.map((w) => `• ${esc(w)}`).join("\n")}`] : []),
     `🔗 ${esc(link)}`,
     "บอทไม่ได้ส่งให้ลูกค้า ส่งลิงก์นี้ให้ลูกค้าเอง แก้ไขได้ที่ Admin → Smart trips",
   ];
   await reply(lines.join("\n"));
-  const pdf = await itineraryPdf(sent, origin).catch(() => null);
-  if (pdf) await sendDocument(pdf.bytes, `Waydidi-${pdf.ref}-itinerary.pdf`, "application/pdf", `📄 แผนการเดินทาง ${esc(pdf.ref)}`, chatId, m.message_id).catch((e) => console.error("trip builder pdf failed", e instanceof Error ? e.message : "unknown"));
+  const sentLead = await getTrip(saved.id);
+  const pdf = sentLead ? await itineraryPdf(sentLead, origin).catch(() => null) : null;
+  if (pdf) await sendDocument(pdf.bytes, `Waydidi-${pdf.ref}-itinerary.pdf`, "application/pdf", `📄 แผนการเดินทาง ${esc(pdf.ref)}`, p.chatId, p.messageId).catch((e) => console.error("trip builder pdf failed", e instanceof Error ? e.message : "unknown"));
+}
+
+const defaultRate = async (city: string, hours: number, vehicle: string) => (await suggestedTransport(city, hours, vehicle).catch(() => null))?.total ?? null;
+
+/** A place staff named that is not in Attractions: added from Google Maps (location and opening hours), like /place. */
+async function addFromGoogle(name: string, area: string, deps: BuilderDeps) {
+  const info = await (deps.place ?? defaultPlaceInfo)([name, area].filter(Boolean).join(", ")).catch(() => null);
+  if (!info) return null;
+  const id = await saveAttraction(attractionSchema.parse({ name, area, openTime: info.hours?.openTime ?? null, closeTime: info.hours?.closeTime ?? null, closedDays: info.hours?.closedDays ?? [],
+    durationMin: 60, latitude: info.lat, longitude: info.lng, internalNotes: `Added from Telegram (/trip)${info.hours ? "; opening hours from Google Maps" : ""}` }));
+  const [row] = await getDb().select().from(attractions).where(eq(attractions.id, id)).limit(1);
+  return row ?? null;
 }
 
 type AttractionRow = typeof attractions.$inferSelect;

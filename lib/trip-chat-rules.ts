@@ -5,9 +5,15 @@ export type PlaceOption = { id: string; name: string; area: string; durationMin:
 export type DraftStop = {
   id: string; kind: "attraction" | "custom"; name: string; attractionId?: string; lat?: number | null; lng?: number | null;
   durationMin: number; priority: "must" | "nice"; note?: string;
+  /** The day of a multi-day trip the customer wants this place on (1 is the first day). */
+  day?: number;
 };
 export type ChatDraft = {
   title: string; area: string; tripDate: string | null; startTime: string; durationHours: number;
+  /** How many days the customer asked for (null when they did not say). */
+  days: number | null;
+  /** The customer said how many hours a day (otherwise durationHours is the 8-hour default). */
+  hoursGiven: boolean;
   adults: number; children: number; bags: number; pickupText: string; customerName: string | null;
   notes: string | null; language: "en" | "th" | "zh"; stops: DraftStop[];
   /** Places the customer asked for that are not in the attractions list (added as custom stops to fill in). */
@@ -51,13 +57,16 @@ Reply with ONLY one JSON object, no other text:
 {"title": string, "area": string, "date": "YYYY-MM-DD" or null, "startTime": "HH:MM" or null, "hours": number or null,
  "adults": number or null, "children": number or null, "bags": number or null, "pickup": string or null, "customerName": string or null,
  "language": "en"|"th"|"zh", "notes": string, "suggested": boolean,
- "stops": [{"placeId": string or null, "name": string, "priority": "must"|"nice", "note": string or null}]}
+ "days": number or null,
+ "stops": [{"placeId": string or null, "name": string, "priority": "must"|"nice", "note": string or null, "day": number or null}]}
 
 Rules:
 - placeId must be copied exactly from the places list when the customer's place is in it; otherwise null and put the customer's own name for it in "name".
 - "must" for places the customer asked for, "nice" for places you add. Do not repeat a place.
 - If the customer named no places (or only a mood, like "temples and food"), choose 3 to 5 fitting places from the list in the same area, put them in "stops" as "nice", and set "suggested": true. Otherwise "suggested": false.
 - Use the customer's own dates, times, pickup, number of people and bags. Resolve words like "tomorrow" from today's date. Never invent a date, pickup or contact: use null when it is not in the chat.
+- "days": the number of days the customer asks for ("3 days", or a date range like 29 Nov to 1 Dec is 3), else null. "hours" is the hours of one day.
+- "day": only when the customer puts a place on a given day ("Phi Phi on day 2"), else null.
 - "area" is the area of the places list that fits the trip, or "".
 - "notes": the customer's requests in one or two short English sentences (dietary needs, children, mobility, budget, must-see wishes). No private contact details.
 - "title": short, like "Phuket highlights day". "language" is the language the customer writes in (en, th or zh).`;
@@ -79,16 +88,17 @@ export function parseChatPlan(raw: string, places: PlaceOption[], today: string,
     const s = item as Record<string, unknown>;
     const priority = s.priority === "nice" ? "nice" : "must";
     const note = str(s.note, 300) || undefined;
+    const day = s.day == null ? undefined : int(s.day, 1, 15, 1);
     const place = listedPlace(s.placeId, str(s.name, 120), places);
     if (place) {
       if (seen.has(place.id)) continue;
       seen.add(place.id);
-      stops.push({ id: uid(), kind: "attraction", name: place.name, attractionId: place.id, lat: place.lat, lng: place.lng, durationMin: place.durationMin, priority, ...(note ? { note } : {}) });
+      stops.push({ id: uid(), kind: "attraction", name: place.name, attractionId: place.id, lat: place.lat, lng: place.lng, durationMin: place.durationMin, priority, ...(note ? { note } : {}), ...(day ? { day } : {}) });
     } else {
       const name = str(s.name, 120);
       if (!name || stops.length >= 12) continue;
       unmatched.push(name);
-      stops.push({ id: uid(), kind: "custom", name, durationMin: 45, priority, ...(note ? { note } : {}) });
+      stops.push({ id: uid(), kind: "custom", name, durationMin: 45, priority, ...(note ? { note } : {}), ...(day ? { day } : {}) });
     }
   }
   const areas = new Map(places.map((p) => [p.area.toLowerCase(), p.area]));
@@ -101,7 +111,7 @@ export function parseChatPlan(raw: string, places: PlaceOption[], today: string,
   const missing = [...(date ? [] : ["date"]), ...(pickupText ? [] : ["pickup place"]), ...(stops.length ? [] : ["places"])];
   return {
     title: str(obj.title, 120) || `${customerName ?? "Customer"} · ${area || "day trip"}`, area, tripDate: date, startTime,
-    durationHours: int(obj.hours, 1, 16, 8), adults: int(obj.adults, 1, 30, 2), children: int(obj.children, 0, 20, 0), bags: int(obj.bags, 0, 30, 2),
+    durationHours: int(obj.hours, 1, 16, 8), days: obj.days == null ? null : int(obj.days, 1, 15, 1), hoursGiven: Number.isFinite(Number(obj.hours)) && obj.hours != null, adults: int(obj.adults, 1, 30, 2), children: int(obj.children, 0, 20, 0), bags: int(obj.bags, 0, 30, 2),
     pickupText, customerName, notes: str(obj.notes, 1500) || null, language, stops, unmatched, suggested: obj.suggested === true, missing,
   };
 }

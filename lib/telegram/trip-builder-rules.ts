@@ -169,9 +169,31 @@ export function matchPlace<T extends { name: string; customerName: string | null
 }
 
 export const tripBuilderOn = (vars: Record<string, string | undefined>) => vars.TELEGRAM_TRIP_BUILDER === "1";
+/** /trip builds several days when the places need them (Worker variable TRIP_MULTIDAY=1; off until the owner turns it on). */
+export const tripMultidayOn = (vars: Record<string, string | undefined>) => vars.TRIP_MULTIDAY === "1";
+
+export type PackageOption = { programId: string; session: string | null; label: string };
+type PackageLike = { id: string; name: string; durationMin: number; feeAdult?: number; feeChild?: number; sessions: { time: string }[] };
+
+/**
+ * The buttons staff choose from when a place in a /trip has packages: one per package and start time (a package with
+ * no start time is one button), with its length and price per person. At most 12, so the question stays readable.
+ */
+export function packageOptions(programs: PackageLike[]): PackageOption[] {
+  const out: PackageOption[] = [];
+  for (const p of programs) {
+    const hours = p.durationMin >= 60 ? `${Math.round((p.durationMin / 60) * 10) / 10} ชม.` : `${p.durationMin} นาที`;
+    const price = p.feeAdult ? ` · ${p.feeAdult.toLocaleString("en-US")} บาท/คน` : "";
+    const times = [...new Set(p.sessions.map((s) => s.time))].sort();
+    for (const time of times.length ? times : [null]) out.push({ programId: p.id, session: time, label: `${p.name}${time ? ` ${time}` : ""} · ${hours}${price}`.slice(0, 60) });
+  }
+  return out.slice(0, 12);
+}
 
 /** Thai words for the parts the AI could not find in the message. */
 export const MISSING_TH: Record<string, string> = { date: "วันที่", "pickup place": "จุดรับ", places: "สถานที่" };
+/** What /trip cannot be built without: the date and at least one place (the pickup hotel can follow later). */
+export const BLOCKING = ["date", "places"];
 
 /**
  * True when the text after /trip is a request for help rather than a trip, e.g. "/trip", "/trip help" or "/trip create
@@ -195,25 +217,25 @@ export function tripText(staffLine: string, repliedChat: string): string {
 /** What staff need to type after /trip (Thai, for the Admin group). */
 export const TRIP_HELP = [
   "📝 <b>วิธีสร้างทริปผ่าน Telegram</b>",
-  "พิมพ์ /trip ตามด้วยรายละเอียดทั้งหมดในข้อความเดียว",
+  "พิมพ์ /trip ตามด้วยรายละเอียดในข้อความเดียว เขียนแบบไหนก็ได้",
   "",
   "<b>ต้องมี</b>",
-  "• วันที่ เช่น 12 Dec หรือ 12/12",
-  "• จุดรับและเวลารับ เช่น Hilton Sukhumvit 08:00",
-  "• สถานที่ที่จะไป (ต้องมีในรายการสถานที่) เช่น Grand Palace, Wat Pho",
-  "• ราคา เช่น THB 3,500 หรือ ราคา 3500 บาท",
+  "• วันที่ เช่น 29 Nov 2026 หรือ 29/11",
+  "• สถานที่ที่จะไป เช่น Big Buddha, Wat Chalong (ถ้ายังไม่มีในรายการ บอทจะเพิ่มจาก Google Maps ให้)",
   "",
   "<b>ใส่เพิ่มได้</b>",
-  "• จำนวนผู้ใหญ่/เด็ก เช่น 2 adults 1 child",
+  "• ราคา เช่น THB 3,500 (ไม่ใส่ = ราคาตามเรทรายชั่วโมง)",
+  "• จุดรับและเวลารับ เช่น Hilton Patong 08:00 (ไม่ใส่ = รอยืนยัน ใส่ทีหลังได้)",
+  "• จำนวนคน เช่น 2 people หรือ 2 adults 1 child",
   "• รถ เช่น SUV หรือ Van และจำนวนกระเป๋า",
-  "• ชื่อลูกค้า ภาษา (en/th/zh) และหมายเหตุ",
+  "• จำนวนวัน เช่น 3 days (ทริปหลายวันเมื่อเปิด TRIP_MULTIDAY)",
   "",
   "<b>ตัวอย่าง</b>",
-  "<code>/trip 12 Dec, 2 adults, Hilton Sukhumvit 08:00, Grand Palace, Wat Pho, Wat Arun, SUV, THB 3,500</code>",
+  "<code>/trip Big Buddha, Phuket Old Town, Wat Chalong, Promthep Cape 29 Nov 2026, 2 people</code>",
+  "",
+  "สถานที่ที่มีแพ็กเกจ บอทจะถามให้เลือกแพ็กเกจก่อนสร้างทริป",
   "",
   "<b>หรือวางแชตลูกค้า</b>",
-  "วางหรือส่งต่อแชตของลูกค้าในกลุ่ม แล้วกดตอบกลับข้อความนั้นด้วย <code>/trip THB 3,500</code> บอทจะอ่านรายละเอียดจากแชต (ราคาต้องพิมพ์เองในบรรทัด /trip เสมอ)",
-  "",
-  "สถานที่ที่ยังไม่มีในรายการ เพิ่มก่อนด้วย /place",
+  "วางหรือส่งต่อแชตของลูกค้าในกลุ่ม แล้วกดตอบกลับข้อความนั้นด้วย <code>/trip</code> (ใส่ราคาได้ เช่น <code>/trip THB 3,500</code> บอทไม่อ่านราคาจากแชตลูกค้า)",
 ].join("\n");
 export const PLACE_HELP = "เพิ่มสถานที่: <code>/place ชื่อสถานที่ | 09:00-17:00 | พื้นที่ | 90 นาที</code>\nไม่ใส่เวลาเปิด บอทจะดึงเวลาเปิดจาก Google Maps ให้\nใส่เป็นคำบรรยายรูปได้ (ส่งรูปพร้อมพิมพ์ /place …) หรือตอบกลับข้อความยืนยันของบอทด้วยรูปเพื่อเพิ่มรูป";
