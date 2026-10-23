@@ -58,7 +58,7 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
   const [code, setCode] = useState("");
   const [error, setError] = useState(providerError ? PROVIDER_ERRORS[providerError] ?? PROVIDER_ERRORS.failed : "");
   const [loading, setLoading] = useState(false);
-  const turnstile = useTurnstile("sign_in");
+  const turnstile = useTurnstile("sign_in", { visible: true });
   const [notice, setNotice] = useState("");
   // Log in and sign up use the same email-code flow (a new email gets an account); the link only changes the wording.
   const [signingUp, setSigningUp] = useState(false);
@@ -74,7 +74,7 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
     setLoading(true); setError(""); setNotice("");
     const result = await post("/api/account/code", { email, turnstileToken: await turnstile.getToken() });
     setLoading(false);
-    if (!result.ok) return setError(result.error);
+    if (!result.ok) { if (step === "code" && /not a bot/i.test(result.error)) { setStep("email"); return setError("Please wait for the check below to show Success!, then press Continue."); } return setError(result.error); }
     setStep("code"); setCode(""); setNotice(`We sent a 6-digit code to ${email.trim()}.`);
   }
 
@@ -91,9 +91,9 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
   const nextParam = encodeURIComponent(safeNext(next));
 
   return <div className="flex min-h-[calc(100dvh-150px)] flex-col sm:min-h-[calc(100dvh-190px)]">
-    {turnstile.widget}
     <div className="flex-1">
-      {step === "email" ? <>
+      {/* The email step stays mounted (hidden during the code step) so the bot check box keeps its result. */}
+      <div className={step === "email" ? "" : "hidden"}>
         <h1 className="text-center text-[26px] font-bold text-navy">Welcome!</h1>
         <p className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[15px] text-slate-500">
           <span className="inline-flex items-center gap-1.5"><CarFront size={17} className="text-brand" aria-hidden="true" />Manage every trip</span>
@@ -104,6 +104,8 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
         <form onSubmit={requestCode} noValidate className="mt-7 grid gap-4">
           <label htmlFor="account-email" className="sr-only">Email address</label>
           <input id="account-email" type="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={input} placeholder="Email" />
+          {/* The bot check: shown as a box that turns to "Success!" (Cloudflare Turnstile; hidden until it is set up). */}
+          <div className="mx-auto w-full">{turnstile.widget}</div>
           <button disabled={loading} className={primary}>{loading ? "Sending code…" : signingUp ? "Sign up" : "Continue"}</button>
         </form>
         <p className="mt-4 text-center text-[15px] text-slate-500">{signingUp ? "Already have an account?" : "Don't have an account?"}{" "}
@@ -117,7 +119,8 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
             return <a key={id} href={`/api/account/oauth/${id}/start?next=${nextParam}`} className="flex h-[52px] items-center justify-center gap-3 rounded-lg border border-slate-300 bg-white text-lg font-medium text-navy transition hover:border-slate-400 hover:bg-slate-50"><Icon />{label}</a>;
           })}</div>
         </> : null}
-      </> : <form onSubmit={verify} noValidate>
+      </div>
+      {step === "code" ? <form onSubmit={verify} noValidate>
         <button type="button" onClick={() => { setStep("email"); setError(""); }} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-brand-text"><ArrowLeft size={16} /> Change email</button>
         <h1 className="mt-5 text-center text-[26px] font-bold text-navy">Enter your code</h1>
         <p role="status" className="mt-3 text-center text-[15px] text-slate-500">{notice} It expires in 10 minutes.</p>
@@ -126,7 +129,7 @@ export function SignInForm({ next, initialEmail, providers, providerError }: { n
         <input id="account-code" autoComplete="one-time-code" inputMode="numeric" pattern="\d{6}" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className={`${input} mt-7 text-center text-2xl tracking-[.5em]`} placeholder="••••••" />
         <button disabled={loading || code.length !== 6} className={`${primary} mt-4`}>{loading ? "Checking…" : "Sign in"}</button>
         <button type="button" disabled={loading} onClick={() => requestCode()} className="mt-5 w-full text-[15px] font-medium text-brand-darker hover:underline">Send a new code</button>
-      </form>}
+      </form> : null}
     </div>
     <p className="mt-10 pb-6 text-sm leading-6 text-slate-500">
       By signing in or registering, you agree to Waydidi&apos;s <Link href="/terms" className="underline">Terms of Service</Link> and <Link href="/privacy" className="underline">Privacy Notice</Link>. Booked as a guest? You can also <Link href="/booking/manage" className="underline">manage a booking without an account</Link>.
