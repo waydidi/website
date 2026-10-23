@@ -33,6 +33,7 @@ export const stopSchema = z.object({
   windowStart: time.optional(), windowEnd: time.optional(),
   note: text(300).optional(),
   skipped: z.boolean().optional(),
+  feeIncluded: z.boolean().optional(),
 });
 
 export const tripSchema = z.object({
@@ -190,7 +191,7 @@ function snapshotStops(plan: Plan, views: Record<string, AttractionView>): Snaps
       lat: s.lat ?? null, lng: s.lng ?? null, note: s.note ?? null,
       description: a?.description ?? null, highlights: a?.highlights ?? [], cover: a?.coverImage ?? null, gallery: a?.gallery ?? [],
       dressCode: a?.dressCode ?? null, openHours: a?.openTime && a.closeTime ? `${a.openTime}–${a.closeTime}` : null,
-      fee: program && (program.feeAdult || program.feeChild) ? { adult: program.feeAdult ?? 0, child: program.feeChild ?? 0, included: Boolean(program.feeIncluded) } : null,
+      fee: program && (program.feeAdult || program.feeChild) ? { adult: program.feeAdult ?? 0, child: program.feeChild ?? 0, included: Boolean(s.feeIncluded ?? program.feeIncluded) } : null,
     };
   });
 }

@@ -68,6 +68,10 @@ test("an over-long trip offers removals, shortening and an extension", () => {
 
 test("fees and the packing list come from the stops", () => {
   assert.deepEqual(tripFees([canopy], attractions, 2, 1), { included: 2500, onSite: 0 });
+  // A package not ticked "included" is paid on the day, unless staff chose it for this trip.
+  const onDay = { ...attractions, [canopy.attractionId]: { ...attractions[canopy.attractionId], programs: attractions[canopy.attractionId].programs.map((x) => ({ ...x, feeIncluded: false })) } };
+  assert.deepEqual(tripFees([canopy], onDay, 2, 1), { included: 0, onSite: 2500 });
+  assert.deepEqual(tripFees([{ ...canopy, feeIncluded: true }], onDay, 2, 1), { included: 2500, onSite: 0 });
   const items = packingList([canopy, wat], attractions, 300);
   assert.ok(items.some((i) => /shoulders and knees/.test(i)));
   assert.ok(items.includes("Camera"));
