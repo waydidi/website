@@ -148,10 +148,11 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await page.evaluate(() => window.scrollTo(0, 0));
 
   const tabs = page.getByRole("navigation", { name: "Trip sections" });
-  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Highlights", "Includes/Excludes", "What to expect", "Booking"]);
+  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Highlights", "What to expect", "Includes/Excludes", "Booking"]);
 
   await tabs.getByRole("link", { name: "Includes/Excludes" }).click();
   const includes = page.locator("#includes");
+  await expect(includes.getByRole("heading", { name: "What's included" })).toBeVisible();
   await expect(includes).toBeInViewport();
   await expect(tabs).toBeInViewport(); // the tab bar stays at the top while scrolling
   await expect(tabs.getByRole("link", { name: "Includes/Excludes" })).toHaveAttribute("aria-current", "location");
