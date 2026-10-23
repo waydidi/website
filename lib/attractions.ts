@@ -76,7 +76,9 @@ export const attractionSchema = z.object({
   shortLine: optText(160),
   published: z.boolean().default(false),
   i18n: z.record(z.enum(["th", "zh"]), z.object({ name: text(120).optional(), shortLine: text(160).optional(), description: text(1500).optional() })).default({}),
-});
+})
+  // A place that needs booking: Waydidi books its packages, so their price is always in the trip total.
+  .transform((a) => (a.bookingRequired ? { ...a, programs: a.programs.map((p) => ({ ...p, feeIncluded: true, bookingRequired: true })) } : a));
 export type AttractionInput = z.infer<typeof attractionSchema>;
 
 export const supplierSchema = z.object({
