@@ -224,7 +224,7 @@ function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title
           <h4 className="pt-1.5 text-[18px] font-bold">{st.name}</h4>
           {st.program && <p className="mt-0.5 text-[14px] text-slate-600">{st.program}</p>}
           {st.checkIn != null && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-[#9A4D00]"><Ticket size={14} />{fill(w.sessionCheckIn, { time: st.sessionTime ?? "", checkIn: hhmm(st.checkIn) })}</p>}
-          {photos.length > 0 && <div className="mt-3 overflow-hidden rounded-2xl"><StopPhoto src={photos[0]} alt={st.name} more={photos.length - 1} className="aspect-[16/10] w-full object-cover" /></div>}
+          {photos.length > 0 && <div className="mt-3 overflow-hidden rounded-2xl"><StopPhoto photos={photos} name={st.name} words={w} className="aspect-[16/10] w-full object-cover" /></div>}
         </li>;
       })}
       <li className="relative min-h-10 pl-14">

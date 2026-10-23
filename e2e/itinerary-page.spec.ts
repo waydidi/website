@@ -130,15 +130,18 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(steps.nth(1).getByText("+1", { exact: true })).toBeVisible(); // one more gallery photo
   await expect(steps.nth(2).getByRole("heading", { name: "Big Buddha" })).toBeVisible();
   await expect(steps.last()).toContainText("17:00 · Return");
-  // Tapping a place's photo opens the full-screen gallery at that place's first photo.
-  const viewer = page.getByRole("dialog", { name: "Photos of your trip" });
+  // Tapping a place's photo opens only that place's own photos full screen, from its first one.
   await steps.nth(2).getByRole("button", { name: "Big Buddha" }).click();
-  await expect(viewer.getByText(/^\d \/ 4$/)).toHaveText("2 / 4");
-  await viewer.getByRole("button", { name: "Close" }).click();
+  const placeViewer = page.getByRole("dialog", { name: "Big Buddha" });
+  expect(await placeViewer.getByRole("img").evaluateAll((els) => els.map((e) => e.getAttribute("src")))).toEqual(["/destinations/bangkok.webp", "/destinations/ayutthaya.webp"]);
+  await expect(placeViewer.getByText(/^\d \/ \d$/)).toHaveText("1 / 2");
+  await placeViewer.getByRole("button", { name: "Close" }).click();
+  await expect(placeViewer).toHaveCount(0);
   await steps.nth(1).getByRole("button", { name: "Elephant Jungle Sanctuary" }).click();
-  await expect(viewer.getByText(/^\d \/ 4$/)).toHaveText("1 / 4");
-  await viewer.getByRole("button", { name: "Close" }).click();
-  await expect(viewer).toHaveCount(0);
+  const elephantViewer = page.getByRole("dialog", { name: "Elephant Jungle Sanctuary" });
+  expect(await elephantViewer.getByRole("img").evaluateAll((els) => els.map((e) => e.getAttribute("src")))).toEqual(["/destinations/phuket.webp", "/destinations/krabi.webp"]);
+  await elephantViewer.getByRole("button", { name: "Close" }).click();
+  await expect(elephantViewer).toHaveCount(0);
   await expect(page.getByRole("button", { name: "View full itinerary" })).toHaveCount(0);
   if (process.env.SHOT_DIR) { await overview.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-overview-${info.project.name}.png` }); await steps.nth(2).scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-timeline-${info.project.name}.png` }); }
   await page.evaluate(() => window.scrollTo(0, 0));
