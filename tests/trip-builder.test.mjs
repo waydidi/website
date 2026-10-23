@@ -82,6 +82,16 @@ test('the same Telegram message delivered twice builds one trip', async () => {
   assert.equal(sent.filter((s) => s.method === 'sendDocument').length, 1);
 });
 
+test('"/trip create a new trip" replies with the guide: nothing is created and the model is not asked', async () => {
+  const m = model(), before = (await trips()).length;
+  for (const text of ['/trip create a new trip', '/trip', '/trip help']) {
+    await tb.handleTripBuilder(message(text), anna, deps(m));
+    assert.match(replies().at(-1), /วิธีสร้างทริปผ่าน Telegram[\s\S]*ต้องมี[\s\S]*ราคา[\s\S]*<code>\/trip 12 Dec/, text);
+  }
+  assert.equal(m.calls, 0);
+  assert.equal((await trips()).length, before);
+});
+
 test('no price, or two prices and neither labelled: nothing is created and the model is not asked', async () => {
   const m = model(), before = (await trips()).length;
   await tb.handleTripBuilder(message('/trip 12 Dec, Grand Palace, Wat Pho, SUV'), anna, deps(m));
