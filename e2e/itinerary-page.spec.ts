@@ -111,20 +111,15 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   if (process.env.SHOT_DIR) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-maps-${info.project.name}.png` }); }
   await maps.getByRole("button", { name: "Close" }).click();
   await expect(maps).toHaveCount(0);
-  // What to expect, like Klook: a line about the day, a bullet per place, the places numbered with their photos, and
-  // a box with the meeting point, the hours and the entrance fees. Then the day as a timeline on one grey line.
+  // What to expect, like Klook: a line about the day and a bullet per place, then the day as a timeline on one grey line.
   const overview = page.locator("#expect");
   await expect(overview.getByRole("heading", { name: "What to expect" })).toBeVisible();
   await expect(overview.getByText("A private day with your own car and driver, picking you up at Kata Beach Resort.")).toBeVisible();
   await expect(overview.getByText("Visit Big Buddha", { exact: true })).toBeVisible();
-  const board = overview.getByRole("list").nth(1);
-  expect(await board.locator(":scope > li").allTextContents()).toEqual(["1Elephant Jungle Sanctuary", "2Big Buddha"]);
-  await expect(board.getByRole("img", { name: "Big Buddha" })).toBeVisible();
-  await expect(overview.getByText("Pickup at 08:30 from Kata Beach Resort")).toBeVisible();
-  await expect(overview.getByText("08:30 – 17:00 (depending on traffic)")).toBeVisible();
-  await expect(overview.getByText("Elephant Jungle Sanctuary: THB 2,000 per adult, THB 1,000 per child (in your price)")).toBeVisible();
-  await expect(overview.getByText("Big Buddha: THB 100 per adult (paid on the day)")).toBeVisible();
-  if (process.env.SHOT_DIR) { await board.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-expect-${info.project.name}.png` }); }
+  // No numbered photo board or meeting-point box any more.
+  await expect(overview.getByText("Meeting point", { exact: true })).toHaveCount(0);
+  await expect(overview.getByText(/depending on traffic/)).toHaveCount(0);
+  if (process.env.SHOT_DIR) { await overview.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-expect-${info.project.name}.png` }); }
   const timeline = overview.getByRole("list").last();
   const steps = timeline.locator(":scope > li");
   await expect(steps).toHaveCount(4);
@@ -140,7 +135,7 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await steps.nth(2).getByRole("button", { name: "Big Buddha" }).click();
   await expect(viewer.getByText(/^\d \/ 4$/)).toHaveText("2 / 4");
   await viewer.getByRole("button", { name: "Close" }).click();
-  await board.getByRole("button", { name: "Elephant Jungle Sanctuary" }).click();
+  await steps.nth(1).getByRole("button", { name: "Elephant Jungle Sanctuary" }).click();
   await expect(viewer.getByText(/^\d \/ 4$/)).toHaveText("1 / 4");
   await viewer.getByRole("button", { name: "Close" }).click();
   await expect(viewer).toHaveCount(0);

@@ -181,36 +181,14 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   </main>;
 }
 
-/**
- * "What to expect", like Klook's: one line about the day, a bullet per place, then a board of the places numbered in
- * visiting order with their photos, and a dashed box with the meeting point, how long the day runs and entrance fees.
- */
+/** "What to expect", like Klook's: one line about the day, then a bullet per place. */
 function WhatToExpect({ days, stops, w }: { days: { id: string; label: string; s: TripSnapshot }[]; stops: TripSnapshot["stops"]; w: TripWords }) {
   const s = days[0].s;
-  const fees = [...new Map(stops.filter((x) => x.fee && x.fee.adult + x.fee.child > 0).map((x) => [x.name, x.fee!])).entries()];
-  const prefix = (label: string) => (label ? `${label} · ` : "");
   return <>
     <p className="mt-4 text-[17px] leading-7">{fill(w.expectIntro, { place: s.pickupText || w.hotelPickup })}</p>
     <ul className="mt-3 grid gap-2.5 text-[17px] leading-7">
       {stops.map((x) => <li key={x.id} className="flex gap-3"><span aria-hidden className="mt-[11px] size-1.5 shrink-0 rounded-full bg-plum" />{x.description?.trim() || fill(w.visitPlace, { place: x.name })}</li>)}
     </ul>
-    {stops.length > 0 && <div className="mt-6 rounded-card bg-brand-wash p-4 sm:p-5">
-      <ol className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3">
-        {stops.map((x, i) => { const photo = x.cover ?? x.gallery[0]; return <li key={x.id} className="relative">
-          <span aria-hidden className="absolute -left-1.5 -top-1.5 z-10 grid size-9 place-items-center rounded-full border-2 border-white bg-brand-deep text-[17px] font-black text-white shadow">{i + 1}</span>
-          {photo ? <StopPhoto src={photo} alt={x.name} className="aspect-[4/3] w-full rounded-xl object-cover" /> : <span className="grid aspect-[4/3] w-full place-items-center rounded-xl bg-white text-brand-deep"><Landmark size={28} aria-hidden /></span>}
-          <p className="mt-2 text-center text-[15px] font-bold leading-5">{x.name}</p>
-        </li>; })}
-      </ol>
-      <dl className="mt-5 grid gap-3 rounded-xl border-2 border-dashed border-brand/60 bg-white p-4 text-[15px] leading-6">
-        <div><dt className="flex items-center gap-1.5 font-bold"><MapPin size={16} className="text-brand-deep" aria-hidden />{w.meetingPoint}</dt>
-          {days.map((d) => <dd key={d.id}>{prefix(d.label)}{fill(w.pickupAt, { time: d.s.startTime, place: d.s.pickupText || w.hotelPickup })}</dd>)}</div>
-        <div><dt className="flex items-center gap-1.5 font-bold"><Clock size={16} className="text-brand-deep" aria-hidden />{w.durationLabel}</dt>
-          {days.map((d) => <dd key={d.id}>{prefix(d.label)}{fill(w.durationValue, { start: d.s.startTime, end: hhmm(d.s.returnAt) })}</dd>)}</div>
-        {fees.length > 0 && <div><dt className="flex items-center gap-1.5 font-bold"><Ticket size={16} className="text-brand-deep" aria-hidden />{w.entranceFees}</dt>
-          {fees.map(([place, f]) => <dd key={place}>{fill(w.feePerAdult, { place, adult: f.adult.toLocaleString("en-US") })}{f.child > 0 ? fill(w.feePerChild, { child: f.child.toLocaleString("en-US") }) : ""} <span className={f.included ? "font-semibold text-emerald-700" : "text-slate-600"}>({f.included ? w.feeIncludedTag : w.feeOnDayTag})</span></dd>)}</div>}
-      </dl>
-    </div>}
   </>;
 }
 
