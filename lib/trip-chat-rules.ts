@@ -63,6 +63,7 @@ Reply with ONLY one JSON object, no other text:
 Rules:
 - placeId must be copied exactly from the places list when the customer's place is in it; otherwise null and put the customer's own name for it in "name".
 - "must" for places the customer asked for, "nice" for places you add. Do not repeat a place.
+- The text may be staff's own words about the request, like "recommendation tour package for two people as they requested as A, B, C. Date 20 Dec 2026. Make me a link". Words such as "recommendation", "tour package", "as requested" or "make me a link" only describe the trip: the named places (A, B, C) are the stops, in that order, all "must", and "suggested" is false. "Tour package" there is the whole trip, not a ticket package of a place.
 - If the customer named no places (or only a mood, like "temples and food"), choose 3 to 5 fitting places from the list in the same area, put them in "stops" as "nice", and set "suggested": true. Otherwise "suggested": false.
 - Use the customer's own dates, times, pickup, number of people and bags. Resolve words like "tomorrow" from today's date. Never invent a date, pickup or contact: use null when it is not in the chat.
 - "days": the number of days the customer asks for ("3 days", or a date range like 29 Nov to 1 Dec is 3), else null. "hours" is the hours of one day.
@@ -112,6 +113,7 @@ export function parseChatPlan(raw: string, places: PlaceOption[], today: string,
   return {
     title: str(obj.title, 120) || `${customerName ?? "Customer"} · ${area || "day trip"}`, area, tripDate: date, startTime,
     durationHours: int(obj.hours, 1, 16, 8), days: obj.days == null ? null : int(obj.days, 1, 15, 1), hoursGiven: Number.isFinite(Number(obj.hours)) && obj.hours != null, adults: int(obj.adults, 1, 30, 2), children: int(obj.children, 0, 20, 0), bags: int(obj.bags, 0, 30, 2),
-    pickupText, customerName, notes: str(obj.notes, 1500) || null, language, stops, unmatched, suggested: obj.suggested === true, missing,
+    pickupText, customerName, notes: str(obj.notes, 1500) || null, language, stops, unmatched, // Places the customer asked for ("must") mean the stops are not the model's own suggestions, whatever it says.
+    suggested: obj.suggested === true && !stops.some((s) => s.priority === "must"), missing,
   };
 }

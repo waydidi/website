@@ -90,3 +90,10 @@ test('multi-day: the number of days and a place pinned to a day are read and che
   assert.equal(rules.parseChatPlan(JSON.stringify({ days: 'many', stops: [] }), places, today, uid).days, 1, 'unreadable becomes 1');
   assert.equal(rules.parseChatPlan(JSON.stringify({ stops: [] }), places, today, uid).days, null);
 });
+
+test('"suggested" only stands when no place was asked for: named places are never treated as the model\'s picks', () => {
+  const named = rules.parseChatPlan(JSON.stringify({ date: '2026-12-20', suggested: true, stops: [{ placeId: null, name: 'Big Buddha', priority: 'must' }] }), places, today, uid);
+  assert.equal(named.suggested, false);
+  const picked = rules.parseChatPlan(JSON.stringify({ date: '2026-12-20', suggested: true, stops: [{ placeId: null, name: 'Big Buddha', priority: 'nice' }] }), places, today, uid);
+  assert.equal(picked.suggested, true);
+});
