@@ -24,7 +24,8 @@ import { BLOCKING, MISSING_TH, PLACE_HELP, TRIP_HELP, hoursFromGoogle, packageOp
 // opening hours, photos) so the next /trip can use it; hours left out are taken from Google Maps. Off until
 // TELEGRAM_TRIP_BUILDER=1.
 
-type Db = { prepare: (sql: string) => { bind: (...v: unknown[]) => { first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> } } };
+type Stmt = { first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
+type Db = { prepare: (sql: string) => { bind: (...v: unknown[]) => Stmt }; batch: (statements: Stmt[]) => Promise<unknown> };
 const db = () => env.DB as unknown as Db;
 const vars = () => env as unknown as Record<string, string | undefined>;
 export type PlaceInfo = { lat: number; lng: number; hours: PlaceHours | null };
@@ -144,7 +145,12 @@ async function buildTrip(details: string, m: TelegramMessage, member: { display_
   if (!pending.queue.length) { await finishTrip(pending, deps); return; }
   const id = crypto.randomUUID();
   await ensurePending();
-  await db().prepare("INSERT INTO telegram_trip_pending(id,chat_id,message_id,step,payload_json,created_at) VALUES(?,?,?,0,?,?)").bind(id, chatId, m.message_id, JSON.stringify(pending), new Date().toISOString()).run();
+  // Unanswered questions hold the trip's details, so they are removed once they expire.
+  const now = new Date();
+  await db().batch([
+    db().prepare("DELETE FROM telegram_trip_pending WHERE created_at < ?").bind(new Date(now.getTime() - PENDING_HOURS * 3600_000).toISOString()),
+    db().prepare("INSERT INTO telegram_trip_pending(id,chat_id,message_id,step,payload_json,created_at) VALUES(?,?,?,0,?,?)").bind(id, chatId, m.message_id, JSON.stringify(pending), now.toISOString()),
+  ]);
   await askPackage(id, pending, 0);
 }
 

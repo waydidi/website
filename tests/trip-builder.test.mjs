@@ -333,6 +333,10 @@ test('package questions expire after two days; a forged choice is refused', asyn
   await tb.handleTripPackageChoice({ id: 'f2', data: buttons[2].callback_data }, anna, deps(m));
   assert.match(sent.findLast((x) => x.method === 'answerCallbackQuery').body.text, /หมดเวลา/);
   assert.equal((await trips()).length, before);
+  // The next /trip with a package question removes expired ones, so their details are not kept.
+  await tb.handleTripBuilder(message('/trip 13 Dec, Elephant Sanctuary, THB 3,500'), anna, deps(m));
+  assert.equal(await d1.prepare('SELECT COUNT(*) AS n FROM telegram_trip_pending WHERE id=?').bind(id).first('n'), 0);
+  assert.equal(await d1.prepare('SELECT COUNT(*) AS n FROM telegram_trip_pending').first('n'), 1);
 });
 
 test('TRIP_MULTIDAY=1: places that need more than a day become several days; the typed price is shared and adds up', async () => {
