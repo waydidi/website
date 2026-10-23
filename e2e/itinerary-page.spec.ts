@@ -209,7 +209,7 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
 test("under the total: language and currency boxes, Help, Share and the copyright line", async ({ page, context }, info) => {
   await page.goto(`/itinerary/${TOKEN}`);
   const total = page.locator("#booking");
-  await expect(total.getByText("THB 7,200", { exact: true })).toBeVisible();
+  await expect(total.getByText("THB 7,200", { exact: true }).first()).toBeVisible();
   const language = page.getByRole("combobox", { name: "Language" });
   const currency = page.getByRole("combobox", { name: "Currency" });
   // Both boxes sit side by side, right after the total.
@@ -228,7 +228,7 @@ test("under the total: language and currency boxes, Help, Share and the copyrigh
   await expect(total.getByText(/^USD [\d,]+\.\d{2}$/)).toBeVisible();
   await expect(total.getByText("Charged in THB 7,200")).toBeVisible();
   await currency.selectOption("THB");
-  await expect(total.getByText("THB 7,200", { exact: true })).toBeVisible();
+  await expect(total.getByText("THB 7,200", { exact: true }).first()).toBeVisible();
 
   // Share copies the link where the phone's share sheet isn't available.
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
