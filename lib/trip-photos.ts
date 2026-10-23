@@ -19,6 +19,19 @@ export function tripPhotos(stops: PhotoStop[], max = MAX_PHOTOS): TripPhoto[] {
   return out;
 }
 
+/**
+ * Each stop with its attraction's photos as they are now, so photos staff add after the trip was sent still show; a stop
+ * whose attraction has no photos (or is gone) keeps the photos it was sent with. Only photos change: prices, names and
+ * times stay as sent.
+ */
+export function withCurrentPhotos<S extends { id: string; cover: string | null; gallery: string[] }>(stops: S[], attractionOf: Record<string, string | null | undefined>,
+  current: Record<string, { coverImage: string | null; gallery: string[] }>): S[] {
+  return stops.map((s) => {
+    const a = current[attractionOf[s.id] ?? ""];
+    return a && (a.coverImage || a.gallery.length) ? { ...s, cover: a.coverImage ?? a.gallery[0] ?? null, gallery: a.coverImage ? a.gallery : a.gallery.slice(1) } : s;
+  });
+}
+
 /** Highlights grouped by stop, for stops that have any. */
 export const tripHighlights = (stops: PhotoStop[]) => stops.filter((s) => (s.highlights ?? []).length > 0).map((s) => ({ stop: s.name, items: s.highlights! }));
 

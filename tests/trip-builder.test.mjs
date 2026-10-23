@@ -147,3 +147,13 @@ test('/place adds an attraction with its hours and photo; a reply photo joins th
   assert.deepEqual([updated.open_time, updated.close_time, updated.n], ['08:00', '18:00', 1]);
   assert.match(replies().at(-1), /อัปเดตสถานที่/);
 });
+
+test('/place with a shorter name adds the photo to the place trips already use, not a duplicate', async () => {
+  await d1.prepare("INSERT INTO attractions(id,name,area,duration_min,status,created_at,updated_at) VALUES('wat-arun-old','Wat Arun (Temple of Dawn)','Bangkok',60,'active',?,?)").bind(now, now).run();
+  const before = (await d1.prepare('SELECT COUNT(*) n FROM attractions').first()).n;
+  await tb.handleTripBuilder(message(undefined, { caption: '/place Wat Arun', photo: [{ file_id: 'arun', file_unique_id: 'u-arun', width: 800, height: 600 }] }), anna, deps(model()));
+  const row = await d1.prepare("SELECT cover_image FROM attractions WHERE id='wat-arun-old'").first();
+  assert.match(row.cover_image, /^\/api\/blog-images\/[0-9a-f-]{36}\.jpg$/);
+  assert.equal((await d1.prepare('SELECT COUNT(*) n FROM attractions').first()).n, before, 'no new attraction');
+  assert.match(replies().at(-1), /อัปเดตสถานที่ <b>Wat Arun \(Temple of Dawn\)<\/b>/);
+});

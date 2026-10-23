@@ -10,11 +10,12 @@ import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
 import { TripGallery } from "@/components/itinerary/trip-gallery";
-import { ticketStops, tripHighlights, tripPhotos } from "@/lib/trip-photos";
+import { ticketStops, tripHighlights, tripPhotos, withCurrentPhotos } from "@/lib/trip-photos";
+import { attractionsById } from "@/lib/attractions";
 import { YourDay } from "@/components/itinerary/your-day";
 import { TripFeedback } from "@/components/itinerary/trip-feedback";
 import { reviewUrl } from "@/lib/trip-thanks";
-import { groupDays, tripByToken, tripSnapshot, type TripSnapshot } from "@/lib/smart-trips";
+import { groupDays, tripByToken, tripSnapshot, tripStops, type TripSnapshot } from "@/lib/smart-trips";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { dateLocale, fill, tripWords, type TripWords } from "@/lib/trip-i18n";
 import { FULL_REFUND_HOURS } from "@/lib/refund-policy";
@@ -45,7 +46,11 @@ function Unavailable({ title, text, home }: { title: string; text: string; home:
 export default async function ItineraryPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const opened = await tripByToken(token);
-  const days = opened ? (await groupDays(opened)).map((d) => ({ trip: d, snap: tripSnapshot(d) })).filter((d): d is { trip: typeof d.trip; snap: TripSnapshot } => Boolean(d.snap)) : [];
+  const sentDays = opened ? (await groupDays(opened)).map((d) => ({ trip: d, snap: tripSnapshot(d) })).filter((d): d is { trip: typeof d.trip; snap: TripSnapshot } => Boolean(d.snap)) : [];
+  // Photos come from the attractions as they are now (staff may add them after sending); everything else as sent.
+  const attractionOf = Object.fromEntries(sentDays.flatMap((d) => tripStops(d.trip).map((x) => [x.id, x.attractionId])));
+  const current = await attractionsById(Object.values(attractionOf).filter((x): x is string => Boolean(x)));
+  const days = sentDays.map((d) => ({ ...d, snap: { ...d.snap, stops: withCurrentPhotos(d.snap.stops, attractionOf, current) } }));
   const lead = days[0];
   const w = tripWords(opened?.language);
   if (!opened || !lead) return <Unavailable title={w.notFound} text={w.notFoundText} home={w.home} />;

@@ -35,3 +35,11 @@ test('highlights are grouped by stop; tickets split into included and paid on th
   assert.deepEqual(p.ticketStops(stops), { included: ['Stop a'], onSite: ['Stop b'] });
   assert.deepEqual(p.ticketStops([stop('a', null, [], { fee: { included: true } }), stop('a', null, [], { fee: { included: true } })]).included, ['Stop a'], 'a stop visited twice is named once');
 });
+
+test("a sent trip shows the attraction's photos as they are now; without any it keeps the photos it was sent with", () => {
+  const stops = [stop('a', null), stop('b', '/old-b.jpg', ['/old-b1.jpg']), stop('c', '/old-c.jpg'), stop('d', null)];
+  const now = { 'att-a': { coverImage: '/a.jpg', gallery: ['/a1.jpg'] }, 'att-b': { coverImage: null, gallery: [] }, 'att-d': { coverImage: null, gallery: ['/d1.jpg', '/d2.jpg'] } };
+  const out = p.withCurrentPhotos(stops, { a: 'att-a', b: 'att-b', c: 'att-gone', d: 'att-d' }, now);
+  assert.deepEqual(out.map((s) => [s.cover, s.gallery]), [['/a.jpg', ['/a1.jpg']], ['/old-b.jpg', ['/old-b1.jpg']], ['/old-c.jpg', []], ['/d1.jpg', ['/d2.jpg']]]);
+  assert.equal(out[0].name, 'Stop a', 'everything else as sent');
+});

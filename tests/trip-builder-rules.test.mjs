@@ -68,3 +68,23 @@ test('the feature is off unless TELEGRAM_TRIP_BUILDER=1', () => {
   assert.equal(r.tripBuilderOn({ TELEGRAM_TRIP_BUILDER: 'true' }), false);
   assert.equal(r.tripBuilderOn({ TELEGRAM_TRIP_BUILDER: '1' }), true);
 });
+
+test('/place finds the existing place by its name, ignoring case, "The" and a bracketed part', () => {
+  const rows = [
+    { id: 'pho', name: 'Wat Pho (Reclining Buddha)', customerName: null, createdAt: '2026-10-04' },
+    { id: 'gp-new', name: 'Grand Palace', customerName: null, createdAt: '2026-10-22T16:16' },
+    { id: 'gp-the', name: 'The Grand Palace', customerName: null, createdAt: '2026-10-22T16:17' },
+    { id: 'gp-kaew', name: 'Grand Palace and Wat Phra Kaew', customerName: null, createdAt: '2026-10-04' },
+    { id: 'saket', name: 'Golden Mount', customerName: 'Wat Saket', createdAt: '2026-10-04' },
+    { id: 'th', name: 'วัดโพธิ์', customerName: null, createdAt: '2026-10-04' },
+  ];
+  const id = (name) => r.matchPlace(name, rows)?.id ?? null;
+  assert.equal(id('Wat Pho'), 'pho');
+  assert.equal(id('wat pho (reclining buddha)'), 'pho');
+  assert.equal(id('The Grand Palace'), 'gp-the', 'the exact name wins');
+  assert.equal(id('grand palace'), 'gp-new');
+  assert.equal(id('Grand Palace!'), 'gp-new', 'then the oldest of the same place');
+  assert.equal(id('wat saket'), 'saket', 'the customer name counts');
+  assert.equal(id('วัดโพธิ์'), 'th');
+  for (const other of ['Wat Phra Kaew', 'Wat', 'Wat Pho Market', '()']) assert.equal(id(other), null, other);
+});

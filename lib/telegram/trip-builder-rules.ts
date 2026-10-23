@@ -99,6 +99,22 @@ export function parsePlaceDetails(details: string): PlaceDetails | null {
   return { name, openTime: hours?.openTime ?? null, closeTime: hours?.closeTime ?? null, durationMin, area };
 }
 
+/** A place name reduced for matching: lower case, no bracketed part, no leading "the", no punctuation. */
+export const placeKey = (name: string) => name.toLowerCase().replace(/\([^)]*\)/g, " ").replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim().replace(/^the\s+/, "");
+
+/**
+ * The existing attraction a /place name means, so photos and hours go to the place trips already use instead of a
+ * duplicate: the same name (any case) first, else the same once brackets and "The" are dropped ("Wat Pho" is
+ * "Wat Pho (Reclining Buddha)"), the oldest when several fit. Null when none does.
+ */
+export function matchPlace<T extends { name: string; customerName: string | null; createdAt: string }>(name: string, rows: T[]): T | null {
+  const names = (r: T) => [r.name, r.customerName ?? ""].filter(Boolean);
+  const oldest = (xs: T[]) => [...xs].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] ?? null;
+  const lower = name.trim().toLowerCase(), key = placeKey(name);
+  return oldest(rows.filter((r) => names(r).some((n) => n.trim().toLowerCase() === lower)))
+    ?? (key ? oldest(rows.filter((r) => names(r).some((n) => placeKey(n) === key))) : null);
+}
+
 export const tripBuilderOn = (vars: Record<string, string | undefined>) => vars.TELEGRAM_TRIP_BUILDER === "1";
 
 /** Thai words for the parts the AI could not find in the message. */
