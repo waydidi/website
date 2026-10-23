@@ -24,6 +24,8 @@ export type TripStop = {
   id: string; kind: StopKind; name: string; attractionId?: string; programId?: string; sessionTime?: string;
   lat?: number | null; lng?: number | null; durationMin: number; priority: Priority; locked?: boolean;
   windowStart?: string; windowEnd?: string; note?: string; skipped?: boolean;
+  /** Set when staff chose this package for the trip (Telegram): its price is part of the trip total. */
+  feeIncluded?: boolean;
 };
 export type Point = { lat: number; lng: number };
 export type Problem = { level: "error" | "warning"; stopId?: string; message: string };
@@ -183,7 +185,7 @@ export function tripFees(stops: TripStop[], attractions: Record<string, Attracti
     const p = attractions[s.attractionId]?.programs.find((x) => x.id === s.programId);
     if (!p) continue;
     const fee = (p.feeAdult ?? 0) * adults + (p.feeChild ?? 0) * children;
-    if (p.feeIncluded) included += fee; else onSite += fee;
+    if (s.feeIncluded ?? p.feeIncluded) included += fee; else onSite += fee;
   }
   return { included, onSite };
 }

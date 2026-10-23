@@ -194,7 +194,7 @@ export async function handleTripPackageChoice(q: { id: string; data?: string; me
   const option = pick === "g" ? null : packageOptions(place?.programs ?? [])[Number(pick)];
   if (pick !== "g" && !option) return answer("ตัวเลือกนี้ใช้ไม่ได้แล้ว ส่ง /trip ใหม่", true);
   const program = option ? place?.programs.find((x) => x.id === option.programId) : undefined;
-  if (option && program) Object.assign(stop, { programId: program.id, durationMin: program.durationMin, ...(option.session ? { sessionTime: option.session, priority: "fixed" as const } : {}) });
+  if (option && program) Object.assign(stop, { programId: program.id, feeIncluded: true, durationMin: program.durationMin, ...(option.session ? { sessionTime: option.session, priority: "fixed" as const } : {}) });
   // Only one tap per question counts: the step moves on only from the step this button was for.
   const moved = await db().prepare("UPDATE telegram_trip_pending SET step = step + 1, payload_json = ? WHERE id = ? AND step = ?").bind(JSON.stringify(p), id, step).run();
   if (!moved.meta.changes) return answer("ข้อนี้เลือกไปแล้ว");
@@ -260,7 +260,7 @@ async function finishTrip(p: Pending, deps: BuilderDeps) {
     `📅 ${thaiDate(first.tripDate)}${snaps.length > 1 ? ` – ${thaiDate(snaps.at(-1)!.tripDate)}` : ""} · รับ ${first.startTime} ${first.pickupText ? esc(first.pickupText) : "(จุดรับ: รอยืนยัน ใส่โรงแรมได้ที่ Admin)"}`,
     ...(snaps.length > 1 ? snaps.map((x, i) => `📍 วันที่ ${i + 1} (${thaiDate(x.tripDate)}): ${route(x)}`) : [`📍 ${route(first)}`]),
     `🚗 ${esc(first.vehicleName)} · ${people}`,
-    `💰 ${thb(total)}${tickets ? ` (รถ ${thb(transport)} + ตั๋ว ${thb(tickets)})` : ""}${p.price == null ? " · ราคารถตามเรทรายชั่วโมง แก้ได้ที่ Admin" : ""}${onSite ? ` · ค่าเข้าชมจ่ายหน้างานประมาณ ${thb(onSite)}` : ""}`,
+    `💰 ${thb(total)}${tickets ? ` (รถ ${thb(transport)} + แพ็กเกจ/ตั๋ว ${thb(tickets)})` : ""}${p.price == null ? " · ราคารถตามเรทรายชั่วโมง แก้ได้ที่ Admin" : ""}${onSite ? ` · ค่าเข้าชมจ่ายหน้างานประมาณ ${thb(onSite)}` : ""}`,
     ...(p.added.length ? [`➕ เพิ่มสถานที่ใหม่จาก Google Maps: ${p.added.map(esc).join(", ")}`] : []),
     ...(p.notFound.length ? [`⚠️ ไม่พบใน Google Maps (ไม่ได้ใส่ในทริป): ${p.notFound.map(esc).join(", ")} เพิ่มได้ด้วย /place`] : []),
     ...(warnings.length ? [`⚠️ ตรวจก่อนส่งลูกค้า:\n${warnings.map((w) => `• ${esc(w)}`).join("\n")}`] : []),
