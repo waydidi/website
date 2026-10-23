@@ -34,7 +34,7 @@ test("header Transfer menu opens with the keyboard and lists its links", async (
 });
 
 test("chat window opens, closes with Esc and returns focus to the chat button", async ({ page }) => {
-  await page.goto("/account/sign-in");
+  await page.goto("/");
   await page.waitForLoadState("networkidle");
   const launcher = page.getByRole("button", { name: "Ask Waydidi" });
   await launcher.click();
@@ -43,4 +43,11 @@ test("chat window opens, closes with Esc and returns focus to the chat button", 
   await page.keyboard.press("Escape");
   await expect(chat).toBeHidden();
   await expect(launcher).toBeFocused();
+});
+
+test("no chat button on the sign-in page", async ({ page }) => {
+  await page.goto("/account/sign-in");
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("heading", { name: "Welcome!" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ask Waydidi" })).toHaveCount(0);
 });
