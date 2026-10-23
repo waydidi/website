@@ -487,3 +487,9 @@ html.wd-tx body { visibility: hidden; }
 /* Itinerary page photos (components/itinerary/trip-gallery.tsx): slow zoom, and the loading bar of the photo shown. */
 @keyframes trip-photo-zoom { from { transform: scale(1); } to { transform: scale(1.15); } }
 @keyframes trip-photo-progress { from { width: 0; } to { width: 100%; } }
+
+/* "Chat with us" launcher: orange rings spread out from the icon and fade to white. */
+.chat-echo { position: absolute; inset: 10px 14px; border-radius: 9999px; pointer-events: none; animation: chat-echo 2.4s ease-out infinite; }
+.chat-echo-late { animation-delay: 1.2s; }
+@keyframes chat-echo { 0% { box-shadow: 0 0 0 0 rgba(254, 139, 5, .55); } 100% { box-shadow: 0 0 0 22px rgba(255, 255, 255, 0); } }
+@media (prefers-reduced-motion: reduce) { .chat-echo { display: none; } }
