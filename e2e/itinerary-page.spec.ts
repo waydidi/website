@@ -141,13 +141,20 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(tabs.getByRole("link", { name: "Includes/Excludes" })).toHaveAttribute("aria-current", "location");
   await expect(includes.getByText("Entrance tickets: Elephant Jungle Sanctuary")).toBeVisible();
   await expect(includes.getByText("Entrance fee at Big Buddha, paid on the day")).toBeVisible();
-  // Collapsible rows under What's included, filled from the trip itself.
-  for (const name of ["Pick-up & meet-up information", "Before you book", "Terms & Conditions", "How to use"]) await expect(includes.getByText(name, { exact: true })).toBeVisible();
-  await includes.getByText("Pick-up & meet-up information", { exact: true }).click();
-  await expect(includes.getByText("Pickup at 08:30 from Kata Beach Resort")).toBeVisible();
-  await includes.getByText("Before you book", { exact: true }).click();
-  await expect(includes.getByText("Swimwear", { exact: true })).toBeVisible();
-  await expect(includes.getByText("Bring swimwear for the elephant bath.")).toBeVisible();
+  // Rows under What's included, filled from the trip itself: each opens its details in a sheet from the bottom.
+  for (const name of ["Pick-up & meet-up information", "Before you book", "Terms & Conditions", "How to use"]) await expect(includes.getByRole("button", { name, exact: true })).toBeVisible();
+  await includes.getByRole("button", { name: "Pick-up & meet-up information" }).click();
+  const pickupSheet = page.getByRole("dialog", { name: "Pick-up & meet-up information" });
+  await expect(pickupSheet.getByText("Pickup at 08:30 from Kata Beach Resort")).toBeVisible();
+  await pickupSheet.getByRole("button", { name: "Close" }).click();
+  await expect(pickupSheet).toHaveCount(0);
+  await includes.getByRole("button", { name: "Before you book" }).click();
+  const beforeSheet = page.getByRole("dialog", { name: "Before you book" });
+  await expect(beforeSheet.getByText("Swimwear", { exact: true })).toBeVisible();
+  await expect(beforeSheet.getByText("Bring swimwear for the elephant bath.")).toBeVisible();
+  if (process.env.SHOT_DIR) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-row-sheet-${info.project.name}.png` }); }
+  await beforeSheet.getByRole("button", { name: "Close" }).click();
+  await expect(beforeSheet).toHaveCount(0);
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-includes-${info.project.name}.png` });
 
   await expect(page.getByRole("link", { name: "Book now" })).toHaveCount(0); // no floating bar at the bottom

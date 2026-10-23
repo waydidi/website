@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { eq } from "drizzle-orm";
-import type { ReactNode } from "react";
-import { Backpack, CalendarDays, CheckCircle2, ChevronRight, Clock, Download, Landmark, MapPin, Shirt, Ticket, X } from "lucide-react";
+import { Backpack, CalendarDays, CheckCircle2, Clock, Download, Landmark, MapPin, Shirt, Ticket, X } from "lucide-react";
 import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
 import { HighlightsCard } from "@/components/itinerary/highlights-card";
+import { InfoRow } from "@/components/itinerary/info-row";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
@@ -118,23 +118,23 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
           {tickets.onSite.map((place) => <li key={place} className="flex items-start gap-3"><X size={20} className="mt-0.5 shrink-0 text-slate-400" /><span><span className="sr-only">{w.notIncluded}: </span>{fill(w.feeAt, { place })}</span></li>)}
         </ul>
         <div className="mt-6 divide-y divide-slate-200 border-y border-slate-200">
-          <More title={w.accPickup}>
+          <InfoRow title={w.accPickup} closeLabel={w.closeLabel}>
             <ul className="grid gap-1.5">{days.map((d) => <li key={d.trip.id}>{multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ` : ""}{fill(w.pickupAt, { time: d.snap.startTime, place: d.snap.pickupText || w.hotelPickup })}</li>)}</ul>
             {!multi && <p className="mt-1.5">{fill(w.backAround, { time: lastReturn })}{s.endText && s.endText !== s.pickupText ? ` · ${s.endText}` : ""}</p>}
-          </More>
-          {(packing.length > 0 || dressCodes.length > 0 || days.some((d) => d.snap.notes)) && <More title={w.accBefore}>
+          </InfoRow>
+          {(packing.length > 0 || dressCodes.length > 0 || days.some((d) => d.snap.notes)) && <InfoRow title={w.accBefore} closeLabel={w.closeLabel}>
             {packing.length > 0 && <><p className="font-semibold text-plum">{w.whatToBring}</p><ul className="mt-1.5 grid gap-1.5">{packing.map((p) => <li key={p} className="flex gap-2"><Backpack size={16} className="mt-1 shrink-0 text-brand-text" />{p}</li>)}</ul></>}
             {dressCodes.length > 0 && <ul className="mt-3 grid gap-1.5">{dressCodes.map(([code, place]) => <li key={code} className="flex gap-2"><Shirt size={16} className="mt-1 shrink-0 text-brand-text" />{place}: {code}</li>)}</ul>}
             {days.filter((d) => d.snap.notes).map((d) => <p key={d.trip.id} className="mt-3 whitespace-pre-line"><span className="font-semibold text-plum">{w.notes}{multi ? ` (${fill(w.day, { n: d.trip.dayNumber })})` : ""}: </span>{d.snap.notes}</p>)}
-          </More>}
-          <More title={w.accTerms}>
+          </InfoRow>}
+          <InfoRow title={w.accTerms} closeLabel={w.closeLabel}>
             <p>{fill(w.refLine, { ref: s.ref, v: s.version, hours: FULL_REFUND_HOURS })} <Link href="/refund-policy" className="font-semibold text-brand-deep underline">{w.policy}</Link>.</p>
             {!paid && <p className="mt-2">{fill(w.priceHeld, { n: trip.holdDays })}</p>}
             <p className="mt-2">{w.timesNote}</p>
-          </More>
-          <More title={w.accHow}>
+          </InfoRow>
+          <InfoRow title={w.accHow} closeLabel={w.closeLabel}>
             <ol className="grid list-decimal gap-1.5 pl-5">{[w.howStep1, w.howStep2, w.howStep3].map((x) => <li key={x}>{x}</li>)}</ol>
-          </More>
+          </InfoRow>
         </div>
       </section>
 
@@ -201,16 +201,6 @@ function WhatToExpect({ days, stops, w }: { days: { id: string; label: string; s
       </dl>
     </div>}
   </>;
-}
-
-/** One collapsible row under What's included (no script needed: native details/summary). */
-function More({ title, children }: { title: string; children: ReactNode }) {
-  return <details className="group">
-    <summary className="flex min-h-[60px] cursor-pointer list-none items-center justify-between gap-3 text-[18px] font-bold [&::-webkit-details-marker]:hidden">
-      {title}<ChevronRight aria-hidden size={22} className="shrink-0 transition-transform group-open:rotate-90" />
-    </summary>
-    <div className="pb-5 text-[15px] leading-7 text-slate-700">{children}</div>
-  </details>;
 }
 
 /** One day as a timeline: map, then departure, each place (name, time, photo) and the return, on one grey line. */
