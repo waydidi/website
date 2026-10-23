@@ -35,21 +35,23 @@ test('only https files on Wikimedia’s image server may be copied', () => {
     assert.equal(rules.isCommonsFileUrl(bad), false, bad);
 });
 
-test('only freely licensed, large enough JPEG/PNG/WebP photos are offered, with a credit line', () => {
+test('only public domain and CC0, large enough JPEG/PNG/WebP photos are offered (nothing that needs a credit)', () => {
   const answer = { query: { pages: {
-    1: page('Big Buddha', FILE, 'CC BY-SA 4.0'),
+    1: page('Big Buddha', FILE, 'CC0'),
+    9: page('Attribution', FILE.replace('Big_Buddha', 'Attribution'), 'CC BY-SA 4.0'),
+    10: page('Attribution2', FILE.replace('Big_Buddha', 'Attribution2'), 'CC BY 2.0'),
     2: page('Wat Chalong', FILE.replace('Big_Buddha', 'Wat_Chalong'), 'CC0'),
     3: page('Old Town', FILE.replace('Big_Buddha', 'Old_Town'), 'Public domain'),
     4: page('Logo', FILE.replace('Big_Buddha', 'Logo'), 'Fair use'),
     5: page('Shop', FILE.replace('Big_Buddha', 'Shop'), 'All rights reserved'),
-    6: page('Tiny', FILE.replace('Big_Buddha', 'Tiny'), 'CC BY 2.0', { width: 640 }),
-    7: page('Clip', FILE.replace('Big_Buddha', 'Clip'), 'CC BY 2.0', { mime: 'image/svg+xml' }),
-    8: page('Elsewhere', 'https://example.com/wikipedia/commons/x.jpg', 'CC BY 2.0'),
+    6: page('Tiny', FILE.replace('Big_Buddha', 'Tiny'), 'CC0', { width: 640 }),
+    7: page('Clip', FILE.replace('Big_Buddha', 'Clip'), 'CC0', { mime: 'image/svg+xml' }),
+    8: page('Elsewhere', 'https://example.com/wikipedia/commons/x.jpg', 'CC0'),
   } } };
   const photos = rules.commonsPhotos(answer);
   assert.deepEqual(photos.map((p) => p.title).sort(), ['Big Buddha', 'Old Town', 'Wat Chalong']);
   const buddha = photos.find((p) => p.title === 'Big Buddha');
-  assert.equal(buddha.credit, 'Photo: Jane Doe, CC BY-SA 4.0, Wikimedia Commons');
+  assert.equal(buddha.credit, 'Photo: Jane Doe, CC0, Wikimedia Commons');
   assert.equal(buddha.thumb, FILE.replace('/1600px-', '/400px-'), 'the picker shows a small copy');
   assert.deepEqual(rules.commonsPhotos(null), []);
   assert.equal(rules.mergeCredits('Own photos', ['Photo: A, CC0, Wikimedia Commons', 'Photo: A, CC0, Wikimedia Commons']), 'Own photos; Photo: A, CC0, Wikimedia Commons');
@@ -65,7 +67,7 @@ globalThis.fetch = async (url) => {
     regularOpeningHours: { periods: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ open: { day, hour: 8, minute: 0 }, close: { day, hour: 19, minute: 30 } })) } });
   if (u.startsWith('https://commons.wikimedia.org/w/api.php')) {
     const near = u.includes('geosearch');
-    return Response.json({ query: { pages: near ? { 1: page('Big Buddha', FILE, 'CC BY-SA 4.0'), 2: page('Ad', FILE.replace('Big_Buddha', 'Ad'), 'Fair use') } : { 1: page('Big Buddha', FILE, 'CC BY-SA 4.0'), 3: page('Night', FILE.replace('Big_Buddha', 'Night'), 'CC0') } } });
+    return Response.json({ query: { pages: near ? { 1: page('Big Buddha', FILE, 'Public domain'), 2: page('Ad', FILE.replace('Big_Buddha', 'Ad'), 'CC BY-SA 4.0') } : { 1: page('Big Buddha', FILE, 'Public domain'), 3: page('Night', FILE.replace('Big_Buddha', 'Night'), 'CC0') } } });
   }
   if (u.startsWith('https://upload.wikimedia.org/')) return new Response(imageBytes, { headers: { 'content-type': imageType } });
   return new Response('refused', { status: 599 });
@@ -81,7 +83,7 @@ test('Fill from Google Maps: name, address, map position, opening hours and clos
   assert.equal((await post({ action: 'google' })).status, 400, 'nothing to look up');
 });
 
-test('Find free photos: near the place and by name, each once, free licences only', async () => {
+test('Find free photos: near the place and by name, each once, public domain and CC0 only', async () => {
   const res = await post({ action: 'photos', name: 'Big Buddha', lat: 7.8276, lng: 98.3128 });
   const { photos } = await res.json();
   assert.deepEqual(photos.map((p) => p.title).sort(), ['Big Buddha', 'Night']);

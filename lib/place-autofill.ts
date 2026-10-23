@@ -4,7 +4,7 @@ import { hoursFromGoogle, type GooglePeriod, type PlaceHours } from "@/lib/googl
 import { commonsPhotos, isCommonsFileUrl, type FreePhoto } from "@/lib/place-autofill-rules";
 
 // Admin → Attractions: "Fill from Google Maps" (name, address, location, opening hours) and "Find free photos"
-// (Wikimedia Commons, free licences only, imported into Waydidi's own file store with their credit).
+// (Wikimedia Commons, public domain and CC0 only, imported into Waydidi's own file store with their source noted).
 
 export type GooglePlaceFacts = { placeId: string; name: string; address: string; lat: number; lng: number; hours: PlaceHours | null };
 

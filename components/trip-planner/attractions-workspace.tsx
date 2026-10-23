@@ -178,7 +178,7 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
         return { ...d, coverImage: cover, gallery: [...d.gallery, ...urls].slice(0, MAX_GALLERY_PHOTOS), imageCredit: mergeCredits(d.imageCredit, added.map((x) => x.p.credit)) || null };
       });
       setPhotos(null); setPicked([]);
-      setHelper({ at: "photos", note: `${added.length} free photo${added.length === 1 ? "" : "s"} added, with their credit in Photo credit / licence.${added.length < chosen.length ? ` ${chosen.length - added.length} could not be copied.` : ""}` });
+      setHelper({ at: "photos", note: `${added.length} free photo${added.length === 1 ? "" : "s"} added; their source is noted in Photo credit / licence.${added.length < chosen.length ? ` ${chosen.length - added.length} could not be copied.` : ""}` });
     } catch (e) { setHelper({ at: "photos", error: (e as Error).message }); }
   }
   const helperLine = (at: "google" | "photos") => helper.at === at && (helper.note || helper.error) && <p role={helper.error ? "alert" : "status"} className={`text-[13px] ${helper.error ? "font-semibold text-red-600" : "text-emerald-700"}`}>{helper.error || helper.note}</p>;
@@ -284,7 +284,7 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" onClick={() => void findPhotos()} disabled={Boolean(helper.busy)} className={btnQuiet}>{helper.busy === "photos" ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />}Find free photos</button>
-              <span className="text-[12px] text-slate-500">From Wikimedia Commons, free to reuse with credit</span>
+              <span className="text-[12px] text-slate-500">From Wikimedia Commons: public domain and CC0 only, so no credit has to be shown</span>
             </div>
             {photos && photos.length > 0 && <div className="grid gap-3 rounded-2xl border border-slate-200 p-3">
               <p className="text-[13px] text-slate-600">Tick the photos to add (up to 12 at a time). The first goes to the cover if there is none.</p>

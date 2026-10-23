@@ -1,13 +1,15 @@
 // Admin → Attractions "Fill from Google Maps" and "Find free photos": reading what Google and Wikimedia Commons send
 // into checked values. Pure (no runtime imports) so it is unit tested directly. Photos are only offered when their
-// licence lets Waydidi store and reuse them with a credit (public domain, CC0, CC BY, CC BY-SA); anything else is left out.
+// licence lets Waydidi store and reuse them without showing a credit to customers: public domain and CC0 (owner's choice;
+// CC BY / CC BY-SA would need the credit on every customer page). Anything else is left out. The source is still noted
+// in the place's internal Photo credit / licence field.
 
 export type FreePhoto = { title: string; thumb: string; url: string; width: number; height: number; licence: string; author: string; credit: string; page: string };
 
 type CommonsPage = { title?: string; imageinfo?: { url?: string; thumburl?: string; thumbwidth?: number; thumbheight?: number; width?: number; height?: number; mime?: string; descriptionurl?: string;
   extmetadata?: Record<string, { value?: unknown } | undefined> }[] };
 
-const FREE = /^(public domain|pd\b|cc0|cc[- ]by(-sa)?(\s|-)?\d(\.\d)?)/i;
+const FREE = /^(public domain|pd\b|cc0)/i;
 const IMAGE = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 /** Only https files on Wikimedia's own image server may be downloaded (nothing else, so the import cannot fetch other sites). */
@@ -21,12 +23,12 @@ export function isCommonsFileUrl(raw: string): boolean {
 /** Plain text from Commons' HTML metadata (author names often come as links). */
 export const plainText = (value: unknown) => (typeof value === "string" ? value.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, "\"").replace(/&#0?39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim() : "");
 
-/** The credit saved with the place, e.g. "Photo: Jane Doe, CC BY-SA 4.0, Wikimedia Commons". */
+/** Where the photo came from, kept with the place (not shown to customers), e.g. "Photo: Jane Doe, CC0, Wikimedia Commons". */
 export const photoCredit = (author: string, licence: string) => `Photo: ${author || "unknown author"}, ${licence}, Wikimedia Commons`;
 
 /**
- * The usable photos in a Commons API answer (prop=imageinfo with url, size, mime and extmetadata): free licence,
- * JPEG/PNG/WebP, at least 800 px wide, from Wikimedia's image server. Largest first, at most `max`.
+ * The usable photos in a Commons API answer (prop=imageinfo with url, size, mime and extmetadata): public domain or
+ * CC0, JPEG/PNG/WebP, at least 800 px wide, from Wikimedia's image server. Largest first, at most `max`.
  */
 export function commonsPhotos(answer: unknown, max = 24): FreePhoto[] {
   const pages = Object.values(((answer as { query?: { pages?: Record<string, CommonsPage> } })?.query?.pages) ?? {});

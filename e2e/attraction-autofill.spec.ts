@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 
 // Admin → Attractions: "Fill from Google Maps" fills name, map position and opening hours; "Find free photos" adds the
-// ticked Wikimedia Commons photos to the cover and gallery with their credit.
+// ticked public-domain / CC0 Wikimedia Commons photos to the cover and gallery, with their source noted.
 test.use({ storageState: "e2e/.auth/admin.json" });
 test.skip(({ isMobile }) => isMobile, "Checked on the desktop layout");
 
 const photo = (title: string) => ({ title, thumb: "/destinations/phuket.webp", url: `https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/${title}.jpg/1600px-${title}.jpg`,
-  width: 1600, height: 1067, licence: "CC BY-SA 4.0", author: "Jane Doe", credit: `Photo: Jane Doe, CC BY-SA 4.0, Wikimedia Commons`, page: "" });
+  width: 1600, height: 1067, licence: "CC0", author: "Jane Doe", credit: `Photo: Jane Doe, CC0, Wikimedia Commons`, page: "" });
 
 test("fill a new place from Google Maps, then add two free photos with their credit", async ({ page }) => {
   const asked: string[] = [];
@@ -36,9 +36,9 @@ test("fill a new place from Google Maps, then add two free photos with their cre
   await page.getByRole("checkbox", { name: "Add Big_Buddha", exact: true }).check();
   await page.getByRole("checkbox", { name: "Add Statue" }).check();
   await page.getByRole("button", { name: "Add 2 photos" }).click();
-  await expect(page.getByText(/2 free photos added, with their credit/)).toBeVisible();
+  await expect(page.getByText(/2 free photos added; their source is noted/)).toBeVisible();
   await expect(page.getByRole("img", { name: "Cover" })).toHaveAttribute("src", "/api/blog-images/photo-0.jpg");
   await expect(page.getByRole("img", { name: "Gallery 1" })).toHaveAttribute("src", "/api/blog-images/photo-1.jpg");
-  await expect(page.getByLabel("Photo credit / licence")).toHaveValue("Photo: Jane Doe, CC BY-SA 4.0, Wikimedia Commons");
+  await expect(page.getByLabel("Photo credit / licence")).toHaveValue("Photo: Jane Doe, CC0, Wikimedia Commons");
   expect(asked).toEqual(["google", "photos", "import"]);
 });
