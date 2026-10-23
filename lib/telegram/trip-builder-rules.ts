@@ -1,6 +1,7 @@
 // /trip and /place in the Admin group: staff type a trip (or a new place) and the bot builds it. Pure (no runtime
 // imports) so the reading of staff text is unit tested directly (tests/trip-builder-rules.test.mjs). Staff text is
 // read once here into checked values; the price is never guessed: no clear price in the message, no trip.
+import { placeKey } from "@/lib/trip-chat-rules";
 import { smallestFittingVehicle, vehicleFits, type VehicleId } from "@/lib/vehicles";
 
 /** `/trip <details>` (also `/trip@BotName`): the details, "" when only the command was sent, null when it is not /trip. */
@@ -99,8 +100,7 @@ export function parsePlaceDetails(details: string): PlaceDetails | null {
   return { name, openTime: hours?.openTime ?? null, closeTime: hours?.closeTime ?? null, durationMin, area };
 }
 
-/** A place name reduced for matching: lower case, no bracketed part, no leading "the", no punctuation. */
-export const placeKey = (name: string) => name.toLowerCase().replace(/\([^)]*\)/g, " ").replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim().replace(/^the\s+/, "");
+export { placeKey }; // shared with the chat-to-trip reader (lib/trip-chat-rules.ts)
 
 /**
  * The existing attraction a /place name means, so photos and hours go to the place trips already use instead of a

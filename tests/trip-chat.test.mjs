@@ -58,3 +58,23 @@ test('draftFromChat: empty chat, model failure and unreadable answer give plain 
   const ok = await chat.draftFromChat('We want to see Big Buddha tomorrow please', places, today, async () => JSON.stringify({ title: 'T', stops: [{ placeId: 'p1', name: 'Big Buddha', priority: 'must' }] }));
   assert.equal(ok.ok, true); assert.equal(ok.draft.stops.length, 1);
 });
+
+test("a place the model names exactly but with an id that is off still matches the list (not 'not in the list')", () => {
+  const listed = [
+    { id: 'grand-palace-and-wat-phra-kaew-1ff1c3', name: 'The Grand Palace', area: 'Bangkok', durationMin: 90, lat: 13.75, lng: 100.49, usedIn: 2 },
+    { id: 'wat-pho-reclining-buddha-bb7b75', name: 'Wat Pho (Reclining Buddha)', area: 'Bangkok', durationMin: 60, lat: 13.746, lng: 100.493, usedIn: 2 },
+    { id: 'wat-arun-temple-of-dawn-122152', name: 'Wat Arun (Temple of Dawn)', area: 'Bangkok', durationMin: 60, lat: 13.744, lng: 100.489, usedIn: 2 },
+    { id: 'twin-a', name: 'Night Market', area: 'Phuket', durationMin: 60, lat: null, lng: null, usedIn: 0 },
+    { id: 'twin-b', name: 'Night Market', area: 'Krabi', durationMin: 60, lat: null, lng: null, usedIn: 0 },
+  ];
+  const raw = JSON.stringify({ date: '2026-12-12', pickup: 'Baiyoke Sky Hotel', stops: [
+    { placeId: 'the-grand-palace', name: 'The Grand Palace' },
+    { placeId: null, name: 'Wat Pho (Reclining Buddha)' },
+    { placeId: 'wat-arun-temple-of-dawn', name: 'wat arun' },
+    { placeId: null, name: 'Night Market' },
+    { placeId: null, name: 'Wat Saket' },
+  ] });
+  const d = rules.parseChatPlan(raw, listed, today, uid);
+  assert.deepEqual(d.stops.filter((s) => s.kind === 'attraction').map((s) => s.attractionId), ['grand-palace-and-wat-phra-kaew-1ff1c3', 'wat-pho-reclining-buddha-bb7b75', 'wat-arun-temple-of-dawn-122152']);
+  assert.deepEqual(d.unmatched, ['Night Market', 'Wat Saket'], 'two places share the name, and one is not listed: both still asked about');
+});
