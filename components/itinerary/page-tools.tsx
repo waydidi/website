@@ -1,55 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ChevronDown, Share } from "lucide-react";
-import { useCurrency } from "@/components/use-currency";
-import { CURRENCIES } from "@/components/locale-picker";
-import { CURRENCY_COOKIE, CURRENCY_EVENT } from "@/lib/currency";
+import { Share } from "lucide-react";
 import { SOCIAL_LINKS, type SocialNetwork } from "@/lib/social-links";
-import { fill, type TripLang, type TripWords } from "@/lib/trip-i18n";
-
-const LANGS: [TripLang, string][] = [["en", "English"], ["th", "ไทย"], ["zh", "中文"]];
-const box = "relative flex h-[54px] min-w-0 items-center rounded-2xl border-2 border-slate-200 bg-white";
-const select = "h-full w-full min-w-0 cursor-pointer appearance-none truncate rounded-2xl bg-transparent pl-6 pr-12 text-[17px] text-plum outline-none focus-visible:ring-2 focus-visible:ring-brand";
+import { fill, type TripWords } from "@/lib/trip-i18n";
 
 /**
- * The end of the itinerary, like Klook's: language and currency boxes, Help, social icons, a round Share button
+ * The end of the itinerary, like Klook's: Help, social icons, a round Share button
  * and the copyright line.
  */
-export function PageTools({ lang, words: w }: { lang: TripLang; words: TripWords }) {
-  const router = useRouter();
-  const { currency } = useCurrency();
+export function PageTools({ words: w }: { words: TripWords }) {
   const [copied, setCopied] = useState(false);
-  const chooseCurrency = (code: string) => {
-    document.cookie = `${CURRENCY_COOKIE}=${code}; Path=/; Max-Age=31536000; SameSite=Lax`;
-    window.dispatchEvent(new Event(CURRENCY_EVENT));
-  };
   const share = async () => {
     const url = window.location.href.split("#")[0];
     if (navigator.share) { await navigator.share({ title: document.title, url }).catch(() => undefined); return; }
     await navigator.clipboard?.writeText(url).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 2000); }).catch(() => undefined);
   };
   const socials = SOCIAL_LINKS.filter((s) => s.href);
-  return <section aria-label={`${w.languageLabel} · ${w.currencyLabel}`} className="-mx-4 bg-white px-4 pb-8 pt-8 sm:px-7">
-    <div className="grid grid-cols-2 gap-4">
-      <label className={box}>
-        <span className="sr-only">{w.languageLabel}</span>
-        <select value={lang} onChange={(e) => router.replace(`?lang=${e.target.value}`, { scroll: false })} className={select}>
-          {LANGS.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-        </select>
-        <ChevronDown size={24} aria-hidden className="pointer-events-none absolute right-5 text-plum" />
-      </label>
-      <label className={box}>
-        <span className="sr-only">{w.currencyLabel}</span>
-        <select value={currency} onChange={(e) => chooseCurrency(e.target.value)} className={select}>
-          {CURRENCIES.map(([code, name]) => <option key={code} value={code}>{code} | {name}</option>)}
-        </select>
-        <ChevronDown size={24} aria-hidden className="pointer-events-none absolute right-5 text-plum" />
-      </label>
-    </div>
-    <Link href="/help" className="mt-5 flex h-[54px] items-center justify-center rounded-2xl border-2 border-slate-200 bg-white text-[17px] font-bold text-plum hover:bg-canvas">{w.helpLabel}</Link>
+  return <section aria-label={w.helpLabel} className="-mx-4 bg-white px-4 pb-8 pt-8 sm:px-7">
+    <Link href="/help" className="flex h-[54px] items-center justify-center rounded-2xl border-2 border-slate-200 bg-white text-[17px] font-bold text-plum hover:bg-canvas">{w.helpLabel}</Link>
     <div className="mt-6 flex items-center justify-between gap-4">
       <div className="min-w-0">
         {socials.length > 0 && <ul className="flex items-center gap-7">

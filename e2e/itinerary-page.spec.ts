@@ -209,18 +209,11 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   if (process.env.SHOT_DIR) { await page.waitForTimeout(1000); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-end-${info.project.name}.png` }); }
 });
 
-test("end of the page: language and currency boxes, Help, Share and the copyright line", async ({ page, context }, info) => {
+test("end of the page: Help, Share and the copyright line", async ({ page, context }, info) => {
   await page.goto(`/itinerary/${TOKEN}`);
-  const language = page.getByRole("combobox", { name: "Language" });
-  const currency = page.getByRole("combobox", { name: "Currency" });
-  // Both boxes sit side by side.
-  const [l, c] = [await language.boundingBox(), await currency.boundingBox()];
-  expect(Math.abs(l!.y - c!.y)).toBeLessThan(2);
-  expect(l!.x).toBeLessThan(c!.x);
   await expect(page.getByRole("link", { name: "Help", exact: true })).toHaveAttribute("href", "/help");
   await expect(page.getByText(`© ${new Date().getFullYear()} Waydidi Travel. All rights reserved.`)).toBeVisible();
   await expect(page.getByRole("button", { name: "Share this itinerary" })).toBeVisible();
-  await language.scrollIntoViewIfNeeded();
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-page-tools-${info.project.name}.png` });
 
   // Share copies the link where the phone's share sheet isn't available.
@@ -228,10 +221,4 @@ test("end of the page: language and currency boxes, Help, Share and the copyrigh
   await page.evaluate(() => { Object.defineProperty(navigator, "share", { value: undefined }); });
   await page.getByRole("button", { name: "Share this itinerary" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Link copied" })).toBeVisible();
-
-  // Language: the whole page switches.
-  await language.selectOption("th");
-  await expect(page).toHaveURL(/\?lang=th$/);
-  await expect(page.getByRole("navigation", { name: "ส่วนต่างๆ ของทริป" }).getByRole("link").first()).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "ภาษา" })).toHaveValue("th");
 });

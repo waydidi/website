@@ -48,7 +48,7 @@ const TRIP_LANGS: TripLang[] = ["en", "th", "zh"];
 
 export default async function ItineraryPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ lang?: string | string[] }> }) {
   const { token } = await params;
-  // The customer can switch language at the bottom of the page (?lang=); otherwise the language staff set on the trip.
+  // A link can ask for a language (?lang=); otherwise the language staff set on the trip.
   const asked = (await searchParams).lang;
   const chosen = TRIP_LANGS.find((l) => l === asked);
   const opened = await tripByToken(token);
@@ -183,7 +183,7 @@ export default async function ItineraryPage({ params, searchParams }: { params: 
         <a href={`/api/itinerary/${leadToken}/pdf`} className="mt-4 inline-flex min-h-tap items-center gap-1.5 text-[15px] font-semibold text-brand-darker hover:underline"><Download size={16} />{w.downloadPdf}</a>
         <p className="mt-1 text-[12px] text-slate-500">{fill(w.refLine, { ref: s.ref, v: s.version, hours: FULL_REFUND_HOURS })} <Link href="/refund-policy" className="underline">{w.policy}</Link>.</p>
       </section>
-      <PageTools lang={lang} words={w} />
+      <PageTools words={w} />
     </div>
   </main>;
 }
