@@ -78,3 +78,15 @@ test("a place the model names exactly but with an id that is off still matches t
   assert.deepEqual(d.stops.filter((s) => s.kind === 'attraction').map((s) => s.attractionId), ['grand-palace-and-wat-phra-kaew-1ff1c3', 'wat-pho-reclining-buddha-bb7b75', 'wat-arun-temple-of-dawn-122152']);
   assert.deepEqual(d.unmatched, ['Night Market', 'Wat Saket'], 'two places share the name, and one is not listed: both still asked about');
 });
+
+test('multi-day: the number of days and a place pinned to a day are read and checked; no pickup is fine', () => {
+  const raw = JSON.stringify({ title: 'Phuket', area: 'Phuket', date: '2026-11-29', days: 2, adults: 2, pickup: null,
+    stops: [{ placeId: 'p1', name: 'Big Buddha', priority: 'must', day: 2 }, { placeId: 'p2', name: 'Old Town', priority: 'must', day: null }, { placeId: null, name: 'Bangla Road', priority: 'must', day: 99 }] });
+  const d = rules.parseChatPlan(raw, places, today, uid);
+  assert.equal(d.days, 2);
+  assert.deepEqual(d.stops.map((s) => [s.name, s.day]), [['Big Buddha', 2], ['Old Town', undefined], ['Bangla Road', 15]]);
+  assert.equal(d.pickupText, '');
+  assert.ok(d.missing.includes('pickup place'), 'Admin still shows that the pickup is missing');
+  assert.equal(rules.parseChatPlan(JSON.stringify({ days: 'many', stops: [] }), places, today, uid).days, 1, 'unreadable becomes 1');
+  assert.equal(rules.parseChatPlan(JSON.stringify({ stops: [] }), places, today, uid).days, null);
+});
