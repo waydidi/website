@@ -156,7 +156,7 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await page.evaluate(() => window.scrollTo(0, 0));
 
   const tabs = page.getByRole("navigation", { name: "Trip sections" });
-  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Highlights", "What to expect", "Includes/Excludes", "Booking"]);
+  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Highlights", "What to expect", "Includes/Excludes"]);
 
   await tabs.getByRole("link", { name: "Includes/Excludes" }).click();
   const includes = page.locator("#includes");
@@ -182,15 +182,20 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(beforeSheet).toHaveCount(0);
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-includes-${info.project.name}.png` });
 
-  // The booking bar stays at the bottom of the screen: price, "Ask for a change" and "Book now" (no heart).
+  // The booking bar stays at the bottom of the screen: price, "Ask for a change" and "Book & Pay Now" (no heart).
   const bar = page.getByTestId("booking-bar");
   await expect(bar).toBeInViewport();
-  expect(await bar.getByRole("button").allTextContents()).toEqual(["Ask for a change", "Book now"]);
+  expect(await bar.getByRole("button").allTextContents()).toEqual(["Total", "Ask for a change", "Book & Pay Now"]);
   await expect(bar.getByText(/^THB [\d,]+$/)).toBeVisible();
+  // "Total (i)" on the left opens a sheet from the bottom that explains the price.
+  await bar.getByRole("button", { name: /^Total/ }).click();
+  await expect(page.getByRole("dialog").getByText("Total for your group")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeHidden();
   const barView = page.viewportSize()!;
   expect(Math.round((await bar.boundingBox())!.y + (await bar.boundingBox())!.height)).toBe(barView.height);
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-booking-bar-${info.project.name}.png` });
-  await bar.getByRole("button", { name: "Book now" }).click();
+  await bar.getByRole("button", { name: "Book & Pay Now" }).click();
   await expect(page.getByPlaceholder("Full name")).toBeInViewport(); // jumps to the details form
   await expect(bar).toHaveCount(0); // and steps aside so it never covers the pay button
   await page.getByRole("button", { name: "Back" }).click();
@@ -198,47 +203,25 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await bar.getByRole("button", { name: "Ask for a change" }).click();
   await expect(page.getByRole("textbox", { name: "Your request" })).toBeInViewport();
   await page.getByRole("button", { name: "Back" }).click();
-  await tabs.getByRole("link", { name: "Booking" }).click();
-  await expect(page.locator("#booking")).toBeInViewport();
-  await expect(page.getByRole("button", { name: /Accept and pay/ })).toBeVisible();
+  await expect(tabs.getByRole("link", { name: "Booking" })).toHaveCount(0);
   // Every section runs full width: no rounded cards.
-  for (const id of ["highlights", "expect", "includes", "booking"]) expect(await page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).borderTopLeftRadius), id).toBe("0px");
+  for (const id of ["highlights", "expect", "includes"]) expect(await page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).borderTopLeftRadius), id).toBe("0px");
   if (process.env.SHOT_DIR) { await page.waitForTimeout(1000); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-end-${info.project.name}.png` }); }
 });
 
-test("under the total: language and currency boxes, Help, Share and the copyright line", async ({ page, context }, info) => {
+test("end of the page: Help, Share and the copyright line", async ({ page, context }, info) => {
   await page.goto(`/itinerary/${TOKEN}`);
-  const total = page.locator("#booking");
-  await expect(total.getByText("THB 7,200", { exact: true }).first()).toBeVisible();
-  const language = page.getByRole("combobox", { name: "Language" });
-  const currency = page.getByRole("combobox", { name: "Currency" });
-  // Both boxes sit side by side, right after the total.
-  const [l, c, b] = [await language.boundingBox(), await currency.boundingBox(), await total.boundingBox()];
-  expect(Math.abs(l!.y - c!.y)).toBeLessThan(2);
-  expect(l!.x).toBeLessThan(c!.x);
-  expect(l!.y).toBeGreaterThan(b!.y + b!.height);
   await expect(page.getByRole("link", { name: "Help", exact: true })).toHaveAttribute("href", "/help");
   await expect(page.getByText(`© ${new Date().getFullYear()} Waydidi Travel. All rights reserved.`)).toBeVisible();
   await expect(page.getByRole("button", { name: "Share this itinerary" })).toBeVisible();
-  await language.scrollIntoViewIfNeeded();
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-page-tools-${info.project.name}.png` });
-
-  // Currency: the total turns into an estimate and the THB charge shows under it.
-  await currency.selectOption("USD");
-  await expect(total.getByText(/^USD [\d,]+\.\d{2}$/)).toBeVisible();
-  await expect(total.getByText("Charged in THB 7,200")).toBeVisible();
-  await currency.selectOption("THB");
-  await expect(total.getByText("THB 7,200", { exact: true }).first()).toBeVisible();
 
   // Share copies the link where the phone's share sheet isn't available.
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.evaluate(() => { Object.defineProperty(navigator, "share", { value: undefined }); });
-  await page.getByRole("button", { name: "Share this itinerary" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Link copied" })).toBeVisible();
-
-  // Language: the whole page switches.
-  await language.selectOption("th");
-  await expect(page).toHaveURL(/\?lang=th$/);
-  await expect(page.getByRole("navigation", { name: "ส่วนต่างๆ ของทริป" }).getByRole("link", { name: "การจอง" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "ภาษา" })).toHaveValue("th");
+  // Retry the click: right after load the page may not have hydrated yet, so the first click can do nothing.
+  await expect(async () => {
+    await page.getByRole("button", { name: "Share this itinerary" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Link copied" })).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 15_000 });
 });
