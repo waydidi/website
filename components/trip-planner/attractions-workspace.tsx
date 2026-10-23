@@ -138,6 +138,7 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
     } catch (e) { alert((e as Error).message); } finally { setUploading(false); }
   }
   const num = (v: string) => Math.max(0, Math.round(Number(v) || 0));
+  const alwaysOpen = draft.openTime === "00:00" && draft.closeTime === "23:59" && !draft.lastEntry && !draft.closedDays.length;
   // "Fill from Google Maps" and "Find free photos". Results are applied to the latest form, so typing meanwhile is kept.
   const [helper, setHelper] = useState<{ busy?: "google" | "photos" | "import"; at?: "google" | "photos"; note?: string; error?: string }>({});
   const [photos, setPhotos] = useState<FreePhoto[] | null>(null);
@@ -209,13 +210,17 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
         </Section>
 
         <Section title="Opening hours">
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Opens"><input type="time" value={draft.openTime ?? ""} onChange={(e) => set({ openTime: e.target.value || null })} className={inputCls} /></Field>
-            <Field label="Closes"><input type="time" value={draft.closeTime ?? ""} onChange={(e) => set({ closeTime: e.target.value || null })} className={inputCls} /></Field>
-            <Field label="Last entry"><input type="time" value={draft.lastEntry ?? ""} onChange={(e) => set({ lastEntry: e.target.value || null })} className={inputCls} /></Field>
-          </div>
-          <div><p className="text-[13px] font-semibold">Closed every</p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">{DAYS.map((d, i) => { const on = draft.closedDays.includes(i); return <button key={d} type="button" onClick={() => set({ closedDays: on ? draft.closedDays.filter((x) => x !== i) : [...draft.closedDays, i] })} className={`h-9 w-12 rounded-lg border text-[13px] ${on ? "border-red-300 bg-red-50 font-semibold text-red-700" : "border-slate-200 text-slate-600"}`}>{d}</button>; })}</div></div>
+          {/* Always open is 00:00–23:59 every day with no last entry: the same hours Telegram /place saves for "open 24 hours". */}
+          <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={alwaysOpen} onChange={(e) => set(e.target.checked ? { openTime: "00:00", closeTime: "23:59", lastEntry: null, closedDays: [] } : { openTime: null, closeTime: null })} className="size-4 accent-brand" />Always open (24 hours, every day)</label>
+          {!alwaysOpen && <>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Opens"><input type="time" value={draft.openTime ?? ""} onChange={(e) => set({ openTime: e.target.value || null })} className={inputCls} /></Field>
+              <Field label="Closes"><input type="time" value={draft.closeTime ?? ""} onChange={(e) => set({ closeTime: e.target.value || null })} className={inputCls} /></Field>
+              <Field label="Last entry"><input type="time" value={draft.lastEntry ?? ""} onChange={(e) => set({ lastEntry: e.target.value || null })} className={inputCls} /></Field>
+            </div>
+            <div><p className="text-[13px] font-semibold">Closed every</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">{DAYS.map((d, i) => { const on = draft.closedDays.includes(i); return <button key={d} type="button" onClick={() => set({ closedDays: on ? draft.closedDays.filter((x) => x !== i) : [...draft.closedDays, i] })} className={`h-9 w-12 rounded-lg border text-[13px] ${on ? "border-red-300 bg-red-50 font-semibold text-red-700" : "border-slate-200 text-slate-600"}`}>{d}</button>; })}</div></div>
+          </>}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Usual visit (minutes)"><input type="number" min={5} max={720} value={draft.durationMin} onChange={(e) => set({ durationMin: num(e.target.value) })} className={inputCls} /></Field>
             <Field label="Arrive early by (minutes)"><input type="number" min={0} max={180} value={draft.arrivalBufferMin} onChange={(e) => set({ arrivalBufferMin: num(e.target.value) })} className={inputCls} /></Field>
@@ -226,33 +231,27 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
           </div>
         </Section>
 
-        <Section title="Programs and fixed sessions">
-          <p className="-mt-1 text-[13px] text-slate-500">A program with session times becomes a fixed anchor in the plan. Leave sessions empty for &quot;any time during opening hours&quot;.</p>
-          {draft.programs.map((p, i) => <div key={i} className="grid gap-3 rounded-2xl border border-slate-200 p-4">
-            <div className="flex items-start gap-3">
-              <Field label="Program" className="flex-1"><input required value={p.name} onChange={(e) => setProgram(i, { name: e.target.value, id: p.id || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) })} className={inputCls} placeholder="Canopy Walkway" /></Field>
-              <button type="button" onClick={() => set({ programs: draft.programs.filter((_, j) => j !== i) })} aria-label="Remove program" className="mt-6 grid size-10 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Field label="Minutes"><input type="number" min={5} value={p.durationMin} onChange={(e) => setProgram(i, { durationMin: num(e.target.value) })} className={inputCls} /></Field>
-              <Field label="Check-in before"><input type="number" min={0} value={p.arrivalBufferMin ?? 0} onChange={(e) => setProgram(i, { arrivalBufferMin: num(e.target.value) })} className={inputCls} /></Field>
-              <Field label="Adult THB"><input type="number" min={0} value={p.feeAdult ?? 0} onChange={(e) => setProgram(i, { feeAdult: num(e.target.value) })} className={inputCls} /></Field>
-              <Field label="Child THB"><input type="number" min={0} value={p.feeChild ?? 0} onChange={(e) => setProgram(i, { feeChild: num(e.target.value) })} className={inputCls} /></Field>
-            </div>
-            <div className="flex flex-wrap gap-4 text-[14px]">
-              <label className="flex items-center gap-2"><input type="checkbox" checked={p.feeIncluded ?? false} onChange={(e) => setProgram(i, { feeIncluded: e.target.checked })} className="size-4 accent-brand" />Ticket included in our price</label>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={p.bookingRequired ?? false} onChange={(e) => setProgram(i, { bookingRequired: e.target.checked })} className="size-4 accent-brand" />Needs a reservation</label>
-            </div>
-            <div><p className="flex items-center gap-1.5 text-[13px] font-semibold"><Clock size={14} />Sessions</p>
-              {p.sessions.map((s, k) => <div key={k} className="mt-2 flex flex-wrap items-center gap-2">
-                <input type="time" required value={s.time} onChange={(e) => setProgram(i, { sessions: p.sessions.map((x, m) => (m === k ? { ...x, time: e.target.value } : x)) })} className={`${inputCls} w-32`} aria-label="Session time" />
-                {DAYS.map((d, di) => { const on = !s.days?.length || s.days.includes(di); return <button key={d} type="button" onClick={() => { const all = s.days?.length ? s.days : [0, 1, 2, 3, 4, 5, 6]; const next = on ? all.filter((x) => x !== di) : [...all, di].sort(); setProgram(i, { sessions: p.sessions.map((x, m) => (m === k ? { ...x, days: next.length === 7 ? undefined : next } : x)) }); }} className={`h-8 w-10 rounded-md border text-[12px] ${on ? "border-brand bg-orange-50 text-brand-darker" : "border-slate-200 text-slate-400"}`}>{d}</button>; })}
-                <button type="button" onClick={() => setProgram(i, { sessions: p.sessions.filter((_, m) => m !== k) })} aria-label="Remove session" className="text-slate-400 hover:text-red-600"><X size={16} /></button>
-              </div>)}
-              <button type="button" onClick={() => setProgram(i, { sessions: [...p.sessions, { time: "09:30" }] })} className="mt-2 text-[13px] font-semibold text-brand-darker hover:underline">+ Add session</button></div>
-          </div>)}
-          <button type="button" onClick={() => set({ programs: [...draft.programs, { id: "", name: "", durationMin: draft.durationMin, arrivalBufferMin: draft.arrivalBufferMin, feeAdult: 0, feeChild: 0, feeIncluded: false, bookingRequired: false, sessions: [] }] })} className={btnQuiet}><Plus size={16} />Add program</button>
-        </Section>
+        {draft.bookingRequired ? <Section title="Packages">
+          <p className="-mt-1 text-[13px] text-slate-500">What customers can book here, one card per package (for example a half day and a full day). The price is per person and always included in the trip total. A start time makes the package a fixed time in the plan; leave it empty for any time during opening hours.</p>
+          {draft.programs.map((p, i) => {
+            const sameChild = (p.feeChild ?? 0) === (p.feeAdult ?? 0);
+            const moreTimes = p.sessions.length > 1 || Boolean(p.sessions[0]?.days?.length);
+            return <div key={i} className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+              <div className="flex items-start gap-3">
+                <Field label="Package name" className="flex-1"><input required value={p.name} onChange={(e) => setProgram(i, { name: e.target.value, id: p.id || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) })} className={inputCls} placeholder="Half-day morning program" /></Field>
+                <button type="button" onClick={() => set({ programs: draft.programs.filter((_, j) => j !== i) })} aria-label={`Remove package ${p.name}`} className="mt-6 grid size-10 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Field label="Price per person (THB)"><input type="number" min={0} value={p.feeAdult ?? 0} onChange={(e) => { const price = num(e.target.value); setProgram(i, sameChild ? { feeAdult: price, feeChild: price } : { feeAdult: price }); }} className={inputCls} /></Field>
+                <Field label="Child price (THB)"><input type="number" min={0} value={sameChild ? "" : p.feeChild ?? 0} placeholder="Same as adult" onChange={(e) => setProgram(i, { feeChild: e.target.value === "" ? p.feeAdult ?? 0 : num(e.target.value) })} className={inputCls} /></Field>
+                <Field label="Duration (minutes)"><input type="number" min={5} value={p.durationMin} onChange={(e) => setProgram(i, { durationMin: num(e.target.value) })} className={inputCls} /></Field>
+                <Field label="Start time (optional)"><input type="time" value={p.sessions[0]?.time ?? ""} onChange={(e) => setProgram(i, { sessions: e.target.value ? [{ ...p.sessions[0], time: e.target.value }, ...p.sessions.slice(1)] : p.sessions.slice(1) })} className={inputCls} /></Field>
+              </div>
+              {moreTimes && <p className="flex items-center gap-1.5 text-[12px] text-slate-500"><Clock size={13} />Also saved: start times {p.sessions.map((x) => x.time).join(", ")}{p.sessions.some((x) => x.days?.length) ? " (some on certain weekdays only)" : ""}. The planner keeps using them.</p>}
+            </div>;
+          })}
+          <button type="button" onClick={() => set({ programs: [...draft.programs, { id: "", name: "", durationMin: draft.durationMin, arrivalBufferMin: draft.arrivalBufferMin, feeAdult: 0, feeChild: 0, feeIncluded: true, bookingRequired: true, sessions: [] }] })} disabled={draft.programs.length >= 20} className={btnQuiet}><Plus size={16} />Add package</button>
+        </Section> : draft.programs.length > 0 && <p className="rounded-2xl bg-slate-50 px-4 py-3 text-[13px] text-slate-600">{draft.programs.length} package{draft.programs.length === 1 ? "" : "s"} saved for this place. Tick <b>Booking required</b> to see and edit {draft.programs.length === 1 ? "it" : "them"}.</p>}
 
         <Section title="Schedule exceptions">
           <p className="-mt-1 text-[13px] text-slate-500">Holidays, blackout days or temporary session times. They override the normal schedule on those dates.</p>
