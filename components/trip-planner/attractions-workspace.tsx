@@ -4,7 +4,7 @@ import Link from "next/link";
 import { BadgeCheck, CalendarX2, Clock, ImagePlus, LoaderCircle, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AttractionView, SupplierRow } from "@/lib/attractions";
-import { BEST_TIMES, MEAL_SLOTS, PLACE_TYPE_LABEL, PLACE_TYPES, PRICE_LEVEL, VIBES } from "@/lib/place-taxonomy";
+import { BEST_TIMES, MAX_GALLERY_PHOTOS, MEAL_SLOTS, PLACE_TYPE_LABEL, PLACE_TYPES, PRICE_LEVEL, VIBES } from "@/lib/place-taxonomy";
 import { PACKING_TAGS, type Program, type ScheduleException } from "@/lib/trip-plan";
 import { PlacePicker } from "./place-picker";
 import { api, selectCls, areaCls, btnPrimary, btnQuiet, DAYS, Field, inputCls, toList, uploadImage } from "./ui";
@@ -126,8 +126,13 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
     if (!files?.length) return;
     setUploading(true);
     try {
-      const urls = await Promise.all([...files].slice(0, cover ? 1 : 12).map(uploadImage));
-      if (cover) set({ coverImage: urls[0] }); else set({ gallery: [...draft.gallery, ...urls].slice(0, 12) });
+      const room = Math.max(0, MAX_GALLERY_PHOTOS - draft.gallery.length);
+      const chosen = [...files].slice(0, cover ? 1 : room);
+      // A few at a time, so a big selection does not open dozens of uploads at once.
+      const urls: string[] = [];
+      for (let i = 0; i < chosen.length; i += 4) urls.push(...await Promise.all(chosen.slice(i, i + 4).map(uploadImage)));
+      if (cover) set({ coverImage: urls[0] }); else set({ gallery: [...draft.gallery, ...urls] });
+      if (!cover && files.length > chosen.length) alert(`Only ${chosen.length} of ${files.length} photos were added: a place keeps up to ${MAX_GALLERY_PHOTOS} gallery photos.`);
     } catch (e) { alert((e as Error).message); } finally { setUploading(false); }
   }
   const num = (v: string) => Math.max(0, Math.round(Number(v) || 0));
@@ -220,11 +225,11 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
           <Field label="What to bring" hint="One per line; added to the packing list"><textarea value={draft.bring.join("\n")} onChange={(e) => set({ bring: toList(e.target.value) })} className={areaCls} /></Field>
           <Field label="Dress code"><input value={draft.dressCode ?? ""} onChange={(e) => set({ dressCode: e.target.value })} className={inputCls} placeholder="Shoulders and knees covered" /></Field>
           <div className="grid gap-2">
-            <p className="text-[13px] font-semibold">Cover photo and gallery {uploading && <LoaderCircle size={14} className="inline animate-spin" />}</p>
+            <p className="text-[13px] font-semibold">Cover photo and gallery <span className="font-normal text-slate-500">({draft.gallery.length}/{MAX_GALLERY_PHOTOS} gallery photos)</span> {uploading && <LoaderCircle size={14} className="inline animate-spin" />}</p>
             <div className="flex flex-wrap gap-2">
               <label className="relative grid size-24 cursor-pointer place-items-center overflow-hidden rounded-xl border border-dashed border-slate-300 text-[12px] text-slate-500">{draft.coverImage ? <img src={draft.coverImage} alt="Cover" className="absolute inset-0 size-full object-cover" /> : <span className="grid place-items-center gap-1"><ImagePlus size={18} />Cover</span>}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => void addImages(e.target.files, true)} /></label>
               {draft.gallery.map((g, i) => <div key={g} className="relative size-24 overflow-hidden rounded-xl"><img src={g} alt={`Gallery ${i + 1}`} className="size-full object-cover" /><button type="button" onClick={() => set({ gallery: draft.gallery.filter((x) => x !== g) })} aria-label="Remove photo" className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-white"><X size={13} /></button></div>)}
-              <label className="grid size-24 cursor-pointer place-items-center rounded-xl border border-dashed border-slate-300 text-[12px] text-slate-500"><span className="grid place-items-center gap-1"><Plus size={18} />Photos</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(e) => void addImages(e.target.files, false)} /></label>
+              {draft.gallery.length < MAX_GALLERY_PHOTOS && <label className="grid size-24 cursor-pointer place-items-center rounded-xl border border-dashed border-slate-300 text-[12px] text-slate-500"><span className="grid place-items-center gap-1"><Plus size={18} />Photos</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(e) => void addImages(e.target.files, false)} /></label>}
             </div>
             <Field label="Photo credit / licence" hint="Where the photos come from, e.g. own photos or supplier permission"><input value={draft.imageCredit ?? ""} onChange={(e) => set({ imageCredit: e.target.value })} className={inputCls} /></Field>
           </div>

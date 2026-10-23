@@ -4,12 +4,12 @@
 export type PhotoStop = { id: string; name: string; cover: string | null; gallery: string[]; highlights?: string[]; fee?: { included: boolean } | null };
 export type TripPhoto = { src: string; stop: string };
 
-const MAX_PHOTOS = 20;
+const MAX_PHOTOS = 40;
 const usable = (src: string | null | undefined): src is string => typeof src === "string" && /^(https:\/\/|\/)/.test(src.trim());
 
 /**
  * Every stop's cover first, in visiting order (so the first photos show the whole day), then the stops' gallery photos
- * taken in turns, one per stop each round. Each picture appears once, at most 20, and only https or site-relative links.
+ * taken in turns, one per stop each round. Each picture appears once, at most 40, and only https or site-relative links.
  */
 export function tripPhotos(stops: PhotoStop[], max = MAX_PHOTOS): TripPhoto[] {
   const seen = new Set<string>(), out: TripPhoto[] = [];

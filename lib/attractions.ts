@@ -8,7 +8,7 @@ export type AttractionRow = typeof attractions.$inferSelect;
 export type SupplierRow = typeof suppliers.$inferSelect;
 
 const json = <T,>(value: string | null | undefined, fallback: T): T => { try { return value ? JSON.parse(value) as T : fallback; } catch { return fallback; } };
-import { BEST_TIMES, MEAL_SLOTS, VIBES } from "@/lib/place-taxonomy";
+import { BEST_TIMES, MAX_GALLERY_PHOTOS, MEAL_SLOTS, VIBES } from "@/lib/place-taxonomy";
 export { BEST_TIMES, MEAL_SLOTS, PLACE_TYPES, VIBES, type PlaceI18n } from "@/lib/place-taxonomy";
 import type { PlaceI18n } from "@/lib/place-taxonomy";
 const time = z.string().regex(/^\d{2}:\d{2}$/);
@@ -56,7 +56,7 @@ export const attractionSchema = z.object({
   highlights: list(10),
   bring: list(10),
   coverImage: optText(500),
-  gallery: list(12, 500),
+  gallery: list(MAX_GALLERY_PHOTOS, 500),
   imageCredit: optText(200),
   website: optText(300),
   phone: optText(40),
