@@ -8,6 +8,7 @@ import { HighlightsCard } from "@/components/itinerary/highlights-card";
 import { InfoRow } from "@/components/itinerary/info-row";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
 import { MapsSheet } from "@/components/itinerary/maps-sheet";
+import { PageTools, ShownTotal } from "@/components/itinerary/page-tools";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
 import { StopPhoto } from "@/components/itinerary/stop-photo";
 import { TripGallery } from "@/components/itinerary/trip-gallery";
@@ -18,7 +19,7 @@ import { TripFeedback } from "@/components/itinerary/trip-feedback";
 import { reviewUrl } from "@/lib/trip-thanks";
 import { groupDays, tripByToken, tripSnapshot, tripStops, type TripSnapshot } from "@/lib/smart-trips";
 import { getWaydidiAdmin } from "@/lib/admin";
-import { dateLocale, fill, tripWords, type TripWords } from "@/lib/trip-i18n";
+import { dateLocale, fill, tripWords, type TripLang, type TripWords } from "@/lib/trip-i18n";
 import { FULL_REFUND_HOURS } from "@/lib/refund-policy";
 
 export const dynamic = "force-dynamic";
@@ -44,8 +45,13 @@ function Unavailable({ title, text, home }: { title: string; text: string; home:
   return <main className="grid min-h-[70vh] place-items-center bg-canvas px-5"><div className="max-w-md rounded-[24px] bg-white p-8 text-center"><h1 className="text-[24px] font-bold">{title}</h1><p className="mt-3 text-slate-600">{text}</p><Link href="/" className="mt-5 inline-flex h-11 items-center rounded-full bg-brand px-5 font-semibold text-white">{home}</Link></div></main>;
 }
 
-export default async function ItineraryPage({ params }: { params: Promise<{ token: string }> }) {
+const TRIP_LANGS: TripLang[] = ["en", "th", "zh"];
+
+export default async function ItineraryPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ lang?: string | string[] }> }) {
   const { token } = await params;
+  // The customer can switch language at the bottom of the page (?lang=); otherwise the language staff set on the trip.
+  const asked = (await searchParams).lang;
+  const chosen = TRIP_LANGS.find((l) => l === asked);
   const opened = await tripByToken(token);
   const sentDays = opened ? (await groupDays(opened)).map((d) => ({ trip: d, snap: tripSnapshot(d) })).filter((d): d is { trip: typeof d.trip; snap: TripSnapshot } => Boolean(d.snap)) : [];
   // Photos come from the attractions as they are now (staff may add them after sending); everything else as sent.
@@ -53,14 +59,14 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const current = await attractionsById(Object.values(attractionOf).filter((x): x is string => Boolean(x)));
   const days = sentDays.map((d) => ({ ...d, snap: { ...d.snap, stops: withCurrentPhotos(d.snap.stops, attractionOf, current) } }));
   const lead = days[0];
-  const w = tripWords(opened?.language);
+  const w = tripWords(chosen ?? opened?.language);
   if (!opened || !lead) return <Unavailable title={w.notFound} text={w.notFoundText} home={w.home} />;
   const trip = lead.trip, s = lead.snap;
   if (trip.status === "cancelled") return <Unavailable title={w.withdrawn} text={w.withdrawnText} home={w.home} />;
   // Staff previews don't count as the customer opening it.
   if (!trip.viewedAt && !(await getWaydidiAdmin())) await getDb().update(smartTrips).set({ viewedAt: new Date().toISOString() }).where(eq(smartTrips.id, trip.id)).catch(() => undefined);
   const [agency] = trip.agencyId ? await getDb().select({ name: agencyApplications.agencyName }).from(agencyApplications).where(eq(agencyApplications.id, trip.agencyId)).limit(1) : [];
-  const lang = trip.language;
+  const lang = chosen ?? (TRIP_LANGS.find((l) => l === trip.language) ?? "en");
   const paid = trip.status === "accepted";
   const expired = !paid && quoteExpired(s.tripDate, trip.sentAt, trip.holdDays);
   const multi = days.length > 1;
@@ -160,7 +166,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
 
       <section id="booking" className={card}>
         <p className="text-[15px] text-slate-600">{w.totalFor}</p>
-        <p className="mt-1 text-[32px] font-black tracking-[-.03em]">{thb(total)}</p>
+        <ShownTotal thb={total} words={w} />
         <dl className="mt-3 grid gap-2 border-t border-slate-100 pt-3 text-[15px]">
           {multi ? days.map((d) => <div key={d.trip.id} className="flex justify-between"><dt className="text-slate-600">{fill(w.day, { n: d.trip.dayNumber })}</dt><dd>{thb(d.snap.total)}</dd></div>) : <>
             <div className="flex justify-between gap-3"><dt className="text-slate-600">{w.transport}</dt><dd>{thb(s.transportPrice)}</dd></div>
@@ -176,6 +182,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
         <a href={`/api/itinerary/${leadToken}/pdf`} className="mt-4 inline-flex min-h-tap items-center gap-1.5 text-[15px] font-semibold text-brand-darker hover:underline"><Download size={16} />{w.downloadPdf}</a>
         <p className="mt-1 text-[12px] text-slate-500">{fill(w.refLine, { ref: s.ref, v: s.version, hours: FULL_REFUND_HOURS })} <Link href="/refund-policy" className="underline">{w.policy}</Link>.</p>
       </section>
+      <PageTools lang={lang} words={w} />
     </div>
   </main>;
 }
