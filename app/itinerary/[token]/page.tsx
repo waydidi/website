@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { eq } from "drizzle-orm";
-import type { ReactNode } from "react";
-import { Backpack, CalendarDays, CheckCircle2, ChevronRight, Clock, Download, Landmark, MapPin, Shirt, Ticket, X } from "lucide-react";
+import { Backpack, CalendarDays, CheckCircle2, Clock, Download, Landmark, MapPin, Shirt, Ticket, X } from "lucide-react";
 import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
 import { HighlightsCard } from "@/components/itinerary/highlights-card";
+import { InfoRow } from "@/components/itinerary/info-row";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
+import { StopPhoto } from "@/components/itinerary/stop-photo";
 import { TripGallery } from "@/components/itinerary/trip-gallery";
 import { ticketStops, tripHighlights, tripPhotos, withCurrentPhotos } from "@/lib/trip-photos";
 import { attractionsById } from "@/lib/attractions";
@@ -75,13 +76,13 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const tickets = ticketStops(allStops);
   const highlightItems = [...new Set(highlights.flatMap((h) => h.items))];
   const tabs = [
-    ...(highlightItems.length ? [{ id: "highlights", label: w.highlights }] : []), { id: "expect", label: w.tabExpect },
-    { id: "includes", label: w.tabIncludes }, { id: "booking", label: w.tabBooking },
+    ...(highlightItems.length ? [{ id: "highlights", label: w.highlights }] : []), { id: "includes", label: w.tabIncludes },
+    { id: "expect", label: w.tabExpect }, { id: "booking", label: w.tabBooking },
   ];
   const lastReturn = hhmm(days.at(-1)!.snap.returnAt);
   const dressCodes = [...new Map(allStops.filter((x) => x.dressCode).map((x) => [x.dressCode!, x.name])).entries()];
   // Every section runs the full width of the page (no card); headings carry a short coloured bar, like Klook's.
-  const card = "-mx-4 scroll-mt-[140px] bg-white px-4 py-6 sm:px-7 lg:scroll-mt-[168px]";
+  const card = "-mx-4 scroll-mt-[135px] bg-white px-4 py-6 sm:px-7 lg:scroll-mt-[163px]";
   const heading = "border-l-4 border-brand pl-3 text-[22px] font-bold leading-7";
 
   return <main className="bg-canvas pb-16 text-plum">
@@ -89,11 +90,8 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
     <div className={`relative z-10 mx-auto max-w-[880px] bg-white px-4 pb-6 pt-6 sm:px-7 ${photos.length ? "-mt-5 rounded-t-card" : ""}`}>
       <h1 className="text-[28px] font-black leading-tight tracking-[-.035em] sm:text-[38px]">{s.title}</h1>
       {s.pickupText && <p className="mt-2 text-[17px] text-slate-600">{fill(w.departingFrom, { place: "" })}<span className="font-semibold text-plum">{s.pickupText}</span></p>}
-      <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[15px]">
-        <span className="font-semibold text-brand-deep">{agency ? fill(w.preparedBy, { agency: agency.name }) : multi ? fill(w.multiDay, { n: days.length }) : w.privateTrip}</span>
-        <span aria-hidden className="text-slate-300">•</span>
-        <span className="inline-flex items-center gap-1.5 text-slate-700"><CalendarDays size={15} className="text-slate-500" />{longDate(s.tripDate, lang)}{multi ? ` – ${longDate(days.at(-1)!.snap.tripDate, lang)}` : ""}</span>
-      </p>
+      <p className="mt-2 text-[15px] font-semibold text-brand-deep">{agency ? fill(w.preparedBy, { agency: agency.name }) : multi ? fill(w.multiDay, { n: days.length }) : w.privateTrip}</p>
+      <p className="mt-1 flex items-center gap-1.5 text-[15px] text-slate-700"><CalendarDays size={15} className="shrink-0 text-slate-500" />{longDate(s.tripDate, lang)}{multi ? ` – ${longDate(days.at(-1)!.snap.tripDate, lang)}` : ""}</p>
       <ul className="mt-4 flex flex-wrap gap-2 text-[15px] text-slate-700">
         {[w.privateCarChip, w.hotelPickup, travellers > 1 ? fill(w.travellers, { n: travellers }) : w.traveller, multi ? fill(w.daysChip, { n: days.length }) : fill(w.hoursChip, { n: s.durationHours }), allStops.length === 1 ? w.stopCount : fill(w.stopsCount, { n: allStops.length })].map((c) => <li key={c} className="rounded-md bg-slate-100 px-3 py-1.5">{c}</li>)}
       </ul>
@@ -113,16 +111,6 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
         <div className="mt-4"><HighlightsCard items={highlightItems} words={w} /></div>
       </section>}
 
-      <section id="expect" className={card}>
-        <h2 className={heading}>{w.tabExpect}</h2>
-        <WhatToExpect days={days.map((d) => ({ id: d.trip.id, label: multi ? fill(w.day, { n: d.trip.dayNumber }) : "", s: d.snap }))} stops={allStops} w={w} />
-        <h3 className="mt-8 text-[20px] font-bold">{w.itineraryHeading}</h3>
-        <div className="mt-5 grid gap-8">
-          {multi && <nav aria-label="Days" className="flex gap-2 overflow-x-auto">{days.map((d) => <a key={d.trip.id} href={`#day-${d.trip.dayNumber}`} className="shrink-0 rounded-full border border-slate-200 px-4 py-2 text-[14px] font-semibold hover:border-brand">{fill(w.day, { n: d.trip.dayNumber })} · {d.snap.tripDate ? new Date(`${d.snap.tripDate}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { day: "numeric", month: "short", timeZone: "UTC" }) : ""}</a>)}</nav>}
-          {days.map((d) => <DayTimeline key={d.trip.id} s={d.snap} w={w} title={multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ${longDate(d.snap.tripDate, lang)}` : undefined} id={multi ? `day-${d.trip.dayNumber}` : undefined} />)}
-        </div>
-      </section>
-
       <section id="includes" className={card}>
         <h2 className={heading}>{w.included}</h2>
         <ul className="mt-4 grid gap-3 text-[16px]">
@@ -130,23 +118,33 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
           {tickets.onSite.map((place) => <li key={place} className="flex items-start gap-3"><X size={20} className="mt-0.5 shrink-0 text-slate-400" /><span><span className="sr-only">{w.notIncluded}: </span>{fill(w.feeAt, { place })}</span></li>)}
         </ul>
         <div className="mt-6 divide-y divide-slate-200 border-y border-slate-200">
-          <More title={w.accPickup}>
+          <InfoRow title={w.accPickup} closeLabel={w.closeLabel}>
             <ul className="grid gap-1.5">{days.map((d) => <li key={d.trip.id}>{multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ` : ""}{fill(w.pickupAt, { time: d.snap.startTime, place: d.snap.pickupText || w.hotelPickup })}</li>)}</ul>
             {!multi && <p className="mt-1.5">{fill(w.backAround, { time: lastReturn })}{s.endText && s.endText !== s.pickupText ? ` · ${s.endText}` : ""}</p>}
-          </More>
-          {(packing.length > 0 || dressCodes.length > 0 || days.some((d) => d.snap.notes)) && <More title={w.accBefore}>
+          </InfoRow>
+          {(packing.length > 0 || dressCodes.length > 0 || days.some((d) => d.snap.notes)) && <InfoRow title={w.accBefore} closeLabel={w.closeLabel}>
             {packing.length > 0 && <><p className="font-semibold text-plum">{w.whatToBring}</p><ul className="mt-1.5 grid gap-1.5">{packing.map((p) => <li key={p} className="flex gap-2"><Backpack size={16} className="mt-1 shrink-0 text-brand-text" />{p}</li>)}</ul></>}
             {dressCodes.length > 0 && <ul className="mt-3 grid gap-1.5">{dressCodes.map(([code, place]) => <li key={code} className="flex gap-2"><Shirt size={16} className="mt-1 shrink-0 text-brand-text" />{place}: {code}</li>)}</ul>}
             {days.filter((d) => d.snap.notes).map((d) => <p key={d.trip.id} className="mt-3 whitespace-pre-line"><span className="font-semibold text-plum">{w.notes}{multi ? ` (${fill(w.day, { n: d.trip.dayNumber })})` : ""}: </span>{d.snap.notes}</p>)}
-          </More>}
-          <More title={w.accTerms}>
+          </InfoRow>}
+          <InfoRow title={w.accTerms} closeLabel={w.closeLabel}>
             <p>{fill(w.refLine, { ref: s.ref, v: s.version, hours: FULL_REFUND_HOURS })} <Link href="/refund-policy" className="font-semibold text-brand-deep underline">{w.policy}</Link>.</p>
             {!paid && <p className="mt-2">{fill(w.priceHeld, { n: trip.holdDays })}</p>}
             <p className="mt-2">{w.timesNote}</p>
-          </More>
-          <More title={w.accHow}>
+          </InfoRow>
+          <InfoRow title={w.accHow} closeLabel={w.closeLabel}>
             <ol className="grid list-decimal gap-1.5 pl-5">{[w.howStep1, w.howStep2, w.howStep3].map((x) => <li key={x}>{x}</li>)}</ol>
-          </More>
+          </InfoRow>
+        </div>
+      </section>
+
+      <section id="expect" className={card}>
+        <h2 className={heading}>{w.tabExpect}</h2>
+        <WhatToExpect days={days.map((d) => ({ id: d.trip.id, label: multi ? fill(w.day, { n: d.trip.dayNumber }) : "", s: d.snap }))} stops={allStops} w={w} />
+        <h3 className="mt-8 text-[20px] font-bold">{w.itineraryHeading}</h3>
+        <div className="mt-5 grid gap-8">
+          {multi && <nav aria-label="Days" className="flex gap-2 overflow-x-auto">{days.map((d) => <a key={d.trip.id} href={`#day-${d.trip.dayNumber}`} className="shrink-0 rounded-full border border-slate-200 px-4 py-2 text-[14px] font-semibold hover:border-brand">{fill(w.day, { n: d.trip.dayNumber })} · {d.snap.tripDate ? new Date(`${d.snap.tripDate}T12:00:00Z`).toLocaleDateString(dateLocale(lang), { day: "numeric", month: "short", timeZone: "UTC" }) : ""}</a>)}</nav>}
+          {days.map((d) => <DayTimeline key={d.trip.id} s={d.snap} w={w} title={multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ${longDate(d.snap.tripDate, lang)}` : undefined} id={multi ? `day-${d.trip.dayNumber}` : undefined} />)}
         </div>
       </section>
 
@@ -189,7 +187,7 @@ function WhatToExpect({ days, stops, w }: { days: { id: string; label: string; s
       <ol className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3">
         {stops.map((x, i) => { const photo = x.cover ?? x.gallery[0]; return <li key={x.id} className="relative">
           <span aria-hidden className="absolute -left-1.5 -top-1.5 z-10 grid size-9 place-items-center rounded-full border-2 border-white bg-brand-deep text-[17px] font-black text-white shadow">{i + 1}</span>
-          {photo ? <img src={photo} alt={x.name} loading="lazy" className="aspect-[4/3] w-full rounded-xl object-cover" /> : <span className="grid aspect-[4/3] w-full place-items-center rounded-xl bg-white text-brand-deep"><Landmark size={28} aria-hidden /></span>}
+          {photo ? <StopPhoto src={photo} alt={x.name} className="aspect-[4/3] w-full rounded-xl object-cover" /> : <span className="grid aspect-[4/3] w-full place-items-center rounded-xl bg-white text-brand-deep"><Landmark size={28} aria-hidden /></span>}
           <p className="mt-2 text-center text-[15px] font-bold leading-5">{x.name}</p>
         </li>; })}
       </ol>
@@ -205,16 +203,6 @@ function WhatToExpect({ days, stops, w }: { days: { id: string; label: string; s
   </>;
 }
 
-/** One collapsible row under What's included (no script needed: native details/summary). */
-function More({ title, children }: { title: string; children: ReactNode }) {
-  return <details className="group">
-    <summary className="flex min-h-[60px] cursor-pointer list-none items-center justify-between gap-3 text-[18px] font-bold [&::-webkit-details-marker]:hidden">
-      {title}<ChevronRight aria-hidden size={22} className="shrink-0 transition-transform group-open:rotate-90" />
-    </summary>
-    <div className="pb-5 text-[15px] leading-7 text-slate-700">{children}</div>
-  </details>;
-}
-
 /** One day as a timeline: map, then departure, each place (name, time, photo) and the return, on one grey line. */
 function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title?: string; id?: string }) {
   const skipped = s.liveSkipped ?? [];
@@ -225,7 +213,7 @@ function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title
     ...(s.end ? [{ id: "end", lat: s.end.lat, lng: s.end.lng, label: "E", title: s.endText, kind: "end" as const }] : s.pickup && stops.length ? [{ id: "back", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: w.backAtHotel, kind: "end" as const }] : []),
   ];
   const dot = "absolute left-0 top-0 grid size-10 place-items-center rounded-full";
-  return <div id={id} className="scroll-mt-[140px] lg:scroll-mt-[168px]">
+  return <div id={id} className="scroll-mt-[135px] lg:scroll-mt-[163px]">
     {title && <h3 className="mb-3 text-[19px] font-bold">{title}</h3>}
     {points.length > 0 && <div className="mb-5 overflow-hidden rounded-2xl border border-slate-200"><ItineraryMap points={points} /></div>}
     <ol className="relative grid gap-6 before:absolute before:bottom-5 before:left-5 before:top-5 before:w-0.5 before:-translate-x-1/2 before:bg-slate-200">
@@ -241,10 +229,7 @@ function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title
           <h4 className="pt-1.5 text-[18px] font-bold">{st.name}</h4>
           {st.program && <p className="mt-0.5 text-[14px] text-slate-600">{st.program}</p>}
           {st.checkIn != null && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-[#9A4D00]"><Ticket size={14} />{fill(w.sessionCheckIn, { time: st.sessionTime ?? "", checkIn: hhmm(st.checkIn) })}</p>}
-          {photos.length > 0 && <div className="relative mt-3 overflow-hidden rounded-2xl">
-            <img src={photos[0]} alt={st.name} className="aspect-[16/10] w-full object-cover" loading="lazy" />
-            {photos.length > 1 && <span className="absolute bottom-2.5 right-2.5 rounded-lg bg-black/65 px-2 py-0.5 text-[14px] font-bold text-white">+{photos.length - 1}</span>}
-          </div>}
+          {photos.length > 0 && <div className="mt-3 overflow-hidden rounded-2xl"><StopPhoto src={photos[0]} alt={st.name} more={photos.length - 1} className="aspect-[16/10] w-full object-cover" /></div>}
         </li>;
       })}
       <li className="relative min-h-10 pl-14">

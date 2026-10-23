@@ -53,11 +53,19 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   const slides = gallery.locator("figure");
   await expect(slides.nth(0)).toHaveAttribute("aria-hidden", "false");
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-top-${info.project.name}.png` });
-  // About every 3 seconds the next photo comes; the one leaving keeps zooming while it fades (no jump back).
-  await expect(slides.nth(1)).toHaveAttribute("aria-hidden", "false", { timeout: 4_500 });
+  // About every 5 seconds the next photo comes; the one leaving keeps zooming while it fades (no jump back).
+  await expect(slides.nth(1)).toHaveAttribute("aria-hidden", "false", { timeout: 7_000 });
   expect(await slides.nth(0).locator("img").evaluate((el) => getComputedStyle(el).animationName)).toBe("trip-photo-zoom");
   expect(await slides.nth(1).locator("img").evaluate((el) => getComputedStyle(el).animationName)).toBe("trip-photo-zoom");
   expect(await slides.nth(2).locator("img").evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
+  // Tapping the right half of the photo shows the next one, the left half the one before.
+  const box0 = (await gallery.boundingBox())!;
+  const shown = async () => Number(await slides.evaluateAll((els) => els.findIndex((el) => el.getAttribute("aria-hidden") === "false")));
+  const before = await shown();
+  await page.mouse.click(box0.x + box0.width * 0.85, box0.y + box0.height * 0.4);
+  await expect.poll(shown).toBe((before + 1) % 4);
+  await page.mouse.click(box0.x + box0.width * 0.15, box0.y + box0.height * 0.4);
+  await expect.poll(shown).toBe(before);
   // "Gallery": full screen, the photo that was showing first, swiped sideways, no names.
   await gallery.getByRole("button", { name: "Gallery" }).click();
   const all = page.getByRole("dialog", { name: "Photos of your trip" });
@@ -110,12 +118,21 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(steps.nth(1).getByText("+1", { exact: true })).toBeVisible(); // one more gallery photo
   await expect(steps.nth(2).getByRole("heading", { name: "Big Buddha" })).toBeVisible();
   await expect(steps.last()).toContainText("17:00 · Return");
+  // Tapping a place's photo opens the full-screen gallery at that place's first photo.
+  const viewer = page.getByRole("dialog", { name: "Photos of your trip" });
+  await steps.nth(2).getByRole("button", { name: "Big Buddha" }).click();
+  await expect(viewer.getByText(/^\d \/ 4$/)).toHaveText("2 / 4");
+  await viewer.getByRole("button", { name: "Close" }).click();
+  await board.getByRole("button", { name: "Elephant Jungle Sanctuary" }).click();
+  await expect(viewer.getByText(/^\d \/ 4$/)).toHaveText("1 / 4");
+  await viewer.getByRole("button", { name: "Close" }).click();
+  await expect(viewer).toHaveCount(0);
   await expect(page.getByRole("button", { name: "View full itinerary" })).toHaveCount(0);
   if (process.env.SHOT_DIR) { await overview.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-overview-${info.project.name}.png` }); await steps.nth(2).scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-timeline-${info.project.name}.png` }); }
   await page.evaluate(() => window.scrollTo(0, 0));
 
   const tabs = page.getByRole("navigation", { name: "Trip sections" });
-  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Highlights", "What to expect", "Includes/Excludes", "Booking"]);
+  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Highlights", "Includes/Excludes", "What to expect", "Booking"]);
 
   await tabs.getByRole("link", { name: "Includes/Excludes" }).click();
   const includes = page.locator("#includes");
@@ -124,13 +141,20 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(tabs.getByRole("link", { name: "Includes/Excludes" })).toHaveAttribute("aria-current", "location");
   await expect(includes.getByText("Entrance tickets: Elephant Jungle Sanctuary")).toBeVisible();
   await expect(includes.getByText("Entrance fee at Big Buddha, paid on the day")).toBeVisible();
-  // Collapsible rows under What's included, filled from the trip itself.
-  for (const name of ["Pick-up & meet-up information", "Before you book", "Terms & Conditions", "How to use"]) await expect(includes.getByText(name, { exact: true })).toBeVisible();
-  await includes.getByText("Pick-up & meet-up information", { exact: true }).click();
-  await expect(includes.getByText("Pickup at 08:30 from Kata Beach Resort")).toBeVisible();
-  await includes.getByText("Before you book", { exact: true }).click();
-  await expect(includes.getByText("Swimwear", { exact: true })).toBeVisible();
-  await expect(includes.getByText("Bring swimwear for the elephant bath.")).toBeVisible();
+  // Rows under What's included, filled from the trip itself: each opens its details in a sheet from the bottom.
+  for (const name of ["Pick-up & meet-up information", "Before you book", "Terms & Conditions", "How to use"]) await expect(includes.getByRole("button", { name, exact: true })).toBeVisible();
+  await includes.getByRole("button", { name: "Pick-up & meet-up information" }).click();
+  const pickupSheet = page.getByRole("dialog", { name: "Pick-up & meet-up information" });
+  await expect(pickupSheet.getByText("Pickup at 08:30 from Kata Beach Resort")).toBeVisible();
+  await pickupSheet.getByRole("button", { name: "Close" }).click();
+  await expect(pickupSheet).toHaveCount(0);
+  await includes.getByRole("button", { name: "Before you book" }).click();
+  const beforeSheet = page.getByRole("dialog", { name: "Before you book" });
+  await expect(beforeSheet.getByText("Swimwear", { exact: true })).toBeVisible();
+  await expect(beforeSheet.getByText("Bring swimwear for the elephant bath.")).toBeVisible();
+  if (process.env.SHOT_DIR) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-row-sheet-${info.project.name}.png` }); }
+  await beforeSheet.getByRole("button", { name: "Close" }).click();
+  await expect(beforeSheet).toHaveCount(0);
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-includes-${info.project.name}.png` });
 
   await expect(page.getByRole("link", { name: "Book now" })).toHaveCount(0); // no floating bar at the bottom
