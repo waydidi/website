@@ -292,12 +292,19 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
                 <div className="flex items-start gap-2">
                   <GripVertical size={16} className="mt-1 shrink-0 cursor-grab text-slate-300" aria-hidden />
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-bold tabular-nums">{p ? `${fmt(p.start)}–${fmt(p.end)}` : "—"}</span>
-                      <span className="truncate font-semibold">{s.kind === "meal" && <Utensils size={13} className="mr-1 inline" />}{s.name}</span>
-                      <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${PRIORITY[s.priority][1]}`}>{s.sessionTime ? "Fixed session" : PRIORITY[s.priority][0]}</span>
-                      {s.locked && <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">Locked</span>}
-                      {s.skipped && <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">Skipped</span>}
+                    {/* Time on top, then the place's thumbnail with its name beside it. */}
+                    <p className="font-bold tabular-nums">{p ? `${fmt(p.start)}–${fmt(p.end)}` : "—"}</p>
+                    <div className="mt-2 flex items-center gap-3">
+                      {a?.coverImage ? <img src={a.coverImage} alt="" className="size-14 shrink-0 rounded-xl object-cover" loading="lazy" />
+                        : <span aria-hidden className="grid size-14 shrink-0 place-items-center rounded-xl bg-orange-50 text-brand-text">{s.kind === "meal" ? <Utensils size={20} /> : <MapPin size={20} />}</span>}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold leading-5">{s.name}</p>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${PRIORITY[s.priority][1]}`}>{s.sessionTime ? "Fixed session" : PRIORITY[s.priority][0]}</span>
+                          {s.locked && <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">Locked</span>}
+                          {s.skipped && <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">Skipped</span>}
+                        </div>
+                      </div>
                     </div>
                     {p && s.sessionTime && <p className="text-[12px] text-slate-500">Arrive {fmt(p.arrival)} · check in by {fmt(Number(s.sessionTime.slice(0, 2)) * 60 + Number(s.sessionTime.slice(3)) - (program?.arrivalBufferMin ?? a?.arrivalBufferMin ?? 0))}{program ? ` · ${program.name}` : ""}</p>}
                     {a?.openTime && <p className="text-[12px] text-slate-500">Open {a.openTime}–{a.closeTime}{a.lastEntry ? `, last entry ${a.lastEntry}` : ""}{(program?.bookingRequired || a.bookingRequired) ? " · booking required" : ""}</p>}
