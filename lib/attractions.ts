@@ -57,7 +57,7 @@ export const attractionSchema = z.object({
   bring: list(10),
   coverImage: optText(500),
   gallery: list(MAX_GALLERY_PHOTOS, 500),
-  imageCredit: optText(200),
+  imageCredit: optText(1500), // one credit per photo from Wikimedia Commons, joined with "; "
   website: optText(300),
   phone: optText(40),
   internalNotes: optText(1500),

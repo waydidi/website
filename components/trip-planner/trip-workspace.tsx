@@ -370,6 +370,14 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
               <span><b>{String.fromCharCode(65 + i)}.</b> {alt.label} · {alt.extendHours ? `trip ${draft.durationHours + alt.extendHours} hours` : `back ${fmt(alt.returnAt)}`}{!alt.fits && " (still over)"}</span>
               <button type="button" onClick={() => { if (alt.extendHours) update({ durationHours: Math.min(16, draft.durationHours + alt.extendHours) }); else setStops(alt.stops); }} className="font-semibold text-brand-darker hover:underline">Apply</button>
             </div>)}
+            {group.length <= 1 && !draft.isTemplate && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-[13px]">
+              <span><b>{String.fromCharCode(65 + result.alternatives.length)}.</b> Split into days: places near each other go on the same day, each day up to 12 hours</span>
+              <button type="button" onClick={async () => {
+                if (!window.confirm("Split this trip into days? Each day keeps the same guests, car and pickup. The transport price and discount are shared across the days by each day's hourly rate, so the total stays the same; tickets are added on the day they are used.")) return;
+                const r = await action("split_days");
+                if (r?.ok) window.location.reload();
+              }} className="font-semibold text-brand-darker hover:underline">Split</button>
+            </div>}
           </div>}
         </section>
 
