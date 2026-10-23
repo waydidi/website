@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, Copy, Download, ExternalLink, GripVertical, LoaderCircle, Lock, MapPin, Phone, Plus, Send, Sparkles, Trash2, Unlock, Utensils, Wand2, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, Copy, Download, ExternalLink, LoaderCircle, Lock, MapPin, Phone, Plus, Send, Sparkles, Trash2, Unlock, Utensils, Wand2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AttractionView, SupplierRow } from "@/lib/attractions";
 import type { TripInput } from "@/lib/smart-trips";
@@ -287,30 +287,43 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
               const contact = s.attractionId ? contacts[s.attractionId] : undefined;
               const hasError = p?.problems.some((x) => x.level === "error");
               return <li key={s.id} draggable={!locked} onDragStart={() => setDragId(s.id)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (dragId) moveStop(dragId, index); setDragId(null); }}
-                onClick={() => setSelected(s.id)} className={`rounded-2xl border p-3 text-[14px] transition ${selected === s.id ? "border-brand ring-2 ring-orange-100" : hasError ? "border-red-200 bg-red-50/40" : "border-slate-200"} ${s.skipped ? "opacity-55" : ""}`}>
-                {p && p.travelMin > 0 && <p className="-mt-1 mb-2 text-[12px] text-slate-500">↓ {duration(p.travelMin)} drive{p.wait > 0 ? ` · ${duration(p.wait)} wait` : ""}</p>}
-                <div className="flex items-start gap-2">
-                  <GripVertical size={16} className="mt-1 shrink-0 cursor-grab text-slate-300" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    {/* Time on top, then the place's thumbnail with its name beside it. */}
-                    <p className="font-bold tabular-nums">{p ? `${fmt(p.start)}–${fmt(p.end)}` : "—"}</p>
-                    <div className="mt-2 flex items-center gap-3">
-                      {a?.coverImage ? <img src={a.coverImage} alt="" className="size-14 shrink-0 rounded-xl object-cover" loading="lazy" />
-                        : <span aria-hidden className="grid size-14 shrink-0 place-items-center rounded-xl bg-orange-50 text-brand-text">{s.kind === "meal" ? <Utensils size={20} /> : <MapPin size={20} />}</span>}
+                onClick={() => setSelected(s.id)} className={`overflow-hidden rounded-2xl border text-[14px] transition ${selected === s.id ? "border-brand ring-2 ring-orange-100" : hasError ? "border-red-200 bg-red-50/40" : "border-slate-200"} ${s.skipped ? "opacity-55" : ""}`}>
+                {/* The place's photo fills the left 30% of the card; the time and name sit on the right. Details open on tap. */}
+                <div className="flex min-h-[104px]">
+                  <div className="relative w-[30%] shrink-0 bg-orange-50">
+                    {a?.coverImage ? <img src={a.coverImage} alt="" className="absolute inset-0 size-full object-cover" loading="lazy" />
+                      : <span aria-hidden className="absolute inset-0 grid place-items-center text-brand-text">{s.kind === "meal" ? <Utensils size={24} /> : <MapPin size={24} />}</span>}
+                  </div>
+                  <div className="min-w-0 flex-1 p-3">
+                    <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold leading-5">{s.name}</p>
-                        <div className="mt-1 flex flex-wrap gap-1.5">
+                        {p && p.travelMin > 0 && <p className="text-[12px] text-slate-500">↓ {duration(p.travelMin)} drive{p.wait > 0 ? ` · ${duration(p.wait)} wait` : ""}</p>}
+                        <p className="flex items-center gap-1.5 font-bold tabular-nums">{p ? `${fmt(p.start)}–${fmt(p.end)}` : "—"}
+                          {p && p.problems.length > 0 && <AlertTriangle size={15} role="img" aria-label={p.problems.map((x) => x.message).join(" ")} className={hasError ? "text-red-600" : "text-amber-600"}><title>{p.problems.map((x) => x.message).join("\n")}</title></AlertTriangle>}</p>
+                        <p className="mt-1 font-semibold leading-5">{s.name}</p>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
                           <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${PRIORITY[s.priority][1]}`}>{s.sessionTime ? "Fixed session" : PRIORITY[s.priority][0]}</span>
                           {s.locked && <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">Locked</span>}
                           {s.skipped && <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">Skipped</span>}
                         </div>
                       </div>
+                      {!locked && <div className="-mr-1 -mt-1 flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
+                        <button type="button" onClick={() => moveStop(s.id, index - 1)} disabled={index === 0} aria-label="Move up" className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100 disabled:opacity-30"><ArrowUp size={14} /></button>
+                        <button type="button" onClick={() => moveStop(s.id, index + 1)} disabled={index === draft.stops.length - 1} aria-label="Move down" className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100 disabled:opacity-30"><ArrowDown size={14} /></button>
+                        <button type="button" onClick={() => patchStop(s.id, { locked: !s.locked })} aria-label={s.locked ? "Unlock position" : "Lock position"} title={s.locked ? "Unlock" : "Lock this stop's position"} className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100">{s.locked ? <Lock size={14} /> : <Unlock size={14} />}</button>
+                        <button type="button" onClick={() => patchStop(s.id, { skipped: !s.skipped })} aria-label={s.skipped ? "Include" : "Skip"} title={s.skipped ? "Include again" : "Skip (keep in the list)"} className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100">{s.skipped ? <Plus size={14} /> : <X size={14} />}</button>
+                        <button type="button" onClick={() => setStops((draft.stops as TripStop[]).filter((x) => x.id !== s.id))} aria-label="Remove" className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={14} /></button>
+                      </div>}
                     </div>
-                    {p && s.sessionTime && <p className="text-[12px] text-slate-500">Arrive {fmt(p.arrival)} · check in by {fmt(Number(s.sessionTime.slice(0, 2)) * 60 + Number(s.sessionTime.slice(3)) - (program?.arrivalBufferMin ?? a?.arrivalBufferMin ?? 0))}{program ? ` · ${program.name}` : ""}</p>}
-                    {a?.openTime && <p className="text-[12px] text-slate-500">Open {a.openTime}–{a.closeTime}{a.lastEntry ? `, last entry ${a.lastEntry}` : ""}{(program?.bookingRequired || a.bookingRequired) ? " · booking required" : ""}</p>}
-                    {contact && mode === "admin" && <p className="text-[12px] text-slate-500"><Phone size={11} className="mr-1 inline" />{contact.name}{contact.phone ? ` · ${contact.phone}` : ""}{contact.lineId ? ` · LINE ${contact.lineId}` : ""}</p>}
-                    {p?.problems.map((x, i) => <p key={i} className={`mt-1 text-[12px] font-semibold ${x.level === "error" ? "text-red-700" : "text-amber-700"}`}>{x.message}</p>)}
-                    {selected === s.id && !locked && <div className="mt-3 grid gap-2 border-t border-slate-100 pt-3" onClick={(e) => e.stopPropagation()}>
+                  </div>
+                </div>
+                {/* Tapped: the details (session check-in, opening hours, contact, warnings), then the fields to edit. */}
+                {selected === s.id && <div className="grid gap-2 border-t border-slate-100 p-3 text-[12px] text-slate-500" onClick={(e) => e.stopPropagation()}>
+                    {p && s.sessionTime && <p>Arrive {fmt(p.arrival)} · check in by {fmt(Number(s.sessionTime.slice(0, 2)) * 60 + Number(s.sessionTime.slice(3)) - (program?.arrivalBufferMin ?? a?.arrivalBufferMin ?? 0))}{program ? ` · ${program.name}` : ""}</p>}
+                    {a?.openTime && <p>Open {a.openTime}–{a.closeTime}{a.lastEntry ? `, last entry ${a.lastEntry}` : ""}{(program?.bookingRequired || a.bookingRequired) ? " · booking required" : ""}</p>}
+                    {contact && mode === "admin" && <p><Phone size={11} className="mr-1 inline" />{contact.name}{contact.phone ? ` · ${contact.phone}` : ""}{contact.lineId ? ` · LINE ${contact.lineId}` : ""}</p>}
+                    {p?.problems.map((x, i) => <p key={i} className={`font-semibold ${x.level === "error" ? "text-red-700" : "text-amber-700"}`}>{x.message}</p>)}
+                    {!locked && <div className="mt-1 grid gap-2 text-[14px] text-plum">
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {program && <Field label="Session"><select value={s.sessionTime ?? ""} onChange={(e) => patchStop(s.id, { sessionTime: e.target.value || undefined, priority: e.target.value ? "fixed" : "must" })} className={inputCls}><option value="">Any time</option>{[...new Set([...sessions, ...(s.sessionTime ? [s.sessionTime] : [])])].map((t) => <option key={t} value={t}>{t}{sessions.includes(t) ? "" : " (not on this date)"}</option>)}</select></Field>}
                         {!s.sessionTime && <Field label="Priority"><select value={s.priority} onChange={(e) => patchStop(s.id, { priority: e.target.value as Priority })} className={inputCls}><option value="must">Must do</option><option value="nice">Nice to have</option><option value="fixed">Fixed</option></select></Field>}
@@ -320,15 +333,7 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
                       {s.kind !== "attraction" && <Field label="Place"><PlacePicker value={s.name} onChange={(pp) => patchStop(s.id, { name: pp.text.split(",")[0] || pp.text, ...(pp.lat != null ? { lat: pp.lat, lng: pp.lng } : {}) })} className={inputCls} placeholder="Restaurant or place" /></Field>}
                       <Field label="Note for the customer"><input value={s.note ?? ""} onChange={(e) => patchStop(s.id, { note: e.target.value || undefined })} className={inputCls} /></Field>
                     </div>}
-                  </div>
-                  {!locked && <div className="-mr-1 -mt-1 flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
-                    <button type="button" onClick={() => moveStop(s.id, index - 1)} disabled={index === 0} aria-label="Move up" className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100 disabled:opacity-30"><ArrowUp size={14} /></button>
-                    <button type="button" onClick={() => moveStop(s.id, index + 1)} disabled={index === draft.stops.length - 1} aria-label="Move down" className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100 disabled:opacity-30"><ArrowDown size={14} /></button>
-                    <button type="button" onClick={() => patchStop(s.id, { locked: !s.locked })} aria-label={s.locked ? "Unlock position" : "Lock position"} title={s.locked ? "Unlock" : "Lock this stop's position"} className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100">{s.locked ? <Lock size={14} /> : <Unlock size={14} />}</button>
-                    <button type="button" onClick={() => patchStop(s.id, { skipped: !s.skipped })} aria-label={s.skipped ? "Include" : "Skip"} title={s.skipped ? "Include again" : "Skip (keep in the list)"} className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100">{s.skipped ? <Plus size={14} /> : <X size={14} />}</button>
-                    <button type="button" onClick={() => setStops((draft.stops as TripStop[]).filter((x) => x.id !== s.id))} aria-label="Remove" className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={14} /></button>
-                  </div>}
-                </div>
+                </div>}
               </li>;
             })}
             {result && draft.stops.length > 0 && <li className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px]"><span className="grid size-7 place-items-center rounded-full bg-plum text-[12px] font-bold text-white">{sameEnd ? "P" : "E"}</span><span className="font-bold tabular-nums">{fmt(result.plan.returnAt)}</span><span className="truncate">{sameEnd ? "Back at pickup" : `Drop-off · ${draft.endText}`}{result.plan.returnTravel ? ` (${duration(result.plan.returnTravel)} drive)` : ""}</span></li>}
