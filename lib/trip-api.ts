@@ -7,12 +7,13 @@ import { agencyForCustomer } from "@/lib/agency";
 import { listAttractions } from "@/lib/attractions";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
-import { addDay, arrange, duplicateTrip, groupDays, removeDay, getTrip, inputFromRow, listTrips, planFor, saveTrip, sendTripDays, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
+import { addDay, arrange, splitTrip, duplicateTrip, groupDays, removeDay, getTrip, inputFromRow, listTrips, planFor, saveTrip, sendTripDays, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
 import { notifyAgencyPriced, notifyTripSent } from "@/lib/trip-notify";
 import { alertStaff } from "@/lib/staff-alert";
 import { esc } from "@/lib/telegram/cards";
 import { z } from "zod";
 import { VEHICLES } from "@/lib/vehicles";
+import { MAX_TRIP_DAYS } from "@/lib/trip-split";
 
 const quoteSchema = z.object({
   tripDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -200,8 +201,16 @@ export async function handleAction(request: Request, id: string, actor: TripActo
       if (trip.isTemplate) return NextResponse.json({ error: "Templates are single days." }, { status: 400 });
       const days = await groupDays(trip);
       if (days.some((d) => d.status === "accepted")) return NextResponse.json({ error: "This trip is paid. Plan the extra day as a new trip." }, { status: 409 });
-      if (days.length >= 14) return NextResponse.json({ error: "A trip can have up to 14 days." }, { status: 400 });
+      if (days.length >= MAX_TRIP_DAYS) return NextResponse.json({ error: `A trip can have up to ${MAX_TRIP_DAYS} days.` }, { status: 400 });
       return NextResponse.json({ ok: true, ...(await addDay(trip, by)) });
+    }
+    case "split_days": {
+      if (trip.isTemplate) return NextResponse.json({ error: "Templates are single days." }, { status: 400 });
+      if (trip.status === "accepted") return NextResponse.json({ error: "This trip is paid. Plan the extra days as a new trip." }, { status: 409 });
+      if (trip.groupId) return NextResponse.json({ error: "This trip already has several days. Move places between days by hand." }, { status: 409 });
+      const result = await splitTrip(trip, by);
+      if (!result) return NextResponse.json({ error: "The places already fit one day, or the trip was just split." }, { status: 409 });
+      return NextResponse.json({ ok: true, id: trip.id, ...result });
     }
     case "remove_day": {
       try { await removeDay(trip); return NextResponse.json({ ok: true, leadId: trip.groupId }); }

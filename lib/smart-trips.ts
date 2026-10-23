@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { smartTrips, smartTripVersions } from "@/db/schema";
@@ -7,6 +7,7 @@ import { areaHourlyPrices, HOURLY_MAX_HOURS, HOURLY_MIN_HOURS } from "@/lib/hour
 import { cityOfText } from "@/lib/hourly-area-match";
 import { alternatives, autoArrange, packingList, schedule, toMin, tripFees, type AttractionData, type Plan, type PlanInput, type Point, type TripStop } from "@/lib/trip-plan";
 import { travelMatrix } from "@/lib/trip-travel";
+import { shareByWeight, splitIntoDays } from "@/lib/trip-split";
 import { VEHICLES } from "@/lib/vehicles";
 
 export type TripRow = typeof smartTrips.$inferSelect;
@@ -287,6 +288,41 @@ export async function addDay(trip: TripRow, by: { name: string; agencyId?: strin
     pickupText: last.endText || last.pickupText, pickupLat: last.endLat ?? last.pickupLat, pickupLng: last.endLng ?? last.pickupLng, endText: null, endLat: null, endLng: null }, { ...by, agencyId: lead.agencyId, commissionPercent: lead.commissionPercent });
   await getDb().update(smartTrips).set({ groupId: lead.id, dayNumber: last.dayNumber + 1, status: "draft" }).where(eq(smartTrips.id, saved.id));
   return saved;
+}
+
+/**
+ * Admin → "Split into days": a one-day trip whose places do not fit becomes as many days as they need (at most
+ * MAX_TRIP_DAYS, each at most MAX_DAY_HOURS), with the same guests, car and pickup every day. Day 1 keeps its link.
+ * The transport price and the discount are shared across the days by each day's hourly rate for its hours (the
+ * price staff set covers the whole trip; tickets are added on the day they are used), so the shares add up exactly.
+ * Null when the places already fit one day, or the trip is already split (a second click at the same time loses).
+ */
+export async function splitTrip(trip: TripRow, by: { name: string }) {
+  // Claim the trip first: only one request can turn it into a group.
+  const claimed = await getDb().update(smartTrips).set({ groupId: trip.id }).where(and(eq(smartTrips.id, trip.id), isNull(smartTrips.groupId))).returning({ id: smartTrips.id });
+  if (!claimed.length) return null;
+  const ids: string[] = [];
+  try {
+    const input = inputFromRow(trip);
+    const { planInput } = await planFor(input);
+    const { startMin, from, end, attractions, travel } = planInput;
+    const split = splitIntoDays(input.stops as TripStop[], { startMin, from, end, attractions, travel, startDate: input.tripDate ?? null, hours: input.durationHours });
+    if (split.days.length < 2) throw new Error("FITS");
+    const weights = await Promise.all(split.days.map(async (d) => (await suggestedTransport(input.pickupText, d.hours, input.vehicle))?.total ?? d.hours));
+    const transport = shareByWeight(input.transportPrice, weights), discount = shareByWeight(input.discount, weights);
+    const day = (i: number) => ({ ...input, tripDate: split.days[i].date, stops: split.days[i].stops as TripInput["stops"], durationHours: split.days[i].hours, transportPrice: transport[i], discount: discount[i] });
+    const owner = { name: by.name, agencyId: trip.agencyId, commissionPercent: trip.commissionPercent };
+    for (let i = 1; i < split.days.length; i++) ids.push((await saveTrip({ ...day(i), id: undefined }, owner)).id);
+    await saveTrip({ ...day(0), id: trip.id }, { name: by.name, agencyId: trip.agencyId });
+    for (const [i, id] of ids.entries()) await getDb().update(smartTrips).set({ groupId: trip.id, dayNumber: i + 2, status: "draft" }).where(eq(smartTrips.id, id));
+    return { days: split.days.length, fits: split.fits };
+  } catch (error) {
+    // Undo: the new days go and the trip is a single day again.
+    for (const id of ids) await getDb().delete(smartTrips).where(eq(smartTrips.id, id));
+    await getDb().update(smartTrips).set({ groupId: null }).where(eq(smartTrips.id, trip.id));
+    if ((error as Error).message === "FITS") return null;
+    throw error;
+  }
 }
 
 /** Removes a day (never the first) and renumbers the rest. */
