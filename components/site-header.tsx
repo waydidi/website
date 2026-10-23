@@ -122,6 +122,14 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         </Link>
       </nav>
       <div className="flex shrink-0 items-center gap-2 min-[360px]:gap-4 xl:hidden">
+        {/* Sign in (or your account once signed in), just left of the menu button. */}
+        <Link
+          href={accountHref}
+          aria-label={accountLabel}
+          className="grid size-10 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
+        >
+          <UserRound size={26} />
+        </Link>
         <button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
