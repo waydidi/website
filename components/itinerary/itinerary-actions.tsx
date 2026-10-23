@@ -55,7 +55,7 @@ export function ItineraryActions({ token, total, name, email, phone, words }: { 
       <div className="mx-auto max-w-[880px]">
         <p className="flex items-center justify-between gap-3">
           <Sheet>
-            <SheetTrigger className="flex items-center gap-1.5 text-[14px] text-slate-500" aria-label={`${w.total}: ${w.totalFor}`}>{w.total}<Info size={16} aria-hidden /></SheetTrigger>
+            <SheetTrigger className="flex items-center gap-1.5 text-[14px] text-slate-500" aria-label={`${w.totalLabel}: ${w.totalFor}`}>{w.totalLabel}<Info size={16} aria-hidden /></SheetTrigger>
             <SheetContent side="bottom" className="rounded-t-[20px] pb-[max(1rem,env(safe-area-inset-bottom))]">
               <SheetHeader><SheetTitle className="text-[18px] text-plum">{w.totalFor}</SheetTitle><SheetDescription className="text-[15px] text-slate-600">{w.totalInfo}</SheetDescription></SheetHeader>
             </SheetContent>

@@ -192,8 +192,8 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(page.getByRole("dialog").getByText("Total for your group")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toBeHidden();
-  const view = page.viewportSize()!;
-  expect(Math.round((await bar.boundingBox())!.y + (await bar.boundingBox())!.height)).toBe(view.height);
+  const barView = page.viewportSize()!;
+  expect(Math.round((await bar.boundingBox())!.y + (await bar.boundingBox())!.height)).toBe(barView.height);
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-booking-bar-${info.project.name}.png` });
   await bar.getByRole("button", { name: "Book & Pay Now" }).click();
   await expect(page.getByPlaceholder("Full name")).toBeInViewport(); // jumps to the details form
