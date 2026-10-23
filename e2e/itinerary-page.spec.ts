@@ -53,8 +53,8 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   const slides = gallery.locator("figure");
   await expect(slides.nth(0)).toHaveAttribute("aria-hidden", "false");
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-top-${info.project.name}.png` });
-  // About every 3 seconds the next photo comes; the one leaving keeps zooming while it fades (no jump back).
-  await expect(slides.nth(1)).toHaveAttribute("aria-hidden", "false", { timeout: 4_500 });
+  // About every 5 seconds the next photo comes; the one leaving keeps zooming while it fades (no jump back).
+  await expect(slides.nth(1)).toHaveAttribute("aria-hidden", "false", { timeout: 7_000 });
   expect(await slides.nth(0).locator("img").evaluate((el) => getComputedStyle(el).animationName)).toBe("trip-photo-zoom");
   expect(await slides.nth(1).locator("img").evaluate((el) => getComputedStyle(el).animationName)).toBe("trip-photo-zoom");
   expect(await slides.nth(2).locator("img").evaluate((el) => getComputedStyle(el).animationName)).toBe("none");

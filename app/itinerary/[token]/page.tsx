@@ -90,11 +90,8 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
     <div className={`relative z-10 mx-auto max-w-[880px] bg-white px-4 pb-6 pt-6 sm:px-7 ${photos.length ? "-mt-5 rounded-t-card" : ""}`}>
       <h1 className="text-[28px] font-black leading-tight tracking-[-.035em] sm:text-[38px]">{s.title}</h1>
       {s.pickupText && <p className="mt-2 text-[17px] text-slate-600">{fill(w.departingFrom, { place: "" })}<span className="font-semibold text-plum">{s.pickupText}</span></p>}
-      <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[15px]">
-        <span className="font-semibold text-brand-deep">{agency ? fill(w.preparedBy, { agency: agency.name }) : multi ? fill(w.multiDay, { n: days.length }) : w.privateTrip}</span>
-        <span aria-hidden className="text-slate-300">•</span>
-        <span className="inline-flex items-center gap-1.5 text-slate-700"><CalendarDays size={15} className="text-slate-500" />{longDate(s.tripDate, lang)}{multi ? ` – ${longDate(days.at(-1)!.snap.tripDate, lang)}` : ""}</span>
-      </p>
+      <p className="mt-2 text-[15px] font-semibold text-brand-deep">{agency ? fill(w.preparedBy, { agency: agency.name }) : multi ? fill(w.multiDay, { n: days.length }) : w.privateTrip}</p>
+      <p className="mt-1 flex items-center gap-1.5 text-[15px] text-slate-700"><CalendarDays size={15} className="shrink-0 text-slate-500" />{longDate(s.tripDate, lang)}{multi ? ` – ${longDate(days.at(-1)!.snap.tripDate, lang)}` : ""}</p>
       <ul className="mt-4 flex flex-wrap gap-2 text-[15px] text-slate-700">
         {[w.privateCarChip, w.hotelPickup, travellers > 1 ? fill(w.travellers, { n: travellers }) : w.traveller, multi ? fill(w.daysChip, { n: days.length }) : fill(w.hoursChip, { n: s.durationHours }), allStops.length === 1 ? w.stopCount : fill(w.stopsCount, { n: allStops.length })].map((c) => <li key={c} className="rounded-md bg-slate-100 px-3 py-1.5">{c}</li>)}
       </ul>
