@@ -194,7 +194,7 @@ export default function BookingLookup() {
   }
   if (!data)
     return (
-      <main className="min-h-[calc(100vh-102px)] bg-slate-50 px-5 py-12 text-plum">
+      <main className="min-h-[calc(100vh-98px)] bg-slate-50 px-5 py-12 text-plum">
         <section className="mx-auto max-w-md rounded-[28px] border border-slate-200 bg-white p-7 shadow-sm">
           <h1 className="text-center text-3xl font-black tracking-[-.04em]">
             Manage your booking
@@ -259,7 +259,7 @@ export default function BookingLookup() {
         : "This booking is cancelled."
       : "";
   return (
-    <main className="min-h-[calc(100vh-102px)] bg-[#f4f6f8] px-4 py-8 text-plum sm:px-6 lg:py-12">
+    <main className="min-h-[calc(100vh-98px)] bg-[#f4f6f8] px-4 py-8 text-plum sm:px-6 lg:py-12">
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>

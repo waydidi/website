@@ -108,6 +108,14 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await highlights.getByRole("button", { name: "View maps" }).click();
   const maps = page.getByRole("dialog", { name: "Route map" });
   await expect(maps).toBeVisible();
+  // Full screen, like Klook: a card for the pickup and for each place with a location (Big Buddha has none).
+  const mapBox = await maps.boundingBox(), view = page.viewportSize();
+  expect([mapBox?.width, mapBox?.height]).toEqual([view?.width, view?.height]);
+  const cards = maps.locator("button[type=button]").filter({ hasText: /Departure|Attraction/ });
+  expect(await cards.allTextContents()).toEqual(["Kata Beach ResortDeparture · 08:30", "Elephant Jungle SanctuaryAttraction"]);
+  await expect(cards.nth(1).locator("img")).toHaveAttribute("src", "/destinations/phuket.webp");
+  await cards.nth(1).click();
+  await expect(cards.nth(1)).toHaveAttribute("aria-current", "true");
   if (process.env.SHOT_DIR) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-maps-${info.project.name}.png` }); }
   await maps.getByRole("button", { name: "Close" }).click();
   await expect(maps).toHaveCount(0);
