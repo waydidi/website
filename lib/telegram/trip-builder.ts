@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { attractions } from "@/db/schema";
 import { attractionSchema, listAttractions, saveAttraction } from "@/lib/attractions";
@@ -13,7 +13,7 @@ import { itineraryPdf } from "@/lib/trip-itinerary-file";
 import { VEHICLES } from "@/lib/vehicles";
 import { esc } from "./cards";
 import { downloadFile, sendDocument, sendTo, tg, telegramChatId, type TelegramMessage } from "./client";
-import { MISSING_TH, PLACE_HELP, TRIP_HELP, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn } from "./trip-builder-rules";
+import { MISSING_TH, PLACE_HELP, TRIP_HELP, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn } from "./trip-builder-rules";
 
 // /trip and /place in the Admin group (team list only; the webhook checks that). /trip builds a smart trip from the
 // staff's text, sends it (freezes the version and makes the link) and posts the link and the PDF back to the Admin
@@ -132,7 +132,11 @@ async function buildTrip(details: string, m: TelegramMessage, member: { display_
 
 type AttractionRow = typeof attractions.$inferSelect;
 const findByName = async (name: string) => {
-  const [row] = await getDb().select().from(attractions).where(sql`lower(${attractions.name}) = ${name.toLowerCase()} OR lower(coalesce(${attractions.customerName}, '')) = ${name.toLowerCase()}`).limit(1);
+  // A visible place first: a hidden duplicate is never the one staff mean while the original is shown.
+  const rows = await getDb().select({ id: attractions.id, name: attractions.name, customerName: attractions.customerName, createdAt: attractions.createdAt, status: attractions.status }).from(attractions);
+  const match = matchPlace(name, rows.filter((r) => r.status === "active")) ?? matchPlace(name, rows);
+  if (!match) return null;
+  const [row] = await getDb().select().from(attractions).where(eq(attractions.id, match.id)).limit(1);
   return row ?? null;
 };
 
