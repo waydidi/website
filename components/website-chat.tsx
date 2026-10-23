@@ -21,7 +21,7 @@ const store = {
   set: (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
 };
 // Hidden where the chat would get in the way: staff/driver tools, payment and the booking steps.
-const HIDDEN = /^\/(admin|admin-setup|driver|trip|pay|chat-pay|checkout|s|liff)(\/|$)/;
+const HIDDEN = /^\/(admin|admin-setup|driver|trip|pay|chat-pay|checkout|s|liff)(\/|$)|^\/account\/sign-in(\/|$)/;
 
 export function OpenWebsiteChat({ className, children }: { className?: string; children: React.ReactNode }) {
   return <button type="button" className={className} onClick={() => window.dispatchEvent(new Event("waydidi:open-chat"))}>{children}</button>;
