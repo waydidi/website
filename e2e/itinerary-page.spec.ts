@@ -182,7 +182,22 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(beforeSheet).toHaveCount(0);
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-includes-${info.project.name}.png` });
 
-  await expect(page.getByRole("link", { name: "Book now" })).toHaveCount(0); // no floating bar at the bottom
+  // The booking bar stays at the bottom of the screen: price, "Ask for a change" and "Book now" (no heart).
+  const bar = page.getByTestId("booking-bar");
+  await expect(bar).toBeInViewport();
+  expect(await bar.getByRole("button").allTextContents()).toEqual(["Ask for a change", "Book now"]);
+  await expect(bar.getByText(/^THB [\d,]+$/)).toBeVisible();
+  const view = page.viewportSize()!;
+  expect(Math.round((await bar.boundingBox())!.y + (await bar.boundingBox())!.height)).toBe(view.height);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-booking-bar-${info.project.name}.png` });
+  await bar.getByRole("button", { name: "Book now" }).click();
+  await expect(page.getByPlaceholder("Full name")).toBeInViewport(); // jumps to the details form
+  await expect(bar).toHaveCount(0); // and steps aside so it never covers the pay button
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(bar).toBeVisible();
+  await bar.getByRole("button", { name: "Ask for a change" }).click();
+  await expect(page.getByRole("textbox", { name: "Your request" })).toBeInViewport();
+  await page.getByRole("button", { name: "Back" }).click();
   await tabs.getByRole("link", { name: "Booking" }).click();
   await expect(page.locator("#booking")).toBeInViewport();
   await expect(page.getByRole("button", { name: /Accept and pay/ })).toBeVisible();
