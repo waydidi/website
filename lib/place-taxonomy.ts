@@ -1,4 +1,6 @@
 // Place library vocabulary, shared by the admin editor (browser) and the server.
+/** Most gallery photos one place keeps (besides its cover); the admin editor, Telegram /place and the saved place all use it. */
+export const MAX_GALLERY_PHOTOS = 40;
 export const PLACE_TYPES = ["sight", "temple", "cafe", "restaurant", "hidden-gem", "viewpoint", "market", "rooftop", "museum", "activity", "shopping", "nature", "beach", "island", "animal", "show"] as const;
 export const MEAL_SLOTS = ["breakfast", "brunch", "lunch", "afternoon", "dinner", "night"] as const;
 export const BEST_TIMES = ["morning", "midday", "afternoon", "sunset", "night", "any"] as const;

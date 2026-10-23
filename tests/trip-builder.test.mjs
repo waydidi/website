@@ -197,6 +197,21 @@ test('/place without hours takes them from Google Maps; typed hours and hours al
   assert.match(replies().at(-1), /ยังไม่มีเวลาเปิด \(ไม่พบใน Google Maps/);
 });
 
+test('a place keeps up to 40 gallery photos: the saved place and Telegram photos both stop at 40', async () => {
+  const attractions = await vite.ssrLoadModule('/lib/attractions.ts');
+  const base = { name: 'Elephant Camp', durationMin: 120 };
+  const photos = (n) => Array.from({ length: n }, (_, i) => `/api/blog-images/${i}.jpg`);
+  assert.equal(attractions.attractionSchema.safeParse({ ...base, gallery: photos(40) }).success, true, '40 photos are accepted');
+  assert.equal(attractions.attractionSchema.safeParse({ ...base, gallery: photos(41) }).success, false, '41 are refused');
+
+  await d1.prepare("INSERT INTO attractions(id,name,area,duration_min,status,cover_image,gallery_json,created_at,updated_at) VALUES('camp','Elephant Camp','Phuket',120,'active','/api/blog-images/cover.jpg',?,?,?)").bind(JSON.stringify(photos(39)), now, now).run();
+  const photo = (n) => message(undefined, { caption: '/place Elephant Camp', photo: [{ file_id: `camp${n}`, file_unique_id: `u-camp${n}`, width: 800, height: 600 }] });
+  await tb.handleTripBuilder(photo(1), anna, deps(model()));
+  await tb.handleTripBuilder(photo(2), anna, deps(model()));
+  const gallery = JSON.parse((await d1.prepare("SELECT gallery_json FROM attractions WHERE id='camp'").first()).gallery_json);
+  assert.equal(gallery.length, 40, 'the 40th photo joins, the next one does not');
+});
+
 test('/place with a shorter name adds the photo to the place trips already use, not a duplicate', async () => {
   await d1.prepare("INSERT INTO attractions(id,name,area,duration_min,status,created_at,updated_at) VALUES('wat-arun-old','Wat Arun (Temple of Dawn)','Bangkok',60,'active',?,?)").bind(now, now).run();
   const before = (await d1.prepare('SELECT COUNT(*) n FROM attractions').first()).n;

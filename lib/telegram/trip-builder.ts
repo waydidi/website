@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { attractions } from "@/db/schema";
 import { attractionSchema, listAttractions, saveAttraction } from "@/lib/attractions";
 import { findPlace } from "@/lib/cee/quotes";
+import { MAX_GALLERY_PHOTOS } from "@/lib/place-taxonomy";
 import { putFile } from "@/lib/file-store";
 import { publicSiteUrl } from "@/lib/site";
 import { getTrip, groupDays, saveTrip, sendTripDays, tripSchema, tripSnapshot, type TripInput } from "@/lib/smart-trips";
@@ -176,7 +177,7 @@ async function addPhoto(row: AttractionRow, url: string) {
   const gallery = (() => { try { return JSON.parse(row.galleryJson) as string[]; } catch { return []; } })();
   if (row.coverImage === url || gallery.includes(url)) return gallery.length + (row.coverImage ? 1 : 0);
   if (!row.coverImage) await getDb().update(attractions).set({ coverImage: url, updatedAt: new Date().toISOString() }).where(eq(attractions.id, row.id));
-  else if (gallery.length < 12) await getDb().update(attractions).set({ galleryJson: JSON.stringify([...gallery, url]), updatedAt: new Date().toISOString() }).where(eq(attractions.id, row.id));
+  else if (gallery.length < MAX_GALLERY_PHOTOS) await getDb().update(attractions).set({ galleryJson: JSON.stringify([...gallery, url]), updatedAt: new Date().toISOString() }).where(eq(attractions.id, row.id));
   return gallery.length + 1 + (row.coverImage ? 1 : 0);
 }
 

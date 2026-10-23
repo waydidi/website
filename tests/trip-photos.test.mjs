@@ -22,11 +22,11 @@ test('a stop without a cover uses its first gallery photo; a stop without photos
   assert.deepEqual(p.tripPhotos([stop('x', null, [])]), [], 'no photos: the page shows no gallery');
 });
 
-test('the same picture used by two stops appears once; unsafe links are left out; at most 20', () => {
+test('the same picture used by two stops appears once; unsafe links are left out; at most 40', () => {
   const photos = p.tripPhotos([stop('a', 'https://img/same.jpg'), stop('b', 'https://img/same.jpg', ['javascript:alert(1)', 'http://plain/x.jpg', '/uploads/b.webp'])]);
   assert.deepEqual(photos.map((x) => x.src), ['https://img/same.jpg', '/uploads/b.webp']);
   const many = Array.from({ length: 6 }, (_, i) => stop(String(i), `https://img/${i}.jpg`, Array.from({ length: 12 }, (_, j) => `https://img/${i}-${j}.jpg`)));
-  assert.equal(p.tripPhotos(many).length, 20);
+  assert.equal(p.tripPhotos(many).length, 40);
 });
 
 test('highlights are grouped by stop; tickets split into included and paid on the day', () => {
