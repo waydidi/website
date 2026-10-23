@@ -121,6 +121,7 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(overview.getByText(/depending on traffic/)).toHaveCount(0);
   if (process.env.SHOT_DIR) { await overview.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-expect-${info.project.name}.png` }); }
   const timeline = overview.getByRole("list").last();
+  await expect(overview.getByText(/Google Maps key/)).toHaveCount(0); // no map in the timeline: it is behind "View maps"
   const steps = timeline.locator(":scope > li");
   await expect(steps).toHaveCount(4);
   await expect(steps.first()).toContainText("08:30 · Departure");
