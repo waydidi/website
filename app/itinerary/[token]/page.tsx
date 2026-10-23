@@ -79,7 +79,8 @@ export default async function ItineraryPage({ params, searchParams }: { params: 
   const photos = tripPhotos(allStops);
   const highlights = tripHighlights(allStops);
   const tickets = ticketStops(allStops);
-  const highlightItems = [...new Set(highlights.flatMap((h) => h.items))];
+  // The places' own highlights, then what every Waydidi trip has, so the card always shows.
+  const highlightItems = [...new Set([...highlights.flatMap((h) => h.items), w.hlPrivate, w.hlPickup, w.hlPlanned, fill(w.hlCancel, { hours: FULL_REFUND_HOURS })])];
   // "View maps": a pin and card for each day's pickup and each place with a location (address from the attraction).
   const mapPlaces: MapPlace[] = days.flatMap((d) => {
     const s = d.snap, day = multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ` : "";
@@ -92,7 +93,7 @@ export default async function ItineraryPage({ params, searchParams }: { params: 
     ];
   });
   const tabs = [
-    ...(highlightItems.length ? [{ id: "highlights", label: w.highlights }] : []), { id: "expect", label: w.tabExpect },
+    { id: "highlights", label: w.highlights }, { id: "expect", label: w.tabExpect },
     { id: "includes", label: w.tabIncludes }
   ];
   const lastReturn = hhmm(days.at(-1)!.snap.returnAt);
@@ -123,11 +124,9 @@ export default async function ItineraryPage({ params, searchParams }: { params: 
       {paid && tripStarted(s.tripDate) && <TripFeedback token={leadToken} rating={trip.feedbackRating} reviewUrl={reviewUrl()} words={w} />}
       {trip.status === "changes_requested" && <div className="-mx-4 bg-amber-50 px-4 py-5 text-amber-900 sm:px-7"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
 
-      <section id="highlights" className={card}>
-        {highlightItems.length > 0 && <><h2 className={heading}>{w.highlights}</h2>
-          <div className="mt-4"><HighlightsCard items={highlightItems} words={w} /></div></>}
-        {/* The day at a glance, like Klook's: places, hours, how it starts, cancellation; then the route map. */}
-        <div className={`rounded-card bg-[#fcfaf8] px-5 py-5 ring-1 ring-slate-100 sm:px-6 ${highlightItems.length ? "mt-5" : ""}`}>
+      <section id="highlights" aria-label={w.highlights} className={card}>
+        {/* The day at a glance, like Klook's: places, hours, how it starts, cancellation; then the route map, then the highlights. */}
+        <div className="rounded-card bg-[#fcfaf8] px-5 py-5 ring-1 ring-slate-100 sm:px-6">
           <ul className="grid gap-3 text-[17px] leading-6 text-plum">
             {allStops.length > 0 && <li className="flex gap-3"><Landmark size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" /><ul className="grid gap-2.5">{[...new Set(allStops.map((x) => x.name))].map((n) => <li key={n}>{n}</li>)}</ul></li>}
             <li className="flex gap-3"><Clock size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" /><ul className="grid gap-2.5">{days.map((d) => <li key={d.trip.id}>{multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ` : ""}{d.snap.startTime} – {hhmm(d.snap.returnAt)}</li>)}</ul></li>
@@ -136,6 +135,7 @@ export default async function ItineraryPage({ params, searchParams }: { params: 
           </ul>
           <TripMap places={mapPlaces} words={w} />
         </div>
+        <div className="mt-5"><HighlightsCard items={highlightItems} words={w} /></div>
       </section>
 
       <section id="expect" className={card}>
