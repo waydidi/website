@@ -13,17 +13,19 @@ import { itineraryPdf } from "@/lib/trip-itinerary-file";
 import { VEHICLES } from "@/lib/vehicles";
 import { esc } from "./cards";
 import { downloadFile, sendDocument, sendTo, tg, telegramChatId, type TelegramMessage } from "./client";
-import { MISSING_TH, PLACE_HELP, TRIP_HELP, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, tripText, wantsTripGuide } from "./trip-builder-rules";
+import { MISSING_TH, PLACE_HELP, TRIP_HELP, hoursFromGoogle, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, tripText, wantsTripGuide, placeHoursLineTh, type GooglePeriod, type PlaceHours } from "./trip-builder-rules";
 
 // /trip and /place in the Admin group (team list only; the webhook checks that). /trip builds a smart trip from the
 // staff's text, sends it (freezes the version and makes the link) and posts the link and the PDF back to the Admin
 // group. The bot never messages the customer: staff forward the link. /place adds or updates an attraction (name,
-// opening hours, photos) so the next /trip can use it. Off until TELEGRAM_TRIP_BUILDER=1.
+// opening hours, photos) so the next /trip can use it; hours left out are taken from Google Maps. Off until
+// TELEGRAM_TRIP_BUILDER=1.
 
 type Db = { prepare: (sql: string) => { bind: (...v: unknown[]) => { first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> } } };
 const db = () => env.DB as unknown as Db;
 const vars = () => env as unknown as Record<string, string | undefined>;
-export type BuilderDeps = { call?: ModelCall; locate?: (text: string) => Promise<{ lat: number; lng: number } | null>; today?: string };
+export type PlaceInfo = { lat: number; lng: number; hours: PlaceHours | null };
+export type BuilderDeps = { call?: ModelCall; locate?: (text: string) => Promise<{ lat: number; lng: number } | null>; place?: (text: string) => Promise<PlaceInfo | null>; today?: string };
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
 let ready: Promise<unknown> | null = null;
@@ -41,6 +43,20 @@ const remember = (chatId: string, messageId: number, kind: string, refId: string
   db().prepare("INSERT OR REPLACE INTO telegram_trip_builder(chat_id,message_id,kind,ref_id,created_at) VALUES(?,?,?,?,?)").bind(chatId, messageId, kind, refId, new Date().toISOString()).run();
 
 const defaultLocate = async (text: string) => { const p = await findPlace(text).catch(() => null); return p?.location ? { lat: p.location.latitude, lng: p.location.longitude } : null; };
+/** A /place on Google Maps: where it is and its regular opening hours (Places API, the server key /trip already uses). */
+async function defaultPlaceInfo(text: string): Promise<PlaceInfo | null> {
+  const key = vars().GOOGLE_MAPS_SERVER_KEY;
+  if (!key) return null;
+  const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST", signal: AbortSignal.timeout(8000),
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key, "X-Goog-FieldMask": "places.location,places.regularOpeningHours.periods" },
+    body: JSON.stringify({ textQuery: text.slice(0, 200), regionCode: "TH", languageCode: "en", pageSize: 1, locationRestriction: { rectangle: { low: { latitude: 5.5, longitude: 97.3 }, high: { latitude: 20.5, longitude: 105.7 } } } }),
+  }).catch(() => null);
+  if (!res?.ok) return null;
+  const data = await res.json().catch(() => ({})) as { places?: { location?: { latitude?: number; longitude?: number }; regularOpeningHours?: { periods?: GooglePeriod[] } }[] };
+  const p = data.places?.[0], lat = p?.location?.latitude, lng = p?.location?.longitude;
+  return typeof lat === "number" && typeof lng === "number" ? { lat, lng, hours: hoursFromGoogle(p?.regularOpeningHours?.periods) } : null;
+}
 const bangkokToday = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 const thaiDate = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "-");
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
@@ -171,13 +187,23 @@ async function addPlace(details: string, m: TelegramMessage, reply: (t: string) 
   if (!(await claim(chatId, m.message_id, "place"))) return;
   let row = await findByName(place.name);
   const created = !row;
+  const typed = place.openTime ? { openTime: place.openTime, closeTime: place.closeTime } : null;
+  const lookup = () => (deps.place ?? defaultPlaceInfo)([place.name, place.area].filter(Boolean).join(", ")).catch(() => null);
+  let fromGoogle: PlaceHours | null = null;
   if (row) {
-    const changes = { ...(place.openTime ? { openTime: place.openTime, closeTime: place.closeTime } : {}), ...(place.durationMin ? { durationMin: place.durationMin } : {}), ...(place.area && !row.area ? { area: place.area } : {}) };
+    // Google only fills hours nobody has entered: staff hours, typed now or before, always win.
+    const info = !typed && !row.openTime ? await lookup() : null;
+    fromGoogle = info?.hours ?? null;
+    const changes = { ...(typed ?? {}), ...(fromGoogle ? { openTime: fromGoogle.openTime, closeTime: fromGoogle.closeTime, closedDaysJson: JSON.stringify(fromGoogle.closedDays) } : {}),
+      ...(info && row.latitude == null ? { latitude: info.lat, longitude: info.lng } : {}),
+      ...(place.durationMin ? { durationMin: place.durationMin } : {}), ...(place.area && !row.area ? { area: place.area } : {}) };
     if (Object.keys(changes).length) await getDb().update(attractions).set({ ...changes, updatedAt: new Date().toISOString() }).where(eq(attractions.id, row.id));
   } else {
-    const at = await (deps.locate ?? defaultLocate)([place.name, place.area].filter(Boolean).join(", "));
-    const id = await saveAttraction(attractionSchema.parse({ name: place.name, area: place.area, openTime: place.openTime, closeTime: place.closeTime,
-      durationMin: place.durationMin ?? 60, latitude: at?.lat ?? null, longitude: at?.lng ?? null, internalNotes: "Added from Telegram (/place)" }));
+    const info = await lookup();
+    fromGoogle = typed ? null : info?.hours ?? null;
+    const id = await saveAttraction(attractionSchema.parse({ name: place.name, area: place.area, openTime: typed?.openTime ?? fromGoogle?.openTime ?? null, closeTime: typed?.closeTime ?? fromGoogle?.closeTime ?? null,
+      closedDays: fromGoogle?.closedDays ?? [], durationMin: place.durationMin ?? 60, latitude: info?.lat ?? null, longitude: info?.lng ?? null,
+      internalNotes: `Added from Telegram (/place)${fromGoogle ? "; opening hours from Google Maps" : ""}` }));
     [row] = await getDb().select().from(attractions).where(eq(attractions.id, id)).limit(1);
   }
   if (!row) return;
@@ -187,7 +213,7 @@ async function addPlace(details: string, m: TelegramMessage, reply: (t: string) 
   const photos = (row.coverImage ? 1 : 0) + ((() => { try { return (JSON.parse(row.galleryJson) as string[]).length; } catch { return 0; } })());
   const sent = await sendTo(chatId, [
     `✅ ${created ? "เพิ่ม" : "อัปเดต"}สถานที่ <b>${esc(row.name)}</b> ${created ? "ในรายการสถานที่แล้ว" : "แล้ว"}`,
-    `🕘 ${row.openTime && row.closeTime ? `เปิด ${row.openTime}–${row.closeTime}` : "ยังไม่มีเวลาเปิด"} · ใช้เวลาประมาณ ${row.durationMin} นาที${row.area ? ` · ${esc(row.area)}` : ""}`,
+    `🕘 ${placeHoursLineTh({ openTime: row.openTime, closeTime: row.closeTime, closedDays: (() => { try { return JSON.parse(row.closedDaysJson) as number[]; } catch { return []; } })() }, fromGoogle)} · ใช้เวลาประมาณ ${row.durationMin} นาที${row.area ? ` · ${esc(row.area)}` : ""}`,
     `📷 รูป ${photos} รูป${m.photo?.length && !photo ? " (บันทึกรูปไม่สำเร็จ ลองส่งใหม่)" : ""}`,
     created && row.latitude == null ? "📍 ยังไม่มีพิกัด: ระยะเวลาขับรถจะเป็นค่าประมาณ แก้ได้ที่ Admin → Attractions" : "",
     "ตอบกลับข้อความนี้ด้วยรูปเพื่อเพิ่มรูป",

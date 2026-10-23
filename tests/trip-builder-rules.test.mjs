@@ -100,3 +100,41 @@ test('paste a chat: the AI reads the replied chat with the staff line as a note;
   assert.equal(r.tripText('12 Dec, Grand Palace, THB 3,000', ''), '12 Dec, Grand Palace, THB 3,000');
   assert.equal(r.tripText('', 'Hi'), 'Hi\n\n(Staff note: none)');
 });
+
+// Google Places regularOpeningHours periods (day 0 is Sunday).
+const period = (day, open, close, closeDay = day) => {
+  const [oh, om] = open.split(':').map(Number), [ch, cm] = close.split(':').map(Number);
+  return { open: { day, hour: oh, minute: om }, close: { day: closeDay, hour: ch, minute: cm } };
+};
+const week = (open, close, days = [0, 1, 2, 3, 4, 5, 6]) => days.map((d) => period(d, open, close));
+
+test("/place without hours: Google Maps' weekly hours become one open and close time and the closed days", () => {
+  assert.deepEqual(r.hoursFromGoogle(week('08:30', '17:00')), { openTime: '08:30', closeTime: '17:00', closedDays: [], varies: false });
+  // Closed on Monday (a museum).
+  assert.deepEqual(r.hoursFromGoogle(week('09:00', '16:00', [0, 2, 3, 4, 5, 6])), { openTime: '09:00', closeTime: '16:00', closedDays: [1], varies: false });
+  // A lunch break is bridged: open 08:00 to 17:00.
+  assert.deepEqual(r.hoursFromGoogle([0, 1, 2, 3, 4, 5, 6].flatMap((d) => [period(d, '08:00', '12:00'), period(d, '13:00', '17:00')])),
+    { openTime: '08:00', closeTime: '17:00', closedDays: [], varies: false });
+  // Open 24 hours: Google sends one period that never closes.
+  assert.deepEqual(r.hoursFromGoogle([{ open: { day: 0, hour: 0, minute: 0 } }]), { openTime: '00:00', closeTime: '23:59', closedDays: [], varies: false });
+  // A night market open past midnight ends at 23:59 (the planner works within one day).
+  assert.deepEqual(r.hoursFromGoogle([4, 5, 6].map((d) => period(d, '17:00', '01:00', (d + 1) % 7))), { openTime: '17:00', closeTime: '23:59', closedDays: [0, 1, 2, 3], varies: false });
+  // Different weekend hours: the hours most days have, flagged as varying.
+  assert.deepEqual(r.hoursFromGoogle([...week('09:00', '18:00', [1, 2, 3, 4, 5]), ...week('08:00', '20:00', [0, 6])]),
+    { openTime: '09:00', closeTime: '18:00', closedDays: [], varies: true });
+  // A tie goes to Monday's hours.
+  assert.equal(r.hoursFromGoogle([period(1, '10:00', '16:00'), period(2, '09:00', '17:00')]).openTime, '10:00');
+});
+
+test('no usable hours from Google: nothing is filled in', () => {
+  for (const bad of [undefined, [], null, 'x', [{}], [{ open: { day: 9, hour: 9 }, close: { day: 9, hour: 17 } }], [{ open: { day: 1, hour: 30 }, close: { day: 1, hour: 17 } }], [{ open: { day: 1, hour: 9 } }, { open: { day: 2, hour: 9 } }]])
+    assert.equal(r.hoursFromGoogle(bad), null, JSON.stringify(bad));
+});
+
+test('the /place confirmation says the hours came from Google Maps, the closed days, and when hours differ by day', () => {
+  assert.equal(r.placeHoursLineTh({ openTime: '09:00', closeTime: '16:00', closedDays: [1] }, { openTime: '09:00', closeTime: '16:00', closedDays: [1], varies: false }),
+    'เปิด 09:00–16:00 · ปิดวันจันทร์ (จาก Google Maps)');
+  assert.match(r.placeHoursLineTh({ openTime: '09:00', closeTime: '18:00', closedDays: [] }, { openTime: '09:00', closeTime: '18:00', closedDays: [], varies: true }), /จาก Google Maps · เวลาไม่เท่ากันทุกวัน/);
+  assert.equal(r.placeHoursLineTh({ openTime: '07:00', closeTime: '19:00', closedDays: [] }, null), 'เปิด 07:00–19:00', 'typed by staff: no source note');
+  assert.match(r.placeHoursLineTh({ openTime: null, closeTime: null, closedDays: [] }, null), /^ยังไม่มีเวลาเปิด/);
+});
