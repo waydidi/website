@@ -124,7 +124,7 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await page.evaluate(() => window.scrollTo(0, 0));
 
   const tabs = page.getByRole("navigation", { name: "Trip sections" });
-  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Highlights", "What to expect", "Includes/Excludes", "Booking"]);
+  expect(await tabs.getByRole("link").allTextContents()).toEqual(["Highlights", "Includes/Excludes", "What to expect", "Booking"]);
 
   await tabs.getByRole("link", { name: "Includes/Excludes" }).click();
   const includes = page.locator("#includes");
