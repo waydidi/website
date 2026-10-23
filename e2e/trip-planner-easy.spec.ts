@@ -4,13 +4,13 @@ import { expect, test } from "@playwright/test";
 test.use({ storageState: "e2e/.auth/admin.json" });
 test.skip(({ isMobile }) => !isMobile, "The step-by-step layout is the phone layout");
 
-const attraction = (id: string, name: string, usedIn: number) => ({
+const attraction = (id: string, name: string, usedIn: number, coverImage: string | null = null) => ({
   id, name, customerName: name, area: "Phuket", category: "Sightseeing", tags: [], status: "active", programs: [], openTime: "08:00", closeTime: "18:00", lastEntry: null,
-  closedDays: [], durationMin: 60, arrivalBufferMin: 0, latitude: 7.84, longitude: 98.31, coverImage: null, description: "", usedIn, bookingRequired: false,
+  closedDays: [], durationMin: 60, arrivalBufferMin: 0, latitude: 7.84, longitude: 98.31, coverImage, description: "", usedIn, bookingRequired: false,
 });
 
 test("a new trip starts with the essentials, steps on a phone, and adds places with one tap", async ({ page }) => {
-  await page.route("**/api/admin/attractions", (route) => route.fulfill({ json: { attractions: [attraction("a1", "Big Buddha", 1), attraction("a2", "Old Town", 9), attraction("a3", "Promthep Cape", 4)] } }));
+  await page.route("**/api/admin/attractions", (route) => route.fulfill({ json: { attractions: [attraction("a1", "Big Buddha", 1), attraction("a2", "Old Town", 9, "/destinations/phuket.webp"), attraction("a3", "Promthep Cape", 4)] } }));
   await page.route("**/api/admin/trips/plan", (route) => route.fulfill({ json: { stops: [], plan: { stops: [], returnTravel: 0, returnAt: 480, startAt: 480, endLimit: 960, overBy: 0, totalDrive: 0, totalActivity: 0, totalWait: 0, problems: [] }, source: "estimate", fees: { included: 0, onSite: 0 }, total: 0, suggestedTransport: null, packing: [], alternatives: [] } }));
   await page.goto("/admin/trips/new");
 
@@ -42,6 +42,15 @@ test("a new trip starts with the essentials, steps on a phone, and adds places w
   await expect(page.getByRole("button", { name: /Done · 2 in the trip/ })).toBeVisible();
   await page.getByRole("button", { name: /Done · 2 in the trip/ }).click();
   await expect(page.getByRole("button", { name: "2 Stops (2)" })).toBeVisible();
+  // Each stop card: time on top, then the place's thumbnail with its name beside it (an icon when it has no photo).
+  const cards = page.locator("ol > li[draggable]");
+  const oldTown = cards.filter({ hasText: "Old Town" });
+  const thumb = oldTown.locator("img");
+  await expect(thumb).toHaveAttribute("src", "/destinations/phuket.webp");
+  const [t, n] = [await thumb.boundingBox(), await oldTown.getByText("Old Town", { exact: true }).boundingBox()];
+  expect(t!.x + t!.width).toBeLessThan(n!.x);
+  await expect(cards.filter({ hasText: "Promthep Cape" }).locator("img")).toHaveCount(0);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/trip-builder-stops.png` });
 
   // Step 3.
   await page.getByRole("button", { name: "Next: price and send" }).click();
