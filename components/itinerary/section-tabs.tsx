@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * The tab bar under the photos: sticks just below the site header (79px, 107px on large screens), jumps to a section
+ * The tab bar under the photos: sticks just below the site header (74px, 102px on large screens), jumps to a section
  * and marks the section being read. A tapped tab stays marked while the page scrolls to it, even when the page is too
  * short to bring that section to the top.
  */
@@ -38,7 +38,7 @@ export function SectionTabs({ tabs, label }: { tabs: { id: string; label: string
     else if (tab.offsetLeft + tab.offsetWidth > ul.scrollLeft + ul.clientWidth) ul.scrollTo({ left: tab.offsetLeft + tab.offsetWidth - ul.clientWidth, behavior: "smooth" });
   }, [active]);
   const choose = (id: string) => { setActive(id); if (held.current) clearTimeout(held.current); held.current = setTimeout(() => { held.current = null; }, 1000); };
-  return <nav ref={bar} aria-label={label} className="sticky top-[79px] z-30 border-b border-slate-200 bg-white shadow-[0_2px_10px_rgba(0,0,0,.06)] lg:top-[107px]">
+  return <nav ref={bar} aria-label={label} className="sticky top-[74px] z-30 border-b border-slate-200 bg-white shadow-[0_2px_10px_rgba(0,0,0,.06)] lg:top-[102px]">
     <ul ref={list} className="relative mx-auto flex max-w-[880px] overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {tabs.map((t) => <li key={t.id} className="shrink-0 border-r border-slate-100 last:border-r-0">
         <a id={`tab-${t.id}`} href={`#${t.id}`} aria-current={active === t.id ? "location" : undefined} onClick={() => choose(t.id)}
