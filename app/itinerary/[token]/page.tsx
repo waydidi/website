@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { eq } from "drizzle-orm";
-import { Backpack, CalendarDays, CheckCircle2, Clock, Download, Landmark, MapPin, Shirt, Ticket, X } from "lucide-react";
+import { Backpack, CalendarDays, CheckCircle2, Clock, Download, Landmark, MapPin, Shirt, ShieldCheck, Ticket, X } from "lucide-react";
 import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
 import { HighlightsCard } from "@/components/itinerary/highlights-card";
 import { InfoRow } from "@/components/itinerary/info-row";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
+import { MapsSheet } from "@/components/itinerary/maps-sheet";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
 import { StopPhoto } from "@/components/itinerary/stop-photo";
 import { TripGallery } from "@/components/itinerary/trip-gallery";
@@ -106,10 +107,20 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
       {paid && tripStarted(s.tripDate) && <TripFeedback token={leadToken} rating={trip.feedbackRating} reviewUrl={reviewUrl()} words={w} />}
       {trip.status === "changes_requested" && <div className="-mx-4 bg-amber-50 px-4 py-5 text-amber-900 sm:px-7"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
 
-      {highlightItems.length > 0 && <section id="highlights" className={card}>
-        <h2 className={heading}>{w.highlights}</h2>
-        <div className="mt-4"><HighlightsCard items={highlightItems} words={w} /></div>
-      </section>}
+      <section id="highlights" className={card}>
+        {highlightItems.length > 0 && <><h2 className={heading}>{w.highlights}</h2>
+          <div className="mt-4"><HighlightsCard items={highlightItems} words={w} /></div></>}
+        {/* The day at a glance, like Klook's: places, hours, how it starts, cancellation; then the route map. */}
+        <div className={`rounded-card bg-[#fcfaf8] px-5 py-5 ring-1 ring-slate-100 sm:px-6 ${highlightItems.length ? "mt-5" : ""}`}>
+          <ul className="grid gap-3 text-[17px] leading-6 text-plum">
+            {allStops.length > 0 && <li className="flex gap-3"><Landmark size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" /><ul className="grid gap-2.5">{[...new Set(allStops.map((x) => x.name))].map((n) => <li key={n}>{n}</li>)}</ul></li>}
+            <li className="flex gap-3"><Clock size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" /><ul className="grid gap-2.5">{days.map((d) => <li key={d.trip.id}>{multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ` : ""}{d.snap.startTime} – {hhmm(d.snap.returnAt)}</li>)}</ul></li>
+            <li className="flex gap-3"><MapPin size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" />{fill(w.departureType, { type: w.hotelPickup })}</li>
+            <li className="flex gap-3"><ShieldCheck size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" />{fill(w.freeCancelNotice, { hours: FULL_REFUND_HOURS })}</li>
+          </ul>
+          <MapsSheet days={days.map((d) => ({ id: d.trip.id, label: multi ? fill(w.day, { n: d.trip.dayNumber }) : "", points: dayPoints(d.snap, w) }))} words={w} />
+        </div>
+      </section>
 
       <section id="includes" className={card}>
         <h2 className={heading}>{w.included}</h2>
@@ -170,48 +181,32 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   </main>;
 }
 
-/**
- * "What to expect", like Klook's: one line about the day, a bullet per place, then a board of the places numbered in
- * visiting order with their photos, and a dashed box with the meeting point, how long the day runs and entrance fees.
- */
+/** "What to expect", like Klook's: one line about the day, then a bullet per place. */
 function WhatToExpect({ days, stops, w }: { days: { id: string; label: string; s: TripSnapshot }[]; stops: TripSnapshot["stops"]; w: TripWords }) {
   const s = days[0].s;
-  const fees = [...new Map(stops.filter((x) => x.fee && x.fee.adult + x.fee.child > 0).map((x) => [x.name, x.fee!])).entries()];
-  const prefix = (label: string) => (label ? `${label} · ` : "");
   return <>
     <p className="mt-4 text-[17px] leading-7">{fill(w.expectIntro, { place: s.pickupText || w.hotelPickup })}</p>
     <ul className="mt-3 grid gap-2.5 text-[17px] leading-7">
       {stops.map((x) => <li key={x.id} className="flex gap-3"><span aria-hidden className="mt-[11px] size-1.5 shrink-0 rounded-full bg-plum" />{x.description?.trim() || fill(w.visitPlace, { place: x.name })}</li>)}
     </ul>
-    {stops.length > 0 && <div className="mt-6 rounded-card bg-brand-wash p-4 sm:p-5">
-      <ol className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3">
-        {stops.map((x, i) => { const photo = x.cover ?? x.gallery[0]; return <li key={x.id} className="relative">
-          <span aria-hidden className="absolute -left-1.5 -top-1.5 z-10 grid size-9 place-items-center rounded-full border-2 border-white bg-brand-deep text-[17px] font-black text-white shadow">{i + 1}</span>
-          {photo ? <StopPhoto src={photo} alt={x.name} className="aspect-[4/3] w-full rounded-xl object-cover" /> : <span className="grid aspect-[4/3] w-full place-items-center rounded-xl bg-white text-brand-deep"><Landmark size={28} aria-hidden /></span>}
-          <p className="mt-2 text-center text-[15px] font-bold leading-5">{x.name}</p>
-        </li>; })}
-      </ol>
-      <dl className="mt-5 grid gap-3 rounded-xl border-2 border-dashed border-brand/60 bg-white p-4 text-[15px] leading-6">
-        <div><dt className="flex items-center gap-1.5 font-bold"><MapPin size={16} className="text-brand-deep" aria-hidden />{w.meetingPoint}</dt>
-          {days.map((d) => <dd key={d.id}>{prefix(d.label)}{fill(w.pickupAt, { time: d.s.startTime, place: d.s.pickupText || w.hotelPickup })}</dd>)}</div>
-        <div><dt className="flex items-center gap-1.5 font-bold"><Clock size={16} className="text-brand-deep" aria-hidden />{w.durationLabel}</dt>
-          {days.map((d) => <dd key={d.id}>{prefix(d.label)}{fill(w.durationValue, { start: d.s.startTime, end: hhmm(d.s.returnAt) })}</dd>)}</div>
-        {fees.length > 0 && <div><dt className="flex items-center gap-1.5 font-bold"><Ticket size={16} className="text-brand-deep" aria-hidden />{w.entranceFees}</dt>
-          {fees.map(([place, f]) => <dd key={place}>{fill(w.feePerAdult, { place, adult: f.adult.toLocaleString("en-US") })}{f.child > 0 ? fill(w.feePerChild, { child: f.child.toLocaleString("en-US") }) : ""} <span className={f.included ? "font-semibold text-emerald-700" : "text-slate-600"}>({f.included ? w.feeIncludedTag : w.feeOnDayTag})</span></dd>)}</div>}
-      </dl>
-    </div>}
   </>;
+}
+
+/** One day's map pins: pickup, each place with a location (numbered in visiting order), then the drop-off. */
+function dayPoints(s: TripSnapshot, w: TripWords) {
+  const stops = s.stops.filter((x) => !(s.liveSkipped ?? []).includes(x.id));
+  return [
+    ...(s.pickup ? [{ id: "pickup", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: s.pickupText, kind: "pickup" as const }] : []),
+    ...stops.filter((x) => x.lat != null && x.lng != null).map((x, i) => ({ id: x.id, lat: x.lat!, lng: x.lng!, label: String(i + 1), title: x.name, kind: "stop" as const })),
+    ...(s.end ? [{ id: "end", lat: s.end.lat, lng: s.end.lng, label: "E", title: s.endText, kind: "end" as const }] : s.pickup && stops.length ? [{ id: "back", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: w.backAtHotel, kind: "end" as const }] : []),
+  ];
 }
 
 /** One day as a timeline: map, then departure, each place (name, time, photo) and the return, on one grey line. */
 function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title?: string; id?: string }) {
   const skipped = s.liveSkipped ?? [];
   const stops = s.stops.filter((x) => !skipped.includes(x.id));
-  const points = [
-    ...(s.pickup ? [{ id: "pickup", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: s.pickupText, kind: "pickup" as const }] : []),
-    ...stops.filter((x) => x.lat != null && x.lng != null).map((x, i) => ({ id: x.id, lat: x.lat!, lng: x.lng!, label: String(i + 1), title: x.name, kind: "stop" as const })),
-    ...(s.end ? [{ id: "end", lat: s.end.lat, lng: s.end.lng, label: "E", title: s.endText, kind: "end" as const }] : s.pickup && stops.length ? [{ id: "back", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: w.backAtHotel, kind: "end" as const }] : []),
-  ];
+  const points = dayPoints(s, w);
   const dot = "absolute left-0 top-0 grid size-10 place-items-center rounded-full";
   return <div id={id} className="scroll-mt-[135px] lg:scroll-mt-[163px]">
     {title && <h3 className="mb-3 text-[19px] font-bold">{title}</h3>}
@@ -229,7 +224,7 @@ function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title
           <h4 className="pt-1.5 text-[18px] font-bold">{st.name}</h4>
           {st.program && <p className="mt-0.5 text-[14px] text-slate-600">{st.program}</p>}
           {st.checkIn != null && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-[#9A4D00]"><Ticket size={14} />{fill(w.sessionCheckIn, { time: st.sessionTime ?? "", checkIn: hhmm(st.checkIn) })}</p>}
-          {photos.length > 0 && <div className="mt-3 overflow-hidden rounded-2xl"><StopPhoto src={photos[0]} alt={st.name} more={photos.length - 1} className="aspect-[16/10] w-full object-cover" /></div>}
+          {photos.length > 0 && <div className="mt-3 overflow-hidden rounded-2xl"><StopPhoto photos={photos} name={st.name} words={w} className="aspect-[16/10] w-full object-cover" /></div>}
         </li>;
       })}
       <li className="relative min-h-10 pl-14">

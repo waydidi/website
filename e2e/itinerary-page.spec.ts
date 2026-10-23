@@ -12,11 +12,11 @@ const stop = (id: string, name: string, start: number, extra: Record<string, unk
   lat: null, lng: null, note: null, description: null, highlights: [], cover: null, gallery: [], dressCode: null, openHours: null, fee: null, ...extra });
 const snapshot = {
   version: 1, createdAt: "2026-10-01T00:00:00Z", ref: "TP-E2E1", title: "Phuket elephants and Big Buddha", tripDate: "2099-03-14", startTime: "08:30",
-  pickupText: "Kata Beach Resort", pickup: null, endText: "Kata Beach Resort", end: null, durationHours: 8, adults: 2, children: 1, vehicle: "comfort_suv", vehicleName: "Comfort SUV",
+  pickupText: "Kata Beach Resort", pickup: { lat: 7.8206, lng: 98.2977 }, endText: "Kata Beach Resort", end: null, durationHours: 8, adults: 2, children: 1, vehicle: "comfort_suv", vehicleName: "Comfort SUV",
   customerName: "Test Customer", language: "en", notes: "Bring swimwear for the elephant bath.", returnAt: 17 * 60, returnTravel: 30, totalDrive: 120,
   transportPrice: 3200, feesIncluded: 4000, feesOnSite: 0, discount: 0, total: 7200, packing: ["Swimwear", "Sun cream"],
   stops: [
-    stop("s1", "Elephant Jungle Sanctuary", 9 * 60 + 30, { cover: "/destinations/phuket.webp", gallery: ["/destinations/krabi.webp"], highlights: ["Feed and bathe rescued elephants"], fee: { adult: 2000, child: 1000, included: true } }),
+    stop("s1", "Elephant Jungle Sanctuary", 9 * 60 + 30, { cover: "/destinations/phuket.webp", gallery: ["/destinations/krabi.webp"], highlights: ["Feed and bathe rescued elephants"], lat: 7.86, lng: 98.33, fee: { adult: 2000, child: 1000, included: true } }),
     stop("s2", "Big Buddha", 13 * 60, { cover: "/destinations/bangkok.webp", gallery: ["/destinations/ayutthaya.webp"], highlights: ["45-metre marble Buddha with views over Chalong Bay"], fee: { adult: 100, child: 0, included: false } }),
   ],
 };
@@ -38,6 +38,14 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await page.waitForLoadState("networkidle"); // the tabs mark the section once the page is interactive
   expect(await page.evaluate(() => window.scrollY), "the page opens at the top").toBe(0);
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0); // no breadcrumb: the photos come first
+  // On phones the header has a sign-in (account) icon just left of the menu button.
+  if ((page.viewportSize()?.width ?? 0) < 1280) {
+    const header = page.locator(".public-path-header header");
+    const account = header.locator('a[href^="/account"]').last();
+    await expect(account).toBeVisible();
+    const [a, m] = [await account.boundingBox(), await header.getByRole("button", { name: /menu/i }).boundingBox()];
+    expect(a!.x + a!.width).toBeLessThanOrEqual(m!.x);
+  }
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(snapshot.title);
   await expect(page.getByText("Departing from Kata Beach Resort")).toBeVisible();
   for (const chip of ["Private car", "Hotel pickup", "3 travellers", "8hr duration", "2 stops"]) await expect(page.getByRole("listitem").filter({ hasText: new RegExp(`^${chip}$`) })).toBeVisible();
@@ -94,20 +102,24 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   if (process.env.SHOT_DIR) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-highlights-sheet-${info.project.name}.png` }); }
   await sheet.getByRole("button", { name: "Close" }).click();
   await expect(sheet).toHaveCount(0);
-  // What to expect, like Klook: a line about the day, a bullet per place, the places numbered with their photos, and
-  // a box with the meeting point, the hours and the entrance fees. Then the day as a timeline on one grey line.
+  // Under the highlights, the day at a glance (like Klook), and "View maps" opens the route map in a sheet.
+  for (const line of ["Elephant Jungle Sanctuary", "Big Buddha", "08:30 – 17:00", "Departure type: Hotel pickup", "Free cancellation (48 hours notice)"]) await expect(highlights.getByText(line, { exact: true })).toBeVisible();
+  if (process.env.SHOT_DIR) { await highlights.getByRole("button", { name: "View maps" }).scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-glance-${info.project.name}.png` }); }
+  await highlights.getByRole("button", { name: "View maps" }).click();
+  const maps = page.getByRole("dialog", { name: "Route map" });
+  await expect(maps).toBeVisible();
+  if (process.env.SHOT_DIR) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-maps-${info.project.name}.png` }); }
+  await maps.getByRole("button", { name: "Close" }).click();
+  await expect(maps).toHaveCount(0);
+  // What to expect, like Klook: a line about the day and a bullet per place, then the day as a timeline on one grey line.
   const overview = page.locator("#expect");
   await expect(overview.getByRole("heading", { name: "What to expect" })).toBeVisible();
   await expect(overview.getByText("A private day with your own car and driver, picking you up at Kata Beach Resort.")).toBeVisible();
   await expect(overview.getByText("Visit Big Buddha", { exact: true })).toBeVisible();
-  const board = overview.getByRole("list").nth(1);
-  expect(await board.locator(":scope > li").allTextContents()).toEqual(["1Elephant Jungle Sanctuary", "2Big Buddha"]);
-  await expect(board.getByRole("img", { name: "Big Buddha" })).toBeVisible();
-  await expect(overview.getByText("Pickup at 08:30 from Kata Beach Resort")).toBeVisible();
-  await expect(overview.getByText("08:30 – 17:00 (depending on traffic)")).toBeVisible();
-  await expect(overview.getByText("Elephant Jungle Sanctuary: THB 2,000 per adult, THB 1,000 per child (in your price)")).toBeVisible();
-  await expect(overview.getByText("Big Buddha: THB 100 per adult (paid on the day)")).toBeVisible();
-  if (process.env.SHOT_DIR) { await board.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-expect-${info.project.name}.png` }); }
+  // No numbered photo board or meeting-point box any more.
+  await expect(overview.getByText("Meeting point", { exact: true })).toHaveCount(0);
+  await expect(overview.getByText(/depending on traffic/)).toHaveCount(0);
+  if (process.env.SHOT_DIR) { await overview.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-expect-${info.project.name}.png` }); }
   const timeline = overview.getByRole("list").last();
   const steps = timeline.locator(":scope > li");
   await expect(steps).toHaveCount(4);
@@ -118,15 +130,18 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(steps.nth(1).getByText("+1", { exact: true })).toBeVisible(); // one more gallery photo
   await expect(steps.nth(2).getByRole("heading", { name: "Big Buddha" })).toBeVisible();
   await expect(steps.last()).toContainText("17:00 · Return");
-  // Tapping a place's photo opens the full-screen gallery at that place's first photo.
-  const viewer = page.getByRole("dialog", { name: "Photos of your trip" });
+  // Tapping a place's photo opens only that place's own photos full screen, from its first one.
   await steps.nth(2).getByRole("button", { name: "Big Buddha" }).click();
-  await expect(viewer.getByText(/^\d \/ 4$/)).toHaveText("2 / 4");
-  await viewer.getByRole("button", { name: "Close" }).click();
-  await board.getByRole("button", { name: "Elephant Jungle Sanctuary" }).click();
-  await expect(viewer.getByText(/^\d \/ 4$/)).toHaveText("1 / 4");
-  await viewer.getByRole("button", { name: "Close" }).click();
-  await expect(viewer).toHaveCount(0);
+  const placeViewer = page.getByRole("dialog", { name: "Big Buddha" });
+  expect(await placeViewer.getByRole("img").evaluateAll((els) => els.map((e) => e.getAttribute("src")))).toEqual(["/destinations/bangkok.webp", "/destinations/ayutthaya.webp"]);
+  await expect(placeViewer.getByText(/^\d \/ \d$/)).toHaveText("1 / 2");
+  await placeViewer.getByRole("button", { name: "Close" }).click();
+  await expect(placeViewer).toHaveCount(0);
+  await steps.nth(1).getByRole("button", { name: "Elephant Jungle Sanctuary" }).click();
+  const elephantViewer = page.getByRole("dialog", { name: "Elephant Jungle Sanctuary" });
+  expect(await elephantViewer.getByRole("img").evaluateAll((els) => els.map((e) => e.getAttribute("src")))).toEqual(["/destinations/phuket.webp", "/destinations/krabi.webp"]);
+  await elephantViewer.getByRole("button", { name: "Close" }).click();
+  await expect(elephantViewer).toHaveCount(0);
   await expect(page.getByRole("button", { name: "View full itinerary" })).toHaveCount(0);
   if (process.env.SHOT_DIR) { await overview.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-overview-${info.project.name}.png` }); await steps.nth(2).scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-timeline-${info.project.name}.png` }); }
   await page.evaluate(() => window.scrollTo(0, 0));

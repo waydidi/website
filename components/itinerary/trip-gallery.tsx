@@ -5,10 +5,8 @@ import { ChevronLeft, ChevronRight, Images, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import type { TripPhoto } from "@/lib/trip-photos";
 
-type Words = { galleryLabel: string; galleryButton: string; photoOf: string; prevPhoto: string; nextPhoto: string; closeLabel: string };
+export type GalleryWords = { galleryLabel: string; galleryButton: string; photoOf: string; prevPhoto: string; nextPhoto: string; closeLabel: string };
 const fill = (t: string, v: Record<string, string | number>) => t.replace(/\{(\w+)\}/g, (_, k: string) => String(v[k] ?? ""));
-/** Window event a place's photo sends (detail: its src) to open the full-screen gallery at that photo. */
-export const OPEN_TRIP_PHOTO = "trip-photo-open";
 const SLIDE_MS = 5000; // matches the 5 s zoom and loading-bar animations in app/globals.css
 
 /**
@@ -16,22 +14,16 @@ const SLIDE_MS = 5000; // matches the 5 s zoom and loading-bar animations in app
  * then the next fades in and starts zooming (the one leaving keeps its zoom as it fades, so the motion never stops). Tapping the left or right half, swiping or the arrows change photo; "Gallery" opens them full screen. With
  * reduced motion the photos neither zoom nor change by themselves.
  */
-export function TripGallery({ photos, words }: { photos: TripPhoto[]; words: Words }) {
+export function TripGallery({ photos, words }: { photos: TripPhoto[]; words: GalleryWords }) {
   // index: the photo shown; prev: the one fading out; cycle: counts changes, so each new turn restarts its zoom and bar.
   const [shown, setShown] = useState({ index: 0, prev: -1, cycle: 0 });
   const { index, prev, cycle } = shown;
   const [still, setStill] = useState(false);
   const [viewing, setViewing] = useState(false);
-  const [startAt, setStartAt] = useState(0); // the photo the full-screen gallery opens on
   const touch = useRef<number | null>(null);
   const count = photos.length;
   const go = (i: number) => setShown((s) => ({ index: ((i % count) + count) % count, prev: s.index, cycle: s.cycle + 1 }));
   useEffect(() => { setStill(window.matchMedia("(prefers-reduced-motion: reduce)").matches); }, []); // eslint-disable-line react-hooks/set-state-in-effect
-  useEffect(() => {
-    const open = (e: Event) => { const i = photos.findIndex((p) => p.src === (e as CustomEvent<string>).detail); setStartAt(Math.max(0, i)); setViewing(true); };
-    window.addEventListener(OPEN_TRIP_PHOTO, open);
-    return () => window.removeEventListener(OPEN_TRIP_PHOTO, open);
-  }, [photos]);
   useEffect(() => {
     if (still || viewing || count < 2) return; // paused while the full-screen gallery is open
     const timer = setTimeout(() => setShown((s) => ({ index: (s.index + 1) % count, prev: s.index, cycle: s.cycle + 1 })), SLIDE_MS);
@@ -52,8 +44,8 @@ export function TripGallery({ photos, words }: { photos: TripPhoto[]; words: Wor
       <button type="button" tabIndex={-1} aria-hidden onClick={() => go(index - 1)} className="absolute inset-y-0 left-0 w-1/2 cursor-w-resize" />
       <button type="button" tabIndex={-1} aria-hidden onClick={() => go(index + 1)} className="absolute inset-y-0 right-0 w-1/2 cursor-e-resize" />
     </>}
-    <button type="button" onClick={() => { setStartAt(index); setViewing(true); }} className="absolute bottom-14 right-3 inline-flex min-h-tap items-center gap-2 rounded-xl bg-black/60 px-4 text-[16px] font-semibold text-white backdrop-blur-sm"><Images size={19} aria-hidden />{words.galleryButton}</button>
-    <PhotoViewer photos={photos} start={startAt} open={viewing} onOpenChange={setViewing} words={words} />
+    <button type="button" onClick={() => setViewing(true)} className="absolute bottom-14 right-3 inline-flex min-h-tap items-center gap-2 rounded-xl bg-black/60 px-4 text-[16px] font-semibold text-white backdrop-blur-sm"><Images size={19} aria-hidden />{words.galleryButton}</button>
+    <PhotoViewer photos={photos} start={index} open={viewing} onOpenChange={setViewing} words={words} />
     {count > 1 && <>
       <div aria-hidden className="absolute inset-x-3 bottom-8 flex gap-1.5">
         {photos.map((p, i) => <span key={p.src} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/40">
@@ -67,8 +59,9 @@ export function TripGallery({ photos, words }: { photos: TripPhoto[]; words: Wor
   </section>;
 }
 
-/** "Gallery": every photo whole, full screen on black, swiped left and right (arrows and arrow keys on a computer). */
-function PhotoViewer({ photos, start, open, onOpenChange, words }: { photos: TripPhoto[]; start: number; open: boolean; onOpenChange: (open: boolean) => void; words: Words }) {
+/** Photos whole, full screen on black, swiped left and right (arrows and arrow keys on a computer): the whole trip from
+ * "Gallery", or one place's own photos from its picture in the timeline. */
+export function PhotoViewer({ photos, start, open, onOpenChange, words, title }: { photos: TripPhoto[]; start: number; open: boolean; onOpenChange: (open: boolean) => void; words: GalleryWords; title?: string }) {
   const strip = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState(start);
   const show = (i: number, smooth = true) => { const el = strip.current; if (el) el.scrollTo({ left: Math.max(0, Math.min(photos.length - 1, i)) * el.clientWidth, behavior: smooth ? "smooth" : "instant" }); };
@@ -78,7 +71,7 @@ function PhotoViewer({ photos, start, open, onOpenChange, words }: { photos: Tri
       <Dialog.Content aria-describedby={undefined} className="fixed inset-0 z-[60] flex flex-col bg-black text-white outline-none"
         onOpenAutoFocus={() => { setAt(start); requestAnimationFrame(() => show(start, false)); }}
         onKeyDown={(e) => { if (e.key === "ArrowRight") show(at + 1); if (e.key === "ArrowLeft") show(at - 1); }}>
-        <Dialog.Title className="sr-only">{words.galleryLabel}</Dialog.Title>
+        <Dialog.Title className="sr-only">{title ?? words.galleryLabel}</Dialog.Title>
         <div className="flex items-center justify-between px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <p aria-live="polite" className="text-[15px] font-semibold tabular-nums text-white/85">{at + 1} / {photos.length}</p>
           <Dialog.Close aria-label={words.closeLabel} className="grid size-tap place-items-center rounded-full text-white hover:bg-white/10"><X size={26} /></Dialog.Close>
