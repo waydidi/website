@@ -192,6 +192,7 @@ export const TRIP_HELP = [
   "",
   "<b>ตัวอย่าง</b>",
   "<code>/trip Big Buddha, Phuket Old Town, Wat Chalong, Promthep Cape 29 Nov 2026, 2 people</code>",
+  "<code>/trip recommendation tour package for two people as they requested as Big Buddha, Wat Chalong, Phuket Old Town, Promthep Cape. Date 20 Dec 2026. Make me a link</code>",
   "",
   "สถานที่ที่มีแพ็กเกจ บอทจะถามให้เลือกแพ็กเกจก่อนสร้างทริป",
   "",
