@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { eq } from "drizzle-orm";
-import { Backpack, CalendarDays, CheckCircle2, Clock, Download, Landmark, MapPin, Shirt, Ticket, X } from "lucide-react";
+import { Backpack, CalendarDays, CheckCircle2, Clock, Download, Landmark, MapPin, Shirt, ShieldCheck, Ticket, X } from "lucide-react";
 import { getDb } from "@/db";
 import { agencyApplications, smartTrips } from "@/db/schema";
 import { HighlightsCard } from "@/components/itinerary/highlights-card";
 import { InfoRow } from "@/components/itinerary/info-row";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
+import { MapsSheet } from "@/components/itinerary/maps-sheet";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
 import { StopPhoto } from "@/components/itinerary/stop-photo";
 import { TripGallery } from "@/components/itinerary/trip-gallery";
@@ -106,10 +107,20 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
       {paid && tripStarted(s.tripDate) && <TripFeedback token={leadToken} rating={trip.feedbackRating} reviewUrl={reviewUrl()} words={w} />}
       {trip.status === "changes_requested" && <div className="-mx-4 bg-amber-50 px-4 py-5 text-amber-900 sm:px-7"><p className="font-bold">{w.updating}</p><p className="mt-1 text-[15px]">{w.updatingText}</p></div>}
 
-      {highlightItems.length > 0 && <section id="highlights" className={card}>
-        <h2 className={heading}>{w.highlights}</h2>
-        <div className="mt-4"><HighlightsCard items={highlightItems} words={w} /></div>
-      </section>}
+      <section id="highlights" className={card}>
+        {highlightItems.length > 0 && <><h2 className={heading}>{w.highlights}</h2>
+          <div className="mt-4"><HighlightsCard items={highlightItems} words={w} /></div></>}
+        {/* The day at a glance, like Klook's: places, hours, how it starts, cancellation; then the route map. */}
+        <div className={`rounded-card bg-[#fcfaf8] px-5 py-5 ring-1 ring-slate-100 sm:px-6 ${highlightItems.length ? "mt-5" : ""}`}>
+          <ul className="grid gap-3 text-[17px] leading-6 text-plum">
+            {allStops.length > 0 && <li className="flex gap-3"><Landmark size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" /><ul className="grid gap-2.5">{[...new Set(allStops.map((x) => x.name))].map((n) => <li key={n}>{n}</li>)}</ul></li>}
+            <li className="flex gap-3"><Clock size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" /><ul className="grid gap-2.5">{days.map((d) => <li key={d.trip.id}>{multi ? `${fill(w.day, { n: d.trip.dayNumber })} · ` : ""}{d.snap.startTime} – {hhmm(d.snap.returnAt)}</li>)}</ul></li>
+            <li className="flex gap-3"><MapPin size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" />{fill(w.departureType, { type: w.hotelPickup })}</li>
+            <li className="flex gap-3"><ShieldCheck size={22} aria-hidden className="mt-px shrink-0 text-emerald-600" />{fill(w.freeCancelNotice, { hours: FULL_REFUND_HOURS })}</li>
+          </ul>
+          <MapsSheet days={days.map((d) => ({ id: d.trip.id, label: multi ? fill(w.day, { n: d.trip.dayNumber }) : "", points: dayPoints(d.snap, w) }))} words={w} />
+        </div>
+      </section>
 
       <section id="includes" className={card}>
         <h2 className={heading}>{w.included}</h2>
@@ -203,15 +214,21 @@ function WhatToExpect({ days, stops, w }: { days: { id: string; label: string; s
   </>;
 }
 
-/** One day as a timeline: map, then departure, each place (name, time, photo) and the return, on one grey line. */
-function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title?: string; id?: string }) {
-  const skipped = s.liveSkipped ?? [];
-  const stops = s.stops.filter((x) => !skipped.includes(x.id));
-  const points = [
+/** One day's map pins: pickup, each place with a location (numbered in visiting order), then the drop-off. */
+function dayPoints(s: TripSnapshot, w: TripWords) {
+  const stops = s.stops.filter((x) => !(s.liveSkipped ?? []).includes(x.id));
+  return [
     ...(s.pickup ? [{ id: "pickup", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: s.pickupText, kind: "pickup" as const }] : []),
     ...stops.filter((x) => x.lat != null && x.lng != null).map((x, i) => ({ id: x.id, lat: x.lat!, lng: x.lng!, label: String(i + 1), title: x.name, kind: "stop" as const })),
     ...(s.end ? [{ id: "end", lat: s.end.lat, lng: s.end.lng, label: "E", title: s.endText, kind: "end" as const }] : s.pickup && stops.length ? [{ id: "back", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: w.backAtHotel, kind: "end" as const }] : []),
   ];
+}
+
+/** One day as a timeline: map, then departure, each place (name, time, photo) and the return, on one grey line. */
+function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title?: string; id?: string }) {
+  const skipped = s.liveSkipped ?? [];
+  const stops = s.stops.filter((x) => !skipped.includes(x.id));
+  const points = dayPoints(s, w);
   const dot = "absolute left-0 top-0 grid size-10 place-items-center rounded-full";
   return <div id={id} className="scroll-mt-[117px] lg:scroll-mt-[125px]">
     {title && <h3 className="mb-3 text-[19px] font-bold">{title}</h3>}

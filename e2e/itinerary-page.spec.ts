@@ -12,11 +12,11 @@ const stop = (id: string, name: string, start: number, extra: Record<string, unk
   lat: null, lng: null, note: null, description: null, highlights: [], cover: null, gallery: [], dressCode: null, openHours: null, fee: null, ...extra });
 const snapshot = {
   version: 1, createdAt: "2026-10-01T00:00:00Z", ref: "TP-E2E1", title: "Phuket elephants and Big Buddha", tripDate: "2099-03-14", startTime: "08:30",
-  pickupText: "Kata Beach Resort", pickup: null, endText: "Kata Beach Resort", end: null, durationHours: 8, adults: 2, children: 1, vehicle: "comfort_suv", vehicleName: "Comfort SUV",
+  pickupText: "Kata Beach Resort", pickup: { lat: 7.8206, lng: 98.2977 }, endText: "Kata Beach Resort", end: null, durationHours: 8, adults: 2, children: 1, vehicle: "comfort_suv", vehicleName: "Comfort SUV",
   customerName: "Test Customer", language: "en", notes: "Bring swimwear for the elephant bath.", returnAt: 17 * 60, returnTravel: 30, totalDrive: 120,
   transportPrice: 3200, feesIncluded: 4000, feesOnSite: 0, discount: 0, total: 7200, packing: ["Swimwear", "Sun cream"],
   stops: [
-    stop("s1", "Elephant Jungle Sanctuary", 9 * 60 + 30, { cover: "/destinations/phuket.webp", gallery: ["/destinations/krabi.webp"], highlights: ["Feed and bathe rescued elephants"], fee: { adult: 2000, child: 1000, included: true } }),
+    stop("s1", "Elephant Jungle Sanctuary", 9 * 60 + 30, { cover: "/destinations/phuket.webp", gallery: ["/destinations/krabi.webp"], highlights: ["Feed and bathe rescued elephants"], lat: 7.86, lng: 98.33, fee: { adult: 2000, child: 1000, included: true } }),
     stop("s2", "Big Buddha", 13 * 60, { cover: "/destinations/bangkok.webp", gallery: ["/destinations/ayutthaya.webp"], highlights: ["45-metre marble Buddha with views over Chalong Bay"], fee: { adult: 100, child: 0, included: false } }),
   ],
 };
@@ -97,6 +97,15 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   if (process.env.SHOT_DIR) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-highlights-sheet-${info.project.name}.png` }); }
   await sheet.getByRole("button", { name: "Close" }).click();
   await expect(sheet).toHaveCount(0);
+  // Under the highlights, the day at a glance (like Klook), and "View maps" opens the route map in a sheet.
+  for (const line of ["Elephant Jungle Sanctuary", "Big Buddha", "08:30 – 17:00", "Departure type: Hotel pickup", "Free cancellation (48 hours notice)"]) await expect(highlights.getByText(line, { exact: true })).toBeVisible();
+  if (process.env.SHOT_DIR) { await highlights.getByRole("button", { name: "View maps" }).scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-glance-${info.project.name}.png` }); }
+  await highlights.getByRole("button", { name: "View maps" }).click();
+  const maps = page.getByRole("dialog", { name: "Route map" });
+  await expect(maps).toBeVisible();
+  if (process.env.SHOT_DIR) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-maps-${info.project.name}.png` }); }
+  await maps.getByRole("button", { name: "Close" }).click();
+  await expect(maps).toHaveCount(0);
   // What to expect, like Klook: a line about the day, a bullet per place, the places numbered with their photos, and
   // a box with the meeting point, the hours and the entrance fees. Then the day as a timeline on one grey line.
   const overview = page.locator("#expect");
