@@ -21,7 +21,7 @@ const hash=await security.hashStaffPassword(password);
 await d1.prepare("INSERT INTO staff_accounts(id,username,email,display_name,password_hash,role,created_at) VALUES('alice','alice','alice@example.invalid','Alice',?,'owner',?)").bind(hash,new Date().toISOString()).run();
 test('staff passwords use salted PBKDF2 and MFA ciphertext rejects tampering',async()=>{
  assert.notEqual(hash,await security.hashStaffPassword(password));assert.equal(await security.verifyStaffPassword(password,hash),true);assert.equal(await security.verifyStaffPassword('wrong',hash),false);
- const secret=security.newTotpSecret(),key=globalThis.__staffTestEnv.WAYDIDI_ADMIN_SESSION_SECRET,encrypted=await security.encryptMfa(secret,key);assert.equal(await security.decryptMfa(encrypted,key),secret);assert.notEqual(encrypted,secret);await assert.rejects(()=>security.decryptMfa(encrypted.slice(0,-2)+'00',key));
+ const secret=security.newTotpSecret(),key=globalThis.__staffTestEnv.WAYDIDI_ADMIN_SESSION_SECRET,encrypted=await security.encryptMfa(secret,key);assert.equal(await security.decryptMfa(encrypted,key),secret);assert.notEqual(encrypted,secret);const flipped=(parseInt(encrypted.slice(-2),16)^0xff).toString(16).padStart(2,'0');await assert.rejects(()=>security.decryptMfa(encrypted.slice(0,-2)+flipped,key)); // always a different last byte (setting it to 00 changed nothing 1 time in 256)
 });
 test('TOTP follows the RFC 6238 vector and rejects malformed codes',async()=>{assert.equal(await security.totpCode('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',1),'287082');assert.equal(await security.acceptedTotpStep(security.newTotpSecret(),'not-a-code'),null);});
 test('password-only and legacy bare-key login never create a session',async()=>{
