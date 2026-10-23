@@ -219,6 +219,9 @@ test("end of the page: Help, Share and the copyright line", async ({ page, conte
   // Share copies the link where the phone's share sheet isn't available.
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.evaluate(() => { Object.defineProperty(navigator, "share", { value: undefined }); });
-  await page.getByRole("button", { name: "Share this itinerary" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Link copied" })).toBeVisible();
+  // Retry the click: right after load the page may not have hydrated yet, so the first click can do nothing.
+  await expect(async () => {
+    await page.getByRole("button", { name: "Share this itinerary" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Link copied" })).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 15_000 });
 });
