@@ -42,14 +42,20 @@ test("a new trip starts with the essentials, steps on a phone, and adds places w
   await expect(page.getByRole("button", { name: /Done · 2 in the trip/ })).toBeVisible();
   await page.getByRole("button", { name: /Done · 2 in the trip/ }).click();
   await expect(page.getByRole("button", { name: "2 Stops (2)" })).toBeVisible();
-  // Each stop card: time on top, then the place's thumbnail with its name beside it (an icon when it has no photo).
+  // Each stop card: the place's photo fills the left 30%, the time and name are on the right (an icon when there is no
+  // photo), and details such as opening hours only show once the card is tapped.
   const cards = page.locator("ol > li[draggable]");
   const oldTown = cards.filter({ hasText: "Old Town" });
   const thumb = oldTown.locator("img");
   await expect(thumb).toHaveAttribute("src", "/destinations/phuket.webp");
-  const [t, n] = [await thumb.boundingBox(), await oldTown.getByText("Old Town", { exact: true }).boundingBox()];
+  const [c, t, n] = [await oldTown.boundingBox(), await thumb.boundingBox(), await oldTown.getByText("Old Town", { exact: true }).boundingBox()];
+  expect(Math.abs(t!.width / c!.width - 0.3)).toBeLessThan(0.02);
   expect(t!.x + t!.width).toBeLessThan(n!.x);
   await expect(cards.filter({ hasText: "Promthep Cape" }).locator("img")).toHaveCount(0);
+  const promthep = cards.filter({ hasText: "Promthep Cape" });
+  await expect(promthep.getByText(/^Open 08:00/)).toHaveCount(0);
+  await promthep.getByText("Promthep Cape", { exact: true }).click();
+  await expect(promthep.getByText(/^Open 08:00–18:00/)).toBeVisible();
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/trip-builder-stops.png` });
 
   // Step 3.
