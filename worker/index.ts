@@ -3,6 +3,7 @@ import { adminGate, adminHopPage, ADMIN_HOP_PARAM } from "../lib/admin-gate";
 import { allowedStaffRoute, readCookie, staffForToken, STAFF_COOKIE } from "../lib/staff-security";
 import { LEGACY_HOSTS, SITE_URL } from "../lib/site";
 import { edgeTtl, mayFillEdgeCache } from "../lib/edge-cache";
+import { openInMaintenance } from "../lib/maintenance-paths";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
@@ -76,8 +77,8 @@ const worker = {
     }
 
     // Maintenance mode (Admin → Settings): visitors see the maintenance page. Staff who are signed in,
-    // admin, driver and customer trip/payment links, the APIs (webhooks) and files keep working.
-    if ((request.method === "GET" || request.method === "HEAD") && !MAINTENANCE_OPEN.test(accessPath) && await maintenanceOn(env)) {
+    // admin, driver and customer trip/itinerary/payment links, the APIs (webhooks) and files keep working (lib/maintenance-paths.ts).
+    if ((request.method === "GET" || request.method === "HEAD") && !openInMaintenance(accessPath) && await maintenanceOn(env)) {
       const staff = readCookie(request, STAFF_COOKIE) ? await staffForToken(env.DB, readCookie(request, STAFF_COOKIE)).catch(() => null) : null;
       if (!staff) {
         const page = await handler.fetch(new Request(new URL("/maintenance", url.origin), { headers: request.headers }), env, ctx);
@@ -174,8 +175,6 @@ const worker = {
   },
 };
 
-// Paths that stay open in maintenance mode. Anything with a file extension (images, scripts) is open too.
-const MAINTENANCE_OPEN = /^\/(admin|admin-setup|api|driver|partner|drivers\/portal|trip|booking|pay|chat-pay|f|maintenance|_vinext|_next|assets)(\/|$)|\.[a-z0-9]{2,5}$/i;
 let maintenanceCache = { on: false, at: 0 };
 /** Read from D1 at most every 20 seconds per worker. */
 async function maintenanceOn(env: Env) {
