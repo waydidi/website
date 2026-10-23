@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { BadgeCheck, CalendarX2, Clock, ImagePlus, LoaderCircle, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { BadgeCheck, CalendarX2, Clock, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AttractionView, SupplierRow } from "@/lib/attractions";
 import { BEST_TIMES, MAX_GALLERY_PHOTOS, MEAL_SLOTS, PLACE_TYPE_LABEL, PLACE_TYPES, PRICE_LEVEL, VIBES } from "@/lib/place-taxonomy";
+import type { GooglePlaceFacts } from "@/lib/place-autofill";
+import { mergeCredits, type FreePhoto } from "@/lib/place-autofill-rules";
 import { PACKING_TAGS, type Program, type ScheduleException } from "@/lib/trip-plan";
 import { PlacePicker } from "./place-picker";
 import { api, selectCls, areaCls, btnPrimary, btnQuiet, DAYS, Field, inputCls, toList, uploadImage } from "./ui";
@@ -116,7 +118,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return <fieldset className="grid gap-3 border-t border-slate-100 pt-4"><legend className="pr-2 text-[15px] font-bold text-slate-900">{title}</legend>{children}</fieldset>;
 }
 
-function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, error, onSave }: { draft: Draft; setDraft: (d: Draft | null) => void; suppliers: SupplierRow[]; areas: string[]; hoods: string[]; verified: boolean; busy: boolean; error: string; onSave: (d: Draft) => void }) {
+function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, error, onSave }: { draft: Draft; setDraft: React.Dispatch<React.SetStateAction<Draft | null>>; suppliers: SupplierRow[]; areas: string[]; hoods: string[]; verified: boolean; busy: boolean; error: string; onSave: (d: Draft) => void }) {
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch });
   const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
   const [uploading, setUploading] = useState(false);
@@ -136,6 +138,50 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
     } catch (e) { alert((e as Error).message); } finally { setUploading(false); }
   }
   const num = (v: string) => Math.max(0, Math.round(Number(v) || 0));
+  // "Fill from Google Maps" and "Find free photos". Results are applied to the latest form, so typing meanwhile is kept.
+  const [helper, setHelper] = useState<{ busy?: "google" | "photos" | "import"; at?: "google" | "photos"; note?: string; error?: string }>({});
+  const [photos, setPhotos] = useState<FreePhoto[] | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+  const AUTOFILL = "/api/admin/attractions/autofill";
+  async function fillFromGoogle() {
+    setHelper({ busy: "google" });
+    try {
+      const { place } = await api<{ place: GooglePlaceFacts }>(AUTOFILL, "POST", { action: "google", placeId: draft.googlePlaceId, query: draft.name || draft.address || null });
+      // Hours count as chosen once they differ from the new-place defaults; only then does Google's version ask first.
+      const untouched = draft.openTime === blank.openTime && draft.closeTime === blank.closeTime && !draft.lastEntry && !draft.closedDays.length;
+      const h = place.hours, hadHours = !untouched && Boolean(draft.openTime || draft.closeTime || draft.closedDays.length);
+      const takeHours = Boolean(h) && (!hadHours || window.confirm(`Replace the opening hours with Google's (${h!.openTime}–${h!.closeTime})?`));
+      setDraft((d) => (d ? { ...d, name: d.name || place.name, address: place.address || d.address, latitude: place.lat, longitude: place.lng, googlePlaceId: place.placeId,
+        ...(takeHours && h ? { openTime: h.openTime, closeTime: h.closeTime, lastEntry: null, closedDays: h.closedDays } : {}) } : d));
+      const hours = h ? ` · open ${h.openTime}–${h.closeTime}${h.closedDays.length ? ` · closed ${h.closedDays.map((x) => DAYS[x]).join(", ")}` : ""}${h.varies ? " · hours differ by day, please check" : ""}${takeHours ? "" : " (your hours kept)"}` : " · Google has no opening hours for it";
+      setHelper({ at: "google", note: `Filled from Google Maps: ${place.name}${hours}` });
+    } catch (e) { setHelper({ at: "google", error: (e as Error).message }); }
+  }
+  async function findPhotos() {
+    setHelper({ busy: "photos" }); setPicked([]);
+    try {
+      const r = await api<{ photos: FreePhoto[] }>(AUTOFILL, "POST", { action: "photos", name: draft.customerName || draft.name, lat: draft.latitude, lng: draft.longitude });
+      setPhotos(r.photos);
+      setHelper(r.photos.length ? {} : { at: "photos", note: "No free photos found for this place. Pick it in Location first, or upload your own." });
+    } catch (e) { setHelper({ at: "photos", error: (e as Error).message }); }
+  }
+  async function addPicked() {
+    const chosen = (photos ?? []).filter((p) => picked.includes(p.url));
+    if (!chosen.length) return;
+    setHelper({ busy: "import" });
+    try {
+      const r = await api<{ urls: (string | null)[] }>(AUTOFILL, "POST", { action: "import", urls: chosen.map((p) => p.url) });
+      const added = chosen.map((p, i) => ({ p, url: r.urls[i] })).filter((x): x is { p: FreePhoto; url: string } => Boolean(x.url));
+      setDraft((d) => {
+        if (!d) return d;
+        const urls = added.map((x) => x.url), cover = d.coverImage ?? urls.shift() ?? null;
+        return { ...d, coverImage: cover, gallery: [...d.gallery, ...urls].slice(0, MAX_GALLERY_PHOTOS), imageCredit: mergeCredits(d.imageCredit, added.map((x) => x.p.credit)) || null };
+      });
+      setPhotos(null); setPicked([]);
+      setHelper({ at: "photos", note: `${added.length} free photo${added.length === 1 ? "" : "s"} added, with their credit in Photo credit / licence.${added.length < chosen.length ? ` ${chosen.length - added.length} could not be copied.` : ""}` });
+    } catch (e) { setHelper({ at: "photos", error: (e as Error).message }); }
+  }
+  const helperLine = (at: "google" | "photos") => helper.at === at && (helper.note || helper.error) && <p role={helper.error ? "alert" : "status"} className={`text-[13px] ${helper.error ? "font-semibold text-red-600" : "text-emerald-700"}`}>{helper.error || helper.note}</p>;
 
   return <Modal open onClose={() => setDraft(null)} locked={busy} overlayClassName="z-50 bg-black/40 justify-end items-stretch p-0" asChild>
     <form onSubmit={(e) => { e.preventDefault(); onSave(draft); }} className="h-full w-full max-w-2xl overflow-y-auto bg-white p-5 sm:p-7">
@@ -151,6 +197,11 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
           </div>
           <Field label="Location" hint={draft.latitude != null ? `Map position saved (${draft.latitude.toFixed(4)}, ${draft.longitude?.toFixed(4)})` : "Pick a suggestion so the planner can work out drive times"}>
             <PlacePicker value={draft.address ?? ""} onChange={(p) => set({ address: p.text, ...(p.lat != null ? { latitude: p.lat, longitude: p.lng, googlePlaceId: p.placeId } : {}) })} className={inputCls} placeholder="Search Google Maps" /></Field>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={() => void fillFromGoogle()} disabled={Boolean(helper.busy) || (!draft.googlePlaceId && !draft.name && !draft.address)} className={btnQuiet}>{helper.busy === "google" ? <LoaderCircle size={15} className="animate-spin" /> : <MapPin size={15} />}Fill from Google Maps</button>
+            <span className="text-[12px] text-slate-500">Name (if empty), address, map position and opening hours</span>
+          </div>
+          {helperLine("google")}
           <div>
             <p className="text-[13px] font-semibold">Tags <span className="font-normal text-slate-500">(build the customer&apos;s packing list)</span></p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">{PACKING_TAGS.map((t) => { const on = draft.tags.includes(t); return <button key={t} type="button" onClick={() => set({ tags: on ? draft.tags.filter((x) => x !== t) : [...draft.tags, t] })} className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-brand bg-orange-50 font-semibold text-brand-darker" : "border-slate-200 text-slate-600"}`}>{t}</button>; })}</div>
@@ -231,6 +282,24 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
               {draft.gallery.map((g, i) => <div key={g} className="relative size-24 overflow-hidden rounded-xl"><img src={g} alt={`Gallery ${i + 1}`} className="size-full object-cover" /><button type="button" onClick={() => set({ gallery: draft.gallery.filter((x) => x !== g) })} aria-label="Remove photo" className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-white"><X size={13} /></button></div>)}
               {draft.gallery.length < MAX_GALLERY_PHOTOS && <label className="grid size-24 cursor-pointer place-items-center rounded-xl border border-dashed border-slate-300 text-[12px] text-slate-500"><span className="grid place-items-center gap-1"><Plus size={18} />Photos</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(e) => void addImages(e.target.files, false)} /></label>}
             </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={() => void findPhotos()} disabled={Boolean(helper.busy)} className={btnQuiet}>{helper.busy === "photos" ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />}Find free photos</button>
+              <span className="text-[12px] text-slate-500">From Wikimedia Commons, free to reuse with credit</span>
+            </div>
+            {photos && photos.length > 0 && <div className="grid gap-3 rounded-2xl border border-slate-200 p-3">
+              <p className="text-[13px] text-slate-600">Tick the photos to add (up to 12 at a time). The first goes to the cover if there is none.</p>
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">{photos.map((p) => { const on = picked.includes(p.url); return <li key={p.url}>
+                <label className={`block cursor-pointer overflow-hidden rounded-xl border ${on ? "border-brand ring-2 ring-brand/40" : "border-slate-200"}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a Wikimedia preview, not optimised by next/image */}
+                  <img src={p.thumb} alt={p.title} loading="lazy" className="aspect-[4/3] w-full object-cover" />
+                  <span className="flex items-start gap-2 p-2 text-[11px] leading-4 text-slate-600"><input type="checkbox" checked={on} disabled={!on && picked.length >= 12} onChange={() => setPicked(on ? picked.filter((x) => x !== p.url) : [...picked, p.url])} className="mt-0.5 size-4 shrink-0 accent-brand" aria-label={`Add ${p.title}`} /><span>{p.author || "Unknown author"} · {p.licence}</span></span>
+                </label></li>; })}</ul>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => void addPicked()} disabled={!picked.length || Boolean(helper.busy)} className={btnPrimary}>{helper.busy === "import" && <LoaderCircle size={15} className="animate-spin" />}Add {picked.length || ""} photo{picked.length === 1 ? "" : "s"}</button>
+                <button type="button" onClick={() => { setPhotos(null); setPicked([]); }} className={btnQuiet}>Close</button>
+              </div>
+            </div>}
+            {helperLine("photos")}
             <Field label="Photo credit / licence" hint="Where the photos come from, e.g. own photos or supplier permission"><input value={draft.imageCredit ?? ""} onChange={(e) => set({ imageCredit: e.target.value })} className={inputCls} /></Field>
           </div>
         </Section>
