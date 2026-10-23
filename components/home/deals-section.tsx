@@ -1,25 +1,21 @@
 "use client";
 
-import { BadgePercent, Check, Mail, ShieldCheck, X } from "lucide-react";
-import Image from "next/image";
+import { BadgePercent, Mail, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTurnstile } from "@/components/use-turnstile";
 import { FULL_REFUND_HOURS } from "@/lib/refund-policy";
 import { LOYALTY_EVERY, LOYALTY_PERCENT } from "@/lib/loyalty-rules";
 
-// Trip.com-style block: newsletter sign-up, a sign-in card for member deals,
-// and "Book with confidence" reasons.
+// Trip.com-style block: newsletter sign-up and "Book with confidence" reasons.
 export function DealsSection() {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "busy" | "done">("idle");
   const [error, setError] = useState("");
   const turnstile = useTurnstile("newsletter");
   const [hidden, setHidden] = useState(false);
-  const [signedIn, setSignedIn] = useState(false);
   useEffect(() => {
     try { if (localStorage.getItem("waydidi-newsletter-hidden") === "1") setHidden(true); } catch { /* storage blocked */ } // eslint-disable-line react-hooks/set-state-in-effect
-    fetch("/api/account/session", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { signedIn: false })).then((d: { signedIn?: boolean }) => setSignedIn(Boolean(d.signedIn))).catch(() => undefined);
   }, []);
   async function subscribe(event: React.FormEvent) {
     event.preventDefault();
@@ -48,19 +44,8 @@ export function DealsSection() {
         {error && <p role="alert" className="mt-2 text-sm font-semibold text-red-600">{error}</p>}
       </div>}
 
-      <div className={card}>
-        <div className="flex items-center gap-4">
-          <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-brand"><Image src="/waydidi-bird.png" alt="" width={36} height={36} className="brightness-0 invert" /></span>
-          <h2 id="deals-heading" className="text-[18px] font-semibold leading-snug text-navy sm:text-[21px]">Want access to exclusive deals? {signedIn ? "They're in your account." : "Sign in to Waydidi!"}</h2>
-        </div>
-        <ul className="mt-4 grid gap-2.5 pl-1 text-[15px] text-[#455873] sm:pl-[72px] sm:text-[16px]">
-          {["Member-only promo codes", "Plan and book your next ride wherever you are", "Easy booking management"].map((line) => <li key={line} className="flex items-center gap-3"><Check size={20} strokeWidth={2.5} className="shrink-0 text-brand" aria-hidden="true" />{line}</li>)}
-        </ul>
-        <div className="mt-5 flex justify-center"><Link href={signedIn ? "/account" : "/account/sign-in"} className="inline-flex h-12 min-w-40 items-center justify-center rounded-lg bg-brand px-8 text-[16px] font-semibold text-white hover:bg-brand-strong">{signedIn ? "My account" : "Sign in"}</Link></div>
-      </div>
-
       <div className="mt-4">
-        <h2 className="text-[22px] font-semibold tracking-[-.01em] text-navy sm:text-[26px]">Book with confidence on Waydidi.com</h2>
+        <h2 id="deals-heading" className="text-[22px] font-semibold tracking-[-.01em] text-navy sm:text-[26px]">Book with confidence on Waydidi.com</h2>
         <ul className="mt-5 grid gap-6">
           {reasons.map(({ Icon, title, text, href }) => <li key={title} className="flex gap-4">
             <Icon className="mt-0.5 size-8 shrink-0 text-brand" aria-hidden="true" />
