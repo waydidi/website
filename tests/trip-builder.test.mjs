@@ -49,7 +49,7 @@ function model(answer = plan()) { const m = { calls: 0, prompts: [], call: async
 const anna = { display_name: 'Anna' };
 let msg = 1000;
 const message = (text, extra = {}) => ({ message_id: ++msg, chat: { id: Number(ADMIN), type: 'supergroup' }, from: { id: 42, first_name: 'Anna' }, text, ...extra });
-const deps = (m) => ({ call: m.call, locate: async () => ({ lat: 13.74, lng: 100.55 }), today });
+const deps = (m, place = async () => ({ lat: 13.74, lng: 100.55, hours: null })) => ({ call: m.call, locate: async () => ({ lat: 13.74, lng: 100.55 }), place, today });
 const trips = async () => (await d1.prepare('SELECT * FROM smart_trips ORDER BY created_at').all()).results;
 
 test('a typed trip is built, sent and posted back with its link and PDF; the customer is not messaged', async () => {
@@ -156,6 +156,45 @@ test('/place adds an attraction with its hours and photo; a reply photo joins th
   const updated = await d1.prepare("SELECT open_time, close_time, (SELECT COUNT(*) FROM attractions WHERE lower(name)='wat saket') n FROM attractions WHERE name='Wat Saket'").first();
   assert.deepEqual([updated.open_time, updated.close_time, updated.n], ['08:00', '18:00', 1]);
   assert.match(replies().at(-1), /อัปเดตสถานที่/);
+});
+
+test('/place without hours takes them from Google Maps; typed hours and hours already saved are never replaced', async () => {
+  const lookups = [];
+  const google = (hours) => async (q) => { lookups.push(q); return { lat: 13.75, lng: 100.5, hours }; };
+  const museum = { openTime: '09:00', closeTime: '16:00', closedDays: [1], varies: false };
+
+  // A new place with no hours: Google's hours and closed day are saved, and the reply says where they came from.
+  await tb.handleTripBuilder(message('/place Bangkok National Museum | Bangkok'), anna, deps(model(), google(museum)));
+  let row = await d1.prepare("SELECT * FROM attractions WHERE name='Bangkok National Museum'").first();
+  assert.deepEqual([row.open_time, row.close_time, row.closed_days_json, row.latitude], ['09:00', '16:00', '[1]', 13.75]);
+  assert.match(row.internal_notes, /opening hours from Google Maps/);
+  assert.match(replies().at(-1), /เปิด 09:00–16:00 · ปิดวันจันทร์ \(จาก Google Maps\)/);
+  assert.deepEqual(lookups, ['Bangkok National Museum, Bangkok']);
+
+  // Staff typed hours: those are kept, Google's are not used (the lookup still gives the location).
+  await tb.handleTripBuilder(message('/place Jim Thompson House | 10:00-17:00'), anna, deps(model(), google(museum)));
+  row = await d1.prepare("SELECT * FROM attractions WHERE name='Jim Thompson House'").first();
+  assert.deepEqual([row.open_time, row.close_time, row.closed_days_json, row.latitude], ['10:00', '17:00', '[]', 13.75]);
+  assert.doesNotMatch(replies().at(-1), /Google Maps/);
+
+  // A place that already has hours: Google is not asked and nothing changes.
+  lookups.length = 0;
+  await tb.handleTripBuilder(message('/place Jim Thompson House | 90 min'), anna, deps(model(), google({ ...museum, openTime: '06:00' })));
+  row = await d1.prepare("SELECT * FROM attractions WHERE name='Jim Thompson House'").first();
+  assert.deepEqual([row.open_time, row.close_time, row.duration_min, lookups.length], ['10:00', '17:00', 90, 0]);
+
+  // A saved place with no hours (added before this): sending /place again fills them from Google.
+  await d1.prepare("INSERT INTO attractions(id,name,area,duration_min,status,created_at,updated_at) VALUES('erawan-old','Erawan Shrine','Bangkok',30,'active',?,?)").bind(now, now).run();
+  await tb.handleTripBuilder(message('/place Erawan Shrine'), anna, deps(model(), google({ openTime: '06:00', closeTime: '22:00', closedDays: [], varies: true })));
+  row = await d1.prepare("SELECT * FROM attractions WHERE id='erawan-old'").first();
+  assert.deepEqual([row.open_time, row.close_time, row.latitude], ['06:00', '22:00', 13.75]);
+  assert.match(replies().at(-1), /อัปเดตสถานที่[\s\S]*เปิด 06:00–22:00 \(จาก Google Maps · เวลาไม่เท่ากันทุกวัน/);
+
+  // Google has no hours (or is unreachable): the place is still added, without hours, and the reply says how to add them.
+  await tb.handleTripBuilder(message('/place Talad Noi Street Art'), anna, deps(model(), async () => { throw new Error('offline'); }));
+  row = await d1.prepare("SELECT * FROM attractions WHERE name='Talad Noi Street Art'").first();
+  assert.deepEqual([row.open_time, row.latitude], [null, null]);
+  assert.match(replies().at(-1), /ยังไม่มีเวลาเปิด \(ไม่พบใน Google Maps/);
 });
 
 test('/place with a shorter name adds the photo to the place trips already use, not a duplicate', async () => {
