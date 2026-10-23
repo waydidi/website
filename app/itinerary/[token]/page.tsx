@@ -9,6 +9,7 @@ import { HighlightsCard } from "@/components/itinerary/highlights-card";
 import { ItineraryActions } from "@/components/itinerary/itinerary-actions";
 import { ItineraryMap } from "@/components/itinerary/itinerary-map";
 import { SectionTabs } from "@/components/itinerary/section-tabs";
+import { StopPhoto } from "@/components/itinerary/stop-photo";
 import { TripGallery } from "@/components/itinerary/trip-gallery";
 import { ticketStops, tripHighlights, tripPhotos, withCurrentPhotos } from "@/lib/trip-photos";
 import { attractionsById } from "@/lib/attractions";
@@ -189,7 +190,7 @@ function WhatToExpect({ days, stops, w }: { days: { id: string; label: string; s
       <ol className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3">
         {stops.map((x, i) => { const photo = x.cover ?? x.gallery[0]; return <li key={x.id} className="relative">
           <span aria-hidden className="absolute -left-1.5 -top-1.5 z-10 grid size-9 place-items-center rounded-full border-2 border-white bg-brand-deep text-[17px] font-black text-white shadow">{i + 1}</span>
-          {photo ? <img src={photo} alt={x.name} loading="lazy" className="aspect-[4/3] w-full rounded-xl object-cover" /> : <span className="grid aspect-[4/3] w-full place-items-center rounded-xl bg-white text-brand-deep"><Landmark size={28} aria-hidden /></span>}
+          {photo ? <StopPhoto src={photo} alt={x.name} className="aspect-[4/3] w-full rounded-xl object-cover" /> : <span className="grid aspect-[4/3] w-full place-items-center rounded-xl bg-white text-brand-deep"><Landmark size={28} aria-hidden /></span>}
           <p className="mt-2 text-center text-[15px] font-bold leading-5">{x.name}</p>
         </li>; })}
       </ol>
@@ -241,10 +242,7 @@ function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title
           <h4 className="pt-1.5 text-[18px] font-bold">{st.name}</h4>
           {st.program && <p className="mt-0.5 text-[14px] text-slate-600">{st.program}</p>}
           {st.checkIn != null && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-[#9A4D00]"><Ticket size={14} />{fill(w.sessionCheckIn, { time: st.sessionTime ?? "", checkIn: hhmm(st.checkIn) })}</p>}
-          {photos.length > 0 && <div className="relative mt-3 overflow-hidden rounded-2xl">
-            <img src={photos[0]} alt={st.name} className="aspect-[16/10] w-full object-cover" loading="lazy" />
-            {photos.length > 1 && <span className="absolute bottom-2.5 right-2.5 rounded-lg bg-black/65 px-2 py-0.5 text-[14px] font-bold text-white">+{photos.length - 1}</span>}
-          </div>}
+          {photos.length > 0 && <div className="mt-3 overflow-hidden rounded-2xl"><StopPhoto src={photos[0]} alt={st.name} more={photos.length - 1} className="aspect-[16/10] w-full object-cover" /></div>}
         </li>;
       })}
       <li className="relative min-h-10 pl-14">
