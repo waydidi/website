@@ -132,7 +132,9 @@ async function buildTrip(details: string, m: TelegramMessage, member: { display_
 
 type AttractionRow = typeof attractions.$inferSelect;
 const findByName = async (name: string) => {
-  const match = matchPlace(name, await getDb().select({ id: attractions.id, name: attractions.name, customerName: attractions.customerName, createdAt: attractions.createdAt }).from(attractions));
+  // A visible place first: a hidden duplicate is never the one staff mean while the original is shown.
+  const rows = await getDb().select({ id: attractions.id, name: attractions.name, customerName: attractions.customerName, createdAt: attractions.createdAt, status: attractions.status }).from(attractions);
+  const match = matchPlace(name, rows.filter((r) => r.status === "active")) ?? matchPlace(name, rows);
   if (!match) return null;
   const [row] = await getDb().select().from(attractions).where(eq(attractions.id, match.id)).limit(1);
   return row ?? null;
