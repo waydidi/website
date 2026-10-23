@@ -29,10 +29,9 @@ function useAccount() {
  * Site-wide header. `overlay` floats it (fixed) over an orange hero and only
  * paints the background once the page scrolls; otherwise it is sticky and
  * always orange. Labels are translated on pages wrapped in I18nProvider and
- * fall back to English elsewhere. `compact` (the customer's itinerary link) is a slim bar sized to the logo and menu
- * button, so the trip's photos start higher.
+ * fall back to English elsewhere.
  */
-export function SiteHeader({ overlay = false, compact = false }: { overlay?: boolean; compact?: boolean }) {
+export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   const account = useAccount();
   const { t } = useI18n();
@@ -88,12 +87,12 @@ export function SiteHeader({ overlay = false, compact = false }: { overlay?: boo
 
   return (
     <header
-      className={`z-40 flex w-full items-center justify-between transition-[background-color,color,box-shadow] duration-300 lg:px-8 ${compact ? "h-[56px] px-4 lg:h-[64px]" : "h-[74px] px-5 lg:h-[102px]"} ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-brand text-white" : "bg-transparent text-white"}`}
+      className={`z-40 flex h-[74px] w-full items-center justify-between px-5 transition-[background-color,color,box-shadow] duration-300 lg:h-[102px] lg:px-8 ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-brand text-white" : "bg-transparent text-white"}`}
     >
       <Link href="/" className={`inline-flex shrink-0 transition-colors duration-300 ${light ? "text-brand" : "text-white"}`} aria-label={t("nav.home")}>
         {/* Explicit widths (logo is 810:308): Safari collapses a width-less
             mask span to 0px when its container is allowed to shrink. */}
-        <WaydidiLogo className={compact ? "h-[34px] w-[89px] lg:h-[44px] lg:w-[116px]" : "h-[40px] w-[105px] min-[360px]:h-[53px] min-[360px]:w-[139px] sm:h-[68px] sm:w-[179px] lg:h-[91px] lg:w-[240px]"} />
+        <WaydidiLogo className="h-[40px] w-[105px] min-[360px]:h-[53px] min-[360px]:w-[139px] sm:h-[68px] sm:w-[179px] lg:h-[91px] lg:w-[240px]" />
       </Link>
       <nav className="hidden items-center gap-10 text-[16px] font-semibold xl:flex">
         {navMenus.map((menu) => (

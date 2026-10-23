@@ -15,6 +15,5 @@ export function PublicPathHeader() {
   const pathname = usePathname() ?? "/";
   // Destination pages use the homepage booking hero, which brings its own header.
   if (HOMEPAGES.includes(pathname) || /^\/destinations\/[^/]+$/.test(pathname) || ["/airport-transfer", "/a-to-b-transfer", "/long-journeys"].includes(pathname) || OWN_HEADER.some((s) => inSection(pathname, s))) return null;
-  // The customer's itinerary link gets the slim header (its tab bar sticks right under it: 56px, 64px on large screens).
-  return <div className="public-path-header"><SiteHeader compact={inSection(pathname, "/itinerary")} /></div>;
+  return <div className="public-path-header"><SiteHeader /></div>;
 }
