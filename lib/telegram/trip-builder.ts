@@ -13,7 +13,7 @@ import { itineraryPdf } from "@/lib/trip-itinerary-file";
 import { VEHICLES } from "@/lib/vehicles";
 import { esc } from "./cards";
 import { downloadFile, sendDocument, sendTo, tg, telegramChatId, type TelegramMessage } from "./client";
-import { MISSING_TH, PLACE_HELP, TRIP_HELP, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, wantsTripGuide } from "./trip-builder-rules";
+import { MISSING_TH, PLACE_HELP, TRIP_HELP, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, tripText, wantsTripGuide } from "./trip-builder-rules";
 
 // /trip and /place in the Admin group (team list only; the webhook checks that). /trip builds a smart trip from the
 // staff's text, sends it (freezes the version and makes the link) and posts the link and the PDF back to the Admin
@@ -66,11 +66,13 @@ export async function handleTripBuilder(m: TelegramMessage, member: { display_na
 
 async function buildTrip(details: string, m: TelegramMessage, member: { display_name: string }, reply: (t: string) => Promise<unknown>, deps: BuilderDeps) {
   const chatId = String(m.chat.id);
-  if (wantsTripGuide(details)) { await reply(TRIP_HELP); return; } // "/trip", "/trip help", "/trip create a new trip"
+  // "Paste a chat": /trip sent as a reply to the customer's chat (pasted or forwarded into the group). Not to a bot message.
+  const replied = m.reply_to_message && !m.reply_to_message.from?.is_bot ? (m.reply_to_message.text ?? m.reply_to_message.caption ?? "").trim() : "";
+  if (!replied && wantsTripGuide(details)) { await reply(TRIP_HELP); return; } // "/trip", "/trip help", "/trip create a new trip"
   // The price comes from the staff's own words, before any AI: no clear price, no trip.
   const price = parseStaffPrice(details);
   if (!price.ok) {
-    await reply(price.reason === "missing" ? `⚠️ ยังไม่ได้สร้างทริป: ใส่ราคาด้วย เช่น <code>THB 3,500</code> หรือ <code>ราคา 3500 บาท</code>`
+    await reply(price.reason === "missing" ? `⚠️ ยังไม่ได้สร้างทริป: ใส่ราคาด้วย เช่น <code>${replied ? "/trip " : ""}THB 3,500</code> หรือ <code>${replied ? "/trip " : ""}ราคา 3500 บาท</code>${replied ? " (ราคาไม่อ่านจากแชตลูกค้า)" : ""}`
       : `⚠️ ยังไม่ได้สร้างทริป: พบหลายราคา (${price.amounts.map(thb).join(", ")}) เขียนราคาทริปให้ชัด เช่น <code>ราคา 3500 บาท</code>`);
     return;
   }
@@ -79,7 +81,7 @@ async function buildTrip(details: string, m: TelegramMessage, member: { display_
   await tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => undefined);
   const list = await listAttractions();
   const places: PlaceOption[] = list.map((a) => ({ id: a.id, name: a.customerName || a.name, area: a.area, durationMin: a.durationMin, lat: a.latitude, lng: a.longitude, usedIn: 0 }));
-  const drafted = await draftFromChat(details, places, deps.today ?? bangkokToday(), ...(deps.call ? [deps.call] : [])).catch(() => null);
+  const drafted = await draftFromChat(tripText(details, replied), places, deps.today ?? bangkokToday(), ...(deps.call ? [deps.call] : [])).catch(() => null);
   if (!drafted) { await reply("⚠️ สร้างทริปไม่สำเร็จ ลองส่ง /trip อีกครั้ง"); return; }
   if (!drafted.ok) { await reply(`⚠️ ยังไม่ได้สร้างทริป: ${esc(drafted.error)}`); return; }
   const d = drafted.draft;
