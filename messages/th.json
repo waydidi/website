@@ -203,6 +203,10 @@
     "text": "ไม่สามารถคำนวณราคารายชั่วโมงได้",
     "status": "machine"
   },
+  "search.hourlyUseTransfer": {
+    "text": "ทริปนี้ระยะทางระหว่างเมืองเกิน 100 กม. จึงคิดราคาแบบรถรับส่ง ตรวจสอบที่อยู่แล้วค้นหาอีกครั้ง",
+    "status": "machine"
+  },
   "search.hourlyTempUnavailable": {
     "text": "ราคารายชั่วโมงไม่พร้อมใช้งานชั่วคราว",
     "status": "machine"

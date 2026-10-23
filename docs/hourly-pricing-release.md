@@ -4,24 +4,27 @@ This change belongs to the existing Waydidi Worker project. It does not deploy a
 
 ## Pricing policy
 
-- Local bookings: 3–10 hours. The sedan local six-hour package starts at THB 1,800.
-- City pairs: Bangkok ↔ Pattaya, Ayutthaya, the Ratchaburi / Maeklong / Damnoen Saduak market area, Khao Yai National Park area, and Kanchanaburi. Both directions use the same price table.
+- Every booking costs **hours × the car's hourly rate**: sedan THB 300, SUV THB 350, minivan THB 400 per hour, in every city (`HOURLY_RATES` in `lib/hourly-policy.ts`). Overtime is charged at the same rate. Admin → Hourly can set a different rate per city and car; no city has its own rate at release, so all use the standard rates.
+- Local bookings: 3–10 hours (e.g. sedan 3 h = 900, 6 h = 1,800, 10 h = 3,000).
+- City pairs: Bangkok ↔ Pattaya, Ayutthaya, the Ratchaburi / Maeklong / Damnoen Saduak market area, Khao Yai National Park area, and Kanchanaburi. At least 6 hours, priced with the rate of the pair's first city (Bangkok), so both directions cost the same. Admin → Hourly → Approved city pairs switches pairs and cars on or off.
+- **City-to-city over 100 km** (Google driving distance) is not sold by the hour: the quote answers `HOURLY_USE_TRANSFER` and the booking page switches to the Transfer tab, keeping the destination, so the customer gets a transfer price.
 - Actual Google-resolved endpoints determine the price. The selected service area remains independent and must be offered. Its vehicle availability and the endpoint areas' availability are also respected.
-- At launch each approved pair uses the following values. `/admin/hourly` offers independent package fields and vehicle switches for every pair.
 
-| Vehicle | 6 hours | 7 hours | 8 hours | 9 hours | 10 hours | Overtime/hour |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Sedan | 2500 | 2800 | 3100 | 3400 | 3700 | 300 |
-| SUV | 2900 | 3250 | 3600 | 3950 | 4300 | 350 |
-| Minivan | 3500 | 3800 | 4100 | 4300 | 4500 | 400 |
+| Vehicle | Per hour | 6 hours | 10 hours | Overtime/hour |
+| --- | ---: | ---: | ---: | ---: |
+| Sedan | 300 | 1800 | 3000 | 300 |
+| SUV | 350 | 2100 | 3500 | 350 |
+| Minivan | 400 | 2400 | 4000 | 400 |
+
+Pricing policy version 3 (`HOURLY_POLICY_VERSION`): quotes made before this release cannot check out and are priced again.
 
 BMW is unavailable for hourly bookings. Kilometres are unlimited within the approved itinerary. Fuel, tolls, parking, ferries and driver return travel are included; attraction tickets and tours are not added to these inclusions.
 
 The market service envelope includes Samut Songkhram for Maeklong as well as the Damnoen Saduak / Ratchaburi area. The Khao Yai envelope covers the park approach area across its neighbouring provinces. These are conservative operational envelopes, not full province boundaries; Google province components and coordinates must both match. Addresses outside an envelope require operations review. Existing service areas retain their published geofences. Bangkok includes its two airport pickup zones.
 
-City-to-city requests are raised to six hours. Unsupported pairs, unresolved typed addresses and direct journeys exceeding the pair's maximum driving time require operations review. The initial direct-driving cap is 360 minutes (the base package duration), editable per pair in admin. This eligibility cap is separate from unlimited itinerary kilometres and does not create a kilometre surcharge.
+City-to-city requests are raised to six hours. Unsupported pairs, unresolved typed addresses and direct journeys exceeding the pair's maximum driving time require operations review. The initial direct-driving cap is 360 minutes, editable per pair in admin. This eligibility cap is separate from unlimited itinerary kilometres and does not create a kilometre surcharge.
 
-Quotes expire after 30 minutes. Package edits affect new quotes; existing prices stay locked during that window. Area/pair/vehicle disablement immediately blocks checkout. Quotes created under the old indefinite-expiry policy must be recalculated.
+Quotes expire after 30 minutes. Rate edits affect new quotes; existing prices stay locked during that window. Area/pair/vehicle disablement immediately blocks checkout. Quotes created under the old indefinite-expiry policy must be recalculated.
 
 ## Operations
 

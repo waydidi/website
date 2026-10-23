@@ -16,7 +16,7 @@ import { MAX_DAY_HOURS } from "@/lib/trip-split";
 import { VEHICLES } from "@/lib/vehicles";
 import { esc } from "./cards";
 import { downloadFile, sendDocument, sendTo, tg, telegramChatId, type InlineKeyboard, type TelegramMessage } from "./client";
-import { BLOCKING, MISSING_TH, PLACE_HELP, TRIP_HELP, hoursFromGoogle, packageOptions, tripMultidayOn, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, tripText, wantsTripGuide, placeHoursLineTh, type GooglePeriod, type PlaceHours } from "./trip-builder-rules";
+import { BLOCKING, MISSING_TH, PLACE_HELP, TRIP_HELP, hoursFromGoogle, packageOptions, tripMultidayOn, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, tripChargeHours, tripText, wantsTripGuide, placeHoursLineTh, type GooglePeriod, type PlaceHours } from "./trip-builder-rules";
 
 // /trip and /place in the Admin group (team list only; the webhook checks that). /trip builds a smart trip from the
 // staff's text, sends it (freezes the version and makes the link) and posts the link and the PDF back to the Admin
@@ -234,16 +234,24 @@ async function finishTrip(p: Pending, deps: BuilderDeps) {
   const current = async () => { const row = await getTrip(saved.id); return row ? groupDays(row) : []; };
   let days = await current();
   const origin = publicSiteUrl(vars().WAYDIDI_PUBLIC_URL);
-  // No price typed: each day's price is the hourly rate for its car and hours. No rate for the area: staff set it first.
+  // No price typed: each day is charged hours × the hourly rate for its car. The hours follow the places that day
+  // (tripChargeHours), or the hours staff typed. No rate for the car: staff set the price first.
+  let charged: number[] = [];
   if (p.price == null) {
     const city = p.input.pickupText || p.cityHint;
-    const rates = await Promise.all(days.map((d) => (deps.rate ?? defaultRate)(city, d.durationHours, d.vehicle)));
+    charged = await Promise.all(days.map(async (d) => {
+      const stops = inputFromRow(d).stops.filter((s) => !s.skipped && s.kind !== "meal");
+      if (p.hoursGiven && !p.multiday) return d.durationHours;
+      const { plan } = await planFor(inputFromRow(d));
+      return tripChargeHours(stops.length, (plan.returnAt - plan.startAt) / 60);
+    }));
+    const rates = await Promise.all(days.map((d, i) => (deps.rate ?? defaultRate)(city, charged[i]!, d.vehicle)));
     if (rates.some((r) => r == null)) {
       await reply([`⚠️ สร้างทริป <b>${esc(lead.ref)}</b> ไว้แล้วแต่ยังไม่ได้ส่ง: ไม่มีเรทรายชั่วโมงสำหรับพื้นที่นี้`,
         `ใส่ราคาที่ Admin → Smart trips แล้วกดส่ง: ${esc(`${origin}/admin/trips/${lead.id}`)}`, "หรือส่ง /trip ใหม่พร้อมราคา เช่น <code>THB 3,500</code>"].join("\n"));
       return;
     }
-    for (const [i, d] of days.entries()) await saveTrip({ ...inputFromRow(d), id: d.id, transportPrice: rates[i]! }, { name: p.by, agencyId: d.agencyId });
+    for (const [i, d] of days.entries()) await saveTrip({ ...inputFromRow(d), id: d.id, durationHours: charged[i]!, transportPrice: rates[i]! }, { name: p.by, agencyId: d.agencyId });
     days = await current();
   }
   const { total, warnings } = await sendTripDays(days, p.by, "First itinerary (Telegram)");
@@ -260,7 +268,7 @@ async function finishTrip(p: Pending, deps: BuilderDeps) {
     `📅 ${thaiDate(first.tripDate)}${snaps.length > 1 ? ` – ${thaiDate(snaps.at(-1)!.tripDate)}` : ""} · รับ ${first.startTime} ${first.pickupText ? esc(first.pickupText) : "(จุดรับ: รอยืนยัน ใส่โรงแรมได้ที่ Admin)"}`,
     ...(snaps.length > 1 ? snaps.map((x, i) => `📍 วันที่ ${i + 1} (${thaiDate(x.tripDate)}): ${route(x)}`) : [`📍 ${route(first)}`]),
     `🚗 ${esc(first.vehicleName)} · ${people}`,
-    `💰 ${thb(total)}${tickets ? ` (รถ ${thb(transport)} + แพ็กเกจ/ตั๋ว ${thb(tickets)})` : ""}${p.price == null ? " · ราคารถตามเรทรายชั่วโมง แก้ได้ที่ Admin" : ""}${onSite ? ` · ค่าเข้าชมจ่ายหน้างานประมาณ ${thb(onSite)}` : ""}`,
+    `💰 ${thb(total)}${tickets ? ` (รถ ${thb(transport)} + แพ็กเกจ/ตั๋ว ${thb(tickets)})` : ""}${p.price == null ? ` · ราคารถตามเรทรายชั่วโมง (${charged.join(" + ")} ชม.) แก้ได้ที่ Admin` : ""}${onSite ? ` · ค่าเข้าชมจ่ายหน้างานประมาณ ${thb(onSite)}` : ""}`,
     ...(p.added.length ? [`➕ เพิ่มสถานที่ใหม่จาก Google Maps: ${p.added.map(esc).join(", ")}`] : []),
     ...(p.notFound.length ? [`⚠️ ไม่พบใน Google Maps (ไม่ได้ใส่ในทริป): ${p.notFound.map(esc).join(", ")} เพิ่มได้ด้วย /place`] : []),
     ...(warnings.length ? [`⚠️ ตรวจก่อนส่งลูกค้า:\n${warnings.map((w) => `• ${esc(w)}`).join("\n")}`] : []),

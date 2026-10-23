@@ -100,7 +100,7 @@ test('no price typed: the hourly rate for the car and hours is the price; two un
   assert.equal((await trips()).length, before + 1);
   assert.deepEqual([t.status, t.transport_price], ['sent', 4200]);
   assert.deepEqual(rates, [['Hilton Sukhumvit', 6, 'comfort_suv']], 'the pickup decides the city; the day is 6 hours');
-  assert.match(replies().join('\n'), /ราคารถตามเรทรายชั่วโมง แก้ได้ที่ Admin/);
+  assert.match(replies().join('\n'), /ราคารถตามเรทรายชั่วโมง \(6 ชม\.\) แก้ได้ที่ Admin/, 'hours typed in the message are the hours charged');
 
   const m = model();
   await tb.handleTripBuilder(message('/trip 12 Dec, Grand Palace, car THB 3,000, tickets THB 1,000'), anna, deps(m));
@@ -153,6 +153,21 @@ test('missing date, suggested places, or a car too small: nothing is created; no
   assert.equal((await trips()).length, before + 1);
   assert.deepEqual([t.status, t.pickup_text, t.pickup_lat], ['sent', '', null]);
   assert.match(replies().join('\n'), /จุดรับ: รอยืนยัน/);
+});
+
+test('no price: 5 or more places are charged 10 hours, 4 places 6 hours, at THB 300 an hour for a sedan', async () => {
+  const names = ['Rate Stop One', 'Rate Stop Two', 'Rate Stop Three', 'Rate Stop Four', 'Rate Stop Five'];
+  for (const [i, n] of names.entries())
+    await d1.prepare("INSERT INTO attractions(id,name,area,latitude,longitude,duration_min,open_time,close_time,status,created_at,updated_at) VALUES(?,?,'Bangkok',?,100.5,45,'00:00','23:59','active',?,?)").bind(`bk${i}`, n, 13.73 + i * 0.005, now, now).run();
+  const freeForm = (count) => model(plan({ pickup: null, customerName: null, hours: null, stops: names.slice(0, count).map((n, i) => ({ placeId: `bk${i}`, name: n, priority: 'must' })) }));
+  const real = { ...deps(model()), rate: undefined }; // the real hourly rates, not a stub
+  await tb.handleTripBuilder(message(`/trip ${names.join(', ')} 12 Dec 2026, 2 people`), anna, { ...real, call: freeForm(5).call });
+  let t = (await trips()).at(-1);
+  assert.deepEqual([t.vehicle, t.duration_hours, t.transport_price], ['economy_sedan', 10, 3000], '5 places: 10 hours × 300');
+  assert.match(replies().join('\n'), /THB 3,000 · ราคารถตามเรทรายชั่วโมง \(10 ชม\.\)/);
+  await tb.handleTripBuilder(message(`/trip ${names.slice(0, 4).join(', ')} 12 Dec 2026, 2 people`), anna, { ...real, call: freeForm(4).call });
+  t = (await trips()).at(-1);
+  assert.deepEqual([t.duration_hours, t.transport_price], [6, 1800], '4 places: 6 hours × 300');
 });
 
 test('only the Telegram team, only the Admin group, only when switched on', async () => {

@@ -199,3 +199,12 @@ export const TRIP_HELP = [
   "วางหรือส่งต่อแชตของลูกค้าในกลุ่ม แล้วกดตอบกลับข้อความนั้นด้วย <code>/trip</code> (ใส่ราคาได้ เช่น <code>/trip THB 3,500</code> บอทไม่อ่านราคาจากแชตลูกค้า)",
 ].join("\n");
 export const PLACE_HELP = "เพิ่มสถานที่: <code>/place ชื่อสถานที่ | 09:00-17:00 | พื้นที่ | 90 นาที</code>\nไม่ใส่เวลาเปิด บอทจะดึงเวลาเปิดจาก Google Maps ให้\nใส่เป็นคำบรรยายรูปได้ (ส่งรูปพร้อมพิมพ์ /place …) หรือตอบกลับข้อความยืนยันของบอทด้วยรูปเพื่อเพิ่มรูป";
+
+/**
+ * The hours a /trip day is charged when no price is typed: 5 or more places count as 10 hours, 4 places as 6 hours,
+ * fewer as the hours the day takes (at least 3). A day that takes longer than that is charged the hours it takes.
+ */
+export function tripChargeHours(places: number, plannedHours: number) {
+  const floor = places >= 5 ? 10 : places === 4 ? 6 : 3;
+  return Math.min(16, Math.max(floor, Math.ceil(plannedHours)));
+}
