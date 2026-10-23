@@ -38,6 +38,9 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await page.waitForLoadState("networkidle"); // the tabs mark the section once the page is interactive
   expect(await page.evaluate(() => window.scrollY), "the page opens at the top").toBe(0);
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0); // no breadcrumb: the photos come first
+  // A slim header, sized to the logo and menu button: 56px on phones, 64px on large screens.
+  const headerHeight = await page.locator(".public-path-header header").evaluate((el) => el.getBoundingClientRect().height);
+  expect(headerHeight).toBe((page.viewportSize()?.width ?? 0) >= 1024 ? 64 : 56);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(snapshot.title);
   await expect(page.getByText("Departing from Kata Beach Resort")).toBeVisible();
   for (const chip of ["Private car", "Hotel pickup", "3 travellers", "8hr duration", "2 stops"]) await expect(page.getByRole("listitem").filter({ hasText: new RegExp(`^${chip}$`) })).toBeVisible();

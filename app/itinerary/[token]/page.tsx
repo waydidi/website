@@ -82,7 +82,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ toke
   const lastReturn = hhmm(days.at(-1)!.snap.returnAt);
   const dressCodes = [...new Map(allStops.filter((x) => x.dressCode).map((x) => [x.dressCode!, x.name])).entries()];
   // Every section runs the full width of the page (no card); headings carry a short coloured bar, like Klook's.
-  const card = "-mx-4 scroll-mt-[135px] bg-white px-4 py-6 sm:px-7 lg:scroll-mt-[163px]";
+  const card = "-mx-4 scroll-mt-[117px] bg-white px-4 py-6 sm:px-7 lg:scroll-mt-[125px]";
   const heading = "border-l-4 border-brand pl-3 text-[22px] font-bold leading-7";
 
   return <main className="bg-canvas pb-16 text-plum">
@@ -213,7 +213,7 @@ function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title
     ...(s.end ? [{ id: "end", lat: s.end.lat, lng: s.end.lng, label: "E", title: s.endText, kind: "end" as const }] : s.pickup && stops.length ? [{ id: "back", lat: s.pickup.lat, lng: s.pickup.lng, label: "P", title: w.backAtHotel, kind: "end" as const }] : []),
   ];
   const dot = "absolute left-0 top-0 grid size-10 place-items-center rounded-full";
-  return <div id={id} className="scroll-mt-[135px] lg:scroll-mt-[163px]">
+  return <div id={id} className="scroll-mt-[117px] lg:scroll-mt-[125px]">
     {title && <h3 className="mb-3 text-[19px] font-bold">{title}</h3>}
     {points.length > 0 && <div className="mb-5 overflow-hidden rounded-2xl border border-slate-200"><ItineraryMap points={points} /></div>}
     <ol className="relative grid gap-6 before:absolute before:bottom-5 before:left-5 before:top-5 before:w-0.5 before:-translate-x-1/2 before:bg-slate-200">
