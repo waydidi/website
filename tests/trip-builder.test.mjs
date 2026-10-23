@@ -141,7 +141,7 @@ test('missing date, suggested places, or a car too small: nothing is created; no
   const before = (await trips()).length;
   await tb.handleTripBuilder(message('/trip Grand Palace, Wat Pho, THB 3,000'), anna, deps(model(plan({ date: null, pickup: null }))));
   assert.equal(replies().at(-1).split('\n')[0], '⚠️ ยังไม่ได้สร้างทริป: ขาดวันที่', 'only the date is missing; the pickup is not required');
-  await tb.handleTripBuilder(message('/trip temples tomorrow, THB 3,000'), anna, deps(model(plan({ suggested: true }))));
+  await tb.handleTripBuilder(message('/trip temples tomorrow, THB 3,000'), anna, deps(model(plan({ suggested: true, stops: [{ placeId: 'grand-palace', name: 'Grand Palace', priority: 'nice' }, { placeId: 'wat-pho', name: 'Wat Pho', priority: 'nice' }] }))));
   assert.match(replies().at(-1), /ระบุชื่อสถานที่/);
   await tb.handleTripBuilder(message('/trip 6 adults, sedan, Grand Palace, THB 3,000'), anna, deps(model(plan({ adults: 6 }))));
   assert.match(replies().at(-1), /Economy sedan นั่งได้ 2 คน/);
@@ -168,6 +168,24 @@ test('no price: 5 or more places are charged 10 hours, 4 places 6 hours, at THB 
   await tb.handleTripBuilder(message(`/trip ${names.slice(0, 4).join(', ')} 12 Dec 2026, 2 people`), anna, { ...real, call: freeForm(4).call });
   t = (await trips()).at(-1);
   assert.deepEqual([t.duration_hours, t.transport_price], [6, 1800], '4 places: 6 hours × 300');
+});
+
+test('staff wording: "recommendation tour package for two people as they requested as …, Date …, Make me a link" builds the trip and gives the link', async () => {
+  const before = (await trips()).length;
+  const text = '/trip recommendation tour package for two people as they requested as Grand Palace, Wat Pho. Date 20 Dec 2026. Make me a link';
+  // Even if the model calls the named places "suggested", places that were asked for are built, never refused.
+  const m = model(plan({ date: '2026-12-20', pickup: null, customerName: null, hours: null, suggested: true }));
+  const rates = [];
+  await tb.handleTripBuilder(message(text), anna, deps(m, undefined, async (city, hours, vehicle) => { rates.push([city, hours, vehicle]); return 3800; }));
+  assert.equal(m.calls, 1, 'not mistaken for a help request');
+  assert.equal((await trips()).length, before + 1);
+  const t = (await trips()).at(-1);
+  assert.deepEqual([t.status, t.trip_date, t.adults, t.transport_price], ['sent', '2026-12-20', 2, 3800]);
+  assert.deepEqual(JSON.parse(t.stops_json).map((s) => s.name), ['Grand Palace', 'Wat Pho']);
+  assert.equal(rates.length, 1, 'no price typed: the hourly rate is used, the year is not read as a price');
+  const reply = replies().join('\n');
+  assert.match(reply, new RegExp(`https://waydidi.example/itinerary/${t.token}`));
+  assert.doesNotMatch(reply, /ยังไม่ได้สร้างทริป/);
 });
 
 test('only the Telegram team, only the Admin group, only when switched on', async () => {
