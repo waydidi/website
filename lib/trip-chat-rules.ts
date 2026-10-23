@@ -19,6 +19,25 @@ export type ChatDraft = {
 };
 
 export const MAX_CHAT_CHARS = 8000;
+
+/** A place name reduced for matching: lower case, no bracketed part, no leading "the", no punctuation. */
+export const placeKey = (name: string) => name.toLowerCase().replace(/\([^)]*\)/g, " ").replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim().replace(/^the\s+/, "");
+
+/**
+ * The listed place a stop the model returned means: its placeId when that is exactly in the list, else its name when
+ * exactly one listed place has that name (ignoring case, "The" and a bracketed part). The model sometimes returns the
+ * list's own name with a placeId that is slightly off; trusting the id alone sent staff "not in the list" for places
+ * that were. Two places with the same name stay unmatched rather than guessed.
+ */
+export function listedPlace(placeId: unknown, name: string, places: PlaceOption[]): PlaceOption | undefined {
+  const byId = typeof placeId === "string" ? places.find((p) => p.id === placeId) : undefined;
+  if (byId) return byId;
+  const key = placeKey(name);
+  if (!key) return undefined;
+  const exact = places.filter((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+  const same = exact.length ? exact : places.filter((p) => placeKey(p.name) === key);
+  return same.length === 1 ? same[0] : undefined;
+}
 const MAX_PLACES_SENT = 150;
 
 /** The list of places sent to the model: most used first, so the usual ones fit. */
@@ -54,14 +73,13 @@ export function parseChatPlan(raw: string, places: PlaceOption[], today: string,
   let obj: Record<string, unknown>;
   try { obj = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)); } catch { return null; }
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
-  const byId = new Map(places.map((p) => [p.id, p]));
   const stops: DraftStop[] = [], unmatched: string[] = [], seen = new Set<string>();
   for (const item of Array.isArray(obj.stops) ? obj.stops.slice(0, 20) : []) {
     if (!item || typeof item !== "object") continue;
     const s = item as Record<string, unknown>;
     const priority = s.priority === "nice" ? "nice" : "must";
     const note = str(s.note, 300) || undefined;
-    const place = typeof s.placeId === "string" ? byId.get(s.placeId) : undefined;
+    const place = listedPlace(s.placeId, str(s.name, 120), places);
     if (place) {
       if (seen.has(place.id)) continue;
       seen.add(place.id);
