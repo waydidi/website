@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, CreditCard, LoaderCircle, MessageSquare } from "lucide-react";
+import { CheckCircle2, CreditCard, Info, LoaderCircle, MessageSquare } from "lucide-react";
 import { useRef, useState } from "react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { fill, tripWords, type TripWords } from "@/lib/trip-i18n";
 
 const input = "h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-[16px] outline-none focus:border-brand";
@@ -52,7 +53,15 @@ export function ItineraryActions({ token, total, name, email, phone, words }: { 
     {error && <p role="alert" className="text-[14px] font-semibold text-red-600">{error}</p>}
     {mode === "idle" && <div data-testid="booking-bar" className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white px-4 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_18px_rgba(0,0,0,.07)]">
       <div className="mx-auto max-w-[880px]">
-        <p className="flex items-baseline justify-between gap-3"><span className="text-[22px] font-black tracking-[-.02em] text-plum">{amount}</span><span className="truncate text-[13px] text-slate-500">{w.totalFor}</span></p>
+        <p className="flex items-center justify-between gap-3">
+          <Sheet>
+            <SheetTrigger className="flex items-center gap-1.5 text-[14px] text-slate-500" aria-label={`${w.totalLabel}: ${w.totalFor}`}>{w.totalLabel}<Info size={16} aria-hidden /></SheetTrigger>
+            <SheetContent side="bottom" className="rounded-t-[20px] pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <SheetHeader><SheetTitle className="text-[18px] text-plum">{w.totalFor}</SheetTitle><SheetDescription className="text-[15px] text-slate-600">{w.totalInfo}</SheetDescription></SheetHeader>
+            </SheetContent>
+          </Sheet>
+          <span className="text-[22px] font-black tracking-[-.02em] text-plum">{amount}</span>
+        </p>
         <div className="mt-2 grid grid-cols-2 gap-3">
           <button type="button" onClick={() => open("change")} className="h-12 rounded-xl bg-amber-500 px-2 text-[16px] font-bold leading-tight text-white hover:bg-amber-600">{w.askChange}</button>
           <button type="button" onClick={() => open("accept")} className="h-12 rounded-xl bg-[#EE6A2C] px-2 text-[16px] font-bold text-white hover:bg-[#D95A1F]">{w.bookNow}</button>

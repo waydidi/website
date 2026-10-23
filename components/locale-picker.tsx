@@ -14,7 +14,7 @@ type Language = (typeof SITE_LANGS)[number];
 // Flags are the square SVGs from flag-icons (MIT), copied to /public/flags.
 export const LANGUAGES: Language[] = SITE_LANGS;
 
-export const CURRENCIES: [string, string][] = [
+const CURRENCIES: [string, string][] = [
   ["THB", "Thai Baht"], ["USD", "US Dollar"], ["AUD", "Australian Dollar"], ["SGD", "Singapore Dollar"], ["CNY", "Chinese Yuan"],
 ];
 const TOP_CURRENCIES = ["THB"];
