@@ -330,5 +330,8 @@
   "trip.live.waiting": "Waiting for the driver's location.",
   "trip.leg.outbound": "Outbound",
   "trip.leg.return": "Return",
-  "trip.legs": "Journey direction"
+  "trip.legs": "Journey direction",
+  "itinerary.minutesLabel": "min",
+  "itinerary.driveMinutes": "About {n} min drive",
+  "itinerary.waitMinutes": "{n} min before the activity starts"
 }

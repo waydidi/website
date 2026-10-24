@@ -6,13 +6,13 @@ import { Dialog } from "radix-ui";
 import { loadMaps } from "@/lib/google-places";
 
 /** One pin on the trip map with its card: the pickup (flag) or a place (photo, name, address). */
-export type MapPlace = { id: string; kind: "pickup" | "stop"; lat: number; lng: number; name: string; photo: string | null; subtitle: string; detail: string };
+export type MapPlace = { id: string; number?: number; kind: "pickup" | "stop"; lat: number; lng: number; name: string; photo: string | null; subtitle: string; detail: string };
 type Words = { viewMaps: string; mapsTitle: string; closeLabel: string; myLocation: string; mapNeedsKey: string };
 
 // Map pins drawn as SVG: a blue flag for the pickup, a green landmark for each place (bigger when its card is showing).
 const pin = (fill: string, inner: string) => `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54" viewBox="0 0 44 54"><path d="M22 52s18-16.8 18-30A18 18 0 0 0 4 22c0 13.2 18 30 18 30z" fill="${fill}" stroke="#fff" stroke-width="3"/>${inner}</svg>`)}`;
 const FLAG = pin("#2563EB", `<path d="M16 32V12m0 1h12l-3 4.5 3 4.5H16" fill="#fff" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>`);
-const PLACE = pin("#16A34A", `<path d="M12 18.5 22 13l10 5.5zM14.5 21v7m5-7v7m5-7v7m5-7v7M12 30.5h20" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`);
+const placePin = (number: number) => pin("#FE8B05", `<text x="22" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#21140a">${number}</text>`);
 
 /**
  * "View maps": the whole trip on a full-screen map, like Klook's. Pins for the pickup and each place; the cards at the
@@ -57,7 +57,7 @@ function MapBody({ places, words }: { places: MapPlace[]; words: Words }) {
         map.current = new g.Map(node.current, { center: { lat: places[0].lat, lng: places[0].lng }, zoom: 12, disableDefaultUI: true, clickableIcons: false, gestureHandling: "greedy" });
         const bounds = new g.LatLngBounds();
         markers.current = places.map((p, i) => {
-          const marker = new g.Marker({ map: map.current, position: { lat: p.lat, lng: p.lng }, title: p.name, icon: { url: p.kind === "pickup" ? FLAG : PLACE, scaledSize: new g.Size(40, 49), anchor: new g.Point(20, 49) } });
+          const marker = new g.Marker({ map: map.current, position: { lat: p.lat, lng: p.lng }, title: p.name, icon: { url: p.kind === "pickup" ? FLAG : placePin(p.number ?? places.slice(0, i + 1).filter((x) => x.kind === "stop").length), scaledSize: new g.Size(40, 49), anchor: new g.Point(20, 49) } });
           marker.addListener("click", () => { setActive(i); (strip.current?.children[i] as HTMLElement | undefined)?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" }); });
           bounds.extend({ lat: p.lat, lng: p.lng });
           return marker;
@@ -67,7 +67,13 @@ function MapBody({ places, words }: { places: MapPlace[]; words: Words }) {
       }
       setReady(ok);
     });
-    return () => { live = false; };
+    return () => {
+      live = false;
+      markers.current.forEach((marker) => { window.google?.maps?.event?.clearInstanceListeners(marker); marker.setMap(null); });
+      markers.current = [];
+      me.current?.setMap(null);
+      map.current = null;
+    };
   }, [places]);
 
   // The card showing: its pin grows and the map moves to it.
@@ -76,7 +82,7 @@ function MapBody({ places, words }: { places: MapPlace[]; words: Words }) {
     if (!g || !map.current || active == null) return;
     markers.current.forEach((m, i) => {
       const big = i === active;
-      m.setIcon({ url: places[i].kind === "pickup" ? FLAG : PLACE, scaledSize: new g.Size(big ? 52 : 40, big ? 64 : 49), anchor: new g.Point(big ? 26 : 20, big ? 64 : 49) });
+      m.setIcon({ url: places[i].kind === "pickup" ? FLAG : placePin(places[i].number ?? places.slice(0, i + 1).filter((x) => x.kind === "stop").length), scaledSize: new g.Size(big ? 52 : 40, big ? 64 : 49), anchor: new g.Point(big ? 26 : 20, big ? 64 : 49) });
       m.setZIndex(big ? 999 : undefined);
     });
     map.current.panTo({ lat: places[active].lat, lng: places[active].lng });

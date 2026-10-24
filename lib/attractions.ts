@@ -11,9 +11,8 @@ const json = <T,>(value: string | null | undefined, fallback: T): T => { try { r
 import { BEST_TIMES, MAX_GALLERY_PHOTOS, MEAL_SLOTS, VIBES } from "@/lib/place-taxonomy";
 export { BEST_TIMES, MEAL_SLOTS, PLACE_TYPES, VIBES, type PlaceI18n } from "@/lib/place-taxonomy";
 import type { PlaceI18n } from "@/lib/place-taxonomy";
-const time = z.string().regex(/^\d{2}:\d{2}$/);
+import { time, tripDate as day } from "@/lib/trip-validation";
 const optTime = time.nullable().or(z.literal("").transform(() => null));
-const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const text = (max: number) => z.string().trim().max(max);
 const optText = (max: number) => text(max).nullable().optional().transform((v) => v || null);
 const list = (max: number, len = 200) => z.array(text(len)).max(max).default([]);

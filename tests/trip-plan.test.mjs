@@ -77,3 +77,17 @@ test("fees and the packing list come from the stops", () => {
   assert.ok(items.includes("Camera"));
   assert.ok(items.some((i) => /Cash for entrance fees \(about THB 300\)/.test(i)));
 });
+
+test("a time extension does not claim to fix a closed attraction", () => {
+  const alts = alternatives([canopy], { ...base, date: "2027-04-13", endLimit: toMin("09:00") });
+  assert.equal(alts.at(-1).fits, false);
+});
+test("a removed package is reported rather than silently dropping its fee", () => {
+  const p = schedule([{ ...canopy, programId: "deleted-package" }], base);
+  assert.ok(p.problems.some((p) => /package no longer exists/.test(p.message)));
+});
+test("meals without locations and missing pickup coordinates warn about incomplete travel estimates", () => {
+  const p = schedule([{ id: "lunch", kind: "meal", name: "Lunch", durationMin: 60, priority: "must" }], { ...base, from: null });
+  assert.ok(p.problems.some((p) => /Pickup has no map location/.test(p.message)));
+  assert.ok(p.problems.some((p) => /Lunch: no map location/.test(p.message)));
+});

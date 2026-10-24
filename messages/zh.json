@@ -1326,5 +1326,17 @@
   "trip.legs": {
     "text": "行程方向",
     "status": "machine"
+  },
+  "itinerary.minutesLabel": {
+    "text": "分钟",
+    "status": "machine"
+  },
+  "itinerary.driveMinutes": {
+    "text": "车程约 {n} 分钟",
+    "status": "machine"
+  },
+  "itinerary.waitMinutes": {
+    "text": "活动开始前等候 {n} 分钟",
+    "status": "machine"
   }
 }

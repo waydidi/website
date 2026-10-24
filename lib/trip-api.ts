@@ -7,7 +7,7 @@ import { agencyForCustomer } from "@/lib/agency";
 import { listAttractions } from "@/lib/attractions";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
-import { addDay, arrange, splitTrip, duplicateTrip, groupDays, removeDay, getTrip, inputFromRow, listTrips, planFor, saveTrip, sendTripDays, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
+import { addDay, arrange, splitTrip, duplicateTrip, groupDays, removeDay, getTrip, inputFromRow, listTrips, planFor, saveTrip, sendTripDays, time, tripDate, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
 import { notifyAgencyPriced, notifyTripSent } from "@/lib/trip-notify";
 import { alertStaff } from "@/lib/staff-alert";
 import { esc } from "@/lib/telegram/cards";
@@ -16,9 +16,9 @@ import { VEHICLES } from "@/lib/vehicles";
 import { MAX_TRIP_DAYS } from "@/lib/trip-split";
 
 const quoteSchema = z.object({
-  tripDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/),
-  pickupText: z.string().trim().min(2).max(300), pickupLat: z.number().nullable(), pickupLng: z.number().nullable(),
+  tripDate,
+  startTime: time,
+  pickupText: z.string().trim().min(2).max(300), pickupLat: z.number().min(-90).max(90).nullable(), pickupLng: z.number().min(-180).max(180).nullable(),
   adults: z.number().int().min(1).max(30), children: z.number().int().min(0).max(20),
   vehicle: z.enum(Object.keys(VEHICLES) as [string, ...string[]]).optional(),
   customerName: z.string().trim().max(100).nullable(), customerEmail: z.string().trim().toLowerCase().email().max(254).nullable().or(z.literal("").transform(() => null)),
@@ -84,6 +84,7 @@ export async function handleSave(request: Request, actor: TripActor | null) {
     return NextResponse.json({ ok: true, ...saved });
   } catch (error) {
     const code = (error as Error).message;
+    if (code === "CONFLICT") return NextResponse.json({ error: "This trip changed in another session. Your edits are still here. Reload and compare before saving again." }, { status: 409 });
     if (code === "LOCKED") return NextResponse.json({ error: "This trip is paid. Duplicate it to make changes." }, { status: 409 });
     if (code === "NOT_FOUND") return NextResponse.json({ error: "Trip not found." }, { status: 404 });
     throw error;
@@ -136,6 +137,7 @@ export async function handleAction(request: Request, id: string, actor: TripActo
   if (!sameOrigin(request) || !isJsonRequest(request)) return blocked();
   if (!actor) return unauthorized();
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+  if (!body || typeof body !== "object" || (body.note != null && typeof body.note !== "string")) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
   const { action, note, notify } = body as { action?: string; note?: string; notify?: boolean };
   let trip = await getTrip(id, agencyIdOf(actor));
   // Agencies may quote from (or copy) Waydidi's own templates.
@@ -173,10 +175,18 @@ export async function handleAction(request: Request, id: string, actor: TripActo
     case "duplicate": return NextResponse.json({ ok: true, ...(await duplicateTrip(trip, by)) });
     case "live_adjust": {
       if (actor.kind !== "admin") return NextResponse.json({ error: "Only Waydidi staff change a trip on the day." }, { status: 403 });
-      const change = body.change as { kind?: string; stopId?: string; minutes?: number } | undefined;
-      if (!change?.stopId || !["skip", "shorten", "restore"].includes(change.kind ?? "")) return NextResponse.json({ error: "Choose a change." }, { status: 400 });
+      const change = z.object({
+        kind: z.enum(["skip", "shorten", "restore"]), stopId: z.string().min(1).max(40),
+        minutes: z.number().int().min(5).max(720).optional(),
+      }).safeParse(body.change);
+      if (!change.success) return NextResponse.json({ error: "Choose a valid stop and adjustment." }, { status: 400 });
       const { adjustLive } = await import("@/lib/trip-live-data");
-      return NextResponse.json({ ok: true, note: await adjustLive(trip, change as { kind: "skip" | "shorten" | "restore"; stopId: string; minutes?: number }, actor.name) });
+      try { return NextResponse.json({ ok: true, note: await adjustLive(trip, change.data, actor.name) }); }
+      catch (error) {
+        const code = (error as Error).message;
+        if (["NO_SNAPSHOT", "NO_STOP", "TOO_SHORT"].includes(code)) return NextResponse.json({ error: code === "TOO_SHORT" ? "This visit is already too short to reduce." : "This itinerary stop is no longer available." }, { status: 409 });
+        throw error;
+      }
     }
     case "quote": {
       // Quick quote: a copy of a template for one customer, ready to send.
