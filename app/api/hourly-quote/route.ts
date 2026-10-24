@@ -6,7 +6,7 @@ import { hourlyQuotes } from "@/db/schema";
 import { hourlyQuoteInputSchema, validationError } from "@/lib/booking-validation";
 import { areaHourlyPrices, hourlyAreaSettings } from "@/lib/hourly-area-pricing";
 import { hourlyCityPairSettings, cityPairPrices } from "@/lib/hourly-city-pricing";
-import { approvedHourlyPair, hourlyCityAt, CITY_TO_CITY_MIN_HOURS, HOURLY_POLICY_VERSION, HOURLY_QUOTE_MINUTES } from "@/lib/hourly-policy";
+import { approvedHourlyPair, hourlyCityAt, CITY_TO_CITY_MAX_KM, CITY_TO_CITY_MIN_HOURS, HOURLY_POLICY_VERSION, HOURLY_QUOTE_MINUTES } from "@/lib/hourly-policy";
 import { bangkokDepartureIso } from "@/lib/booking-time";
 import { HOURLY_AREAS } from "@/lib/hourly-areas-data";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
@@ -68,6 +68,9 @@ export async function POST(request: Request) {
       durationSeconds = route?.duration ? Math.ceil(Number.parseFloat(route.duration)) : null;
       routePolyline = route?.polyline?.encodedPolyline ?? null;
       if (!distanceMeters || !durationSeconds || !Number.isFinite(durationSeconds)) return operationsQuote("Operations will review this route before quoting.");
+      // Long city-to-city drives are priced as transfers (the booking page switches to a transfer quote).
+      if (distanceMeters > CITY_TO_CITY_MAX_KM * 1000) return NextResponse.json({ code: "HOURLY_USE_TRANSFER", useTransfer: true, distanceMeters,
+        error: `This trip is over ${CITY_TO_CITY_MAX_KM} km between cities, so it is priced as a transfer.` }, { status: 422 });
       // The default cap is the six-hour base package; operations can lower it per pair.
       if (durationSeconds > pairSetting.maxDrivingMinutes * 60 || durationSeconds > hours * 3600) return operationsQuote("This route is unusually long for the package. Operations will confirm your itinerary and price.");
       prices = cityPairPrices(pairSetting, hours);

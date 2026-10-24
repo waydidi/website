@@ -3,7 +3,8 @@ import { z } from "zod";
 import { getDb } from "@/db";
 import { smartTrips, smartTripVersions } from "@/db/schema";
 import { attractionsById, planningData, type AttractionView } from "@/lib/attractions";
-import { areaHourlyPrices, HOURLY_MAX_HOURS, HOURLY_MIN_HOURS } from "@/lib/hourly-area-pricing";
+import { DEFAULT_AREA_RATES, HOURLY_MIN_HOURS, hourlyAreaSettings, priceForHours } from "@/lib/hourly-area-pricing";
+import { HOURLY_VEHICLES, type HourlyVehicle } from "@/lib/hourly-policy";
 import { cityOfText } from "@/lib/hourly-area-match";
 import { alternatives, autoArrange, packingList, schedule, toMin, tripFees, type AttractionData, type Plan, type PlanInput, type Point, type TripStop } from "@/lib/trip-plan";
 import { travelMatrix } from "@/lib/trip-travel";
@@ -107,14 +108,13 @@ export async function arrange(input: Parameters<typeof planFor>[0]) {
 }
 
 /** Driver price for the day from the By the hour city rates (3–10 hours), when the pickup is in a priced city. */
+/** The car price for a trip: hours × the car's hourly rate (the city's rate, else the standard rate); null for a car not offered by the hour. */
 export async function suggestedTransport(pickup: string, hours: number, vehicle: string) {
-  const slug = cityOfText(pickup);
-  if (!slug) return null;
-  const prices = await areaHourlyPrices(slug, Math.min(HOURLY_MAX_HOURS, Math.max(HOURLY_MIN_HOURS, hours))).catch(() => null);
-  const base = prices?.[vehicle as keyof typeof prices] as { total: number; extraHourRate: number } | undefined;
-  if (!base) return null;
-  const extra = Math.max(0, hours - HOURLY_MAX_HOURS) * base.extraHourRate;
-  return { total: base.total + extra, city: slug };
+  if (!HOURLY_VEHICLES.includes(vehicle as HourlyVehicle)) return null;
+  const v = vehicle as HourlyVehicle, slug = cityOfText(pickup);
+  const area = slug ? (await hourlyAreaSettings()).find((a) => a.slug === slug && a.active) : undefined;
+  if (area && !area.rates[v].active) return null;
+  return { total: priceForHours(area?.rates[v] ?? DEFAULT_AREA_RATES[v], Math.max(HOURLY_MIN_HOURS, hours)), city: slug };
 }
 
 export async function saveTrip(input: TripInput, by: { name: string; agencyId?: string | null; commissionPercent?: number }) {

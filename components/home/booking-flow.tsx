@@ -835,9 +835,13 @@ export function BookingFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requoteReturn, returnTrip]);
 
-  function applyHourlyQuoteResponse(response: Response, result: HourlyQuote & { error?: string; manualReview?: boolean }) {
+  function applyHourlyQuoteResponse(response: Response, result: HourlyQuote & { error?: string; manualReview?: boolean; useTransfer?: boolean }) {
     if (!response.ok) {
-      if (result.manualReview) {
+      // Over 100 km between cities: priced as a transfer. Keep the destination and switch to the Transfer tab.
+      if (result.useTransfer) {
+        setHourlyQuote(null); setHourlyDropoffId(""); setServiceType("transfer");
+        setPricingMessage(t("search.hourlyUseTransfer"));
+      } else if (result.manualReview) {
         setHourlyQuote(null); setQuoteRequest(true); setHourlyRequestNote(result.error ?? "Operations quote required.");
         setPricingMessage(""); goToStage("vehicle");
       } else setPricingMessage(result.error ?? t("search.hourlyUnavailable"));
@@ -1839,7 +1843,7 @@ export function BookingFlow({
                   <dd className="mt-1 truncate text-base font-black text-ink sm:text-lg">{hourlyQuote.dropoff ? shortPlaceName(hourlyQuote.dropoff.text) : "Flexible itinerary within the pickup city"}</dd>
                 </div>
               </dl>
-              {hourlyQuote.cityToCity && <p className="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm text-ink">{hourlyQuote.area.name} · Same package prices in both directions. Minimum 6 hours.</p>}
+              {hourlyQuote.cityToCity && <p className="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm text-ink">{hourlyQuote.area.name} · Same hourly price in both directions. Minimum 6 hours.</p>}
               <p className="mt-3 text-sm text-slate-600">Unlimited kilometres within the approved itinerary. Fuel, tolls, parking, ferries and driver return travel included. Overtime: {money(hourlyQuote.prices[chosenVehicle.id]?.extraHourRate ?? 0)}/hour; the first 15 minutes are free, then each started hour is charged.</p>
             </>; })()}
             <h2 className="mt-8 text-sm font-black uppercase tracking-[.12em] text-ink">Choose your ride</h2>

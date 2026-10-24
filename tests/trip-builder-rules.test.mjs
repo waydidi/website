@@ -138,3 +138,9 @@ test('the /place confirmation says the hours came from Google Maps, the closed d
   assert.equal(r.placeHoursLineTh({ openTime: '07:00', closeTime: '19:00', closedDays: [] }, null), 'เปิด 07:00–19:00', 'typed by staff: no source note');
   assert.match(r.placeHoursLineTh({ openTime: null, closeTime: null, closedDays: [] }, null), /^ยังไม่มีเวลาเปิด/);
 });
+
+test('/trip hours charged: 5+ places 10 h, 4 places 6 h, fewer the hours the day takes (at least 3); a longer day is charged its hours', () => {
+  const h = r.tripChargeHours;
+  assert.deepEqual([h(5, 7), h(7, 4), h(4, 3), h(3, 2), h(2, 4.3), h(1, 0)], [10, 10, 6, 3, 5, 3]);
+  assert.deepEqual([h(5, 11.2), h(4, 7.5)], [12, 8], 'never less than the day takes');
+});

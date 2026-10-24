@@ -8,7 +8,7 @@ import HourlyCityPairs from "./city-pairs";
 import type { PricingVehicleId } from "@/lib/pricing";
 
 const CARS: [PricingVehicleId, string][] = [["economy_sedan", "Economy sedan"], ["comfort_suv", "Comfort SUV"], ["premium_minivan", "Premium Minivan"]];
-const COLS: [keyof AreaRate, string][] = [["hourlyRate", "Per hour (3 h minimum)"], ["p4", "4 hours"], ["p5", "5 hours"], ["p6", "6 hours"], ["p8", "7–8 hours"], ["p10", "9–10 hours"]];
+const COLS: [keyof AreaRate, string][] = [["hourlyRate", "Per hour"]];
 
 // Small outline of a city's border, drawn from its lat/lng rings.
 function BorderPreview({ area }: { area: HourlyArea }) {
@@ -65,7 +65,7 @@ export default function HourlyWorkspace() {
         </div>
         <div className="mt-4 rounded-xl bg-slate-50 p-3"><BorderPreview area={geo} /><p className="text-center text-[11px] text-slate-400">Border shown to customers · Boundaries: geoBoundaries</p></div>
         <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[720px] text-[13px]">
+          <table className="w-full min-w-[360px] text-[13px]">
             <thead><tr className="text-left text-slate-500"><th className="py-2 pr-3 font-medium">Car</th>{COLS.map(([, l]) => <th key={l} className="px-1.5 py-2 text-right font-medium">{l}</th>)}<th className="py-2 pl-3 text-center font-medium">On</th></tr></thead>
             <tbody>{CARS.map(([id, label]) => { const r = current.rates[id]; return <tr key={id} className="border-t border-slate-100">
               <td className="py-2 pr-3 font-medium">{label}</td>
@@ -74,7 +74,7 @@ export default function HourlyWorkspace() {
             </tr>; })}</tbody>
           </table>
         </div>
-        <p className="mt-3 text-[12px] text-slate-500">Prices in THB. Local bookings start at 3 hours. At 3 hours the hourly rate × 3 applies; from 4 hours the package price applies. BMW is not offered.</p>
+        <p className="mt-3 text-[12px] text-slate-500">Prices in THB. A booking costs hours × the hourly rate (3 to 10 hours; e.g. 6 hours at 300 = 1,800). Overtime is charged at the same rate. City-to-city trips use the first city’s rate, at least 6 hours; over 100 km they are priced as transfers. BMW is not offered.</p>
         <div className="mt-4 flex items-center gap-3">
           <button type="button" onClick={() => void save()} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-full bg-brand px-6 font-semibold text-white disabled:opacity-60">{busy ? <LoaderCircle size={16} className="animate-spin" /> : <Check size={16} />}Save {geo.name}</button>
           {note && <span className={`text-[14px] font-medium ${note === "Saved" ? "text-emerald-700" : "text-red-600"}`}>{note}</span>}
