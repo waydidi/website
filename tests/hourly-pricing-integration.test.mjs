@@ -33,11 +33,13 @@ const validation = await vite.ssrLoadModule('/lib/booking-validation.ts');
 const quoteRoute = await vite.ssrLoadModule('/app/api/hourly-quote/route.ts');
 const checkout = await vite.ssrLoadModule('/app/api/checkout/route.ts');
 const admin = await vite.ssrLoadModule('/app/api/admin/hourly-city-pairs/route.ts');
+const areaAdmin = await vite.ssrLoadModule('/app/api/admin/hourly-areas/route.ts');
+const areaPricing = await vite.ssrLoadModule('/lib/hourly-area-pricing.ts');
 const operations = await vite.ssrLoadModule('/app/api/hourly-requests/route.ts');
 const adminForms = await vite.ssrLoadModule('/app/api/admin/forms/route.ts');
 const date = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
 const dates = { pickupDate: date, pickupTime: '10:00', timezone: 'Asia/Bangkok' };
-let seq = 0, duration = 7200;
+let seq = 0, duration = 7200, distance = 90000;
 const places = {
   bangkok: [13.7563, 100.5018], pattaya: [12.9236, 100.8825], ayutthaya: [14.3532, 100.5684], kanchanaburi: [14.0228, 99.5328],
   ratchaburi: [13.5198, 99.9568, 'Ratchaburi'], maeklong: [13.4075, 100.0012, 'Samut Songkhram'],
@@ -49,7 +51,7 @@ globalThis.fetch = async (url) => {
     const id = u.split('/').at(-1), p = places[id]; assert.ok(p, id);
     return Response.json({ id, formattedAddress: id, location: { latitude: p[0], longitude: p[1] }, addressComponents: p[2] ? [{ longText: p[2], types: ['administrative_area_level_1'] }] : [] });
   }
-  if (u.startsWith('https://routes.googleapis.com/')) return Response.json({ routes: [{ distanceMeters: 150000, duration: duration + 's', polyline: { encodedPolyline: 'mock-route' } }] });
+  if (u.startsWith('https://routes.googleapis.com/')) return Response.json({ routes: [{ distanceMeters: distance, duration: duration + 's', polyline: { encodedPolyline: 'mock-route' } }] });
   throw new Error('External request blocked in test: ' + u);
 };
 function request(path, payload) { return new Request('https://example.invalid' + path, { method: 'POST', headers: { origin: 'https://example.invalid', 'content-type': 'application/json', 'cf-connecting-ip': 'test-' + ++seq }, body: JSON.stringify(payload) }); }
@@ -62,7 +64,7 @@ test('approved pairs quote identical prices in both directions, including market
     const b = await quote({ pickupPlaceId: destination, dropoffPlaceId: 'bangkok' });
     assert.equal(a.status, 200, JSON.stringify(a.body)); assert.equal(b.status, 200, JSON.stringify(b.body));
     assert.deepEqual(a.body.prices, b.body.prices);
-    assert.deepEqual(Object.values(a.body.prices).map(p => p.total), [2500, 2900, 3500]);
+    assert.deepEqual(Object.values(a.body.prices).map(p => p.total), [1800, 2100, 2400], '6 hours × 300 / 350 / 400');
     assert.equal(a.body.prices.comfort_bmw, undefined);
   }
 });
@@ -70,7 +72,7 @@ test('actual endpoints set pair price even with an unrelated service area', asyn
   const result = await quote({ areaSlug: 'phuket', bookedHours: 3 });
   assert.equal(result.status, 200); assert.equal(result.body.bookedHours, 6);
   assert.equal(result.body.area.id, 'phuket'); assert.equal(result.body.cityPairId, 'bangkok-pattaya');
-  assert.equal(result.body.prices.economy_sedan.total, 2500);
+  assert.equal(result.body.prices.economy_sedan.total, 1800);
 });
 test('local 6-hour sedan costs 1800 and has explicit unlimited distance and included tolls', async () => {
   const result = await quote({ dropoffPlaceId: 'bangkok', areaSlug: 'phuket' });
@@ -107,18 +109,41 @@ test('legacy API cannot bypass area selection or hourly duration limits', async 
   for (const h of [1, 2, 11, 12]) assert.equal((await quote({ bookedHours: h })).status, 400);
   assert.equal((await quote({ bookedHours: 3, dropoffPlaceId: undefined })).status, 200);
 });
-test('all package defaults match the confirmed price schedule', async () => {
+test('every city and city pair costs hours × 300 (sedan), 350 (SUV) or 400 (van)', async () => {
   const pair = (await pricing.hourlyCityPairSettings())[0];
-  assert.deepEqual([6, 7, 8, 9, 10].map(h => pricing.cityPairPrices(pair, h).premium_minivan.total), [3500, 3800, 4100, 4300, 4500]);
-  assert.deepEqual([6, 7, 8, 9, 10].map(h => pricing.cityPairPrices(pair, h).economy_sedan.total), [2500, 2800, 3100, 3400, 3700]);
+  assert.deepEqual([6, 7, 8, 9, 10].map(h => pricing.cityPairPrices(pair, h).economy_sedan.total), [1800, 2100, 2400, 2700, 3000]);
+  assert.deepEqual([6, 7, 8, 9, 10].map(h => pricing.cityPairPrices(pair, h).comfort_suv.total), [2100, 2450, 2800, 3150, 3500]);
+  assert.deepEqual([6, 7, 8, 9, 10].map(h => pricing.cityPairPrices(pair, h).premium_minivan.total), [2400, 2800, 3200, 3600, 4000]);
+  assert.equal(pricing.cityPairPrices(pair, 5), null, 'city-to-city is at least 6 hours');
+  for (const area of await areaPricing.hourlyAreaSettings()) {
+    const p3 = await areaPricing.areaHourlyPrices(area.slug, 3), p10 = await areaPricing.areaHourlyPrices(area.slug, 10);
+    assert.deepEqual([p3.economy_sedan.total, p3.comfort_suv.total, p3.premium_minivan.total], [900, 1050, 1200], area.slug);
+    assert.deepEqual([p10.economy_sedan.total, p10.comfort_suv.total, p10.premium_minivan.total], [3000, 3500, 4000], area.slug);
+    assert.deepEqual([p10.economy_sedan.extraHourRate, p10.comfort_suv.extraHourRate, p10.premium_minivan.extraHourRate], [300, 350, 400], 'overtime at the same rate');
+  }
+});
+test('city-to-city over 100 km is priced as a transfer: no hourly quote is saved; 100 km or less stays hourly', async () => {
+  const before = (await d1.prepare('SELECT count(*) AS n FROM hourly_quotes').first()).n;
+  distance = 100001;
+  try {
+    const long = await quote();
+    assert.equal(long.status, 422); assert.equal(long.body.code, 'HOURLY_USE_TRANSFER'); assert.equal(long.body.useTransfer, true);
+    assert.equal(long.body.quoteId, undefined); assert.match(long.body.error, /100 km/);
+    assert.equal((await d1.prepare('SELECT count(*) AS n FROM hourly_quotes').first()).n, before);
+  } finally { distance = 90000; }
+  distance = 100000;
+  try { assert.equal((await quote()).status, 200); } finally { distance = 90000; }
+  // Inside one city the distance does not matter.
+  distance = 150000;
+  try { assert.equal((await quote({ dropoffPlaceId: 'bangkok' })).status, 200); } finally { distance = 90000; }
 });
 test('checkout stores destination coordinates, route and fixed overtime rates', async () => {
   const q = (await quote()).body;
   const response = await checkout.POST(request('/api/checkout', checkoutInput(q)));
   const result = await response.json(); assert.equal(response.status, 200, JSON.stringify(result));
   const row = await d1.prepare('SELECT * FROM bookings WHERE hourly_quote_id=?').bind(q.quoteId).first();
-  assert.equal(row.total, 2500); assert.equal(row.dropoff_latitude, places.pattaya[0]); assert.equal(row.dropoff_longitude, places.pattaya[1]);
-  assert.equal(row.route_distance_meters, 150000); assert.equal(row.extra_hour_rate, 300); assert.equal(row.extra_distance_rate, 0);
+  assert.equal(row.total, 1800); assert.equal(row.dropoff_latitude, places.pattaya[0]); assert.equal(row.dropoff_longitude, places.pattaya[1]);
+  assert.equal(row.route_distance_meters, 90000); assert.equal(row.extra_hour_rate, 300); assert.equal(row.extra_distance_rate, 0);
 });
 test('quotes last exactly 30 minutes and expired or pre-policy quotes cannot check out', async () => {
   const q = (await quote()).body;
@@ -130,21 +155,32 @@ test('quotes last exactly 30 minutes and expired or pre-policy quotes cannot che
   await d1.prepare("UPDATE hourly_quotes SET expires_at='9999-12-31T23:59:59.999Z',pricing_version=1 WHERE id=?").bind(legacy.quoteId).run();
   const old = await checkout.POST(request('/api/checkout', checkoutInput(legacy))); assert.equal(old.status, 409); assert.equal((await old.json()).code, 'HOURLY_QUOTE_EXPIRED');
 });
+const bangkok = async () => (await areaPricing.hourlyAreaSettings()).find(a => a.slug === 'bangkok');
 test('admin edits affect new quotes while existing 30-minute rates remain locked', async () => {
   const old = (await quote({ bookedHours: 7 })).body;
-  const pair = (await pricing.hourlyCityPairSettings())[0]; pair.rates.economy_sedan.c7 = 3000;
-  const save = await admin.POST(request('/api/admin/hourly-city-pairs', pair)); assert.equal(save.status, 200, await save.text());
-  const current = (await quote({ bookedHours: 7 })).body; assert.equal(current.prices.economy_sedan.total, 3000);
+  assert.equal(old.prices.economy_sedan.total, 2100);
+  const area = await bangkok(); area.rates.economy_sedan.hourlyRate = 320;
+  const save = await areaAdmin.POST(request('/api/admin/hourly-areas', area)); assert.equal(save.status, 200, await save.text());
+  const current = (await quote({ bookedHours: 7 })).body; assert.equal(current.prices.economy_sedan.total, 2240, 'the pair uses the Bangkok rate');
+  const local = (await quote({ bookedHours: 4, dropoffPlaceId: 'bangkok' })).body; assert.equal(local.prices.economy_sedan.total, 1280);
   const result = await checkout.POST(request('/api/checkout', checkoutInput(old))); assert.equal(result.status, 200, await result.text());
-  const b = await d1.prepare('SELECT total FROM bookings WHERE hourly_quote_id=?').bind(old.quoteId).first(); assert.equal(b.total, 2800);
-  pair.rates.economy_sedan.c7 = 2800; assert.equal((await admin.POST(request('/api/admin/hourly-city-pairs', pair))).status, 200);
+  const b = await d1.prepare('SELECT total FROM bookings WHERE hourly_quote_id=?').bind(old.quoteId).first(); assert.equal(b.total, 2100);
+  area.rates.economy_sedan.hourlyRate = 300; assert.equal((await areaAdmin.POST(request('/api/admin/hourly-areas', area))).status, 200);
 });
-test('admin rejects free prices, decreasing packages and unauthenticated changes', async () => {
-  const pair = (await pricing.hourlyCityPairSettings())[0]; pair.rates.economy_sedan.c6 = 0;
-  assert.equal((await admin.POST(request('/api/admin/hourly-city-pairs', pair))).status, 400);
-  pair.rates.economy_sedan.c6 = 4000; assert.equal((await admin.POST(request('/api/admin/hourly-city-pairs', pair))).status, 400);
+test('admin rejects free or broken hourly rates, and unauthenticated changes', async () => {
+  const area = await bangkok();
+  for (const bad of [0, -300, 299.5, '300', 20001]) {
+    area.rates.economy_sedan.hourlyRate = bad;
+    assert.equal((await areaAdmin.POST(request('/api/admin/hourly-areas', area))).status, 400, String(bad));
+  }
+  assert.equal((await bangkok()).rates.economy_sedan.hourlyRate, 300, 'nothing was saved');
+  const pair = (await pricing.hourlyCityPairSettings())[0];
   globalThis.__hourlyAdmin = false;
-  try { assert.equal((await admin.POST(request('/api/admin/hourly-city-pairs', pair))).status, 401); } finally { globalThis.__hourlyAdmin = true; }
+  try {
+    assert.equal((await admin.POST(request('/api/admin/hourly-city-pairs', pair))).status, 401);
+    area.rates.economy_sedan.hourlyRate = 1; assert.equal((await areaAdmin.POST(request('/api/admin/hourly-areas', area))).status, 401);
+  } finally { globalThis.__hourlyAdmin = true; }
+  assert.equal((await bangkok()).rates.economy_sedan.hourlyRate, 300);
 });
 test('disabled vehicles vanish from new quotes and cannot use old quotes at checkout', async () => {
   const old = (await quote()).body, pair = (await pricing.hourlyCityPairSettings())[0];
@@ -179,13 +215,13 @@ test('operations submission is idempotent and appears in the existing admin queu
 
 test('city-pair admin save rolls back every vehicle when one update fails', async () => {
   const pair = (await pricing.hourlyCityPairSettings())[0];
-  const before = pair.rates.economy_sedan.c6;
-  await d1.exec("CREATE TRIGGER audit_pair_failure BEFORE UPDATE ON hourly_city_pair_rates WHEN NEW.vehicle_id='comfort_suv' BEGIN SELECT RAISE(ABORT,'test rollback'); END;");
+  await d1.exec("CREATE TRIGGER audit_pair_failure BEFORE INSERT ON hourly_city_pair_rates WHEN NEW.vehicle_id='comfort_suv' BEGIN SELECT RAISE(ABORT,'test rollback'); END;");
+  await d1.exec("CREATE TRIGGER audit_pair_failure_u BEFORE UPDATE ON hourly_city_pair_rates WHEN NEW.vehicle_id='comfort_suv' BEGIN SELECT RAISE(ABORT,'test rollback'); END;");
   try {
-    pair.rates.economy_sedan.c6 = before + 1;
+    pair.rates.economy_sedan.active = false;
     assert.equal((await admin.POST(request('/api/admin/hourly-city-pairs', pair))).status, 503);
-    assert.equal((await pricing.hourlyCityPairSettings())[0].rates.economy_sedan.c6, before);
-  } finally { await d1.exec('DROP TRIGGER audit_pair_failure;'); }
+    assert.equal((await pricing.hourlyCityPairSettings())[0].rates.economy_sedan.active, true);
+  } finally { await d1.exec('DROP TRIGGER audit_pair_failure;'); await d1.exec('DROP TRIGGER audit_pair_failure_u;'); }
 });
 test('overtime assessment and partial cash receipts are bounded, idempotent and preserve the base payment', async () => {
   const q = (await quote()).body;
@@ -204,7 +240,7 @@ test('overtime assessment and partial cash receipts are bounded, idempotent and 
   const results = await Promise.all([1, 2].map(() => action({ action: 'collect_hourly_overtime', amountMinor: 20000, receiptId: crypto.randomUUID() })));
   assert.deepEqual(results.map(r => r.status).sort(), [200, 409]);
   const dashboard = await (await payments.GET()).json(); const row = dashboard.rows.find(r => r.reference === b.reference);
-  assert.equal(row.overtimeReceivedMinor, 30000); assert.equal(row.overtimeDueMinor, 0); assert.equal(row.receivedMinor, 30000); assert.equal(row.cashDueMinor, 250000);
+  assert.equal(row.overtimeReceivedMinor, 30000); assert.equal(row.overtimeDueMinor, 0); assert.equal(row.receivedMinor, 30000); assert.equal(row.cashDueMinor, 180000);
   const stored = await d1.prepare('SELECT total,amount_paid,payment_status FROM bookings WHERE reference=?').bind(b.reference).first();
-  assert.equal(stored.total, 2500); assert.equal(stored.amount_paid, 0); assert.equal(stored.payment_status, 'cash_due');
+  assert.equal(stored.total, 1800); assert.equal(stored.amount_paid, 0); assert.equal(stored.payment_status, 'cash_due');
 });

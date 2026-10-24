@@ -7,8 +7,14 @@ export const HOURLY_MIN_HOURS = 3;
 export const HOURLY_MAX_HOURS = 10;
 export const CITY_TO_CITY_MIN_HOURS = 6;
 export const HOURLY_QUOTE_MINUTES = 30;
-export const HOURLY_POLICY_VERSION = 2;
-export const OVERTIME_RATES: Record<HourlyVehicle, number> = { economy_sedan: 300, comfort_suv: 350, premium_minivan: 400 };
+// 3: hours × hourly rate everywhere; city-to-city over 100 km is a transfer. Older quotes cannot check out.
+export const HOURLY_POLICY_VERSION = 3;
+/** Price per hour in every city (admin can change a city's rate); a booking costs hours × rate. */
+export const HOURLY_RATES: Record<HourlyVehicle, number> = { economy_sedan: 300, comfort_suv: 350, premium_minivan: 400 };
+/** Overtime is charged at the same hourly rate. */
+export const OVERTIME_RATES = HOURLY_RATES;
+/** A city-to-city trip with a longer drive than this is priced as a transfer, not by the hour. */
+export const CITY_TO_CITY_MAX_KM = 100;
 export const APPROVED_HOURLY_PAIRS = [
   { id: "bangkok-pattaya", from: "bangkok", to: "pattaya", name: "Bangkok ↔ Pattaya" },
   { id: "bangkok-ayutthaya", from: "bangkok", to: "ayutthaya", name: "Bangkok ↔ Ayutthaya" },

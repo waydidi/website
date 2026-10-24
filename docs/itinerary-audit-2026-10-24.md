@@ -4,6 +4,8 @@ Date: 24 October 2026 (Asia/Bangkok)
 Branch: `fix/itinerary-audit-2026-10-24`
 Starting commit: `360ef16d2b214c4d3cbd73862e2866819d7c7692`
 
+Integrated upstream main: `3f72710041eea53958096db8781dab7547906031` (PRs #239 and #240). Their hourly-pricing and highlights changes are preserved; they are not additional changes proposed by this audit.
+
 ## Scope and release status
 
 Reviewed the customer `/itinerary/[token]` page, its page components and public action/live/PDF endpoints; the shared admin/agency trip editor and API handlers; attraction and package data, photo upload integration, scheduling and travel estimation; D1 persistence and snapshots; live adjustments; PDF generation; and the relevant staff access rules and tests. The public `/trip/[reference]` ride-status experience is a related integration, not a redesigned page in this change.
@@ -101,15 +103,18 @@ Validation results:
 
 | Check | Result |
 |---|---|
-| `npm run lint` | Passed with no reported lint errors or warnings. |
+| `npm run lint` | Passed with zero errors; existing image/unused-variable warnings remain. |
 | `npm run typecheck` | Passed. |
 | Focused D1/planning/PDF/translation suite | Initial expanded run: 42 passed, zero failures. The later full run includes the additional upload, live-adjustment and unpublished-PDF regressions. |
-| Itinerary browser checks | All 23 applicable checks passed across desktop, Pixel 7 phone and 820 × 1180 tablet, including the admin setup. Two phone-only builder cases were intentionally skipped on desktop/tablet. |
-| Browser retry | One desktop case initially hit `ERR_EMPTY_RESPONSE` during a local server restart. It passed on a clean rerun (setup + case: 2 passed). No test assertion was removed or weakened. |
+| Itinerary browser checks | After upstream integration, all 26 applicable checks passed across desktop, Pixel 7 phone and 820 × 1180 tablet, including the admin setup and the new upstream default-highlights cases. Two phone-only builder cases were intentionally skipped on desktop/tablet. |
+| Browser retry | In an earlier run, one desktop case hit `ERR_EMPTY_RESPONSE` during a local server restart and passed on a clean rerun. The complete post-integration browser run passed without retries. No test assertion was removed or weakened. |
 | Responsive visual QA | Customer timeline/actions and editor stop cards inspected from browser screenshots. No horizontal overflow in the tested editor viewports. |
 | PDF visual QA | Long-content fixture rendered with Poppler: three A4 pages, zero characters outside page bounds in extraction; rendered pages inspected. |
-| Full `npm test` | 706 passed, zero failed/skipped/cancelled; build + repository-wide tests completed successfully. |
-| Final `npm run build` | Passed after the completed source changes. Existing vinext route-classification notices remain. |
+| Full `npm test` | 706 passed, zero failed/skipped/cancelled on the audited starting base, before integrating the concurrent upstream PRs. |
+| Final `npm run build` | Passed on the merged source after moving aside stale generated output following an `ENOTEMPTY` build-directory error. Existing vinext route-classification notices remain. |
+| Post-integration validation | Lint: zero errors, 63 warnings. Typecheck and clean build passed. All 96 focused itinerary, pricing, Telegram trip-builder, PDF and translation tests passed; zero failures/skips. Browser checks: 26 passed, two intentional phone-only skips on other viewports. |
+
+The final lint run caught a hook-reference ordering issue introduced during save protection; refs were moved before the callbacks that use them. The targeted hook lint check then passed.
 
 The default Vite dev server attempts to enumerate network interfaces, which this environment blocks. Browser runs used an explicit `127.0.0.1` host and a temporary tablet project configuration. A separate local checkout avoided cache interference with the repository-wide test runner. No production configuration was changed for these environment workarounds.
 

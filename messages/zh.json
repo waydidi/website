@@ -203,6 +203,10 @@
     "text": "暂无法提供按小时价格。",
     "status": "machine"
   },
+  "search.hourlyUseTransfer": {
+    "text": "此行程城市间距离超过 100 公里，因此按接送服务计价。请检查地址后重新搜索。",
+    "status": "machine"
+  },
   "search.hourlyTempUnavailable": {
     "text": "按小时价格暂时无法提供。",
     "status": "machine"

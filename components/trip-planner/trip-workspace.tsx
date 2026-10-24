@@ -78,6 +78,8 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
     return () => window.clearInterval(t);
   }, [chatStage]);
 
+  const editRevision = useRef(0);
+  const seq = useRef(0);
   const load = useCallback(async (requestedId = tripId, expectedRevision?: number) => {
     const [a, t] = await Promise.all([
       api<{ attractions: Attraction[] }>(`${base}/attractions`, "GET"),
@@ -90,13 +92,11 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load().catch((e: Error) => setError(e.message)); }, [load]);
 
-  const editRevision = useRef(0);
   const update = (patch: Partial<TripInput>) => { ++editRevision.current; if (Object.keys(patch).some((key) => !["title", "customerName", "customerEmail", "customerPhone", "notes", "templateName"].includes(key))) ++seq.current; setDraft((d) => (d ? { ...d, ...patch } : d)); setDirty(true); };
   const setStops = (stops: TripStop[]) => update({ stops: stops as TripInput["stops"] });
   const patchStop = (id: string, patch: Partial<TripStop>) => draft && setStops(draft.stops.map((s) => (s.id === id ? { ...s, ...patch } : s)) as TripStop[]);
 
   // Re-plan (road times, checks, price) a moment after each change.
-  const seq = useRef(0);
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };

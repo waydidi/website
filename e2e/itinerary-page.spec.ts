@@ -21,6 +21,10 @@ const snapshot = {
   ],
 };
 
+// Places added from Google Maps have no highlights of their own.
+const PLAIN_TOKEN = "ITINPLAINTESTTOKEN23";
+const plain = { ...snapshot, ref: "TP-E2E2", title: "Phuket temples", stops: [stop("p1", "Big Buddha", 9 * 60, {}), stop("p2", "Wat Chalong", 11 * 60, {}), stop("p3", "Phuket Old Town", 13 * 60, {}), stop("p4", "Promthep Cape", 16 * 60, {})] };
+
 test.beforeAll(() => {
   const at = new Date().toISOString();
   for (const path of localDatabases()) {
@@ -28,10 +32,12 @@ test.beforeAll(() => {
     try {
       db.prepare(`INSERT OR REPLACE INTO smart_trips(id,ref,status,title,token,snapshot_json,version,sent_at,hold_days,language,created_at,updated_at)
         VALUES('e2e-itinerary-page','TP-E2E1','sent',?,?,?,1,?,3650,'en',?,?)`).run(snapshot.title, TOKEN, JSON.stringify(snapshot), at, at, at);
+      db.prepare(`INSERT OR REPLACE INTO smart_trips(id,ref,status,title,token,snapshot_json,version,sent_at,hold_days,language,created_at,updated_at)
+        VALUES('e2e-itinerary-plain','TP-E2E2','sent',?,?,?,1,?,3650,'en',?,?)`).run(plain.title, PLAIN_TOKEN, JSON.stringify(plain), at, at, at);
     } finally { db.close(); }
   }
 });
-test.afterAll(() => { for (const path of localDatabases()) { const db = new DatabaseSync(path); try { db.prepare("DELETE FROM smart_trips WHERE id='e2e-itinerary-page'").run(); } finally { db.close(); } } });
+test.afterAll(() => { for (const path of localDatabases()) { const db = new DatabaseSync(path); try { db.prepare("DELETE FROM smart_trips WHERE id IN ('e2e-itinerary-page','e2e-itinerary-plain')").run(); } finally { db.close(); } } });
 
 test("breadcrumbs, the trip's photos and section tabs that jump to each part", async ({ page }, info) => {
   await page.goto(`/itinerary/${TOKEN}`);
@@ -92,18 +98,22 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await all.getByRole("button", { name: "Close" }).click();
   await expect(all).toHaveCount(0);
 
-  // Highlights first: the card shows the first highlight; "See more" opens all of them in a sheet from the bottom.
+  // First the day at a glance (like Klook): places, hours, departure, cancellation.
   const highlights = page.locator("#highlights");
-  await expect(highlights.getByRole("heading", { name: "Highlights" })).toBeVisible();
+  for (const line of ["Elephant Jungle Sanctuary", "Big Buddha", "08:30 – 17:00", "Departure type: Hotel pickup", "Free cancellation (48 hours notice)"]) await expect(highlights.getByText(line, { exact: true })).toBeVisible();
+  // Under it, the Highlights card (like Trip.com): the places' highlights, then what every Waydidi trip has.
+  const title = highlights.getByRole("heading", { name: "Highlights" });
+  await expect(title).toBeVisible();
+  expect((await title.boundingBox())!.y).toBeGreaterThan((await highlights.getByText("Free cancellation (48 hours notice)", { exact: true }).boundingBox())!.y);
   await expect(highlights.getByText("Feed and bathe rescued elephants")).toBeVisible();
   await highlights.getByRole("button", { name: "See more" }).click();
   const sheet = page.getByRole("dialog", { name: "Highlights" });
-  expect(await sheet.getByRole("listitem").allTextContents()).toEqual(["Feed and bathe rescued elephants", "45-metre marble Buddha with views over Chalong Bay"]);
+  expect(await sheet.getByRole("listitem").allTextContents()).toEqual(["Feed and bathe rescued elephants", "45-metre marble Buddha with views over Chalong Bay",
+    "Private: your own car and driver, only for your group", "Door to door: pickup and drop-off at your hotel",
+    "Well planned: times follow each place's opening hours and the drive between them", "Flexible: free cancellation up to 48 hours before"]);
   if (process.env.SHOT_DIR) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-highlights-sheet-${info.project.name}.png` }); }
   await sheet.getByRole("button", { name: "Close" }).click();
   await expect(sheet).toHaveCount(0);
-  // Under the highlights, the day at a glance (like Klook), and "View maps" opens the route map in a sheet.
-  for (const line of ["Elephant Jungle Sanctuary", "Big Buddha", "08:30 – 17:00", "Departure type: Hotel pickup", "Free cancellation (48 hours notice)"]) await expect(highlights.getByText(line, { exact: true })).toBeVisible();
   if (process.env.SHOT_DIR) { await highlights.getByRole("button", { name: "View maps" }).scrollIntoViewIfNeeded(); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-glance-${info.project.name}.png` }); }
   await highlights.getByRole("button", { name: "View maps" }).click();
   const maps = page.getByRole("dialog", { name: "Route map" });
@@ -212,6 +222,14 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   // Every section runs full width: no rounded cards.
   for (const id of ["highlights", "expect", "includes"]) expect(await page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).borderTopLeftRadius), id).toBe("0px");
   if (process.env.SHOT_DIR) { await page.waitForTimeout(1000); await page.screenshot({ path: `${process.env.SHOT_DIR}/itinerary-end-${info.project.name}.png` }); }
+});
+
+test("places without highlights still get the Highlights card, under the day at a glance", async ({ page }) => {
+  await page.goto(`/itinerary/${PLAIN_TOKEN}`);
+  const section = page.locator("#highlights");
+  for (const line of ["Big Buddha", "Wat Chalong", "Phuket Old Town", "Promthep Cape", "Departure type: Hotel pickup"]) await expect(section.getByText(line, { exact: true })).toBeVisible();
+  await expect(section.getByRole("heading", { name: "Highlights" })).toBeVisible();
+  await expect(section.getByText("Private: your own car and driver, only for your group")).toBeVisible();
 });
 
 test("end of the page: Help, Share and the copyright line", async ({ page, context }, info) => {

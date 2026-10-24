@@ -50,6 +50,7 @@
   "search.selectBoth": "Select both locations from the Google suggestions to calculate your route.",
   "search.selectPickup": "Select a pickup location from Google Maps.",
   "search.hourlyUnavailable": "Hourly pricing is unavailable.",
+  "search.hourlyUseTransfer": "This trip is over 100 km between cities, so it is priced as a transfer. Check your addresses and search again.",
   "search.hourlyTempUnavailable": "Hourly pricing is temporarily unavailable.",
   "search.customQuote": "This route needs a custom quote.",
   "search.routeUnavailable": "Route pricing is temporarily unavailable.",
