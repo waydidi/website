@@ -45,7 +45,7 @@ export async function uploadImage(original: File) {
   const file = await toJpeg(original);
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch("/api/admin/blog/images", { method: "POST", body: form });
+  const res = await fetch("/api/admin/attractions/images", { method: "POST", body: form });
   const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
   if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed.");
   return data.url;

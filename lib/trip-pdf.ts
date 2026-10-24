@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFP
 import { logoPng } from "@/lib/pdf-addon-images";
 import type { TripSnapshot } from "@/lib/smart-trips";
 
-const orange = rgb(1, 0.541, 0.02);
+const orange = rgb(254 / 255, 139 / 255, 5 / 255);
 const ink = rgb(0.122, 0.09, 0.149);
 const muted = rgb(0.45, 0.5, 0.58);
 const line = rgb(0.9, 0.92, 0.94);
@@ -15,7 +15,16 @@ const latin = (v: string) => v.replace(/[–—]/g, "-").replace(/[‘’]/g, "'
 
 function wrap(text: string, font: PDFFont, size: number, width: number) {
   const words = latin(text).split(" "); const lines: string[] = []; let cur = "";
-  for (const w of words) { const next = cur ? `${cur} ${w}` : w; if (font.widthOfTextAtSize(next, size) > width && cur) { lines.push(cur); cur = w; } else cur = next; }
+  const parts = words.flatMap((word) => {
+    const chunks: string[] = []; let part = "";
+    for (const char of word) {
+      if (part && font.widthOfTextAtSize(part + char, size) > width) { chunks.push(part); part = ""; }
+      part += char;
+    }
+    if (part) chunks.push(part);
+    return chunks;
+  });
+  for (const w of parts) { const next = cur ? `${cur} ${w}` : w; if (font.widthOfTextAtSize(next, size) > width && cur) { lines.push(cur); cur = w; } else cur = next; }
   if (cur) lines.push(cur);
   return lines;
 }
@@ -46,14 +55,18 @@ export async function createTripPdf(s: TripSnapshot, origin: string, preparedBy:
   const text = (t: string, x: number, yy: number, size = 10, font = regular, color = ink) => page.drawText(latin(t), { x, y: yy, size, font, color });
   const need = (h: number) => { if (y - h < 60) { page = pdf.addPage([W, H]); y = H - M; } };
 
-  // Header band
-  page.drawRectangle({ x: 0, y: H - 150, width: W, height: 150, color: orange });
+  // Size the band to all heading lines so long customer-supplied names are not truncated.
+  const titleLines = wrap(s.title.toUpperCase(), bold, 16, W - M * 2);
+  const preparedLines = wrap(preparedBy ? `Prepared by ${preparedBy} with Waydidi` : "Private day trip", bold, 11, W - M * 2);
+  const titleTop = 108 + Math.max(0, preparedLines.length - 1) * 14;
+  const headerHeight = Math.max(180, titleTop + Math.max(0, titleLines.length - 1) * 18 + 36);
+  page.drawRectangle({ x: 0, y: H - headerHeight, width: W, height: headerHeight, color: orange });
   const lw = 110, lh = (logo.height / logo.width) * lw;
   page.drawImage(logo, { x: M, y: H - 30 - lh, width: lw, height: lh });
-  text(preparedBy ? `Prepared by ${preparedBy} with Waydidi` : "Private day trip", M, H - 92, 11, bold, rgb(1, 1, 1));
-  text(s.title.toUpperCase(), M, H - 116, 20, bold, rgb(1, 1, 1));
-  text(`${dayNumber ? `Day ${dayNumber}  ·  ` : ""}${longDate(s.tripDate)}  ·  ${s.ref}  ·  version ${s.version}`, M, H - 136, 10, regular, rgb(1, 1, 1));
-  y = H - 180;
+  preparedLines.forEach((l, i) => text(l, M, H - 80 - i * 14, 11, bold, ink));
+  titleLines.forEach((l, i) => text(l, M, H - titleTop - i * 18, 16, bold, ink));
+  text(`${dayNumber ? `Day ${dayNumber}  ·  ` : ""}${longDate(s.tripDate)}  ·  ${s.ref}  ·  version ${s.version}`, M, H - headerHeight + 14, 10, regular, ink);
+  y = H - headerHeight - 30;
 
   // Trip facts
   const facts: [string, string][] = [["Prepared for", s.customerName || "Guest"], ["Pickup", s.pickupText ? `${s.startTime} · ${s.pickupText}` : s.startTime], ["Passengers", `${s.adults} adult${s.adults > 1 ? "s" : ""}${s.children ? ` + ${s.children} child${s.children > 1 ? "ren" : ""}` : ""}`], ["Vehicle", s.vehicleName], ["Trip length", `About ${s.durationHours} hours, back around ${hhmm(s.returnAt)}`]];
@@ -89,13 +102,13 @@ export async function createTripPdf(s: TripSnapshot, origin: string, preparedBy:
   y -= 18;
 
   // Summary and price
-  need(110);
-  page.drawRectangle({ x: M, y: y - 74, width: W - M * 2, height: 84, color: pale });
+  need(140);
+  page.drawRectangle({ x: M, y: y - 104, width: W - M * 2, height: 114, color: pale });
   text("ESTIMATED DRIVING", M + 14, y - 10, 8, bold, muted); text(`${Math.floor(s.totalDrive / 60)} hr ${s.totalDrive % 60} min`, M + 14, y - 26, 13, bold);
   text("TOTAL PRICE", M + 200, y - 10, 8, bold, muted); text(`THB ${s.total.toLocaleString("en-US")}`, M + 200, y - 26, 13, bold);
   const priceLines = [`Car, driver and fuel: THB ${s.transportPrice.toLocaleString("en-US")}`, s.feesIncluded ? `Tickets included: THB ${s.feesIncluded.toLocaleString("en-US")}` : "", s.discount ? `Discount: -THB ${s.discount.toLocaleString("en-US")}` : "", s.feesOnSite ? `Pay on the day: about THB ${s.feesOnSite.toLocaleString("en-US")} in entrance fees` : ""].filter(Boolean);
   priceLines.forEach((l, i) => text(l, M + 14, y - 44 - i * 11, 8.5, regular, muted));
-  y -= 100;
+  y -= 130;
 
   // Packing list
   if (s.packing.length) {
@@ -120,14 +133,18 @@ export async function createTripPdf(s: TripSnapshot, origin: string, preparedBy:
     page = pdf.addPage([W, H]); y = H - M;
     text(String(n).padStart(2, "0"), M, y - 8, 28, bold, orange);
     for (const [i, l] of wrap(st.name.toUpperCase(), bold, 18, W - M * 2 - 60).entries()) text(l, M + 56, y - 4 - i * 22, 18, bold);
-    y -= 52;
+    y -= Math.max(52, wrap(st.name.toUpperCase(), bold, 18, W - M * 2 - 60).length * 22 + 20);
     const img = await image(pdf, st.cover, origin);
     if (img) { const w = W - M * 2, h = Math.min(300, (img.height / img.width) * w); page.drawImage(img, { x: M, y: y - h, width: w, height: h }); y -= h + 18; }
-    text(`${st.program ? `${st.program} · ` : ""}${hhmm(st.start)}-${hhmm(st.end)}${st.openHours ? ` · open ${st.openHours}` : ""}`, M, y, 11, bold, orange); y -= 20;
-    if (st.description) { for (const l of wrap(st.description, regular, 11, W - M * 2)) { text(l, M, y, 11); y -= 15; } y -= 6; }
-    if (st.highlights.length) { text("HIGHLIGHTS", M, y, 9, bold, muted); y -= 15; for (const h of st.highlights) { text(`-  ${h}`, M, y, 10.5); y -= 14; } y -= 6; }
-    if (st.dressCode) { text(`Dress code: ${st.dressCode}`, M, y, 10, bold); y -= 16; }
-    if (st.fee) text(st.fee.included ? "Tickets are included in your price." : `Entrance fee paid on the day: THB ${st.fee.adult.toLocaleString("en-US")} adult${st.fee.child ? `, THB ${st.fee.child.toLocaleString("en-US")} child` : ""}.`, M, y, 10, regular, muted);
+    for (const l of wrap(`${st.program ? `${st.program} · ` : ""}${hhmm(st.start)}-${hhmm(st.end)}`, bold, 11, W - M * 2)) { need(16); text(l, M, y, 11, bold, orange); y -= 16; }
+    y -= 4;
+    if (st.description) { for (const l of wrap(st.description, regular, 11, W - M * 2)) { need(15); text(l, M, y, 11); y -= 15; } y -= 6; }
+    const paragraph = (value: string, size = 10.5, font = regular) => {
+      for (const l of wrap(value, font, size, W - M * 2)) { need(16); text(l, M, y, size, font); y -= 16; }
+    };
+    if (st.highlights.length) { need(32); text("HIGHLIGHTS", M, y, 9, bold, muted); y -= 15; for (const h of st.highlights) paragraph(`-  ${h}`); y -= 6; }
+    if (st.dressCode) paragraph(`Dress code: ${st.dressCode}`, 10, bold);
+    if (st.fee) paragraph(st.fee.included ? "Tickets are included in your price." : `Entrance fee paid on the day: THB ${st.fee.adult.toLocaleString("en-US")} adult${st.fee.child ? `, THB ${st.fee.child.toLocaleString("en-US")} child` : ""}.`, 10);
   }
   return pdf.save();
 }

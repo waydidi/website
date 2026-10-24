@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { smartTrips, smartTripVersions } from "@/db/schema";
@@ -14,7 +14,8 @@ export type TripRow = typeof smartTrips.$inferSelect;
 export const TRIP_STATUSES = ["draft", "pricing", "sent", "changes_requested", "accepted", "cancelled"] as const;
 export type TripStatus = (typeof TRIP_STATUSES)[number];
 
-const time = z.string().regex(/^\d{2}:\d{2}$/);
+import { time, tripDate } from "@/lib/trip-validation";
+export { time, tripDate } from "@/lib/trip-validation";
 const text = (max: number) => z.string().trim().max(max);
 const optText = (max: number) => text(max).nullable().optional().transform((v) => v || null);
 
@@ -38,25 +39,34 @@ export const stopSchema = z.object({
 
 export const tripSchema = z.object({
   id: z.string().max(60).optional(),
+  expectedUpdatedAt: z.string().datetime().optional(),
   title: text(120).min(2),
   area: text(60).default(""),
-  tripDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional().or(z.literal("").transform(() => null)),
+  tripDate: tripDate.nullable().optional().or(z.literal("").transform(() => null)),
   startTime: time.default("08:00"),
   pickupText: text(300).default(""),
-  pickupLat: z.number().nullable().default(null), pickupLng: z.number().nullable().default(null),
-  endText: optText(300), endLat: z.number().nullable().default(null), endLng: z.number().nullable().default(null),
+  pickupLat: z.number().min(-90).max(90).nullable().default(null), pickupLng: z.number().min(-180).max(180).nullable().default(null),
+  endText: optText(300), endLat: z.number().min(-90).max(90).nullable().default(null), endLng: z.number().min(-180).max(180).nullable().default(null),
   durationHours: z.number().int().min(1).max(16),
   adults: z.number().int().min(1).max(30), children: z.number().int().min(0).max(20), bags: z.number().int().min(0).max(30),
   vehicle: z.enum(Object.keys(VEHICLES) as [string, ...string[]]),
   language: z.enum(["en", "th", "zh"]).default("en"),
   customerName: optText(100), customerEmail: z.string().trim().toLowerCase().email().max(254).nullable().optional().or(z.literal("").transform(() => null)),
   customerPhone: optText(40), notes: optText(1500),
-  stops: z.array(stopSchema).max(30),
+  stops: z.array(stopSchema).max(30).refine((stops) => new Set(stops.map((s) => s.id)).size === stops.length, "Each destination must have a unique ID."),
   transportPrice: z.number().int().min(0).max(1_000_000),
   discount: z.number().int().min(0).max(1_000_000).default(0),
   holdDays: z.number().int().min(1).max(60).default(7),
   isTemplate: z.boolean().default(false),
   templateName: optText(120),
+}).superRefine((input, ctx) => {
+  for (const [lat, lng] of [["pickupLat", "pickupLng"], ["endLat", "endLng"]] as const) {
+    if ((input[lat] == null) !== (input[lng] == null)) ctx.addIssue({ code: "custom", path: [lat], message: "Select both latitude and longitude." });
+  }
+  input.stops.forEach((stop, index) => {
+    if ((stop.lat == null) !== (stop.lng == null)) ctx.addIssue({ code: "custom", path: ["stops", index, "lat"], message: "Select both latitude and longitude." });
+    if (stop.windowStart && stop.windowEnd && stop.windowEnd < stop.windowStart) ctx.addIssue({ code: "custom", path: ["stops", index, "windowEnd"], message: "The visit window ends before it starts." });
+  });
 });
 export type TripInput = z.infer<typeof tripSchema>;
 
@@ -134,7 +144,11 @@ export async function saveTrip(input: TripInput, by: { name: string; agencyId?: 
     const [existing] = await getDb().select().from(smartTrips).where(scope).limit(1);
     if (!existing) throw new Error("NOT_FOUND");
     if (existing.status === "accepted") throw new Error("LOCKED");
-    await getDb().update(smartTrips).set(values).where(eq(smartTrips.id, input.id));
+    // Compare and write in one statement: a payment or another editor may have won since the read.
+    const [saved] = await getDb().update(smartTrips).set({ ...values, updatedAt: new Date(Math.max(Date.now(), Date.parse(existing.updatedAt) + 1)).toISOString() })
+      .where(and(scope, ne(smartTrips.status, "accepted"), eq(smartTrips.updatedAt, input.expectedUpdatedAt ?? existing.updatedAt)))
+      .returning({ id: smartTrips.id });
+    if (!saved) throw new Error("CONFLICT");
     return { id: input.id, ref: existing.ref };
   }
   const id = crypto.randomUUID(), ref = await newRef();
@@ -166,7 +180,7 @@ export function inputFromRow(t: TripRow): TripInput {
 // ---- Frozen copy for the customer ------------------------------------------------
 
 export type SnapshotStop = {
-  id: string; kind: TripStop["kind"]; name: string; arrival: number; start: number; end: number; travelMin: number;
+  id: string; attractionId?: string; kind: TripStop["kind"]; name: string; arrival: number; start: number; end: number; travelMin: number;
   program: string | null; sessionTime: string | null; checkIn: number | null; lat: number | null; lng: number | null; note: string | null;
   description: string | null; highlights: string[]; cover: string | null; gallery: string[]; dressCode: string | null; openHours: string | null;
   fee: { adult: number; child: number; included: boolean } | null;
@@ -186,7 +200,7 @@ function snapshotStops(plan: Plan, views: Record<string, AttractionView>): Snaps
     const program = a?.programs.find((p) => p.id === s.programId);
     const buffer = program?.arrivalBufferMin ?? a?.arrivalBufferMin ?? 0;
     return {
-      id: s.id, kind: s.kind, name: a ? (a.customerName || a.name) : s.name, arrival: s.arrival, start: s.start, end: s.end, travelMin: s.travelMin,
+      id: s.id, attractionId: s.attractionId, kind: s.kind, name: a ? (a.customerName || a.name) : s.name, arrival: s.arrival, start: s.start, end: s.end, travelMin: s.travelMin,
       program: program?.name ?? null, sessionTime: s.sessionTime ?? null, checkIn: s.sessionTime ? toMin(s.sessionTime) - buffer : null,
       lat: s.lat ?? null, lng: s.lng ?? null, note: s.note ?? null,
       description: a?.description ?? null, highlights: a?.highlights ?? [], cover: a?.coverImage ?? null, gallery: a?.gallery ?? [],

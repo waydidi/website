@@ -134,7 +134,12 @@ test("breadcrumbs, the trip's photos and section tabs that jump to each part", a
   await expect(steps).toHaveCount(4);
   await expect(steps.first()).toContainText("08:30 · Departure");
   await expect(steps.nth(1).getByRole("heading", { name: "Elephant Jungle Sanctuary" })).toBeVisible();
-  await expect(steps.nth(1).getByText(/min drive|\d{2}:\d{2}/)).toHaveCount(0); // no times or drive lines on the places
+  const scheduleDetails = steps.nth(1).locator("details");
+  await expect(scheduleDetails.locator("p").first()).toBeHidden();
+  await scheduleDetails.locator("summary").click();
+  await expect(scheduleDetails.locator("p").first()).toContainText("09:30–11:30");
+  await expect(scheduleDetails).toContainText("120 min");
+  await scheduleDetails.locator("summary").click();
   await expect(steps.nth(1).getByRole("img", { name: "Elephant Jungle Sanctuary" })).toBeVisible();
   await expect(steps.nth(1).getByText("+1", { exact: true })).toBeVisible(); // one more gallery photo
   await expect(steps.nth(2).getByRole("heading", { name: "Big Buddha" })).toBeVisible();

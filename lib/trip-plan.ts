@@ -48,7 +48,7 @@ const weekday = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
 export function estimateDriveMinutes(a: Point, b: Point, kmh = 40) {
   const R = 6371, rad = (d: number) => (d * Math.PI) / 180;
   const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lng - a.lng) / 2) ** 2;
-  const km = 2 * R * Math.asin(Math.sqrt(h)) * 1.35;
+  const km = 2 * R * Math.asin(Math.sqrt(Math.min(1, Math.max(0, h)))) * 1.35;
   return km < 0.2 ? 0 : Math.max(5, Math.round((km / kmh) * 60));
 }
 
@@ -81,16 +81,20 @@ const pointOf = (s: TripStop): Point | null => (s.lat != null && s.lng != null ?
 export function schedule(stops: TripStop[], input: PlanInput): Plan {
   const planned: PlannedStop[] = [];
   const problems: Problem[] = [];
+  if (!input.from) problems.push({ level: "warning", message: "Pickup has no map location; the first drive time cannot be calculated." });
   let t = input.startMin, prev = input.from, drive = 0, activity = 0, waited = 0;
   for (const stop of stops) {
     if (stop.skipped) continue;
     const here = pointOf(stop);
     const own: Problem[] = [];
     const travelMin = prev && here ? input.travel(prev, here) : 0;
-    if (!here && stop.kind !== "meal") own.push({ level: "warning", stopId: stop.id, message: `${stop.name}: no map location, so drive time is not counted.` });
+    if (!here) own.push({ level: "warning", stopId: stop.id, message: `${stop.name}: no map location, so drive time is not counted.` });
+    if (travelMin >= 180) own.push({ level: "warning", stopId: stop.id, message: `${stop.name}: ${duration(travelMin)} driving before this stop. Consider a break or another day.` });
     const arrival = t + travelMin;
     const attraction = stop.attractionId ? input.attractions[stop.attractionId] : undefined;
     const program = attraction?.programs.find((p) => p.id === stop.programId);
+    if (stop.attractionId && !attraction) own.push({ level: "warning", stopId: stop.id, message: `${stop.name}: attraction details are unavailable; confirm hours and fees manually.` });
+    if (stop.programId && attraction && !program) own.push({ level: "error", stopId: stop.id, message: `${stop.name}: the selected package no longer exists. Select a current package.` });
     let start = arrival;
     if (attraction && closedOn(attraction, input.date)) own.push({ level: "error", stopId: stop.id, message: `${stop.name} is closed on this date.` });
     if (stop.sessionTime) {
@@ -169,12 +173,12 @@ export function alternatives(stops: TripStop[], input: PlanInput): Alternative[]
     if (stop.durationMin >= 60) {
       const shorter = stops.map((s) => (s.id === stop.id ? { ...s, durationMin: s.durationMin - 30 } : s));
       const q = schedule(shorter, input);
-      out.push({ label: `Shorten ${stop.name} (${stop.durationMin} → ${stop.durationMin - 30} min)`, returnAt: q.returnAt, fits: q.overBy === 0, stops: shorter });
+      out.push({ label: `Shorten ${stop.name} (${stop.durationMin} → ${stop.durationMin - 30} min)`, returnAt: q.returnAt, fits: q.overBy === 0 && errorCount(q) === 0, stops: shorter });
     }
   }
   out.sort((a, b) => Number(b.fits) - Number(a.fits) || a.returnAt - b.returnAt);
   const extendHours = Math.ceil(base.overBy / 60);
-  return [...out.slice(0, 3), { label: `Extend the trip by ${extendHours} hour${extendHours > 1 ? "s" : ""}`, returnAt: base.returnAt, fits: true, stops, extendHours }];
+  return [...out.slice(0, 3), { label: `Extend the trip by ${extendHours} hour${extendHours > 1 ? "s" : ""}`, returnAt: base.returnAt, fits: errorCount(schedule(stops, { ...input, endLimit: input.endLimit + extendHours * 60 })) === 0, stops, extendHours }];
 }
 
 /** Entrance fees: included ones go in the price, the rest are paid on the day. */

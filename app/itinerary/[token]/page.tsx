@@ -41,7 +41,7 @@ function tripStarted(tripDate: string | null) {
 }
 
 function Unavailable({ title, text, home }: { title: string; text: string; home: string }) {
-  return <main className="grid min-h-[70vh] place-items-center bg-canvas px-5"><div className="max-w-md rounded-[24px] bg-white p-8 text-center"><h1 className="text-[24px] font-bold">{title}</h1><p className="mt-3 text-slate-600">{text}</p><Link href="/" className="mt-5 inline-flex h-11 items-center rounded-full bg-brand px-5 font-semibold text-white">{home}</Link></div></main>;
+  return <main className="grid min-h-[70vh] place-items-center bg-canvas px-5"><div className="max-w-md rounded-[24px] bg-white p-8 text-center"><h1 className="text-[24px] font-bold">{title}</h1><p className="mt-3 text-slate-600">{text}</p><Link href="/" className="mt-5 inline-flex h-11 items-center rounded-full bg-[#FE8B05] px-5 font-semibold text-ink">{home}</Link></div></main>;
 }
 
 const TRIP_LANGS: TripLang[] = ["en", "th", "zh"];
@@ -54,12 +54,12 @@ export default async function ItineraryPage({ params, searchParams }: { params: 
   const opened = await tripByToken(token);
   const sentDays = opened ? (await groupDays(opened)).map((d) => ({ trip: d, snap: tripSnapshot(d) })).filter((d): d is { trip: typeof d.trip; snap: TripSnapshot } => Boolean(d.snap)) : [];
   // Photos come from the attractions as they are now (staff may add them after sending); everything else as sent.
-  const attractionOf = Object.fromEntries(sentDays.flatMap((d) => tripStops(d.trip).map((x) => [x.id, x.attractionId])));
+  const attractionOf = Object.fromEntries(sentDays.flatMap((d) => d.snap.stops.map((x) => [`${d.trip.id}-${x.id}`, x.attractionId ?? tripStops(d.trip).find((stop) => stop.id === x.id)?.attractionId])));
   const current = await attractionsById(Object.values(attractionOf).filter((x): x is string => Boolean(x)));
-  const days = sentDays.map((d) => ({ ...d, snap: { ...d.snap, stops: withCurrentPhotos(d.snap.stops, attractionOf, current) } }));
+  const days = sentDays.map((d) => ({ ...d, snap: { ...d.snap, stops: withCurrentPhotos(d.snap.stops, Object.fromEntries(d.snap.stops.map((x) => [x.id, attractionOf[`${d.trip.id}-${x.id}`]])), current) } }));
   const lead = days[0];
   const w = tripWords(chosen ?? opened?.language);
-  if (!opened || !lead) return <Unavailable title={w.notFound} text={w.notFoundText} home={w.home} />;
+  if (!opened || !lead || ["draft", "pricing"].includes(opened.status)) return <Unavailable title={w.notFound} text={w.notFoundText} home={w.home} />;
   const trip = lead.trip, s = lead.snap;
   if (trip.status === "cancelled") return <Unavailable title={w.withdrawn} text={w.withdrawnText} home={w.home} />;
   // Staff previews don't count as the customer opening it.
@@ -86,8 +86,8 @@ export default async function ItineraryPage({ params, searchParams }: { params: 
     return [
       ...(s.pickup ? [{ id: `pickup-${d.trip.id}`, kind: "pickup" as const, lat: s.pickup.lat, lng: s.pickup.lng, name: s.pickupText || w.hotelPickup, photo: null, subtitle: `${day}${w.departure} · ${s.startTime}`, detail: "" }] : []),
       ...s.stops.filter((x) => !(s.liveSkipped ?? []).includes(x.id) && x.lat != null && x.lng != null).map((x) => {
-        const a = current[attractionOf[x.id] ?? ""];
-        return { id: `${d.trip.id}-${x.id}`, kind: "stop" as const, lat: x.lat!, lng: x.lng!, name: x.name, photo: x.cover ?? x.gallery[0] ?? null, subtitle: `${day}${w.mapAttraction}`, detail: a?.address || a?.area || "" };
+        const a = current[attractionOf[`${d.trip.id}-${x.id}`] ?? ""];
+        return { id: `${d.trip.id}-${x.id}`, kind: "stop" as const, number: s.stops.filter((stop) => !(s.liveSkipped ?? []).includes(stop.id)).findIndex((stop) => stop.id === x.id) + 1, lat: x.lat!, lng: x.lng!, name: x.name, photo: x.cover ?? x.gallery[0] ?? null, subtitle: `${day}${w.mapAttraction}`, detail: a?.address || a?.area || "" };
       }),
     ];
   });
@@ -212,11 +212,18 @@ function DayTimeline({ s, w, title, id }: { s: TripSnapshot; w: TripWords; title
         <p className="pt-1.5 text-[18px] font-bold"><span className="tabular-nums">{s.startTime}</span> · {w.departure}</p>
         <p className="mt-0.5 text-[15px] text-slate-600">{s.pickupText || w.hotelPickup}</p>
       </li>
-      {stops.map((st) => {
+      {stops.map((st, index) => {
         const photos = [st.cover, ...st.gallery].filter((x, i, all): x is string => Boolean(x) && all.indexOf(x) === i);
         return <li key={st.id} className="relative pl-14">
-          <span aria-hidden className={`${dot} bg-emerald-50 text-emerald-700`}><Landmark size={19} /></span>
+          <span aria-hidden className={`${dot} bg-brand-wash font-bold text-brand-deep`}>{index + 1}</span>
           <h4 className="pt-1.5 text-[18px] font-bold">{st.name}</h4>
+          <details className="mt-2 text-[14px] text-slate-600">
+            <summary className="min-h-tap cursor-pointer content-center font-semibold text-brand-deep">{w.seeMore}</summary>
+            <p className="mt-1 flex items-center gap-2 tabular-nums"><Clock size={16} aria-hidden />{hhmm(st.start)}–{hhmm(st.end)} · {Math.max(0, st.end - st.start)} {w.minutesLabel}</p>
+            {st.travelMin > 0 && <p className="mt-1">{fill(w.driveMinutes, { n: st.travelMin })}</p>}
+            {st.start > st.arrival && <p className="mt-1">{fill(w.waitMinutes, { n: st.start - st.arrival })}</p>}
+            {st.note && <p className="mt-2 whitespace-pre-line">{st.note}</p>}
+          </details>
           {st.program && <p className="mt-0.5 text-[14px] text-slate-600">{st.program}</p>}
           {st.checkIn != null && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-[#9A4D00]"><Ticket size={14} />{fill(w.sessionCheckIn, { time: st.sessionTime ?? "", checkIn: hhmm(st.checkIn) })}</p>}
           {photos.length > 0 && <div className="mt-3 overflow-hidden rounded-2xl"><StopPhoto photos={photos} name={st.name} words={w} className="aspect-[16/10] w-full object-cover" /></div>}

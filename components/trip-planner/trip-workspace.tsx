@@ -21,7 +21,7 @@ type PlanResult = {
   suggestedTransport: { total: number; city: string } | null; packing: string[];
   alternatives: { label: string; returnAt: number; fits: boolean; stops: TripStop[]; extendHours?: number }[];
 };
-type TripMeta = { id: string; ref: string; status: string; token: string; version: number; sentAt: string | null; viewedAt: string | null; acceptedAt: string | null; changeRequest: string | null; bookingReference: string | null; agencyId: string | null; commissionPercent: number; isTemplate: boolean; dayNumber: number; groupId: string | null; thankedAt: string | null; feedbackRating: number | null; feedbackComment: string | null };
+type TripMeta = { id: string; ref: string; status: string; updatedAt: string; token: string; version: number; sentAt: string | null; viewedAt: string | null; acceptedAt: string | null; changeRequest: string | null; bookingReference: string | null; agencyId: string | null; commissionPercent: number; isTemplate: boolean; dayNumber: number; groupId: string | null; thankedAt: string | null; feedbackRating: number | null; feedbackComment: string | null };
 type GroupDay = { id: string; dayNumber: number; tripDate: string | null; total: number; status: string; stops: number };
 type Version = { version: number; note: string | null; createdBy: string | null; createdAt: string };
 type Attraction = AttractionView & { usedIn: number };
@@ -78,35 +78,43 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
     return () => window.clearInterval(t);
   }, [chatStage]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (requestedId = tripId, expectedRevision?: number) => {
     const [a, t] = await Promise.all([
       api<{ attractions: Attraction[] }>(`${base}/attractions`, "GET"),
-      tripId ? api<{ trip: TripMeta; input: TripInput; versions: Version[]; supplierContacts: Record<string, SupplierRow>; group: GroupDay[] }>(`${base}/trips/${tripId}`, "GET") : null,
+      requestedId ? api<{ trip: TripMeta; input: TripInput; versions: Version[]; supplierContacts: Record<string, SupplierRow>; group: GroupDay[] }>(`${base}/trips/${requestedId}`, "GET") : null,
     ]);
     setAttractions(a.attractions.filter((x) => x.status === "active"));
+    if (t && expectedRevision != null && expectedRevision !== editRevision.current) { setMeta(t.trip); return; }
     if (t) { setDraft(t.input); setMeta(t.trip); setVersions(t.versions); setGroup(t.group ?? []); setContacts(t.supplierContacts ?? {}); setSameEnd(t.input.endLat == null); setDirty(false); }
   }, [base, tripId]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load().catch((e: Error) => setError(e.message)); }, [load]);
 
-  const update = (patch: Partial<TripInput>) => { setDraft((d) => (d ? { ...d, ...patch } : d)); setDirty(true); };
+  const editRevision = useRef(0);
+  const update = (patch: Partial<TripInput>) => { ++editRevision.current; if (Object.keys(patch).some((key) => !["title", "customerName", "customerEmail", "customerPhone", "notes", "templateName"].includes(key))) ++seq.current; setDraft((d) => (d ? { ...d, ...patch } : d)); setDirty(true); };
   const setStops = (stops: TripStop[]) => update({ stops: stops as TripInput["stops"] });
   const patchStop = (id: string, patch: Partial<TripStop>) => draft && setStops(draft.stops.map((s) => (s.id === id ? { ...s, ...patch } : s)) as TripStop[]);
 
   // Re-plan (road times, checks, price) a moment after each change.
   const seq = useRef(0);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
   const runPlan = useCallback(async (d: TripInput, arrange = false) => {
     if (!d.title.trim()) d = { ...d, title: "Untitled trip" };
     const n = ++seq.current;
     setPlanning(true);
     try {
-      const r = await api<PlanResult>(`${base}/trips/plan`, "POST", { ...d, ...(arrange ? { arrange: true } : {}) });
+      const r = await api<PlanResult>(`${base}/trips/plan`, "POST", { ...d, ...(sameEnd ? { endText: null, endLat: null, endLng: null } : {}), ...(arrange ? { arrange: true } : {}) });
       if (n !== seq.current) return;
       setResult(r);
       if (arrange) { setDraft((cur) => (cur ? { ...cur, stops: r.stops as TripInput["stops"] } : cur)); setDirty(true); setNotice("Stops arranged around the fixed sessions."); }
     } catch (e) { if (n === seq.current) setError((e as Error).message); }
     finally { if (n === seq.current) setPlanning(false); }
-  }, [base]);
+  }, [base, sameEnd]);
   async function buildFromChat() {
     setChatError(""); setChatDone(null); setError(""); setNotice("");
     if (chatText.trim().length < 10) return setChatError("Paste the customer's chat first.");
@@ -135,22 +143,31 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
   async function save(silent = false) {
     if (!draft) return null;
     if (!draft.title.trim()) { setError("Give the trip a name first."); return null; }
+    const revision = editRevision.current;
     setSaving(true); setError("");
     try {
-      const r = await api<{ id: string; ref: string }>(`${base}/trips`, "POST", { ...draft, id: tripId ?? draft.id, endText: sameEnd ? null : draft.endText, endLat: sameEnd ? null : draft.endLat, endLng: sameEnd ? null : draft.endLng });
+      const r = await api<{ id: string; ref: string }>(`${base}/trips`, "POST", { ...draft, expectedUpdatedAt: meta?.updatedAt, id: tripId ?? draft.id, endText: sameEnd ? null : draft.endText, endLat: sameEnd ? null : draft.endLat, endLng: sameEnd ? null : draft.endLng });
+      if (revision !== editRevision.current) {
+        const latest = await api<{ trip: TripMeta }>(`${base}/trips/${r.id}`, "GET");
+        setMeta(latest.trip);
+        setDraft((current) => current ? { ...current, id: r.id } : current);
+        setNotice("The saved version is safe. You have newer edits; save again before continuing.");
+        return null;
+      }
       setDirty(false);
       if (!silent) setNotice("Saved.");
-      if (!tripId) { router.replace(`${home}/${r.id}`); return r.id; }
-      await load();
+      if (!tripId && !draft.id) { router.replace(`${home}/${r.id}`); return r.id; }
+      await load(r.id, revision);
+      if (revision !== editRevision.current) { setDirty(true); return null; }
       return r.id;
     } catch (e) { setError((e as Error).message); return null; }
     finally { setSaving(false); }
   }
   async function action(name: string, extra: Record<string, unknown> = {}) {
     setError(""); setNotice("");
-    const id = tripId ?? (await save(true));
+    const id = tripId ?? draft?.id ?? (await save(true));
     if (!id) return null;
-    if (dirty && tripId) await save(true);
+    if (dirty && (tripId || draft?.id) && !(await save(true))) return null;
     try {
       const r = await api<Record<string, unknown>>(`${base}/trips/${id}`, "POST", { action: name, ...extra });
       return r;
@@ -257,10 +274,10 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
             {more && <Field label="Children"><input type="number" min={0} max={20} value={draft.children} onChange={(e) => update({ children: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={inputCls} /></Field>}
             {more && <Field label="Bags"><input type="number" min={0} max={30} value={draft.bags} onChange={(e) => update({ bags: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={inputCls} /></Field>}
           </div>
-          <Field label="Pickup" className="mt-3" hint={draft.pickupLat == null && draft.pickupText ? "Pick a suggestion so drive times can be worked out" : undefined}><PlacePicker value={draft.pickupText} onChange={(p) => update({ pickupText: p.text, ...(p.lat != null ? { pickupLat: p.lat, pickupLng: p.lng } : {}) })} className={inputCls} placeholder="Hotel or address" /></Field>
+          <Field label="Pickup" className="mt-3" hint={draft.pickupLat == null && draft.pickupText ? "Pick a suggestion so drive times can be worked out" : undefined}><PlacePicker value={draft.pickupText} onChange={(p) => update({ pickupText: p.text, pickupLat: p.lat, pickupLng: p.lng })} className={inputCls} placeholder="Hotel or address" /></Field>
           {more && <>
-          <label className="mt-2 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={sameEnd} onChange={(e) => { setSameEnd(e.target.checked); setDirty(true); }} className="size-4 accent-brand" />End where the trip starts</label>
-          {!sameEnd && <Field label="Drop-off at the end" className="mt-2"><PlacePicker value={draft.endText ?? ""} onChange={(p) => update({ endText: p.text, ...(p.lat != null ? { endLat: p.lat, endLng: p.lng } : {}) })} className={inputCls} placeholder="Hotel, airport or address" /></Field>}
+          <label className="mt-2 flex items-center gap-2 text-[14px]"><input type="checkbox" checked={sameEnd} onChange={(e) => { setSameEnd(e.target.checked); update(e.target.checked ? { endText: null, endLat: null, endLng: null } : {}); }} className="size-4 accent-brand" />End where the trip starts</label>
+          {!sameEnd && <Field label="Drop-off at the end" className="mt-2"><PlacePicker value={draft.endText ?? ""} onChange={(p) => update({ endText: p.text, endLat: p.lat, endLng: p.lng })} className={inputCls} placeholder="Hotel, airport or address" /></Field>}
           <div className="mt-3 grid grid-cols-2 gap-3">
             <Field label="Vehicle" hint={vehicle ? `Seats ${vehicle.passengers}, ${vehicle.bags} bags` : undefined}><select value={draft.vehicle} onChange={(e) => update({ vehicle: e.target.value })} className={inputCls}>{Object.entries(VEHICLES).map(([id, v]) => <option key={id} value={id}>{v.name}</option>)}</select></Field>
             <Field label="Customer language"><select value={draft.language} onChange={(e) => update({ language: e.target.value as TripInput["language"] })} className={inputCls}><option value="en">English</option><option value="th">Thai</option><option value="zh">Chinese</option></select></Field>
@@ -279,14 +296,14 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
         <section className={`${tab === "stops" ? "" : "hidden lg:block"} rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5`}>
           <div className="flex items-center justify-between gap-2"><h2 className="text-[16px] font-bold">Itinerary</h2>{planning && <LoaderCircle size={16} className="animate-spin text-slate-400" />}</div>
           <ol className="mt-3 grid gap-2">
-            <li className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px]"><span className="grid size-7 place-items-center rounded-full bg-plum text-[12px] font-bold text-white">P</span><span className="font-bold tabular-nums">{draft.startTime}</span><span className="truncate">Pickup · {draft.pickupText || "set the pickup"}</span></li>
+            <li className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px]"><span className="grid size-11 place-items-center rounded-full bg-plum text-[12px] font-bold text-white">P</span><span className="font-bold tabular-nums">{draft.startTime}</span><span className="truncate">Pickup · {draft.pickupText || "set the pickup"}</span></li>
             {draft.stops.map((s, index) => {
               const p = plannedById[s.id]; const a = s.attractionId ? byId[s.attractionId] : undefined;
               const program = a?.programs.find((x) => x.id === s.programId);
               const sessions = a && program ? sessionsOn({ ...a, latitude: a.latitude, longitude: a.longitude } as never, program, draft.tripDate ?? null) : [];
               const contact = s.attractionId ? contacts[s.attractionId] : undefined;
               const hasError = p?.problems.some((x) => x.level === "error");
-              return <li key={s.id} draggable={!locked} onDragStart={() => setDragId(s.id)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (dragId) moveStop(dragId, index); setDragId(null); }}
+              return <li key={s.id} draggable={!locked} onDragStart={() => setDragId(s.id)} onDragOver={(e) => e.preventDefault()} onDragEnd={() => setDragId(null)} onDrop={() => { if (!locked && dragId) moveStop(dragId, index); setDragId(null); }}
                 onClick={() => setSelected(s.id)} className={`overflow-hidden rounded-2xl border text-[14px] transition ${selected === s.id ? "border-brand ring-2 ring-orange-100" : hasError ? "border-red-200 bg-red-50/40" : "border-slate-200"} ${s.skipped ? "opacity-55" : ""}`}>
                 {/* The place's photo fills the left 30% of the card; the time and name sit on the right. Details open on tap. */}
                 <div className="flex min-h-[104px]">
@@ -307,12 +324,12 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
                           {s.skipped && <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">Skipped</span>}
                         </div>
                       </div>
-                      {!locked && <div className="-mr-1 -mt-1 flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
-                        <button type="button" onClick={() => moveStop(s.id, index - 1)} disabled={index === 0} aria-label="Move up" className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100 disabled:opacity-30"><ArrowUp size={14} /></button>
-                        <button type="button" onClick={() => moveStop(s.id, index + 1)} disabled={index === draft.stops.length - 1} aria-label="Move down" className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100 disabled:opacity-30"><ArrowDown size={14} /></button>
-                        <button type="button" onClick={() => patchStop(s.id, { locked: !s.locked })} aria-label={s.locked ? "Unlock position" : "Lock position"} title={s.locked ? "Unlock" : "Lock this stop's position"} className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100">{s.locked ? <Lock size={14} /> : <Unlock size={14} />}</button>
-                        <button type="button" onClick={() => patchStop(s.id, { skipped: !s.skipped })} aria-label={s.skipped ? "Include" : "Skip"} title={s.skipped ? "Include again" : "Skip (keep in the list)"} className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100">{s.skipped ? <Plus size={14} /> : <X size={14} />}</button>
-                        <button type="button" onClick={() => setStops((draft.stops as TripStop[]).filter((x) => x.id !== s.id))} aria-label="Remove" className="grid size-7 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={14} /></button>
+                      {!locked && <div className="-mr-1 -mt-1 flex max-w-[88px] shrink-0 flex-wrap items-center justify-end" onClick={(e) => e.stopPropagation()}>
+                        <button type="button" onClick={() => moveStop(s.id, index - 1)} disabled={index === 0} aria-label="Move up" className="grid size-11 place-items-center rounded-full text-slate-400 hover:bg-slate-100 disabled:opacity-30"><ArrowUp size={14} /></button>
+                        <button type="button" onClick={() => moveStop(s.id, index + 1)} disabled={index === draft.stops.length - 1} aria-label="Move down" className="grid size-11 place-items-center rounded-full text-slate-400 hover:bg-slate-100 disabled:opacity-30"><ArrowDown size={14} /></button>
+                        <button type="button" onClick={() => patchStop(s.id, { locked: !s.locked })} aria-label={s.locked ? "Unlock position" : "Lock position"} title={s.locked ? "Unlock" : "Lock this stop's position"} className="grid size-11 place-items-center rounded-full text-slate-400 hover:bg-slate-100">{s.locked ? <Lock size={14} /> : <Unlock size={14} />}</button>
+                        <button type="button" onClick={() => patchStop(s.id, { skipped: !s.skipped })} aria-label={s.skipped ? "Include" : "Skip"} title={s.skipped ? "Include again" : "Skip (keep in the list)"} className="grid size-11 place-items-center rounded-full text-slate-400 hover:bg-slate-100">{s.skipped ? <Plus size={14} /> : <X size={14} />}</button>
+                        <button type="button" onClick={() => setStops((draft.stops as TripStop[]).filter((x) => x.id !== s.id))} aria-label="Remove" className="grid size-11 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={14} /></button>
                       </div>}
                     </div>
                   </div>
@@ -330,13 +347,13 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
                         <Field label="Minutes"><input type="number" min={0} max={720} value={s.durationMin} onChange={(e) => patchStop(s.id, { durationMin: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={inputCls} /></Field>
                         {s.kind === "meal" && <><Field label="Not before"><input type="time" value={s.windowStart ?? ""} onChange={(e) => patchStop(s.id, { windowStart: e.target.value || undefined })} className={inputCls} /></Field><Field label="Not after"><input type="time" value={s.windowEnd ?? ""} onChange={(e) => patchStop(s.id, { windowEnd: e.target.value || undefined })} className={inputCls} /></Field></>}
                       </div>
-                      {s.kind !== "attraction" && <Field label="Place"><PlacePicker value={s.name} onChange={(pp) => patchStop(s.id, { name: pp.text.split(",")[0] || pp.text, ...(pp.lat != null ? { lat: pp.lat, lng: pp.lng } : {}) })} className={inputCls} placeholder="Restaurant or place" /></Field>}
+                      {s.kind !== "attraction" && <Field label="Place"><PlacePicker value={s.name} onChange={(pp) => patchStop(s.id, { name: pp.text.split(",")[0] || pp.text, lat: pp.lat, lng: pp.lng })} className={inputCls} placeholder="Restaurant or place" /></Field>}
                       <Field label="Note for the customer"><input value={s.note ?? ""} onChange={(e) => patchStop(s.id, { note: e.target.value || undefined })} className={inputCls} /></Field>
                     </div>}
                 </div>}
               </li>;
             })}
-            {result && draft.stops.length > 0 && <li className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px]"><span className="grid size-7 place-items-center rounded-full bg-plum text-[12px] font-bold text-white">{sameEnd ? "P" : "E"}</span><span className="font-bold tabular-nums">{fmt(result.plan.returnAt)}</span><span className="truncate">{sameEnd ? "Back at pickup" : `Drop-off · ${draft.endText}`}{result.plan.returnTravel ? ` (${duration(result.plan.returnTravel)} drive)` : ""}</span></li>}
+            {result && draft.stops.length > 0 && <li className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px]"><span className="grid size-11 place-items-center rounded-full bg-plum text-[12px] font-bold text-white">{sameEnd ? "P" : "E"}</span><span className="font-bold tabular-nums">{fmt(result.plan.returnAt)}</span><span className="truncate">{sameEnd ? "Back at pickup" : `Drop-off · ${draft.endText}`}{result.plan.returnTravel ? ` (${duration(result.plan.returnTravel)} drive)` : ""}</span></li>}
           </ol>
           {!draft.stops.length && <p className="mt-3 rounded-2xl bg-orange-50 p-3 text-[14px] text-[#9A4D00]">No stops yet. Tap a place below, or Add attraction to search. Drive times, opening hours and the price are worked out for you.</p>}
           {!locked && popular.length > 0 && <div className="mt-3"><p className="text-[12px] font-semibold text-slate-500">{draft.area ? `Popular in ${draft.area}` : "Popular places"}: tap to add</p>

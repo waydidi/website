@@ -35,6 +35,7 @@ export async function adjustLive(trip: TripRow, change: { kind: "skip" | "shorte
   if (change.kind === "skip") { next.liveSkipped = [...new Set([...next.liveSkipped!, stop.id])]; note = `On the day: skipped ${stop.name}`; }
   else if (change.kind === "restore") { next.liveSkipped = next.liveSkipped!.filter((x) => x !== stop.id); note = `On the day: back in, ${stop.name}`; }
   else {
+    if (stop.end - stop.start <= 5) throw new Error("TOO_SHORT");
     const minutes = Math.min(Math.max(5, change.minutes ?? 15), stop.end - stop.start - 5);
     next.stops = snap.stops.map((s) => (s.id === stop.id ? { ...s, end: s.end - minutes } : s));
     note = `On the day: ${stop.name} shortened by ${minutes} min`;

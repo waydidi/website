@@ -1322,5 +1322,17 @@
   "trip.legs": {
     "text": "เที่ยวการเดินทาง",
     "status": "machine"
+  },
+  "itinerary.minutesLabel": {
+    "text": "นาที",
+    "status": "machine"
+  },
+  "itinerary.driveMinutes": {
+    "text": "ขับรถประมาณ {n} นาที",
+    "status": "machine"
+  },
+  "itinerary.waitMinutes": {
+    "text": "รอเริ่มกิจกรรม {n} นาที",
+    "status": "machine"
   }
 }
