@@ -42,9 +42,12 @@ export async function operationsInbox(db: SecurityDatabase, query = { kind: "all
       JOIN booking_assignments a ON a.id = e.assignment_id
       WHERE e.status = 'open' AND a.revoked_at IS NULL
       UNION ALL
-      SELECT 'delivery:' || id, 'delivery', booking_reference, 'warning',
-        'Booking notification failed', updated_at, status, NULL
-      FROM booking_notifications WHERE status = 'failed'
+      SELECT 'delivery:' || id, 'delivery', booking_reference,
+        CASE WHEN status IN ('uncertain','dead_letter') THEN 'critical' ELSE 'warning' END,
+        CASE WHEN status='uncertain' THEN 'Booking notification outcome needs review'
+          WHEN status='dead_letter' THEN 'Booking notification stopped after failure'
+          ELSE 'Booking notification failed' END, updated_at, status, NULL
+      FROM booking_notifications WHERE status IN ('failed','uncertain','dead_letter')
       UNION ALL
       SELECT 'delivery_job:' || id, 'delivery', booking_reference,
         CASE WHEN status IN ('uncertain','dead_letter') THEN 'critical' ELSE 'warning' END,

@@ -2,7 +2,9 @@ import { ensureReliabilityTables, reliabilityDb, rememberTelegramRoute } from ".
 import { env } from "cloudflare:workers";
 import { SITE_URL } from "@/lib/site";
 import { deliverToChannel } from "@/lib/channels";
-import { editCard, sendCard, sendPrivate, telegramChatId as teamTelegramChatId, telegramConfigured, TelegramDeliveryError } from "@/lib/telegram/client";
+import { editCard, sendCard, sendPrivate, sendPreparedTelegram, telegramChatId as teamTelegramChatId, telegramConfigured, TelegramDeliveryError } from "@/lib/telegram/client";
+import { ensureTelegramMessages, readTelegramMessage, freezeTelegramMessage, ownsTelegramMessage, telegramMessageGuard, telegramMessageOutcome, purgeTelegramMessages, type PreparedTelegram } from "@/lib/telegram/message-store";
+import { telegramBudgetExpired, telegramNextAttempt, TELEGRAM_MAX_AGE_MS } from "@/lib/telegram/outbox-rules";
 import { botEcho, conversationCard, conversationKeyboard, customerMessage, esc, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
 
 // One canonical support conversation, stored in D1. The website widget, the admin inbox and Telegram
@@ -83,72 +85,116 @@ export async function deliverBotMessage(conversationId: string, messageId: strin
 }
 
 async function deliverChatMessage(conversationId: string, messageId: string, bot: boolean) {
-  if (!telegramConfigured()) return;
-  const c = await conversationById(conversationId);
-  const m = await db().prepare("SELECT body,created_at,telegram_status,sender,is_bot FROM website_chat_messages WHERE id=? AND conversation_id=?").bind(messageId, conversationId).first<{ body: string; created_at: string; telegram_status: string | null; sender: string; is_bot: number }>();
-  if (!c || !m || m.telegram_status === "sent") return;
-  if (bot ? m.sender !== "staff" || !m.is_bot || (c.channel ?? "web") !== "web" : m.sender !== "visitor") return;
-  // Website questions always notify the team, including while Non is answering.
-  // External AI-managed channels keep their existing handover-only notifications.
-  if ((c.channel ?? "web") !== "web" && !c.assigned_name && (await nonAnswering(c))) {
-    await db().prepare("UPDATE website_chat_messages SET telegram_status='skipped' WHERE id=? AND telegram_status='pending'").bind(messageId).run();
-    return;
-  }
-  // Atomic claim prevents the request retry and cron from sending the same message together.
   await ensureReliabilityTables();
-  const claimId=crypto.randomUUID(), attemptedAt=nowIso();
-  const [claim]=await db().batch([
-    db().prepare(`INSERT INTO telegram_chat_delivery_attempts(message_id,claim_id,attempted_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM website_chat_messages WHERE id=? AND (telegram_status IN ('pending','failed') OR telegram_status IS NULL)) ON CONFLICT(message_id) DO UPDATE SET claim_id=excluded.claim_id,attempted_at=excluded.attempted_at,attempts=telegram_chat_delivery_attempts.attempts+1`).bind(messageId,claimId,attemptedAt,messageId),
-    db().prepare("UPDATE website_chat_messages SET telegram_status='processing' WHERE id=? AND EXISTS(SELECT 1 FROM telegram_chat_delivery_attempts WHERE message_id=? AND claim_id=?)").bind(messageId,messageId,claimId),
-  ]) as {meta:{changes:number}}[];
-  if (!claim.meta.changes) return;
-  let telegramId: number | null = null;
-  try {
-    // Assigned chats go to the assignee's private chat; definite rejection falls back to the group.
-    const dm = c.assigned_name ? await assigneeTelegramId(c) : null;
-    await db().prepare("UPDATE telegram_chat_delivery_attempts SET destination=? WHERE message_id=? AND claim_id=?").bind(dm??teamTelegramChatId(),messageId,claimId).run();
-    if (dm) {
-      let sent;
-      try { sent = await sendPrivate(dm, bot ? botEcho(c.public_id, m.body) : esc(m.body.slice(0, 4000))); }
-      catch (error) { if (!(error instanceof TelegramDeliveryError && error.retryable)) throw error; }
-      if (sent) {
-        // A failure after acceptance must not fall back to the group and duplicate the notification.
-        await rememberPrivate(dm, sent.message_id, c.id);
-        await db().prepare("UPDATE website_chat_messages SET telegram_status='sent' WHERE id=?").bind(messageId).run();
-        return;
-      }
-    }
-    await db().prepare("UPDATE telegram_chat_delivery_attempts SET destination=? WHERE message_id=? AND claim_id=?").bind(teamTelegramChatId(),messageId,claimId).run();
-    if (!c.telegram_message_id) {
-      const non = await nonAnswering(c);
-      const sent = await sendCard(conversationCard(c, { body: m.body, created_at: m.created_at, from: bot ? "Non (AI)" : "visitor" }, true, non), conversationKeyboard(c, adminUrl(c.id), non));
-      telegramId = sent.message_id;
-      await db().prepare("UPDATE website_conversations SET telegram_message_id=? WHERE id=? AND telegram_message_id IS NULL").bind(telegramId, c.id).run();
-    } else {
-      const sent = await sendCard(bot ? botEcho(c.public_id, m.body) : customerMessage(c.public_id, c.customer_name, m.body), undefined, c.telegram_message_id);
-      telegramId = sent.message_id;
-      await refreshCard(c.id).catch(() => undefined);
-    }
-    await rememberTelegramRoute(teamTelegramChatId(), telegramId!, c.id);
-    await db().prepare("UPDATE website_chat_messages SET telegram_status='sent',telegram_message_id=? WHERE id=?").bind(telegramId, messageId).run();
-  } catch (error) {
-    const status = telegramId === null && error instanceof TelegramDeliveryError && error.retryable ? "failed" : "uncertain";
-    await db().prepare("UPDATE website_chat_messages SET telegram_status=? WHERE id=? AND telegram_status='processing'").bind(status, messageId).run();
-    console.error("telegram delivery failed", error instanceof TelegramDeliveryError ? error.message : "Delivery outcome unknown; check Telegram");
-    throw error;
+  const store=reliabilityDb();
+  await ensureTelegramMessages(store,"chat");
+  const c=await conversationById(conversationId);
+  const m=await db().prepare("SELECT body,created_at,telegram_status,sender,is_bot FROM website_chat_messages WHERE id=? AND conversation_id=?").bind(messageId,conversationId).first<{body:string;created_at:string;telegram_status:string|null;sender:string;is_bot:number}>();
+  if(!c || !m || m.telegram_status && !["pending","failed"].includes(m.telegram_status))return;
+  if(bot ? m.sender!=="staff" || !m.is_bot || (c.channel??"web")!=="web" : m.sender!=="visitor")return;
+  const attempt=await db().prepare("SELECT attempts FROM telegram_chat_delivery_attempts WHERE message_id=?").bind(messageId).first<{attempts:number}>();
+  const attempts=attempt?.attempts??0;
+  if(telegramBudgetExpired({attempts,created_at:m.created_at})){
+    await store.batch([
+      store.prepare("UPDATE website_chat_messages SET telegram_status='dead_letter' WHERE id=? AND (telegram_status IN ('pending','failed') OR telegram_status IS NULL)").bind(messageId),
+      store.prepare("DELETE FROM telegram_chat_card_claims WHERE message_id=? AND EXISTS(SELECT 1 FROM website_chat_messages WHERE id=? AND telegram_status='dead_letter')").bind(messageId,messageId),
+    ]);return;
   }
+  let prepared:PreparedTelegram|null;
+  try{prepared=await readTelegramMessage(store,"chat",messageId);}
+  catch{await db().prepare("UPDATE website_chat_messages SET telegram_status='uncertain' WHERE id=? AND (telegram_status IN ('pending','failed') OR telegram_status IS NULL)").bind(messageId).run();return;}
+  if(!prepared && attempts>0){await db().prepare("UPDATE website_chat_messages SET telegram_status='uncertain' WHERE id=? AND (telegram_status IN ('pending','failed') OR telegram_status IS NULL)").bind(messageId).run();return;}
+  const schedule=await db().prepare("SELECT next_attempt_at FROM telegram_chat_payloads WHERE id=?").bind(messageId).first<{next_attempt_at:string|null}>();
+  if(schedule?.next_attempt_at && schedule.next_attempt_at>nowIso())return;
+  if(!telegramConfigured())return;
+  if(c.expires_at<=nowIso() || c.status==="closed" || (c.channel??"web")!=="web" && !c.assigned_name && await nonAnswering(c)){
+    await store.batch([
+      store.prepare("UPDATE website_chat_messages SET telegram_status='skipped' WHERE id=? AND (telegram_status IN ('pending','failed') OR telegram_status IS NULL)").bind(messageId),
+      store.prepare("DELETE FROM telegram_chat_card_claims WHERE message_id=? AND EXISTS(SELECT 1 FROM website_chat_messages WHERE id=? AND telegram_status='skipped')").bind(messageId,messageId),
+    ]);return;
+  }
+  const claimId=crypto.randomUUID(),attemptedAt=nowIso(),root=!c.telegram_message_id;
+  // Only one message may create a conversation's first card. Unknown outcomes keep
+  // that claim until the owner reviews them; a different message cannot blindly repost.
+  const rootClaim=store.prepare(`INSERT INTO telegram_chat_card_claims(conversation_id,message_id,claim_id,attempted_at)
+    SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM website_conversations WHERE id=? AND telegram_message_id IS NULL)
+    AND EXISTS(SELECT 1 FROM website_chat_messages WHERE id=? AND (telegram_status IN ('pending','failed') OR telegram_status IS NULL))
+    ON CONFLICT(conversation_id) DO UPDATE SET claim_id=excluded.claim_id,attempted_at=excluded.attempted_at
+    WHERE telegram_chat_card_claims.message_id=excluded.message_id`).bind(c.id,messageId,claimId,attemptedAt,c.id,messageId);
+  const results=await store.batch([
+    ...(root?[rootClaim]:[]),
+    store.prepare(`INSERT INTO telegram_chat_delivery_attempts(message_id,claim_id,attempted_at)
+      SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM website_chat_messages WHERE id=? AND (telegram_status IN ('pending','failed') OR telegram_status IS NULL))
+      AND (?=0 OR EXISTS(SELECT 1 FROM telegram_chat_card_claims WHERE conversation_id=? AND message_id=? AND claim_id=?))
+      AND NOT EXISTS(SELECT 1 FROM telegram_chat_payloads WHERE id=? AND next_attempt_at>?)
+      ON CONFLICT(message_id) DO UPDATE SET claim_id=excluded.claim_id,attempted_at=excluded.attempted_at,attempts=telegram_chat_delivery_attempts.attempts+1
+      WHERE telegram_chat_delivery_attempts.attempts=?`)
+      .bind(messageId,claimId,attemptedAt,messageId,root?1:0,c.id,messageId,claimId,messageId,attemptedAt,attempts),
+    store.prepare("UPDATE website_chat_messages SET telegram_status='processing' WHERE id=? AND EXISTS(SELECT 1 FROM telegram_chat_delivery_attempts WHERE message_id=? AND claim_id=?)").bind(messageId,messageId,claimId),
+  ]);
+  if(!results[root?1:0].meta.changes)return;
+  const lease={kind:"chat" as const,id:messageId,claim:claimId};
+  let telegramId:number|null=null,actualDestination:string|null=null,status="sent",errorCode:string|null=null,retryAfter=0,group=false;
+  try{
+    if(!prepared){
+      const non=await nonAnswering(c),dm=c.assigned_name?await assigneeTelegramId(c):null;
+      const groupPayload={chat_id:teamTelegramChatId(),text:root?conversationCard(c,{body:m.body,created_at:m.created_at,from:bot?"Non (AI)":"visitor"},true,non):bot?botEcho(c.public_id,m.body):customerMessage(c.public_id,c.customer_name,m.body),parse_mode:"HTML",disable_web_page_preview:true,
+        ...(root?{reply_markup:{inline_keyboard:conversationKeyboard(c,adminUrl(c.id),non)}}:{reply_parameters:{message_id:c.telegram_message_id,allow_sending_without_reply:true}})};
+      prepared=await freezeTelegramMessage(store,lease,{primary:dm?{chat_id:dm,text:bot?botEcho(c.public_id,m.body):esc(m.body.slice(0,4000)),parse_mode:"HTML"}:groupPayload,...(dm?{fallback:groupPayload}:{}),context:{group:teamTelegramChatId(),staffId:c.assigned_staff_id,telegramUser:c.assigned_telegram_user_id,assignedName:c.assigned_name,root,dm:Boolean(dm)}});
+    }
+    if(!prepared || !await ownsTelegramMessage(store,lease))return;
+    const fresh=await conversationById(c.id),dm=fresh?.assigned_name?await assigneeTelegramId(fresh):null;
+    if(!fresh || fresh.expires_at<=nowIso() || fresh.status==="closed" || prepared.context.group!==teamTelegramChatId() || prepared.context.staffId!==fresh.assigned_staff_id || prepared.context.telegramUser!==fresh.assigned_telegram_user_id || prepared.context.assignedName!==fresh.assigned_name || Boolean(prepared.context.root)!==!fresh.telegram_message_id || prepared.context.dm && prepared.primary.chat_id!==dm){
+      status="uncertain";errorCode="Conversation routing changed; review before resending";
+    }else if(!await ownsTelegramMessage(store,lease))return;
+    else{
+      actualDestination=String(prepared.primary.chat_id);
+      await db().prepare("UPDATE telegram_chat_delivery_attempts SET destination=? WHERE message_id=? AND claim_id=?").bind(actualDestination,messageId,claimId).run();
+      if(!await ownsTelegramMessage(store,lease))return;
+      let sent;
+      try{sent=await sendPreparedTelegram(prepared.primary);group=!prepared.context.dm;}
+      catch(error){
+        // A flood hold or ambiguous response must not trigger a second destination.
+        if(!prepared.fallback || !(error instanceof TelegramDeliveryError && error.retryable && !error.retryAfterMs && error.message!=="Telegram: rate limited"))throw error;
+        if(!await ownsTelegramMessage(store,lease))return;
+        actualDestination=String(prepared.fallback.chat_id);
+        await db().prepare("UPDATE telegram_chat_delivery_attempts SET destination=? WHERE message_id=? AND claim_id=?").bind(actualDestination,messageId,claimId).run();
+        if(!await ownsTelegramMessage(store,lease))return;
+        sent=await sendPreparedTelegram(prepared.fallback);group=true;
+      }
+      telegramId=sent.message_id;
+    }
+  }catch(error){
+    status=telegramId===null && error instanceof TelegramDeliveryError && error.retryable?"failed":"uncertain";
+    errorCode=error instanceof TelegramDeliveryError?error.message:"Delivery outcome unknown; check Telegram";
+    retryAfter=error instanceof TelegramDeliveryError?error.retryAfterMs:0;
+  }
+  const next=telegramNextAttempt(attempts+1,retryAfter);
+  if(status==="failed" && (telegramBudgetExpired({attempts:attempts+1,created_at:m.created_at}) || Date.parse(next)>=Date.parse(m.created_at)+TELEGRAM_MAX_AGE_MS))status="dead_letter";
+  const guard=telegramMessageGuard(lease),statements=[telegramMessageOutcome(store,lease,status==="failed"?next:null,telegramId,errorCode)];
+  if(telegramId && actualDestination){
+    if(group){
+      statements.push(store.prepare(`INSERT OR IGNORE INTO telegram_message_routes(chat_id,message_id,conversation_id) SELECT ?,?,? WHERE ${guard.sql}`).bind(actualDestination,telegramId,c.id,...guard.values));
+      if(prepared?.context.root)statements.push(store.prepare(`UPDATE website_conversations SET telegram_message_id=? WHERE id=? AND telegram_message_id IS NULL AND ${guard.sql}`).bind(telegramId,c.id,...guard.values));
+    }else statements.push(store.prepare(`INSERT OR IGNORE INTO telegram_dm_messages(chat_id,message_id,conversation_id,created_at) SELECT ?,?,?,? WHERE ${guard.sql}`).bind(actualDestination,telegramId,c.id,nowIso(),...guard.values));
+  }
+  if(status==="sent" || status==="dead_letter")statements.push(store.prepare(`DELETE FROM telegram_chat_card_claims WHERE message_id=? AND claim_id=? AND ${guard.sql}`).bind(messageId,claimId,...guard.values));
+  statements.push(store.prepare(`UPDATE website_chat_messages SET telegram_status=?,telegram_message_id=CASE WHEN ?=1 THEN ? ELSE telegram_message_id END WHERE id=? AND ${guard.sql}`).bind(status,group?1:0,telegramId,messageId,...guard.values));
+  const saved=await store.batch(statements);
+  if(saved[saved.length-1].meta.changes && status==="sent" && group && !prepared?.context.root)await refreshCard(c.id).catch(()=>undefined);
 }
+
 
 /** Retries customer messages and website bot replies with definite failed/pending delivery. */
 export async function retryFailedTelegram(limit = 20) {
-  if (!telegramConfigured()) return 0;
   // An interrupted send may have reached Telegram. Surface it for review, never blindly repeat it.
   await ensureReliabilityTables();
+  await purgeTelegramMessages(reliabilityDb(),"chat");
   await db().prepare("UPDATE website_chat_messages SET telegram_status='uncertain' WHERE telegram_status='processing' AND COALESCE((SELECT attempted_at FROM telegram_chat_delivery_attempts a WHERE a.message_id=website_chat_messages.id),created_at)<?").bind(new Date(Date.now()-120000).toISOString()).run();
-  const rows = (await db().prepare("SELECT id,conversation_id,is_bot FROM website_chat_messages WHERE (sender='visitor' OR (sender='staff' AND is_bot=1)) AND telegram_status IN ('failed','pending') AND created_at<? ORDER BY rowid LIMIT ?")
-    .bind(new Date(Date.now() - 60000).toISOString(), limit).all<{ id: string; conversation_id: string; is_bot: number }>()).results;
+  const rows = (await db().prepare("SELECT m.id,m.conversation_id,m.is_bot FROM website_chat_messages m LEFT JOIN telegram_chat_payloads p ON p.id=m.id WHERE (m.sender='visitor' OR (m.sender='staff' AND m.is_bot=1)) AND m.telegram_status IN ('failed','pending') AND m.created_at<? AND (p.next_attempt_at IS NULL OR p.next_attempt_at<=?) AND NOT EXISTS(SELECT 1 FROM telegram_chat_card_claims r JOIN website_conversations c ON c.id=r.conversation_id WHERE r.conversation_id=m.conversation_id AND r.message_id<>m.id AND c.telegram_message_id IS NULL) ORDER BY m.rowid LIMIT ?")
+    .bind(new Date(Date.now() - 60000).toISOString(),nowIso(), limit).all<{ id: string; conversation_id: string; is_bot: number }>()).results;
   let ok = 0;
-  for (const r of rows) { try { await deliverChatMessage(r.conversation_id, r.id, Boolean(r.is_bot)); ok++; } catch { /* stays failed for the next run */ } }
+  for (const r of rows) { try { await deliverChatMessage(r.conversation_id, r.id, Boolean(r.is_bot)); if((await db().prepare("SELECT telegram_status FROM website_chat_messages WHERE id=?").bind(r.id).first<{telegram_status:string}>())?.telegram_status==="sent")ok++; } catch { /* the lease is recovered without blindly resending */ } }
   return ok;
 }
 

@@ -27,6 +27,7 @@ function telegramReply<T>(response: Response, body: unknown): T {
   const seconds = data.parameters?.retry_after;
   const retryAfterMs = typeof seconds === "number" && Number.isInteger(seconds) && seconds >= 0 ? Math.min(seconds, 86400) * 1000 : 0;
   const reason = rejected && /message is not modified/i.test(description) ? "message is not modified"
+    : rejected && response.status === 403 && /bot (?:was )?blocked/i.test(description) ? "bot blocked"
     : rejected && response.status === 400 && /quote/i.test(description) ? "quote rejected"
     : rejected && response.status === 429 ? "rate limited" : rejected ? "request rejected" : "delivery outcome unknown";
   throw new TelegramDeliveryError(`Telegram: ${reason}`, rejected, retryAfterMs);
@@ -58,6 +59,13 @@ export const sendTo = (chatId: string, text: string, keyboard?: InlineKeyboard, 
     ...(replyTo ? { reply_parameters: replyParameters(replyTo, quote) } : {}) });
 
 export const sendCard = (text: string, keyboard?: InlineKeyboard, replyTo?: number, quote?: string) => sendTo(telegramChatId(), text, keyboard, replyTo, quote);
+
+/** Send a previously stored JSON envelope, with a verified message acknowledgment. */
+export async function sendPreparedTelegram(payload: Record<string, unknown>) {
+  const message = await tg<TelegramMessage>("sendMessage", payload);
+  if (!message || !Number.isSafeInteger(message.message_id) || message.message_id <= 0) throw new TelegramDeliveryError("Provider acknowledgment is invalid; check Telegram", false);
+  return message;
+}
 
 /** A message to one person's private chat with the bot (they must have pressed Start once). */
 export const sendPrivate = (chatId: string, text: string, replyTo?: number) =>

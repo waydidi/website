@@ -1,6 +1,6 @@
 # Booking notification delivery
 
-This changes existing booking confirmation email/PDF delivery and the general Telegram job outbox. It does not introduce a marketing message, charge, refund or automatic resend of an uncertain result. This is an implementation checkpoint; the separate assignment/chat retry loops, audited staff review, storage migration and recovery work remain in progress.
+This changes existing booking confirmation email/PDF delivery and the general, assignment and chat Telegram outboxes. It does not introduce a marketing message, charge, refund or automatic resend of an uncertain result. This is an implementation checkpoint; audited staff review, missing legacy-job reconciliation, storage migration and recovery work remain in progress.
 
 ## Behaviour
 
@@ -22,7 +22,7 @@ Keep the background flag off until authenticated checks establish the correct Wo
 
 Apply or verify the additive migration in the intended database; the runtime bootstrap is also idempotent. Inspect old attempted jobs before rollout: they may move into review instead of receiving a changed message. Watch Operations for `uncertain`, `dead_letter` and configuration failures. Preserve snapshots during rollback, keep the background flag at `0`, and do not revert to an older consumer that rebuilds previously attempted emails under changed keys/bodies. Disabling this flag alone preserves the new retry protections and returns new first attempts inline.
 
-Tests use local Miniflare/D1, real message rendering and mocked provider HTTP only. No live email is sent. Production provisioning and actual cron invocation are separate, still-pending evidence. Bounds for the separate Telegram assignment/chat loops, missing legacy job reconciliation and a staff review/audit workflow still need completion before the notification engineering item is checked off.
+Tests use local Miniflare/D1, real message rendering and mocked provider HTTP only. No live email is sent. Production provisioning and actual cron invocation are separate, still-pending evidence. Missing legacy-job reconciliation and a staff review/audit workflow still need completion before the notification engineering item is checked off.
 
 ## General Telegram outbox
 
@@ -32,4 +32,20 @@ Producers can update an unattempted queued payload. Once attempted, retries pres
 
 Telegram client errors now contain fixed descriptions rather than arbitrary provider text, including for multipart uploads. Responses with a non-Boolean success field are rejected. The support settings list shows when automatic retries have stopped. General Telegram booking failures and terminal review jobs also appear in Operations without message bodies or destinations; unscoped chat jobs remain in Telegram settings. `dead_letter` cannot be silently reset by the existing retry button. A deliberate replacement message needs the upcoming audited review workflow.
 
-The general outbox reuses existing tables and runtime bootstrap; this checkpoint adds no schema migration or new message category. It does not yet impose the same limits on `booking_notifications` assignment delivery or website-chat delivery attempts, which remain separate consumers and are still on the engineering roadmap.
+The general outbox reuses existing tables and runtime bootstrap; that slice adds no schema migration or new message category. The separate assignment/chat consumers now use the stored-message implementation below.
+
+## Assignment and chat outboxes
+
+Assignment and chat notifications keep their existing queue IDs, ownership checks and routing. They stop after 12 claimed attempts or seven days, persist rate holds, verify numeric message acknowledgments and fence result writes by the current claim. Missing credentials do not erase legacy ambiguity or bypass retry budgets. Already-attempted messages without a recoverable snapshot become `uncertain`; they are not silently rebuilt. A known blocked-bot diagnostic uses fixed allowlisted text, preserving useful operational information without retaining arbitrary provider descriptions.
+
+Additive migration `0114_telegram_message_payloads.sql` and matching first-use bootstrap add private assignment/chat payload tables and a first-card claim table. Both consumers persist the rendered JSON envelope and SHA-256 before requesting Telegram. Retries reuse the original body, keyboard, reply target and destination. A changed assignment token/booking version, changed destination, invalid snapshot or changed chat assignee stops the old message for review. Assignment validity and fresh lease ownership are rechecked immediately before sending. The existing opt-in linked-driver message path remains in the general outbox.
+
+An assigned chat's definite private-message rejection can fall back to the frozen group message. Rate limits and ambiguous outcomes do not trigger that fallback. Saved backoff applies to direct calls as well as cron recovery, and held jobs do not occupy every recovery slot. The attempt limit counts claimed attempts; the existing short flood wait and definite private-to-group fallback can each make more than one HTTP request within a claim.
+
+Only one message may create a conversation's first group card. Other messages stay pending until that card is known, then use it as a reply target. An unknown first-card outcome keeps its claim for review rather than letting the next message create a duplicate. A blocked conversation is excluded from the recovery queue so unrelated conversations continue. Expired/closed chats stop; known skipped messages release an unused first-card claim. Incoming questions remain saved and visible in the web support inbox.
+
+Provider acknowledgments, message status, root-card updates and routing mappings commit together under the current claim. A late response cannot mark a newer attempt sent or write its mappings. A database failure after acceptance leaves a processing/uncertain result for recovery and review, without a blind resend. Provider message IDs indicate acknowledgment rather than proof a staff member read the message.
+
+Old private snapshots are cleared after seven days for sent notifications and 30 days for terminal review/skipped/cancelled notifications; hashes and known provider IDs remain. Chat snapshots and first-card claims cascade when their source messages/conversations are deleted. Cleanup also runs when the bot is disconnected. Operations includes uncertain/stopped booking notifications, and Telegram settings include stopped assignment/chat jobs and saved chat retry times.
+
+Preserve these tables during rollback. Do not switch back to a consumer that rebuilds an attempted message or ignores terminal outcomes. Existing uncertain jobs and ambiguous legacy jobs still require the forthcoming audited review workflow. These changes add no new message category and do not enable the optional background-email flag. Production account/configuration/cron checks remain pending.

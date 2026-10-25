@@ -7,7 +7,9 @@ import { env } from "cloudflare:workers";
 import { sha256 } from "@/lib/security";
 import { SITE_URL } from "@/lib/site";
 import { esc } from "./cards";
-import { sendCard, telegramChatId, telegramConfigured, TelegramDeliveryError } from "./client";
+import { sendPreparedTelegram, telegramChatId, telegramConfigured, TelegramDeliveryError } from "./client";
+import { telegramBudgetExpired, telegramNextAttempt, TELEGRAM_MAX_AGE_MS } from "./outbox-rules";
+import { ensureTelegramMessages, readTelegramMessage, freezeTelegramMessage, ownsTelegramMessage, telegramMessageOutcome, purgeTelegramMessages, type PreparedTelegram } from "./message-store";
 
 // Uses the existing notification outbox. The queue row is committed with the assignment.
 export function assignmentTelegramNotification(assignment: { id: string; bookingReference: string; assignedAt: string }) {
@@ -17,8 +19,9 @@ export function assignmentTelegramNotification(assignment: { id: string; booking
     status: "queued", attemptCount: 0, createdAt: assignment.assignedAt, updatedAt: assignment.assignedAt };
 }
 
-type Job = { id: string; recipient: string; assignment_id: string; attempt_count: number };
+type Job = { id: string; recipient: string; assignment_id: string; attempt_count: number; created_at: string };
 type Assignment = { booking_reference: string; leg: string; driver_name: string; driver_phone: string | null;
+  booking_version: number;
   token_hash: string; driver_token: string; revoked_at: string | null; token_expires_at: string;
   booking_status: string; pickup: string; dropoff: string; pickup_date: string; pickup_time: string;
   return_pickup: string | null; return_dropoff: string | null; return_date: string | null; return_time: string | null };
@@ -26,15 +29,25 @@ type Assignment = { booking_reference: string; leg: string; driver_name: string;
 export async function deliverAssignmentTelegram(assignmentId: string) {
   await ensureReliabilityTables();
   const db = env.DB as SecurityDatabase, now = new Date().toISOString();
+  await ensureTelegramMessages(db,"assignment");
+  const job = await db.prepare("SELECT id,recipient,assignment_id,attempt_count,created_at FROM booking_notifications WHERE assignment_id=? AND channel='telegram' AND notification_type='driver_assignment' AND status IN ('queued','failed') AND scheduled_for<=?").bind(assignmentId, now).first<Job>();
+  if (!job) return "unchanged";
+  if(telegramBudgetExpired({attempts:job.attempt_count,created_at:job.created_at})){
+    await db.prepare("UPDATE booking_notifications SET status='dead_letter',error_message='Retry budget exceeded; review before creating a new message',updated_at=? WHERE id=? AND status IN ('queued','failed') AND attempt_count=?").bind(now,job.id,job.attempt_count).run();return "dead_letter";
+  }
+  let prepared:PreparedTelegram|null;
+  try{prepared=await readTelegramMessage(db,"assignment",job.id);}
+  catch{await db.prepare("UPDATE booking_notifications SET status='uncertain',error_message='Stored notification snapshot is invalid',updated_at=? WHERE id=? AND status IN ('queued','failed') AND attempt_count=?").bind(now,job.id,job.attempt_count).run();return "uncertain";}
+  if(!prepared && job.attempt_count>0){await db.prepare("UPDATE booking_notifications SET status='uncertain',error_message='Legacy attempted message has no recoverable snapshot',updated_at=? WHERE id=? AND status IN ('queued','failed') AND attempt_count=?").bind(now,job.id,job.attempt_count).run();return "uncertain";}
   if (!telegramConfigured()) {
-    await db.prepare("UPDATE booking_notifications SET error_message='Telegram bot token or destination missing',updated_at=? WHERE assignment_id=? AND channel='telegram' AND status IN ('queued','failed')").bind(now, assignmentId).run();
+    await db.prepare("UPDATE booking_notifications SET error_message='Telegram bot token or destination missing',updated_at=? WHERE id=? AND status IN ('queued','failed') AND attempt_count=?").bind(now, job.id,job.attempt_count).run();
     return "queued";
   }
-  const job = await db.prepare("SELECT id,recipient,assignment_id,attempt_count FROM booking_notifications WHERE assignment_id=? AND channel='telegram' AND status IN ('queued','failed') AND scheduled_for<=?").bind(assignmentId, now).first<Job>();
-  if (!job) return "unchanged";
   // A destination change requires staff review rather than disclosing an old trip to another chat.
-  if (job.recipient && job.recipient !== telegramChatId()) return "queued";
-  const a = await db.prepare(`SELECT a.booking_reference,a.leg,a.token_hash,a.revoked_at,a.token_expires_at,
+  if (job.recipient && job.recipient !== telegramChatId() || prepared && prepared.primary.chat_id !== telegramChatId()) {
+    await db.prepare("UPDATE booking_notifications SET status='uncertain',error_message='Destination changed; review before resending',updated_at=? WHERE id=? AND status IN ('queued','failed') AND attempt_count=?").bind(now,job.id,job.attempt_count).run();return "uncertain";
+  }
+  const a = await db.prepare(`SELECT a.booking_reference,a.leg,a.token_hash,a.revoked_at,a.token_expires_at,b.booking_version,
     d.full_name driver_name,d.phone driver_phone,l.driver_token,
     CASE WHEN b.status='confirmed' AND (j.status IS NULL OR j.status='pending_payment') THEN 'confirmed'
       WHEN b.status='confirmed' THEN j.status ELSE b.status END booking_status,b.pickup,b.dropoff,
@@ -50,6 +63,7 @@ export async function deliverAssignmentTelegram(assignmentId: string) {
     await db.prepare("UPDATE booking_notifications SET status='cancelled',updated_at=?,error_message='Assignment or driver link is no longer active' WHERE id=? AND status IN ('queued','failed')").bind(now, job.id).run();
     return "cancelled";
   }
+  if(prepared && (prepared.context.tokenHash!==a.token_hash || prepared.context.bookingVersion!==a.booking_version)){await db.prepare("UPDATE booking_notifications SET status='uncertain',error_message='Driver link or booking version changed; review the original message',updated_at=? WHERE id=? AND status IN ('queued','failed') AND attempt_count=?").bind(now,job.id,job.attempt_count).run();return "uncertain";}
   const meta=await db.prepare("SELECT header,reply_to,driver_dm FROM telegram_assignment_messages WHERE assignment_id=?").bind(assignmentId).first<{header:string;reply_to:number|null;driver_dm:number}>();
   const details=await db.prepare(`SELECT b.reference,b.vehicle,b.customer_name,b.customer_surname,b.passengers,b.luggage,b.service_type,b.pricing_area,b.booked_hours,b.payment_method,b.total,b.amount_paid,b.flight_number,d.full_name,d.phone,d.vehicle driver_car,d.car_plate,
     CASE WHEN a.leg='return' THEN lc.cost_minor/100.0 ELSE NULLIF(COALESCE(NULLIF(c.total_driver_cost,0),c.agreed_driver_cost),0) END driver_cost,m.pickup_map_url,m.dropoff_map_url
@@ -60,13 +74,15 @@ export async function deliverAssignmentTelegram(assignmentId: string) {
   const date=ret?a.return_date:a.pickup_date,time=ret?a.return_time:a.pickup_time;
   const cashDue=details?.payment_method==='cash'?Math.max(0,Number(details.total)-Number(details.amount_paid??0)):0;
   const collect=cashDue?(ret?'ตรวจสอบยอดเงินสดคงเหลือล่าสุดในลิงก์งานก่อนเก็บเงิน':`เก็บเงินสดจากลูกค้า ${cashDue.toLocaleString('en-US')} บาท`):details?.payment_method==='transfer'&&Number(details.amount_paid??0)<Number(details.total)?paymentLabelThai('transfer','pending'):'';
+  const claimedAt=new Date().toISOString();
+  const claimed = await db.prepare("UPDATE booking_notifications SET status='processing',attempt_count=attempt_count+1,last_attempt_at=?,updated_at=?,recipient=? WHERE id=? AND status IN ('queued','failed') AND scheduled_for<=? AND attempt_count=? AND EXISTS(SELECT 1 FROM booking_assignments WHERE id=? AND revoked_at IS NULL AND token_hash=? AND token_expires_at>?)").bind(claimedAt, claimedAt, telegramChatId(), job.id, claimedAt,job.attempt_count, assignmentId, a.token_hash, claimedAt).run();
+  if (!claimed.meta.changes) return "unchanged";
+  const lease={kind:"assignment" as const,id:job.id,claim:claimedAt};
   if (details && (meta?.driver_dm || (env as unknown as Record<string,string>).TELEGRAM_DRIVER_UPDATES==='1')) {
     const sheet=[esc(driverJobText({reference:a.booking_reference,vehicle:String(details.vehicle),customerName:String(details.customer_name),customerSurname:details.customer_surname as string|null,passengers:Number(details.passengers),luggage:Number(details.luggage),pickupDate:date!,pickupTime:time!,pickup,dropoff,serviceType:ret?'transfer':details.service_type as string|null,pricingArea:details.pricing_area as string|null,bookedHours:ret?null:Number(details.booked_hours)||null},Number(details.driver_cost)||null,{pickup:(ret?details.dropoff_map_url:details.pickup_map_url) as string|null,dropoff:(ret?details.pickup_map_url:details.dropoff_map_url) as string|null})),...(collect?[esc(collect)]:[]),'',`ลิงก์งาน: ${link}`].join('\n');
     const driver=await db.prepare("SELECT driver_id FROM booking_assignments WHERE id=?").bind(assignmentId).first<{driver_id:string}>();
     if (driver) await import('./driver-group').then(m=>m.sendJobToLinkedDriver(driver.driver_id,sheet,`driver-job:${assignmentId}`,assignmentId,false));
   }
-  const claimed = await db.prepare("UPDATE booking_notifications SET status='processing',attempt_count=attempt_count+1,last_attempt_at=?,updated_at=?,recipient=? WHERE id=? AND status IN ('queued','failed') AND scheduled_for<=? AND EXISTS(SELECT 1 FROM booking_assignments WHERE id=? AND revoked_at IS NULL AND token_hash=? AND token_expires_at>?)").bind(now, now, telegramChatId(), job.id, now, assignmentId, a.token_hash, now).run();
-  if (!claimed.meta.changes) return "unchanged";
   const field = (value: unknown) => esc(String(value ?? "").slice(0, 500));
   let text = [`<b>Driver assigned</b> · ${esc(a.booking_reference)} · ${ret ? "Return" : "Outbound"}`,
     `Driver: ${field(a.driver_name)}${a.driver_phone ? ` · ${field(a.driver_phone)}` : ""}`,
@@ -78,21 +94,34 @@ export async function deliverAssignmentTelegram(assignmentId: string) {
     const [year,month,day]=date!.split('-');
     text=[...(meta.header?[meta.header,'']:[]),`${esc(jobVehicleName(String(details.vehicle)))} 🚗`,'',`ชื่อลูกค้า: ${esc(fullName(String(details.customer_name),details.customer_surname as string|null))}`,`จำนวน: ${details.passengers} คน, ${details.luggage} กระเป๋า`,`วันที่: ${day}/${month}/${year}`,`เวลา: ${esc(time)}`,`ไฟลท์: ${ret?'-':esc(details.flight_number||'-')}`,`รับ: ${esc(pickup)}`,`ส่ง: ${esc(dropoff)}`,`ราคา: ${details.driver_cost?`${Number(details.driver_cost).toLocaleString('en-US')} บาท`:'-'}${collect?` (${esc(collect)})`:''}`,'',`คนขับ: ${esc(details.full_name)}`,`เบอร์: ${esc(details.phone)}`,...(details.driver_car?[`รถ: ${esc(details.driver_car)}`]:[]),`ทะเบียน: ${esc(details.car_plate)}`,'',`ลิงก์งาน (สถานะการเดินทาง/คนขับ): ${link}`].join('\n');
   }
-  let status = "sent", error: string | null = null;
-  try { await sendCard(text, meta?undefined:[[ {text:"Open driver trip",url:link} ]], meta?.reply_to??undefined); }
+  let status = "sent", error: string | null = null,messageId:number|null=null,retryAfter=0;
+  try {
+    prepared=prepared??await freezeTelegramMessage(db,lease,{primary:{chat_id:telegramChatId(),text,parse_mode:"HTML",disable_web_page_preview:true,...(meta?{}:{reply_markup:{inline_keyboard:[[{text:"Open driver trip",url:link}]]}}),...(meta?.reply_to?{reply_parameters:{message_id:meta.reply_to,allow_sending_without_reply:true}}:{})},context:{tokenHash:a.token_hash,bookingVersion:a.booking_version}});
+    if(!prepared)return "unchanged";
+    const active=await db.prepare("SELECT 1 x FROM booking_assignments a JOIN bookings b ON b.reference=a.booking_reference JOIN booking_links l ON l.booking_reference=a.booking_reference AND l.leg=a.leg LEFT JOIN journey_legs j ON j.booking_reference=a.booking_reference AND j.leg=a.leg WHERE a.id=? AND a.revoked_at IS NULL AND a.token_hash=? AND a.token_expires_at>? AND b.status='confirmed' AND b.booking_version=? AND (j.status IS NULL OR j.status IN ('pending_payment','confirmed')) AND l.driver_token=?").bind(assignmentId,a.token_hash,new Date().toISOString(),a.booking_version,a.driver_token).first();
+    if(!active){status="cancelled";error="Assignment or driver link is no longer active";}
+    else if(!await ownsTelegramMessage(db,lease))return "unchanged";
+    else messageId=(await sendPreparedTelegram(prepared.primary)).message_id;
+  }
   catch (e) {
     status = e instanceof TelegramDeliveryError && e.retryable ? "failed" : "uncertain";
     error = e instanceof TelegramDeliveryError ? e.message : "Telegram delivery outcome unknown";
+    retryAfter=e instanceof TelegramDeliveryError?e.retryAfterMs:0;
   }
   // Persist outside the send catch: a DB failure after acceptance must never trigger another send.
-  const at = new Date().toISOString(), next = new Date(Date.now() + Math.min(3600, 60 * 2 ** Math.min(job.attempt_count, 6)) * 1000).toISOString();
-  await db.prepare("UPDATE booking_notifications SET status=?,error_message=?,sent_at=?,scheduled_for=?,updated_at=? WHERE id=? AND status='processing'").bind(status, error, status === "sent" ? at : null, next, at, job.id).run();
+  const at = new Date().toISOString(), next = telegramNextAttempt(job.attempt_count+1,retryAfter);
+  if(status==="failed" && (telegramBudgetExpired({attempts:job.attempt_count+1,created_at:job.created_at}) || Date.parse(next)>=Date.parse(job.created_at)+TELEGRAM_MAX_AGE_MS))status="dead_letter";
+  const saved=await db.batch([
+    telegramMessageOutcome(db,lease,status==="failed"?next:null,messageId,error),
+    db.prepare("UPDATE booking_notifications SET status=?,error_message=?,sent_at=?,scheduled_for=?,updated_at=? WHERE id=? AND status='processing' AND last_attempt_at=?").bind(status, error, status === "sent" ? at : null, next, at, job.id,claimedAt),
+  ]);
   await import("./outbox").then(m=>m.retryTelegramOutbox()).catch(()=>undefined);
-  return status;
+  return saved[1].meta.changes?status:"unchanged";
 }
 
 export async function retryAssignmentTelegram(limit = 10) {
   const db = env.DB as SecurityDatabase, now = new Date().toISOString();
+  await purgeTelegramMessages(db,"assignment");
   // Interrupted sends have an unknown provider outcome. Never blindly repost them.
   await db.prepare("UPDATE booking_notifications SET status='uncertain',error_message='Interrupted send; check Telegram before retrying',updated_at=? WHERE channel='telegram' AND status='processing' AND last_attempt_at<?").bind(now, new Date(Date.now() - 120000).toISOString()).run();
   const rows = (await db.prepare("SELECT assignment_id FROM booking_notifications WHERE channel='telegram' AND notification_type='driver_assignment' AND status IN ('queued','failed') AND scheduled_for<=? ORDER BY scheduled_for LIMIT ?").bind(now, limit).all<{ assignment_id: string }>()).results;

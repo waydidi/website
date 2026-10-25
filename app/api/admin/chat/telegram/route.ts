@@ -8,6 +8,7 @@ import { getWaydidiAdmin } from "@/lib/admin";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
 import { sendCard, tg, telegramConfigured } from "@/lib/telegram/client";
 import { esc } from "@/lib/telegram/cards";
+import { ensureTelegramMessages } from "@/lib/telegram/message-store";
 
 // Telegram team (approved Telegram users) and bot connection. Viewing is for support staff; changes are owner-only.
 const headers = { "Cache-Control": "no-store" };
@@ -29,13 +30,14 @@ export async function GET() {
     }
   }
   await ensureReliabilityTables();
+  await ensureTelegramMessages(env.DB,"chat");
   const jobs=(await env.DB.prepare("SELECT id,booking_reference,leg,destination,status,attempts,next_attempt_at,attempted_at,last_error FROM telegram_delivery_jobs WHERE status NOT IN ('sent','cancelled') ORDER BY created_at DESC LIMIT 50").all()).results;
-  const assignmentJobs=(await env.DB.prepare("SELECT n.id,n.booking_reference,a.leg,n.recipient destination,n.status,n.attempt_count attempts,n.scheduled_for next_attempt_at,n.last_attempt_at attempted_at,n.error_message last_error,'assignment' kind FROM booking_notifications n LEFT JOIN booking_assignments a ON a.id=n.assignment_id WHERE n.channel='telegram' AND n.status IN ('queued','failed','uncertain') ORDER BY n.created_at DESC LIMIT 50").all()).results;
-  const chatJobs=(await env.DB.prepare("SELECT m.id,c.public_id booking_reference,NULL leg,a.destination,m.telegram_status status,COALESCE(a.attempts,0) attempts,NULL next_attempt_at,a.attempted_at,NULL last_error,'chat' kind FROM website_chat_messages m JOIN website_conversations c ON c.id=m.conversation_id LEFT JOIN telegram_chat_delivery_attempts a ON a.message_id=m.id WHERE (m.sender='visitor' OR m.is_bot=1) AND m.telegram_status IN ('pending','failed','uncertain') ORDER BY m.created_at DESC LIMIT 50").all()).results;
+  const assignmentJobs=(await env.DB.prepare("SELECT n.id,n.booking_reference,a.leg,n.recipient destination,n.status,n.attempt_count attempts,n.scheduled_for next_attempt_at,n.last_attempt_at attempted_at,n.error_message last_error,'assignment' kind FROM booking_notifications n LEFT JOIN booking_assignments a ON a.id=n.assignment_id WHERE n.channel='telegram' AND n.status IN ('queued','failed','uncertain','dead_letter') ORDER BY n.created_at DESC LIMIT 50").all()).results;
+  const chatJobs=(await env.DB.prepare("SELECT m.id,c.public_id booking_reference,NULL leg,a.destination,m.telegram_status status,COALESCE(a.attempts,0) attempts,p.next_attempt_at,a.attempted_at,p.last_error,'chat' kind FROM website_chat_messages m JOIN website_conversations c ON c.id=m.conversation_id LEFT JOIN telegram_chat_delivery_attempts a ON a.message_id=m.id LEFT JOIN telegram_chat_payloads p ON p.id=m.id WHERE (m.sender='visitor' OR m.is_bot=1) AND m.telegram_status IN ('pending','failed','uncertain','dead_letter') ORDER BY m.created_at DESC LIMIT 50").all()).results;
   const cancellationRequests=(await env.DB.prepare("SELECT id,booking_reference,requested_at,policy_version FROM booking_cancellation_requests WHERE status='pending' ORDER BY requested_at LIMIT 50").all()).results;
   const assistantReservations=(await env.DB.prepare("SELECT COUNT(*) count,COALESCE(SUM(reserved_microusd),0) reserved_microusd FROM telegram_assistant_reservations WHERE status='reserved'").first());
-  const chatDelivery = await env.DB.prepare("SELECT telegram_status status,COUNT(*) count FROM website_chat_messages WHERE (sender='visitor' OR is_bot=1) AND telegram_status IN ('pending','failed','processing','uncertain') GROUP BY telegram_status").all();
-  const assignmentDelivery = await env.DB.prepare("SELECT status,COUNT(*) count FROM booking_notifications WHERE channel='telegram' AND status IN ('queued','failed','uncertain','processing') GROUP BY status").all();
+  const chatDelivery = await env.DB.prepare("SELECT telegram_status status,COUNT(*) count FROM website_chat_messages WHERE (sender='visitor' OR is_bot=1) AND telegram_status IN ('pending','failed','processing','uncertain','dead_letter') GROUP BY telegram_status").all();
+  const assignmentDelivery = await env.DB.prepare("SELECT status,COUNT(*) count FROM booking_notifications WHERE channel='telegram' AND status IN ('queued','failed','uncertain','processing','dead_letter') GROUP BY status").all();
   return NextResponse.json({
     canEdit: staff.role === "owner",
     secrets: { TELEGRAM_BOT_TOKEN: Boolean(env.TELEGRAM_BOT_TOKEN), TELEGRAM_CHAT_ID: Boolean(env.TELEGRAM_CHAT_ID), TELEGRAM_WEBHOOK_SECRET: String(env.TELEGRAM_WEBHOOK_SECRET ?? "").length >= 16 },
