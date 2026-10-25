@@ -1626,3 +1626,11 @@ export const paymentReviewObservations = sqliteTable("payment_review_observation
   reasonCodesJson: text("reason_codes_json").notNull(), expectedMinor: integer("expected_minor").notNull(),
   providerAmountMinor: integer("provider_amount_minor"), providerCurrency: text("provider_currency"), createdAt: text("created_at").notNull(),
 }, table => [index("payment_review_observations_booking").on(table.bookingReference, table.createdAt)]);
+
+export const bookingChangeHistory = sqliteTable("booking_change_history", {
+  id: text("id").primaryKey(), requestId: text("request_id").notNull().references(() => bookingChangeRequests.id),
+  bookingReference: text("booking_reference").notNull(), status: text("status").notNull(),
+  originalMinor: integer("original_minor").notNull(), revisedMinor: integer("revised_minor").notNull(),
+  differenceMinor: integer("difference_minor").notNull(), createdAt: text("created_at").notNull(),
+}, table => [index("booking_change_history_booking").on(table.bookingReference, table.createdAt)]);
+export const bookingChangeHistoryBootstrap = sqliteTable("booking_change_history_bootstrap", { id: integer("id").primaryKey() });

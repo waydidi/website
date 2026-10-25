@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   CalendarClock,
   CarFront,
@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { GoogleRoutePicker, type RouteInfo } from "@/components/google-route-picker";
 import { SUPPORT_EMAIL } from "@/lib/contact";
+import { BookingChangeHistory } from "@/components/account/booking-change-history";
+import { useI18n } from "@/components/i18n-provider";
 type Booking = {
   tripKey?: string;
   reference: string;
@@ -54,6 +56,9 @@ type ManageData = {
 };
 type Tab = "details" | "reschedule" | "cancel";
 export default function BookingLookup() {
+  const { t } = useI18n();
+  const attempt = useRef<{ signature: string; requestId: string } | null>(null);
+  const [preview, setPreview] = useState<{ key: string; value: { revisedTotalMinor: number; priceDifferenceMinor: number } | null; failed: boolean } | null>(null);
   const [reference, setReference] = useState(""),
     [surname, setSurname] = useState(""),
     [data, setData] = useState<ManageData | null>(null),
@@ -70,6 +75,24 @@ export default function BookingLookup() {
     [returnFareQuote, setReturnFareQuote] = useState<FareQuote | null>(null),
     [vehicleId, setVehicleId] = useState("economy_sedan"),
     [changeReason, setChangeReason] = useState("");
+  const previewRequest = fareQuote && data && (!data.booking.returnDate || returnFareQuote) ? JSON.stringify({
+    preview: true, fareQuoteId: fareQuote.quoteId, returnFareQuoteId: returnFareQuote?.quoteId, vehicleId, bookingVersion: data.booking.bookingVersion,
+  }) : "";
+  const previewKey = `${data?.booking.reference ?? ""}|${previewRequest}`;
+  const verifiedPreview = preview?.key === previewKey && !preview.failed ? preview.value : null;
+  useEffect(() => {
+    if (!previewRequest) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/bookings/manage/change-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: previewRequest, signal: controller.signal });
+        if (!response.ok) throw new Error("PREVIEW_UNAVAILABLE");
+        const value = await response.json() as { revisedTotalMinor: number; priceDifferenceMinor: number };
+        if (!controller.signal.aborted) setPreview({ key: previewKey, value, failed: false });
+      } catch { if (!controller.signal.aborted) setPreview({ key: previewKey, value: null, failed: true }); }
+    }, 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [previewRequest, previewKey]);
   async function load() {
     const r = await fetch("/api/bookings/manage?probe=1", { cache: "no-store" });
     if (!r.ok) {
@@ -122,16 +145,19 @@ export default function BookingLookup() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const value = (await r.json()) as { error?: string };
+      const value = (await r.json()) as { error?: string; status?: string };
       if (!r.ok) {
         setError(value.error ?? "The change could not be completed.");
         return false;
       }
       await load();
+      const resolvedStatus = path.endsWith("change-request") ? {
+        approved: t("payment.change.approved"), declined: t("payment.change.declined"), expired: t("payment.change.expired"),
+      }[value.status as "approved" | "declined" | "expired"] : undefined;
       setMessage(
-        path.endsWith("/share") ? "Previously issued owner tracking links have been revoked. The new link above expires after 24 hours." : path.endsWith("change-request")
+        resolvedStatus ?? (path.endsWith("/share") ? "Previously issued owner tracking links have been revoked. The new link above expires after 24 hours." : path.endsWith("change-request")
             ? "Your journey-change request was sent to Waydidi for review. Your confirmed booking has not changed."
-            : "Your pickup date and time have been updated.",
+            : "Your pickup date and time have been updated."),
       );
       return true;
     } catch { setError("Couldn't confirm the result. Refresh your booking before trying again."); return false; }
@@ -182,14 +208,19 @@ export default function BookingLookup() {
     }
   }
   async function submitJourneyChange() {
-    if (!fareQuote || !routeInfo) return;
-    const submitted = await action("/api/bookings/manage/change-request", {
+    if (!fareQuote || !routeInfo || !verifiedPreview) return;
+    const body = {
       fareQuoteId: fareQuote.quoteId,
       returnFareQuoteId: returnFareQuote?.quoteId,
       vehicleId,
       bookingVersion: data?.booking.bookingVersion,
       reason: changeReason,
-    });
+      expectedRevisedTotalMinor: verifiedPreview.revisedTotalMinor,
+    };
+    const signature = JSON.stringify(body);
+    if (attempt.current?.signature !== signature) attempt.current = { signature, requestId: crypto.randomUUID() };
+    const submitted = await action("/api/bookings/manage/change-request", { ...body, requestId: attempt.current.requestId });
+    if (submitted) attempt.current = null;
     if (submitted) setFareQuote(null);
   }
   if (!data)
@@ -244,9 +275,7 @@ export default function BookingLookup() {
       </main>
     );
   const b = data.booking;
-  const revisedTotal = fareQuote?.prices[vehicleId]
-    ? fareQuote.prices[vehicleId].total + (returnFareQuote?.prices[vehicleId]?.total ?? 0)
-    : null;
+  const revisedTotal = verifiedPreview ? verifiedPreview.revisedTotalMinor / 100 : null;
   const tabs: [Tab, string, typeof CarFront][] = [
     ["details", "Booking details", CarFront],
     ["reschedule", "Change date & time", CalendarClock],
@@ -422,6 +451,7 @@ export default function BookingLookup() {
                     </button>
                   </div>
                 )}
+                {previewRequest && !verifiedPreview && <p role={preview?.key === previewKey && preview.failed ? "alert" : "status"} className="mt-4 text-sm text-slate-600">{preview?.key === previewKey && preview.failed ? t("payment.change.previewError") : t("payment.change.previewLoading")}</p>}
                 {revisedTotal !== null && (
                   <div className="mt-6 rounded-2xl bg-[#071c61] p-5 text-white">
                     <p className="text-sm text-white/65">Revised journey · {((fareQuote?.distanceMeters ?? 0) / 1000).toFixed(1)} km</p>
@@ -440,6 +470,7 @@ export default function BookingLookup() {
                     !data.eligibility.canReschedule ||
                     loading ||
                     !fareQuote ||
+                    !verifiedPreview ||
                     (Boolean(b.returnDate) && !returnFareQuote) ||
                     data.changeRequests[0]?.status === "pending"
                   }
@@ -472,6 +503,7 @@ export default function BookingLookup() {
               </>
             )}
           </section>
+          <BookingChangeHistory key={b.reference} refreshKey={`${data.changeRequests[0]?.id ?? ""}:${data.changeRequests[0]?.status ?? ""}`} />
         </div>
       </div>
     </main>

@@ -7,6 +7,7 @@ import { addonsTotal } from "./addons";
 import { bangkokDepartureTimestamp } from "./booking-time";
 import { toSatang } from "./money";
 import type { SecurityDatabase } from "./worker-db";
+import { ensureBookingChangeHistory } from "./booking-change-history";
 
 /** Keep the accepted add-ons and discounts when replacing the route fare. */
 export async function revisedBookingTotal(booking: typeof bookings.$inferSelect, fare: number) {
@@ -42,6 +43,7 @@ type Quote = { id: string; pickup_place_id: string; dropoff_place_id: string; pi
 export async function applyBookingChange(id: string, at: string) {
   await ensureReliabilityTables();
   const db = env.DB as unknown as SecurityDatabase;
+  await ensureBookingChangeHistory(db);
   const c = await db.prepare("SELECT * FROM booking_change_requests WHERE id=?").bind(id).first<Change>();
   if (!c || c.status !== "pending") return "handled";
   const b = await db.prepare("SELECT return_date,return_time FROM bookings WHERE reference=?").bind(c.booking_reference).first<{ return_date: string | null; return_time: string | null }>();

@@ -1,23 +1,41 @@
 import { revisedBookingTotal, validChangedSchedule } from "@/lib/booking-change";
 import { validTransferPrice } from "@/lib/booking-quote-check";
 import { and, eq } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { bookingChangeRequests, fareQuotes, operationsAlerts } from "@/db/schema";
+import { bookingChangeRequests, fareQuotes } from "@/db/schema";
 import { managedBooking, canManageStatus, HOUR, pickupInstant } from "@/lib/booking-management";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { VEHICLES, vehicleFits } from "@/lib/vehicles";
+import { insertBookingChange, sameChangeSubmission } from "@/lib/booking-change-submit";
+import { toSatang } from "@/lib/money";
+import { logOperationalError, requestIdFor } from "@/lib/observability";
+
+const inputSchema = z.object({
+  fareQuoteId: z.string().min(1).max(200), returnFareQuoteId: z.string().min(1).max(200).optional(),
+  vehicleId: z.string().min(1).max(60), bookingVersion: z.number().int().min(1),
+  reason: z.string().trim().max(300).optional(), requestId: z.string().uuid().optional(),
+  preview: z.boolean().default(false), expectedRevisedTotalMinor: z.number().int().min(0).max(100000000).optional(),
+}).strict();
 
 export async function POST(request: Request) {
   if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
   const booking = await managedBooking(request);
   if (!booking) return NextResponse.json({ error: "Your management session expired." }, { status: 401 });
+  const parsed = inputSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Calculate the revised journey before submitting." }, { status: 400 });
+  const input = parsed.data;
+  if (input.requestId && !input.preview) {
+    const [existing] = await getDb().select().from(bookingChangeRequests).where(eq(bookingChangeRequests.id, input.requestId)).limit(1);
+    if (existing) {
+      if (existing.bookingReference !== booking.reference || !sameChangeSubmission(existing, input)) return NextResponse.json({ error: "This request ID was already used for different details." }, { status: 409 });
+      return NextResponse.json({ ok: true, reused: true, requestId: existing.id, status: existing.status, revisedTotal: existing.revisedTotal, priceDifference: existing.priceDifference }, { headers: { "Cache-Control": "no-store" } });
+    }
+  }
   if (!canManageStatus(booking.status) || pickupInstant(booking.pickupDate, booking.pickupTime) - Date.now() < 72 * HOUR) {
     return NextResponse.json({ error: "Online journey changes close 72 hours before pickup." }, { status: 409 });
-  }
-  const input = await request.json() as { fareQuoteId?: unknown; returnFareQuoteId?: unknown; vehicleId?: unknown; bookingVersion?: unknown; reason?: unknown };
-  if (typeof input.fareQuoteId !== "string" || typeof input.vehicleId !== "string" || !Number.isInteger(input.bookingVersion)) {
-    return NextResponse.json({ error: "Calculate the revised journey before submitting." }, { status: 400 });
   }
   if (booking.bookingVersion !== input.bookingVersion) return NextResponse.json({ error: "This booking changed in another session. Refresh and try again." }, { status: 409 });
   const vehicleId = input.vehicleId as keyof typeof VEHICLES;
@@ -52,12 +70,19 @@ export async function POST(request: Request) {
     revisedTotal += returnPrice.total;
   }
   revisedTotal = await revisedBookingTotal(booking, revisedTotal);
+  const revisedTotalMinor = toSatang(revisedTotal);
+  if (input.preview) return NextResponse.json({ originalTotalMinor: toSatang(booking.total), revisedTotalMinor, priceDifferenceMinor: revisedTotalMinor - toSatang(booking.total), bookingVersion: booking.bookingVersion }, { headers: { "Cache-Control": "private, no-store" } });
+  if (input.expectedRevisedTotalMinor !== undefined && input.expectedRevisedTotalMinor !== revisedTotalMinor) return NextResponse.json({ error: "The revised total changed. Review the new price before submitting." }, { status: 409 });
   const [pending] = await getDb().select().from(bookingChangeRequests).where(and(eq(bookingChangeRequests.bookingReference, booking.reference), eq(bookingChangeRequests.status, "pending"))).limit(1);
-  if (pending) return NextResponse.json({ error: "A journey-change request is already awaiting review." }, { status: 409 });
+  if (pending) {
+    if (input.requestId === pending.id && sameChangeSubmission(pending, input)) return NextResponse.json({ ok: true, reused: true, requestId: pending.id, status: pending.status, revisedTotal: pending.revisedTotal, priceDifference: pending.priceDifference });
+    return NextResponse.json({ error: "A journey-change request is already awaiting review." }, { status: 409 });
+  }
   const now = new Date().toISOString();
-  const id = crypto.randomUUID();
+  const id = input.requestId ?? crypto.randomUUID();
   const priceDifference = revisedTotal - booking.total;
-  await getDb().insert(bookingChangeRequests).values({
+  let inserted: boolean;
+  try { inserted = await insertBookingChange(env.DB, {
     id,
     bookingReference: booking.reference,
     pickup: quote.pickupText,
@@ -78,20 +103,15 @@ export async function POST(request: Request) {
     reason: typeof input.reason === "string" ? input.reason.trim().slice(0, 300) || null : null,
     bookingVersion: booking.bookingVersion,
     createdAt: now,
-  });
-  await getDb().insert(operationsAlerts).values({
-    id: crypto.randomUUID(),
-    bookingReference: booking.reference,
-    alertType: "customer_journey_change",
-    severity: "warning",
-    title: "Customer journey-change request",
-    details: `${booking.pickup} → ${booking.dropoff} requested as ${quote.pickupText} → ${quote.dropoffText}. Price difference: THB ${priceDifference}.`,
-    dedupeKey: `journey-change:${id}`,
-    status: "open",
-    detectedAt: now,
-    createdAt: now,
-    updatedAt: now,
-  });
-  await import("@/lib/telegram/booking-changes").then((m) => m.notifyChangeRequest(id)).catch((e) => console.error("telegram change request failed", e instanceof Error ? e.message : "unknown"));
-  return NextResponse.json({ ok: true, requestId: id, status: "pending", revisedTotal, priceDifference });
+  }); } catch (error) {
+    logOperationalError("booking_change_submit_failed", requestIdFor(request), error);
+    return NextResponse.json({ error: "Your request could not be confirmed. Refresh the booking and retry the same request." }, { status: 503 });
+  }
+  if (!inserted) {
+    const [existing] = await getDb().select().from(bookingChangeRequests).where(eq(bookingChangeRequests.id, id)).limit(1);
+    if (existing?.bookingReference === booking.reference && sameChangeSubmission(existing, input)) return NextResponse.json({ ok: true, reused: true, requestId: existing.id, status: existing.status, revisedTotal: existing.revisedTotal, priceDifference: existing.priceDifference });
+    return NextResponse.json({ error: "This booking, quote or pending request changed. Refresh before submitting again." }, { status: 409 });
+  }
+  await import("@/lib/telegram/booking-changes").then((m) => m.notifyChangeRequest(id)).catch((error) => logOperationalError("booking_change_notify_failed", requestIdFor(request), error));
+  return NextResponse.json({ ok: true, requestId: id, status: "pending", revisedTotal, priceDifference }, { headers: { "Cache-Control": "private, no-store" } });
 }

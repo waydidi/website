@@ -333,5 +333,21 @@
   "trip.legs": "Journey direction",
   "itinerary.minutesLabel": "min",
   "itinerary.driveMinutes": "About {n} min drive",
-  "itinerary.waitMinutes": "{n} min before the activity starts"
+  "itinerary.waitMinutes": "{n} min before the activity starts",
+  "payment.change.previewLoading": "Calculating the complete revised total…",
+  "payment.change.previewError": "The revised total could not be verified. Calculate the fare again.",
+  "payment.change.historyTitle": "Journey change history",
+  "payment.change.historyError": "Change history could not be loaded. Please refresh.",
+  "payment.change.noHistory": "No journey changes have been requested.",
+  "payment.change.submitted": "Submitted for review",
+  "payment.change.approved": "Approved",
+  "payment.change.declined": "Declined",
+  "payment.change.expired": "Expired — a new request is needed",
+  "payment.change.original": "Original total",
+  "payment.change.revised": "Revised total",
+  "payment.change.difference": "Price difference",
+  "payment.change.noMoney": "A price difference or approval does not confirm a payment or refund. Waydidi will explain any separate payment arrangements.",
+  "payment.change.refresh": "Refresh history",
+  "payment.change.newer": "Newer changes",
+  "payment.change.older": "Older changes"
 }

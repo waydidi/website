@@ -1338,5 +1338,69 @@
   "itinerary.waitMinutes": {
     "text": "รอเริ่มกิจกรรม {n} นาที",
     "status": "machine"
+  },
+  "payment.change.previewLoading": {
+    "text": "กำลังคำนวณยอดรวมใหม่ทั้งหมด…",
+    "status": "machine"
+  },
+  "payment.change.previewError": {
+    "text": "ไม่สามารถตรวจสอบยอดใหม่ได้ กรุณาคำนวณราคาอีกครั้ง",
+    "status": "machine"
+  },
+  "payment.change.historyTitle": {
+    "text": "ประวัติการเปลี่ยนแปลงการเดินทาง",
+    "status": "machine"
+  },
+  "payment.change.historyError": {
+    "text": "ไม่สามารถโหลดประวัติได้ กรุณาโหลดใหม่",
+    "status": "machine"
+  },
+  "payment.change.noHistory": {
+    "text": "ยังไม่มีคำขอเปลี่ยนแปลงการเดินทาง",
+    "status": "machine"
+  },
+  "payment.change.submitted": {
+    "text": "ส่งคำขอเพื่อตรวจสอบแล้ว",
+    "status": "machine"
+  },
+  "payment.change.approved": {
+    "text": "อนุมัติแล้ว",
+    "status": "machine"
+  },
+  "payment.change.declined": {
+    "text": "ไม่อนุมัติ",
+    "status": "machine"
+  },
+  "payment.change.expired": {
+    "text": "หมดอายุ กรุณาส่งคำขอใหม่",
+    "status": "machine"
+  },
+  "payment.change.original": {
+    "text": "ยอดเดิม",
+    "status": "machine"
+  },
+  "payment.change.revised": {
+    "text": "ยอดใหม่",
+    "status": "machine"
+  },
+  "payment.change.difference": {
+    "text": "ส่วนต่างราคา",
+    "status": "machine"
+  },
+  "payment.change.noMoney": {
+    "text": "ส่วนต่างราคาหรือการอนุมัติไม่ได้ยืนยันการชำระหรือคืนเงิน Waydidi จะแจ้งขั้นตอนการชำระเงินแยกต่างหาก",
+    "status": "machine"
+  },
+  "payment.change.refresh": {
+    "text": "โหลดประวัติใหม่",
+    "status": "machine"
+  },
+  "payment.change.newer": {
+    "text": "รายการใหม่กว่า",
+    "status": "machine"
+  },
+  "payment.change.older": {
+    "text": "รายการเก่ากว่า",
+    "status": "machine"
   }
 }
