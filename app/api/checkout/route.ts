@@ -32,6 +32,7 @@ import {
 import { paymentProviderFor } from "@/lib/payments/provider";
 import { VEHICLES, vehicleFits } from "@/lib/vehicles";
 import { fulfillBooking } from "@/lib/booking-fulfillment";
+import { observeFunnelBooking } from "@/lib/booking-funnel";
 import { checkoutInputSchema, validationError, type CheckoutInput } from "@/lib/booking-validation";
 import { uniqueBookingReference } from "@/lib/booking-reference-server";
 import { bangkokDepartureTimestamp } from "@/lib/booking-time";
@@ -69,6 +70,7 @@ async function existingCheckoutResponse(
   accessToken: string,
   input?: CheckoutInput | null,
 ) {
+  await observeFunnelBooking(request, input?.funnelId, booking.reference, booking.serviceType);
   const confirmationUrl = `${safeOrigin(request)}/booking/confirmation/${booking.reference}?token=${accessToken}`;
   if (booking.status !== "pending_payment") {
     return NextResponse.json({ checkoutUrl: confirmationUrl, reused: true });
@@ -150,7 +152,9 @@ export async function POST(request: Request) {
     const input: CheckoutInput = parsed.data;
     checkoutInput = input;
     attemptHash = await sha256(`checkout-attempt:${input.checkoutAttemptId}`);
-    payloadHash = await sha256(JSON.stringify(input));
+    const financialInput = { ...input };
+    delete financialInput.funnelId;
+    payloadHash = await sha256(JSON.stringify(financialInput));
     recoveryToken = await accessTokenForAttempt(input.checkoutAttemptId);
     const [existingAttempt] = await getDb()
       .select()
@@ -609,6 +613,7 @@ export async function POST(request: Request) {
       createdAt: now,
       updatedAt: now,
     }).onConflictDoNothing();
+    await observeFunnelBooking(request, input.funnelId, reference, input.serviceType);
     if (input.paymentMethod === "cash") {
       await paymentProviderFor("cash").createPayment({
         reference,

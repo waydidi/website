@@ -2,9 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { permitsAnalytics, publicAnalyticsPath } from "@/lib/privacy-consent";
 
 // Staff and partner areas are not counted.
-const PRIVATE = /^\/(admin|driver|agency|f\/|trip\/)/;
 
 declare global { interface Window { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void } }
 
@@ -12,18 +12,30 @@ declare global { interface Window { dataLayer?: unknown[]; gtag?: (...args: unkn
 export function GoogleAnalytics({ id }: { id: string }) {
   const pathname = usePathname();
   useEffect(() => {
-    if (!id || PRIVATE.test(pathname)) return;
+    if (!id) return;
+    const disable = (value: boolean) => { (window as unknown as Record<string, unknown>)[`ga-disable-${id}`] = value; };
+    const send = () => {
+    const path = publicAnalyticsPath(pathname);
+    const allowed = Boolean(path) && permitsAnalytics(document.cookie, navigator.doNotTrack, (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl);
+    disable(!allowed);
+    if (!allowed || !path) return;
+    const page = { page_path: path, page_location: window.location.origin + path, page_title: "Waydidi", page_referrer: "" };
     if (!window.gtag) {
       window.dataLayer = window.dataLayer ?? [];
       window.gtag = function gtag() { window.dataLayer!.push(arguments); }; // eslint-disable-line prefer-rest-params
       window.gtag("js", new Date());
-      window.gtag("config", id, { send_page_view: false });
+      window.gtag("config", id, { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, ...page });
       const script = document.createElement("script");
       script.async = true;
       script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`;
       document.head.appendChild(script);
     }
-    window.gtag("event", "page_view", { page_path: pathname + window.location.search, page_location: window.location.href, page_title: document.title });
+    window.gtag("set", page);
+    window.gtag("event", "page_view", page);
+    };
+    send();
+    window.addEventListener("waydidi:consent", send);
+    return () => { disable(true); window.removeEventListener("waydidi:consent", send); };
   }, [id, pathname]);
   return null;
 }

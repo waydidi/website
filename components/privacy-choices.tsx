@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { ChevronRight, X } from "lucide-react";
+import { CONSENT_COOKIE, parsePrivacyConsent } from "@/lib/privacy-consent";
+export { CONSENT_COOKIE } from "@/lib/privacy-consent";
 
 type Toggleable = "functional" | "analytics" | "advertisement";
 type Choices = Record<Toggleable, boolean>;
 
-export const CONSENT_COOKIE = "waydidi_consent";
 const NONE: Choices = { functional: false, analytics: false, advertisement: false };
 const ALL: Choices = { functional: true, analytics: true, advertisement: true };
 
@@ -22,9 +23,7 @@ const CATEGORIES: { id: string; title: string; text: string; toggle?: Toggleable
 
 export function readConsent(): Choices {
   if (typeof document === "undefined") return NONE;
-  const raw = document.cookie.split("; ").find((c) => c.startsWith(`${CONSENT_COOKIE}=`))?.split("=")[1] ?? "";
-  const set = new Set(decodeURIComponent(raw).split(","));
-  return { functional: set.has("functional"), analytics: set.has("analytics"), advertisement: set.has("advertisement") };
+  return parsePrivacyConsent(document.cookie);
 }
 
 function saveConsent(choices: Choices) {

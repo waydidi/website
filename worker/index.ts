@@ -142,6 +142,7 @@ const worker = {
     return withSecurityHeaders(response, url);
   },
   async scheduled(controller: { scheduledTime: number; cron?: string }, _env: Env, ctx: ExecutionContext): Promise<void> {
+    if (new Date(controller.scheduledTime).getUTCMinutes() === 0) ctx.waitUntil(import("../lib/booking-funnel-db").then(m => m.purgeBookingFunnel(_env.DB, new Date(controller.scheduledTime))).catch(() => console.error("Booking funnel retention failed")));
     ctx.waitUntil(import("../lib/telegram/trip-photos").then(m=>m.recoverTripNotifications()).catch(()=>console.error("Telegram trip notification recovery failed")));
     ctx.waitUntil(import("../lib/cancellation-requests").then(m=>m.recoverCancellationCards()).catch(()=>console.error("Cancellation notification recovery failed")));
     ctx.waitUntil(import("../lib/telegram/outbox").then(m=>m.retryTelegramOutbox()).catch(()=>console.error("Telegram notification recovery failed")));

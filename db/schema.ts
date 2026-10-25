@@ -1634,3 +1634,16 @@ export const bookingChangeHistory = sqliteTable("booking_change_history", {
   differenceMinor: integer("difference_minor").notNull(), createdAt: text("created_at").notNull(),
 }, table => [index("booking_change_history_booking").on(table.bookingReference, table.createdAt)]);
 export const bookingChangeHistoryBootstrap = sqliteTable("booking_change_history_bootstrap", { id: integer("id").primaryKey() });
+
+// Pseudonymous telemetry: deliberately no customer data or financial foreign keys.
+export const bookingFunnelEvents = sqliteTable("booking_funnel_events", {
+  eventId: text("event_id").primaryKey(), journeyHash: text("journey_hash").notNull(),
+  stage: text("stage").notNull(), service: text("service").notNull(), createdAt: text("created_at").notNull(),
+}, table => [uniqueIndex("booking_funnel_events_journey_stage").on(table.journeyHash, table.stage), index("booking_funnel_events_cohort").on(table.stage, table.createdAt)]);
+export const bookingFunnelLinks = sqliteTable("booking_funnel_links", {
+  bookingHash: text("booking_hash").primaryKey(), journeyHash: text("journey_hash").notNull().unique(),
+  service: text("service").notNull(), createdAt: text("created_at").notNull(),
+});
+export const bookingFunnelOptouts = sqliteTable("booking_funnel_optouts", {
+  journeyHash: text("journey_hash").primaryKey(), createdAt: text("created_at").notNull(),
+});

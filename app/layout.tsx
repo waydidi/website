@@ -37,7 +37,9 @@ export default function RootLayout({
 }>) {
   // Google Analytics 4 measurement ID, e.g. G-ABC123XYZ (a public ID, set in Cloudflare).
   const gaRaw = String((env as Record<string, unknown>).GA_MEASUREMENT_ID ?? "").trim().toUpperCase();
-  const gaId = /^G-[A-Z0-9]{4,20}$/.test(gaRaw) ? gaRaw : "";
+  // Enhanced Measurement can independently collect raw URLs on history changes.
+  // Loading the remote tag requires an explicit operational verification first.
+  const gaId = env.GA_ENHANCED_MEASUREMENT_VERIFIED === "1" && /^G-[A-Z0-9]{4,20}$/.test(gaRaw) ? gaRaw : "";
   return (
     <html lang="en" suppressHydrationWarning>
       {/* A relative link: metadata icons are made absolute with metadataBase,

@@ -1,4 +1,5 @@
 "use client";
+import { bookingFunnelId, useBookingFunnel } from "@/lib/booking-funnel-client";
 import { CheckoutSummary } from "./checkout-summary";
 
 import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
@@ -276,6 +277,7 @@ export function BookingFlow({
   const [returnFareQuote, setReturnFareQuote] = useState<FareQuote | null>(null);
   const [quoteSummary, setQuoteSummary] = useState<QuoteSummary | null>(null);
   const [hourlyQuote, setHourlyQuote] = useState<HourlyQuote | null>(null);
+  useBookingFunnel(stage, serviceType, Boolean(serviceType === "transfer" ? fareQuote : hourlyQuote));
   const [pickupPlaceId, setPickupPlaceId] = useState("");
   // By the hour: the city the driver works in, and an optional drop-off.
   const [hourlyArea, setHourlyArea] = useState("");
@@ -1139,6 +1141,7 @@ export function BookingFlow({
         signal: controller.signal,
         body: JSON.stringify({
           checkoutAttemptId: checkoutAttemptRef.current,
+          funnelId: bookingFunnelId(serviceType),
           customerName: booking.name,
           customerSurname: booking.surname,
           customerEmail: booking.email,
