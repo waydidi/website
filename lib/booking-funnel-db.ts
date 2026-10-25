@@ -1,6 +1,7 @@
 import type { SecurityDatabase } from "./worker-db";
 import { hmacSha256 } from "./security";
 import { FUNNEL_RETENTION_DAYS, type FunnelEvent } from "./booking-funnel-rules";
+import { COMMITTED_SQL } from "./booking-status";
 
 export const funnelDdl = [
   "CREATE TABLE IF NOT EXISTS booking_funnel_events (event_id TEXT PRIMARY KEY,journey_hash TEXT NOT NULL,stage TEXT NOT NULL CHECK(stage IN ('quote','details','payment','confirmed')),service TEXT NOT NULL CHECK(service IN ('transfer','hourly')),created_at TEXT NOT NULL,UNIQUE(journey_hash,stage))",
@@ -49,7 +50,7 @@ export async function confirmFunnelBooking(db: SecurityDatabase, secret: string,
   await db.prepare(`INSERT OR IGNORE INTO booking_funnel_events(event_id,journey_hash,stage,service,created_at)
     SELECT ?,l.journey_hash,'confirmed',l.service,? FROM booking_funnel_links l
     WHERE l.booking_hash=? AND NOT EXISTS(SELECT 1 FROM booking_funnel_optouts WHERE journey_hash=l.journey_hash)
-    AND EXISTS(SELECT 1 FROM bookings WHERE reference=? AND status IN ('confirmed','completed')
+    AND EXISTS(SELECT 1 FROM bookings WHERE reference=? AND status IN (${COMMITTED_SQL})
       AND (payment_status IN ('paid','partially_refunded') OR (payment_method='cash' AND payment_status='cash_due')))`)
     .bind("confirmed:" + booking, new Date().toISOString(), booking, reference).run();
 }

@@ -15,7 +15,7 @@ This tracks the full requested scope. A checked item requires code, appropriate 
 - [ ] Durable background notification delivery with retries, idempotency and dead-letter handling; verify provisioning separately.
 - [ ] Private R2 production storage with verified migration of existing D1-backed files and rollback support; verify actual bindings and migrated contents.
 - [ ] Disaster recovery procedures and a tested database/file restoration path; verify production recovery capabilities separately.
-- [ ] Windows-compatible development scripts and working local development/build/test commands.
+- [x] Windows-compatible development scripts and verified local install, development, build and selected test commands. Linux helpers are retained; a Windows CI job checks Node 22. Full-suite CI and production work remain separate gates.
 
 ## Baseline
 
@@ -39,4 +39,12 @@ Priority 4 passed 43 browser checks across desktop and phone, 29 focused rules/s
 
 Priority 5 passed 29 funnel/real-checkout integration checks and 20 booking/security regressions. Seven browser checks passed (setup plus three workflows on desktop/phone), covering consent/configuration denial, unchanged retry IDs, reload, withdrawal and staff service/date filtering. TypeScript, focused ESLint and the production build passed during implementation; final checkpoint checks and full CI are tracked separately. Funnel IDs do not participate in financial checkout hashes. New collection defaults off, uses HMAC-only booking links, and never lets public events assert confirmation. Existing Google Analytics no longer sends explicit raw URLs/queries/titles, honors consent/DNT/GPC, and requires separate operational verification before its remote tag loads. See `docs/booking-funnel-release.md`.
 
-Next: engineering improvements above. Inspect and strengthen the existing durable notification outboxes, prepare verified private-storage migration and recovery tools, and make npm commands work on Windows. Cloudflare CLI authentication has not yet been verified: a local login attempt timed out before receiving the OAuth callback. Production resource/configuration checks remain pending; local code and tests do not prove those checks complete. The full goal remains unfinished.
+The remaining engineering work is to strengthen the existing durable notification outboxes and prepare verified private-storage migration and recovery tools. Windows command evidence follows below. Cloudflare CLI authentication has not yet been verified: a local login attempt timed out before receiving the OAuth callback. Production resource/configuration checks remain pending; local code and tests do not prove those checks complete. The full goal remains unfinished.
+
+## Engineering: Windows command verification
+
+The Node launcher removes Bash/environment-assignment requirements from Windows npm commands and enumerates test files without shell globs. Actual `npm.cmd run` checks passed on this PC: clean locked install (720 packages), lint (zero errors; 63 existing warnings), typecheck, production build, 20 booking/funnel/driver rules tests, five shared-source checks and seven desktop/phone browser checks through the new dev launcher. A forced short build timeout returned 124, a missing test returned 1, and the install lock was removed after completion. Existing single-source tests now normalize relative Windows paths while keeping the same assertions. See `docs/windows-development.md`. macOS runtime checks have not been performed.
+
+Priority 5 checkpoint `eb17c7f` passed full browser CI: 235 passed, 12 skipped. Unit CI passed 747 of 748 tests; the one failure required using the existing shared booking-status helpers in the new funnel code. The follow-up replaces both repeated status lists with those helpers, and all five shared-source checks pass locally. The next full CI run must verify the corrected checkpoint and the Windows job; the earlier failed run is not claimed as green.
+
+Next: durable notification delivery, verified private R2 migration and restoration/recovery. Inspection found existing D1 delivery records and cron retries, but customer email retries can exceed provider idempotency retention and render a changed payload; do not claim exactly-once delivery or complete engineering based only on the presence of an outbox. The connected Resend account returned no configured domains, which does not establish whether it is the same account as the production Worker's secret. Cloudflare resource checks and provider-account matching still need authenticated evidence.

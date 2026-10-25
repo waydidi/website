@@ -26,7 +26,7 @@ export default defineConfig({
     { name: "phone", use: { ...devices["Pixel 7"] }, dependencies: ["admin-setup"] },
   ],
   webServer: {
-    command: `npx vite --port ${PORT} --strictPort`,
+    command: `node scripts/run.mjs dev --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

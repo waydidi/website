@@ -2,6 +2,7 @@
 
 import { confirmationPaymentLabel } from "@/lib/confirmation-payment";
 import { finishBookingFunnel } from "@/lib/booking-funnel-client";
+import { isCommittedStatus } from "@/lib/booking-status";
 import { Check, Clock3, Download, Mail, RotateCw, XCircle, Navigation } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -58,7 +59,7 @@ export default function ConfirmationClient({
 }) {
   const [booking, setBooking] = useState<Booking | null>(null);
   useEffect(() => {
-    if (booking && ["confirmed", "completed"].includes(booking.status)) finishBookingFunnel();
+    if (booking && isCommittedStatus(booking.status)) finishBookingFunnel();
   }, [booking]);
   const [failed, setFailed] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
