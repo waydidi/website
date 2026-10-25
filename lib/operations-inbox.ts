@@ -45,6 +45,15 @@ export async function operationsInbox(db: SecurityDatabase, query = { kind: "all
       SELECT 'delivery:' || id, 'delivery', booking_reference, 'warning',
         'Booking notification failed', updated_at, status, NULL
       FROM booking_notifications WHERE status = 'failed'
+      UNION ALL
+      SELECT 'delivery_job:' || id, 'delivery', booking_reference,
+        CASE WHEN status IN ('uncertain','dead_letter') THEN 'critical' ELSE 'warning' END,
+        CASE WHEN status = 'uncertain' THEN 'Email outcome needs review before resending'
+          WHEN status = 'dead_letter' THEN 'Booking delivery stopped after failure'
+          WHEN status = 'pending_configuration' THEN 'Booking delivery configuration is missing'
+          ELSE 'Booking delivery will retry' END,
+        updated_at, status, NULL
+      FROM booking_deliveries WHERE status IN ('failed','uncertain','dead_letter','pending_configuration')
     )
     WHERE (? = 'all' OR kind = ?)
     ORDER BY CASE severity WHEN 'critical' THEN 0 ELSE 1 END, occurredAt DESC, id

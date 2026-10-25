@@ -241,4 +241,6 @@ Expired bin entries are archived rather than deleting parent bookings referenced
 
 `BOOKING_FUNNEL_ENABLED=0` keeps optional first-party transfer/hourly/tour funnel collection off. Enabling it requires analytics consent and a private `RATE_LIMIT_SALT` of at least 32 characters. Owner/finance reports appear in Financials. Retention is 90 days. See [the release notes](docs/booking-funnel-release.md) for privacy, rollout, schema upgrade and validation details.
 
+`BOOKING_BACKGROUND_DELIVERY=0` preserves inline first attempts for existing booking confirmation emails/PDFs. Set it to `1` only after verifying the deployed five-minute recovery cron, D1, private R2 and Resend account/sender. Confirmation and delivery intents commit atomically; email retries reuse a stored message and opaque provider key, stop within 23 hours/12 provider attempts, and surface uncertain/stopped jobs in Operations. No new message category is enabled. See [notification delivery release notes](docs/notification-delivery-release.md); production prerequisites remain unverified.
+
 `GA_ENHANCED_MEASUREMENT_VERIFIED=0` keeps the remote Google Analytics tag off until its automatic event settings and private-route network behavior have been verified. This is independent of the first-party funnel flag.
