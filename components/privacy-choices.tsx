@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { ChevronRight, X } from "lucide-react";
-import { CONSENT_COOKIE, parsePrivacyConsent } from "@/lib/privacy-consent";
+import { CONSENT_COOKIE, browserPrivacyConsent } from "@/lib/privacy-consent";
 export { CONSENT_COOKIE } from "@/lib/privacy-consent";
 
 type Toggleable = "functional" | "analytics" | "advertisement";
@@ -23,7 +23,7 @@ const CATEGORIES: { id: string; title: string; text: string; toggle?: Toggleable
 
 export function readConsent(): Choices {
   if (typeof document === "undefined") return NONE;
-  return parsePrivacyConsent(document.cookie);
+  return browserPrivacyConsent();
 }
 
 function saveConsent(choices: Choices) {

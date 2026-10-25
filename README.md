@@ -239,6 +239,6 @@ Apply additive migration `drizzle/0105_telegram_reliability.sql` when managing m
 Expired bin entries are archived rather than deleting parent bookings referenced by financial documents, accepted policies or trip evidence. Archival runs in the scheduled worker; a cleanup failure cannot block an unrelated Bin/Restore request.
 # Booking funnel measurement
 
-`BOOKING_FUNNEL_ENABLED=0` keeps optional first-party transfer/hourly funnel collection off. Enabling it requires analytics consent and a private `RATE_LIMIT_SALT` of at least 32 characters. Owner/finance reports appear in Financials. Retention is 90 days. See [the release notes](docs/booking-funnel-release.md) for privacy, rollout and validation details.
+`BOOKING_FUNNEL_ENABLED=0` keeps optional first-party transfer/hourly/tour funnel collection off. Enabling it requires analytics consent and a private `RATE_LIMIT_SALT` of at least 32 characters. Owner/finance reports appear in Financials. Retention is 90 days. See [the release notes](docs/booking-funnel-release.md) for privacy, rollout, schema upgrade and validation details.
 
 `GA_ENHANCED_MEASUREMENT_VERIFIED=0` keeps the remote Google Analytics tag off until its automatic event settings and private-route network behavior have been verified. This is independent of the first-party funnel flag.

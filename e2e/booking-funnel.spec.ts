@@ -62,6 +62,24 @@ test("disabled collection ignores analytics consent", async ({ page }) => {
   expect(await page.evaluate(() => sessionStorage.getItem("waydidi-funnel-v1"))).toBeNull();
 });
 
+test("blocked browser cookie access disables optional measurement without breaking its checkout getter", async ({ page }) => {
+  let events = 0;
+  await page.route("**/api/funnel/config", route => route.fulfill({ json: { enabled: true } }));
+  await page.route(/\/api\/funnel$/, route => { events++; return route.fulfill({ status: 204 }); });
+  await page.goto("/");
+  const result = await page.evaluate(async () => {
+    const path = "/lib/booking-funnel-client.ts", sdk = await import(path);
+    Object.defineProperty(document, "cookie", { configurable: true, get() { throw new DOMException("Blocked", "SecurityError"); } });
+    await sdk.observeBookingFunnelStage("vehicle", "transfer", true);
+    const privacyPath = "/lib/privacy-consent.ts", privacy = await import(privacyPath);
+    return { id: sdk.bookingFunnelId("transfer"), choices: privacy.browserPrivacyConsent(), state: sessionStorage.getItem("waydidi-funnel-v1") };
+  });
+  expect(result.id).toBeUndefined();
+  expect(result.state).toBeNull();
+  expect(result.choices).toEqual({ functional: false, analytics: false, advertisement: false });
+  expect(events).toBe(0);
+});
+
 test.describe("staff aggregate funnel", () => {
   test.use({ storageState: "e2e/.auth/admin.json" });
   test("shows observed stages, honest drop-off and missing observations with service/date filters", async ({ page }) => {

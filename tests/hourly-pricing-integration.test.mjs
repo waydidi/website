@@ -158,11 +158,15 @@ test('analytics consent and changing funnel IDs do not change financial checkout
   };
   try {
     const first = await checkout.POST(consentedRequest(input));
-    assert.equal(first.status, 200, await first.text());
+    const firstResult = await first.json();
+    assert.equal(first.status, 200, JSON.stringify(firstResult));
+    assert.equal(typeof firstResult.reference, 'string');
     const before = await d1.prepare('SELECT COUNT(*) AS n FROM bookings').first();
     for (const funnelId of [undefined, crypto.randomUUID(), journeyId]) {
       const response = await checkout.POST(consentedRequest({ ...input, funnelId }));
-      assert.equal(response.status, 200, await response.text());
+      const result = await response.json();
+      assert.equal(response.status, 200, JSON.stringify(result));
+      assert.equal(result.reference, firstResult.reference);
     }
     assert.deepEqual(await d1.prepare('SELECT COUNT(*) AS n FROM bookings').first(), before);
     const linked = await d1.prepare('SELECT COUNT(*) AS n FROM booking_funnel_links').first();

@@ -24,11 +24,11 @@ export function BookingFunnelReport() {
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const stages = ["quote", "details", "payment", "confirmed"] as const;
   return <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5" aria-label="Booking funnel">
-    <div><h2 className="text-xl font-bold">Booking funnel</h2><p className="text-sm text-slate-600">Consented transfer and hourly journeys, grouped by quote date in Bangkok time. These are observed journeys, not all customers or bookings. Tours are excluded.</p></div>
+    <div><h2 className="text-xl font-bold">Booking funnel</h2><p className="text-sm text-slate-600">Consented transfer, hourly and tour journeys, grouped by quote date in Bangkok time. These are observed journeys, not all customers or bookings.</p></div>
     <form onSubmit={load} className="flex flex-wrap items-end gap-3">
       <div className="grid gap-1 text-sm"><label htmlFor="funnel-from">From</label><input id="funnel-from" type="date" required value={from} onChange={e => setFrom(e.target.value)} className="rounded border p-2" /></div>
       <div className="grid gap-1 text-sm"><label htmlFor="funnel-to">To</label><input id="funnel-to" type="date" required value={to} onChange={e => setTo(e.target.value)} className="rounded border p-2" /></div>
-      <div className="grid gap-1 text-sm"><label htmlFor="funnel-service">Service</label><select id="funnel-service" value={service} onChange={e => setService(e.target.value)} className="rounded border p-2"><option value="all">All supported services</option><option value="transfer">Transfer</option><option value="hourly">Hourly</option></select></div>
+      <div className="grid gap-1 text-sm"><label htmlFor="funnel-service">Service</label><select id="funnel-service" value={service} onChange={e => setService(e.target.value)} className="rounded border p-2"><option value="all">All supported services</option><option value="transfer">Transfer</option><option value="hourly">Hourly</option><option value="tour">Tour</option></select></div>
       <button disabled={busy} className="rounded-lg bg-slate-900 px-4 py-2 text-white disabled:opacity-50">{busy ? "Loading…" : "Apply"}</button>
     </form>
     {error && <p role="alert" className="text-red-700">{error}</p>}

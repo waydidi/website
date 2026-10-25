@@ -9,9 +9,11 @@ import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
 import { groupDays, tripByToken, tripSnapshot } from "@/lib/smart-trips";
 import { startTripCheckout } from "@/lib/trip-booking";
 import { notifyTripRating, notifyTripReply } from "@/lib/trip-notify";
+import { observeFunnelBooking } from "@/lib/booking-funnel";
 
 const acceptSchema = z.object({
   action: z.literal("accept"),
+  funnelId: z.string().uuid().optional(),
   name: z.string().trim().min(1, "Enter your name.").max(100),
   email: z.string().trim().toLowerCase().email("Enter a valid email.").max(254),
   phone: z.string().trim().min(5, "Enter a phone number we can reach on the day.").max(40),
@@ -61,7 +63,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     if (days.some((d) => !d.snap || d.trip.status === "draft" || d.trip.status === "pricing")) return NextResponse.json({ error: "Part of this trip is still being updated. Please try again shortly." }, { status: 409 });
     const result = await startTripCheckout(days as { trip: typeof trip; snap: NonNullable<typeof snap> }[], parsed.data, origin);
     if (result.alreadyPaid) return NextResponse.json({ error: "This trip is already paid." }, { status: 409 });
-    return NextResponse.json({ checkoutUrl: result.checkoutUrl });
+    await observeFunnelBooking(request, parsed.data.funnelId, result.reference, "tour");
+    return NextResponse.json({ checkoutUrl: result.checkoutUrl, reference: result.reference });
   } catch (error) {
     console.error("trip checkout failed", error);
     return NextResponse.json({ error: "Payment couldn't start right now. Please try again or chat with us." }, { status: 503 });

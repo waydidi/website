@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const range = funnelDateRange(params.get("from") ?? "", params.get("to") ?? "");
   const service = params.get("service") ?? "all";
-  if (!range || !["all", "transfer", "hourly"].includes(service)) return NextResponse.json({ error: "Choose a valid range of up to 90 days" }, { status: 400, headers });
+  if (!range || !["all", "transfer", "hourly", "tour"].includes(service)) return NextResponse.json({ error: "Choose a valid range of up to 90 days" }, { status: 400, headers });
   try { return NextResponse.json({ enabled: funnelEnabled(env), counts: await funnelReport(env.DB, range.start, range.end, service) }, { headers }); }
   catch { return NextResponse.json({ error: "Report unavailable" }, { status: 503, headers }); }
 }

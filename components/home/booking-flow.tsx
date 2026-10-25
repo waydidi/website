@@ -1,5 +1,5 @@
 "use client";
-import { bookingFunnelId, useBookingFunnel } from "@/lib/booking-funnel-client";
+import { bindFunnelCheckout, bookingFunnelId, useBookingFunnel } from "@/lib/booking-funnel-client";
 import { CheckoutSummary } from "./checkout-summary";
 
 import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
@@ -1134,6 +1134,7 @@ export function BookingFlow({
     }
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 20_000);
+    const funnelId = bookingFunnelId(serviceType);
     try {
       const response = await fetch("/api/checkout", {
         method: "POST",
@@ -1141,7 +1142,7 @@ export function BookingFlow({
         signal: controller.signal,
         body: JSON.stringify({
           checkoutAttemptId: checkoutAttemptRef.current,
-          funnelId: bookingFunnelId(serviceType),
+          funnelId,
           customerName: booking.name,
           customerSurname: booking.surname,
           customerEmail: booking.email,
@@ -1180,6 +1181,7 @@ export function BookingFlow({
       });
       const result = (await response.json()) as {
         checkoutUrl?: string;
+        reference?: string;
         error?: string;
         code?: string;
         retryable?: boolean;
@@ -1215,6 +1217,7 @@ export function BookingFlow({
       }
       if (!response.ok || !result.checkoutUrl)
         throw new Error(result.error ?? "Checkout could not start");
+      await bindFunnelCheckout(funnelId, result.reference).catch(() => undefined);
       window.location.assign(result.checkoutUrl);
     } catch (reason) {
       setError(

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const funnelEventSchema = z.object({
   journeyId: z.string().uuid(), eventId: z.string().uuid(),
-  stage: z.enum(["quote", "details", "payment"]), service: z.enum(["transfer", "hourly"]),
+  stage: z.enum(["quote", "details", "payment"]), service: z.enum(["transfer", "hourly", "tour"]),
 }).strict();
 export const funnelDeleteSchema = z.object({ journeyId: z.string().uuid() }).strict();
 export type FunnelEvent = z.infer<typeof funnelEventSchema>;

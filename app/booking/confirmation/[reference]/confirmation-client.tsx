@@ -59,8 +59,8 @@ export default function ConfirmationClient({
 }) {
   const [booking, setBooking] = useState<Booking | null>(null);
   useEffect(() => {
-    if (booking && isCommittedStatus(booking.status)) finishBookingFunnel();
-  }, [booking]);
+    if (booking && isCommittedStatus(booking.status)) void finishBookingFunnel(reference).catch(() => undefined);
+  }, [booking, reference]);
   const [failed, setFailed] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [busy, setBusy] = useState<"email" | null>(null);

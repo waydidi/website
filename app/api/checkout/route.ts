@@ -73,11 +73,11 @@ async function existingCheckoutResponse(
   await observeFunnelBooking(request, input?.funnelId, booking.reference, booking.serviceType);
   const confirmationUrl = `${safeOrigin(request)}/booking/confirmation/${booking.reference}?token=${accessToken}`;
   if (booking.status !== "pending_payment") {
-    return NextResponse.json({ checkoutUrl: confirmationUrl, reused: true });
+    return NextResponse.json({ checkoutUrl: confirmationUrl, reference: booking.reference, reused: true });
   }
   if (booking.paymentMethod === "cash") {
     await fulfillBooking(booking);
-    return NextResponse.json({ checkoutUrl: confirmationUrl, reused: true });
+    return NextResponse.json({ checkoutUrl: confirmationUrl, reference: booking.reference, reused: true });
   }
   if(!await validBookingQuotes(booking)) return NextResponse.json({code:"QUOTE_EXPIRED",error:"Your quoted journey needs a fresh price. Search both journeys again.",retryable:true},{status:409});
   if (!booking.checkoutSessionId) {
@@ -108,15 +108,15 @@ async function existingCheckoutResponse(
       providerEventId: `checkout:${session.sessionId}`,
       createdAt: new Date().toISOString(),
     }).onConflictDoNothing();
-    return NextResponse.json({ checkoutUrl: session.checkoutUrl, reused: true });
+    return NextResponse.json({ checkoutUrl: session.checkoutUrl, reference: booking.reference, reused: true });
   }
   try {
     const session = await paymentProviderFor("stripe").retrievePayment(booking.checkoutSessionId);
-    if (session.checkoutUrl) return NextResponse.json({ checkoutUrl: session.checkoutUrl, reused: true });
+    if (session.checkoutUrl) return NextResponse.json({ checkoutUrl: session.checkoutUrl, reference: booking.reference, reused: true });
     // Embedded Checkout sessions have no Stripe URL: send them back to the /pay page.
-    if (session.status === "pending" && session.providerStatus !== "expired") return NextResponse.json({ checkoutUrl: payPageUrl(safeOrigin(request), booking.reference, accessToken, booking.checkoutSessionId), reused: true });
+    if (session.status === "pending" && session.providerStatus !== "expired") return NextResponse.json({ checkoutUrl: payPageUrl(safeOrigin(request), booking.reference, accessToken, booking.checkoutSessionId), reference: booking.reference, reused: true });
     if (session.status === "paid") {
-      return NextResponse.json({ checkoutUrl: confirmationUrl, reused: true });
+      return NextResponse.json({ checkoutUrl: confirmationUrl, reference: booking.reference, reused: true });
     }
   } catch (error) {
     console.error("Existing checkout recovery failed", error);
@@ -640,6 +640,7 @@ export async function POST(request: Request) {
       await fulfillBooking(cashBooking);
       return NextResponse.json({
         checkoutUrl: `${safeOrigin(request)}/booking/confirmation/${reference}?token=${accessToken}`,
+        reference,
       });
     }
     const [payBooking]=await getDb().select().from(bookings).where(eq(bookings.reference,reference)).limit(1);
@@ -670,7 +671,7 @@ export async function POST(request: Request) {
         providerEventId: `checkout:${session.sessionId}`,
         createdAt: new Date().toISOString(),
       });
-    return NextResponse.json({ checkoutUrl: session.checkoutUrl });
+    return NextResponse.json({ checkoutUrl: session.checkoutUrl, reference });
   } catch (error) {
     logOperationalError("checkout.creation_failed", requestId, error, {
       hasAttempt: Boolean(attemptHash),

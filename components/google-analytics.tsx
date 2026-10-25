@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { permitsAnalytics, publicAnalyticsPath } from "@/lib/privacy-consent";
+import { browserAnalyticsAllowed, publicAnalyticsPath } from "@/lib/privacy-consent";
 
 // Staff and partner areas are not counted.
 
@@ -16,7 +16,7 @@ export function GoogleAnalytics({ id }: { id: string }) {
     const disable = (value: boolean) => { (window as unknown as Record<string, unknown>)[`ga-disable-${id}`] = value; };
     const send = () => {
     const path = publicAnalyticsPath(pathname);
-    const allowed = Boolean(path) && permitsAnalytics(document.cookie, navigator.doNotTrack, (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl);
+    const allowed = Boolean(path) && browserAnalyticsAllowed();
     disable(!allowed);
     if (!allowed || !path) return;
     const page = { page_path: path, page_location: window.location.origin + path, page_title: "Waydidi", page_referrer: "" };

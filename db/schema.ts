@@ -1644,6 +1644,14 @@ export const bookingFunnelLinks = sqliteTable("booking_funnel_links", {
   bookingHash: text("booking_hash").primaryKey(), journeyHash: text("journey_hash").notNull().unique(),
   service: text("service").notNull(), createdAt: text("created_at").notNull(),
 });
+export const bookingFunnelTourEvents = sqliteTable("booking_funnel_tour_events", {
+  eventId: text("event_id").primaryKey(), journeyHash: text("journey_hash").notNull(),
+  stage: text("stage").notNull(), service: text("service").notNull(), createdAt: text("created_at").notNull(),
+}, table => [uniqueIndex("booking_funnel_tour_events_journey_stage").on(table.journeyHash, table.stage), index("booking_funnel_tour_events_cohort").on(table.stage, table.createdAt)]);
+export const bookingFunnelTourLinks = sqliteTable("booking_funnel_tour_links", {
+  bookingHash: text("booking_hash").primaryKey(), journeyHash: text("journey_hash").notNull(),
+  service: text("service").notNull(), createdAt: text("created_at").notNull(),
+}, table => [index("booking_funnel_tour_links_journey").on(table.journeyHash)]);
 export const bookingFunnelOptouts = sqliteTable("booking_funnel_optouts", {
   journeyHash: text("journey_hash").primaryKey(), createdAt: text("created_at").notNull(),
 });

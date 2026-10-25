@@ -10,7 +10,7 @@ const headers = { "Cache-Control": "no-store" };
 async function receive(request: Request, remove: boolean) {
   if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403, headers });
   // Withdrawal remains available after collection has been disabled.
-  if (typeof env.RATE_LIMIT_SALT !== "string" || env.RATE_LIMIT_SALT.length < 32) return new Response(null, { status: 204, headers });
+  if (typeof env.RATE_LIMIT_SALT !== "string" || env.RATE_LIMIT_SALT.length < 32) return new Response(null, { status: remove ? 503 : 204, headers });
   if (!remove && (!funnelEnabled(env) || !requestPermitsFunnel(request))) return new Response(null, { status: 204, headers });
   if (Number(request.headers.get("content-length") ?? 0) > 1024) return NextResponse.json({ error: "Request too large" }, { status: 413, headers });
   try {

@@ -16,6 +16,16 @@ export function permitsAnalytics(cookie: string, dnt?: string | null, gpc?: stri
   return dnt !== "1" && gpc !== "1" && gpc !== true && parsePrivacyConsent(cookie).analytics;
 }
 
+export function browserPrivacyConsent(): PrivacyChoices {
+  try { return parsePrivacyConsent(document.cookie); }
+  catch { return { functional: false, analytics: false, advertisement: false }; }
+}
+
+export function browserAnalyticsAllowed() {
+  try { return permitsAnalytics(document.cookie, navigator.doNotTrack, (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl); }
+  catch { return false; }
+}
+
 // Keep dynamic slugs, account links, booking references and queries out of analytics.
 export function publicAnalyticsPath(pathname: string) {
   const paths = ["/", "/about", "/contact", "/destinations", "/blog", "/tours", "/hourly", "/privacy", "/terms", "/refund-policy"];
