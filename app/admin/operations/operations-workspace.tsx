@@ -25,6 +25,7 @@ import { WaydidiLogo } from "@/components/waydidi-logo";
 import { AddDriverDialog } from "@/components/admin-overview/upcoming-rides";
 import { DriverPicker } from "@/components/bookings-admin/driver-picker";
 import { Modal, ModalTitle } from "@/components/ui/modal";
+import { OperationsInbox } from "@/components/operations-inbox";
 
 // The side panel with journey details is switched off for now (bookings open on their
 // own page). Typed as boolean so the hidden code is still type-checked.
@@ -317,6 +318,7 @@ export default function OperationsWorkspace({ email }: { email: string }) {
             Fare management
           </Link>
         </nav>
+        <OperationsInbox />
         <section className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-5">
           <div className="min-w-0 space-y-5">
             {evidenceFor && <EvidenceSheet reference={evidenceFor.replace(/:return$/, " (return)")} events={(data?.events ?? []).filter((e) => e.bookingKey === evidenceFor && e.assignmentId === activeAssignments.get(evidenceFor)?.id)} onClose={() => setEvidenceFor("")} />}
