@@ -61,7 +61,7 @@ test("inbox sorts critical alerts first, excludes resolved alerts and returns no
   assert.ok(result.items.some(item => item.kind === "delivery"));
   assert.ok(!JSON.stringify(result).includes("private@example.invalid"));
   assert.ok(!result.items.some(item => item.id === "alert:resolved"));
-  for (const item of result.items) assert.deepEqual(Object.keys(item).sort(), ["id", "kind", "reference", "severity", "title", "occurredAt"].sort());
+  for (const item of result.items) assert.deepEqual(Object.keys(item).sort(), ["id", "kind", "reference", "severity", "title", "occurredAt", "status", "acknowledgedBy"].sort());
 });
 
 test("inbox caps results and reports overflow", async () => {
@@ -69,6 +69,51 @@ test("inbox caps results and reports overflow", async () => {
   const result = await inbox.operationsInbox(db);
   assert.equal(result.items.length, 100);
   assert.equal(result.hasMore, true);
+  const next = await inbox.operationsInbox(db, { kind: "all", offset: 100 });
+  assert.equal(next.hasMore, false);
+  assert.equal(next.items.length, 4);
+  assert.ok(next.items.every(item => !result.items.some(first => first.id === item.id)));
+  const deliveries = await inbox.operationsInbox(db, { kind: "delivery", offset: 0 });
+  assert.equal(deliveries.items.length, 1);
+  assert.equal(deliveries.items[0].kind, "delivery");
+});
+
+test("inbox query validation rejects unknown filters and malformed pages", async () => {
+  globalThis.__inboxTestAdmin = { role: "operations", email: "ops@example.invalid" };
+  for (const query of ["kind=finance", "offset=-1", "offset=1", "offset=NaN", "offset=1000000000"]) {
+    assert.equal((await route.GET(new Request(`https://example.invalid/api/admin/operations/inbox?${query}`))).status, 400);
+  }
+});
+
+const actionRequest = (body, origin = "https://example.invalid") => new Request("https://example.invalid/api/admin/operations/inbox", {
+  method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify(body),
+});
+
+test("inbox actions deny unauthorized roles, cross-origin requests and invalid input", async () => {
+  const input = { id: "warning", action: "acknowledge", expectedStatus: "open" };
+  for (const [role, status] of [[null, 401], ["support", 403], ["finance", 403], ["editor", 403]]) {
+    globalThis.__inboxTestAdmin = role ? { role, email: "staff@example.invalid" } : null;
+    assert.equal((await route.POST(actionRequest(input))).status, status);
+  }
+  globalThis.__inboxTestAdmin = { role: "operations", email: "ops@example.invalid" };
+  assert.equal((await route.POST(actionRequest(input, "https://other.invalid"))).status, 403);
+  for (const invalid of [{ ...input, action: "delete" }, { ...input, action: "resolve", note: " " }, { ...input, expectedStatus: "resolved" }, { ...input, id: "" }]) {
+    assert.equal((await route.POST(actionRequest(invalid))).status, 400);
+  }
+});
+
+test("concurrent acknowledgment has one winner and stale requests cannot reopen a resolved alert", async () => {
+  globalThis.__inboxTestAdmin = { role: "operations", email: "ops@example.invalid" };
+  const input = { id: "warning", action: "acknowledge", expectedStatus: "open" };
+  const results = await Promise.all([route.POST(actionRequest(input)), route.POST(actionRequest(input))]);
+  assert.deepEqual(results.map(r => r.status).sort(), [200, 409]);
+  assert.equal((await db.prepare("SELECT acknowledged_by FROM operations_alerts WHERE id='warning'").first()).acknowledged_by, "ops@example.invalid");
+  assert.equal((await route.POST(actionRequest({ ...input, action: "resolve", expectedStatus: "acknowledged", note: "Assigned a driver" }))).status, 200);
+  assert.equal((await route.POST(actionRequest(input))).status, 409);
+  const row = await db.prepare("SELECT status,resolution_note,resolved_at FROM operations_alerts WHERE id='warning'").first();
+  assert.equal(row.status, "resolved");
+  assert.equal(row.resolution_note, "ops@example.invalid: Assigned a driver");
+  assert.ok(row.resolved_at);
 });
 
 test("operational errors never copy arbitrary exception messages into error codes", async () => {

@@ -10,12 +10,18 @@ import { cashReceiptStatements } from "@/lib/cash-collection";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { assessHourlyOvertime, collectHourlyOvertime } from "@/lib/hourly-overtime-db";
 import { isChargeableStatus } from "@/lib/booking-status";
-export async function GET() { if (!await getWaydidiAdmin())
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); return NextResponse.json(await paymentDashboard(), { headers: { "Cache-Control": "no-store" } }); }
+import { canReviewPayments } from "@/lib/payment-discrepancies";
+export async function GET() {
+    const admin = await getWaydidiAdmin();
+    if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!canReviewPayments(admin.role)) return NextResponse.json({ error: "Finance access required." }, { status: 403 });
+    return NextResponse.json(await paymentDashboard(), { headers: { "Cache-Control": "no-store" } });
+}
 export async function POST(request: Request) {
     const admin = await getWaydidiAdmin();
     if (!admin)
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!canReviewPayments(admin.role)) return NextResponse.json({ error: "Finance access required." }, { status: 403 });
     if (!sameOrigin(request) || !isJsonRequest(request))
         return NextResponse.json({ error: "Request blocked" }, { status: 403 });
     const input = await request.json() as {

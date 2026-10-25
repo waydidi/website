@@ -8,6 +8,9 @@ import { legacyPaymentProvider } from "@/lib/payment-model";
 import { paymentProviderFor } from "@/lib/payments/provider";
 import type { ProviderPaymentSession } from "@/lib/payments/types";
 import { isOfflinePayment } from "@/lib/payment-methods";
+import { env } from "cloudflare:workers";
+import { paymentDiscrepancies, PAYMENT_DISCREPANCY_LABELS } from "./payment-discrepancies";
+import { recordPaymentObservation } from "./payment-review-db";
 
 type Booking = typeof bookings.$inferSelect;
 export type ReconciliationSource = "webhook" | "customer_return" | "admin" | "scheduled";
@@ -31,17 +34,16 @@ export async function reconcilePaymentSession(booking: Booking, session: Provide
   booking = current;
   const now = new Date().toISOString();
   const attempts = booking.reconciliationAttempts + 1;
-  const mismatch = !session.sessionId || session.sessionId !== booking.checkoutSessionId ||
-    session.bookingReference !== booking.reference || session.currency !== "thb" ||
-    session.amountMinor !== toSatang(booking.total) ||
-    (session.status === "paid" && session.provider === "stripe" && !session.transactionId) ||
-    (Boolean(booking.paymentIntentId) && Boolean(session.transactionId) && session.transactionId !== booking.paymentIntentId);
-  if (mismatch) {
+  const reasons = paymentDiscrepancies(booking, session);
+  await recordPaymentObservation(env.DB, booking.reference, reasons, toSatang(booking.total), session.amountMinor, session.currency);
+  if (reasons.length) {
     await getDb().update(bookings).set({ reconciliationStatus: "mismatch", reconciliationAttempts: attempts, lastPaymentCheckedAt: now, updatedAt: now }).where(eq(bookings.reference, booking.reference));
     await getDb().update(bookingPayments).set({ reconciliationStatus: "mismatch", reconciliationAttempts: attempts, lastCheckedAt: now, updatedAt: now }).where(eq(bookingPayments.id, `primary:${booking.reference}`));
-    await alert(booking, "payment_mismatch", "Provider payment does not match booking", `Source: ${source}. The session, amount, currency, or booking reference did not match.`);
+    await alert(booking, "payment_mismatch", "Provider payment does not match booking", `Source: ${source}. ${reasons.map(reason => PAYMENT_DISCREPANCY_LABELS[reason]).join("; ")}.`);
     return { status: "mismatch" as const, bookingStatus: booking.status };
   }
+  await getDb().update(operationsAlerts).set({ status: "resolved", resolvedAt: now, resolutionNote: "Provider identity, currency and amount match the booking.", updatedAt: now })
+    .where(and(eq(operationsAlerts.bookingReference, booking.reference), inArray(operationsAlerts.alertType, ["payment_mismatch", "payment_session_missing"]), inArray(operationsAlerts.status, ["open", "acknowledged"])));
   const protectedStatuses = ["paid", "refunded", "partially_refunded", "disputed"];
   const classifiedStatus = session.status;
   if (protectedStatuses.includes(booking.paymentStatus) && classifiedStatus !== "paid") return { status: booking.paymentStatus, bookingStatus: booking.status };

@@ -5,10 +5,12 @@ import { bookings } from "@/db/schema";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { reconcileBooking } from "@/lib/payment-reconciliation";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { canReviewPayments } from "@/lib/payment-discrepancies";
 
 export async function POST(request: Request) {
   const admin = await getWaydidiAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canReviewPayments(admin.role)) return NextResponse.json({ error: "Finance access required." }, { status: 403 });
   if (!sameOrigin(request) || !isJsonRequest(request)) return NextResponse.json({ error: "Request blocked" }, { status: 403 });
   const input = await request.json() as { reference?: string };
   let references: string[];

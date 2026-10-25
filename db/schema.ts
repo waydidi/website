@@ -1609,3 +1609,20 @@ export const driverEvidenceOverrides = sqliteTable("driver_evidence_overrides", 
  assignmentId:text("assignment_id").notNull().references(()=>bookingAssignments.id), eventType:text("event_type").notNull(), reason:text("reason").notNull(), actor:text("actor").notNull(), createdAt:text("created_at").notNull(),
 },t=>[uniqueIndex("uidx_driver_evidence_override").on(t.assignmentId,t.eventType)]);
 export const driverEvidenceUploadLimits = sqliteTable("driver_evidence_upload_limits", {assignmentId:text("assignment_id").primaryKey(),windowStart:text("window_start").notNull(),attempts:integer("attempts").notNull()});
+
+// Review metadata never edits payment, receipt or refund ledger entries.
+export const paymentReviewState = sqliteTable("payment_review_state", {
+  bookingReference: text("booking_reference").primaryKey().references(() => bookings.reference),
+  ownerId: text("owner_id"), status: text("status").notNull().default("open"),
+  version: integer("version").notNull().default(0), lastEventId: text("last_event_id"), updatedAt: text("updated_at").notNull(),
+});
+export const paymentReviewEvents = sqliteTable("payment_review_events", {
+  id: text("id").primaryKey(), bookingReference: text("booking_reference").notNull().references(() => bookings.reference),
+  actorId: text("actor_id").notNull(), action: text("action").notNull(), note: text("note").notNull(),
+  version: integer("version").notNull(), payloadHash: text("payload_hash").notNull(), createdAt: text("created_at").notNull(),
+}, table => [uniqueIndex("payment_review_events_version").on(table.bookingReference, table.version), index("payment_review_events_booking").on(table.bookingReference, table.createdAt)]);
+export const paymentReviewObservations = sqliteTable("payment_review_observations", {
+  id: text("id").primaryKey(), bookingReference: text("booking_reference").notNull().references(() => bookings.reference),
+  reasonCodesJson: text("reason_codes_json").notNull(), expectedMinor: integer("expected_minor").notNull(),
+  providerAmountMinor: integer("provider_amount_minor"), providerCurrency: text("provider_currency"), createdAt: text("created_at").notNull(),
+}, table => [index("payment_review_observations_booking").on(table.bookingReference, table.createdAt)]);
