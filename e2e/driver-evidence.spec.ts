@@ -38,7 +38,8 @@ async function setup(page: Page, currentStatus: string, { camera = true, locatio
     if (route.request().method() === "GET") return route.fulfill({ json: fixture(currentStatus) });
     const body = route.request().postData() ?? "";
     sent.push({ status: body.match(/name="status"\r\n\r\n([^\r]+)/)?.[1] ?? "", evidenceId: body.match(/name="evidenceId"\r\n\r\n([^\r]+)/)?.[1] ?? null });
-    return route.fulfill({ json: { ok: true } });
+    const eventId = body.match(/name="clientEventId"\r\n\r\n([^\r]+)/)?.[1] ?? "";
+    return route.fulfill({ json: { ok: true, eventId, status: sent[sent.length - 1].status } });
   });
   await page.route("**/api/driver/trips/session/plan", (route) => route.fulfill({ json: { days: [] } }));
   await page.route("**/api/driver/trips/session/evidence", (route) => {
