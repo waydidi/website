@@ -54,6 +54,14 @@ export async function operationsInbox(db: SecurityDatabase, query = { kind: "all
           ELSE 'Booking delivery will retry' END,
         updated_at, status, NULL
       FROM booking_deliveries WHERE status IN ('failed','uncertain','dead_letter','pending_configuration')
+      UNION ALL
+      SELECT 'telegram_job:' || id, 'delivery', booking_reference,
+        CASE WHEN status IN ('uncertain','dead_letter') THEN 'critical' ELSE 'warning' END,
+        CASE WHEN status='uncertain' THEN 'Telegram outcome needs review before resending'
+          WHEN status='dead_letter' THEN 'Telegram notification stopped after failure'
+          ELSE 'Telegram notification will retry' END,
+        updated_at, status, NULL
+      FROM telegram_delivery_jobs WHERE booking_reference IS NOT NULL AND status IN ('failed','uncertain','dead_letter')
     )
     WHERE (? = 'all' OR kind = ?)
     ORDER BY CASE severity WHEN 'critical' THEN 0 ELSE 1 END, occurredAt DESC, id

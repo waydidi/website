@@ -11,13 +11,17 @@ const db=await mf.getD1Database('DB');
 for(const f of (await readdir(root+'/drizzle')).filter(f=>f.endsWith('.sql')).sort()) {const sql=migrationStatements(await readFile(root+'/drizzle/'+f,'utf8'));if(sql.length)await db.batch(sql.map(s=>db.prepare(s)));}
 const state=globalThis.__reliability={env:{DB:db,TELEGRAM_BOT_TOKEN:'mock',TELEGRAM_CHAT_ID:'-100111',TELEGRAM_WEBHOOK_SECRET:'s'.repeat(24)},admin:{id:'owner',role:'owner',email:'audit@example.invalid',displayName:'Owner'}};
 const vite=await createServer({root,configFile:false,appType:'custom',resolve:{alias:{'@':root}},server:{middlewareMode:true,hmr:false},plugins:[{name:'reliability-env',enforce:'pre',resolveId(id){if(id==='cloudflare:workers')return '\0reliability-env';if(id.endsWith('/lib/admin'))return '\0reliability-admin';},load(id){if(id==='\0reliability-env')return 'export const env=globalThis.__reliability.env';if(id==='\0reliability-admin')return 'export const getWaydidiAdmin=async()=>globalThis.__reliability.admin;export const verifyAdminKey=async()=>true';}}]});
-const realFetch=globalThis.fetch,sends=[];let mode='ok',mid=1000;
+const realFetch=globalThis.fetch,sends=[];let mode='ok',mid=1000,deferredReply=null;
 globalThis.fetch=async(url,init)=>{
  if(!String(url).startsWith('https://api.telegram.org'))throw new Error('Unexpected external request');
  const method=String(url).split('/').pop();const body=typeof init.body==='string'?JSON.parse(init.body):Object.fromEntries(init.body.entries());
  sends.push({method,body});
  if(mode==='timeout')throw new Error('simulated transport loss');
  if(mode==='reject')return Response.json({ok:false,description:'mock rejection'},{status:400});
+ if(mode==='rate')return Response.json({ok:false,parameters:{retry_after:3600},description:'Private text audit@example.invalid mock'},{status:429});
+ if(mode==='malformed')return Response.json({ok:true,result:{message_id:'wrong-type'}});
+ if(mode==='private_reject')return Response.json({ok:false,description:'audit@example.invalid PRIVATE_TOKEN mock'},{status:400});
+ if(mode==='defer')return new Promise(resolve=>{deferredReply=resolve;});
  if(method==='getChatMember')return Response.json({ok:true,result:{status:'member'}});
  const result={message_id:++mid,chat:{id:Number(body.chat_id)}};
  return Response.json({ok:true,result:method==='sendMediaGroup'?[result,{...result,message_id:++mid}]:result});
@@ -111,4 +115,106 @@ test('long unbroken answers preserve every character and simultaneous AI calls c
 });
 test('only owner may review uncertain deliveries or change Telegram team',async()=>{
  state.admin={...state.admin,role:'support'};assert.equal((await settings.POST(req({action:'review_delivery',jobId:'missing',confirmedAbsent:true}))).status,403);state.admin=null;assert.equal((await settings.POST(req({action:'remove',id:'missing'}))).status,403);state.admin={id:'owner',role:'owner',email:'audit@example.invalid',displayName:'Owner'};
+});
+
+test('attempted Telegram payloads stay frozen when producers enqueue the same ID again',async()=>{
+ const id=crypto.randomUUID();mode='reject';
+ try{
+  await outbox.queueTelegram({id,destination:'-100111',payload:{text:'Original notification'}});
+  await outbox.queueTelegram({id,destination:'-100111',payload:{text:'Changed notification'}},false);
+  const saved=await db.prepare('SELECT payload_json FROM telegram_delivery_jobs WHERE id=?').bind(id).first();
+  assert.equal(JSON.parse(saved.payload_json).text,'Original notification');
+  await db.prepare("UPDATE telegram_delivery_jobs SET next_attempt_at='2020-01-01' WHERE id=?").bind(id).run();
+  mode='ok';await outbox.deliverTelegramJob(id);assert.equal(sends.at(-1).body.text,'Original notification');
+ }finally{mode='ok';}
+});
+
+test('Telegram attempts and queue age have finite budgets, including missing credentials',async()=>{
+ const original=state.env.TELEGRAM_BOT_TOKEN;
+ try{
+  delete state.env.TELEGRAM_BOT_TOKEN;
+  for(const [label,sql] of [['attempts','attempts=12'],['age',"created_at='2000-01-01T00:00:00.000Z'"]]){
+   const id='budget:'+label+':'+crypto.randomUUID(),before=sends.length;
+   await outbox.queueTelegram({id,destination:'-100111',payload:{text:'Budget test'}},false);
+   await db.prepare(`UPDATE telegram_delivery_jobs SET ${sql} WHERE id=?`).bind(id).run();
+   assert.equal(await outbox.deliverTelegramJob(id),'dead_letter');
+   assert.equal(sends.length,before);
+  }
+ }finally{state.env.TELEGRAM_BOT_TOKEN=original;}
+ const id=crypto.randomUUID();await outbox.queueTelegram({id,destination:'-100111',payload:{text:'Last attempt'}},false);
+ await db.prepare('UPDATE telegram_delivery_jobs SET attempts=11 WHERE id=?').bind(id).run();mode='reject';
+ try{assert.equal(await outbox.deliverTelegramJob(id),'dead_letter');assert.equal((await db.prepare('SELECT attempts FROM telegram_delivery_jobs WHERE id=?').bind(id).first()).attempts,12);}
+ finally{mode='ok';}
+});
+
+test('Telegram rate holds survive enqueue and arbitrary provider descriptions never enter stored errors',async()=>{
+ const id=crypto.randomUUID(),before=Date.now();mode='rate';
+ try{
+  assert.equal(await outbox.queueTelegram({id,destination:'-100111',payload:{text:'Rate test'}}),'failed');
+  const job=await db.prepare('SELECT * FROM telegram_delivery_jobs WHERE id=?').bind(id).first();
+  assert.ok(Date.parse(job.next_attempt_at)>=before+3600000);
+  assert.equal(job.last_error,'Telegram: rate limited');
+  assert.ok(!job.last_error.includes('audit@example.invalid'));
+  const count=sends.length;await outbox.queueTelegram({id,destination:'-100111',payload:{text:'Different'}},false);
+  await outbox.deliverTelegramJob(id);assert.equal(sends.length,count);
+ }finally{mode='ok';}
+ const client=await mod('/lib/telegram/client.ts');mode='private_reject';
+ try{await assert.rejects(()=>client.sendTo('-100111','Private request'),error=>error.retryable===true&&!error.message.includes('audit@example.invalid')&&!error.message.includes('PRIVATE_TOKEN')&&!error.message.includes('mock'));}
+ finally{mode='ok';}
+});
+
+test('malformed success cannot mark a Telegram message sent or trigger a second automatic send',async()=>{
+ const id=crypto.randomUUID(),before=sends.length;mode='malformed';
+ try{assert.equal(await outbox.queueTelegram({id,destination:'-100111',payload:{text:'Acknowledgment test'}}),'uncertain');}
+ finally{mode='ok';}
+ await outbox.deliverTelegramJob(id);assert.equal(sends.length,before+1);
+});
+
+test('a late Telegram acknowledgment cannot replace a new lease or update linked booking cards',async()=>{
+ const {ref}=await booking(),id=crypto.randomUUID();await db.prepare('UPDATE telegram_booking_cards SET telegram_message_id=0 WHERE booking_reference=?').bind(ref).run();
+ mode='defer';deferredReply=null;
+ const running=outbox.queueTelegram({id,reference:ref,destination:'-100111',payload:{text:'Lease test',target:{kind:'booking_card',id:ref}}});
+ try{
+  const deadline=Date.now()+10000;while(!deferredReply&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,10));
+  assert.ok(deferredReply,'provider request started');
+  await db.prepare("UPDATE telegram_delivery_jobs SET status='uncertain',attempted_at='2099-01-01T00:00:00.000Z',last_error='New owner result' WHERE id=?").bind(id).run();
+  deferredReply(Response.json({ok:true,result:{message_id:888888,chat:{id:-100111}}}));
+  assert.equal(await running,'uncertain');
+  const job=await db.prepare('SELECT * FROM telegram_delivery_jobs WHERE id=?').bind(id).first();
+  assert.equal(job.status,'uncertain');assert.equal(job.last_error,'New owner result');assert.equal(job.telegram_message_id,null);
+  assert.equal((await db.prepare('SELECT telegram_message_id FROM telegram_booking_cards WHERE booking_reference=?').bind(ref).first()).telegram_message_id,0);
+ }finally{mode='ok';if(deferredReply)deferredReply(Response.json({ok:true,result:{message_id:888888}}));await running;}
+});
+
+test('a changed private photo stops rather than sending different bytes on retry',async()=>{
+ const id=crypto.randomUUID(),key='audit/frozen-'+id;await files.putFile(key,new Uint8Array([1,2,3]),'image/jpeg');mode='reject';
+ try{assert.equal(await outbox.queueTelegram({id,destination:'-100111',payload:{text:'Evidence snapshot',photos:[{key,mime:'image/jpeg'}]}}),'failed');}
+ finally{mode='ok';}
+ const saved=JSON.parse((await db.prepare('SELECT payload_json FROM telegram_delivery_jobs WHERE id=?').bind(id).first()).payload_json);
+ assert.match(saved.photos[0].contentHash,/^[a-f0-9]{64}$/);
+ await files.putFile(key,new Uint8Array([4,5,6]),'image/jpeg');await db.prepare("UPDATE telegram_delivery_jobs SET next_attempt_at='2020-01-01' WHERE id=?").bind(id).run();
+ const before=sends.length;assert.equal(await outbox.deliverTelegramJob(id),'uncertain');assert.equal(sends.length,before);
+});
+
+test('a corrupt queued payload is held without aborting the recovery sweep',async()=>{
+ const id=crypto.randomUUID();await outbox.queueTelegram({id,destination:'-100111',payload:{text:'Corruption test'}},false);
+ await db.prepare("UPDATE telegram_delivery_jobs SET payload_json='not-json' WHERE id=?").bind(id).run();
+ const next=crypto.randomUUID();await outbox.queueTelegram({id:next,destination:'-100111',payload:{text:'Healthy recovery job'}},false);
+ await outbox.retryTelegramOutbox(100);
+ assert.equal((await db.prepare('SELECT status FROM telegram_delivery_jobs WHERE id=?').bind(id).first()).status,'dead_letter');
+ assert.equal((await db.prepare('SELECT status FROM telegram_delivery_jobs WHERE id=?').bind(next).first()).status,'sent');
+});
+
+test('an expired rendering lease cannot start a Telegram provider request',async()=>{
+ const id=crypto.randomUUID(),clock=Date.now,previous=state.env.BUCKET,before=sends.length;
+ state.env.BUCKET={async get(){Date.now=()=>clock()+90000;return {body:new Uint8Array([1,2,3]),httpMetadata:{contentType:'image/jpeg'}};}};
+ try{assert.equal(await outbox.queueTelegram({id,destination:'-100111',payload:{text:'Slow private read',photos:[{key:'slow',mime:'image/jpeg'}]}}),'failed');assert.equal(sends.length,before);}
+ finally{Date.now=clock;if(previous)state.env.BUCKET=previous;else delete state.env.BUCKET;}
+});
+
+test('recipient authorization is checked again after private photo rendering',async()=>{
+ const {ref}=await booking(),id=crypto.randomUUID(),previous=state.env.BUCKET,before=sends.length;
+ state.env.BUCKET={async get(){await db.prepare("UPDATE bookings SET status='cancelled' WHERE reference=?").bind(ref).run();return {body:new Uint8Array([1,2,3]),httpMetadata:{contentType:'image/jpeg'}};}};
+ try{assert.equal(await outbox.queueTelegram({id,reference:ref,destination:'-100111',payload:{text:'Revoked trip',activeBooking:true,photos:[{key:'revoked',mime:'image/jpeg'}]}}),'cancelled');assert.equal(sends.length,before);}
+ finally{if(previous)state.env.BUCKET=previous;else delete state.env.BUCKET;}
 });

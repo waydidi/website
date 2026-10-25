@@ -1,6 +1,6 @@
 # Booking notification delivery
 
-This changes existing booking confirmation email/PDF delivery. It does not introduce a marketing message, charge, refund or automatic resend of an uncertain result. This is an implementation checkpoint; the broader Telegram outbox, storage migration and recovery work remains in progress.
+This changes existing booking confirmation email/PDF delivery and the general Telegram job outbox. It does not introduce a marketing message, charge, refund or automatic resend of an uncertain result. This is an implementation checkpoint; the separate assignment/chat retry loops, audited staff review, storage migration and recovery work remain in progress.
 
 ## Behaviour
 
@@ -22,4 +22,14 @@ Keep the background flag off until authenticated checks establish the correct Wo
 
 Apply or verify the additive migration in the intended database; the runtime bootstrap is also idempotent. Inspect old attempted jobs before rollout: they may move into review instead of receiving a changed message. Watch Operations for `uncertain`, `dead_letter` and configuration failures. Preserve snapshots during rollback, keep the background flag at `0`, and do not revert to an older consumer that rebuilds previously attempted emails under changed keys/bodies. Disabling this flag alone preserves the new retry protections and returns new first attempts inline.
 
-Tests use local Miniflare/D1, real message rendering and mocked provider HTTP only. No live email is sent. Production provisioning and actual cron invocation are separate, still-pending evidence. Telegram retry bounds, missing legacy job reconciliation and a staff review/audit workflow still need completion before the notification engineering item is checked off.
+Tests use local Miniflare/D1, real message rendering and mocked provider HTTP only. No live email is sent. Production provisioning and actual cron invocation are separate, still-pending evidence. Bounds for the separate Telegram assignment/chat loops, missing legacy job reconciliation and a staff review/audit workflow still need completion before the notification engineering item is checked off.
+
+## General Telegram outbox
+
+The general `telegram_delivery_jobs` queue stops after 12 claimed attempts or seven days. Definite API rejections may retry within that budget; transport errors, malformed successes, changed private photo bytes and ambiguous provider responses require review. A send acknowledgment needs a positive integer message ID. Rate-limit delays from `parameters.retry_after` are persisted and cannot be erased by enqueueing the same job again. The existing JSON client can wait once for a short rate limit, and a definite quote rejection can remove the quote before one fallback; the limit counts job attempts rather than claiming a precise number of HTTP calls. Telegram does not receive an email-provider idempotency key. See the official response and rate-limit contract: https://core.telegram.org/bots/api#making-requests and https://core.telegram.org/bots/api#responseparameters .
+
+Producers can update an unattempted queued payload. Once attempted, retries preserve it. Photo SHA-256 values are saved before the first provider request; a changed file stops for review instead of sending different evidence. Recipient/journey authorization is checked again after private-file reads. The worker must still own a sufficiently fresh lease immediately before sending. Final job and linked card/prompt/context writes are guarded by the same claim timestamp and acknowledged message ID, so a late response cannot update another attempt's state. A failed local commit after a provider acknowledgment records an uncertain result and retains a known message ID where possible.
+
+Telegram client errors now contain fixed descriptions rather than arbitrary provider text, including for multipart uploads. Responses with a non-Boolean success field are rejected. The support settings list shows when automatic retries have stopped. General Telegram booking failures and terminal review jobs also appear in Operations without message bodies or destinations; unscoped chat jobs remain in Telegram settings. `dead_letter` cannot be silently reset by the existing retry button. A deliberate replacement message needs the upcoming audited review workflow.
+
+The general outbox reuses existing tables and runtime bootstrap; this checkpoint adds no schema migration or new message category. It does not yet impose the same limits on `booking_notifications` assignment delivery or website-chat delivery attempts, which remain separate consumers and are still on the engineering roadmap.

@@ -122,3 +122,12 @@ test("operational errors never copy arbitrary exception messages into error code
   assert.equal(safeErrorCode(new TypeError("private@example.invalid")), "TYPE_ERROR");
   assert.equal(safeErrorCode("secret"), "UNKNOWN_ERROR");
 });
+
+test("Telegram review and stopped jobs appear without destinations or message bodies", async () => {
+  await db.prepare("INSERT INTO telegram_delivery_jobs(id,booking_reference,destination,payload_json,status,next_attempt_at,created_at,updated_at) VALUES('inbox-telegram','OPS234','private-destination','{\"text\":\"private@example.invalid PRIVATE_TOKEN\"}','dead_letter',?,?,?)").bind(now,now,now).run();
+  const result = await inbox.operationsInbox(db, { kind: "delivery", offset: 0 });
+  const item = result.items.find(item => item.id === "telegram_job:inbox-telegram");
+  assert.equal(item?.status, "dead_letter"); assert.equal(item?.severity, "critical"); assert.equal(item?.reference, "OPS234");
+  assert.ok(!JSON.stringify(result).includes("private-destination")); assert.ok(!JSON.stringify(result).includes("PRIVATE_TOKEN"));
+  assert.ok(!JSON.stringify(result).includes("private@example.invalid"));
+});

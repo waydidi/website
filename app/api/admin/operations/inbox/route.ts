@@ -5,6 +5,7 @@ import { canReadOperationsInbox, operationsInbox, parseInboxQuery, updateInboxAl
 import { logOperationalError, requestIdFor } from "@/lib/observability";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { z } from "zod";
+import { ensureReliabilityTables } from "@/lib/telegram/reliability-db";
 
 const headers = { "Cache-Control": "no-store" };
 
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
   const query = parseInboxQuery(new URL(request.url));
   if (!query) return NextResponse.json({ error: "Invalid inbox filter or page." }, { status: 400, headers });
   try {
+    await ensureReliabilityTables();
     return NextResponse.json(await operationsInbox(env.DB, query), { headers: { ...headers, "X-Request-ID": requestId } });
   } catch (error) {
     logOperationalError("operations_inbox_failed", requestId, error);

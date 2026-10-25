@@ -54,7 +54,7 @@ export function TelegramTeam() {
       <h2 className="text-[16px] font-bold">Notifications needing attention</h2>
       <ul className="mt-3 divide-y divide-slate-100">{data.delivery.jobs.map(job=><li key={job.id} className="py-3 text-[13px]">
         <p className="font-semibold">{job.booking_reference??job.id.split(':')[0]}{job.leg?` · ${job.leg}`:''} · {job.status}</p>
-        <p className="text-slate-600">Destination {job.destination||'not configured'} · {job.attempts} attempts · next attempt {job.next_attempt_at}</p>
+        <p className="text-slate-600">Destination {job.destination||'not configured'} · {job.attempts} attempts · {['uncertain','dead_letter'].includes(job.status)?'Automatic retry stopped; review required':job.status==='processing'?'Send in progress':`next attempt ${job.next_attempt_at||'not scheduled'}`}</p>
         {job.last_error&&<p className="text-amber-800">{job.last_error}</p>}
         {data.canEdit&&['uncertain','failed','queued','pending'].includes(job.status)&&<button disabled={busy} type="button" className="mt-2 font-semibold text-brand-darker" onClick={()=>{if(window.confirm('Check Telegram first. Confirm this message was NOT delivered before sending it again.'))void post({action:'review_delivery',jobId:job.id,jobKind:job.kind,confirmedAbsent:true},'Notification reviewed.');}}>Confirm missing and retry</button>}
       </li>)}</ul>
