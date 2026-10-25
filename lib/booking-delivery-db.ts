@@ -16,6 +16,11 @@ export const deliveryDdl = [
     part INTEGER NOT NULL CHECK(part>=0), data BLOB NOT NULL, PRIMARY KEY(snapshot_id,part))`,
 ];
 export async function ensureDeliveryPayloads(db: SecurityDatabase) { await db.batch(deliveryDdl.map(sql => db.prepare(sql))); }
+export function bookingDeliverySummary(db: SecurityDatabase, reference: string, at = new Date().toISOString()) {
+  return db.prepare(`UPDATE bookings SET fulfillment_status=CASE WHEN EXISTS(
+    SELECT 1 FROM booking_deliveries d WHERE d.booking_reference=bookings.reference AND d.status NOT IN ('sent','legacy_unknown')) THEN 'failed' ELSE 'complete' END,
+    email_status=COALESCE((SELECT MAX(status) FROM booking_deliveries d WHERE d.booking_reference=bookings.reference AND d.channel='customer_email'),'pending'),updated_at=? WHERE reference=?`).bind(at,reference);
+}
 export const DELIVERY_LEASE_MS = 5 * 60000;
 export const EMAIL_RETRY_WINDOW_MS = 23 * 3600000;
 export const EMAIL_MAX_SEND_ATTEMPTS = 12;

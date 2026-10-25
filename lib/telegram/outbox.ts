@@ -4,6 +4,7 @@ import { tg, sendTo, sendPhoto, sendPhotoAlbum, TelegramDeliveryError, type Inli
 import { ensureReliabilityTables, reliabilityDb } from "./reliability-db";
 import { sha256Bytes } from "@/lib/security";
 import { TELEGRAM_LEASE_MS, TELEGRAM_MAX_AGE_MS, telegramBudgetExpired, telegramNextAttempt } from "./outbox-rules";
+import { telegramLinkedStatements } from "./acknowledgment-db";
 
 export type DeliveryPayload = {
   prompt?:{reference:string;field:string;userId:string;version:number;placeholder:string};
@@ -93,17 +94,8 @@ export async function deliverTelegramJob(id:string) {
     }
     if(!sent || !Number.isSafeInteger(sent.message_id) || sent.message_id<=0)throw new TelegramDeliveryError("Provider acknowledgment is invalid; check Telegram",false);
     sentId=sent.message_id;
-    const acknowledged="EXISTS(SELECT 1 FROM telegram_delivery_jobs WHERE id=? AND status='sent' AND attempted_at=? AND telegram_message_id=?)";
-    const statements=[db.prepare("UPDATE telegram_delivery_jobs SET status='sent',telegram_message_id=?,sent_at=?,last_error=NULL,updated_at=? WHERE id=? AND status='processing' AND attempted_at=?").bind(sentId,at,at,id,at)];
-    if (p.prompt) {
-      statements.push(db.prepare(`INSERT OR IGNORE INTO telegram_booking_prompts(telegram_message_id,booking_reference,field,telegram_user_id,created_at) SELECT ?,?,?,?,? WHERE ${acknowledged}`).bind(sentId,p.prompt.reference,p.prompt.field,p.prompt.userId,at,id,at,sentId));
-      statements.push(db.prepare(`INSERT OR IGNORE INTO telegram_prompt_context(message_id,booking_version) SELECT ?,? WHERE ${acknowledged}`).bind(sentId,p.prompt.version,id,at,sentId));
-    }
-    const target=p.target;
-    if (target?.kind==="booking_card") statements.push(db.prepare(`UPDATE telegram_booking_cards SET telegram_message_id=? WHERE booking_reference=? AND telegram_message_id=0 AND ${acknowledged}`).bind(sentId,target.id,id,at,sentId));
-    if (target?.kind==="driver_offer") statements.push(db.prepare(`UPDATE telegram_driver_jobs SET telegram_message_id=?,updated_at=? WHERE booking_reference=? AND telegram_message_id=0 AND ${acknowledged}`).bind(sentId,at,target.id,id,at,sentId));
-    if (target?.kind==="request_card") statements.push(db.prepare(`UPDATE telegram_request_cards SET telegram_message_id=? WHERE id=? AND telegram_message_id=0 AND ${acknowledged}`).bind(sentId,target.id,id,at,sentId));
-    if (target?.kind==="handover") statements.push(db.prepare(`UPDATE website_conversations SET bot_state=json_set(COALESCE(bot_state,'{}'),'$.card',?,'$.waitUntil',NULL) WHERE id=? AND ${acknowledged}`).bind(sentId,target.id,id,at,sentId));
+    const acknowledged={sql:"EXISTS(SELECT 1 FROM telegram_delivery_jobs WHERE id=? AND status='sent' AND attempted_at=? AND telegram_message_id=?)",values:[id,at,sentId]};
+    const statements=[db.prepare("UPDATE telegram_delivery_jobs SET status='sent',telegram_message_id=?,sent_at=?,last_error=NULL,updated_at=? WHERE id=? AND status='processing' AND attempted_at=?").bind(sentId,at,at,id,at),...telegramLinkedStatements(db,p,sentId,acknowledged,at)];
     const saved=await db.batch(statements);
     return saved[0].meta.changes?"sent":(await db.prepare("SELECT status FROM telegram_delivery_jobs WHERE id=?").bind(id).first<{status:string}>())?.status??"uncertain";
   } catch(error) {

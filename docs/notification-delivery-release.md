@@ -1,6 +1,6 @@
 # Booking notification delivery
 
-This changes existing booking confirmation email/PDF delivery and the general, assignment and chat Telegram outboxes. It does not introduce a marketing message, charge, refund or automatic resend of an uncertain result. This is an implementation checkpoint; audited staff review, missing legacy-job reconciliation, storage migration and recovery work remain in progress.
+This changes existing booking confirmation email/PDF delivery and the general, assignment and chat Telegram outboxes. It does not introduce a marketing message, charge, refund or automatic resend of an uncertain result. The owner review workspace is implemented separately below; missing legacy-job reconciliation, production verification, storage migration and recovery remain in progress.
 
 ## Behaviour
 
@@ -22,7 +22,7 @@ Keep the background flag off until authenticated checks establish the correct Wo
 
 Apply or verify the additive migration in the intended database; the runtime bootstrap is also idempotent. Inspect old attempted jobs before rollout: they may move into review instead of receiving a changed message. Watch Operations for `uncertain`, `dead_letter` and configuration failures. Preserve snapshots during rollback, keep the background flag at `0`, and do not revert to an older consumer that rebuilds previously attempted emails under changed keys/bodies. Disabling this flag alone preserves the new retry protections and returns new first attempts inline.
 
-Tests use local Miniflare/D1, real message rendering and mocked provider HTTP only. No live email is sent. Production provisioning and actual cron invocation are separate, still-pending evidence. Missing legacy-job reconciliation and a staff review/audit workflow still need completion before the notification engineering item is checked off.
+Tests use local Miniflare/D1, real message rendering and mocked provider HTTP only. No live email is sent. Production provisioning and actual cron invocation are separate, still-pending evidence. Missing legacy-job reconciliation and production prerequisites still need completion before the notification engineering item is checked off. The audited owner review implementation is described in `docs/delivery-reviews-release.md`.
 
 ## General Telegram outbox
 
@@ -30,7 +30,7 @@ The general `telegram_delivery_jobs` queue stops after 12 claimed attempts or se
 
 Producers can update an unattempted queued payload. Once attempted, retries preserve it. Photo SHA-256 values are saved before the first provider request; a changed file stops for review instead of sending different evidence. Recipient/journey authorization is checked again after private-file reads. The worker must still own a sufficiently fresh lease immediately before sending. Final job and linked card/prompt/context writes are guarded by the same claim timestamp and acknowledged message ID, so a late response cannot update another attempt's state. A failed local commit after a provider acknowledgment records an uncertain result and retains a known message ID where possible.
 
-Telegram client errors now contain fixed descriptions rather than arbitrary provider text, including for multipart uploads. Responses with a non-Boolean success field are rejected. The support settings list shows when automatic retries have stopped. General Telegram booking failures and terminal review jobs also appear in Operations without message bodies or destinations; unscoped chat jobs remain in Telegram settings. `dead_letter` cannot be silently reset by the existing retry button. A deliberate replacement message needs the upcoming audited review workflow.
+Telegram client errors now contain fixed descriptions rather than arbitrary provider text, including for multipart uploads. Responses with a non-Boolean success field are rejected. The support settings list shows when automatic retries have stopped. General Telegram booking failures and terminal review jobs also appear in Operations without message bodies or destinations; unscoped chat jobs remain in Telegram settings. The owner review workspace preserves original retry budgets. A deliberate replacement message is a separate business operation; the review path cannot rekey or rebuild an exhausted message.
 
 The general outbox reuses existing tables and runtime bootstrap; that slice adds no schema migration or new message category. The separate assignment/chat consumers now use the stored-message implementation below.
 
@@ -48,4 +48,4 @@ Provider acknowledgments, message status, root-card updates and routing mappings
 
 Old private snapshots are cleared after seven days for sent notifications and 30 days for terminal review/skipped/cancelled notifications; hashes and known provider IDs remain. Chat snapshots and first-card claims cascade when their source messages/conversations are deleted. Cleanup also runs when the bot is disconnected. Operations includes uncertain/stopped booking notifications, and Telegram settings include stopped assignment/chat jobs and saved chat retry times.
 
-Preserve these tables during rollback. Do not switch back to a consumer that rebuilds an attempted message or ignores terminal outcomes. Existing uncertain jobs and ambiguous legacy jobs still require the forthcoming audited review workflow. These changes add no new message category and do not enable the optional background-email flag. Production account/configuration/cron checks remain pending.
+Preserve these tables during rollback. Do not switch back to a consumer that rebuilds an attempted message or ignores terminal outcomes. Existing uncertain and ambiguous legacy jobs can be inspected in the owner review workspace, with explicit evidence required for each decision. These changes add no new message category and do not enable the optional background-email flag. Production account/configuration/cron checks remain pending.

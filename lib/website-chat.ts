@@ -5,6 +5,7 @@ import { deliverToChannel } from "@/lib/channels";
 import { editCard, sendCard, sendPrivate, sendPreparedTelegram, telegramChatId as teamTelegramChatId, telegramConfigured, TelegramDeliveryError } from "@/lib/telegram/client";
 import { ensureTelegramMessages, readTelegramMessage, freezeTelegramMessage, ownsTelegramMessage, telegramMessageGuard, telegramMessageOutcome, purgeTelegramMessages, type PreparedTelegram } from "@/lib/telegram/message-store";
 import { telegramBudgetExpired, telegramNextAttempt, TELEGRAM_MAX_AGE_MS } from "@/lib/telegram/outbox-rules";
+import { chatLinkedStatements } from "@/lib/telegram/acknowledgment-db";
 import { botEcho, conversationCard, conversationKeyboard, customerMessage, esc, staffEcho, type CardConversation, type ChatStatus } from "@/lib/telegram/cards";
 
 // One canonical support conversation, stored in D1. The website widget, the admin inbox and Telegram
@@ -172,12 +173,7 @@ async function deliverChatMessage(conversationId: string, messageId: string, bot
   const next=telegramNextAttempt(attempts+1,retryAfter);
   if(status==="failed" && (telegramBudgetExpired({attempts:attempts+1,created_at:m.created_at}) || Date.parse(next)>=Date.parse(m.created_at)+TELEGRAM_MAX_AGE_MS))status="dead_letter";
   const guard=telegramMessageGuard(lease),statements=[telegramMessageOutcome(store,lease,status==="failed"?next:null,telegramId,errorCode)];
-  if(telegramId && actualDestination){
-    if(group){
-      statements.push(store.prepare(`INSERT OR IGNORE INTO telegram_message_routes(chat_id,message_id,conversation_id) SELECT ?,?,? WHERE ${guard.sql}`).bind(actualDestination,telegramId,c.id,...guard.values));
-      if(prepared?.context.root)statements.push(store.prepare(`UPDATE website_conversations SET telegram_message_id=? WHERE id=? AND telegram_message_id IS NULL AND ${guard.sql}`).bind(telegramId,c.id,...guard.values));
-    }else statements.push(store.prepare(`INSERT OR IGNORE INTO telegram_dm_messages(chat_id,message_id,conversation_id,created_at) SELECT ?,?,?,? WHERE ${guard.sql}`).bind(actualDestination,telegramId,c.id,nowIso(),...guard.values));
-  }
+  if(telegramId && actualDestination)statements.push(...chatLinkedStatements(store,{conversationId:c.id,destination:actualDestination,messageId:telegramId,group,root:Boolean(prepared?.context.root)},guard));
   if(status==="sent" || status==="dead_letter")statements.push(store.prepare(`DELETE FROM telegram_chat_card_claims WHERE message_id=? AND claim_id=? AND ${guard.sql}`).bind(messageId,claimId,...guard.values));
   statements.push(store.prepare(`UPDATE website_chat_messages SET telegram_status=?,telegram_message_id=CASE WHEN ?=1 THEN ? ELSE telegram_message_id END WHERE id=? AND ${guard.sql}`).bind(status,group?1:0,telegramId,messageId,...guard.values));
   const saved=await store.batch(statements);

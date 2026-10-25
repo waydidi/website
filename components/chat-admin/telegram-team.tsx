@@ -3,6 +3,7 @@
 import { CheckCircle2, CircleAlert, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Modal } from "@/components/ui/modal";
+import Link from "next/link";
 
 type Member = { id: string; telegram_user_id: string; telegram_username: string | null; display_name: string; enabled: number; staff_name: string | null };
 type Data = { canEdit: boolean; secrets: Record<string, boolean>; webhook: { url: string; pending: number; lastError: string | null } | null; team: Member[]; destination?: { label: string; type: string } | null; connectionError?: string | null; delivery?: { chat: { status: string; count: number }[]; assignments: { status: string; count: number }[]; jobs?: {kind?:string;id:string;booking_reference:string|null;leg:string|null;destination:string;status:string;attempts:number;next_attempt_at:string;last_error:string|null}[]; cancellationRequests?:{id:string;booking_reference:string;requested_at:string;policy_version:string|null}[];assistantReservations?:{count:number;reserved_microusd:number} } };
@@ -56,7 +57,7 @@ export function TelegramTeam() {
         <p className="font-semibold">{job.booking_reference??job.id.split(':')[0]}{job.leg?` · ${job.leg}`:''} · {job.status}</p>
         <p className="text-slate-600">Destination {job.destination||'not configured'} · {job.attempts} attempts · {['uncertain','dead_letter'].includes(job.status)?'Automatic retry stopped; review required':job.status==='processing'?'Send in progress':`next attempt ${job.next_attempt_at||'not scheduled'}`}</p>
         {job.last_error&&<p className="text-amber-800">{job.last_error}</p>}
-        {data.canEdit&&['uncertain','failed','queued','pending'].includes(job.status)&&<button disabled={busy} type="button" className="mt-2 font-semibold text-brand-darker" onClick={()=>{if(window.confirm('Check Telegram first. Confirm this message was NOT delivered before sending it again.'))void post({action:'review_delivery',jobId:job.id,jobKind:job.kind,confirmedAbsent:true},'Notification reviewed.');}}>Confirm missing and retry</button>}
+        {data.canEdit&&['uncertain','failed','queued','pending','dead_letter'].includes(job.status)&&<Link className="mt-2 inline-block font-semibold text-brand-darker underline" href={`/admin/delivery-reviews?kind=${encodeURIComponent(job.kind??'telegram')}&jobId=${encodeURIComponent(job.id)}`}>Review delivery and history</Link>}
       </li>)}</ul>
     </section>}
     {!!data.delivery?.cancellationRequests?.length&&<section className="rounded-2xl border border-slate-200 bg-white p-5"><h2 className="font-bold">Pending cancellation requests</h2><ul className="mt-3 text-[13px]">{data.delivery.cancellationRequests.map(r=><li key={r.id}>{r.booking_reference} · received {r.requested_at} · {r.policy_version??'original terms need review'}</li>)}</ul></section>}

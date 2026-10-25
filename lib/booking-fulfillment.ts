@@ -6,7 +6,7 @@ import { contactEmails } from "@/lib/booking-contacts";
 import { bookingExtras } from "@/lib/booking-extras";
 import { createConfirmationPdf } from "@/lib/confirmation-pdf";
 import { prepareConfirmationEmail, sendPreparedEmail } from "@/lib/email";
-import { ensureDeliveryPayloads, readDeliveryEmail, freezeDeliveryEmail, beginDeliverySend, finishDeliverySend, closeDeliveryClaim, purgeDeliveryPayloads, DELIVERY_MAX_AGE_MS, DELIVERY_LEASE_MS, type DeliveryClaim } from "@/lib/booking-delivery-db";
+import { ensureDeliveryPayloads, readDeliveryEmail, freezeDeliveryEmail, beginDeliverySend, finishDeliverySend, closeDeliveryClaim, purgeDeliveryPayloads, bookingDeliverySummary, DELIVERY_MAX_AGE_MS, DELIVERY_LEASE_MS, type DeliveryClaim } from "@/lib/booking-delivery-db";
 import { sha256 } from "@/lib/security";
 import { SITE_URL, publicSiteUrl } from "@/lib/site";
 import { rideUrl } from "@/lib/trip-access";
@@ -91,10 +91,7 @@ async function deliverBooking(booking:Booking) {
   await env.DB.prepare("UPDATE booking_deliveries SET status=?,sent_at=?,next_attempt_at=?,last_error=?,updated_at=? WHERE id=? AND status='processing' AND attempted_at=?").bind(status,status==="sent"?new Date().toISOString():null,status==="sent"?null:retry,error,new Date().toISOString(),job.id,at).run();
  }
  // Derive the summary at write time; an older worker cannot write stale counts.
- await env.DB.prepare(`UPDATE bookings SET fulfillment_status=CASE WHEN EXISTS(
-  SELECT 1 FROM booking_deliveries d WHERE d.booking_reference=bookings.reference AND d.status NOT IN ('sent','legacy_unknown')) THEN 'failed' ELSE 'complete' END,
-  email_status=COALESCE((SELECT MAX(d.status) FROM booking_deliveries d WHERE d.booking_reference=bookings.reference AND d.channel='customer_email'),'pending'),updated_at=? WHERE reference=?`)
-  .bind(new Date().toISOString(),booking.reference).run();
+ await bookingDeliverySummary(env.DB,booking.reference).run();
 }
 export async function runDeliveryRecovery() {
  await purgeDeliveryPayloads(env.DB);

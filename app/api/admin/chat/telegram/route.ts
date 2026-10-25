@@ -1,6 +1,3 @@
-import { deliverBotMessage,deliverVisitorMessage } from "@/lib/website-chat";
-import { deliverAssignmentTelegram } from "@/lib/telegram/assignments";
-import { deliverTelegramJob } from "@/lib/telegram/outbox";
 import { ensureReliabilityTables } from "@/lib/telegram/reliability-db";
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
@@ -9,6 +6,8 @@ import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
 import { sendCard, tg, telegramConfigured } from "@/lib/telegram/client";
 import { esc } from "@/lib/telegram/cards";
 import { ensureTelegramMessages } from "@/lib/telegram/message-store";
+import { deliveryReviewSchema } from "@/lib/delivery-review-rules";
+import { ensureDeliveryReviews, applyDeliveryReview, DeliveryReviewError } from "@/lib/delivery-review-db";
 
 // Telegram team (approved Telegram users) and bot connection. Viewing is for support staff; changes are owner-only.
 const headers = { "Cache-Control": "no-store" };
@@ -87,26 +86,12 @@ export async function POST(request: Request) {
       break;
     }
     case "review_delivery": {
-      await ensureReliabilityTables();
-      if (input.confirmedAbsent!==true) return reply("Check Telegram first and confirm the message was not delivered.",400);
-      const id=String(input.jobId??"");
-      if (input.jobKind==='assignment') {
-        const job=await env.DB.prepare("SELECT assignment_id,status FROM booking_notifications WHERE id=? AND channel='telegram'").bind(id).first() as {assignment_id:string;status:string}|null;
-        if (!job || !['queued','failed','uncertain'].includes(job.status)) return reply("This assignment notification cannot be retried.",409);
-        await env.DB.prepare("UPDATE booking_notifications SET status='queued',scheduled_for=?,updated_at=? WHERE id=? AND status IN ('queued','failed','uncertain')").bind(now,now,id).run();
-        await deliverAssignmentTelegram(job.assignment_id);
-      } else if (input.jobKind==='chat') {
-        const job=await env.DB.prepare("SELECT conversation_id,is_bot,telegram_status FROM website_chat_messages WHERE id=? AND (sender='visitor' OR is_bot=1)").bind(id).first() as {conversation_id:string;is_bot:number;telegram_status:string}|null;
-        if (!job || !['pending','failed','uncertain'].includes(job.telegram_status)) return reply("This chat notification cannot be retried.",409);
-        await env.DB.prepare("UPDATE website_chat_messages SET telegram_status='pending' WHERE id=? AND telegram_status IN ('pending','failed','uncertain')").bind(id).run();
-        await (job.is_bot?deliverBotMessage:deliverVisitorMessage)(job.conversation_id,id);
-      } else {
-        const job=await env.DB.prepare("SELECT status FROM telegram_delivery_jobs WHERE id=?").bind(id).first() as {status:string}|null;
-        if (!job || !['uncertain','failed','queued'].includes(job.status)) return reply("This message cannot be retried from here.",409);
-        await env.DB.prepare("UPDATE telegram_delivery_jobs SET status='queued',next_attempt_at=?,last_error=NULL,updated_at=? WHERE id=? AND status IN ('uncertain','failed','queued')").bind(now,now,id).run();
-        await deliverTelegramJob(id);
-      }
-      break;
+      const parsed=deliveryReviewSchema.safeParse({requestId:input.requestId,kind:input.jobKind??"telegram",jobId:input.jobId,expectedVersion:input.expectedVersion,action:"retry",reason:input.reason,confirmedAbsent:input.confirmedAbsent});
+      if(!parsed.success)return reply("Open Delivery reviews and confirm the current job version and reason.",400);
+      try{
+        await ensureDeliveryReviews(env.DB);
+        return NextResponse.json(await applyDeliveryReview(env.DB,staff.id,parsed.data,env.NOTIFICATION_DELIVERY_RETRY==="1"),{headers});
+      }catch(error){return reply(error instanceof DeliveryReviewError?error.message:"The review was not committed. Retry the same request ID.",error instanceof DeliveryReviewError?error.status:503);}
     }
     case "connect": {
       const secret = String(env.TELEGRAM_WEBHOOK_SECRET ?? "");
