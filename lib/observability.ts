@@ -8,9 +8,12 @@ export function requestIdFor(request: Request) {
 }
 
 export function safeErrorCode(error: unknown) {
-  if (!(error instanceof Error)) return "UNKNOWN_ERROR";
-  const normalized = error.message.trim().toUpperCase().replace(/[^A-Z0-9_]+/g, "_");
-  return normalized.slice(0, 80) || "UNKNOWN_ERROR";
+  // Exception messages can contain provider payloads, addresses or credentials.
+  // Classify by built-in type; never derive a log field from message text.
+  if (error instanceof TypeError) return "TYPE_ERROR";
+  if (error instanceof RangeError) return "RANGE_ERROR";
+  if (error instanceof SyntaxError) return "SYNTAX_ERROR";
+  return "UNKNOWN_ERROR";
 }
 
 export function logOperationalError(
