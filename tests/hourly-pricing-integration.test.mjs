@@ -23,7 +23,7 @@ const vite = await createServer({ root, configFile: false, appType: 'custom', re
 }, load(id) {
   if (id === '\0hourly-env') return 'export const env=globalThis.__hourlyTestEnv';
   if (id === '\0hourly-fulfillment') return `export async function fulfillBooking(b){await globalThis.__hourlyTestEnv.DB.prepare("UPDATE bookings SET status='confirmed',fulfillment_status='complete' WHERE reference=?").bind(b.reference).run()}`;
-  if (id === '\0hourly-admin') return 'export async function getWaydidiAdmin(){return globalThis.__hourlyAdmin?{email:"audit@example.invalid"}:null}';
+  if (id === '\0hourly-admin') return 'export async function getWaydidiAdmin(){return globalThis.__hourlyAdmin?{id:"hourly-audit",role:"owner",email:"audit@example.invalid"}:null}';
 } }], server: { middlewareMode: true } });
 const originalFetch = globalThis.fetch;
 after(async () => { globalThis.fetch = originalFetch; await vite.close(); await mf.dispose(); delete globalThis.__hourlyTestEnv; delete globalThis.__hourlyAdmin; });
