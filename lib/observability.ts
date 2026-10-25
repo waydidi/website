@@ -9,7 +9,8 @@ export function requestIdFor(request: Request) {
 
 export function safeErrorCode(error: unknown) {
   // Exception messages can contain provider payloads, addresses or credentials.
-  // Classify by built-in type; never derive a log field from message text.
+  // Preserve only explicitly approved diagnostics; never normalize arbitrary text.
+  if (error instanceof Error && error.message === "route lookup failed") return "ROUTE_LOOKUP_FAILED";
   if (error instanceof TypeError) return "TYPE_ERROR";
   if (error instanceof RangeError) return "RANGE_ERROR";
   if (error instanceof SyntaxError) return "SYNTAX_ERROR";
