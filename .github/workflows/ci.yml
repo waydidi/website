@@ -13,6 +13,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  windows:
+    name: Windows development commands
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm.cmd run install:ci
+      - run: npm.cmd run lint
+      - run: npm.cmd run typecheck
+      - run: npm.cmd run build
+      - run: npm.cmd run test:unit -- tests/booking-critical-paths.test.mjs tests/booking-funnel.test.mjs tests/driver-sync-rules.test.mjs tests/single-source.test.mjs
+
   checks:
     name: Lint, typecheck and unit tests
     runs-on: ubuntu-24.04 # Playwright 1.56 cannot install Chromium on Ubuntu 26.04 (ubuntu-latest)

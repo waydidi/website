@@ -6,18 +6,19 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "install:ci": "bash scripts/install-ci.sh",
-    "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite",
-    "build": "bash scripts/build-verified.sh",
-    "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
-    "test": "npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
+    "install:ci": "node scripts/run.mjs install:ci",
+    "dev": "node scripts/run.mjs dev",
+    "build": "node scripts/run.mjs build",
+    "start": "node scripts/run.mjs start",
+    "test": "node scripts/run.mjs test",
+    "test:unit": "node scripts/run.mjs test:unit",
     "test:booking": "node --test tests/booking-critical-paths.test.mjs",
     "typecheck": "tsc --noEmit -p .",
     "e2e": "playwright test",
     "check": "npm run lint && npm run typecheck && npm test && npm run e2e",
-    "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
-    "test:ci": "npm run build && node --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/helpers/github-reporter.mjs --test-reporter-destination=stdout tests/*.test.mjs"
+    "lint": "node scripts/run.mjs lint",
+    "db:generate": "node scripts/run.mjs db:generate",
+    "test:ci": "node scripts/run.mjs test:ci"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

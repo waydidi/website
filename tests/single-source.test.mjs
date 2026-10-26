@@ -2,18 +2,19 @@ import assert from "node:assert/strict";
 import { globSync, readFileSync } from "node:fs";
 import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { createServer } from "vite";
 
 // Facts that must live in one file. Pages, emails and checks read them from there; these tests
 // fail if a copy is typed in again somewhere else, so a change in one place cannot drift.
-const root = fileURLToPath(new URL("..", import.meta.url)).replace(/\/$/, "");
+const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const vite = await createServer({ appType: "custom", configFile: false, root, resolve: { alias: { "@": root } }, server: { middlewareMode: true } });
 after(async () => vite.close());
 const refund = await vite.ssrLoadModule("/lib/refund-policy.ts");
 const content = await vite.ssrLoadModule("/lib/public-content.ts");
 const contact = await vite.ssrLoadModule("/lib/contact.ts");
 
-const sources = globSync(`${root}/{app,components,lib,worker}/**/*.{ts,tsx}`).map((file) => ({ file: file.slice(root.length + 1), text: readFileSync(file, "utf8") }));
+const sources = globSync("{app,components,lib,worker}/**/*.{ts,tsx}", { cwd: root }).map((file) => ({ file: file.replaceAll("\\", "/"), text: readFileSync(join(root, file), "utf8") }));
 const copies = (pattern, allowed) => sources.filter(({ file, text }) => !allowed.includes(file) && pattern.test(text)).map(({ file }) => file);
 
 test("the refund policy's wording is unchanged and generated from its numbers", () => {

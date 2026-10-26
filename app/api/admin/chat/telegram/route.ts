@@ -1,6 +1,3 @@
-import { deliverBotMessage,deliverVisitorMessage } from "@/lib/website-chat";
-import { deliverAssignmentTelegram } from "@/lib/telegram/assignments";
-import { deliverTelegramJob } from "@/lib/telegram/outbox";
 import { ensureReliabilityTables } from "@/lib/telegram/reliability-db";
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
@@ -8,6 +5,9 @@ import { getWaydidiAdmin } from "@/lib/admin";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
 import { sendCard, tg, telegramConfigured } from "@/lib/telegram/client";
 import { esc } from "@/lib/telegram/cards";
+import { ensureTelegramMessages } from "@/lib/telegram/message-store";
+import { deliveryReviewSchema } from "@/lib/delivery-review-rules";
+import { ensureDeliveryReviews, applyDeliveryReview, DeliveryReviewError } from "@/lib/delivery-review-db";
 
 // Telegram team (approved Telegram users) and bot connection. Viewing is for support staff; changes are owner-only.
 const headers = { "Cache-Control": "no-store" };
@@ -29,13 +29,14 @@ export async function GET() {
     }
   }
   await ensureReliabilityTables();
+  await ensureTelegramMessages(env.DB,"chat");
   const jobs=(await env.DB.prepare("SELECT id,booking_reference,leg,destination,status,attempts,next_attempt_at,attempted_at,last_error FROM telegram_delivery_jobs WHERE status NOT IN ('sent','cancelled') ORDER BY created_at DESC LIMIT 50").all()).results;
-  const assignmentJobs=(await env.DB.prepare("SELECT n.id,n.booking_reference,a.leg,n.recipient destination,n.status,n.attempt_count attempts,n.scheduled_for next_attempt_at,n.last_attempt_at attempted_at,n.error_message last_error,'assignment' kind FROM booking_notifications n LEFT JOIN booking_assignments a ON a.id=n.assignment_id WHERE n.channel='telegram' AND n.status IN ('queued','failed','uncertain') ORDER BY n.created_at DESC LIMIT 50").all()).results;
-  const chatJobs=(await env.DB.prepare("SELECT m.id,c.public_id booking_reference,NULL leg,a.destination,m.telegram_status status,COALESCE(a.attempts,0) attempts,NULL next_attempt_at,a.attempted_at,NULL last_error,'chat' kind FROM website_chat_messages m JOIN website_conversations c ON c.id=m.conversation_id LEFT JOIN telegram_chat_delivery_attempts a ON a.message_id=m.id WHERE (m.sender='visitor' OR m.is_bot=1) AND m.telegram_status IN ('pending','failed','uncertain') ORDER BY m.created_at DESC LIMIT 50").all()).results;
+  const assignmentJobs=(await env.DB.prepare("SELECT n.id,n.booking_reference,a.leg,n.recipient destination,n.status,n.attempt_count attempts,n.scheduled_for next_attempt_at,n.last_attempt_at attempted_at,n.error_message last_error,'assignment' kind FROM booking_notifications n LEFT JOIN booking_assignments a ON a.id=n.assignment_id WHERE n.channel='telegram' AND n.status IN ('queued','failed','uncertain','dead_letter') ORDER BY n.created_at DESC LIMIT 50").all()).results;
+  const chatJobs=(await env.DB.prepare("SELECT m.id,c.public_id booking_reference,NULL leg,a.destination,m.telegram_status status,COALESCE(a.attempts,0) attempts,p.next_attempt_at,a.attempted_at,p.last_error,'chat' kind FROM website_chat_messages m JOIN website_conversations c ON c.id=m.conversation_id LEFT JOIN telegram_chat_delivery_attempts a ON a.message_id=m.id LEFT JOIN telegram_chat_payloads p ON p.id=m.id WHERE (m.sender='visitor' OR m.is_bot=1) AND m.telegram_status IN ('pending','failed','uncertain','dead_letter') ORDER BY m.created_at DESC LIMIT 50").all()).results;
   const cancellationRequests=(await env.DB.prepare("SELECT id,booking_reference,requested_at,policy_version FROM booking_cancellation_requests WHERE status='pending' ORDER BY requested_at LIMIT 50").all()).results;
   const assistantReservations=(await env.DB.prepare("SELECT COUNT(*) count,COALESCE(SUM(reserved_microusd),0) reserved_microusd FROM telegram_assistant_reservations WHERE status='reserved'").first());
-  const chatDelivery = await env.DB.prepare("SELECT telegram_status status,COUNT(*) count FROM website_chat_messages WHERE (sender='visitor' OR is_bot=1) AND telegram_status IN ('pending','failed','processing','uncertain') GROUP BY telegram_status").all();
-  const assignmentDelivery = await env.DB.prepare("SELECT status,COUNT(*) count FROM booking_notifications WHERE channel='telegram' AND status IN ('queued','failed','uncertain','processing') GROUP BY status").all();
+  const chatDelivery = await env.DB.prepare("SELECT telegram_status status,COUNT(*) count FROM website_chat_messages WHERE (sender='visitor' OR is_bot=1) AND telegram_status IN ('pending','failed','processing','uncertain','dead_letter') GROUP BY telegram_status").all();
+  const assignmentDelivery = await env.DB.prepare("SELECT status,COUNT(*) count FROM booking_notifications WHERE channel='telegram' AND status IN ('queued','failed','uncertain','processing','dead_letter') GROUP BY status").all();
   return NextResponse.json({
     canEdit: staff.role === "owner",
     secrets: { TELEGRAM_BOT_TOKEN: Boolean(env.TELEGRAM_BOT_TOKEN), TELEGRAM_CHAT_ID: Boolean(env.TELEGRAM_CHAT_ID), TELEGRAM_WEBHOOK_SECRET: String(env.TELEGRAM_WEBHOOK_SECRET ?? "").length >= 16 },
@@ -85,26 +86,12 @@ export async function POST(request: Request) {
       break;
     }
     case "review_delivery": {
-      await ensureReliabilityTables();
-      if (input.confirmedAbsent!==true) return reply("Check Telegram first and confirm the message was not delivered.",400);
-      const id=String(input.jobId??"");
-      if (input.jobKind==='assignment') {
-        const job=await env.DB.prepare("SELECT assignment_id,status FROM booking_notifications WHERE id=? AND channel='telegram'").bind(id).first() as {assignment_id:string;status:string}|null;
-        if (!job || !['queued','failed','uncertain'].includes(job.status)) return reply("This assignment notification cannot be retried.",409);
-        await env.DB.prepare("UPDATE booking_notifications SET status='queued',scheduled_for=?,updated_at=? WHERE id=? AND status IN ('queued','failed','uncertain')").bind(now,now,id).run();
-        await deliverAssignmentTelegram(job.assignment_id);
-      } else if (input.jobKind==='chat') {
-        const job=await env.DB.prepare("SELECT conversation_id,is_bot,telegram_status FROM website_chat_messages WHERE id=? AND (sender='visitor' OR is_bot=1)").bind(id).first() as {conversation_id:string;is_bot:number;telegram_status:string}|null;
-        if (!job || !['pending','failed','uncertain'].includes(job.telegram_status)) return reply("This chat notification cannot be retried.",409);
-        await env.DB.prepare("UPDATE website_chat_messages SET telegram_status='pending' WHERE id=? AND telegram_status IN ('pending','failed','uncertain')").bind(id).run();
-        await (job.is_bot?deliverBotMessage:deliverVisitorMessage)(job.conversation_id,id);
-      } else {
-        const job=await env.DB.prepare("SELECT status FROM telegram_delivery_jobs WHERE id=?").bind(id).first() as {status:string}|null;
-        if (!job || !['uncertain','failed','queued'].includes(job.status)) return reply("This message cannot be retried from here.",409);
-        await env.DB.prepare("UPDATE telegram_delivery_jobs SET status='queued',next_attempt_at=?,last_error=NULL,updated_at=? WHERE id=? AND status IN ('uncertain','failed','queued')").bind(now,now,id).run();
-        await deliverTelegramJob(id);
-      }
-      break;
+      const parsed=deliveryReviewSchema.safeParse({requestId:input.requestId,kind:input.jobKind??"telegram",jobId:input.jobId,expectedVersion:input.expectedVersion,action:"retry",reason:input.reason,confirmedAbsent:input.confirmedAbsent});
+      if(!parsed.success)return reply("Open Delivery reviews and confirm the current job version and reason.",400);
+      try{
+        await ensureDeliveryReviews(env.DB);
+        return NextResponse.json(await applyDeliveryReview(env.DB,staff.id,parsed.data,env.NOTIFICATION_DELIVERY_RETRY==="1"),{headers});
+      }catch(error){return reply(error instanceof DeliveryReviewError?error.message:"The review was not committed. Retry the same request ID.",error instanceof DeliveryReviewError?error.status:503);}
     }
     case "connect": {
       const secret = String(env.TELEGRAM_WEBHOOK_SECRET ?? "");

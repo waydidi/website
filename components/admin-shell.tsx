@@ -30,6 +30,7 @@ const tabs = [
   { href: "/admin/crm", label: "CRM", mobileLabel: "CRM", title: "Customer management", icon: Users },
   { href: "/admin/financials", label: "Financials", mobileLabel: "Financials", title: "Financials", icon: BarChart3 },
   { href: "/admin/chat", label: "Website chat", mobileLabel: "Chat", title: "Website chat", icon: MessageCircle },
+  { href: "/admin/delivery-reviews", label: "Delivery reviews", mobileLabel: "Deliveries", title: "Delivery reviews", icon: MessageCircle },
   { href: "/admin/blog", label: "Blog", mobileLabel: "Blog", title: "Blog", icon: Newspaper },
   {
     href: "/admin",
@@ -136,6 +137,7 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
   { title: "People", items: [
     { href: "/admin/staff", label: "Staff access", icon: Users },
     { href: "/admin/chat", label: "Website chat", icon: Users },
+    { href: "/admin/delivery-reviews", label: "Delivery reviews", icon: MessageCircle },
     { href: "/admin/users", label: "Users", icon: Users },
     { href: "/admin/partners", label: "Partners", icon: Building2 },
   ] },

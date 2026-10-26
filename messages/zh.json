@@ -1338,5 +1338,69 @@
   "itinerary.waitMinutes": {
     "text": "活动开始前等候 {n} 分钟",
     "status": "machine"
+  },
+  "payment.change.previewLoading": {
+    "text": "正在计算调整后的完整总价…",
+    "status": "machine"
+  },
+  "payment.change.previewError": {
+    "text": "无法核实调整后的总价，请重新计算车费。",
+    "status": "machine"
+  },
+  "payment.change.historyTitle": {
+    "text": "行程变更记录",
+    "status": "machine"
+  },
+  "payment.change.historyError": {
+    "text": "无法加载变更记录，请刷新。",
+    "status": "machine"
+  },
+  "payment.change.noHistory": {
+    "text": "尚无行程变更申请。",
+    "status": "machine"
+  },
+  "payment.change.submitted": {
+    "text": "已提交审核",
+    "status": "machine"
+  },
+  "payment.change.approved": {
+    "text": "已批准",
+    "status": "machine"
+  },
+  "payment.change.declined": {
+    "text": "未获批准",
+    "status": "machine"
+  },
+  "payment.change.expired": {
+    "text": "已过期，请重新申请",
+    "status": "machine"
+  },
+  "payment.change.original": {
+    "text": "原总价",
+    "status": "machine"
+  },
+  "payment.change.revised": {
+    "text": "调整后总价",
+    "status": "machine"
+  },
+  "payment.change.difference": {
+    "text": "价格差额",
+    "status": "machine"
+  },
+  "payment.change.noMoney": {
+    "text": "价格差额或批准并不代表已付款或退款。Waydidi 将另行说明付款安排。",
+    "status": "machine"
+  },
+  "payment.change.refresh": {
+    "text": "刷新记录",
+    "status": "machine"
+  },
+  "payment.change.newer": {
+    "text": "较新的变更",
+    "status": "machine"
+  },
+  "payment.change.older": {
+    "text": "较早的变更",
+    "status": "machine"
   }
 }

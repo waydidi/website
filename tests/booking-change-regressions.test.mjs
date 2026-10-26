@@ -37,6 +37,9 @@ test('journey changes retain add-ons, synchronize routes and ledger atomically, 
  const b=await d1.prepare('SELECT pickup,dropoff,total,child_seats,fare_quote_id,return_fare_quote_id,return_pickup,return_dropoff,pickup_latitude,expected_route_polyline FROM bookings WHERE reference=?').bind(reference).first();
  const p=await d1.prepare('SELECT amount_expected FROM booking_payments WHERE booking_reference=?').bind(reference).first();
  assert.equal(b.pickup,'New A'); assert.equal(b.fare_quote_id,'new-out');assert.equal(b.return_fare_quote_id,'new-back');assert.equal(b.return_pickup,'New B');assert.equal(b.return_dropoff,'New A');assert.equal(b.pickup_latitude,14);assert.equal(b.expected_route_polyline,'new-route');assert.equal(b.total,2300);assert.equal(p.amount_expected,2300);assert.equal(await changes.approveChange(result.requestId,'Audit'),'Already handled.');
+ const firstHistory=await d1.prepare("SELECT status,original_minor,revised_minor FROM booking_change_history WHERE request_id=? ORDER BY status").bind(result.requestId).all();
+ assert.deepEqual(firstHistory.results.map(e=>e.status),['approved','submitted']);
+ assert.ok(firstHistory.results.every(e=>e.original_minor===230000&&e.revised_minor===230000));
 
  await d1.prepare('UPDATE fare_quotes SET vehicle_prices_json=? WHERE id=?').bind(JSON.stringify({economy_sedan:{total:1200}}),'new-out').run();
  const changedRequest=()=>route.POST(new Request('https://example.invalid/api/bookings/manage/change-request',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json',cookie:'waydidi_manage='+token},body:JSON.stringify({fareQuoteId:'new-out',returnFareQuoteId:'new-back',vehicleId:'economy_sedan',bookingVersion:2})}));
@@ -45,9 +48,11 @@ test('journey changes retain add-ons, synchronize routes and ledger atomically, 
  await assert.rejects(changes.approveChange(higherBody.requestId,'Audit'));
  assert.equal((await d1.prepare('SELECT total FROM bookings WHERE reference=?').bind(reference).first()).total,2300);
  assert.equal((await d1.prepare('SELECT status FROM booking_change_requests WHERE id=?').bind(higherBody.requestId).first()).status,'pending');
+ assert.equal((await d1.prepare("SELECT COUNT(*) n FROM booking_change_history WHERE request_id=? AND status='approved'").bind(higherBody.requestId).first()).n,0);
  await d1.prepare('DROP TRIGGER audit_fail_ledger').run();
  const approvals=await Promise.all([changes.approveChange(higherBody.requestId,'Audit'),changes.approveChange(higherBody.requestId,'Audit')]);
  assert.equal(approvals.filter(r=>r==='Change approved.').length,1);
+ assert.equal((await d1.prepare("SELECT COUNT(*) n FROM booking_change_history WHERE request_id=? AND status='approved'").bind(higherBody.requestId).first()).n,1);
  assert.equal((await d1.prepare('SELECT amount_expected_minor FROM booking_payments WHERE booking_reference=?').bind(reference).first()).amount_expected_minor,250000);
  assert.equal((await d1.prepare('SELECT amount_paid FROM bookings WHERE reference=?').bind(reference).first()).amount_paid,0);
  await d1.prepare("UPDATE fare_quotes SET departure_time='17:00' WHERE id='new-out'").run();

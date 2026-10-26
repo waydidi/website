@@ -15,7 +15,22 @@ export const telegramCommentChatId = () => String((env as unknown as Record<stri
 
 /** A Bot API rejection is safe to retry; a transport failure may have been delivered. */
 export class TelegramDeliveryError extends Error {
-  constructor(message: string, readonly retryable: boolean) { super(message); }
+  constructor(message: string, readonly retryable: boolean, readonly retryAfterMs = 0) { super(message); }
+}
+
+/** Never retain provider descriptions: they can echo private text or identifiers. */
+function telegramReply<T>(response: Response, body: unknown): T {
+  const data = body && typeof body === "object" ? body as { ok?: unknown; result?: T; description?: unknown; parameters?: { retry_after?: unknown } } : {};
+  if (response.ok && data.ok === true) return data.result as T;
+  const rejected = response.status >= 400 && response.status < 500 && data.ok === false;
+  const description = typeof data.description === "string" ? data.description : "";
+  const seconds = data.parameters?.retry_after;
+  const retryAfterMs = typeof seconds === "number" && Number.isInteger(seconds) && seconds >= 0 ? Math.min(seconds, 86400) * 1000 : 0;
+  const reason = rejected && /message is not modified/i.test(description) ? "message is not modified"
+    : rejected && response.status === 403 && /bot (?:was )?blocked/i.test(description) ? "bot blocked"
+    : rejected && response.status === 400 && /quote/i.test(description) ? "quote rejected"
+    : rejected && response.status === 429 ? "rate limited" : rejected ? "request rejected" : "delivery outcome unknown";
+  throw new TelegramDeliveryError(`Telegram: ${reason}`, rejected, retryAfterMs);
 }
 
 export async function tg<T = unknown>(method: string, payload: Record<string, unknown>, retried = false): Promise<T> {
@@ -23,16 +38,15 @@ export async function tg<T = unknown>(method: string, payload: Record<string, un
   if (!token) throw new Error("TELEGRAM_NOT_CONFIGURED");
   let res: Response;
   try { res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: AbortSignal.timeout(8000),
-  }); } catch { throw new TelegramDeliveryError(`Telegram ${method}: delivery outcome unknown`, false); }
-  const data = await res.json().catch(() => ({})) as { ok?: boolean; result?: T; description?: string; parameters?: { retry_after?: number } };
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: AbortSignal.timeout(8000), redirect: "error",
+  }); } catch { throw new TelegramDeliveryError("Telegram: delivery outcome unknown", false); }
+  const raw: unknown = await res.json().catch(() => null);
+  const data = raw && typeof raw === "object" ? raw as { ok?: boolean; parameters?: { retry_after?: number } } : {};
   // Telegram allows about 20 messages a minute per group. A short "slow down" is waited out once;
   // a longer one throws, and failed customer messages are re-sent by the scheduled job.
   const wait = data.parameters?.retry_after;
-  if (res.status === 429 && !retried && wait && wait <= 5) { await new Promise((r) => setTimeout(r, wait * 1000)); return tg<T>(method, payload, true); }
-  // Never log the URL (it contains the token); only the method and Telegram's description.
-  if (!data.ok) throw new TelegramDeliveryError(`Telegram ${method} failed: ${String(data.description ?? res.status).replaceAll(token, "[redacted]")}`, res.status >= 400 && res.status < 500);
-  return data.result as T;
+  if (res.status === 429 && data.ok === false && !retried && wait && Number.isInteger(wait) && wait > 0 && wait <= 5) { await new Promise((r) => setTimeout(r, wait * 1000)); return tg<T>(method, payload, true); }
+  return telegramReply<T>(res, raw);
 }
 
 /** Reply settings: `quote` shows that exact text from the replied-to message in the reply. */
@@ -45,6 +59,13 @@ export const sendTo = (chatId: string, text: string, keyboard?: InlineKeyboard, 
     ...(replyTo ? { reply_parameters: replyParameters(replyTo, quote) } : {}) });
 
 export const sendCard = (text: string, keyboard?: InlineKeyboard, replyTo?: number, quote?: string) => sendTo(telegramChatId(), text, keyboard, replyTo, quote);
+
+/** Send a previously stored JSON envelope, with a verified message acknowledgment. */
+export async function sendPreparedTelegram(payload: Record<string, unknown>) {
+  const message = await tg<TelegramMessage>("sendMessage", payload);
+  if (!message || !Number.isSafeInteger(message.message_id) || message.message_id <= 0) throw new TelegramDeliveryError("Provider acknowledgment is invalid; check Telegram", false);
+  return message;
+}
 
 /** A message to one person's private chat with the bot (they must have pressed Start once). */
 export const sendPrivate = (chatId: string, text: string, replyTo?: number) =>
@@ -75,10 +96,9 @@ export async function sendPhoto(photo: ArrayBuffer, caption: string, replyTo?: n
   if (replyTo) form.set("reply_parameters", JSON.stringify(replyParameters(replyTo, quote)));
   if (keyboard) form.set("reply_markup", JSON.stringify({ inline_keyboard: keyboard }));
   form.set("photo", new Blob([photo], { type: "image/jpeg" }), "trip-photo.jpg");
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(15000) }).catch(() => { throw new TelegramDeliveryError("Telegram sendPhoto: delivery outcome unknown", false); });
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(15000), redirect: "error" }).catch(() => { throw new TelegramDeliveryError("Telegram: delivery outcome unknown", false); });
   const data = await res.json().catch(() => ({})) as { ok?: boolean; result?: TelegramMessage; description?: string };
-  if (!data.ok) throw new TelegramDeliveryError(`Telegram sendPhoto failed: ${String(data.description ?? res.status).replaceAll(token, "[redacted]")}`, res.status >= 400 && res.status < 500);
-  return data.result as TelegramMessage;
+  return telegramReply<TelegramMessage>(res, data);
 }
 
 /** A file (e.g. an itinerary PDF) to a chat, with an HTML caption, optionally as a reply. */
@@ -91,10 +111,9 @@ export async function sendDocument(bytes: Uint8Array, filename: string, contentT
   form.set("parse_mode", "HTML");
   if (replyTo) form.set("reply_parameters", JSON.stringify(replyParameters(replyTo)));
   form.set("document", new Blob([new Uint8Array(bytes)], { type: contentType }), filename);
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, { method: "POST", body: form, signal: AbortSignal.timeout(20000) }).catch(() => { throw new TelegramDeliveryError("Telegram sendDocument: delivery outcome unknown", false); });
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, { method: "POST", body: form, signal: AbortSignal.timeout(20000), redirect: "error" }).catch(() => { throw new TelegramDeliveryError("Telegram: delivery outcome unknown", false); });
   const data = await res.json().catch(() => ({})) as { ok?: boolean; result?: TelegramMessage; description?: string };
-  if (!data.ok) throw new TelegramDeliveryError(`Telegram sendDocument failed: ${String(data.description ?? res.status).replaceAll(token, "[redacted]")}`, res.status >= 400 && res.status < 500);
-  return data.result as TelegramMessage;
+  return telegramReply<TelegramMessage>(res, data);
 }
 
 /** Up to 10 photos to the group as one album (the caption shows under the first), optionally as a reply. */
@@ -106,10 +125,9 @@ export async function sendPhotoAlbum(photos: { bytes: ArrayBuffer; mime: string 
   if (replyTo) form.set("reply_parameters", JSON.stringify(replyParameters(replyTo, quote)));
   form.set("media", JSON.stringify(photos.slice(0, 10).map((_, i) => ({ type: "photo", media: `attach://p${i}`, ...(i === 0 ? { caption, parse_mode: "HTML" } : {}) }))));
   photos.slice(0, 10).forEach((p, i) => form.set(`p${i}`, new Blob([p.bytes], { type: p.mime }), `photo-${i}.${p.mime === "image/png" ? "png" : p.mime === "image/webp" ? "webp" : "jpg"}`));
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendMediaGroup`, { method: "POST", body: form, signal: AbortSignal.timeout(20000) }).catch(() => { throw new TelegramDeliveryError("Telegram sendMediaGroup: delivery outcome unknown", false); });
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMediaGroup`, { method: "POST", body: form, signal: AbortSignal.timeout(20000), redirect: "error" }).catch(() => { throw new TelegramDeliveryError("Telegram: delivery outcome unknown", false); });
   const data = await res.json().catch(() => ({})) as { ok?: boolean; result?: TelegramMessage[]; description?: string };
-  if (!data.ok) throw new TelegramDeliveryError(`Telegram sendMediaGroup failed: ${String(data.description ?? res.status).replaceAll(token, "[redacted]")}`, res.status >= 400 && res.status < 500);
-  return data.result as TelegramMessage[];
+  return telegramReply<TelegramMessage[]>(res, data);
 }
 
 /** Downloads a photo someone sent the bot (largest size first is the caller's choice). */

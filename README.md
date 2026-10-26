@@ -5,7 +5,7 @@ A clean full-stack starter running on [vinext](https://github.com/cloudflare/vin
 ## Prerequisites
 
 - Node.js `>=22.13.0`
-- Linux with `flock`, `curl`, and GNU `timeout`
+- Windows, macOS or Linux. Linux CI's existing install helper additionally uses `flock`, `curl`, and GNU `timeout`.
 
 ## Production deployment
 
@@ -139,7 +139,9 @@ Install locked dependencies with `npm run install:ci`, then build with `npm run 
 
 This starter does not use `wrangler.jsonc`.
 
-`install:ci` is intentionally a single, non-retrying `npm ci`. It refuses a concurrent install for the same project, consumes a matching image-seeded npm cache with `--prefer-offline` while retaining registry fallback for a missing cache object, otherwise downloads and verifies the complete vinext tarball recorded in `package-lock.json`, limits npm to one socket, and terminates a stalled install. `build` applies a short timeout. These helpers target Linux and use GNU `timeout`; they are not native macOS scripts.
+On Linux, `install:ci` retains the existing bounded install, concurrency lock, optional image-seeded cache and tarball preflight. Windows/macOS use the Node launcher for one bounded `npm ci` with a project lock and npm's lockfile integrity verification. `build` uses the original Linux helper or a bounded Node child process on Windows/macOS; no Bash or GNU utilities are needed on those systems. The launcher preserves the user's home and authentication configuration.
+
+On Windows PowerShell, use `npm.cmd` when the system blocks `npm.ps1`; changing the execution policy is unnecessary. From the checkout, run `npm.cmd run install:ci`, `npm.cmd run dev`, `npm.cmd run lint`, `npm.cmd run typecheck`, and `npm.cmd run build`. `npm.cmd run test:unit -- tests/booking-funnel.test.mjs` runs selected tests without rebuilding; omitting the paths runs all top-level unit/integration test files without shell globbing. `npm.cmd run test` and `npm.cmd run test:ci` build first. Install Chromium once using `npx.cmd playwright install chromium`, then use `npm.cmd run e2e`. Production credentials belong in Worker settings; use ignored local `.dev.vars` only for development credentials.
 
 Scripts that need writable project-scoped home, npm, XDG, and temporary paths use `scripts/sites-env.sh`. The `dev` and `start` scripts honor the caller's runtime environment and keep Wrangler logs inside the checkout. The generated `.sites-runtime/` directory is disposable and ignored by Git.
 
@@ -211,7 +213,7 @@ Use SIWC for account pages, user-specific dashboards, saved records, and write a
 
 Use build commands for targeted diagnosis after a remote failure, not as part of the normal checkpoint path.
 
-The timeout defaults can be overridden for a controlled canary with `SITES_INSTALL_TIMEOUT`, `SITES_INSTALL_KILL_AFTER`, `SITES_BUILD_TIMEOUT`, and `SITES_BUILD_KILL_AFTER`. A timeout fails the command; the helpers never retry an unchanged install or build.
+The timeout defaults can be overridden with `SITES_INSTALL_TIMEOUT` and `SITES_BUILD_TIMEOUT` (for example `8m` or `10m`). Windows/macOS defaults are eight minutes for install and ten minutes for build; the existing Linux defaults remain unchanged. `SITES_INSTALL_KILL_AFTER` and `SITES_BUILD_KILL_AFTER` apply to the Linux helpers. On Windows, a timeout terminates the launched task's process tree and returns exit code 124. The helpers never retry an unchanged install or build.
 
 ## Learn More
 
@@ -235,3 +237,14 @@ New outbound messaging is off by default:
 Apply additive migration `drizzle/0105_telegram_reliability.sql` when managing migrations manually. The new tables are also created on first use because Workers Builds does not apply D1 migrations. See `docs/telegram-reliability-release.md` for verification and recovery.
 
 Expired bin entries are archived rather than deleting parent bookings referenced by financial documents, accepted policies or trip evidence. Archival runs in the scheduled worker; a cleanup failure cannot block an unrelated Bin/Restore request.
+# Booking funnel measurement
+
+`BOOKING_FUNNEL_ENABLED=0` keeps optional first-party transfer/hourly/tour funnel collection off. Enabling it requires analytics consent and a private `RATE_LIMIT_SALT` of at least 32 characters. Owner/finance reports appear in Financials. Retention is 90 days. See [the release notes](docs/booking-funnel-release.md) for privacy, rollout, schema upgrade and validation details.
+
+`BOOKING_BACKGROUND_DELIVERY=0` preserves inline first attempts for existing booking confirmation emails/PDFs. Set it to `1` only after verifying the deployed five-minute recovery cron, D1, private R2 and Resend account/sender. Confirmation and delivery intents commit atomically; email retries reuse a stored message and opaque provider key, stop within 23 hours/12 provider attempts, and surface uncertain/stopped jobs in Operations. No new message category is enabled. See [notification delivery release notes](docs/notification-delivery-release.md); production prerequisites remain unverified.
+
+Existing Telegram general, assignment and chat queues stop after 12 claims/seven days. Assignment/chat envelopes use additive migration `0114` plus runtime bootstrap, preserve rendered payloads on retry, fence late results and keep ambiguous first-card creation for owner review. A blocked chat cannot starve other conversations. Provider errors use fixed safe diagnostics. Owner review is described below; missing legacy-job reconciliation remains in progress. These protections do not enable a new message category.
+
+Owner-only `/admin/delivery-reviews` records immutable, version-checked decisions across booking email/PDF and Telegram queues. `NOTIFICATION_DELIVERY_RETRY=0` keeps reviewed retries off; receipt confirmation and closure remain available. Enabling retry requires verified production consumers/configuration. Reviews queue the original message without resetting its counters, expiry or provider key. Additive migration `0115` has matching runtime bootstrap. See [delivery review release notes](docs/delivery-reviews-release.md). Legacy-job reconciliation and production resource verification remain unfinished.
+
+`GA_ENHANCED_MEASUREMENT_VERIFIED=0` keeps the remote Google Analytics tag off until its automatic event settings and private-route network behavior have been verified. This is independent of the first-party funnel flag.

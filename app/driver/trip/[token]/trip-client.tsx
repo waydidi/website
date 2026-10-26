@@ -23,8 +23,9 @@ import {
   WifiOff,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { clearQueuedStep, queuedStepForm, readQueuedStep, saveQueuedStep, type QueuedDriverStep } from "@/lib/driver-step-queue";
-import { distanceMetres, NO_SHOW_MIN_NOTE_LENGTH } from "@/lib/trip-rules";
+import { acknowledgeQueuedStep, claimQueuedStepAttempt, clearQueuedStep, queuedStepForm, readDriverSync, readQueuedStep, recordDriverSync, saveQueuedStep, updateQueuedStepSync, type QueuedDriverStep } from "@/lib/driver-step-queue";
+import { driverResponseKind, driverRetryAt, initialDriverSync, mayRetryDriverStep, type DriverStepSync } from "@/lib/driver-sync-rules";
+import { distanceMetres, isDriverStatus, NO_SHOW_MIN_NOTE_LENGTH } from "@/lib/trip-rules";
 
 type DriverStatus =
   | "assigned"
@@ -187,11 +188,16 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   const [welcome, setWelcome] = useState(false);
   const welcomeKey = (id: string) => `waydidi-driver-welcome:${id}`;
   const [pending, setPending] = useState<QueuedDriverStep | null>(null);
+  const [pendingDurable, setPendingDurable] = useState(true);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [storageWarning, setStorageWarning] = useState("");
+  const [lastSync, setLastSync] = useState<string | null>(null);
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [noShowNote, setNoShowNote] = useState("");
   const [noShowPhoto, setNoShowPhoto] = useState<File | null>(null);
   const [clock, setClock] = useState(() => Date.now());
   const sending = useRef(false);
+  const volatileStep = useRef<QueuedDriverStep | null>(null);
   // After the Drop the link goes to "กรอกข้อมูลบัญชี" until the bank details are in: auto → form; done → the tick
   // after "ส่งข้อมูล"; edit → the form again from the tick; closed → back to the trip page.
   const [payoutStage, setPayoutStage] = useState<"auto" | "done" | "edit" | "closed">("auto");
@@ -215,7 +221,13 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
       // A server error page isn't JSON (Safari then says "The string did not match the expected pattern").
       const result = (await response.json().catch(() => ({ error: "โหลดข้อมูลงานไม่สำเร็จในขณะนี้ กรุณาลองอีกครั้งในอีกสักครู่ หรือติดต่อฝ่ายปฏิบัติการ Waydidi" }))) as Trip & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "ไม่พบข้อมูลงาน");
+      if (!result.assignment || typeof result.assignment.id !== "string" || !isDriverStatus(result.assignment.currentStatus)
+        || !result.booking || typeof result.booking.reference !== "string" || !result.driver || typeof result.driver.fullName !== "string"
+        || !result.noShow || !result.evidencePolicy || !Array.isArray(result.events)) throw new Error("ยังไม่ได้รับข้อมูลงานที่ถูกต้อง กรุณาลองอีกครั้ง");
     setTrip(result);
+    const syncedAt = new Date().toISOString();
+    setLastSync(previous => previous && previous > syncedAt ? previous : syncedAt);
+    void recordDriverSync(result.assignment.id, syncedAt).catch(() => setStorageWarning("โทรศัพท์บันทึกข้อมูลออฟไลน์ไม่ได้ ข้อมูลรอส่งอาจไม่อยู่หลังปิดหน้านี้ กรุณาตรวจสอบพื้นที่จัดเก็บ"));
     if (result.assignment?.currentStatus === "assigned") {
       let seen = false;
       try { seen = Boolean(localStorage.getItem(welcomeKey(result.assignment.id))); } catch { /* storage blocked: show it */ }
@@ -250,25 +262,80 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
     return () => window.clearInterval(timer);
   }, []);
 
-  // Sends a step to the server. Network failures and server errors keep the
-  // step queued on the phone; a rejected step is dropped and explained.
-  const sendStep = useCallback(async (step: QueuedDriverStep): Promise<"sent" | "queued" | "rejected"> => {
-    if (sending.current || !navigator.onLine) return "queued";
+  // Keep the original event until a matching server acknowledgment. Rejections
+  // remain on the device for review, rather than silently losing the driver's work.
+  const sendStep = useCallback(async (input: QueuedDriverStep, manual = false, persisted = true): Promise<"sent" | "queued" | "rejected"> => {
+    if (sending.current || !navigator.onLine || !mayRetryDriverStep(input.sync, Date.now(), manual)) return "queued";
     sending.current = true;
+    setSyncBusy(true);
+    let step = input;
+    let acknowledged = false;
+    let claimedAttempt = !persisted;
+    const retain = async (sync: DriverStepSync) => {
+      const next = { ...step, sync };
+      if (persisted) {
+        try {
+          const updated = await updateQueuedStepSync(step.assignmentId, step.id, () => sync, step.sync?.leaseId);
+          setPending(updated ?? await readQueuedStep(step.assignmentId));
+        } catch {
+          setPending(next);
+          setStorageWarning("ยังตรวจสอบข้อมูลที่บันทึกในโทรศัพท์ไม่ได้ กรุณาอย่าปิดหน้านี้และลองอีกครั้ง");
+        }
+      } else {
+        volatileStep.current = next;
+        setPending(next);
+        setStorageWarning("ข้อมูลนี้ยังไม่ได้บันทึกในโทรศัพท์ กรุณาอย่าปิดหน้านี้จนกว่าเซิร์ฟเวอร์จะยืนยันสำเร็จ");
+      }
+      setPendingDurable(persisted);
+    };
     try {
-      const response = await fetch(`/api/driver/trips/${encodeURIComponent(token)}`, { method: "POST", headers: driverHeaders(), body: queuedStepForm(step) });
-      const result = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok && (response.status >= 500 || response.status === 429)) return "queued";
-      await clearQueuedStep(step.assignmentId);
-      setPending(null);
-      if (response.ok) setMessage(step.status === "no_show" ? "แจ้งไม่พบผู้โดยสารแล้ว ฝ่ายปฏิบัติการจะติดต่อกลับ" : "บันทึกสถานะ เวลา ตำแหน่ง และหลักฐานแล้ว");
-      else setError(result.error ?? "บันทึกสถานะไม่สำเร็จ");
-      await load();
-      return response.ok ? "sent" : "rejected";
+      if (persisted) {
+        const claimed = await claimQueuedStepAttempt(step.assignmentId, step.id, manual);
+        if (!claimed) { setPending(await readQueuedStep(step.assignmentId)); return "queued"; }
+        step = claimed;
+        claimedAttempt = true;
+      } else {
+        const previous = step.sync ?? initialDriverSync();
+        step = { ...step, sync: { ...previous, attempts: previous.attempts + 1, lastAttemptAt: new Date().toISOString() } };
+        volatileStep.current = step;
+      }
+      setPending(step);
+      const response = await fetch(`/api/driver/trips/${encodeURIComponent(token)}`, { method: "POST", headers: driverHeaders(), body: queuedStepForm(step), signal: AbortSignal.timeout(60000) });
+      const result: unknown = await response.json().catch(() => null);
+      const kind = driverResponseKind(response.status, result, step);
+      if (kind === "accepted") {
+        acknowledged = true;
+        if (volatileStep.current?.id === step.id) volatileStep.current = null;
+        const at = new Date().toISOString();
+        if (persisted) setPending(await acknowledgeQueuedStep(step.assignmentId, step.id, at));
+        else {
+          setPending(await readQueuedStep(step.assignmentId).catch(() => null));
+          await recordDriverSync(step.assignmentId, at).catch(() => undefined);
+        }
+        setPendingDurable(true); setStorageWarning("");
+        setLastSync(previous => previous && previous > at ? previous : at);
+        setMessage(step.status === "no_show" ? "แจ้งไม่พบผู้โดยสารแล้ว ฝ่ายปฏิบัติการจะติดต่อกลับ" : "บันทึกสถานะ เวลา ตำแหน่ง และหลักฐานแล้ว");
+        await load();
+        return "sent";
+      }
+      const message = result && typeof result === "object" && "error" in result && typeof result.error === "string" ? result.error.slice(0, 300) : null;
+      const sync = step.sync ?? initialDriverSync();
+      await retain({ ...sync, leaseId: null, leaseUntil: null, blocked: kind === "blocked", httpStatus: response.status,
+        error: kind === "blocked" ? "rejected" : response.status === 429 ? "rate_limited" : response.ok ? "unverified" : "server",
+        message, retryAt: kind === "retry" ? driverRetryAt(sync.attempts, Date.now(), response.headers.get("retry-after")) : null });
+      return kind === "blocked" ? "rejected" : "queued";
     } catch {
+      if (!claimedAttempt) {
+        setStorageWarning("ยังตรวจสอบคิวในโทรศัพท์ไม่ได้ ข้อมูลเดิมยังรอส่งอยู่ กรุณาลองอีกครั้ง");
+        return "queued";
+      }
+      const sync = step.sync ?? initialDriverSync();
+      await retain({ ...sync, leaseId: null, leaseUntil: null, blocked: false, error: "network", httpStatus: null, message: null, retryAt: driverRetryAt(sync.attempts, Date.now()) });
+      if (acknowledged) setStorageWarning("เซิร์ฟเวอร์ยืนยันแล้ว แต่โทรศัพท์ยังล้างคิวไม่ได้ ระบบจะตรวจสอบคำขอเดิมอีกครั้งโดยไม่บันทึกซ้ำ");
       return "queued";
     } finally {
       sending.current = false;
+      setSyncBusy(false); setClock(Date.now());
     }
   }, [token, load]);
 
@@ -277,15 +344,43 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
     if (!assignmentId) return;
     let cancelled = false;
     const flush = async () => {
-      const step = await readQueuedStep(assignmentId);
-      if (cancelled) return;
-      setPending(step);
-      if (step) await sendStep(step);
+      if (sending.current) return;
+      try {
+        const inMemory = volatileStep.current;
+        if (inMemory?.assignmentId === assignmentId) {
+          try {
+            const saved = await saveQueuedStep(inMemory);
+            volatileStep.current = null;
+            if (cancelled) return;
+            setPending(saved); setPendingDurable(true); setStorageWarning("");
+            if (mayRetryDriverStep(saved.sync, Date.now())) await sendStep(saved);
+          } catch (cause) {
+            if (cancelled) return;
+            let retained = inMemory;
+            if (cause instanceof Error && cause.message === "QUEUED_STEP_CONFLICT") {
+              retained = { ...inMemory, sync: { ...(inMemory.sync ?? initialDriverSync()), blocked: true, error: "rejected", message: "อีกหน้าต่างมีข้อมูลขั้นตอนเดิมอยู่ กรุณาตรวจสอบกับฝ่ายปฏิบัติการก่อนลบข้อมูลที่ยังไม่ถูกยืนยัน", leaseId: null, leaseUntil: null } };
+              volatileStep.current = retained;
+            }
+            setPending(retained); setPendingDurable(false);
+            setStorageWarning("ข้อมูลนี้ยังไม่ได้บันทึกในโทรศัพท์ กรุณาอย่าปิดหน้านี้จนกว่าเซิร์ฟเวอร์จะยืนยันสำเร็จ");
+            if (mayRetryDriverStep(retained.sync, Date.now())) await sendStep(retained, false, false);
+          }
+          return;
+        }
+        const [step, sync] = await Promise.all([readQueuedStep(assignmentId), readDriverSync(assignmentId)]);
+        if (cancelled) return;
+        setPending(step); setPendingDurable(true); setStorageWarning("");
+        if (sync) setLastSync(previous => previous && previous > sync.lastSuccessAt ? previous : sync.lastSuccessAt);
+        if (step && mayRetryDriverStep(step.sync, Date.now())) await sendStep(step);
+      } catch { if (!cancelled) setStorageWarning("อ่านข้อมูลรอส่งในโทรศัพท์ไม่ได้ กรุณาอย่าปิดหน้านี้และตรวจสอบพื้นที่จัดเก็บ"); }
     };
     void flush();
     const timer = window.setInterval(flush, 20_000);
     window.addEventListener("online", flush);
-    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener("online", flush); };
+    window.addEventListener("focus", flush);
+    let channel: BroadcastChannel | null = null;
+    try { channel = new BroadcastChannel("waydidi-driver-queue"); channel.addEventListener("message", flush); } catch { /* polling remains available */ }
+    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener("online", flush); window.removeEventListener("focus", flush); channel?.close(); };
   }, [assignmentId, sendStep]);
 
 
@@ -371,19 +466,40 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
   /** Returns true when the step was saved on the server or safely queued on the phone. */
   async function queueAndSend(step: QueuedDriverStep) {
     let stored = true;
-    try { await saveQueuedStep(step); } catch { stored = false; }
+    try { step = await saveQueuedStep(step); }
+    catch (cause) {
+      if (cause instanceof Error && cause.message === "QUEUED_STEP_CONFLICT") {
+        setError("มีข้อมูลขั้นตอนเดิมรอส่งอยู่ กรุณาจัดการข้อมูลเดิมก่อน");
+        setPending(await readQueuedStep(step.assignmentId).catch(() => null));
+        return false;
+      }
+      stored = false;
+    }
     if (!stored && !navigator.onLine) {
       setError("อุปกรณ์นี้บันทึกแบบออฟไลน์ไม่ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองอีกครั้ง");
       return false;
     }
-    setPending(step);
-    const outcome = await sendStep(step);
-    if (outcome === "queued" && !stored) {
-      setPending(null);
-      setError("บันทึกสถานะไม่สำเร็จ กรุณาลองอีกครั้ง");
+    if (!stored) volatileStep.current = step;
+    setPending(step); setPendingDurable(stored);
+    const outcome = await sendStep(step, false, stored);
+    if (outcome !== "sent" && !stored) {
+      setError("ข้อมูลยังไม่ถูกยืนยันและบันทึกในโทรศัพท์ไม่ได้ กรุณาอย่าปิดหน้านี้และลองส่งอีกครั้ง");
       return false;
     }
     return outcome !== "rejected";
+  }
+
+  async function discardBlockedStep() {
+    if (!pending || sending.current || !pending.sync?.blocked || !window.confirm("เซิร์ฟเวอร์ยังไม่ยอมรับข้อมูลนี้ ต้องการลบข้อมูลรอส่งจากโทรศัพท์หรือไม่? การลบนี้ไม่เปลี่ยนสถานะงานบนเซิร์ฟเวอร์")) return;
+    setSyncBusy(true);
+    try {
+      if (pendingDurable && !await clearQueuedStep(pending.assignmentId, pending.id)) {
+        setPending(await readQueuedStep(pending.assignmentId)); setError("ข้อมูลคิวเปลี่ยนไปแล้ว กรุณาตรวจสอบอีกครั้ง"); return;
+      }
+      if (volatileStep.current?.id === pending.id) volatileStep.current = null;
+      setPending(null); setStorageWarning(""); await load();
+    } catch { setStorageWarning("ลบข้อมูลรอส่งไม่สำเร็จ ข้อมูลยังอยู่ในโทรศัพท์ กรุณาลองอีกครั้ง"); }
+    finally { setSyncBusy(false); }
   }
 
   async function reportNoShow(event: FormEvent) {
@@ -462,9 +578,11 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
             </span></p>
           )}
           <TripStepper status={trip.assignment.currentStatus} />
+          {lastSync && <p className="mt-3 text-center text-xs" data-testid="driver-last-sync">ซิงก์ข้อมูลงานสำเร็จล่าสุด {new Date(lastSync).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Bangkok" })}</p>}
         </div>
       </header>
       <div className="mx-auto max-w-xl space-y-5 px-4 py-5">
+        {storageWarning && <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{storageWarning}</p>}
         <section className="rounded-[26px] bg-white p-5 shadow-sm">
           <p className="text-[13px] font-bold uppercase tracking-[.12em] text-slate-500">ชื่อลูกค้า</p>
           <h2 className="mt-1 text-[21px] font-black leading-tight">
@@ -495,18 +613,24 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
         </div>
         {pending ? (
           <section className="rounded-[26px] border border-amber-200 bg-amber-50 p-6 text-amber-900" aria-live="polite">
-            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[.14em]"><WifiOff size={15} /> รอส่งข้อมูล</p>
+            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[.14em]"><WifiOff size={15} /> {pending.sync?.blocked ? "ข้อมูลยังไม่ถูกยอมรับ ต้องตรวจสอบ" : syncBusy ? "กำลังส่งข้อมูล" : "รอส่งข้อมูล"}</p>
             <h2 className="mt-2 text-2xl font-black">
               {pending.status === "no_show" ? "แจ้งไม่พบผู้โดยสาร" : steps.find((step) => step.status === pending.status)?.thai ?? pending.status}
             </h2>
             <p className="mt-2 leading-6">
-              บันทึกไว้ในโทรศัพท์แล้ว เวลา {new Date(pending.occurredAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })} · ระบบจะส่งให้อัตโนมัติเมื่อมีสัญญาณอินเทอร์เน็ต ไม่ต้องกดซ้ำ
+              {pendingDurable ? "บันทึกไว้ในโทรศัพท์แล้ว" : "ยังไม่ได้บันทึกในโทรศัพท์ กรุณาอย่าปิดหน้านี้"} เวลา {new Date(pending.occurredAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" })}
+              {pending.sync?.blocked ? " · เซิร์ฟเวอร์ยังไม่ยอมรับข้อมูลนี้ กรุณาตรวจสอบสถานะงานหรือติดต่อฝ่ายปฏิบัติการก่อนลองอีกครั้ง" : " · ระบบจะส่งให้อัตโนมัติเมื่อมีสัญญาณอินเทอร์เน็ต โดยใช้คำขอเดิม"}
             </p>
+            <p className="mt-2 text-xs">ลองส่งแล้ว {pending.sync?.attempts ?? 0} ครั้ง{pending.sync?.lastAttemptAt ? ` · ล่าสุด ${new Date(pending.sync.lastAttemptAt).toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok" })}` : ""}</p>
+            {pending.sync?.retryAt && !pending.sync.blocked && <p className="mt-2 text-xs">ลองอัตโนมัติอีกครั้งหลัง {new Date(pending.sync.retryAt).toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok" })}</p>}
+            {pending.sync?.error === "unverified" && <p className="mt-3 text-sm font-semibold">ยังไม่ได้รับการยืนยันที่ตรงกับข้อมูลนี้ ระบบจะตรวจสอบคำขอเดิมอีกครั้ง</p>}
+            {pending.sync?.blocked && <p role="alert" className="mt-3 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-800">{pending.sync.message ?? "บันทึกสถานะไม่สำเร็จ กรุณาติดต่อฝ่ายปฏิบัติการ"}</p>}
             {online && (
-              <button type="button" onClick={() => void sendStep(pending)} className="mt-4 inline-flex h-11 items-center gap-2 rounded-full bg-amber-800 px-5 text-sm font-black text-white">
-                <RefreshCw size={16} /> ส่งตอนนี้
+              <button type="button" disabled={syncBusy || !mayRetryDriverStep(pending.sync, clock, true)} onClick={() => void sendStep(pending, true, pendingDurable)} className="mt-4 inline-flex h-11 items-center gap-2 rounded-full bg-amber-800 px-5 text-sm font-black text-white disabled:opacity-50">
+                <RefreshCw size={16} /> {syncBusy ? "กำลังส่งข้อมูล" : "ส่งตอนนี้"}
               </button>
             )}
+            {pending.sync?.blocked && <button type="button" disabled={syncBusy} onClick={() => void discardBlockedStep()} className="ml-2 mt-4 rounded-full border border-amber-800 px-4 py-3 text-sm font-bold disabled:opacity-50">ตรวจสอบแล้ว ลบข้อมูลรอส่ง</button>}
             {error && <p role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
           </section>
         ) : next ? (

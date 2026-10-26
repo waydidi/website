@@ -37,6 +37,77 @@ test.beforeAll(() => {
     } finally { db.close(); }
   }
 });
+
+test("tour funnel separates private itinerary links, records valid payment intent and survives reload without sending tokens", async ({ page, context }) => {
+  const events: Array<{ journeyId: string; eventId: string; stage: string; service: string }> = [];
+  const withdrawals: string[] = [];
+  let acceptBody: Record<string, unknown> | undefined;
+  let checkoutReady = false;
+  await context.addCookies([{ name: "waydidi_consent", value: "analytics", url: "http://localhost:5199" }]);
+  await page.route("**/api/funnel/config", route => route.fulfill({ json: { enabled: true } }));
+  await page.route(/\/api\/funnel$/, route => {
+    const body = route.request().postDataJSON();
+    expect(JSON.stringify(body)).not.toContain(TOKEN);
+    expect(JSON.stringify(body)).not.toContain(PLAIN_TOKEN);
+    expect(JSON.stringify(body)).not.toContain("private@example.invalid");
+    if (route.request().method() === "DELETE") withdrawals.push(body.journeyId);
+    else { expect(Object.keys(body).sort()).toEqual(["eventId", "journeyId", "service", "stage"]); events.push(body); }
+    return route.fulfill({ status: 204 });
+  });
+  await page.route(`**/api/itinerary/${TOKEN}`, route => {
+    acceptBody = route.request().postDataJSON();
+    return checkoutReady ? route.fulfill({ json: { checkoutUrl: `/itinerary/${PLAIN_TOKEN}`, reference: "TOUR-FIRST" } })
+      : route.fulfill({ status: 503, json: { error: "Test checkout outage" } });
+  });
+  await page.goto(`/itinerary/${TOKEN}`);
+  await expect.poll(() => events.filter(event => event.stage === "quote").length).toBe(1);
+  const first = events[0].journeyId;
+  await page.getByTestId("booking-bar").getByRole("button", { name: "Book & Pay Now", exact: true }).click();
+  await expect.poll(() => events.filter(event => event.stage === "details").length).toBe(1);
+  await page.getByLabel("Full name", { exact: true }).fill("Private Traveller");
+  await page.getByLabel("Email", { exact: true }).fill("private@example.invalid");
+  await page.getByLabel("Phone (WhatsApp or LINE)", { exact: true }).fill("+66123456789");
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: /Pay .*securely|Pay securely/i }).click();
+  await expect(page.getByRole("alert")).toHaveText("Test checkout outage");
+  await expect.poll(() => events.filter(event => event.stage === "payment").length).toBe(1);
+  expect(acceptBody?.funnelId).toBe(first);
+  await page.reload();
+  await expect(page.getByTestId("booking-bar")).toBeVisible();
+  await expect.poll(() => page.evaluate(async token => { const path = "/lib/booking-funnel-client.ts"; return (await import(path)).tourFunnelId(token); }, TOKEN)).toBe(first);
+  expect(events.filter(event => event.stage === "quote")).toHaveLength(1);
+  const stored = await page.evaluate(() => sessionStorage.getItem("waydidi-funnel-v1"));
+  expect(stored).not.toContain(TOKEN);
+  checkoutReady = true;
+  await page.getByTestId("booking-bar").getByRole("button", { name: "Book & Pay Now", exact: true }).click();
+  await page.getByLabel("Full name", { exact: true }).fill("Private Traveller");
+  await page.getByLabel("Email", { exact: true }).fill("private@example.invalid");
+  await page.getByLabel("Phone (WhatsApp or LINE)", { exact: true }).fill("+66123456789");
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: /Pay .*securely|Pay securely/i }).click();
+  await expect(page).toHaveURL(new RegExp(`/itinerary/${PLAIN_TOKEN}$`));
+  await expect.poll(() => events.filter(event => event.stage === "quote").length).toBe(2);
+  const second = events.find(event => event.journeyId !== first)!.journeyId;
+  expect(second).not.toBe(first);
+  expect(events.every(event => event.service === "tour")).toBe(true);
+  const finished = await page.evaluate(async ({ first, second }) => {
+    const path = "/lib/booking-funnel-client.ts";
+    const sdk = await import(path);
+    const before = JSON.parse(sessionStorage.getItem("waydidi-funnel-v1")!);
+    if (!Object.values(before.checkouts).includes(first)) throw new Error("Checkout did not bind its journey before navigating");
+    if (JSON.stringify(before).includes("TOUR-FIRST")) throw new Error("Raw booking reference was persisted");
+    await sdk.bindFunnelCheckout(second, "TOUR-SECOND");
+    await sdk.finishBookingFunnel("TOUR-FIRST");
+    await sdk.finishBookingFunnel("ANOTHER-BOOKING");
+    const state = JSON.parse(sessionStorage.getItem("waydidi-funnel-v1")!);
+    return Object.fromEntries(Object.values(state.journeys).map(value => { const journey = value as { id: string; finished?: boolean }; return [journey.id, journey.finished === true]; }));
+  }, { first, second });
+  expect(finished[first]).toBe(true);
+  expect(finished[second]).toBe(false);
+  await context.addCookies([{ name: "waydidi_consent", value: "necessary", url: "http://localhost:5199" }]);
+  await page.evaluate(() => window.dispatchEvent(new Event("waydidi:consent")));
+  await expect.poll(() => withdrawals.sort()).toEqual([first, second].sort());
+});
 test.afterAll(() => { for (const path of localDatabases()) { const db = new DatabaseSync(path); try { db.prepare("DELETE FROM smart_trips WHERE id IN ('e2e-itinerary-page','e2e-itinerary-plain')").run(); } finally { db.close(); } } });
 
 test("breadcrumbs, the trip's photos and section tabs that jump to each part", async ({ page }, info) => {

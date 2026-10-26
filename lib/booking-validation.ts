@@ -58,6 +58,7 @@ export const quoteSummaryInputSchema = z.object({
 
 export const checkoutInputSchema = z.object({
   checkoutAttemptId: z.string().uuid(),
+  funnelId: z.string().uuid().optional(),
   customerName: z.string().trim().min(2).max(120),
   customerSurname: z.string().trim().min(1).max(80),
   customerEmail: z.string().trim().email().max(254),

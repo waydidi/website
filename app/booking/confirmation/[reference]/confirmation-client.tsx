@@ -1,6 +1,8 @@
 "use client";
 
 import { confirmationPaymentLabel } from "@/lib/confirmation-payment";
+import { finishBookingFunnel } from "@/lib/booking-funnel-client";
+import { isCommittedStatus } from "@/lib/booking-status";
 import { Check, Clock3, Download, Mail, RotateCw, XCircle, Navigation } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -56,6 +58,9 @@ export default function ConfirmationClient({
   sessionId: string;
 }) {
   const [booking, setBooking] = useState<Booking | null>(null);
+  useEffect(() => {
+    if (booking && isCommittedStatus(booking.status)) void finishBookingFunnel(reference).catch(() => undefined);
+  }, [booking, reference]);
   const [failed, setFailed] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [busy, setBusy] = useState<"email" | null>(null);

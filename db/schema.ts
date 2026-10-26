@@ -1609,3 +1609,49 @@ export const driverEvidenceOverrides = sqliteTable("driver_evidence_overrides", 
  assignmentId:text("assignment_id").notNull().references(()=>bookingAssignments.id), eventType:text("event_type").notNull(), reason:text("reason").notNull(), actor:text("actor").notNull(), createdAt:text("created_at").notNull(),
 },t=>[uniqueIndex("uidx_driver_evidence_override").on(t.assignmentId,t.eventType)]);
 export const driverEvidenceUploadLimits = sqliteTable("driver_evidence_upload_limits", {assignmentId:text("assignment_id").primaryKey(),windowStart:text("window_start").notNull(),attempts:integer("attempts").notNull()});
+
+// Review metadata never edits payment, receipt or refund ledger entries.
+export const paymentReviewState = sqliteTable("payment_review_state", {
+  bookingReference: text("booking_reference").primaryKey().references(() => bookings.reference),
+  ownerId: text("owner_id"), status: text("status").notNull().default("open"),
+  version: integer("version").notNull().default(0), lastEventId: text("last_event_id"), updatedAt: text("updated_at").notNull(),
+});
+export const paymentReviewEvents = sqliteTable("payment_review_events", {
+  id: text("id").primaryKey(), bookingReference: text("booking_reference").notNull().references(() => bookings.reference),
+  actorId: text("actor_id").notNull(), action: text("action").notNull(), note: text("note").notNull(),
+  version: integer("version").notNull(), payloadHash: text("payload_hash").notNull(), createdAt: text("created_at").notNull(),
+}, table => [uniqueIndex("payment_review_events_version").on(table.bookingReference, table.version), index("payment_review_events_booking").on(table.bookingReference, table.createdAt)]);
+export const paymentReviewObservations = sqliteTable("payment_review_observations", {
+  id: text("id").primaryKey(), bookingReference: text("booking_reference").notNull().references(() => bookings.reference),
+  reasonCodesJson: text("reason_codes_json").notNull(), expectedMinor: integer("expected_minor").notNull(),
+  providerAmountMinor: integer("provider_amount_minor"), providerCurrency: text("provider_currency"), createdAt: text("created_at").notNull(),
+}, table => [index("payment_review_observations_booking").on(table.bookingReference, table.createdAt)]);
+
+export const bookingChangeHistory = sqliteTable("booking_change_history", {
+  id: text("id").primaryKey(), requestId: text("request_id").notNull().references(() => bookingChangeRequests.id),
+  bookingReference: text("booking_reference").notNull(), status: text("status").notNull(),
+  originalMinor: integer("original_minor").notNull(), revisedMinor: integer("revised_minor").notNull(),
+  differenceMinor: integer("difference_minor").notNull(), createdAt: text("created_at").notNull(),
+}, table => [index("booking_change_history_booking").on(table.bookingReference, table.createdAt)]);
+export const bookingChangeHistoryBootstrap = sqliteTable("booking_change_history_bootstrap", { id: integer("id").primaryKey() });
+
+// Pseudonymous telemetry: deliberately no customer data or financial foreign keys.
+export const bookingFunnelEvents = sqliteTable("booking_funnel_events", {
+  eventId: text("event_id").primaryKey(), journeyHash: text("journey_hash").notNull(),
+  stage: text("stage").notNull(), service: text("service").notNull(), createdAt: text("created_at").notNull(),
+}, table => [uniqueIndex("booking_funnel_events_journey_stage").on(table.journeyHash, table.stage), index("booking_funnel_events_cohort").on(table.stage, table.createdAt)]);
+export const bookingFunnelLinks = sqliteTable("booking_funnel_links", {
+  bookingHash: text("booking_hash").primaryKey(), journeyHash: text("journey_hash").notNull().unique(),
+  service: text("service").notNull(), createdAt: text("created_at").notNull(),
+});
+export const bookingFunnelTourEvents = sqliteTable("booking_funnel_tour_events", {
+  eventId: text("event_id").primaryKey(), journeyHash: text("journey_hash").notNull(),
+  stage: text("stage").notNull(), service: text("service").notNull(), createdAt: text("created_at").notNull(),
+}, table => [uniqueIndex("booking_funnel_tour_events_journey_stage").on(table.journeyHash, table.stage), index("booking_funnel_tour_events_cohort").on(table.stage, table.createdAt)]);
+export const bookingFunnelTourLinks = sqliteTable("booking_funnel_tour_links", {
+  bookingHash: text("booking_hash").primaryKey(), journeyHash: text("journey_hash").notNull(),
+  service: text("service").notNull(), createdAt: text("created_at").notNull(),
+}, table => [index("booking_funnel_tour_links_journey").on(table.journeyHash)]);
+export const bookingFunnelOptouts = sqliteTable("booking_funnel_optouts", {
+  journeyHash: text("journey_hash").primaryKey(), createdAt: text("created_at").notNull(),
+});

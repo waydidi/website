@@ -5,6 +5,7 @@ import { CheckCircle2, CreditCard, Info, LoaderCircle, MessageSquare } from "luc
 import { useRef, useState } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { fill, tripWords, type TripWords } from "@/lib/trip-i18n";
+import { bindFunnelCheckout, observeBookingFunnelStage, tourFunnelId, useBookingFunnel } from "@/lib/booking-funnel-client";
 
 const input = "h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-[16px] outline-none focus:border-brand";
 
@@ -16,6 +17,7 @@ export function ItineraryActions({ token, total, name, email, phone, words }: { 
   const w = words ?? tripWords("en");
   const amount = `THB ${total.toLocaleString("en-US")}`;
   const [mode, setMode] = useState<"idle" | "accept" | "change" | "sent">("idle");
+  useBookingFunnel(mode === "accept" ? "details" : "vehicle", "tour", mode !== "sent", token);
   const [f, setF] = useState({ name, email, phone, agree: false, message: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -24,7 +26,7 @@ export function ItineraryActions({ token, total, name, email, phone, words }: { 
   async function post(body: Record<string, unknown>) {
     setBusy(true); setError("");
     const res = await fetch(`/api/itinerary/${token}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
-    const data = (await res?.json().catch(() => ({}))) as { error?: string; checkoutUrl?: string };
+    const data = (await res?.json().catch(() => ({}))) as { error?: string; checkoutUrl?: string; reference?: string };
     setBusy(false);
     if (!res?.ok) { setError(data.error ?? w.genericError); return null; }
     return data;
@@ -35,7 +37,7 @@ export function ItineraryActions({ token, total, name, email, phone, words }: { 
       <button type="button" onClick={() => open("accept")} className="flex h-14 items-center justify-center gap-2 rounded-full bg-[#FE8B05] text-[17px] font-bold text-ink hover:bg-brand-strong"><CreditCard size={19} />{fill(w.acceptPay, { amount })}</button>
       <button type="button" onClick={() => open("change")} className="flex h-12 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white font-semibold text-plum hover:border-brand"><MessageSquare size={17} />{w.askChange}</button>
     </>}
-    {mode === "accept" && <form onSubmit={async (e) => { e.preventDefault(); const r = await post({ action: "accept", name: f.name, email: f.email, phone: f.phone, agree: f.agree }); if (r?.checkoutUrl) window.location.href = r.checkoutUrl; }} className="grid gap-3">
+    {mode === "accept" && <form onSubmit={async (e) => { e.preventDefault(); const funnelId = tourFunnelId(token); void observeBookingFunnelStage("payment", "tour", true, () => true, token).catch(() => undefined); const r = await post({ action: "accept", name: f.name, email: f.email, phone: f.phone, agree: f.agree, funnelId }); if (r?.checkoutUrl) { await bindFunnelCheckout(funnelId, r.reference).catch(() => undefined); window.location.href = r.checkoutUrl; } }} className="grid gap-3">
       <p className="font-bold">{w.yourDetails}</p>
       <input required maxLength={100} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={w.fullName} autoComplete="name" className={input} aria-label={w.fullName} />
       <input required maxLength={254} type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder={w.email} autoComplete="email" className={input} aria-label={w.email} />

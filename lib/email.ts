@@ -3,6 +3,8 @@ import type { BookingExtras } from "@/lib/booking-extras";
 import { VEHICLES } from "@/lib/vehicles";
 import { includesKohChangFerry } from "@/lib/booking-form";
 import { env } from "cloudflare:workers";
+import { emailProviderOutcome, type EmailDelivery } from "@/lib/email-delivery-rules";
+export type { EmailDelivery } from "@/lib/email-delivery-rules";
 
 import { publicSiteUrl } from "@/lib/site";
 import { fullName as personFullName } from "@/lib/person-name";
@@ -71,12 +73,13 @@ function detailRow(label: string, value: string, valueColor = "#211726") {
   return `<tr><td style="padding:12px 0;border-bottom:1px solid #edf0f4;color:#8793a6;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;vertical-align:top">${escapeHtml(label)}</td><td style="padding:12px 0 12px 20px;border-bottom:1px solid #edf0f4;color:${valueColor};font-size:15px;font-weight:700;line-height:1.45;text-align:right;vertical-align:top">${escapeHtml(value)}</td></tr>`;
 }
 
-/** Outcome of sending one email. */
-export type EmailDelivery = { status: "sent" | "failed" | "pending_configuration" };
+/** A rendered envelope that the durable outbox can persist unchanged. */
+export type PreparedEmail = { payload: Record<string, unknown>; idempotencyKey: string };
 
 
 async function resend(payload: Record<string, unknown>, idempotencyKey: string): Promise<EmailDelivery> {
-  if (!env.RESEND_API_KEY || !env.BOOKING_FROM_EMAIL) return { status: "pending_configuration" };
+  const body = { from: env.BOOKING_FROM_EMAIL, ...payload };
+  if (!env.RESEND_API_KEY || !body.from) return { status: "pending_configuration", retryable: true, outcomeUnknown: false, failureCode: "configuration" };
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -85,13 +88,17 @@ async function resend(payload: Record<string, unknown>, idempotencyKey: string):
         "Content-Type": "application/json",
         "Idempotency-Key": idempotencyKey.slice(0, 256),
       },
-      body: JSON.stringify({ from: env.BOOKING_FROM_EMAIL, ...payload }),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(20000),
+      redirect: "error",
     });
-    if (!response.ok) console.error("Resend rejected email", response.status, await response.text());
-    return { status: response.ok ? "sent" : "failed" };
-  } catch (error) {
-    console.error("Resend request failed", error);
-    return { status: "failed" };
+    const payloadResult: unknown = await response.json().catch(() => null);
+    const outcome = emailProviderOutcome(response.status, payloadResult, response.headers.get("Retry-After"));
+    if (outcome.status !== "sent") console.error("Email delivery not acknowledged", { status: response.status, code: outcome.failureCode });
+    return outcome;
+  } catch {
+    console.error("Email delivery outcome unknown", { code: "network_unknown" });
+    return emailProviderOutcome(0, null);
   }
 }
 
@@ -105,7 +112,7 @@ function letterDate(date: string, time: string) {
 }
 
 
-export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
+export function prepareConfirmationEmail(input: ConfirmationEmailInput): PreparedEmail {
   const roundTrip = Boolean(input.returnDate && input.returnTime);
   const payment = input.total === 0 ? "Nothing to pay" : offlineConfirmationLabel(input.paymentMethod, input.paymentStatus, input.total) ?? (input.paymentMethod === "manual" ? "Paid" : "Paid online");
   const addons = input.extras?.addons.map((line) => line.label.toLowerCase()) ?? [];
@@ -165,7 +172,8 @@ ${p("Best regards,<br>Waydidi Team")}
     "We look forward to taking care of your journey.", "Best regards,", "Waydidi Team",
   ].join("\n");
 
-  return resend({
+  return { payload: {
+    from: env.BOOKING_FROM_EMAIL ?? "",
     to: [input.to],
     // City-to-city hourly bookings ("Bangkok ↔ Pattaya") are a trip; everything else is a ride.
     subject: input.subject ?? `Reference ID: ${input.reference} (${input.pricingArea?.includes("↔") ? "Your Trip is Booked" : "Your Ride is Booked"})`,
@@ -174,7 +182,16 @@ ${p("Best regards,<br>Waydidi Team")}
     attachments: [
       { filename: confirmationPdfName(input.reference, input.pickupDate), content: toBase64(input.pdf), content_type: "application/pdf" },
     ],
-  }, input.retryId ? `confirmation-retry-${input.reference}-${input.retryId}` : `confirmation-${input.reference}-${input.to.toLowerCase()}`);
+  }, idempotencyKey: input.retryId ? `confirmation-retry-${input.reference}-${input.retryId}` : `confirmation-${input.reference}-${input.to.toLowerCase()}` };
+}
+
+/** The durable outbox can reuse exactly this envelope instead of re-rendering it. */
+export async function sendPreparedEmail(email: PreparedEmail) {
+  return resend(email.payload, email.idempotencyKey);
+}
+
+export async function sendConfirmationEmail(input: ConfirmationEmailInput) {
+  return sendPreparedEmail(prepareConfirmationEmail(input));
 }
 
 export async function sendOperationsAlert(booking: {

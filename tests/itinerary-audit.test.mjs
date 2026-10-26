@@ -20,11 +20,61 @@ after(async () => { await vite.close(); await mf.dispose(); });
 const api = await vite.ssrLoadModule('/lib/trip-api.ts');
 const trips = await vite.ssrLoadModule('/lib/smart-trips.ts');
 const customerRoute = await vite.ssrLoadModule('/app/api/itinerary/[token]/pdf/route.ts');
+const acceptRoute = await vite.ssrLoadModule('/app/api/itinerary/[token]/route.ts');
 
 
 const admin = { kind: 'admin', name: 'Audit tester' };
 const draft = (extra = {}) => trips.tripSchema.parse({ title: 'Audit itinerary', tripDate: '2027-02-28', startTime: '08:00', pickupText: 'Test hotel', pickupLat: 13.75, pickupLng: 100.5, durationHours: 8, adults: 2, children: 0, bags: 0, vehicle: 'economy_sedan', stops: [], transportPrice: 2500, ...extra });
 const request = (body, origin = 'https://example.invalid') => new Request('https://example.invalid/api/admin/trips', { method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify(body) });
+
+test('tour acceptance links consented telemetry without exposing contact fields or changing checkout validation', async () => {
+  const oldFetch = globalThis.fetch;
+  Object.assign(globalThis.__tripEnv, { BOOKING_FUNNEL_ENABLED: '1', RATE_LIMIT_SALT: 'test-only-tour-funnel-salt-at-least-32-characters', STRIPE_SECRET_KEY: 'sk_test_local_only' });
+  let payments = 0;
+  globalThis.fetch = async (url, options) => {
+    assert.equal(String(url), 'https://api.stripe.com/v1/checkout/sessions');
+    const parameters = new URLSearchParams(options.body);
+    assert.equal(parameters.get('line_items[0][price_data][unit_amount]'), '250000');
+    assert.equal(parameters.has('funnelId'), false);
+    assert.equal(options.method, 'POST'); payments++;
+    return Response.json({ id: 'cs_test_tour_' + payments, client_secret: 'test_only_client_secret' });
+  };
+  try {
+    const { id } = await trips.saveTrip(draft(), { name: 'Tester' });
+    assert.equal((await api.handleAction(request({ action: 'send', notify: false }), id, admin)).status, 200);
+    const trip = await trips.getTrip(id), journeyId = crypto.randomUUID();
+    const body = { action: 'accept', name: 'Private traveller', email: 'private@example.invalid', phone: '+66123456789', agree: true, funnelId: journeyId };
+    const accept = (payload = body, cookie = 'waydidi_consent=analytics', origin = 'https://example.invalid', token = trip.token) => acceptRoute.POST(new Request('https://example.invalid/api/itinerary/' + token, { method: 'POST', headers: { 'content-type': 'application/json', origin, cookie }, body: JSON.stringify(payload) }), { params: Promise.resolve({ token }) });
+    assert.equal((await accept(body, '', 'https://elsewhere.invalid')).status, 403);
+    assert.equal((await accept(body, '', 'https://example.invalid', 'invalid-private-link')).status, 404);
+    assert.equal((await accept({ ...body, funnelId: 'invalid' })).status, 400);
+    assert.equal(payments, 0);
+    const result = await accept(), checkout = await result.json(); assert.equal(result.status, 200, JSON.stringify(checkout));
+    assert.equal(payments, 1);
+    const saved = await trips.getTrip(id);
+    assert.equal(checkout.reference, saved.bookingReference);
+    const booking = await d1.prepare('SELECT service_type,status,total FROM bookings WHERE reference=?').bind(saved.bookingReference).first();
+    assert.deepEqual(booking, { service_type: 'tour', status: 'pending_payment', total: 2500 });
+    const link = await d1.prepare("SELECT * FROM booking_funnel_tour_links").first();
+    assert.ok(link); assert.equal(JSON.stringify(link).includes(saved.bookingReference), false);
+    assert.equal(JSON.stringify(link).includes(journeyId), false); assert.equal(JSON.stringify(link).includes('private@example.invalid'), false);
+    const funnel = await vite.ssrLoadModule('/lib/booking-funnel-db.ts');
+    await funnel.recordFunnelEvent(d1, globalThis.__tripEnv.RATE_LIMIT_SALT, { journeyId, eventId: crypto.randomUUID(), stage: 'quote', service: 'tour' });
+    await d1.prepare("UPDATE bookings SET status='confirmed',payment_status='paid' WHERE reference=?").bind(saved.bookingReference).run();
+    const observe = await vite.ssrLoadModule('/lib/booking-funnel.ts');
+    await observe.observeFunnelConfirmation(saved.bookingReference);
+    assert.equal((await d1.prepare("SELECT COUNT(*) AS n FROM booking_funnel_tour_events WHERE stage='confirmed'").first()).n, 1);
+    const { id: untrackedId } = await trips.saveTrip(draft(), { name: 'Tester' });
+    await api.handleAction(request({ action: 'send', notify: false }), untrackedId, admin);
+    const untracked = await trips.getTrip(untrackedId);
+    const response = await accept({ ...body, funnelId: crypto.randomUUID() }, '', 'https://example.invalid', untracked.token);
+    assert.equal(response.status, 200, await response.text()); assert.equal(payments, 2);
+    assert.equal((await d1.prepare('SELECT COUNT(*) AS n FROM booking_funnel_tour_links').first()).n, 1);
+  } finally {
+    globalThis.fetch = oldFetch;
+    for (const key of ['BOOKING_FUNNEL_ENABLED', 'RATE_LIMIT_SALT', 'STRIPE_SECRET_KEY']) delete globalThis.__tripEnv[key];
+  }
+});
 
 test('create, edit, reorder, remove and reload preserve itinerary data', async () => {
   const stops = ['Temple', 'Lunch'].map((name, i) => ({ id: `stop-${i}`, kind: 'custom', name, lat: 13.76 + i / 100, lng: 100.5, durationMin: 60, priority: 'must' }));
@@ -115,12 +165,13 @@ test('Google matrix failures and partial responses fall back without crashing', 
 test('long PDF content paginates and the export remains readable', async () => {
   const { createTripPdf } = await vite.ssrLoadModule('/lib/trip-pdf.ts');
   const { PDFDocument } = await import('pdf-lib');
-  const { writeFile } = await import('node:fs/promises');
+  const { mkdir, writeFile } = await import('node:fs/promises');
   const stop = { id: 'long', kind: 'attraction', name: 'A detailed private attraction experience with beautiful countryside and a very long descriptive title', start: 540, end: 660, arrival: 530, travelMin: 50, program: null, sessionTime: null, checkIn: null, lat: 14, lng: 100, note: 'Please bring water.', description: 'Enjoy the countryside with your private driver. '.repeat(35), highlights: Array(10).fill('A memorable private experience in Thailand with plenty of time for photos and a relaxing break.'), cover: null, gallery: [], dressCode: 'Comfortable shoes and clothes.', fee: null };
   const snap = { version: 1, ref: 'TP-AUDIT', title: 'A private journey through Thailand with beautiful scenery and memorable local experiences for the whole family', tripDate: '2027-02-28', startTime: '08:00', pickupText: 'Test hotel', endText: 'Test hotel', adults: 2, children: 0, vehicleName: 'Economy sedan', durationHours: 8, returnAt: 960, totalDrive: 100, transportPrice: 2500, feesIncluded: 100, feesOnSite: 100, discount: 50, total: 2550, stops: [stop], packing: ['Water', 'Comfortable shoes'], notes: null };
   const bytes = await createTripPdf(snap, 'https://example.invalid', null);
   assert.ok((await PDFDocument.load(bytes)).getPageCount() >= 3);
-  await writeFile('/tmp/itinerary-audit-layout.pdf', bytes);
+  await mkdir(new URL('../.wrangler/', import.meta.url), { recursive: true });
+  await writeFile(new URL('../.wrangler/itinerary-audit-layout.pdf', import.meta.url), bytes);
 });
 
 test('operations can upload attraction photos without gaining blog access', async () => {

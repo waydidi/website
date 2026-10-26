@@ -21,7 +21,7 @@ const vite = await createServer({ root, configFile: false, appType: 'custom', re
                 return '\0test-admin'; }, load(id) { if (id === '\0test-env')
                 return 'export const env=globalThis.__journeyTestEnv'; if (id === '\0test-fulfillment')
                 return 'export async function fulfillBooking(){}'; if (id === '\0test-admin')
-                return 'export async function getWaydidiAdmin(){return {email:"operations@example.invalid"}}'; } }], server: { middlewareMode: true } });
+                return 'export async function getWaydidiAdmin(){return {id:"finance-test",role:"finance",email:"operations@example.invalid"}}'; } }], server: { middlewareMode: true } });
 after(async () => { await vite.close(); await mf.dispose(); delete globalThis.__journeyTestEnv; });
 const { getDb } = await vite.ssrLoadModule('/db/index.ts');
 const db = getDb();
@@ -62,6 +62,17 @@ test('a mismatched provider amount never marks payment paid', async () => {
     const result = await payments.reconcilePaymentSession(b, { ...session(b), amountMinor: 1 }, 'webhook');
     assert.equal(result.status, 'mismatch');
     assert.equal((await booking(b)).amountPaid, 0);
+});
+
+test('a validated provider match clears obsolete payment mismatch alerts', async () => {
+    const b = await seed();
+    await payments.reconcilePaymentSession(b, { ...session(b), amountMinor: 1 }, 'admin', false);
+    assert.equal((await db.select().from(schema.operationsAlerts).where(eq(schema.operationsAlerts.bookingReference, b.reference)))[0].status, 'open');
+    await payments.reconcilePaymentSession(b, session(b), 'admin', false);
+    const [alert] = await db.select().from(schema.operationsAlerts).where(eq(schema.operationsAlerts.bookingReference, b.reference));
+    assert.equal(alert.status, 'resolved');
+    assert.ok(alert.resolvedAt);
+    assert.equal((await booking(b)).paymentStatus, 'paid');
 });
 test('outbound completion leaves return active, then return completes parent', async () => {
     const b = await seed({ returnDate: '2026-11-03', returnTime: '15:00', returnTotal: 400, returnPickup: 'Pattaya', returnDropoff: 'Airport' });

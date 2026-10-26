@@ -79,16 +79,18 @@ test('website chat isolates visitor sessions and rejects cross-site posting',asy
 test('confirmation, customer email, office email and PDF retry independently',async()=>{
  const reference='EFGH24';await db.insert(schema.bookings).values({reference,customerName:'Traveller Smith',customerSurname:'Smith',customerEmail:'delivery@example.invalid',customerPhone:'+66 630000000',pickup:'Bangkok',dropoff:'Pattaya',pickupDate:'2026-12-01',pickupTime:'09:00',passengers:2,luggage:1,vehicle:'economy_sedan',paymentMethod:'cash',total:1000,status:'pending_payment',paymentStatus:'cash_due',accessTokenHash:'test',fulfillmentStatus:'pending',createdAt:created,updatedAt:created});
  const {eq}=await import('drizzle-orm');const [b]=await db.select().from(schema.bookings).where(eq(schema.bookings.reference,reference));
- const flow=await vite.ssrLoadModule('/lib/booking-fulfillment.ts');let phase=1;const sent=[];const originalFetch=globalThis.fetch;
+ const flow=await vite.ssrLoadModule('/lib/booking-fulfillment.ts');let phase=1;const sent=[],envelopes=[];const originalFetch=globalThis.fetch;
  Object.assign(globalThis.__staffTestEnv,{RESEND_API_KEY:'test_only',BOOKING_FROM_EMAIL:'noreply@example.invalid',BOOKING_ALERT_EMAIL:'office@example.invalid',BUCKET:{async put(){if(phase===1)throw new Error('storage unavailable');}}});
- globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.resend.com/emails');const body=JSON.parse(options.body);const recipient=Array.isArray(body.to)?body.to[0]:body.to;sent.push(recipient);return phase===1&&recipient==='delivery@example.invalid'?Response.json({error:'temporary'},{status:503}):Response.json({id:'test-email'});};
+ globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.resend.com/emails');const body=JSON.parse(options.body);const recipient=Array.isArray(body.to)?body.to[0]:body.to;sent.push(recipient);if(recipient==='delivery@example.invalid')envelopes.push({body:options.body,key:options.headers['Idempotency-Key']});return phase===1&&recipient==='delivery@example.invalid'?Response.json({error:'temporary'},{status:503}):Response.json({id:'test-email'});};
  try{
   await flow.fulfillBooking(b);
   const first=(await d1.prepare('SELECT channel,status,attempts FROM booking_deliveries WHERE booking_reference=?').bind(reference).all()).results;
   assert.equal(first.find(r=>r.channel==='confirmation').status,'sent');assert.equal(first.find(r=>r.channel==='office_email').status,'sent');assert.equal(first.find(r=>r.channel==='customer_email').status,'failed');assert.equal(first.find(r=>r.channel==='pdf').status,'failed');assert.equal((await db.select().from(schema.bookings).where(eq(schema.bookings.reference,reference)))[0].status,'confirmed');
-  phase=2;await d1.prepare("UPDATE booking_deliveries SET next_attempt_at=? WHERE booking_reference=? AND status='failed'").bind(new Date(Date.now()-60000).toISOString(),reference).run();await flow.runDeliveryRecovery();
+  phase=2;globalThis.__staffTestEnv.BOOKING_FROM_EMAIL='changed@example.invalid';await db.update(schema.bookings).set({pickup:'Changed pickup'}).where(eq(schema.bookings.reference,reference));await d1.prepare("UPDATE booking_deliveries SET next_attempt_at=? WHERE booking_reference=? AND status='failed'").bind(new Date(Date.now()-60000).toISOString(),reference).run();await flow.runDeliveryRecovery();
   const second=(await d1.prepare('SELECT channel,status,attempts FROM booking_deliveries WHERE booking_reference=?').bind(reference).all()).results;
   assert.ok(second.every(r=>r.status==='sent'));assert.equal(second.find(r=>r.channel==='office_email').attempts,1);assert.equal(second.find(r=>r.channel==='customer_email').attempts,2);assert.equal(second.find(r=>r.channel==='pdf').attempts,2);assert.equal(sent.filter(to=>to==='office@example.invalid').length,1);
+  assert.equal(envelopes.length,2);assert.deepEqual(envelopes[0],envelopes[1]);assert.match(envelopes[0].key,/^booking-delivery:[a-f0-9]{64}$/);
+  const summary=await d1.prepare('SELECT fulfillment_status,email_status FROM bookings WHERE reference=?').bind(reference).first();assert.equal(summary.fulfillment_status,'complete');assert.equal(summary.email_status,'sent');
  }finally{globalThis.fetch=originalFetch;}
 });
 

@@ -23,7 +23,7 @@ const vite = await createServer({ root, configFile: false, appType: 'custom', re
 }, load(id) {
   if (id === '\0hourly-env') return 'export const env=globalThis.__hourlyTestEnv';
   if (id === '\0hourly-fulfillment') return `export async function fulfillBooking(b){await globalThis.__hourlyTestEnv.DB.prepare("UPDATE bookings SET status='confirmed',fulfillment_status='complete' WHERE reference=?").bind(b.reference).run()}`;
-  if (id === '\0hourly-admin') return 'export async function getWaydidiAdmin(){return globalThis.__hourlyAdmin?{email:"audit@example.invalid"}:null}';
+  if (id === '\0hourly-admin') return 'export async function getWaydidiAdmin(){return globalThis.__hourlyAdmin?{id:"hourly-audit",role:"owner",email:"audit@example.invalid"}:null}';
 } }], server: { middlewareMode: true } });
 const originalFetch = globalThis.fetch;
 after(async () => { globalThis.fetch = originalFetch; await vite.close(); await mf.dispose(); delete globalThis.__hourlyTestEnv; delete globalThis.__hourlyAdmin; });
@@ -144,6 +144,39 @@ test('checkout stores destination coordinates, route and fixed overtime rates', 
   const row = await d1.prepare('SELECT * FROM bookings WHERE hourly_quote_id=?').bind(q.quoteId).first();
   assert.equal(row.total, 1800); assert.equal(row.dropoff_latitude, places.pattaya[0]); assert.equal(row.dropoff_longitude, places.pattaya[1]);
   assert.equal(row.route_distance_meters, 90000); assert.equal(row.extra_hour_rate, 300); assert.equal(row.extra_distance_rate, 0);
+});
+
+test('analytics consent and changing funnel IDs do not change financial checkout idempotency', async () => {
+  const q = (await quote()).body, journeyId = crypto.randomUUID();
+  const input = checkoutInput(q, { funnelId: journeyId });
+  const oldSalt = globalThis.__hourlyTestEnv.RATE_LIMIT_SALT;
+  globalThis.__hourlyTestEnv.RATE_LIMIT_SALT = 'test-only-funnel-secret-at-least-32-characters';
+  globalThis.__hourlyTestEnv.BOOKING_FUNNEL_ENABLED = '1';
+  const consentedRequest = payload => {
+    const req = request('/api/checkout', payload);
+    req.headers.set('cookie', 'waydidi_consent=analytics'); return req;
+  };
+  try {
+    const first = await checkout.POST(consentedRequest(input));
+    const firstResult = await first.json();
+    assert.equal(first.status, 200, JSON.stringify(firstResult));
+    assert.equal(typeof firstResult.reference, 'string');
+    const before = await d1.prepare('SELECT COUNT(*) AS n FROM bookings').first();
+    for (const funnelId of [undefined, crypto.randomUUID(), journeyId]) {
+      const response = await checkout.POST(consentedRequest({ ...input, funnelId }));
+      const result = await response.json();
+      assert.equal(response.status, 200, JSON.stringify(result));
+      assert.equal(result.reference, firstResult.reference);
+    }
+    assert.deepEqual(await d1.prepare('SELECT COUNT(*) AS n FROM bookings').first(), before);
+    const linked = await d1.prepare('SELECT COUNT(*) AS n FROM booking_funnel_links').first();
+    assert.equal(linked.n, 1, 'a retried checkout cannot be reassigned to another journey');
+    const changed = await checkout.POST(consentedRequest({ ...input, passengers: 2 }));
+    assert.equal(changed.status, 409, 'financial details still participate in the idempotency hash');
+  } finally {
+    globalThis.__hourlyTestEnv.RATE_LIMIT_SALT = oldSalt;
+    delete globalThis.__hourlyTestEnv.BOOKING_FUNNEL_ENABLED;
+  }
 });
 test('quotes last exactly 30 minutes and expired or pre-policy quotes cannot check out', async () => {
   const q = (await quote()).body;
