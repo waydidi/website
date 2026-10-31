@@ -1,4 +1,15 @@
 {
+  "cancellation.choose": {"text": "ตัวเลือกการยกเลิก", "status": "machine"},
+  "cancellation.standard": {"text": "มาตรฐาน", "status": "machine"},
+  "cancellation.non_refundable": {"text": "ไม่สามารถคืนเงินได้", "status": "machine"},
+  "cancellation.flexible": {"text": "ยืดหยุ่น", "status": "machine"},
+  "cancellation.standardTerms": {"text": "คืนเงินเต็มจำนวนเมื่อยกเลิกล่วงหน้ามากกว่า 48 ชั่วโมง คืน 50% ที่ 24–48 ชั่วโมง หลังจากนั้นไม่คืนเงิน", "status": "machine"},
+  "cancellation.non_refundableTerms": {"text": "ลูกค้ายกเลิกไม่คืนเงิน สำหรับการชำระออนไลน์และจองล่วงหน้ามากกว่า 48 ชั่วโมงเท่านั้น", "status": "machine"},
+  "cancellation.flexibleTerms": {"text": "คืนเงินเต็มจำนวนเมื่อยกเลิกล่วงหน้าอย่างน้อย {hours} ชั่วโมง หลังจากนั้นไม่คืนเงิน", "status": "machine"},
+  "cancellation.fareNote": {"text": "ราคาก่อนส่วนลดและบริการเสริม นโยบายที่เลือกครอบคลุมทั้งการจองรวมขากลับ หาก Waydidi ยกเลิกจะคืนเงินเต็มจำนวน หากไม่มาตามนัดจะไม่คืนเงิน", "status": "machine"},
+  "vehicle.bestForYou": {"text": "เหมาะกับคุณที่สุด", "status": "machine"},
+  "vehicle.upgrade": {"text": "อัปเกรดเป็น {name}", "status": "machine"},
+  "vehicle.upgradeNote": {"text": "รถที่สะดวกสบายขึ้นและรองรับกลุ่มของคุณ แตะเพื่อเลือก", "status": "machine"},
   "meta.title": {
     "text": "Waydidi — บริการรถรับส่งส่วนตัวทั่วประเทศไทย",
     "status": "machine"

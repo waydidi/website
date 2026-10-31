@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { acceptedPolicy } from "./accepted-policy";
 import { getDb } from "@/db";
 import { bookingFreeAddons, bookingMemberDiscounts, bookingTaxInvoices, promoRedemptions } from "@/db/schema";
 import { TIERS } from "@/lib/member-tier-rules";
@@ -8,6 +9,7 @@ import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons
 const ADDONS_PRICED_FROM = "2026-09-24T14:30:00.000Z";
 
 export type BookingExtras = {
+  cancellationPolicy?: string;
   discount: { code: string; amount: number } | null;
   memberDiscount: { label: string; amount: number } | null;
   /** amount 0 = given free by the member tier (label says so). */
@@ -33,5 +35,6 @@ export async function bookingExtras(booking: { reference: string; childSeats: nu
     if (ferry) addons.push({ label: `Ferry & Hotel transfer × ${ferry[1]}`, amount: Number(ferry[1]) * FERRY_HOTEL_THB });
     if ((booking.specialRequests ?? "").startsWith("Currency exchange stop requested")) addons.push({ label: `Currency exchange stop${free?.exchangeStop ? ` (free, ${tierName})` : ""}`, amount: free?.exchangeStop ? 0 : EXCHANGE_STOP_THB });
   }
-  return { discount: redemption ? { code: redemption.code, amount: redemption.discount } : null, memberDiscount: member ? { label: `${TIERS.find((t) => t.id === member.tier)?.name ?? "Member"} member discount (${member.percent}%)`, amount: member.discount } : null, addons, taxInvoice: tax ?? null };
+  const policy=await acceptedPolicy(booking.reference);
+  return { ...(policy?.purchased?{cancellationPolicy:`${policy.option === "non_refundable" ? "Non-refundable" : policy.option === "flexible" ? "Flexible" : "Standard"}: ${policy.terms}`} : {}), discount: redemption ? { code: redemption.code, amount: redemption.discount } : null, memberDiscount: member ? { label: `${TIERS.find((t) => t.id === member.tier)?.name ?? "Member"} member discount (${member.percent}%)`, amount: member.discount } : null, addons, taxInvoice: tax ?? null };
 }

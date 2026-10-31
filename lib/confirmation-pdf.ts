@@ -141,6 +141,13 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
   page.drawText(total, { x: 539 - bold.widthOfTextAtSize(total, 18), y: 97, size: 18, font: bold, color: ink });
   page.drawText("*All inclusive", { x: 539 - regular.widthOfTextAtSize("*All inclusive", 9), y: 83, size: 9, font: regular, color: rgb(0.38, 0.43, 0.52) });
 
+  if (extras?.cancellationPolicy) {
+    const policyPage=pdf.addPage([595,842]);
+    policyPage.drawText("Cancellation option",{x:46,y:780,size:20,font:bold,color:ink});
+    const words=latin(extras.cancellationPolicy).split(" "); let line="",y=740;
+    for(const word of words) {if(regular.widthOfTextAtSize(`${line} ${word}`,11)>500){policyPage.drawText(line,{x:46,y,size:11,font:regular,color:ink});y-=18;line=word;}else line=line?`${line} ${word}`:word;}
+    if(line)policyPage.drawText(line,{x:46,y,size:11,font:regular,color:ink});
+  }
   return pdf.save();
 }
 

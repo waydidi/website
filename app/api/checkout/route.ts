@@ -1,6 +1,8 @@
 import { validBookingQuotes, validTransferPrice } from "@/lib/booking-quote-check";
 import { bookingAddonRequests } from "@/lib/booking-addon-requests";
 import { saveAcceptedPolicy } from "@/lib/accepted-policy";
+import { cancellationConfig, cancellationFareMinor, resolveCancellationOption } from "@/lib/cancellation-options";
+import { serviceStartMs } from "@/lib/refund-policy";
 import { REFUND_POLICY_VERSION } from "@/lib/refund-policy";
 import { toSatang } from "@/lib/money";
 import { payPageUrl } from "@/lib/stripe";
@@ -364,6 +366,15 @@ export async function POST(request: Request) {
         total = price.total + returnPrice.total;
       }
     }
+    // Adjust the server-quoted combined fare once in satang, before every discount.
+    const cancellationSettings = cancellationConfig(env as unknown as Record<string, unknown>);
+    let cancellationOption;
+    try {
+      cancellationOption = resolveCancellationOption(input.cancellationOption, cancellationSettings, (serviceStartMs(input.pickupDate,input.pickupTime)-Date.now())/3600000, input.paymentMethod);
+    } catch {
+      return NextResponse.json({code:"INVALID_CANCELLATION_OPTION",error:"Choose an available cancellation option.",field:"cancellationOption"},{status:400});
+    }
+    if (cancellationSettings.enabled) total = cancellationFareMinor(toSatang(total),cancellationOption,cancellationSettings)/100;
     // Promo code: checked here against the real quote price; the browser's
     // preview is never trusted.
     const account = await customerFromRequest(request);
@@ -534,7 +545,7 @@ export async function POST(request: Request) {
         extraHourRate: hourlyData?.extraHourRate,
         extraDistanceRate: hourlyData?.extraDistanceRate,
       });
-    await saveAcceptedPolicy(reference,now);
+    await saveAcceptedPolicy(reference,now,cancellationOption,cancellationSettings);
     // Bookings made while signed in are linked to the customer's account,
     // even when booked for someone else's email.
     if (promoApplied) await getDb().insert(promoRedemptions).values({

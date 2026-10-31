@@ -47,6 +47,11 @@ import {
 } from "@/components/google-route-picker";
 import { validateBookingReview, type ReviewFieldErrors } from "@/lib/booking-review";
 import { VEHICLES, smallestFittingVehicle, vehicleFits, type VehicleId } from "@/lib/vehicles";
+import { cancellationConfig, cancellationFareMinor, type CancellationConfig, type CancellationOption } from "@/lib/cancellation-options";
+import { serviceStartMs } from "@/lib/refund-policy";
+import { recommendVehicles } from "@/lib/vehicle-recommendation";
+import { CancellationChoice } from "./cancellation-choice";
+import { VehicleUpgrade } from "./vehicle-upgrade";
 import { DateTimePicker } from "./date-time-picker";
 import { DurationPicker } from "./duration-picker";
 import { AreaPicker } from "./area-picker";
@@ -272,6 +277,11 @@ export function BookingFlow({
   const [vehicle, setVehicle] = useState("economy_sedan");
   const { currency, money, thb } = useCurrency();
   const [payment, setPayment] = useState<"card" | "cash">("card");
+  const [cancellationSettings,setCancellationSettings] = useState<CancellationConfig>(()=>cancellationConfig({}));
+  const [cancellationOption,setCancellationOption] = useState<CancellationOption>("standard");
+  useEffect(()=>{fetch("/api/booking/cancellation-options",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(c=>{if(c) setCancellationSettings(c);}).catch(()=>undefined);},[]);
+  // Cash never retains an online-only discounted policy.
+  const effectiveCancellationOption = payment === "cash" && cancellationOption === "non_refundable" ? "standard" : cancellationOption;
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
   const [fareQuote, setFareQuote] = useState<FareQuote | null>(null);
   const [returnFareQuote, setReturnFareQuote] = useState<FareQuote | null>(null);
@@ -672,6 +682,8 @@ export function BookingFlow({
       setVehicle((pricedVehicles.find((item) => item.fits) ?? pricedVehicles[0]).id);
     }
   }, [pricedVehicles, vehicle]);
+  const optionFare = cancellationSettings.enabled ? cancellationFareMinor(Math.round(chosenVehicle.price*100),effectiveCancellationOption,cancellationSettings)/100 : chosenVehicle.price;
+  const recommendations = recommendVehicles(booking.passengers,booking.luggage,vehicle,pricedVehicles.map(v=>v.id));
   const discount = promo?.discount ?? 0;
   const tierFree = tierFreeAddons(quoteRequest ? null : memberTier, booking.childSeats, exchangeStop);
   const freeAddons = freeAddonsWithGifts(tierFree, booking.childSeats, exchangeStop, quoteRequest ? { childSeat: false, exchangeStop: false } : vouchers);
@@ -680,8 +692,8 @@ export function BookingFlow({
   const ferryHotel = serviceType === "transfer" && fareQuote?.inclusions?.hotelTransfer ? Math.min(ferryHotelPick, booking.passengers) : 0;
   const addons = addonsTotal(booking.childSeats, exchangeStop, freeAddons, ferryHotel);
   // Member tier discount comes off the fare left after any promo code (the server does the same).
-  const memberDiscount = memberTier && !quoteRequest ? tierDiscount(memberTier, Math.max(0, chosenVehicle.price - discount)) : 0;
-  const payable = Math.max(0, chosenVehicle.price - discount - memberDiscount) + addons;
+  const memberDiscount = memberTier && !quoteRequest ? tierDiscount(memberTier, Math.max(0, optionFare - discount)) : 0;
+  const payable = Math.max(0, optionFare - discount - memberDiscount) + addons;
   const freeLabel = (amount: number, byTier = false) => (amount > 0 ? `+${money(amount)}` : `Free (${byTier && memberTier ? memberTier.name : "gift"})`);
 
   // A different car or price needs the code checked again.
@@ -689,7 +701,7 @@ export function BookingFlow({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- clears a discount computed for the old price
     setPromo(null);
     setAutoPromoTried(false);
-  }, [vehicle, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId, quoteSummary]);
+  }, [vehicle, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId, quoteSummary, effectiveCancellationOption]);
 
   // Signed-in members: apply the best coupon from their wallet automatically on the
   // payment step (once per price; a code they typed or removed is left alone).
@@ -701,7 +713,7 @@ export function BookingFlow({
     fetch("/api/promo/best", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ total: chosenVehicle.price, serviceType, returnTrip: serviceType === "transfer" && returnTrip, airportTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
+      body: JSON.stringify({ total: optionFare, serviceType, returnTrip: serviceType === "transfer" && returnTrip, airportTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
     })
       .then((r) => (r.ok ? r.json() : { best: null }))
       .then((data: { best: { code: string; title: string; discount: number } | null }) => {
@@ -731,7 +743,7 @@ export function BookingFlow({
       const response = await fetch("/api/promo/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, total: chosenVehicle.price, serviceType, returnTrip: serviceType === "transfer" && returnTrip, airportTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
+        body: JSON.stringify({ code, total: optionFare, serviceType, returnTrip: serviceType === "transfer" && returnTrip, airportTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
       });
       const result = (await response.json()) as { ok: boolean; code?: string; title?: string; discount?: number; reason?: string };
       if (!result.ok || !result.code || !result.discount) { setPromo(null); setPromoError(result.reason ?? "This promo code isn't valid."); return; }
@@ -1169,6 +1181,7 @@ export function BookingFlow({
           luggage: booking.luggage,
           vehicle,
           paymentMethod: payable === 0 ? "cash" : payment,
+          ...(cancellationSettings.enabled ? { cancellationOption:effectiveCancellationOption } : {}),
           fareQuoteId: fareQuote?.quoteId,
           returnFareQuoteId: returnTrip ? returnFareQuote?.quoteId : undefined,
           returnDate: returnTrip ? returnDate : undefined,
@@ -1768,7 +1781,7 @@ export function BookingFlow({
         </SheetContent>
       </Sheet>
 
-      {["details","payment","review"].includes(stage) && <div className="bg-slate-50 px-4 py-5"><CheckoutSummary booking={booking} vehicle={chosenVehicle.name} returnTrip={returnTrip} returnDate={returnDate} returnTime={returnTime}/></div>}
+      {["details","payment","review"].includes(stage) && <div className="bg-slate-50 px-4 py-5"><CheckoutSummary cancellationOption={cancellationSettings.enabled?effectiveCancellationOption:undefined} fullRefundHours={cancellationSettings.fullRefundHours} booking={booking} vehicle={chosenVehicle.name} returnTrip={returnTrip} returnDate={returnDate} returnTime={returnTime}/></div>}
       {/* Keyed by stage so each step fades in rather than swapping abruptly. */}
       <div key={stage} className="animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
       {stage === "vehicle" && (
@@ -1781,8 +1794,9 @@ export function BookingFlow({
           dropoff={hourlyMap ? (booking.dropoff.trim() || booking.pickup) : booking.dropoff}
           date={booking.date}
           time={booking.time}
-          vehicles={pricedVehicles}
+          vehicles={pricedVehicles.map(v=>({...v,bestForYou:v.id===recommendations.best}))}
           selectedVehicle={vehicle}
+          upgradeVehicle={recommendations.upgrade}
           quote={hourlyMap ? null : fareQuote}
           returnQuote={hourlyMap ? null : returnFareQuote}
           returnDate={returnDate}
@@ -1852,12 +1866,13 @@ export function BookingFlow({
               {hourlyQuote.cityToCity && <p className="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm text-ink">{hourlyQuote.area.name} · Same hourly price in both directions. Minimum 6 hours.</p>}
               <p className="mt-3 text-sm text-slate-600">Unlimited kilometres within the approved itinerary. Fuel, tolls, parking, ferries and driver return travel included. Overtime: {money(hourlyQuote.prices[chosenVehicle.id]?.extraHourRate ?? 0)}/hour; the first 15 minutes are free, then each started hour is charged.</p>
             </>; })()}
+            {hourlyQuote && recommendations.upgrade && (()=>{const upgrade=pricedVehicles.find(v=>v.id===recommendations.upgrade);return upgrade?<VehicleUpgrade name={upgrade.name} difference={upgrade.price-chosenVehicle.price} onSelect={()=>setVehicle(upgrade.id)}/>:null;})()}
             <h2 className="mt-8 text-sm font-black uppercase tracking-[.12em] text-ink">Choose your ride</h2>
             <div className="mt-3 space-y-3">
               {pricedVehicles.map((item) => (
                 <VehicleOption
                   key={item.id}
-                  item={item}
+                  item={{...item,bestForYou:item.id===recommendations.best}}
                   active={vehicle === item.id}
                   disabled={!hourlyQuote && !quoteRequest}
                   note={serviceType === "hourly" ? `${booking.bookedHours} hours` : undefined}
@@ -1905,6 +1920,7 @@ export function BookingFlow({
           onContinue={continueToPayment}
         />
       )}
+      {stage === "payment" && cancellationSettings.enabled && !quoteRequest && <CancellationChoice config={cancellationSettings} option={effectiveCancellationOption} onChange={value=>{setCancellationOption(value);setPromo(null);setAutoPromoTried(false);}} fare={chosenVehicle.price} online={payment==="card"} hours={(serviceStartMs(booking.date,booking.time)-Date.now())/3600000} />}
       {stage === "payment" && (
         <section className="bg-[#F4F5F7] px-4 py-8 sm:px-6 lg:py-12">
           <div className="mx-auto grid max-w-[1120px] items-start gap-6 lg:grid-cols-[1fr_440px]">
@@ -1918,7 +1934,7 @@ export function BookingFlow({
                 ] as const).map(([id, label, note]) => {
                   const on = payment === id;
                   return <div key={id} className={`rounded-2xl border transition-colors ${on ? "border-slate-200 bg-slate-50/70" : "border-slate-200 bg-white"}`}>
-                    <button type="button" role="radio" aria-checked={on} onClick={() => setPayment(id)} className="flex min-h-[72px] w-full items-center gap-3 px-4 text-left sm:px-5">
+                    <button type="button" role="radio" aria-checked={on} onClick={() => {setPayment(id);if(id==="cash"&&cancellationOption==="non_refundable")setCancellationOption("standard");}} className="flex min-h-[72px] w-full items-center gap-3 px-4 text-left sm:px-5">
                       <span className={`grid size-5 shrink-0 place-items-center rounded-full border-2 ${on ? "border-brand" : "border-slate-300"}`}>{on && <span className="size-2.5 rounded-full bg-brand" />}</span>
                       <span className="flex-1 text-[17px] text-ink">{label}</span>
                       {id === "card"
@@ -2009,7 +2025,7 @@ export function BookingFlow({
                   {returnTrip && quoteSummary?.prices[vehicle] ? <>
                     <div className="flex justify-between"><span>Outbound fare</span><span className="tabular-nums text-ink">{money(quoteSummary.prices[vehicle].outbound)}</span></div>
                     <div className="flex justify-between"><span>Return fare</span><span className="tabular-nums text-ink">{money(quoteSummary.prices[vehicle].return)}</span></div>
-                  </> : !quoteRequest && <div className="flex justify-between"><span>Fare</span><span className="tabular-nums text-ink">{money(chosenVehicle.price)}</span></div>}
+                  </> : !quoteRequest && <div className="flex justify-between"><span>Fare</span><span className="tabular-nums text-ink">{money(optionFare)}</span></div>}
                   {promo && !quoteRequest && <div className="flex justify-between"><span>Discount ({promo.code})</span><span className="tabular-nums text-emerald-700">−{money(promo.discount)}</span></div>}
                   {memberDiscount > 0 && memberTier && <div className="flex justify-between"><span>{memberTier.name} member ({memberTier.percent}%)</span><span className="tabular-nums text-emerald-700">−{money(memberDiscount)}</span></div>}
                   {booking.childSeats > 0 && !quoteRequest && <div className="flex justify-between"><span>Child seat × {booking.childSeats}</span><span className="tabular-nums text-ink">{freeLabel((booking.childSeats - freeAddons.childSeats) * CHILD_SEAT_THB, tierFree.childSeats >= booking.childSeats)}</span></div>}

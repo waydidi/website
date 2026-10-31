@@ -252,3 +252,15 @@ test('lost refund responses reconcile after idempotency retention without a repl
   await refundFlow.reconcileRefunds(b.reference);assert.equal(lookups,1);const row=(await refundFlow.refundsFor(b.reference))[0];assert.equal(row.status,'refunded');assert.equal(row.providerRefundId,'re_lost');
  }finally{globalThis.fetch=originalFetch;}
 });
+test('purchased option snapshots survive config changes and drive real refund quotes',async()=>{
+ const config={enabled:true,discountBps:500,surchargeBps:1500,fullRefundHours:12};
+ for(const [option,hours,percent] of [['non_refundable',100,0],['flexible',12,100],['flexible',11.99,0]]) {
+  const b=await seed({pickupDate:'2026-12-01',pickupTime:'09:00'});
+  await accepted.saveAcceptedPolicy(b.reference,new Date().toISOString(),option,config);
+  const snapshot=await accepted.acceptedPolicy(b.reference);
+  assert.equal(snapshot.option,option);
+  const at=new Date(Date.parse('2026-12-01T09:00:00+07:00')-hours*3600000).toISOString();
+  const q=await refundFlow.quoteRefund(b.reference,'customer_cancellation',at);
+  assert.equal(q.percent,percent);
+ }
+});

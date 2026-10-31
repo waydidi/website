@@ -90,6 +90,7 @@ export const checkoutInputSchema = z.object({
   specialRequests: z.string().max(500).optional().default(""),
   termsAccepted: z.literal(true),
   paymentMethod: z.enum(["card", "cash"]),
+  cancellationOption: z.enum(["standard", "non_refundable", "flexible"]).optional(),
   serviceType: z.enum(["transfer", "hourly"]).default("transfer"),
   fareQuoteId: z.string().uuid().optional(),
   returnFareQuoteId: z.string().uuid().optional(),

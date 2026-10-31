@@ -6,7 +6,8 @@ import { getDb } from "@/db";
 import { bookings } from "@/db/schema";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 import { SUPPORT_EMAIL, WHATSAPP } from "@/lib/contact";
-import { PARTIAL_REFUND_HOURS } from "@/lib/refund-policy";
+import { PARTIAL_REFUND_HOURS, refundPercent } from "@/lib/refund-policy";
+import { acceptedPolicy } from "@/lib/accepted-policy";
 
 export async function POST(request: Request, context: { params: Promise<{ reference: string }> }) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-site request blocked." }, { status: 403 });
@@ -19,7 +20,9 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   if (booking.status === "cancelled") return NextResponse.json({ status: "cancelled", refundStatus: booking.refundStatus });
   if (booking.status !== "confirmed") return NextResponse.json({ error: "This booking cannot be cancelled online." }, { status: 409 });
   const pickup = new Date(`${booking.pickupDate}T${booking.pickupTime}:00+07:00`).getTime();
-  if (pickup - Date.now() < PARTIAL_REFUND_HOURS * 3_600_000) return NextResponse.json({ error: `Cancellations less than ${PARTIAL_REFUND_HOURS} hours before pickup are non-refundable. Contact Waydidi on WhatsApp ${WHATSAPP}.` }, { status: 409 });
+  const policy=await acceptedPolicy(reference);
+  if (policy?.option !== "standard" && policy && refundPercent("customer_cancellation",(pickup-Date.now())/3600000,policy.tiers)===0) return NextResponse.json({error:"Your purchased cancellation option is non-refundable at this time. Contact Waydidi."},{status:409});
+  if ((!policy || policy.option === "standard") && pickup - Date.now() < PARTIAL_REFUND_HOURS * 3_600_000) return NextResponse.json({ error: `Cancellations less than ${PARTIAL_REFUND_HOURS} hours before pickup are non-refundable. Contact Waydidi on WhatsApp ${WHATSAPP}.` }, { status: 409 });
 
   const cancellation=await requestCancellation(reference);
   if (!cancellation) return NextResponse.json({error:"The booking changed. Refresh and try again."},{status:409});

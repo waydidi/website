@@ -142,7 +142,7 @@ export function prepareConfirmationEmail(input: ConfirmationEmailInput): Prepare
   const backFerry = roundTrip && includesKohChangFerry(input.returnPickup ?? input.dropoff, input.returnDropoff ?? input.pickup);
   const ferryLeg = outFerry && backFerry ? "both ways" : outFerry ? (roundTrip ? "outbound only" : "one way") : "return only";
   const ferry: [string, string][] = vehicleClass && (outFerry || backFerry) ? [["Included", `Koh Chang car ferry tickets for ${vehicleClass.passengers} people (${ferryLeg})`]] : [];
-  const closing: [string, string][] = [["Price", price], ...ferry, ["Payment method", payment]];
+  const closing: [string, string][] = [["Price", price], ...ferry, ["Payment method", payment], ...(input.extras?.cancellationPolicy ? [["Cancellation option",input.extras.cancellationPolicy] as [string,string]] : [])];
   const blocks = roundTrip ? [outbound, [...back, ...closing]] : [[...outbound, ...closing]];
   const p = (inner: string, extra = "") => `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#211726${extra}">${inner}</p>`;
   const blockHtml = (lines: [string, string][]) => p(lines.map(([label, value]) => `${escapeHtml(label)}: <strong>${escapeHtml(value)}</strong>`).join("<br>"));

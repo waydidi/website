@@ -146,6 +146,29 @@ test('checkout stores destination coordinates, route and fixed overtime rates', 
   assert.equal(row.route_distance_meters, 90000); assert.equal(row.extra_hour_rate, 300); assert.equal(row.extra_distance_rate, 0);
 });
 
+test('cancellation choices are server priced, cash resets non-refundable, and tampering is denied', async () => {
+ const q=(await quote()).body;
+ const submit=async overrides=>{const r=await checkout.POST(request('/api/checkout',checkoutInput(q,overrides)));return {status:r.status,body:await r.json()};};
+ const env=globalThis.__hourlyTestEnv;
+ env.CANCELLATION_OPTIONS='1';
+ try {
+  for(const [option,total] of [['standard',1800],['flexible',2070],['non_refundable',1800]]) {
+   const r=await submit({cancellationOption:option,childSeats:1});
+   assert.equal(r.status,200,JSON.stringify(r.body));
+   const b=await d1.prepare('SELECT total FROM bookings WHERE reference=?').bind(r.body.reference).first();
+   assert.equal(b.total,total+200,'add-ons are outside the option adjustment');
+   const policy=await d1.prepare('SELECT policy_json FROM booking_policy_snapshots WHERE booking_reference=?').bind(r.body.reference).first();
+   assert.equal(JSON.parse(policy.policy_json).option??'standard',option==='non_refundable'?'standard':option);
+  }
+  assert.equal((await submit({cancellationOption:'hacked'})).status,400);
+  assert.equal((await submit({cancellationOption:'flexible',total:1})).status,400);
+  env.CANCELLATION_OPTIONS='0';
+  const r=await submit({cancellationOption:'flexible'});
+  assert.equal(r.status,200,JSON.stringify(r.body));
+  assert.equal((await d1.prepare('SELECT total FROM bookings WHERE reference=?').bind(r.body.reference).first()).total,1800);
+ } finally {delete env.CANCELLATION_OPTIONS;}
+});
+
 test('analytics consent and changing funnel IDs do not change financial checkout idempotency', async () => {
   const q = (await quote()).body, journeyId = crypto.randomUUID();
   const input = checkoutInput(q, { funnelId: journeyId });

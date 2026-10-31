@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, F
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
 import { useI18n } from "@/components/i18n-provider";
+import { VehicleUpgrade } from "@/components/home/vehicle-upgrade";
 import { CancelCalendar3D } from "@/components/icons/cancel-calendar-3d";
 import { inclusionLines, parseInclusions, type Inclusions } from "@/lib/route-inclusions";
 import { waitingLine } from "@/lib/waiting-policy";
@@ -41,6 +42,7 @@ export type Vehicle = {
   price: number;
   image?: string;
   popular?: boolean;
+  bestForYou?: boolean;
   passengers?: number;
   bags?: number;
   // False when the group is larger than the vehicle carries.
@@ -59,6 +61,7 @@ type Props = {
   time: string;
   vehicles: Vehicle[];
   selectedVehicle: string;
+  upgradeVehicle?: string | null;
   quote: MapQuote | null;
   returnQuote?: MapQuote | null;
   returnDate?: string;
@@ -665,7 +668,7 @@ export function BookingResultsMap(props: Props) {
           {props.vehicles.map((item) => {
             const active = item.id === selected?.id;
             const off = !ready || item.fits === false;
-            const badge = !priceReady || item.fits === false ? null : item.id === cheapest?.id ? "best" : item.popular ? "popular" : null;
+            const badge = !priceReady || item.fits === false ? null : item.bestForYou ? "best" : item.popular ? "popular" : null;
             return <li key={item.id}>
               <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`relative grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-[15px] text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-brand bg-white" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
                 <span className="grid h-14 place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className={`max-h-14 w-full object-contain ${item.id === "comfort_suv" ? "scale-110" : ""}`} /> : <CarFront size={44} className="text-[#9A9A9A]" aria-hidden="true" />}</span>
@@ -686,7 +689,7 @@ export function BookingResultsMap(props: Props) {
                   {item.fits === false ? <span className="mt-2 block text-sm font-medium text-brand-deep">Too small for your group</span>
                     : null}
                   {/* Sits on the card's top edge so it adds no height. */}
-                  {badge === "best" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-line-green bg-line-green px-2 py-px text-[12px] font-medium text-white"><Lightbulb size={12} aria-hidden="true" />Best value</span>
+                  {badge === "best" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-line-green bg-line-green px-2 py-px text-[12px] font-medium text-white"><Lightbulb size={12} aria-hidden="true" />{t("vehicle.bestForYou")}</span>
                     : badge === "popular" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-[#FF1F2D] bg-[#FF1F2D] px-2 py-px text-[12px] font-medium text-white"><Flame size={12} aria-hidden="true" />Most popular</span> : null}
                 </span>
                 <span className="self-start text-right">
@@ -699,6 +702,7 @@ export function BookingResultsMap(props: Props) {
           })}
         </ul>
 
+        {ready && priceReady && !props.quoteRequest && props.upgradeVehicle && (()=>{const upgrade=props.vehicles.find(v=>v.id===props.upgradeVehicle);return upgrade&&selected?<VehicleUpgrade name={upgrade.name} difference={upgrade.price-selected.price} onSelect={()=>props.onSelectVehicle(upgrade.id)}/>:null;})()}
         {/* Free cancellation before FULL_REFUND_HOURS; partial refund until PARTIAL_REFUND_HOURS (lib/refund-policy.ts). */}
         {ready && !props.quoteRequest && (cancelDeadlineAt(props.date, props.time) > clock ? <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
           <CancelCalendar3D size={56} className="shrink-0" />
@@ -799,7 +803,7 @@ export function BookingResultsMap(props: Props) {
             <div className="flex-1 overflow-y-auto px-5 pb-4">
               <div className="flex flex-wrap items-center gap-3 border-b border-[#E6E6E6] py-4">
                 <p className="text-[17px] font-medium">Class: {info.name}</p>
-                {info.id === cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-line-green px-2.5 py-0.5 text-[14px] font-medium text-white"><Lightbulb size={14} aria-hidden="true" />Best value</span>}
+                {info.id === cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-line-green px-2.5 py-0.5 text-[14px] font-medium text-white"><Lightbulb size={14} aria-hidden="true" />{t("vehicle.bestForYou")}</span>}
                 {info.popular && info.id !== cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-[#FF1F2D] px-2.5 py-0.5 text-[14px] font-medium text-white"><Flame size={14} aria-hidden="true" />Most popular</span>}
               </div>
               <DialogPrimitive.Description className="sr-only">Vehicle details and price for {info.name}</DialogPrimitive.Description>
@@ -907,10 +911,11 @@ function Leg({ title, date, time, from, to, quote, onEdit }: { title: string; da
 
 // Shared by the transfer results and the hourly vehicle step so both look alike.
 export function VehicleOption({ item, active, disabled = false, note, priceText, onSelect }: { item: Vehicle; active: boolean; disabled?: boolean; note?: string; priceText?: string; onSelect: () => void }) {
+  const {t}=useI18n();
   const tooSmall = item.fits === false;
   const { money } = useCurrency();
   return <button type="button" disabled={disabled || tooSmall} onClick={onSelect} aria-pressed={active} className={`relative grid min-h-[118px] w-full grid-cols-[92px_1fr_auto] items-center gap-3 rounded-[22px] border-2 p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-45 ${active ? "border-brand bg-cream shadow-md shadow-orange-950/5" : "border-slate-200 bg-white enabled:hover:border-orange-200"}`}>
-    {item.popular && <span className="absolute -top-2.5 left-4 rounded-full bg-ink px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[.06em] text-white">Most popular</span>}
+    {(item.bestForYou || item.popular) && <span className="absolute -top-2.5 left-4 rounded-full bg-ink px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[.06em] text-white">{item.bestForYou?t("vehicle.bestForYou"):"Most popular"}</span>}
     <span className="grid h-[82px] place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className="max-h-[78px] w-full object-contain"/> : <span className="grid size-16 place-items-center rounded-full bg-brand-soft text-brand-deep"><CarFront size={30} aria-hidden="true"/></span>}</span>
     <span className="min-w-0"><strong className="block text-base text-ink">{item.name}</strong><span className="mt-0.5 block text-xs text-slate-500">{item.tagline}</span>
       {item.passengers !== undefined && item.bags !== undefined && <span className="mt-1.5 flex items-center gap-3 text-xs font-semibold text-slate-600" aria-label={`Up to ${item.passengers} passengers and ${item.bags} bags`}><span className="inline-flex items-center gap-1"><Users size={13} aria-hidden="true"/>{item.passengers}</span><span className="inline-flex items-center gap-1"><Luggage size={13} aria-hidden="true"/>{item.bags}</span></span>}

@@ -1,3 +1,5 @@
+import { acceptedPolicy } from "@/lib/accepted-policy";
+import { PurchasedCancellationPolicy } from "@/components/home/purchased-cancellation-policy";
 import type { Metadata } from "next";
 import { env } from "cloudflare:workers";
 import Link from "next/link";
@@ -34,6 +36,7 @@ export default async function TripDetailPage({ params }: { params: Promise<{ ref
   const customer = await requireCustomer(`/account/trips/${reference}`);
   const trip = await customerBooking(customer, reference.toUpperCase());
   if (!trip) notFound();
+  const cancellationPolicy=await acceptedPolicy(trip.reference);
   const bucket = tripBucket(trip.status, trip.pickupDate, trip.pickupTime);
   const driverStatus = (await driverStatuses([trip.reference])).get(trip.reference);
   const progress = trip.status === "completed" ? 4 : stepIndex[driverStatus ?? ""] ?? 0;
@@ -91,6 +94,7 @@ export default async function TripDetailPage({ params }: { params: Promise<{ ref
 
       <aside className="grid content-start gap-5">
         <div className="rounded-[22px] bg-white p-5"><TripActions reference={trip.reference} canManage={bucket === "upcoming" && canManageStatus(trip.status)} hasReceipt={trip.status === "confirmed" || trip.status === "completed"} canReturn={trip.serviceType !== "hourly" && !trip.returnDate} /></div>
+        {cancellationPolicy?.purchased && <PurchasedCancellationPolicy option={cancellationPolicy.option} hours={cancellationPolicy.tiers[0].minHours}/>}
         <p className="px-1 text-sm leading-6 text-slate-500">Date changes are made online; cancellations are handled by email under the <Link href="/refund-policy" className="font-bold text-brand-darker hover:underline">cancellation policy</Link>. Meeting instructions are in your confirmation email.</p>
       </aside>
     </div>

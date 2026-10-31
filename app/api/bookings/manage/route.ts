@@ -1,3 +1,4 @@
+import { acceptedPolicy } from "@/lib/accepted-policy";
 import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
       .from(bookingAssignments)
       .where(eq(bookingAssignments.bookingReference, booking.reference)),
   ]);
+  const policy=await acceptedPolicy(booking.reference);
   const remaining =
     pickupInstant(booking.pickupDate, booking.pickupTime) - Date.now();
   const journeyStarted = assignments.some(
@@ -85,8 +87,8 @@ export async function GET(request: Request) {
         rescheduleCutoff: new Date(
           pickupInstant(booking.pickupDate, booking.pickupTime) - 72 * HOUR,
         ).toISOString(),
-        cancellationCutoff: new Date(
-          pickupInstant(booking.pickupDate, booking.pickupTime) - 24 * HOUR,
+        cancellationCutoff: policy?.option === "non_refundable" ? null : new Date(
+          pickupInstant(booking.pickupDate, booking.pickupTime) - (policy?.option === "flexible" ? policy.tiers[0].minHours : 24) * HOUR,
         ).toISOString(),
       },
       changeRequests,

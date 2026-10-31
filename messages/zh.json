@@ -1,4 +1,15 @@
 {
+  "cancellation.choose": {"text": "取消选项", "status": "machine"},
+  "cancellation.standard": {"text": "标准", "status": "machine"},
+  "cancellation.non_refundable": {"text": "不可退款", "status": "machine"},
+  "cancellation.flexible": {"text": "灵活", "status": "machine"},
+  "cancellation.standardTerms": {"text": "接送前超过48小时全额退款，24至48小时退50%，之后不退款。", "status": "machine"},
+  "cancellation.non_refundableTerms": {"text": "客户取消不退款。仅限在线付款，且距接送超过48小时。", "status": "machine"},
+  "cancellation.flexibleTerms": {"text": "接送前至少{hours}小时取消可全额退款，之后不退款。", "status": "machine"},
+  "cancellation.fareNote": {"text": "此为优惠和附加服务前的车费。所选政策适用于整笔预订（包括返程）。Waydidi取消将全额退款，未出现则不退款。", "status": "machine"},
+  "vehicle.bestForYou": {"text": "最适合您", "status": "machine"},
+  "vehicle.upgrade": {"text": "升级为{name}", "status": "machine"},
+  "vehicle.upgradeNote": {"text": "更舒适且可容纳您全组的车型。点击选择。", "status": "machine"},
   "meta.title": {
     "text": "Waydidi — 泰国私人专车接送",
     "status": "machine"
