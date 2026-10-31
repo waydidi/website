@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test, {after} from 'node:test';
 import {createServer} from 'vite';
-const vite=await createServer({configFile:false,appType:'custom',server:{middlewareMode:true}});
+const vite=await createServer({configFile:false,appType:'custom',resolve:{alias:{'@':process.cwd()}},server:{middlewareMode:true}});
 after(()=>vite.close());
 const {TRANSFER_ROUTES, quoteTransferRoute, transferBookingUrl}=await vite.ssrLoadModule('/lib/transfer-routes.ts');
 test('curated routes have unique reversible slugs and real Thai coordinates',()=>{
@@ -21,6 +21,15 @@ test('published prices use destination area, real calculator and vehicle restric
  const result=await quoteTransferRoute(r,{matchArea:async p=>{assert.deepEqual(p,{lat:r.to.lat,lng:r.to.lng});return {id:'pattaya',pricingType:'fixed'};},prices:async(id,meters)=>{assert.equal(id,'pattaya');distance=meters;return {economy_sedan:{total:1500},comfort_bmw:{total:2500}};}});
  assert.equal(distance,r.distanceMeters);assert.deepEqual(result.pricesMinor,{economy_sedan:150000});
 });
+test('route headings and shared route copy are approved English translator sources',async()=>{
+ const { approvedTranslationText } = await vite.ssrLoadModule('/lib/site-translation-policy.ts');
+ for (const r of TRANSFER_ROUTES) {
+  assert.equal(approvedTranslationText(`${r.from.name} to ${r.to.name}`),true,r.slug);
+ }
+ const en = (await import('../messages/en.json',{with:{type:'json'}})).default;
+ for (const [key,text] of Object.entries(en).filter(([key])=>key.startsWith('transfers.'))) assert.equal(approvedTranslationText(text),true,key);
+});
+
 test('manual, empty, invalid and unavailable prices are never published',async()=>{
  const r=TRANSFER_ROUTES[0];
  for(const deps of [
