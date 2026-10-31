@@ -273,7 +273,10 @@ test('transfer summary applies cancellation to the combined server fare and reje
 });
 
 test('round-trip transfer checkout recomputes the purchased option before promo and add-ons',async()=>{
- const date=new Date(Date.now()+30*86400000).toISOString().slice(0,10),backDate=new Date(Date.now()+32*86400000).toISOString().slice(0,10),now=new Date().toISOString();
+ // This fixture quotes the unadjusted demo fare. Use future low-season dates
+ // so seeded high-season surcharges do not correctly invalidate that quote.
+ const year=new Date().getUTCFullYear()+1;
+ const date=`${year}-06-10`,backDate=`${year}-06-12`,now=new Date().toISOString();
  const outId=crypto.randomUUID(),backId=crypto.randomUUID();
  const common={areaId:'sample-pattaya',areaName:'Test',distanceMeters:125000,durationSeconds:6000,vehiclePricesJson:JSON.stringify({economy_sedan:{total:1400,basePrice:1400,distanceSurcharge:0}}),pricingVersion:1,timezone:'Asia/Bangkok',expiresAt:new Date(Date.now()+1800000).toISOString(),createdAt:now};
  await db.insert(schema.fareQuotes).values([{...common,id:outId,pickupPlaceId:'airport',dropoffPlaceId:'pattaya',pickupText:'Suvarnabhumi Airport',dropoffText:'Pattaya',departureDate:date,departureTime:'09:00'},{...common,id:backId,pickupPlaceId:'pattaya',dropoffPlaceId:'airport',pickupText:'Pattaya',dropoffText:'Suvarnabhumi Airport',departureDate:backDate,departureTime:'09:00'}]);
