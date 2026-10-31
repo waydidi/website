@@ -3,11 +3,32 @@ import test, { after } from 'node:test';
 import { createServer } from 'vite';
 import { fileURLToPath } from 'node:url';
 const root=fileURLToPath(new URL('..',import.meta.url));
-const vite=await createServer({appType:'custom',configFile:false,root,resolve:{alias:{'@':root}},server:{middlewareMode:true}});
+const vite=await createServer({appType:'custom',configFile:false,root,optimizeDeps:{noDiscovery:true},resolve:{alias:{'@':root}},server:{middlewareMode:true}});
 after(()=>vite.close());
 const rules=await vite.ssrLoadModule('/lib/cancellation-options.ts');
 const refunds=await vite.ssrLoadModule('/lib/refund-policy.ts');
 const validation=await vite.ssrLoadModule('/lib/booking-validation.ts');
+const {discountFor}=await vite.ssrLoadModule('/lib/promo.ts');
+const {tierDiscount,TIERS}=await vite.ssrLoadModule('/lib/member-tier-rules.ts');
+const {addonsTotal}=await vite.ssrLoadModule('/lib/addons.ts');
+test('all options compose with real promo, member, and add-on rules after combined-fare rounding',()=>{
+ const config=rules.cancellationConfig({CANCELLATION_OPTIONS:'1'});
+ for(const [option,expectedMinor] of [['standard',48220],['non_refundable',46719],['flexible',52523]]) {
+  const fare=rules.cancellationFareMinor(10010+20010,option,config)/100;
+  const promo=discountFor({discountType:'fixed',discountValue:10,maxDiscount:null},fare);
+  const member=tierDiscount(TIERS[0],fare-promo);
+  const addons=addonsTotal(0,true,{childSeats:0,exchangeStop:false},0);
+  assert.equal(Math.round((fare-promo-member+addons)*100),expectedMinor);
+ }
+});
+test('display selection falls back when a non-refundable pickup is no longer eligible',()=>{
+ const config=rules.cancellationConfig({CANCELLATION_OPTIONS:'1'});
+ assert.equal(rules.displayCancellationOption('non_refundable',config,48,'card'),'standard');
+ assert.equal(rules.displayCancellationOption('non_refundable',config,60,'cash'),'standard');
+ assert.equal(rules.displayCancellationOption('non_refundable',config,NaN,'card'),'standard');
+ assert.equal(rules.displayCancellationOption('non_refundable',config,49,'card'),'non_refundable');
+ assert.equal(rules.displayCancellationOption('flexible',config,8,'cash'),'flexible');
+});
 test('checkout boundary accepts the chosen policy but never a client total',()=>{
  const input={checkoutAttemptId:crypto.randomUUID(),customerName:'Test',customerSurname:'Passenger',customerEmail:'test@example.invalid',customerPhone:'+66123456789',pickup:'Bangkok',dropoff:'Pattaya',pickupDate:new Date(Date.now()+30*86400000).toISOString().slice(0,10),pickupTime:'10:00',timezone:'Asia/Bangkok',passengers:2,luggage:1,vehicle:'economy_sedan',childSeats:0,oversizedLuggage:false,termsAccepted:true,paymentMethod:'card',fareQuoteId:crypto.randomUUID(),cancellationOption:'flexible'};
  assert.equal(validation.checkoutInputSchema.safeParse(input).success,true);

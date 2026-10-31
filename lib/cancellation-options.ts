@@ -21,6 +21,12 @@ export function resolveCancellationOption(value: unknown, config: CancellationCo
   }
   return value;
 }
+// The picker may become ineligible after editing pickup details. Preview falls
+// back to Standard; the checkout boundary still rejects an ineligible request.
+export function displayCancellationOption(option: CancellationOption, config: CancellationConfig, hours: number, payment: string): CancellationOption {
+  try { return resolveCancellationOption(option, config, hours, payment); }
+  catch { return "standard"; }
+}
 export function cancellationTiers(option: CancellationOption, config: CancellationConfig): RefundTier[] {
   if (option === "standard") return GENERAL_REFUND_TIERS;
   const hours = option === "flexible" ? config.fullRefundHours : 0;

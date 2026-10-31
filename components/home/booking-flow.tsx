@@ -47,8 +47,7 @@ import {
 } from "@/components/google-route-picker";
 import { validateBookingReview, type ReviewFieldErrors } from "@/lib/booking-review";
 import { VEHICLES, smallestFittingVehicle, vehicleFits, type VehicleId } from "@/lib/vehicles";
-import { cancellationConfig, cancellationFareMinor, type CancellationConfig, type CancellationOption } from "@/lib/cancellation-options";
-import { serviceStartMs } from "@/lib/refund-policy";
+import { cancellationConfig, cancellationFareMinor, displayCancellationOption, type CancellationConfig, type CancellationOption } from "@/lib/cancellation-options";
 import { recommendVehicles } from "@/lib/vehicle-recommendation";
 import { CancellationChoice } from "./cancellation-choice";
 import { VehicleUpgrade } from "./vehicle-upgrade";
@@ -281,7 +280,8 @@ export function BookingFlow({
   const [cancellationOption,setCancellationOption] = useState<CancellationOption>("standard");
   useEffect(()=>{fetch("/api/booking/cancellation-options",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(c=>{if(c) setCancellationSettings(c);}).catch(()=>undefined);},[]);
   // Cash never retains an online-only discounted policy.
-  const effectiveCancellationOption = payment === "cash" && cancellationOption === "non_refundable" ? "standard" : cancellationOption;
+  const cancellationNoticeHours = (Date.parse(`${booking.date}T${booking.time}:00+07:00`) - Date.now()) / 3600000;
+  const effectiveCancellationOption = displayCancellationOption(cancellationOption,cancellationSettings,cancellationNoticeHours,payment);
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
   const [fareQuote, setFareQuote] = useState<FareQuote | null>(null);
   const [returnFareQuote, setReturnFareQuote] = useState<FareQuote | null>(null);
@@ -1920,7 +1920,7 @@ export function BookingFlow({
           onContinue={continueToPayment}
         />
       )}
-      {stage === "payment" && cancellationSettings.enabled && !quoteRequest && <CancellationChoice config={cancellationSettings} option={effectiveCancellationOption} onChange={value=>{setCancellationOption(value);setPromo(null);setAutoPromoTried(false);}} fare={chosenVehicle.price} online={payment==="card"} hours={(serviceStartMs(booking.date,booking.time)-Date.now())/3600000} />}
+      {stage === "payment" && cancellationSettings.enabled && !quoteRequest && <CancellationChoice config={cancellationSettings} option={effectiveCancellationOption} onChange={value=>{setCancellationOption(value);setPromo(null);setAutoPromoTried(false);}} fare={chosenVehicle.price} online={payment==="card"} hours={cancellationNoticeHours} />}
       {stage === "payment" && (
         <section className="bg-[#F4F5F7] px-4 py-8 sm:px-6 lg:py-12">
           <div className="mx-auto grid max-w-[1120px] items-start gap-6 lg:grid-cols-[1fr_440px]">

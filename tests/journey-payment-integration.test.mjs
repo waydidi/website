@@ -15,7 +15,7 @@ for (const name of (await readdir(root + '/drizzle')).filter(n => n.endsWith('.s
         await d1.batch(statements.map(s => d1.prepare(s)));
 }
 globalThis.__journeyTestEnv = { DB: d1 };
-const vite = await createServer({ root, configFile: false, appType: 'custom', resolve: { alias: { '@': root } }, plugins: [{ name: 'test-worker-boundaries', enforce: 'pre', resolveId(id) { if (id === 'cloudflare:workers')
+const vite = await createServer({ root, configFile: false, appType: 'custom', optimizeDeps: { noDiscovery: true }, resolve: { alias: { '@': root } }, plugins: [{ name: 'test-worker-boundaries', enforce: 'pre', resolveId(id) { if (id === 'cloudflare:workers')
                 return '\0test-env'; if (id.endsWith('/lib/booking-fulfillment'))
                 return '\0test-fulfillment'; if (id.endsWith('/lib/admin'))
                 return '\0test-admin'; }, load(id) { if (id === '\0test-env')
