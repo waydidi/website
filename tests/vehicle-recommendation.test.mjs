@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
 import { createServer } from 'vite';
 import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
+
+test('vehicle details badge uses capacity recommendation rather than cheapest price',async()=>{
+ const source=await readFile(new URL('../components/booking-results-map.tsx',import.meta.url),'utf8');
+ assert.match(source,/info\.bestForYou && <span/);
+});
 const root=fileURLToPath(new URL('..',import.meta.url));
 const vite=await createServer({appType:'custom',configFile:false,root,optimizeDeps:{noDiscovery:true},resolve:{alias:{'@':root}},server:{middlewareMode:true}});
 after(()=>vite.close());

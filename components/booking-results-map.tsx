@@ -803,7 +803,7 @@ export function BookingResultsMap(props: Props) {
             <div className="flex-1 overflow-y-auto px-5 pb-4">
               <div className="flex flex-wrap items-center gap-3 border-b border-[#E6E6E6] py-4">
                 <p className="text-[17px] font-medium">Class: {info.name}</p>
-                {info.id === cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-line-green px-2.5 py-0.5 text-[14px] font-medium text-white"><Lightbulb size={14} aria-hidden="true" />{t("vehicle.bestForYou")}</span>}
+                {info.bestForYou && <span className="inline-flex items-center gap-1 rounded-full bg-line-green px-2.5 py-0.5 text-[14px] font-medium text-white"><Lightbulb size={14} aria-hidden="true" />{t("vehicle.bestForYou")}</span>}
                 {info.popular && info.id !== cheapest?.id && <span className="inline-flex items-center gap-1 rounded-full bg-[#FF1F2D] px-2.5 py-0.5 text-[14px] font-medium text-white"><Flame size={14} aria-hidden="true" />Most popular</span>}
               </div>
               <DialogPrimitive.Description className="sr-only">Vehicle details and price for {info.name}</DialogPrimitive.Description>
