@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { parseLanguagePath, languagePath } from "@/lib/language-urls";
+import { parseLanguagePath, languagePath, languageLinkTarget } from "@/lib/language-urls";
 import { useEffect, useState } from "react";
 import { approvedTranslationText } from "@/lib/site-translation-policy";
 import { LANG_COOKIE, SITE_LANGS, TX_ATTRS, TX_SKIP, isSiteLang, legalPath, untranslatedPath, usableText, type SiteLang } from "@/lib/site-languages";
@@ -26,6 +26,20 @@ export function SiteTranslator() {
   const path = parseLanguagePath(pathname).path;
   const [lang, setLang] = useState<SiteLang>("en");
   const [original, setOriginal] = useState(false);
+  useEffect(() => {
+    if (!document.documentElement.dataset.urlLanguage) return;
+    const navigate = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
+      if (!(anchor instanceof HTMLAnchorElement) || anchor.hasAttribute('download') || (anchor.target && anchor.target !== '_self')) return;
+      const target = languageLinkTarget(anchor.getAttribute('href') ?? '',window.location.href,siteLang());
+      if (!target) return;
+      event.preventDefault(); event.stopPropagation();
+      window.location.assign(target);
+    };
+    document.addEventListener('click',navigate,true);
+    return () => document.removeEventListener('click',navigate,true);
+  }, []);
   // Re-read on every page change too, so the chosen language is always the current one.
   useEffect(() => { const t = window.setTimeout(() => setLang(siteLang()), 0); return () => window.clearTimeout(t); }, [path]);
   const active = lang !== "en" && !untranslatedPath(path) && !original;

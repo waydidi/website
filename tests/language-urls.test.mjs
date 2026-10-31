@@ -35,6 +35,12 @@ test('private quote and marketing token pages are never language URLs or client-
  }
 });
 
+test('localized public links use full-document targets so router RSC URLs are never prefixed',async()=>{
+ const { languageLinkTarget }=await vite.ssrLoadModule('/lib/language-urls.ts');
+ assert.equal(languageLinkTarget('/destinations?city=phuket#guide','https://waydidi.com/th/about','th'),'https://waydidi.com/th/destinations?city=phuket#guide');
+ for(const href of ['#details','/api/fare-quote','/quote/token','/account','https://example.invalid/about','mailto:test@example.invalid'])assert.equal(languageLinkTarget(href,'https://waydidi.com/th/about','th'),null,href);
+});
+
 test('alternates include all languages, self and x-default', () => {
  const a=languageAlternates('/th/about','https://waydidi.com');
  assert.equal(Object.keys(a).length,13);

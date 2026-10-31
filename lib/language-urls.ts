@@ -23,6 +23,18 @@ export function languagePath(value: string, lang: SiteLang) {
   if (!parsed.valid || !publicLanguagePath(parsed.path)) return value;
   return (lang === 'en' ? parsed.path : `/${lang}${parsed.path === '/' ? '' : parsed.path}`) + suffix;
 }
+/** Full-document navigation avoids asking the app router for a prefixed .rsc endpoint. */
+export function languageLinkTarget(href: string, current: string, lang: SiteLang): string | null {
+  if (!href || href.startsWith('#')) return null;
+  try {
+    const base = new URL(current), target = new URL(href,base);
+    const parsed = parseLanguagePath(target.pathname);
+    if (target.origin !== base.origin || !parsed.valid || !publicLanguagePath(parsed.path)) return null;
+    target.pathname = languagePath(target.pathname,lang);
+    return target.toString();
+  } catch { return null; }
+}
+
 export function languageAlternates(path: string, origin: string): Record<string,string> {
   return Object.fromEntries([...SITE_LANGS.map(l => [l.htmlLang,origin+languagePath(path,l.code)]),['x-default',origin+languagePath(path,'en')]]);
 }
