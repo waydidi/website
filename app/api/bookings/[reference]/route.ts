@@ -1,3 +1,4 @@
+import { loadBookingRouteStopsJson } from "@/lib/route-stops-db";
 import { acceptedPolicy } from "@/lib/accepted-policy";
 import { latestAccessRevoke } from "@/lib/trip-access";
 import { shareIssuedAfterRevoke } from "@/lib/customer-trip-rules";
@@ -16,6 +17,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   return NextResponse.json({
     cancellationPolicy: await acceptedPolicy(reference),
     reference: booking.reference, customerName: booking.customerName, customerEmail: booking.customerEmail, customerPhone: booking.customerPhone,
+    routeStopsJson: await loadBookingRouteStopsJson(reference),
     pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate, pickupTime: booking.pickupTime,
     returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff, returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,

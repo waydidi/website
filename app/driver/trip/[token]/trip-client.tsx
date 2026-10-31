@@ -1,4 +1,5 @@
 "use client";
+import { RouteStopsDetails } from "@/components/route-stops-details";
 import { useCloseOutside } from "@/lib/use-close-outside";
 import { directionsTo } from "@/lib/maps-link";
 import { includesKohChangFerry } from "@/lib/booking-form";
@@ -49,6 +50,7 @@ type Trip = {
   };
   driver: { fullName: string; phone: string };
   booking: {
+    routeStops?: { name: string; durationMinutes: number }[];
     leg: string;
     reference: string;
     customerName: string;
@@ -603,6 +605,7 @@ export default function DriverTripClient({ token: initialToken }: { token: strin
         </section>
         {/* Pick up / Drop: the Google Maps link an admin set in Telegram, or directions to the address */}
         <div className="grid grid-cols-2 gap-3">
+          <RouteStopsDetails driver driverStops={trip.booking.routeStops ?? []} />
           {([["Pick up", trip.booking.pickup, trip.booking.pickupMapUrl], ["Drop", trip.booking.dropoff, trip.booking.dropoffMapUrl]] as const).map(([label, place, link]) => (
             <a key={label} href={link || directionsTo(place)} target="_blank" rel="noreferrer"
               aria-label={`${label}: ${place} (Google Maps)`}

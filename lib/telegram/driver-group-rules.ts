@@ -1,6 +1,8 @@
 // Pure rules for the Telegram driver group: the Thai job offer, the sign-up link, and the
 // one-time sign-up questions a driver answers in their private chat with the bot.
-// No runtime imports, so every rule is unit tested directly (tests/telegram-driver-group.test.mjs).
+// Pure module dependencies only; rules are exercised in tests/telegram-driver-group.test.mjs.
+
+import { driverRouteStops } from "../route-stop-display";
 
 export type DriverGroupConfig = { chatId: string; southChatId: string | null };
 
@@ -59,6 +61,7 @@ const thaiDate = (date: string | null, time: string | null) => {
 };
 
 export type OfferJob = {
+  routeStopsJson?: string | null;
   reference: string; vehicleName: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string;
   serviceType: string | null; bookedHours: number | null; passengers: number; luggage: number;
   returnDate: string | null; returnTime: string | null; driverCost: number | null;
@@ -78,6 +81,7 @@ export function offerText(job: OfferJob, state: OfferState) {
     `เวลา: ${escHtml(job.pickupTime)}`,
     `รับ: ${escHtml(job.pickup)}`,
     job.serviceType === "hourly" ? `ระยะเวลา: ${escHtml(job.bookedHours ?? "-")} ชั่วโมง` : `ส่ง: ${escHtml(job.dropoff)}`,
+    ...driverRouteStops(job.routeStopsJson).map(stop => `จุดแวะเที่ยว (ขาไป): ${escHtml(stop.name)} · ${stop.durationMinutes} นาที`),
     `จำนวน: ${job.passengers} คน, ${job.luggage} กระเป๋า`,
     ...(job.returnDate ? [`ขากลับ: ${escHtml(thaiDate(job.returnDate, job.returnTime))}`] : []),
     `ค่างาน: ${job.driverCost ? `${job.driverCost.toLocaleString("en-US")} บาท` : "รอแจ้งราคา"}`,

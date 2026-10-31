@@ -1,3 +1,4 @@
+import { ensureBookingRouteStops } from "@/lib/route-stops-db";
 import { ensureReliabilityTables } from "./reliability-db";
 import { assignDriver } from "@/lib/assignment-service";
 import { deliverAssignmentTelegram } from "./assignments";
@@ -39,7 +40,7 @@ function ensureTables() {
   return ready;
 }
 
-type BookingRow = { reference: string; status: string; vehicle: string; pickup_date: string; pickup_time: string; pickup: string; dropoff: string; service_type: string | null; booked_hours: number | null;
+type BookingRow = { route_stops_json: string | null; reference: string; status: string; vehicle: string; pickup_date: string; pickup_time: string; pickup: string; dropoff: string; service_type: string | null; booked_hours: number | null;
   passengers: number; luggage: number; return_date: string | null; return_time: string | null; payment_method: string; payment_status: string; total: number; amount_paid: number | null; driver_cost: number | null };
 // status: open → taken (a linked driver tapped) | signing_up (a first-time driver tapped) → taken; or closed.
 type JobRow = { booking_reference: string; telegram_message_id: number; status: string; holder_telegram_id: string | null; holder_name: string | null; hold_until: string | null; driver_id: string | null };
@@ -49,15 +50,17 @@ async function bookingFor(key:string) {
   const {reference,leg}=driverJobLeg(key),back=leg==='return';
   if (back && (env as unknown as Record<string,string>).TELEGRAM_RETURN_DRIVER_JOBS!=='1') return null;
   await ensureReliabilityTables();
+  await ensureBookingRouteStops();
   const returnCost=back?await db().prepare("SELECT cost_minor FROM telegram_driver_leg_costs WHERE booking_reference=? AND leg='return'").bind(reference).first<{cost_minor:number}>():null;
-  const b=await db().prepare(`SELECT b.reference,b.status,b.vehicle,b.pickup_date,b.pickup_time,b.pickup,b.dropoff,b.service_type,b.booked_hours,b.passengers,b.luggage,b.return_date,b.return_time,b.return_pickup,b.return_dropoff,b.payment_method,b.payment_status,b.total,b.amount_paid,
+  const b=await db().prepare(`SELECT (SELECT route_stops_json FROM booking_route_stops WHERE booking_reference=b.reference) route_stops_json,b.reference,b.status,b.vehicle,b.pickup_date,b.pickup_time,b.pickup,b.dropoff,b.service_type,b.booked_hours,b.passengers,b.luggage,b.return_date,b.return_time,b.return_pickup,b.return_dropoff,b.payment_method,b.payment_status,b.total,b.amount_paid,
     NULLIF(COALESCE(NULLIF(c.total_driver_cost,0),c.agreed_driver_cost),0) AS driver_cost,j.status leg_status,j.pickup_date leg_date,j.pickup_time leg_time
     FROM bookings b LEFT JOIN booking_costs c ON c.booking_reference=b.reference LEFT JOIN journey_legs j ON j.booking_reference=b.reference AND j.leg=? WHERE b.reference=?`).bind(leg,reference).first<BookingRow & {return_pickup:string|null;return_dropoff:string|null;leg_status:string|null;leg_date:string|null;leg_time:string|null}>();
   if (!b || (back && (!b.return_date || !b.return_time))) return null;
-  return {...b,driver_cost:back?(returnCost?.cost_minor??0)/100:b.driver_cost,reference:key,status:b.status==='confirmed' && b.leg_status && b.leg_status!=='pending_payment'?b.leg_status:b.status,pickup_date:b.leg_date??(back?b.return_date!:b.pickup_date),pickup_time:b.leg_time??(back?b.return_time!:b.pickup_time),pickup:back?b.return_pickup||b.dropoff:b.pickup,dropoff:back?b.return_dropoff||b.pickup:b.dropoff,service_type:back?'transfer':b.service_type,booked_hours:back?null:b.booked_hours,return_date:null,return_time:null};
+  return {...b,route_stops_json:back?null:b.route_stops_json,driver_cost:back?(returnCost?.cost_minor??0)/100:b.driver_cost,reference:key,status:b.status==='confirmed' && b.leg_status && b.leg_status!=='pending_payment'?b.leg_status:b.status,pickup_date:b.leg_date??(back?b.return_date!:b.pickup_date),pickup_time:b.leg_time??(back?b.return_time!:b.pickup_time),pickup:back?b.return_pickup||b.dropoff:b.pickup,dropoff:back?b.return_dropoff||b.pickup:b.dropoff,service_type:back?'transfer':b.service_type,booked_hours:back?null:b.booked_hours,return_date:null,return_time:null};
 }
 
 const offerJob = (b: BookingRow): OfferJob => ({
+  routeStopsJson: b.route_stops_json,
   reference: b.reference, vehicleName: jobVehicleName(b.vehicle), pickupDate: b.pickup_date, pickupTime: b.pickup_time, pickup: b.pickup, dropoff: b.dropoff,
   serviceType: b.service_type, bookedHours: b.booked_hours, passengers: b.passengers, luggage: b.luggage, returnDate: b.return_date, returnTime: b.return_time,
   driverCost: b.driver_cost, paymentMethod: b.payment_method, paymentStatus: b.payment_status, cashDue: Math.max(0, b.total - (b.amount_paid ?? 0)),

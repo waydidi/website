@@ -1,9 +1,12 @@
+import { parseRouteStopSnapshots, stopTotalMinor } from "@/lib/route-stops";
+import { getMessages, translate } from "@/lib/i18n";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import type { BookingExtras } from "@/lib/booking-extras";
 import { childSeatPng, exchangePng, ferryPng, logoPng } from "@/lib/pdf-addon-images";
 import { offlineConfirmationLabel } from "@/lib/payment-methods";
 
 type Confirmation = {
+  routeStopsJson?: string | null;
   reference: string; customerName: string; customerEmail: string;
   pickup: string; dropoff: string; pickupDate: string; pickupTime: string;
   passengers: number; luggage: number; vehicle: string; total: number;
@@ -147,6 +150,29 @@ export async function createConfirmationPdf(booking: Confirmation, extras?: Book
     const words=latin(extras.cancellationPolicy).split(" "); let line="",y=740;
     for(const word of words) {if(regular.widthOfTextAtSize(`${line} ${word}`,11)>500){policyPage.drawText(line,{x:46,y,size:11,font:regular,color:ink});y-=18;line=word;}else line=line?`${line} ${word}`:word;}
     if(line)policyPage.drawText(line,{x:46,y,size:11,font:regular,color:ink});
+  }
+  const stops = parseRouteStopSnapshots(booking.routeStopsJson);
+  if (stops.length) {
+    const messages = getMessages("en");
+    let stopPage = pdf.addPage([595, 842]), y = 740;
+    const heading = () => stopPage.drawText(translate(messages, "routeStops.snapshotHeading"), { x: 46, y: 780, size: 20, font: bold, color: ink });
+    heading();
+    // Wrap rather than truncate the frozen name, and paginate independently of the existing total.
+    const drawLine = (text: string) => {
+      if (y < 60) { stopPage = pdf.addPage([595, 842]); y = 740; heading(); }
+      stopPage.drawText(text, { x: 46, y, size: 11, font: regular, color: ink }); y -= 18;
+    };
+    for (const stop of stops) {
+      let line = "";
+      for (const char of latin(stop.name)) {
+        if (regular.widthOfTextAtSize(line + char, 11) > 500) { drawLine(line); line = ""; }
+        line += char;
+      }
+      if (line) drawLine(line);
+      drawLine(`${translate(messages, "routeStops.snapshotMinutes", { minutes: stop.durationMinutes })} | THB ${(stop.priceMinor / 100).toFixed(2)}`);
+      y -= 12;
+    }
+    drawLine(`${translate(messages, "routeStops.snapshotTotal")} | THB ${(stopTotalMinor(stops) / 100).toFixed(2)}`);
   }
   return pdf.save();
 }

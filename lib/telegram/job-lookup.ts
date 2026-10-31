@@ -1,3 +1,4 @@
+import { ensureBookingRouteStops } from "@/lib/route-stops-db";
 import { env } from "cloudflare:workers";
 import { COMMITTED_SQL } from "@/lib/booking-status";
 import { esc } from "@/lib/telegram/cards";
@@ -10,6 +11,7 @@ import { bangkokToday, LOOKUP_MAX_RESULTS, looksLikeReference, namePattern } fro
 // Read only: nothing is assigned, changed or sent to customers.
 
 type Row = {
+  route_stops_json: string | null;
   reference: string; status: string; vehicle: string; customer_name: string; customer_surname: string | null; passengers: number; luggage: number;
   pickup_date: string; pickup_time: string; flight_number: string | null; pickup: string; dropoff: string;
   service_type: string | null; pricing_area: string | null; booked_hours: number | null; cost: number | null; pickup_map: string | null; dropoff_map: string | null;
@@ -17,12 +19,13 @@ type Row = {
 type Db = { prepare: (sql: string) => { bind: (...v: unknown[]) => { all: <T>() => Promise<{ results: T[] }> } } };
 const db = () => env.DB as unknown as Db;
 
-const COLUMNS = `b.reference,b.status,b.vehicle,b.customer_name,b.customer_surname,b.passengers,b.luggage,b.pickup_date,b.pickup_time,b.flight_number,b.pickup,b.dropoff,
+const COLUMNS = `(SELECT route_stops_json FROM booking_route_stops WHERE booking_reference=b.reference) route_stops_json,b.reference,b.status,b.vehicle,b.customer_name,b.customer_surname,b.passengers,b.luggage,b.pickup_date,b.pickup_time,b.flight_number,b.pickup,b.dropoff,
   b.service_type,b.pricing_area,b.booked_hours,NULLIF(COALESCE(NULLIF(c.total_driver_cost,0),c.agreed_driver_cost),0) AS cost,m.pickup_map_url AS pickup_map,m.dropoff_map_url AS dropoff_map`;
 const FROM = "bookings b LEFT JOIN booking_costs c ON c.booking_reference=b.reference LEFT JOIN booking_map_links m ON m.booking_reference=b.reference";
 
 /** Upcoming live bookings for a customer name (nearest first), or any booking for an exact reference. */
 export async function findJobs(query: string, today = bangkokToday()) {
+  await ensureBookingRouteStops();
   if (looksLikeReference(query)) {
     const { results } = await db().prepare(`SELECT ${COLUMNS} FROM ${FROM} WHERE b.reference=? AND b.status<>'binned'`)
       .bind(query.toUpperCase()).all<Row>();
@@ -37,6 +40,7 @@ export async function findJobs(query: string, today = bangkokToday()) {
 
 export function jobReply(row: Row) {
   const lines = driverJobText({
+    routeStopsJson: row.route_stops_json,
     reference: row.reference, vehicle: row.vehicle, customerName: row.customer_name, customerSurname: row.customer_surname, passengers: row.passengers, luggage: row.luggage,
     pickupDate: row.pickup_date, pickupTime: row.pickup_time, pickup: row.pickup, dropoff: row.dropoff,
     serviceType: row.service_type, pricingArea: row.pricing_area, bookedHours: row.booked_hours,

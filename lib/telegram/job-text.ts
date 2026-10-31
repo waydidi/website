@@ -1,3 +1,4 @@
+import { driverRouteStops } from "../route-stop-display";
 import { VEHICLES } from "@/lib/vehicles";
 import { fullName } from "@/lib/person-name";
 import { directionsTo } from "@/lib/maps-link";
@@ -13,6 +14,7 @@ export const jobVehicleName = (vehicle: string) =>
   THAI_VEHICLE[vehicle] ?? (VEHICLES as Record<string, { name: string }>)[vehicle]?.name ?? vehicle.replaceAll("_", " ");
 
 type JobBooking = {
+  routeStopsJson?: string | null;
   reference: string; vehicle: string; customerName: string; customerSurname: string | null; passengers: number; luggage: number;
   pickupDate: string; pickupTime: string; pickup: string; dropoff: string;
   serviceType: string | null; pricingArea: string | null; bookedHours: number | null;
@@ -41,6 +43,7 @@ export function driverJobText(row: JobBooking, cost: number | null | undefined, 
     maps.pickup || directionsTo(row.pickup),
     ...(hourly ? [`พื้นที่: ${row.pricingArea ?? "-"}`, `ระยะเวลา: ${row.bookedHours ?? ""} ชั่วโมง`] : []),
     ...(dropoff ? [`ส่ง: ${dropoff}`, maps.dropoff || directionsTo(dropoff)] : ["ส่ง: จุดเดียวกับจุดรับ"]),
+    ...driverRouteStops(row.routeStopsJson).map(stop => `จุดแวะเที่ยว (ขาไป): ${stop.name} · ${stop.durationMinutes} นาที`),
     "",
     `ราคา: ${cost ? `${cost.toLocaleString("en-US")} บาท` : "-"}`,
   ].join("\n");

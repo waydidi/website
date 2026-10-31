@@ -1,3 +1,4 @@
+import { loadBookingRouteStopsJson } from "@/lib/route-stops-db";
 import { bookingExtras } from "@/lib/booking-extras";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
@@ -19,7 +20,8 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   if (Date.now() - new Date(booking.updatedAt).getTime() < 60_000) return NextResponse.json({ error: "Please wait one minute before retrying." }, { status: 429 });
 
   const extras = await bookingExtras(booking);
-  const pdf = await createConfirmationPdf(booking, extras);
+  const routeStopsJson = await loadBookingRouteStopsJson(reference);
+  const pdf = await createConfirmationPdf({ ...booking, routeStopsJson }, extras);
   if (booking.pdfKey && env.BUCKET) await env.BUCKET.put(booking.pdfKey, pdf, { httpMetadata: { contentType: "application/pdf" } });
   const email = await sendConfirmationEmail({
     to: booking.customerEmail, name: booking.customerName, reference, pdf,
@@ -31,6 +33,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
     returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
+    routeStopsJson,
     extras, surname: booking.customerSurname, flightNumber: booking.flightNumber,
   });
   const now = new Date().toISOString();

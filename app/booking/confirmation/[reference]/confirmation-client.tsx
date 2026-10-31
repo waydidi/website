@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteStopsDetails } from "@/components/route-stops-details";
 import { PurchasedCancellationPolicy } from "@/components/home/purchased-cancellation-policy";
 import type { CancellationOption } from "@/lib/cancellation-options";
 import { confirmationPaymentLabel } from "@/lib/confirmation-payment";
@@ -12,6 +13,7 @@ import { WaydidiLogo } from "@/components/waydidi-logo";
 import { PARTIAL_REFUND_HOURS } from "@/lib/refund-policy";
 
 type Booking = {
+  routeStopsJson?: string | null;
   cancellationPolicy?: {option:CancellationOption;purchased:boolean;tiers:{minHours:number}[]} | null;
   reference: string;
   customerName: string;
@@ -332,6 +334,7 @@ export default function ConfirmationClient({
               </Link>
             )}
           </div>
+          <RouteStopsDetails routeStopsJson={booking.routeStopsJson} />
           {booking.cancellationPolicy?.purchased && <PurchasedCancellationPolicy option={booking.cancellationPolicy.option} hours={booking.cancellationPolicy.tiers[0].minHours}/>}
           {!cancelled && <AccountPrompt email={booking.customerEmail} reference={booking.reference} />}
         </div>

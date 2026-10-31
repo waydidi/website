@@ -1,3 +1,4 @@
+import { ensureBookingRouteStops } from "@/lib/route-stops-db";
 import { ensureReliabilityTables } from "./reliability-db";
 import { fullName } from "@/lib/person-name";
 import { driverJobText,jobVehicleName } from "./job-text";
@@ -65,7 +66,8 @@ export async function deliverAssignmentTelegram(assignmentId: string) {
   }
   if(prepared && (prepared.context.tokenHash!==a.token_hash || prepared.context.bookingVersion!==a.booking_version)){await db.prepare("UPDATE booking_notifications SET status='uncertain',error_message='Driver link or booking version changed; review the original message',updated_at=? WHERE id=? AND status IN ('queued','failed') AND attempt_count=?").bind(now,job.id,job.attempt_count).run();return "uncertain";}
   const meta=await db.prepare("SELECT header,reply_to,driver_dm FROM telegram_assignment_messages WHERE assignment_id=?").bind(assignmentId).first<{header:string;reply_to:number|null;driver_dm:number}>();
-  const details=await db.prepare(`SELECT b.reference,b.vehicle,b.customer_name,b.customer_surname,b.passengers,b.luggage,b.service_type,b.pricing_area,b.booked_hours,b.payment_method,b.total,b.amount_paid,b.flight_number,d.full_name,d.phone,d.vehicle driver_car,d.car_plate,
+  await ensureBookingRouteStops();
+  const details=await db.prepare(`SELECT (SELECT route_stops_json FROM booking_route_stops WHERE booking_reference=b.reference) route_stops_json,b.reference,b.vehicle,b.customer_name,b.customer_surname,b.passengers,b.luggage,b.service_type,b.pricing_area,b.booked_hours,b.payment_method,b.total,b.amount_paid,b.flight_number,d.full_name,d.phone,d.vehicle driver_car,d.car_plate,
     CASE WHEN a.leg='return' THEN lc.cost_minor/100.0 ELSE NULLIF(COALESCE(NULLIF(c.total_driver_cost,0),c.agreed_driver_cost),0) END driver_cost,m.pickup_map_url,m.dropoff_map_url
     FROM bookings b JOIN booking_assignments a ON a.booking_reference=b.reference JOIN drivers d ON d.id=a.driver_id
     LEFT JOIN booking_costs c ON c.booking_reference=b.reference LEFT JOIN telegram_driver_leg_costs lc ON lc.booking_reference=b.reference AND lc.leg=a.leg LEFT JOIN booking_map_links m ON m.booking_reference=b.reference WHERE a.id=?`).bind(assignmentId).first<Record<string,string|number|null>>();
@@ -79,7 +81,7 @@ export async function deliverAssignmentTelegram(assignmentId: string) {
   if (!claimed.meta.changes) return "unchanged";
   const lease={kind:"assignment" as const,id:job.id,claim:claimedAt};
   if (details && (meta?.driver_dm || (env as unknown as Record<string,string>).TELEGRAM_DRIVER_UPDATES==='1')) {
-    const sheet=[esc(driverJobText({reference:a.booking_reference,vehicle:String(details.vehicle),customerName:String(details.customer_name),customerSurname:details.customer_surname as string|null,passengers:Number(details.passengers),luggage:Number(details.luggage),pickupDate:date!,pickupTime:time!,pickup,dropoff,serviceType:ret?'transfer':details.service_type as string|null,pricingArea:details.pricing_area as string|null,bookedHours:ret?null:Number(details.booked_hours)||null},Number(details.driver_cost)||null,{pickup:(ret?details.dropoff_map_url:details.pickup_map_url) as string|null,dropoff:(ret?details.pickup_map_url:details.dropoff_map_url) as string|null})),...(collect?[esc(collect)]:[]),'',`ลิงก์งาน: ${link}`].join('\n');
+    const sheet=[esc(driverJobText({routeStopsJson:ret?null:details.route_stops_json as string|null,reference:a.booking_reference,vehicle:String(details.vehicle),customerName:String(details.customer_name),customerSurname:details.customer_surname as string|null,passengers:Number(details.passengers),luggage:Number(details.luggage),pickupDate:date!,pickupTime:time!,pickup,dropoff,serviceType:ret?'transfer':details.service_type as string|null,pricingArea:details.pricing_area as string|null,bookedHours:ret?null:Number(details.booked_hours)||null},Number(details.driver_cost)||null,{pickup:(ret?details.dropoff_map_url:details.pickup_map_url) as string|null,dropoff:(ret?details.pickup_map_url:details.dropoff_map_url) as string|null})),...(collect?[esc(collect)]:[]),'',`ลิงก์งาน: ${link}`].join('\n');
     const driver=await db.prepare("SELECT driver_id FROM booking_assignments WHERE id=?").bind(assignmentId).first<{driver_id:string}>();
     if (driver) await import('./driver-group').then(m=>m.sendJobToLinkedDriver(driver.driver_id,sheet,`driver-job:${assignmentId}`,assignmentId,false));
   }

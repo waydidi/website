@@ -1,3 +1,5 @@
+import { parseRouteStopSnapshots } from "@/lib/route-stops";
+import { getMessages, translate } from "@/lib/i18n";
 import { confirmationPdfName } from "@/lib/confirmation-pdf";
 import type { BookingExtras } from "@/lib/booking-extras";
 import { VEHICLES } from "@/lib/vehicles";
@@ -12,6 +14,7 @@ import { WHATSAPP } from "@/lib/contact";
 import { offlineConfirmationLabel, paymentLabel } from "@/lib/payment-methods";
 
 type ConfirmationEmailInput = {
+  routeStopsJson?: string | null;
   to: string;
   name: string;
   reference: string;
@@ -130,6 +133,9 @@ export function prepareConfirmationEmail(input: ConfirmationEmailInput): Prepare
     ["From", input.pickup],
     ...(input.dropoff ? [["To", input.dropoff] as [string, string]] : []),
   ];
+  const stopMessages = getMessages("en");
+  const frozenStops = parseRouteStopSnapshots(input.routeStopsJson);
+  if (frozenStops.length) outbound.push([translate(stopMessages, "routeStops.snapshotHeading"), frozenStops.map(stop => `${stop.name} · ${translate(stopMessages, "routeStops.snapshotMinutes", { minutes: stop.durationMinutes })} · THB ${(stop.priceMinor / 100).toFixed(2)}`).join("; ")]);
   const back: [string, string][] = roundTrip ? [
     ["Date/Time", letterDate(input.returnDate!, input.returnTime!)],
     ["From", input.returnPickup ?? input.dropoff],

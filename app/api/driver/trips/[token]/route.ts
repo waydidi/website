@@ -1,3 +1,5 @@
+import { loadBookingRouteStopsJson } from "@/lib/route-stops-db";
+import { driverRouteStops } from "@/lib/route-stop-display";
 import { ensureReliabilityTables } from "@/lib/telegram/reliability-db";
 import { evidenceDb, evidencePolicy, evidenceOverride, type EvidenceRow } from "@/lib/trip-evidence";
 import { evidenceTypeFor, type EvidencePolicy } from "@/lib/evidence-rules";
@@ -70,6 +72,7 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     assignment: { id: assignment.id, currentStatus: assignment.currentStatus === "standby" && assignment.passengerVerifiedAt ? "passenger_verified" : assignment.currentStatus, tokenExpiresAt: assignment.tokenExpiresAt, passengerVerifiedAt: assignment.passengerVerifiedAt, passengerVerificationMethod: assignment.passengerVerificationMethod, passengerVerificationAttemptsRemaining: Math.max(0, 5 - failedAttempts) },
     driver: { fullName: driver.fullName, phone: driver.phone },
     booking: {
+      routeStops: driverRouteStops(assignment.leg === "outbound" ? await loadBookingRouteStopsJson(booking.reference) : null, assignment.leg),
       leg: booking.leg, reference: booking.reference, customerName: booking.customerName, customerPhone: booking.customerPhone,
       pickup: booking.pickup, dropoff: booking.dropoff, pickupDate: booking.pickupDate, pickupTime: booking.pickupTime,
       passengers: booking.passengers, luggage: booking.luggage, vehicle: booking.vehicle, flightNumber: booking.flightNumber,

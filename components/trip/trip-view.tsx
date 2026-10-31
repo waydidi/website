@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { RouteStopsDetails } from "@/components/route-stops-details";
 import { useI18n } from "@/components/i18n-provider";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 import { formatDate, intlLocale, type MessageKey } from "@/lib/i18n";
@@ -31,6 +32,7 @@ declare global {
 type Stage = "confirmed" | "assigned" | "on_the_way" | "waiting" | "on_trip" | "arrived" | "no_show" | "cancelled";
 type Point = { latitude: number; longitude: number };
 type Trip = {
+  routeStopsJson?: string | null;
   reference: string;
   access: "owner" | "shared";
   stage: Stage;
@@ -203,6 +205,7 @@ export function TripView({ reference, lang }: { reference: string; lang: SiteLan
           {trip.flightNumber && <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-sm font-bold"><Plane size={15} aria-hidden="true" /> {t("trip.route.flight", { flight: trip.flightNumber })}</p>}
         </section>
 
+        {trip.leg === "outbound" && <RouteStopsDetails routeStopsJson={trip.routeStopsJson} />}
         <Timeline trip={trip} time={time} />
 
 

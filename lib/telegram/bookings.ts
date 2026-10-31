@@ -1,3 +1,5 @@
+import { ensureBookingRouteStops } from "@/lib/route-stops-db";
+import { driverRouteStops } from "../route-stop-display";
 import { ensureReliabilityTables } from "./reliability-db";
 import { queueTelegram } from "./outbox";
 import { env } from "cloudflare:workers";
@@ -14,17 +16,19 @@ type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>
 const db = () => env.DB as { prepare: (sql: string) => Stmt };
 const adminUrl = (ref: string) => `${SITE_URL}/admin/journeys/${encodeURIComponent(ref)}`;
 
-type Row = { status:string; created_at: string; return_date: string | null; reference: string; customer_name: string; customer_surname: string | null; pickup: string; dropoff: string; pickup_date: string; pickup_time: string; vehicle: string; passengers: number; luggage: number; total: number; payment_method: string; payment_status: string };
+type Row = { route_stops_json: string | null; status:string; created_at: string; return_date: string | null; reference: string; customer_name: string; customer_surname: string | null; pickup: string; dropoff: string; pickup_date: string; pickup_time: string; vehicle: string; passengers: number; luggage: number; total: number; payment_method: string; payment_status: string };
 async function card(reference: string, acknowledgedBy: string | null): Promise<CardBooking | null> {
   await ensureReliabilityTables();
+  await ensureBookingRouteStops();
   const returnCost=await db().prepare("SELECT cost_minor FROM telegram_driver_leg_costs WHERE booking_reference=? AND leg='return'").bind(reference).first<{cost_minor:number}>();
   const tasks = await db().prepare("SELECT t.cost_done,t.driver_done,t.driver_form_json,c.total_driver_cost FROM telegram_booking_cards t LEFT JOIN booking_costs c ON c.booking_reference=t.booking_reference WHERE t.booking_reference=?")
     .bind(reference).first<{ cost_done: number; driver_done: number; driver_form_json: string | null; total_driver_cost: number | null }>().catch(() => null);
-  const b = await db().prepare("SELECT status,created_at,return_date,reference,customer_name,customer_surname,pickup,dropoff,pickup_date,pickup_time,vehicle,passengers,luggage,total,payment_method,payment_status FROM bookings WHERE reference=?").bind(reference).first<Row>();
+  const b = await db().prepare("SELECT (SELECT route_stops_json FROM booking_route_stops WHERE booking_reference=bookings.reference) route_stops_json,status,created_at,return_date,reference,customer_name,customer_surname,pickup,dropoff,pickup_date,pickup_time,vehicle,passengers,luggage,total,payment_method,payment_status FROM bookings WHERE reference=?").bind(reference).first<Row>();
   if (!b) return null;
   // The booking's two links (made once): customer ride status and the driver's job page.
   const links = await bookingLinks({ reference: b.reference, createdAt: b.created_at, returnDate: b.return_date }).catch(() => null);
-  return { status:b.status,reference: b.reference, customerName: fullName(b.customer_name, b.customer_surname), pickup: b.pickup, dropoff: b.dropoff, pickupDate: b.pickup_date, pickupTime: b.pickup_time,
+  const routeStopsJson = b.route_stops_json;
+  return { routeStops:driverRouteStops(routeStopsJson),status:b.status,reference: b.reference, customerName: fullName(b.customer_name, b.customer_surname), pickup: b.pickup, dropoff: b.dropoff, pickupDate: b.pickup_date, pickupTime: b.pickup_time,
     vehicle: VEHICLES[b.vehicle as keyof typeof VEHICLES]?.name ?? b.vehicle, passengers: b.passengers, luggage: b.luggage, total: b.total,
     payment: b.payment_method === "cash" ? "cash on the day" : b.payment_method === "transfer" ? (b.payment_status === "paid" ? "paid by bank transfer" : "waiting for bank transfer") : "paid online", acknowledgedBy,
     costDone: Boolean(tasks?.cost_done), driverDone: Boolean(tasks?.driver_done), driverCost: tasks?.total_driver_cost ?? null,

@@ -44,6 +44,13 @@ test('summary adds face-value stop price after cancellation adjustment and exten
 test('checkout charges stop at face value after discounted fare and add-ons; retry freezes snapshots',async()=>{
  const payload=input();const r=await checkout.POST(request('/api/checkout',payload));const body=await r.json();assert.equal(r.status,200,JSON.stringify(body));
  const b=await d1.prepare('SELECT * FROM bookings WHERE reference=?').bind(body.reference).first();assert.equal(b.total,2033.45);assert.equal(b.route_duration_seconds,8700);assert.equal(b.outbound_total,1400);
+ // Refund the entire paid booking, not just the fare: the purchased policy includes stops.
+ const {acceptedPolicy}=await vite.ssrLoadModule('/lib/accepted-policy.ts');
+ const {refundPercent,customerRefundMinor}=await vite.ssrLoadModule('/lib/refund-policy.ts');
+ const policy=await acceptedPolicy(body.reference);assert.equal(policy.option,'flexible');
+ assert.equal(customerRefundMinor(Math.round(b.total*100),refundPercent('customer_cancellation',12,policy.tiers)),203345);
+ assert.equal(customerRefundMinor(Math.round(b.total*100),refundPercent('customer_cancellation',11,policy.tiers)),0);
+ assert.equal(customerRefundMinor(Math.round(b.total*100),refundPercent('waydidi_cancellation',0,policy.tiers)),203345);
  const snapshots=await store.loadBookingRouteStops(body.reference);assert.deepEqual(snapshots,[{offerId:'paid-stop',attractionId:'stop-place',name:'Purchased place',durationMinutes:45,priceMinor:12345}]);
  await store.saveRouteStopOffer({...offer,priceMinor:99999,active:false});await d1.prepare("UPDATE attractions SET name='Changed place' WHERE id='stop-place'").run();globalThis.__stopsEnv.ROUTE_STOPS='0';
  const retry=await checkout.POST(request('/api/checkout',payload));assert.equal(retry.status,200,JSON.stringify(await retry.json()));assert.deepEqual(await store.loadBookingRouteStops(body.reference),snapshots);

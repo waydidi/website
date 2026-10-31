@@ -1,3 +1,4 @@
+import { loadBookingRouteStopsJson } from "@/lib/route-stops-db";
 import { asc, desc, eq } from "drizzle-orm";
 import { journeyFor, journeysFor, parseLeg } from "@/lib/journey-legs";
 import { NextResponse } from "next/server";
@@ -58,6 +59,7 @@ export async function GET(request: Request, context: { params: Promise<{ referen
     stage,
     serviceType: booking.serviceType,
     bookedHours: booking.bookedHours,
+    routeStopsJson: owner && leg === "outbound" ? await loadBookingRouteStopsJson(reference) : null,
     pickup: booking.pickup,
     dropoff: booking.dropoff,
     pickupDate: booking.pickupDate,
