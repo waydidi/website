@@ -12,5 +12,7 @@ export function languageDelivery(request: Request, enabled: boolean) {
     headers.set('x-waydidi-public-path', parsed.path);
     url.pathname = parsed.path;
   }
-  return { ...parsed, enabled, request: new Request(url, new Request(request, { headers })) };
+  // Constructing a Request from another transfers its body stream. When the flag
+  // is off the Worker passes the original to vinext, so do not consume it here.
+  return { ...parsed, enabled, request: enabled ? new Request(url, new Request(request, { headers })) : request };
 }
