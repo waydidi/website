@@ -26,6 +26,15 @@ test('unprefixed APIs remain reachable and encoded private prefixes fail closed'
  for(const path of ['/th/%61dmin','/fr/%61pi/admin','/zh//account','/th/zz/about','/en/about']) assert.equal(parseLanguagePath(path).valid,false,path);
 });
 
+test('private quote and marketing token pages are never language URLs or client-translated', async () => {
+ const { untranslatedPath } = await vite.ssrLoadModule('/lib/site-languages.ts');
+ for (const path of ['/quote/private-token','/marketing/private-token','/liff','/api/translate','/webhooks/telegram']) {
+  assert.equal(parseLanguagePath('/th'+path).valid,false,path);
+  assert.equal(languagePath(path,'th'),path);
+  assert.equal(untranslatedPath(path),true,path);
+ }
+});
+
 test('alternates include all languages, self and x-default', () => {
  const a=languageAlternates('/th/about','https://waydidi.com');
  assert.equal(Object.keys(a).length,13);

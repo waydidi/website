@@ -2,6 +2,25 @@ import { languageAlternates, languagePath } from './language-urls';
 import { SITE_LANGS, usableText, type SiteLang } from './site-languages';
 import { approvedTranslationText } from './site-translation-policy';
 
+// The project intentionally uses DOM types rather than the full Workers global type set.
+// Declare only the streaming HTMLRewriter surface used here; the runtime is Cloudflare's.
+type HtmlElement = {
+  tagName: string;
+  getAttribute(name: string): string | null;
+  hasAttribute(name: string): boolean;
+  setAttribute(name: string, value: string): void;
+  onEndTag(handler: () => void): void;
+  remove(): void;
+  append(content: string, options: {html: boolean}): void;
+};
+type HtmlText = {text: string; lastInTextNode: boolean; remove(): void; replace(content: string): void};
+type HtmlRewriter = {
+  on(selector: string, handlers: {element(el: HtmlElement): void}): HtmlRewriter;
+  onDocument(handlers: {text(chunk: HtmlText): void}): HtmlRewriter;
+  transform(response: Response): Response;
+};
+declare const HTMLRewriter: {new(): HtmlRewriter};
+
 const escape = (s: string) => s.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 const attrs = ['placeholder','aria-label','title','alt'];
 const core = (s: string) => { const t=usableText(s); return t && approvedTranslationText(t) ? t : null; };
