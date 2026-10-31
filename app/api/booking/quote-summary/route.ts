@@ -1,3 +1,7 @@
+import { env } from "cloudflare:workers";
+import { cancellationConfig, cancellationFareMinor, resolveCancellationOption } from "@/lib/cancellation-options";
+import { toSatang } from "@/lib/money";
+import { serviceStartMs } from "@/lib/refund-policy";
 import { validTransferQuote } from "@/lib/quote-validity";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -102,6 +106,13 @@ export async function POST(request: Request) {
     }
   }
 
+  const config = cancellationConfig(env as unknown as Record<string, unknown>);
+  let option;
+  try {
+    option = resolveCancellationOption(parsed.data.cancellationOption, config, (serviceStartMs(outbound.departureDate!, outbound.departureTime!) - Date.now()) / 3600000, parsed.data.paymentMethod);
+  } catch {
+    return NextResponse.json({ error: "Choose an available cancellation option." }, { status: 400 });
+  }
   const outboundPrices = pricesFromQuote(outbound.vehiclePricesJson);
   const returnPrices = returnQuote
     ? pricesFromQuote(returnQuote.vehiclePricesJson)
@@ -114,7 +125,7 @@ export async function POST(request: Request) {
       return [[vehicleId, {
         outbound: outboundPrice,
         return: returnPrice,
-        total: outboundPrice + returnPrice,
+        total: config.enabled ? cancellationFareMinor(toSatang(outboundPrice) + toSatang(returnPrice), option, config) / 100 : outboundPrice + returnPrice,
       }] as const];
     }),
   );

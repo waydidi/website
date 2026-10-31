@@ -2,6 +2,22 @@
 
 A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
 
+## Cancellation choices and vehicle recommendations
+
+`CANCELLATION_OPTIONS=0` (default) preserves existing checkout prices and hides the option picker. Set the Worker variable to `1` to offer Standard (preselected), Non-refundable and Flexible for transfers and the shared hourly checkout. The public refund-policy page describes the choices only while enabled. This does not enable a new messaging category.
+
+- `CANCELLATION_NONREFUNDABLE_DISCOUNT_BPS=500`: fare discount in basis points (default 5%; valid integer 0–10000).
+- `CANCELLATION_FLEXIBLE_SURCHARGE_BPS=1500`: fare surcharge (default 15%; valid integer 0–100000).
+- `CANCELLATION_FLEXIBLE_FULL_REFUND_HOURS=12`: full-refund notice for Flexible (integer 0–48 hours, inclusive boundary).
+
+Invalid numeric settings fall back to those defaults. Non-refundable requires card checkout and strictly more than 48 hours until outbound pickup; switching to cash resets to Standard. Checkout rejects an ineligible online selection rather than silently changing its price. Standard retains the existing policy: more than 48 hours full, exactly 48 through 24 hours half, below 24 none. Flexible is full at or above its purchased notice window, none below. Waydidi cancellation remains full; no-show remains zero. A round trip uses the outbound pickup as the notice anchor for the entire booking.
+
+Pricing order: combine server-quoted outbound + return fares (or use the server hourly fare), convert once to integer satang, apply the cancellation multiplier with integer half-up rounding `(fareMinor * basisPoints + 5000) / 10000`, then existing storefront OR affiliate/promo rules, then member discount, then add-ons. Add-ons are not option-adjusted or discounted; free add-on gifts retain existing rules. Existing discount helpers retain their whole-baht rounding/caps. Client totals and unknown option identifiers are rejected. Fare quote endpoints remain base/Standard vehicle catalogues; `/api/booking/quote-summary` accepts an optional cancellation option/payment method and recomputes the combined option total, and checkout always recomputes independently.
+
+Accepted options and refund tiers are frozen in existing `booking_policy_snapshots` (migration `0060_booking_workflow.sql`, plus its existing first-use bootstrap); no new migration. Disabling the flag or changing the hours later does not change purchased policies. Earlier snapshots without an option remain Standard. Very old bookings without any accepted snapshot retain the existing fail-closed manual-review requirement rather than having contractual terms fabricated.
+
+Vehicle recommendations are display-only and unflagged: the smallest fitting quoted class is “Best for you”; the next fitting quoted class offers a one-tap upgrade using the displayed quote difference. The server still checks and prices the selected class.
+
 ## Prerequisites
 
 - Node.js `>=22.13.0`

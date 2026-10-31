@@ -14,6 +14,11 @@ test('checkout boundary accepts the chosen policy but never a client total',()=>
  assert.equal(validation.checkoutInputSchema.safeParse({...input,total:1}).success,false);
  assert.equal(validation.checkoutInputSchema.safeParse({...input,cancellationOption:'hacked'}).success,false);
 });
+test('quote summary accepts policy context but rejects client totals',()=>{
+ const input={outboundQuoteId:crypto.randomUUID(),cancellationOption:'flexible',paymentMethod:'card'};
+ assert.equal(validation.quoteSummaryInputSchema.safeParse(input).success,true);
+ assert.equal(validation.quoteSummaryInputSchema.safeParse({...input,total:1}).success,false);
+});
 test('purchased refund tiers honour exact boundaries and service cancellation overrides',()=>{
  const c=rules.cancellationConfig({CANCELLATION_OPTIONS:'1'});
  for(const [option,hours,percent] of [['standard',48.001,100],['standard',48,50],['standard',24,50],['standard',23.999,0],['non_refundable',200,0],['flexible',12.001,100],['flexible',12,100],['flexible',11.999,0]]) {

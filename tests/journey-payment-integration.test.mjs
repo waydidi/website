@@ -252,6 +252,26 @@ test('lost refund responses reconcile after idempotency retention without a repl
   await refundFlow.reconcileRefunds(b.reference);assert.equal(lookups,1);const row=(await refundFlow.refundsFor(b.reference))[0];assert.equal(row.status,'refunded');assert.equal(row.providerRefundId,'re_lost');
  }finally{globalThis.fetch=originalFetch;}
 });
+test('transfer summary applies cancellation to the combined server fare and rejects tampering',async()=>{
+ const now=new Date().toISOString(),date=new Date(Date.now()+30*86400000).toISOString().slice(0,10),backDate=new Date(Date.now()+32*86400000).toISOString().slice(0,10);
+ const prices=JSON.stringify({economy_sedan:{total:100.10,basePrice:100.10,distanceSurcharge:0}});
+ const outId=crypto.randomUUID(),backId=crypto.randomUUID();
+ const row={areaId:'summary-test',areaName:'Test',distanceMeters:1000,durationSeconds:600,vehiclePricesJson:prices,pricingVersion:1,timezone:'Asia/Bangkok',expiresAt:new Date(Date.now()+30*60000).toISOString(),createdAt:now};
+ await db.insert(schema.fareQuotes).values([{...row,id:outId,pickupPlaceId:'a',dropoffPlaceId:'b',pickupText:'A',dropoffText:'B',departureDate:date,departureTime:'09:00'},{...row,id:backId,pickupPlaceId:'b',dropoffPlaceId:'a',pickupText:'B',dropoffText:'A',departureDate:backDate,departureTime:'09:00'}]);
+ const summary=await vite.ssrLoadModule('/app/api/booking/quote-summary/route.ts');
+ const send=async extras=>{const r=await summary.POST(adminRequest('/api/booking/quote-summary',{outboundQuoteId:outId,returnQuoteId:backId,...extras}));return {status:r.status,body:await r.json()};};
+ globalThis.__journeyTestEnv.CANCELLATION_OPTIONS='1';
+ try{
+  const flexible=await send({cancellationOption:'flexible',paymentMethod:'card'});
+  assert.equal(flexible.status,200,JSON.stringify(flexible.body));assert.equal(flexible.body.prices.economy_sedan.total,230.23);
+  const cash=await send({cancellationOption:'non_refundable',paymentMethod:'cash'});assert.equal(cash.body.prices.economy_sedan.total,200.2);
+  assert.equal((await send({cancellationOption:'hacked'})).status,400);
+  assert.equal((await send({total:1})).status,400);
+  globalThis.__journeyTestEnv.CANCELLATION_OPTIONS='0';
+  assert.equal((await send({cancellationOption:'flexible'})).body.prices.economy_sedan.total,200.2);
+ }finally{delete globalThis.__journeyTestEnv.CANCELLATION_OPTIONS;}
+});
+
 test('purchased option snapshots survive config changes and drive real refund quotes',async()=>{
  const config={enabled:true,discountBps:500,surchargeBps:1500,fullRefundHours:12};
  for(const [option,hours,percent] of [['non_refundable',100,0],['flexible',12,100],['flexible',11.99,0]]) {

@@ -1,3 +1,6 @@
+import { env } from "cloudflare:workers";
+import { cancellationConfig } from "@/lib/cancellation-options";
+import { CancellationPolicyOptions } from "@/components/home/purchased-cancellation-policy";
 import type { Metadata } from "next";
 import { PublicFooter } from "@/components/public-footer";
 import { Breadcrumbs, JsonLd, breadcrumbSchema } from "@/components/seo";
@@ -36,6 +39,7 @@ export default function RefundPolicyPage() {
     </div></section>
 
     <div className="mx-auto max-w-[1080px] px-5 lg:px-8">
+      <CancellationPolicyOptions config={cancellationConfig(env as unknown as Record<string, unknown>)} />
       {/* Cancellation at a glance */}
       <section aria-labelledby="glance-h" className="py-12">
         <h2 id="glance-h" className="text-3xl font-black tracking-[-.035em]">Cancellation at a glance</h2>

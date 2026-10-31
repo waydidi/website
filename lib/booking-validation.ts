@@ -54,6 +54,8 @@ export const hourlyQuoteInputSchema = z.object({
 export const quoteSummaryInputSchema = z.object({
   outboundQuoteId: z.string().uuid(),
   returnQuoteId: z.string().uuid().optional(),
+  cancellationOption: z.enum(["standard", "non_refundable", "flexible"]).optional(),
+  paymentMethod: z.enum(["card", "cash"]).optional().default("card"),
 }).strict();
 
 export const checkoutInputSchema = z.object({
