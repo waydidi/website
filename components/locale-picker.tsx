@@ -6,6 +6,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import { useI18n } from "@/components/i18n-provider";
 import { SITE_LANGS, type SiteLang } from "@/lib/site-languages";
 import { siteLang } from "@/components/site-translator";
+import { languagePath } from "@/lib/language-urls";
 
 type Language = (typeof SITE_LANGS)[number];
 
@@ -78,7 +79,9 @@ export function LocalePicker({ className = "", languagesOnly = false, languages,
     if (code === chosen) return;
     // Every page is English underneath; the AI translator (Haiku) shows it in the chosen language.
     // Always a full page load: the translator reads the language once when the page loads.
-    window.location.reload();
+    if (document.documentElement.dataset.urlLanguage) {
+      window.location.assign(languagePath(window.location.pathname+window.location.search+window.location.hash,code));
+    } else window.location.reload();
   }
   function chooseCurrency(code: string) {
     remember(CURRENCY_COOKIE, code);

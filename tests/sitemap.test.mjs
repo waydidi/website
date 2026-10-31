@@ -11,6 +11,8 @@ const { sitemapEntries } = await vite.ssrLoadModule("/lib/sitemap-entries.ts");
 const entries = sitemapEntries({
   siteUrl: "https://waydidi.com",
   pageSlugs: ["faq"],
+  transferSlugs: ['bkk-airport-to-pattaya'],
+  languageUrls: true,
   destinationSlugs: ["phuket"],
   posts: [
     { slug: "old", date: "2026-09-01", categories: ["Guides"] },
@@ -38,6 +40,15 @@ test("blog dates come from the posts", () => {
   assert.equal(iso(byUrl["/blog"].lastModified), "2026-10-02");
   assert.equal(iso(byUrl["/blog/category/guides"].lastModified), "2026-10-02");
   assert.equal(iso(byUrl["/blog/category/phuket"].lastModified), "2026-10-02");
+});
+
+test('only supplied priced routes are indexed, with language entries and reciprocal alternates',()=>{
+ assert.ok(byUrl['/transfers']);assert.ok(byUrl['/transfers/bkk-airport-to-pattaya']);
+ assert.equal(byUrl['/transfers/not-priced'],undefined);
+ assert.equal(byUrl['/th/transfers/bkk-airport-to-pattaya'].alternates.languages.en,'https://waydidi.com/transfers/bkk-airport-to-pattaya');
+ assert.equal(byUrl['/help'].alternates.languages.th,'https://waydidi.com/th/help');
+ assert.equal(Object.keys(byUrl['/help'].alternates.languages).length,13);
+ assert.equal(byUrl['/zh/help'].alternates.languages['zh-Hans'],byUrl['/zh/help'].url);
 });
 
 test("every URL is on the live origin and listed once", () => {
