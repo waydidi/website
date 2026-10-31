@@ -272,6 +272,25 @@ test('transfer summary applies cancellation to the combined server fare and reje
  }finally{delete globalThis.__journeyTestEnv.CANCELLATION_OPTIONS;}
 });
 
+test('round-trip transfer checkout recomputes the purchased option before promo and add-ons',async()=>{
+ const date=new Date(Date.now()+30*86400000).toISOString().slice(0,10),backDate=new Date(Date.now()+32*86400000).toISOString().slice(0,10),now=new Date().toISOString();
+ const outId=crypto.randomUUID(),backId=crypto.randomUUID();
+ const common={areaId:'sample-pattaya',areaName:'Test',distanceMeters:125000,durationSeconds:6000,vehiclePricesJson:JSON.stringify({economy_sedan:{total:1400,basePrice:1400,distanceSurcharge:0}}),pricingVersion:1,timezone:'Asia/Bangkok',expiresAt:new Date(Date.now()+1800000).toISOString(),createdAt:now};
+ await db.insert(schema.fareQuotes).values([{...common,id:outId,pickupPlaceId:'airport',dropoffPlaceId:'pattaya',pickupText:'Suvarnabhumi Airport',dropoffText:'Pattaya',departureDate:date,departureTime:'09:00'},{...common,id:backId,pickupPlaceId:'pattaya',dropoffPlaceId:'airport',pickupText:'Pattaya',dropoffText:'Suvarnabhumi Airport',departureDate:backDate,departureTime:'09:00'}]);
+ await d1.prepare("INSERT INTO promo_codes(id,code,title,discount_type,discount_value,min_fare,per_customer_limit,service,status,created_at,updated_at) VALUES('transfer-cancel-test','TRANSFERTEST','Test','fixed',100,0,100,'any','active',?,?)").bind(now,now).run();
+ const checkout=await vite.ssrLoadModule('/app/api/checkout/route.ts'),env=globalThis.__journeyTestEnv;
+ env.CANCELLATION_OPTIONS='1';env.RATE_LIMIT_SALT='test-only-checkout-secret';
+ try{
+  for(const [option,total] of [['standard',3000],['flexible',3420],['non_refundable',3000]]){
+   const input={checkoutAttemptId:crypto.randomUUID(),customerName:'Test',customerSurname:'Passenger',customerEmail:'test@example.invalid',customerPhone:'+66123456789',pickup:'Suvarnabhumi Airport',dropoff:'Pattaya',pickupDate:date,pickupTime:'09:00',returnDate:backDate,returnTime:'09:00',timezone:'Asia/Bangkok',passengers:2,luggage:1,vehicle:'economy_sedan',childSeats:1,oversizedLuggage:false,termsAccepted:true,paymentMethod:'cash',fareQuoteId:outId,returnFareQuoteId:backId,cancellationOption:option,promoCode:'TRANSFERTEST'};
+   const response=await checkout.POST(adminRequest('/api/checkout',input)),body=await response.json();
+   assert.equal(response.status,200,JSON.stringify(body));
+   const stored=await d1.prepare('SELECT total FROM bookings WHERE reference=?').bind(body.reference).first();
+   assert.equal(stored.total,total);
+  }
+ }finally{delete env.CANCELLATION_OPTIONS;delete env.RATE_LIMIT_SALT;}
+});
+
 test('purchased option snapshots survive config changes and drive real refund quotes',async()=>{
  const config={enabled:true,discountBps:500,surchargeBps:1500,fullRefundHours:12};
  for(const [option,hours,percent] of [['non_refundable',100,0],['flexible',12,100],['flexible',11.99,0]]) {
