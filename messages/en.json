@@ -361,5 +361,15 @@
   "payment.change.noMoney": "A price difference or approval does not confirm a payment or refund. Waydidi will explain any separate payment arrangements.",
   "payment.change.refresh": "Refresh history",
   "payment.change.newer": "Newer changes",
-  "payment.change.older": "Older changes"
+  "payment.change.older": "Older changes",
+  "routeStops.choose": "Add sightseeing stops",
+  "routeStops.description": "Choose up to 3 stops on the outbound journey. Prices are per vehicle; admission tickets, food and activities are not included.",
+  "routeStops.duration": "{minutes} min stop",
+  "routeStops.comfort": "A short comfort break is always included at no extra charge.",
+  "routeStops.checking": "Checking stop prices…",
+  "routeStops.error": "Your selected stops are unavailable. Review your journey and try again.",
+  "routeStops.total": "Sightseeing stops: {amount}",
+  "routeStops.snapshotHeading": "Sightseeing stops (outbound)",
+  "routeStops.snapshotMinutes": "{minutes} min",
+  "routeStops.snapshotTotal": "Stops total"
 }

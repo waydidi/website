@@ -222,6 +222,18 @@ SIWC establishes identity only; it does not prove workspace membership. Use the 
 
 Use SIWC for account pages, user-specific dashboards, saved records, and write actions tied to the current ChatGPT user. Leave public content anonymous.
 
+## Paid sightseeing stops on transfers
+
+`ROUTE_STOPS=0` is the default. Only the Worker variable `ROUTE_STOPS=1` enables customer stop offers. With it off, no stop selector is shown, checkout/quote summary reject nonempty stop selections, and empty selections keep existing totals. Purchased snapshots remain visible even if the flag is later disabled.
+
+Owner and operations staff manage `/admin/route-stops` (also linked in Operations), independently of the customer flag. Offers reuse active Attractions and polygon pickup/drop-off zones, optionally in both directions. Prices are integer satang per vehicle booking, the same for all vehicle classes. Customers may select up to three stops on the outbound leg only. A short free comfort break is always included; admission tickets, meals and activities are not included in a stop price.
+
+Pricing order: combined outbound/return fare → cancellation-option fare adjustment → promo discount → member discount → existing add-ons → stop prices at face value. Promo/member discounts and cancellation-option surcharges/discounts never change stop prices. The entire paid total, including stops, follows the booking's accepted cancellation option for refunds. Checkout and quote summary revalidate offer IDs, active attractions, zones and direction against stored quote coordinates; client prices are rejected.
+
+Additive migrations `0116_route_stop_offers.sql` and `0117_booking_route_stops.sql` have matching first-use `CREATE TABLE IF NOT EXISTS` bootstrap. The booking and stop name/duration/price snapshots are inserted atomically; editing an offer never reprices a purchased booking. Snapshot data is used on customer confirmations, email/PDF, trip pages, admin bookings, Thai driver jobs and driver-group posts. Drivers see stop names/durations, not customer sale prices. Stop minutes extend the outbound duration; additional detour driving time and opening-hour feasibility are not automatically calculated. Online changes for bookings with stops are blocked pending assistance from operations, rather than silently dropping or repricing the purchased stops.
+
+Bootstrap inserts inactive suggestions only when the matching seeded attraction exists: Maeklong (THB 600 / 60 min) and Damnoen Saduak (THB 900 / 90 min) on Bangkok–Hua Hin; Bang Krachao (THB 1,200 / 150 min) on Bangkok–Pattaya; Damnoen Saduak (THB 900 / 90 min) on Bangkok–Kanchanaburi. These are draft suggestions, not verified sale prices. Staff must check actual routing, extra driving time, opening hours, admission exclusions and driver cost before activating any offer and enabling the Worker flag. Existing edits/deactivation survive bootstrap retries. Add other attractions (such as Muang Boran or Sanctuary of Truth) through Attractions before creating their route offers.
+
 ## Diagnostic Commands
 
 - `npm run install:ci`: perform the one bounded lockfile install

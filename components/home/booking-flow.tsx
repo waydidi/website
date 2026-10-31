@@ -50,6 +50,8 @@ import { VEHICLES, smallestFittingVehicle, vehicleFits, type VehicleId } from "@
 import { cancellationConfig, cancellationFareMinor, displayCancellationOption, type CancellationConfig, type CancellationOption } from "@/lib/cancellation-options";
 import { recommendVehicles } from "@/lib/vehicle-recommendation";
 import { CancellationChoice } from "./cancellation-choice";
+import { RouteStopChoice } from "./route-stop-choice";
+import { selectedRouteStopIds, toggleRouteStop, type RouteStopCard, type RouteStopSelection } from "@/lib/route-stop-selection";
 import { VehicleUpgrade } from "./vehicle-upgrade";
 import { DateTimePicker } from "./date-time-picker";
 import { DurationPicker } from "./duration-picker";
@@ -132,6 +134,7 @@ type HourlyQuote = {
   averageDurationMinutes?: number | null;
 };
 type QuoteSummary = {
+  routeStopsTotalMinor?: number;
   currency: "THB";
   outbound: QuoteJourney;
   return: QuoteJourney | null;
@@ -287,6 +290,39 @@ export function BookingFlow({
   const [returnFareQuote, setReturnFareQuote] = useState<FareQuote | null>(null);
   const [quoteSummary, setQuoteSummary] = useState<QuoteSummary | null>(null);
   const [hourlyQuote, setHourlyQuote] = useState<HourlyQuote | null>(null);
+  const routeStopKey = JSON.stringify([serviceType, fareQuote?.quoteId, returnFareQuote?.quoteId, booking.pickup, booking.dropoff, booking.date, booking.time, returnTrip, returnDate, returnTime]);
+  const [stopOffers, setStopOffers] = useState<{ key: string; offers: RouteStopCard[] }>({ key: "", offers: [] });
+  const [stopSelection, setStopSelection] = useState<RouteStopSelection>({ key: "", ids: [] });
+  const routeStopOffers = stopOffers.key === routeStopKey && serviceType === "transfer" ? stopOffers.offers : [];
+  const routeStopIds = selectedRouteStopIds(stopSelection, routeStopKey).filter(id => routeStopOffers.some(offer => offer.id === id));
+  const stopSummaryKey = JSON.stringify([routeStopKey, routeStopIds, effectiveCancellationOption, payment]);
+  const [stopSummary, setStopSummary] = useState<{ key: string; totalMinor: number; error: boolean }>({ key: "", totalMinor: 0, error: false });
+  const routeStopsPending = routeStopIds.length > 0 && stopSummary.key !== stopSummaryKey;
+  const routeStopsError = routeStopIds.length > 0 && stopSummary.key === stopSummaryKey && stopSummary.error;
+  const routeStopsTotalMinor = routeStopIds.length > 0 && stopSummary.key === stopSummaryKey ? stopSummary.totalMinor : 0;
+  useEffect(() => {
+    if (serviceType !== "transfer" || !fareQuote) return;
+    const controller = new AbortController();
+    fetch("/api/booking/route-stops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quoteId: fareQuote.quoteId }), signal: controller.signal, cache: "no-store" })
+      .then(response => response.ok ? response.json() : { offers: [] })
+      .then((result: { offers: RouteStopCard[] }) => { if (!controller.signal.aborted) setStopOffers({ key: routeStopKey, offers: result.offers }); })
+      .catch(() => { if (!controller.signal.aborted) setStopOffers({ key: routeStopKey, offers: [] }); });
+    return () => controller.abort();
+  }, [routeStopKey, serviceType, fareQuote]);
+  useEffect(() => {
+    if (!routeStopIds.length || !fareQuote) return;
+    const controller = new AbortController();
+    fetch("/api/booking/quote-summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ outboundQuoteId: fareQuote.quoteId, returnQuoteId: returnFareQuote?.quoteId, routeStopIds, cancellationOption: effectiveCancellationOption, paymentMethod: payment }), signal: controller.signal, cache: "no-store" })
+      .then(async response => {
+        const quoteSummary = await response.json() as QuoteSummary;
+        const totalMinor = quoteSummary?.routeStopsTotalMinor;
+        if (!response.ok || !Number.isSafeInteger(totalMinor) || totalMinor! < 0) throw new Error("Stops unavailable");
+        if (!controller.signal.aborted) setStopSummary({ key: stopSummaryKey, totalMinor: totalMinor!, error: false });
+      }).catch(() => { if (!controller.signal.aborted) setStopSummary({ key: stopSummaryKey, totalMinor: 0, error: true }); });
+    return () => controller.abort();
+    // The serialized key includes the route, IDs, policy and payment method.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stopSummaryKey]);
   useBookingFunnel(stage, serviceType, Boolean(serviceType === "transfer" ? fareQuote : hourlyQuote));
   const [pickupPlaceId, setPickupPlaceId] = useState("");
   // By the hour: the city the driver works in, and an optional drop-off.
@@ -368,7 +404,7 @@ export function BookingFlow({
       return;
     }
     checkoutAttemptRef.current = "";
-  }, [booking, vehicle, payment, serviceType, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId, promo?.code, exchangeStop, ferryHotelPick]);
+  }, [booking, vehicle, payment, serviceType, fareQuote?.quoteId, returnFareQuote?.quoteId, hourlyQuote?.quoteId, promo?.code, exchangeStop, ferryHotelPick, stopSelection]);
 
   useEffect(() => {
     // Browser connectivity is only available after hydration.
@@ -693,7 +729,7 @@ export function BookingFlow({
   const addons = addonsTotal(booking.childSeats, exchangeStop, freeAddons, ferryHotel);
   // Member tier discount comes off the fare left after any promo code (the server does the same).
   const memberDiscount = memberTier && !quoteRequest ? tierDiscount(memberTier, Math.max(0, optionFare - discount)) : 0;
-  const payable = Math.max(0, optionFare - discount - memberDiscount) + addons;
+  const payable = Math.max(0, optionFare - discount - memberDiscount) + addons + routeStopsTotalMinor / 100;
   const freeLabel = (amount: number, byTier = false) => (amount > 0 ? `+${money(amount)}` : `Free (${byTier && memberTier ? memberTier.name : "gift"})`);
 
   // A different car or price needs the code checked again.
@@ -795,6 +831,7 @@ export function BookingFlow({
   }
 
   function continueToReview() {
+    if (routeStopsPending || routeStopsError) { setError(t("routeStops.error")); return; }
     const errors = validateBookingReview(booking);
     // Passenger fields live on step 1: send the customer back there to fix them.
     if (Object.keys(errors).some((key) => key !== "termsAccepted")) {
@@ -1054,6 +1091,7 @@ export function BookingFlow({
     const response = await fetch("/api/booking/quote-summary", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      // Keep the vehicle catalogue at its base fare: policy and stops are added once below.
       body: JSON.stringify({ outboundQuoteId, returnQuoteId }),
     });
     const result = (await response.json()) as QuoteSummary & { error?: string };
@@ -1113,6 +1151,7 @@ export function BookingFlow({
   }
 
   async function confirmBooking() {
+    if (routeStopsPending || routeStopsError) { setError(t("routeStops.error")); return; }
     if (loading) return;
     if (!navigator.onLine) {
       setError("You are offline. Your details are saved in this tab—reconnect and try again.");
@@ -1183,6 +1222,7 @@ export function BookingFlow({
           paymentMethod: payable === 0 ? "cash" : payment,
           ...(cancellationSettings.enabled ? { cancellationOption:effectiveCancellationOption } : {}),
           fareQuoteId: fareQuote?.quoteId,
+          routeStopIds,
           returnFareQuoteId: returnTrip ? returnFareQuote?.quoteId : undefined,
           returnDate: returnTrip ? returnDate : undefined,
           returnTime: returnTrip ? returnTime : undefined,
@@ -1783,6 +1823,7 @@ export function BookingFlow({
 
       {["details","payment","review"].includes(stage) && <div className="bg-slate-50 px-4 py-5"><CheckoutSummary cancellationOption={cancellationSettings.enabled?effectiveCancellationOption:undefined} fullRefundHours={cancellationSettings.fullRefundHours} booking={booking} vehicle={chosenVehicle.name} returnTrip={returnTrip} returnDate={returnDate} returnTime={returnTime}/></div>}
       {/* Keyed by stage so each step fades in rather than swapping abruptly. */}
+      {stage === "details" && !quoteRequest && <RouteStopChoice offers={routeStopOffers} selected={routeStopIds} onToggle={id => setStopSelection(current => toggleRouteStop(current, routeStopKey, id))} totalMinor={routeStopsTotalMinor} pending={routeStopsPending} error={routeStopsError} />}
       <div key={stage} className="animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
       {stage === "vehicle" && (
         (serviceType === "transfer" && (!quoteRequest || demoRoute)) || hourlyMap ? <BookingResultsMap

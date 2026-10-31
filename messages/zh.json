@@ -1,16 +1,52 @@
 {
-  "cancellation.changeUnavailable": {"text": "此取消选项不支持在线更改行程。请联系 Waydidi 获取帮助。", "status": "machine"},
-  "cancellation.choose": {"text": "取消选项", "status": "machine"},
-  "cancellation.standard": {"text": "标准", "status": "machine"},
-  "cancellation.non_refundable": {"text": "不可退款", "status": "machine"},
-  "cancellation.flexible": {"text": "灵活", "status": "machine"},
-  "cancellation.standardTerms": {"text": "接送前超过48小时全额退款，24至48小时退50%，之后不退款。", "status": "machine"},
-  "cancellation.non_refundableTerms": {"text": "客户取消不退款。仅限在线付款，且距接送超过48小时。", "status": "machine"},
-  "cancellation.flexibleTerms": {"text": "接送前至少{hours}小时取消可全额退款，之后不退款。", "status": "machine"},
-  "cancellation.fareNote": {"text": "此为优惠和附加服务前的车费。所选政策适用于整笔预订（包括返程）。Waydidi取消将全额退款，未出现则不退款。", "status": "machine"},
-  "vehicle.bestForYou": {"text": "最适合您", "status": "machine"},
-  "vehicle.upgrade": {"text": "升级为{name}", "status": "machine"},
-  "vehicle.upgradeNote": {"text": "更舒适且可容纳您全组的车型。点击选择。", "status": "machine"},
+  "cancellation.changeUnavailable": {
+    "text": "此取消选项不支持在线更改行程。请联系 Waydidi 获取帮助。",
+    "status": "machine"
+  },
+  "cancellation.choose": {
+    "text": "取消选项",
+    "status": "machine"
+  },
+  "cancellation.standard": {
+    "text": "标准",
+    "status": "machine"
+  },
+  "cancellation.non_refundable": {
+    "text": "不可退款",
+    "status": "machine"
+  },
+  "cancellation.flexible": {
+    "text": "灵活",
+    "status": "machine"
+  },
+  "cancellation.standardTerms": {
+    "text": "接送前超过48小时全额退款，24至48小时退50%，之后不退款。",
+    "status": "machine"
+  },
+  "cancellation.non_refundableTerms": {
+    "text": "客户取消不退款。仅限在线付款，且距接送超过48小时。",
+    "status": "machine"
+  },
+  "cancellation.flexibleTerms": {
+    "text": "接送前至少{hours}小时取消可全额退款，之后不退款。",
+    "status": "machine"
+  },
+  "cancellation.fareNote": {
+    "text": "此为优惠和附加服务前的车费。所选政策适用于整笔预订（包括返程）。Waydidi取消将全额退款，未出现则不退款。",
+    "status": "machine"
+  },
+  "vehicle.bestForYou": {
+    "text": "最适合您",
+    "status": "machine"
+  },
+  "vehicle.upgrade": {
+    "text": "升级为{name}",
+    "status": "machine"
+  },
+  "vehicle.upgradeNote": {
+    "text": "更舒适且可容纳您全组的车型。点击选择。",
+    "status": "machine"
+  },
   "meta.title": {
     "text": "Waydidi — 泰国私人专车接送",
     "status": "machine"
@@ -1413,6 +1449,46 @@
   },
   "payment.change.older": {
     "text": "较早的变更",
+    "status": "machine"
+  },
+  "routeStops.choose": {
+    "text": "添加观光停靠点",
+    "status": "machine"
+  },
+  "routeStops.description": {
+    "text": "去程最多选择3个停靠点。价格按每辆车计算，不含门票、餐饮及活动。",
+    "status": "machine"
+  },
+  "routeStops.duration": {
+    "text": "停留{minutes}分钟",
+    "status": "machine"
+  },
+  "routeStops.comfort": {
+    "text": "始终包含一次免费短暂休息。",
+    "status": "machine"
+  },
+  "routeStops.checking": {
+    "text": "正在核实停靠点价格…",
+    "status": "machine"
+  },
+  "routeStops.error": {
+    "text": "所选停靠点暂不可用，请检查行程后重试。",
+    "status": "machine"
+  },
+  "routeStops.total": {
+    "text": "观光停靠点：{amount}",
+    "status": "machine"
+  },
+  "routeStops.snapshotHeading": {
+    "text": "观光停靠点（去程）",
+    "status": "machine"
+  },
+  "routeStops.snapshotMinutes": {
+    "text": "{minutes}分钟",
+    "status": "machine"
+  },
+  "routeStops.snapshotTotal": {
+    "text": "停靠点合计",
     "status": "machine"
   }
 }
