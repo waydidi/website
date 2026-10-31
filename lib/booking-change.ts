@@ -4,10 +4,21 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingFreeAddons, bookingMemberDiscounts, bookings, promoRedemptions } from "@/db/schema";
 import { addonsTotal } from "./addons";
+import { acceptedPolicy } from "./accepted-policy";
 import { bangkokDepartureTimestamp } from "./booking-time";
 import { toSatang } from "./money";
 import type { SecurityDatabase } from "./worker-db";
 import { ensureBookingChangeHistory } from "./booking-change-history";
+
+/** Old snapshots lack a frozen pricing multiplier: never carry its old delta to a new fare. */
+export async function onlineBookingChangeAllowed(reference: string) {
+  try {
+    const policy = await acceptedPolicy(reference);
+    return !policy || policy.option === "standard";
+  } catch {
+    return false; // Unreadable contractual terms require manual review.
+  }
+}
 
 /** Keep the accepted add-ons and discounts when replacing the route fare. */
 export async function revisedBookingTotal(booking: typeof bookings.$inferSelect, fare: number) {
@@ -46,6 +57,7 @@ export async function applyBookingChange(id: string, at: string) {
   await ensureBookingChangeHistory(db);
   const c = await db.prepare("SELECT * FROM booking_change_requests WHERE id=?").bind(id).first<Change>();
   if (!c || c.status !== "pending") return "handled";
+  if (!await onlineBookingChangeAllowed(c.booking_reference)) return "invalid";
   const b = await db.prepare("SELECT return_date,return_time FROM bookings WHERE reference=?").bind(c.booking_reference).first<{ return_date: string | null; return_time: string | null }>();
   const out = await db.prepare("SELECT * FROM fare_quotes WHERE id=?").bind(c.fare_quote_id).first<Quote>();
   const back = c.return_fare_quote_id ? await db.prepare("SELECT * FROM fare_quotes WHERE id=?").bind(c.return_fare_quote_id).first<Quote>() : null;

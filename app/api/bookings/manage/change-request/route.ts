@@ -1,4 +1,4 @@
-import { revisedBookingTotal, validChangedSchedule } from "@/lib/booking-change";
+import { onlineBookingChangeAllowed, revisedBookingTotal, validChangedSchedule } from "@/lib/booking-change";
 import { validTransferPrice } from "@/lib/booking-quote-check";
 import { and, eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
@@ -12,6 +12,7 @@ import { VEHICLES, vehicleFits } from "@/lib/vehicles";
 import { insertBookingChange, sameChangeSubmission } from "@/lib/booking-change-submit";
 import { toSatang } from "@/lib/money";
 import { logOperationalError, requestIdFor } from "@/lib/observability";
+import messages from "@/messages/en.json";
 
 const inputSchema = z.object({
   fareQuoteId: z.string().min(1).max(200), returnFareQuoteId: z.string().min(1).max(200).optional(),
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
   const parsed = inputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Calculate the revised journey before submitting." }, { status: 400 });
   const input = parsed.data;
+  if (!await onlineBookingChangeAllowed(booking.reference)) {
+    return NextResponse.json({ error: messages["cancellation.changeUnavailable"] }, { status: 409 });
+  }
   if (input.requestId && !input.preview) {
     const [existing] = await getDb().select().from(bookingChangeRequests).where(eq(bookingChangeRequests.id, input.requestId)).limit(1);
     if (existing) {

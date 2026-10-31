@@ -1,4 +1,5 @@
 {
+  "cancellation.changeUnavailable": {"text": "ไม่สามารถเปลี่ยนการเดินทางออนไลน์สำหรับตัวเลือกการยกเลิกนี้ กรุณาติดต่อ Waydidi เพื่อขอความช่วยเหลือ", "status": "machine"},
   "cancellation.choose": {"text": "ตัวเลือกการยกเลิก", "status": "machine"},
   "cancellation.standard": {"text": "มาตรฐาน", "status": "machine"},
   "cancellation.non_refundable": {"text": "ไม่สามารถคืนเงินได้", "status": "machine"},

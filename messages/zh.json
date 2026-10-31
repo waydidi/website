@@ -1,4 +1,5 @@
 {
+  "cancellation.changeUnavailable": {"text": "此取消选项不支持在线更改行程。请联系 Waydidi 获取帮助。", "status": "machine"},
   "cancellation.choose": {"text": "取消选项", "status": "machine"},
   "cancellation.standard": {"text": "标准", "status": "machine"},
   "cancellation.non_refundable": {"text": "不可退款", "status": "machine"},

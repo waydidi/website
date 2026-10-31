@@ -713,7 +713,7 @@ export function BookingFlow({
     fetch("/api/promo/best", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ total: optionFare, serviceType, returnTrip: serviceType === "transfer" && returnTrip, airportTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
+      body: JSON.stringify({ totalMinor: Math.round(optionFare * 100), serviceType, returnTrip: serviceType === "transfer" && returnTrip, airportTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
     })
       .then((r) => (r.ok ? r.json() : { best: null }))
       .then((data: { best: { code: string; title: string; discount: number } | null }) => {
@@ -743,7 +743,7 @@ export function BookingFlow({
       const response = await fetch("/api/promo/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, total: optionFare, serviceType, returnTrip: serviceType === "transfer" && returnTrip, airportTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
+        body: JSON.stringify({ code, totalMinor: Math.round(optionFare * 100), serviceType, returnTrip: serviceType === "transfer" && returnTrip, airportTrip, vehicle, email: booking.email || undefined, phone: booking.phone || undefined }),
       });
       const result = (await response.json()) as { ok: boolean; code?: string; title?: string; discount?: number; reason?: string };
       if (!result.ok || !result.code || !result.discount) { setPromo(null); setPromoError(result.reason ?? "This promo code isn't valid."); return; }

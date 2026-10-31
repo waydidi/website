@@ -1,4 +1,5 @@
 {
+  "cancellation.changeUnavailable": "Online journey changes are unavailable for this cancellation option. Contact Waydidi for help.",
   "cancellation.choose": "Cancellation option",
   "cancellation.standard": "Standard",
   "cancellation.non_refundable": "Non-refundable",

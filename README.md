@@ -16,6 +16,10 @@ Pricing order: combine server-quoted outbound + return fares (or use the server 
 
 Accepted options and refund tiers are frozen in existing `booking_policy_snapshots` (migration `0060_booking_workflow.sql`, plus its existing first-use bootstrap); no new migration. Disabling the flag or changing the hours later does not change purchased policies. Earlier snapshots without an option remain Standard. Very old bookings without any accepted snapshot retain the existing fail-closed manual-review requirement rather than having contractual terms fabricated.
 
+Promo and automatic wallet previews send the option-adjusted fare as integer `totalMinor` (satang); the preview routes convert once at their legacy THB-helper boundary. Existing integer-THB `total` clients remain supported, but exactly one amount is required. Fractional THB `total`, fractional satang and out-of-range amounts remain invalid. Checkout remains the price authority and independently rechecks discounts.
+
+Online date/route changes (preview, submission and approval of already-pending requests) are blocked for purchased Non-refundable and Flexible bookings, even after `CANCELLATION_OPTIONS` is disabled. Customers must contact Waydidi. Existing snapshots freeze refund terms but not the price multiplier, so carrying an old option discount/surcharge over as a fixed amount would misprice a new fare. Standard and legacy bookings without an option retain their existing change flow; unreadable snapshots fail closed. No existing amount, concurrency or integer-total guards are relaxed.
+
 Vehicle recommendations are display-only and unflagged: the smallest fitting quoted class is “Best for you”; the next fitting quoted class offers a one-tap upgrade using the displayed quote difference. The server still checks and prices the selected class.
 
 ## Prerequisites

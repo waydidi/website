@@ -5,14 +5,17 @@ import { bestCoupon } from "@/lib/promo-db";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 const schema = z.object({
-  total: z.number().int().min(1).max(10_000_000),
+  // Legacy whole-baht callers stay valid; new previews send integer satang.
+  total: z.number().int().min(1).max(10_000_000).optional(),
+  totalMinor: z.number().int().min(100).max(1_000_000_000).optional(),
   serviceType: z.enum(["transfer", "hourly"]),
   returnTrip: z.boolean().optional(),
   airportTrip: z.boolean().optional(),
   vehicle: z.string().max(40),
   email: z.string().max(254).optional(),
   phone: z.string().max(40).optional(),
-});
+}).refine(data => (data.total === undefined) !== (data.totalMinor === undefined), { message: "Provide exactly one amount" })
+  .transform(({ totalMinor, ...data }) => ({ ...data, total: totalMinor === undefined ? data.total! : totalMinor / 100 }));
 
 // Signed-in members only: the best coupon for this booking, applied automatically
 // at checkout. Checkout itself re-checks the code on the server.

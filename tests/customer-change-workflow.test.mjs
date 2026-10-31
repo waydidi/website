@@ -63,6 +63,40 @@ test("preview retains add-ons and discounts without creating a request or changi
   assert.equal(globalThis.__changeNotifications, before);
 });
 
+test("purchased non-standard cancellation options block online change previews and submissions even with flag off", async () => {
+  const { saveAcceptedPolicy } = await vite.ssrLoadModule('/lib/accepted-policy.ts');
+  const { cancellationConfig } = await vite.ssrLoadModule('/lib/cancellation-options.ts');
+  for (const option of ['non_refundable', 'flexible']) {
+    const fixture = await seed();
+    await saveAcceptedPolicy(fixture.reference, new Date().toISOString(), option, cancellationConfig({ CANCELLATION_OPTIONS: '1' }));
+    await db.prepare('UPDATE bookings SET total=?,outbound_total=1290 WHERE reference=?').bind(option === 'flexible' ? 1483.5 : 1225.5, fixture.reference).run();
+    for (const preview of [true, false]) {
+      const response = await route.POST(request(fixture, { ...fixture.body, preview }));
+      assert.equal(response.status, 409, option);
+      assert.match((await response.json()).error, /cancellation option/i);
+    }
+    assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM booking_change_requests WHERE booking_reference=?').bind(fixture.reference).first()).n, 0);
+    assert.equal((await db.prepare('SELECT total FROM bookings WHERE reference=?').bind(fixture.reference).first()).total, option === 'flexible' ? 1483.5 : 1225.5);
+  }
+});
+
+test("approval refuses pre-existing pending requests for purchased non-standard options without changing money", async () => {
+  const { saveAcceptedPolicy } = await vite.ssrLoadModule('/lib/accepted-policy.ts');
+  const { cancellationConfig } = await vite.ssrLoadModule('/lib/cancellation-options.ts');
+  const { applyBookingChange } = await vite.ssrLoadModule('/lib/booking-change.ts');
+  for (const option of ['non_refundable', 'flexible']) {
+    const fixture = await seed();
+    assert.equal((await route.POST(request(fixture))).status, 200);
+    // Model a request queued by the old version. Use an integer total to prove
+    // the existing integer guard alone cannot protect purchased option fares.
+    await saveAcceptedPolicy(fixture.reference, new Date().toISOString(), option, cancellationConfig({ CANCELLATION_OPTIONS: '1' }));
+    assert.equal(await applyBookingChange(fixture.body.requestId, new Date().toISOString()), 'invalid');
+    const booking = await db.prepare('SELECT total,booking_version,pickup FROM bookings WHERE reference=?').bind(fixture.reference).first();
+    assert.deepEqual(booking, { total: 1200, booking_version: 1, pickup: 'Old pickup' });
+    assert.equal((await db.prepare('SELECT status FROM booking_change_requests WHERE id=?').bind(fixture.body.requestId).first()).status, 'pending');
+  }
+});
+
 test("submission rejects an accepted total that differs from the server preview", async () => {
   const fixture = await seed();
   assert.equal((await route.POST(request(fixture, { ...fixture.body, expectedRevisedTotalMinor: 140000 }))).status, 409);
