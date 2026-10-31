@@ -1,4 +1,88 @@
 {
+  "transfers.title": {
+    "text": "เส้นทางรถรับส่งส่วนตัว",
+    "status": "machine"
+  },
+  "transfers.description": {
+    "text": "เดินทางระหว่างสนามบิน เมือง และรีสอร์ตในไทยด้วยรถส่วนตัว เลือกจุดรับ จุดส่ง และวันเดินทางเพื่อตรวจสอบรถและราคาที่แน่นอน",
+    "status": "machine"
+  },
+  "transfers.estimate": {
+    "text": "ราคาพื้นฐานโดยประมาณต่อคันตามระยะทางถนน ที่อยู่จริง วันเดินทาง ราคาตามฤดูกาล และบริการเสริมอาจทำให้ราคาสุดท้ายเปลี่ยนแปลง",
+    "status": "machine"
+  },
+  "transfers.prices": {
+    "text": "ราคาตามประเภทรถ",
+    "status": "machine"
+  },
+  "transfers.from": {
+    "text": "เริ่มต้น",
+    "status": "machine"
+  },
+  "transfers.book": {
+    "text": "เลือกที่อยู่และวันเดินทาง",
+    "status": "machine"
+  },
+  "transfers.distance": {
+    "text": "ระยะทางถนนโดยประมาณ",
+    "status": "machine"
+  },
+  "transfers.duration": {
+    "text": "เวลาขับรถโดยประมาณ",
+    "status": "machine"
+  },
+  "transfers.included": {
+    "text": "สิ่งที่รวมในราคา",
+    "status": "machine"
+  },
+  "transfers.private": {
+    "text": "รถส่วนตัวพร้อมคนขับสำหรับกลุ่มของคุณ",
+    "status": "machine"
+  },
+  "transfers.excluded": {
+    "text": "ไม่รวม เว้นแต่ระบุในราคาสุดท้าย",
+    "status": "machine"
+  },
+  "transfers.faq": {
+    "text": "คำถามเกี่ยวกับเส้นทาง",
+    "status": "machine"
+  },
+  "transfers.related": {
+    "text": "เส้นทางขากลับและเส้นทางใกล้เคียง",
+    "status": "machine"
+  },
+  "transfers.all": {
+    "text": "เส้นทางรถรับส่งทั้งหมด",
+    "status": "machine"
+  },
+  "transfers.empty": {
+    "text": "ยังไม่มีเส้นทางที่เผยแพร่ราคา กรุณาค้นหาเส้นทางจริงของคุณในแบบฟอร์มจอง",
+    "status": "machine"
+  },
+  "transfers.faq.price.q": {
+    "text": "นี่คือราคาสุดท้ายในการจองหรือไม่",
+    "status": "machine"
+  },
+  "transfers.faq.price.a": {
+    "text": "ไม่ใช่ ราคานี้เป็นราคาพื้นฐานโดยประมาณ ไม่ใช่ใบเสนอราคาที่บันทึกไว้ กรอกที่อยู่จริงและวันเดินทางเพื่อดูราคาสุดท้ายก่อนยืนยัน",
+    "status": "machine"
+  },
+  "transfers.faq.pickup.q": {
+    "text": "สามารถเลือกรับหรือส่งที่โรงแรมได้หรือไม่",
+    "status": "machine"
+  },
+  "transfers.faq.pickup.a": {
+    "text": "ได้ เปลี่ยนสถานที่ที่แนะนำเป็นโรงแรมหรือที่อยู่จริง ระบบจะตรวจสอบรถและราคาตามสถานที่ที่เลือก",
+    "status": "machine"
+  },
+  "transfers.faq.time.q": {
+    "text": "รับประกันเวลาเดินทางหรือไม่",
+    "status": "machine"
+  },
+  "transfers.faq.time.a": {
+    "text": "ไม่รับประกัน เวลาและระยะทางเป็นค่าประมาณตามจุดตัวอย่าง สภาพจราจร อากาศ จุดแวะ และขั้นตอนสนามบินอาจส่งผลต่อการเดินทาง",
+    "status": "machine"
+  },
   "meta.title": {
     "text": "Waydidi — บริการรถรับส่งส่วนตัวทั่วประเทศไทย",
     "status": "machine"

@@ -221,8 +221,10 @@ export function BookingFlow({
   locale = "en",
   messages = enMessages,
   hero,
+  initialRoute,
 }: {
   children: ReactNode;
+  initialRoute?: {pickup:string;dropoff:string};
   locale?: Locale;
   messages?: Messages;
   /** Compact photo hero with its own headline (destination pages). */
@@ -250,8 +252,8 @@ export function BookingFlow({
   const [exchangeStop, setExchangeStop] = useState(false);
   const [ferryHotelPick, setFerryHotel] = useState(0);
   const [booking, setBooking] = useState<Booking>({
-    pickup: "Suvarnabhumi Airport (BKK)",
-    dropoff: "Grande Centre Point Sukhumvit 55, Bangkok",
+    pickup: initialRoute?.pickup ?? "Suvarnabhumi Airport (BKK)",
+    dropoff: initialRoute?.dropoff ?? "Grande Centre Point Sukhumvit 55, Bangkok",
     date: defaultPickupDate,
     time: "09:00",
     passengers: 2,
@@ -469,6 +471,11 @@ export function BookingFlow({
     // Remember which travel guide sent the visitor, so the booking can be credited to it.
     const ref = params.get("ref");
     if (ref && /^blog:[a-z0-9-]{1,90}$/.test(ref)) { try { sessionStorage.setItem("waydidi_source", ref); } catch { /* storage blocked */ } }
+    if (initialRoute && !params.has("rebook")) {
+      params.set("rebook", "again");
+      params.set("pickup", initialRoute.pickup);
+      params.set("dropoff", initialRoute.dropoff);
+    }
     const mode = params.get("rebook");
     if (mode !== "again" && mode !== "return" && mode !== "chat" && mode !== "flight") return;
     const count = (key: string, fallback: number) => {

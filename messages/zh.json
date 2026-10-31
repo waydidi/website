@@ -1,4 +1,88 @@
 {
+  "transfers.title": {
+    "text": "私人接送路线",
+    "status": "machine"
+  },
+  "transfers.description": {
+    "text": "乘坐专车往返泰国机场、城市和度假区。请选择上车地点、目的地和日期，确认车辆供应及准确车费。",
+    "status": "machine"
+  },
+  "transfers.estimate": {
+    "text": "每车参考基础价格按估算公路距离计算。实际地址、日期、季节调整及可选服务可能影响最终报价。",
+    "status": "machine"
+  },
+  "transfers.prices": {
+    "text": "车型价格",
+    "status": "machine"
+  },
+  "transfers.from": {
+    "text": "起价",
+    "status": "machine"
+  },
+  "transfers.book": {
+    "text": "选择地址及日期",
+    "status": "machine"
+  },
+  "transfers.distance": {
+    "text": "预计公路距离",
+    "status": "machine"
+  },
+  "transfers.duration": {
+    "text": "预计行车时间",
+    "status": "machine"
+  },
+  "transfers.included": {
+    "text": "费用包含",
+    "status": "machine"
+  },
+  "transfers.private": {
+    "text": "为您的同行人员提供一辆专车及司机",
+    "status": "machine"
+  },
+  "transfers.excluded": {
+    "text": "除非最终报价注明，否则不包含",
+    "status": "machine"
+  },
+  "transfers.faq": {
+    "text": "路线常见问题",
+    "status": "machine"
+  },
+  "transfers.related": {
+    "text": "返程及相关路线",
+    "status": "machine"
+  },
+  "transfers.all": {
+    "text": "所有接送路线",
+    "status": "machine"
+  },
+  "transfers.empty": {
+    "text": "目前没有已公布价格的路线。请通过预订搜索查询您的具体行程。",
+    "status": "machine"
+  },
+  "transfers.faq.price.q": {
+    "text": "这是最终预订价格吗？",
+    "status": "machine"
+  },
+  "transfers.faq.price.a": {
+    "text": "不是。这些是参考基础价格，并非已保存的报价。请在预订表单中输入具体地址及日期，确认前查看最终价格。",
+    "status": "machine"
+  },
+  "transfers.faq.pickup.q": {
+    "text": "可以选择酒店接送吗？",
+    "status": "machine"
+  },
+  "transfers.faq.pickup.a": {
+    "text": "可以。在预订搜索中将建议地点替换为酒店或具体地址。系统将根据所选地点检查供应及价格。",
+    "status": "machine"
+  },
+  "transfers.faq.time.q": {
+    "text": "行程时间有保证吗？",
+    "status": "machine"
+  },
+  "transfers.faq.time.a": {
+    "text": "不保证。时间及距离是代表性起终点的估算值。交通、天气、停靠及机场流程可能影响行程。",
+    "status": "machine"
+  },
   "meta.title": {
     "text": "Waydidi — 泰国私人专车接送",
     "status": "machine"
