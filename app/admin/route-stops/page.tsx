@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -81,7 +82,7 @@ function OfferForm({ offer, attractions }: { offer?: RouteStopOffer; attractions
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string }> }) {
   const staff = await getWaydidiAdmin();
-  if (!staff) return <main className="p-6"><h1 className="text-xl font-black">Staff sign-in required</h1><a className="inline-flex min-h-tap items-center text-brand-deep underline" href="/admin">Sign in</a></main>;
+  if (!staff) return <main className="p-6"><h1 className="text-xl font-black">Staff sign-in required</h1><Link className="inline-flex min-h-tap items-center text-brand-deep underline" href="/admin">Sign in</Link></main>;
   if (staff.role !== "owner" && staff.role !== "operations") return <main className="p-6"><h1 className="text-xl font-black">Permission denied</h1><p role="alert" className="text-danger">Only owner and operations staff can manage route stops.</p></main>;
   const query = await searchParams;
   let offers: RouteStopOffer[];
@@ -89,11 +90,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   try { [offers, attractions] = await Promise.all([listRouteStopOffers(), listRouteStopAttractions()]); }
   catch { return <main className="p-6"><h1 className="text-xl font-black">Paid route stops</h1><p role="alert" className="text-danger">Route stops could not be loaded. Please reload to try again.</p></main>; }
   return <main className="min-h-screen space-y-6 bg-canvas p-4 text-plum sm:p-6 dark:bg-background dark:text-foreground">
-    <header className="space-y-2"><a href="/admin" className="inline-flex min-h-tap items-center text-brand-deep underline">Back to operations</a><h1 className="text-3xl font-black tracking-[-.035em]">Paid route stops</h1><p className="max-w-3xl text-sm text-muted-foreground">Manage optional sightseeing stops for transfer routes. Prices are additional to the transfer fare. Suggested drafts stay inactive until reviewed; changing an offer does not change stops already purchased.</p></header>
+    <header className="space-y-2"><Link href="/admin" className="inline-flex min-h-tap items-center text-brand-deep underline">Back to operations</Link><h1 className="text-3xl font-black tracking-[-.035em]">Paid route stops</h1><p className="max-w-3xl text-sm text-muted-foreground">Manage optional sightseeing stops for transfer routes. Prices are additional to the transfer fare. Suggested drafts stay inactive until reviewed; changing an offer does not change stops already purchased.</p></header>
     {query.error && <p role="alert" className="rounded-lg bg-danger-soft p-4 text-danger">{query.error.slice(0, 300)}</p>}
     {query.saved === "1" && <p role="status" aria-live="polite" className="rounded-lg bg-success-soft p-4 text-success">Saved. Your route-stop offer has been updated.</p>}
     {!offers.length && <p className="rounded-card bg-white p-5 dark:bg-card">No route-stop offers yet. Create an inactive draft below.</p>}
-    {!attractions.length && <p role="alert" className="text-warning">Add an active attraction in <a href="/admin/attractions" className="underline">Attractions</a> before creating offers.</p>}
+    {!attractions.length && <p role="alert" className="text-warning">Add an active attraction in <Link href="/admin/attractions" className="underline">Attractions</Link> before creating offers.</p>}
     <section className="space-y-4" aria-label="Route-stop offers">{offers.map(offer => <OfferForm key={offer.id} offer={offer} attractions={attractions} />)}</section>
     {attractions.length > 0 && <OfferForm attractions={attractions} />}
   </main>;
