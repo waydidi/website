@@ -9,10 +9,14 @@ import { bangkokDepartureTimestamp } from "./booking-time";
 import { toSatang } from "./money";
 import type { SecurityDatabase } from "./worker-db";
 import { ensureBookingChangeHistory } from "./booking-change-history";
+import { loadBookingRouteStops } from "./route-stops-db";
 
 /** Old snapshots lack a frozen pricing multiplier: never carry its old delta to a new fare. */
 export async function onlineBookingChangeAllowed(reference: string) {
   try {
+    // A changed route must revalidate stops and preserve their frozen price/duration.
+    // Until that workflow exists, require operations to handle these bookings.
+    if ((await loadBookingRouteStops(reference)).length) return false;
     const policy = await acceptedPolicy(reference);
     return !policy || policy.option === "standard";
   } catch {

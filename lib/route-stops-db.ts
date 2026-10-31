@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import type { SecurityDatabase } from "./worker-db";
 import type { RouteStopOffer, RouteStopSnapshot } from "./route-stops";
 
 export type { RouteStopOffer, RouteStopSnapshot } from "./route-stops";
@@ -20,15 +21,19 @@ const box = (south: number, north: number, west: number, east: number) => JSON.s
 ]]);
 
 export async function ensureRouteStops(): Promise<void> {
-  await env.DB.batch([env.DB.prepare(TABLE), env.DB.prepare(INDEX)]);
+  await (env.DB as SecurityDatabase).batch([(env.DB as SecurityDatabase).prepare(TABLE), (env.DB as SecurityDatabase).prepare(INDEX)]);
   // Suggestions only: attach to real library records, never publish or create places.
   // INSERT OR IGNORE preserves staff edits, including deactivation, across cold starts.
   const origin = box(13.45, 14.05, 100.25, 100.97);
-  const destination = box(12.45, 12.7, 99.85, 100.05); // Hua Hin
-  await env.DB.batch([
-    ["draft-maeklong-hua-hin", "bkk-maeklong-railway", 60000, 60, 10],
-    ["draft-damnoen-hua-hin", "bkk-damnoen-saduak", 90000, 90, 20],
-  ].map(([id, key, price, duration, sort]) => env.DB.prepare(`INSERT OR IGNORE INTO route_stop_offers
+  const huaHin = box(12.45, 12.7, 99.85, 100.05);
+  const pattaya = box(12.62, 13.02, 100.82, 101.05);
+  const kanchanaburi = box(13.85, 14.15, 99.35, 99.65);
+  await (env.DB as SecurityDatabase).batch([
+    ["draft-maeklong-hua-hin", "bkk-maeklong-railway", 60000, 60, 10, huaHin],
+    ["draft-damnoen-hua-hin", "bkk-damnoen-saduak", 90000, 90, 20, huaHin],
+    ["draft-green-lung-pattaya", "bkk-bang-krachao", 120000, 150, 30, pattaya],
+    ["draft-damnoen-kanchanaburi", "bkk-damnoen-saduak", 90000, 90, 40, kanchanaburi],
+  ].map(([id, key, price, duration, sort, destination]) => (env.DB as SecurityDatabase).prepare(`INSERT OR IGNORE INTO route_stop_offers
     (id,attraction_id,origin_zone_json,destination_zone_json,bidirectional,price_minor,duration_minutes,active,sort)
     SELECT ?,id,?,?,1,?,?,0,? FROM attractions WHERE seed_key=?`)
     .bind(id, origin, destination, price, duration, sort, key)));
@@ -75,7 +80,7 @@ export function parseRouteStopOffer(value: unknown): RouteStopInput {
 
 export async function listRouteStopOffers(): Promise<RouteStopOffer[]> {
   await ensureRouteStops();
-  const { results } = await env.DB.prepare(`SELECT o.id,o.attraction_id AS attractionId,
+  const { results } = await (env.DB as SecurityDatabase).prepare(`SELECT o.id,o.attraction_id AS attractionId,
     COALESCE(NULLIF(a.customer_name,''),a.name) AS name,a.cover_image AS photo,
     o.origin_zone_json AS originZoneJson,o.destination_zone_json AS destinationZoneJson,
     o.bidirectional,o.price_minor AS priceMinor,o.duration_minutes AS durationMinutes,
@@ -86,16 +91,16 @@ export async function listRouteStopOffers(): Promise<RouteStopOffer[]> {
 }
 
 export async function listRouteStopAttractions(): Promise<{ id: string; name: string }[]> {
-  const { results } = await env.DB.prepare("SELECT id,name FROM attractions WHERE status='active' ORDER BY name,id").all<{ id: string; name: string }>();
+  const { results } = await (env.DB as SecurityDatabase).prepare("SELECT id,name FROM attractions WHERE status='active' ORDER BY name,id").all<{ id: string; name: string }>();
   return results;
 }
 
 export async function saveRouteStopOffer(value: unknown): Promise<string> {
   const offer = parseRouteStopOffer(value);
   await ensureRouteStops();
-  const attraction = await env.DB.prepare("SELECT id FROM attractions WHERE id=? AND status='active'").bind(offer.attractionId).first();
+  const attraction = await (env.DB as SecurityDatabase).prepare("SELECT id FROM attractions WHERE id=? AND status='active'").bind(offer.attractionId).first();
   if (!attraction) return invalid("Choose an active attraction from the library.");
-  await env.DB.prepare(`INSERT INTO route_stop_offers
+  await (env.DB as SecurityDatabase).prepare(`INSERT INTO route_stop_offers
     (id,attraction_id,origin_zone_json,destination_zone_json,bidirectional,price_minor,duration_minutes,active,sort)
     VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
     attraction_id=excluded.attraction_id,origin_zone_json=excluded.origin_zone_json,
@@ -112,5 +117,37 @@ export async function priceRouteStops(ids: string[], quote: {
   const { selectRouteStops } = await import("./route-stops");
   const pickup = quote.pickupLatitude === null || quote.pickupLongitude === null ? null : { lat: quote.pickupLatitude, lng: quote.pickupLongitude };
   const dropoff = quote.dropoffLatitude === null || quote.dropoffLongitude === null ? null : { lat: quote.dropoffLatitude, lng: quote.dropoffLongitude };
-  return selectRouteStops(ids, enabled ? await listRouteStopOffers() : [], pickup, dropoff, enabled);
+  if (!ids.length) return [];
+  return selectRouteStops(enabled, ids, enabled ? await listRouteStopOffers() : [], pickup, dropoff);
+}
+
+const SNAPSHOTS = `CREATE TABLE IF NOT EXISTS booking_route_stops (
+  booking_reference TEXT PRIMARY KEY REFERENCES bookings(reference),
+  route_stops_json TEXT NOT NULL CHECK(json_valid(route_stops_json) AND json_type(route_stops_json)='array')
+)`;
+
+export async function ensureBookingRouteStops(): Promise<void> {
+  await (env.DB as SecurityDatabase).prepare(SNAPSHOTS).run();
+}
+
+/** Snapshots and booking are inserted in one D1 transaction, including retries. */
+export async function insertBookingWithRouteStops(query: { sql: string; params: unknown[] }, reference: string, stops: RouteStopSnapshot[]): Promise<void> {
+  const { parseRouteStopSnapshots } = await import("./route-stops");
+  const json = JSON.stringify(parseRouteStopSnapshots(JSON.stringify(stops)));
+  await ensureBookingRouteStops();
+  await (env.DB as SecurityDatabase).batch([
+    (env.DB as SecurityDatabase).prepare(query.sql).bind(...query.params),
+    (env.DB as SecurityDatabase).prepare("INSERT INTO booking_route_stops(booking_reference,route_stops_json) VALUES(?,?)").bind(reference, json),
+  ]);
+}
+
+export async function loadBookingRouteStopsJson(reference: string): Promise<string | null> {
+  await ensureBookingRouteStops();
+  const row = await (env.DB as SecurityDatabase).prepare("SELECT route_stops_json FROM booking_route_stops WHERE booking_reference=?").bind(reference).first<{ route_stops_json: string }>();
+  return row?.route_stops_json ?? null;
+}
+
+export async function loadBookingRouteStops(reference: string): Promise<RouteStopSnapshot[]> {
+  const { parseRouteStopSnapshots } = await import("./route-stops");
+  return parseRouteStopSnapshots(await loadBookingRouteStopsJson(reference));
 }

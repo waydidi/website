@@ -1,4 +1,6 @@
 import { env } from "cloudflare:workers";
+import { priceRouteStops } from "@/lib/route-stops-db";
+import { RouteStopSelectionError, stopDurationMinutes, stopTotalMinor, type RouteStopSnapshot } from "@/lib/route-stops";
 import { cancellationConfig, cancellationFareMinor, resolveCancellationOption } from "@/lib/cancellation-options";
 import { toSatang } from "@/lib/money";
 import { serviceStartMs } from "@/lib/refund-policy";
@@ -106,6 +108,14 @@ export async function POST(request: Request) {
     }
   }
 
+  let routeStops: RouteStopSnapshot[];
+  try {
+    routeStops = await priceRouteStops(parsed.data.routeStopIds, outbound, (env as unknown as Record<string, unknown>).ROUTE_STOPS === "1");
+  } catch (error) {
+    if (!(error instanceof RouteStopSelectionError)) throw error;
+    return NextResponse.json({ code: error.message, error: "Your selected sightseeing stops are unavailable. Please review your journey." }, { status: 409 });
+  }
+  const routeStopsTotalMinor = stopTotalMinor(routeStops);
   const config = cancellationConfig(env as unknown as Record<string, unknown>);
   let option;
   try {
@@ -125,7 +135,7 @@ export async function POST(request: Request) {
       return [[vehicleId, {
         outbound: outboundPrice,
         return: returnPrice,
-        total: config.enabled ? cancellationFareMinor(toSatang(outboundPrice) + toSatang(returnPrice), option, config) / 100 : outboundPrice + returnPrice,
+        total: ((config.enabled ? cancellationFareMinor(toSatang(outboundPrice) + toSatang(returnPrice), option, config) : toSatang(outboundPrice) + toSatang(returnPrice)) + routeStopsTotalMinor) / 100,
       }] as const];
     }),
   );
@@ -139,8 +149,10 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     currency: "THB",
-    outbound: journey(outbound),
+    outbound: { ...journey(outbound), durationSeconds: outbound.durationSeconds + stopDurationMinutes(routeStops) * 60 },
     return: returnQuote ? journey(returnQuote) : null,
     prices,
+    routeStops,
+    routeStopsTotalMinor,
   });
 }
