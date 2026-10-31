@@ -17,7 +17,7 @@ export function PublicFooter(){return <footer className="bg-brand text-white">
       <div className="grid gap-8 sm:grid-cols-3">{columns.map(c=><div key={c.title}><h3 className="font-black">{c.title}</h3><ul className="mt-4 space-y-3 text-sm text-white/90">{c.links.map(([label,href])=><li key={href}><a className="hover:text-white hover:underline" href={href}>{label}</a></li>)}</ul></div>)}</div>
     </div>
     <div className="mt-12 flex flex-col gap-4 border-t border-white/30 pt-7 text-sm text-white/85 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap gap-5"><Link href="/about">About</Link><Link href="/refund-policy">Refund & Cancellation Policy</Link><Link href="/luggage-policy">Luggage</Link><Link href="/safety-driver-standards">Safety</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy / PDPA</Link></div></div>
-    {(env as unknown as Record<string,unknown>).TRANSFER_ROUTE_PAGES === "1" ? <a href="/transfers" className="mt-5 inline-flex min-h-tap items-center underline">{en["transfers.all"]}</a> : null}
+    {(env as unknown as Record<string,unknown>).TRANSFER_ROUTE_PAGES === "1" ? <Link href="/transfers" prefetch={false} className="mt-5 inline-flex min-h-tap items-center underline">{en["transfers.all"]}</Link> : null}
     <FooterLegal />
   </div>
 </footer>}

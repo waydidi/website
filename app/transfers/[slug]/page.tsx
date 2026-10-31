@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { BookingFlow } from '@/components/home/booking-flow';
 import { PublicFooter } from '@/components/public-footer';
@@ -35,6 +36,6 @@ export default async function TransferPage({params}:{params:Promise<{slug:string
  {lines.excluded.length?<><h3 className="mt-4 font-bold">{en['transfers.excluded']}</h3><ul>{lines.excluded.map(t=><li key={t}>{t}</li>)}</ul></>:null}
  <h2 className="mt-10 text-2xl font-black">{en['transfers.faq']}</h2>{faq.map(f=><details key={f.q} className="mt-4 rounded-card bg-white p-5"><summary className="cursor-pointer font-bold">{f.q}</summary><p className="mt-3 leading-7">{f.a}</p></details>)}
  <h2 className="mt-10 text-2xl font-black">{en['transfers.related']}</h2><ul className="mt-4 space-y-3">{related.map(x=><li key={x.slug}><a className="text-brand-deep underline" href={`/transfers/${x.slug}`}>{x.from.name} to {x.to.name}</a></li>)}</ul>
- <nav className="mt-8 flex flex-wrap gap-5" aria-label="Destinations">{destinations.filter(d=>[r.from.destination,r.to.destination].includes(d.slug)).map(d=><a className="text-brand-deep underline" key={d.slug} href={`/destinations/${d.slug}`}>{d.name}</a>)}<a href="/transfers" className="text-brand-deep underline">{en['transfers.all']}</a></nav>
+ <nav className="mt-8 flex flex-wrap gap-5" aria-label="Destinations">{destinations.filter(d=>[r.from.destination,r.to.destination].includes(d.slug)).map(d=><a className="text-brand-deep underline" key={d.slug} href={`/destinations/${d.slug}`}>{d.name}</a>)}<Link href="/transfers" prefetch={false} className="text-brand-deep underline">{en['transfers.all']}</Link></nav>
  </section><PublicFooter/></main></BookingFlow>;
 }

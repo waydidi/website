@@ -515,7 +515,7 @@ export function BookingFlow({
     window.history.replaceState({ waydidiStage: "search" }, "", window.location.pathname + window.location.hash);
     // From the chat's "Book" button: go straight to the passenger step once the route is priced.
     if (mode === "chat" && !hourly && params.get("pickupPlaceId") && params.get("dropoffPlaceId") && vehicle && vehicle in VEHICLES) chatAutoAdvance.current = true;
-  }, []);
+  }, [initialRoute]);
   const chatAutoAdvance = useRef(false);
   useEffect(() => {
     if (!chatAutoAdvance.current || stage !== "search" || !fareQuote?.prices?.[vehicle]) return;
