@@ -40,7 +40,7 @@ export function cancellationTiers(option: CancellationOption, config: Cancellati
 export function cancellationFareMinor(fareMinor: number, option: CancellationOption, config: CancellationConfig) {
   if (!Number.isSafeInteger(fareMinor) || fareMinor < 0) throw new Error("INVALID_FARE");
   const bps = !config.enabled || option === "standard" ? 10000 : option === "flexible" ? 10000 + config.surchargeBps : 10000 - config.discountBps;
-  const result = (BigInt(fareMinor) * BigInt(bps) + 5000n) / 10000n;
+  const result = (BigInt(fareMinor) * BigInt(bps) + BigInt(5000)) / BigInt(10000);
   if (result > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("INVALID_FARE");
   return Number(result);
 }
