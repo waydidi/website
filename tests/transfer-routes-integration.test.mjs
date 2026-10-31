@@ -26,12 +26,27 @@ test('route rollout defaults off even with published pricing',async()=>{
 test('real D1 rules calculate rounded route fares and unpublished routes disappear from sitemap',async()=>{
  globalThis.__seoPricingEnv.TRANSFER_ROUTE_PAGES='1';
  try {
-  const r=await publishedTransferRoute('bkk-airport-to-pattaya');
-  assert.equal(r.pricesMinor.economy_sedan,120000,'1000 + 25km × 7 = 1175 THB rounded up to 1200');
-  assert.equal(r.pricesMinor.comfort_bmw,undefined);
+  // Keep the original Pattaya pricing assertions, but never advertise its partial quote.
+  const {pricesForArea}=await vite.ssrLoadModule('/lib/pricing.ts');
+  assert.equal((await pricesForArea('seo-pattaya',125000)).economy_sedan.total*100,120000,'1000 + 25km × 7 = 1175 THB rounded up to 1200');
+  assert.equal(await publishedTransferRoute('bkk-airport-to-pattaya'),null);
   await db.prepare("UPDATE pricing_rules SET fixed_price=1551 WHERE id='seo-sedan'").run();
+  assert.equal((await pricesForArea('seo-pattaya',125000)).economy_sedan.total*100,160000);
+  // A bookable Bangkok airport route needs all four real vehicle rules.
+  const city=JSON.stringify([[{lat:13.48,lng:100.32},{lat:13.48,lng:100.95},{lat:13.97,lng:100.95},{lat:13.97,lng:100.32}]]);
+  await db.prepare("INSERT INTO pricing_areas(id,name,code,status,pricing_type,published_geometry_json,created_at,updated_at) VALUES('seo-city','Test Bangkok','CITY','published','hybrid',?,'test','test')").bind(city).run();
+  for(const vehicle of ['economy_sedan','comfort_bmw','comfort_suv','premium_minivan']) await db.prepare("INSERT INTO pricing_rules(id,area_id,vehicle_id,base_price,included_distance_km,extra_price_per_km,updated_at) VALUES(?,'seo-city',?,1000,7,7,'test')").bind('city-'+vehicle,vehicle).run();
+  const r=await publishedTransferRoute('bkk-airport-to-bangkok');
+  assert.equal(r.pricesMinor.economy_sedan,120000,'1000 + (32 - 7)km × 7 rounded up to 1200');
+  assert.equal(Object.keys(r.pricesMinor).length,4);
+  await db.prepare("UPDATE pricing_rules SET fixed_price=1551 WHERE id='city-economy_sedan'").run();
   assert.equal((await publishedTransferRoute(r.slug)).pricesMinor.economy_sedan,160000);
-  await db.prepare("UPDATE pricing_areas SET status='draft' WHERE id='seo-pattaya'").run();
+  const published=sitemapEntries({siteUrl:'https://waydidi.com',transferSlugs:(await publishedTransferRoutes()).map(r=>r.slug),pageSlugs:[],destinationSlugs:[],posts:[],packages:[],categorySlug:s=>s});
+  assert.ok(published.some(e=>e.url.endsWith('/transfers/'+r.slug)));
+  assert.ok(!published.some(e=>e.url.endsWith('/transfers/bkk-airport-to-pattaya')));
+  await db.prepare("UPDATE pricing_rules SET vehicle_id='unavailable' WHERE id='city-comfort_bmw'").run();
+  assert.equal(await publishedTransferRoute(r.slug),null);
+  await db.prepare("UPDATE pricing_areas SET status='draft'").run();
   assert.equal(await publishedTransferRoute(r.slug),null);
   const entries=sitemapEntries({siteUrl:'https://waydidi.com',transferSlugs:(await publishedTransferRoutes()).map(r=>r.slug),pageSlugs:[],destinationSlugs:[],posts:[],packages:[],categorySlug:s=>s});
   assert.ok(!entries.some(e=>e.url.includes('/transfers')));

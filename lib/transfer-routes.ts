@@ -53,7 +53,8 @@ export async function quoteTransferRoute(route:TransferRoute, deps:PricingDeps):
   const prices=limitVehicles(await deps.prices(area.id,route.distanceMeters),
    {latitude:route.from.lat,longitude:route.from.lng},{latitude:route.to.lat,longitude:route.to.lng});
   const entries=Object.entries(prices);
-  if(!entries.length || entries.some(([,p])=>!Number.isSafeInteger(p.total*100)||p.total<=0))return null;
+  // Match fare-quote's fail-closed guard AFTER applying its BMW restriction.
+  if(entries.length !== 4 || entries.some(([,p])=>!Number.isSafeInteger(p.total*100)||p.total<=0))return null;
   return {...route,pricesMinor:Object.fromEntries(entries.map(([id,p])=>[id,p.total*100]))};
  }catch{return null;}
 }

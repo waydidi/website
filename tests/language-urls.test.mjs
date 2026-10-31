@@ -41,6 +41,15 @@ test('localized public links use full-document targets so router RSC URLs are ne
  for(const href of ['#details','/api/fare-quote','/quote/token','/account','https://example.invalid/about','mailto:test@example.invalid'])assert.equal(languageLinkTarget(href,'https://waydidi.com/th/about','th'),null,href);
 });
 
+test('short English paths remain routable instead of being mistaken for languages',()=>{
+ for(const path of ['/mcp','/mcp/tools','/go','/go/start','/app','/app/start','/faq']) assert.equal(parseLanguagePath(path).valid,true,path);
+ for(const path of ['/zz/about','/en/about','/it/about','/pt/about','/th/zz/about','/th/en/about']) assert.equal(parseLanguagePath(path).valid,false,path);
+ assert.equal(languagePath('/go/start','th'),'/th/go/start');
+ assert.equal(parseLanguagePath('/th/go/start').valid,true);
+ assert.equal(languagePath('/mcp','th'),'/mcp');
+ assert.equal(parseLanguagePath('/th/mcp').valid,false);
+});
+
 test('alternates include all languages, self and x-default', () => {
  const a=languageAlternates('/th/about','https://waydidi.com');
  assert.equal(Object.keys(a).length,13);

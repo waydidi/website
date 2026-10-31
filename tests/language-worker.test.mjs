@@ -39,6 +39,13 @@ test('private and unknown prefixes fail closed before reaching the renderer',asy
   const res=await mf.dispatchFetch('https://waydidi.com'+path,{redirect:'manual'});assert.equal(res.status,404,path);assert.ok(res.headers.get('content-security-policy'));await res.text();
  }
 });
+test('short English endpoints reach the Worker renderer for GET, HEAD and POST',async()=>{
+ for(const path of ['/mcp','/go','/app']) for(const method of ['GET','HEAD','POST']){
+  const res=await mf.dispatchFetch('https://waydidi.com'+path,{method,redirect:'manual',...(method==='POST'?{body:'request-body'}:{})});
+  assert.equal(res.status,200,method+' '+path);assert.ok(res.headers.get('content-security-policy'));await res.text();
+ }
+});
+
 test('localized visitor pages still obey maintenance mode',async()=>{
  // A separate instance avoids the production 20-second maintenance cache.
  const blocked=new Miniflare({modules:true,script:bundled.outputFiles[0].text,compatibilityDate:'2026-05-15',compatibilityFlags:['nodejs_compat'],bindings:{PUBLIC_LANGUAGE_URLS:'1'},d1Databases:['DB']});

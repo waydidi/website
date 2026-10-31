@@ -16,10 +16,12 @@ test('curated routes have unique reversible slugs and real Thai coordinates',()=
  }
 });
 test('published prices use destination area, real calculator and vehicle restrictions in satang',async()=>{
- const r=TRANSFER_ROUTES.find(r=>r.slug==='bkk-airport-to-pattaya');
+ const r=TRANSFER_ROUTES.find(r=>r.slug==='bkk-airport-to-bangkok');
  let distance;
- const result=await quoteTransferRoute(r,{matchArea:async p=>{assert.deepEqual(p,{lat:r.to.lat,lng:r.to.lng});return {id:'pattaya',pricingType:'fixed'};},prices:async(id,meters)=>{assert.equal(id,'pattaya');distance=meters;return {economy_sedan:{total:1500},comfort_bmw:{total:2500}};}});
- assert.equal(distance,r.distanceMeters);assert.deepEqual(result.pricesMinor,{economy_sedan:150000});
+ const result=await quoteTransferRoute(r,{matchArea:async p=>{assert.deepEqual(p,{lat:r.to.lat,lng:r.to.lng});return {id:'bangkok',pricingType:'fixed'};},prices:async(id,meters)=>{assert.equal(id,'bangkok');distance=meters;return {economy_sedan:{total:1500},comfort_bmw:{total:2500},comfort_suv:{total:2000},premium_minivan:{total:3000}};}});
+ assert.equal(distance,r.distanceMeters);assert.deepEqual(result.pricesMinor,{economy_sedan:150000,comfort_bmw:250000,comfort_suv:200000,premium_minivan:300000});
+ // The former Pattaya fixture was an unbookable partial quote; it must now fail closed.
+ assert.equal(await quoteTransferRoute(TRANSFER_ROUTES.find(r=>r.slug==='bkk-airport-to-pattaya'),{matchArea:async()=>({id:'pattaya',pricingType:'fixed'}),prices:async()=>({economy_sedan:{total:1500},comfort_bmw:{total:2500}})}),null);
 });
 test('route headings and shared route copy are approved English translator sources',async()=>{
  const { approvedTranslationText } = await vite.ssrLoadModule('/lib/site-translation-policy.ts');

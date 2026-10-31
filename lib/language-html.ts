@@ -22,6 +22,13 @@ type HtmlRewriter = {
 declare const HTMLRewriter: {new(): HtmlRewriter};
 
 const escape = (s: string) => s.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+// React SSR emits numeric references and these named references in text nodes.
+// Decode once for the same keys the browser's textContent-based translator uses.
+const decodeText = (s: string) => s.replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (raw, entity: string) => {
+  if (entity[0] !== '#') return ({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:'\u00a0'} as Record<string,string>)[entity.toLowerCase()] ?? raw;
+  const value = entity[1].toLowerCase() === 'x' ? parseInt(entity.slice(2),16) : parseInt(entity.slice(1),10);
+  return value > 0 && value <= 0x10ffff && !(value >= 0xd800 && value <= 0xdfff) ? String.fromCodePoint(value) : '\ufffd';
+});
 const attrs = ['placeholder','aria-label','title','alt'];
 const core = (s: string) => { const t=usableText(s); return t && approvedTranslationText(t) ? t : null; };
 
@@ -30,8 +37,11 @@ export async function localizePublicHtml(response: Response, page: {lang: SiteLa
   if (response.status !== 200 || !response.headers.get('content-type')?.includes('text/html')) return response;
   const html = await response.text();
   const texts = new Set<string>();
+  // Remember full nodes during collection so cache misses can pass through untouched,
+  // even when HTMLRewriter delivers a node as multiple streaming chunks.
+  const nodes: string[] = [];
   const scan = (translations?: Map<string,string>) => {
-    let skipped = 0, buffer = '';
+    let skipped = 0, buffer = '', nodeIndex = 0;
     const rewriter = new HTMLRewriter().on('*', {
       element(el) {
         const skip = ['script','style','noscript','code','pre','textarea','svg'].includes(el.tagName) || el.getAttribute('translate') === 'no' || el.hasAttribute('data-no-translate') || (el.getAttribute('class') ?? '').split(/\s+/).includes('notranslate');
@@ -46,11 +56,20 @@ export async function localizePublicHtml(response: Response, page: {lang: SiteLa
       },
     }).onDocument({text(chunk) {
       if (skipped) return;
+      if (translations) {
+        const value = nodes[nodeIndex], t = core(value);
+        // A miss must not call replace: it would escape the original SSR entities again.
+        if (t && translations.has(t)) {
+          if (chunk.lastInTextNode) chunk.replace(value.replace(t,()=>translations.get(t)!));
+          else chunk.remove();
+        }
+        if (chunk.lastInTextNode) nodeIndex++;
+        return;
+      }
       buffer += chunk.text;
-      if (!chunk.lastInTextNode) { if (translations) chunk.remove(); return; }
-      const value=buffer;buffer='';const t=core(value);
+      if (!chunk.lastInTextNode) return;
+      const value=decodeText(buffer);buffer='';nodes.push(value);const t=core(value);
       if (t) texts.add(t);
-      if (translations) chunk.replace(t && translations.has(t) ? value.replace(t,()=>translations.get(t)!) : value);
     }});
     return rewriter;
   };
