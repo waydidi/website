@@ -3,6 +3,9 @@ import { adminGate, adminHopPage, ADMIN_HOP_PARAM } from "../lib/admin-gate";
 import { allowedStaffRoute, readCookie, staffForToken, STAFF_COOKIE } from "../lib/staff-security";
 import { LEGACY_HOSTS, SITE_URL } from "../lib/site";
 import { edgeTtl, mayFillEdgeCache } from "../lib/edge-cache";
+import { languageDelivery } from "../lib/language-delivery";
+import { localizePublicHtml } from "../lib/language-html";
+import { publicLanguagePath } from "../lib/language-urls";
 import { openInMaintenance } from "../lib/maintenance-paths";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
@@ -54,6 +57,9 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const languagesEnabled = (env as unknown as Record<string, unknown>).PUBLIC_LANGUAGE_URLS === "1";
+    const delivery = languageDelivery(request, languagesEnabled);
+    if (languagesEnabled && !delivery.valid) return withSecurityHeaders(new Response("Not found", {status:404}), url);
     // Page visits on alternate hostnames move to the primary domain. API and
     // webhook calls (Stripe, Telegram, LINE, WhatsApp) keep working there until they are re-pointed.
     if (LEGACY_HOSTS.includes(url.hostname) && (request.method === "GET" || request.method === "HEAD") && !url.pathname.startsWith("/api/")) {
@@ -91,7 +97,7 @@ const worker = {
 
     // The old hand-translated /th and /zh pages: same page in English, shown in that language by the AI translator.
     const old = url.pathname.match(/^\/(th|zh)(\/.*)?$/);
-    if (old && request.method === "GET") {
+    if (!languagesEnabled && old && request.method === "GET") {
       const to = new URL((old[2] || "/") + url.search, url.origin);
       return new Response(null, { status: 301, headers: { Location: to.toString(), "Set-Cookie": `waydidi-lang=${old[1]}; Path=/; Max-Age=31536000; SameSite=Lax` } });
     }
@@ -119,12 +125,20 @@ const worker = {
     // wait for the database: public pages and the blog 5 min (saving a post clears the
     // blog), tour packages 2 min, public data feeds 1–5 min. See lib/edge-cache.ts.
     const ttl = request.method === "GET" ? edgeTtl(url) : 0;
+    const cacheUrl = new URL(url);
+    // A rollout cannot reuse pre-prefix English/cookie HTML under the same URL.
+    if (languagesEnabled) cacheUrl.searchParams.set('__wd_language_version', '1');
+    if (/^\/(?:[a-z]{2,3}\/)?transfers(?:\/|$)/.test(url.pathname)) cacheUrl.searchParams.set('__wd_transfer_pages', (env as unknown as Record<string, unknown>).TRANSFER_ROUTE_PAGES === '1' ? '1' : '0');
     const edgeCache = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
     if (ttl && edgeCache) {
-      const hit = await edgeCache.match(url.toString()).catch(() => undefined);
+      const hit = await edgeCache.match(cacheUrl.toString()).catch(() => undefined);
       if (hit) return withSecurityHeaders(hit, url);
     }
-    let response = await handler.fetch(request, env, ctx);
+    let response = await handler.fetch(languagesEnabled ? delivery.request : request, env, ctx);
+    if (languagesEnabled && delivery.valid && publicLanguagePath(delivery.path)) {
+      response = await localizePublicHtml(response, {lang:delivery.lang,path:delivery.path,origin:SITE_URL},
+        async (lang,texts) => (await import("../lib/site-translate")).cachedTranslations(lang,texts));
+    }
     // Affiliate link (?ref=mint): remember the partner for 30 days (the last link clicked wins) and count the click.
     const ref = request.method === "GET" && !accessPath.startsWith("/api/") && !accessPath.startsWith("/admin") ? url.searchParams.get("ref") : null;
     if (ref && /^[a-z0-9][a-z0-9-]{1,39}$/.test(ref) && response.status === 200) {
@@ -137,7 +151,7 @@ const worker = {
     if (ttl && edgeCache && response.status === 200 && !response.headers.has("Set-Cookie") && mayFillEdgeCache(request)) {
       const copy = new Response(response.clone().body, response);
       copy.headers.set("Cache-Control", `public, max-age=0, s-maxage=${ttl}`);
-      ctx.waitUntil(edgeCache.put(url.toString(), copy).catch(() => undefined));
+      ctx.waitUntil(edgeCache.put(cacheUrl.toString(), copy).catch(() => undefined));
     }
     return withSecurityHeaders(response, url);
   },

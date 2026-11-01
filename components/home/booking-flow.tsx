@@ -6,6 +6,7 @@ import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from 
 import { TIERS, tierDiscount, tierFreeAddons, type Tier } from "@/lib/member-tier-rules";
 import { freeAddonsWithGifts } from "@/lib/gift-rules";
 import { isAirportPickup } from "@/lib/waiting-policy";
+import { routePrefillKey } from "@/lib/route-prefill";
 import { earliestBangkokPickup } from "@/lib/booking-time";
 import {
   ArrowLeft,
@@ -228,8 +229,10 @@ export function BookingFlow({
   locale = "en",
   messages = enMessages,
   hero,
+  initialRoute,
 }: {
   children: ReactNode;
+  initialRoute?: {pickup:string;dropoff:string};
   locale?: Locale;
   messages?: Messages;
   /** Compact photo hero with its own headline (destination pages). */
@@ -257,8 +260,8 @@ export function BookingFlow({
   const [exchangeStop, setExchangeStop] = useState(false);
   const [ferryHotelPick, setFerryHotel] = useState(0);
   const [booking, setBooking] = useState<Booking>({
-    pickup: "Suvarnabhumi Airport (BKK)",
-    dropoff: "Grande Centre Point Sukhumvit 55, Bangkok",
+    pickup: initialRoute?.pickup ?? "Suvarnabhumi Airport (BKK)",
+    dropoff: initialRoute?.dropoff ?? "Grande Centre Point Sukhumvit 55, Bangkok",
     date: defaultPickupDate,
     time: "09:00",
     passengers: 2,
@@ -510,11 +513,19 @@ export function BookingFlow({
 
   // "Book again" / "Book the return trip" from the customer account arrive as
   // query parameters. Runs after the draft restore so the chosen trip wins.
+  // A route page's prefill applies once per route, keyed by value, so a new
+  // prop object on re-render never overwrites what the customer typed.
+  const initialRouteKey = routePrefillKey(initialRoute);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     // Remember which travel guide sent the visitor, so the booking can be credited to it.
     const ref = params.get("ref");
     if (ref && /^blog:[a-z0-9-]{1,90}$/.test(ref)) { try { sessionStorage.setItem("waydidi_source", ref); } catch { /* storage blocked */ } }
+    if (initialRoute && !params.has("rebook")) {
+      params.set("rebook", "again");
+      params.set("pickup", initialRoute.pickup);
+      params.set("dropoff", initialRoute.dropoff);
+    }
     const mode = params.get("rebook");
     if (mode !== "again" && mode !== "return" && mode !== "chat" && mode !== "flight") return;
     const count = (key: string, fallback: number) => {
@@ -554,7 +565,8 @@ export function BookingFlow({
     window.history.replaceState({ waydidiStage: "search" }, "", window.location.pathname + window.location.hash);
     // From the chat's "Book" button: go straight to the passenger step once the route is priced.
     if (mode === "chat" && !hourly && params.get("pickupPlaceId") && params.get("dropoffPlaceId") && vehicle && vehicle in VEHICLES) chatAutoAdvance.current = true;
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRouteKey]);
   const chatAutoAdvance = useRef(false);
   useEffect(() => {
     if (!chatAutoAdvance.current || stage !== "search" || !fareQuote?.prices?.[vehicle]) return;

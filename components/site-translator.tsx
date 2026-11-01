@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { parseLanguagePath, languagePath, languageLinkTarget } from "@/lib/language-urls";
 import { useEffect, useState } from "react";
 import { approvedTranslationText } from "@/lib/site-translation-policy";
 import { LANG_COOKIE, SITE_LANGS, TX_ATTRS, TX_SKIP, isSiteLang, legalPath, untranslatedPath, usableText, type SiteLang } from "@/lib/site-languages";
@@ -14,15 +15,31 @@ const ATTRS = TX_ATTRS;
 
 export function siteLang(): SiteLang {
   try {
+    if (document.documentElement.dataset.urlLanguage) return parseLanguagePath(window.location.pathname).lang;
     const v = document.cookie.split("; ").find((c) => c.startsWith(`${LANG_COOKIE}=`))?.slice(LANG_COOKIE.length + 1);
     return isSiteLang(v) ? v : "en";
   } catch { return "en"; }
 }
 
 export function SiteTranslator() {
-  const path = usePathname() ?? "/";
+  const pathname = usePathname() ?? "/";
+  const path = parseLanguagePath(pathname).path;
   const [lang, setLang] = useState<SiteLang>("en");
   const [original, setOriginal] = useState(false);
+  useEffect(() => {
+    if (!document.documentElement.dataset.urlLanguage) return;
+    const navigate = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
+      if (!(anchor instanceof HTMLAnchorElement) || anchor.hasAttribute('download') || (anchor.target && anchor.target !== '_self')) return;
+      const target = languageLinkTarget(anchor.getAttribute('href') ?? '',window.location.href,siteLang());
+      if (!target) return;
+      event.preventDefault(); event.stopPropagation();
+      window.location.assign(target);
+    };
+    document.addEventListener('click',navigate,true);
+    return () => document.removeEventListener('click',navigate,true);
+  }, []);
   // Re-read on every page change too, so the chosen language is always the current one.
   useEffect(() => { const t = window.setTimeout(() => setLang(siteLang()), 0); return () => window.clearTimeout(t); }, [path]);
   const active = lang !== "en" && !untranslatedPath(path) && !original;
@@ -37,6 +54,8 @@ export function SiteTranslator() {
     let cache: Record<string, string> = {};
     const key = `wd-tx3:${lang}`; // v2: earlier versions saved untranslated text here
     try { cache = JSON.parse(sessionStorage.getItem(key) ?? "{}"); } catch { cache = {}; }
+    try { Object.assign(cache,JSON.parse(document.getElementById("wd-url-translations")?.textContent ?? "{}")); } catch { /* invalid seed: keep browser cache */ }
+    const translatedValues=new Set(Object.values(cache));
     const textOrig = new WeakMap<Text, { src: string; shown: string }>();
     const attrOrig = new WeakMap<Element, Record<string, { src: string; shown: string }>>();
     const touchedText = new Set<Text>(), touchedAttr = new Set<Element>();
@@ -47,7 +66,7 @@ export function SiteTranslator() {
     let timer = 0, stopped = false, firstDone = false;
     let titleSrc = document.title, titleShown = "";
 
-    const usable = (s: string) => { const text = usableText(s); return text && approvedTranslationText(text) ? text : null; };
+    const usable = (s: string) => { const text = usableText(s); return text && !translatedValues.has(text) && approvedTranslationText(text) ? text : null; };
     // A function replacer, so "$&" or "$1" in a translation is shown as written.
     const wrap = (full: string, core: string, tr: string) => full.replace(core, () => tr);
     const skipped = (el: Element | null) => !el || Boolean(el.closest(SKIP));
@@ -143,6 +162,6 @@ export function SiteTranslator() {
   if (lang === "en" || untranslatedPath(path)) return null;
   return <div translate="no" className="notranslate fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 z-[70] max-w-[min(86vw,360px)] rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-[12px] leading-snug text-slate-600 shadow-sm backdrop-blur">
     {original ? "Showing the original English." : <>Translated by AI.{legalPath(path) ? " The English version is the official text." : ""}</>}{" "}
-    <button type="button" onClick={() => setOriginal((v) => !v)} className="font-semibold text-brand-darker underline-offset-2 hover:underline">{original ? `Show ${SITE_LANGS.find((l) => l.code === lang)?.label}` : "Show original"}</button>
+    <button type="button" onClick={() => { if(document.documentElement.dataset.urlLanguage) window.location.assign(languagePath(window.location.pathname+window.location.search,"en")); else setOriginal((v)=>!v); }} className="font-semibold text-brand-darker underline-offset-2 hover:underline">{original ? `Show ${SITE_LANGS.find((l) => l.code === lang)?.label}` : "Show original"}</button>
   </div>;
 }

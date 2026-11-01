@@ -1,4 +1,6 @@
 import type { MetadataRoute } from "next";
+import { languageAlternates, languagePath } from './language-urls';
+import { SITE_LANGS } from './site-languages';
 
 // Sitemap entries from already-loaded data. Kept free of database imports so it is unit tested
 // (tests/sitemap.test.mjs). `lastModified` is only given when the date is real: Google ignores
@@ -15,6 +17,8 @@ const day = (iso: string | undefined) => {
 const latest = (dates: (Date | undefined)[]) => dates.reduce<Date | undefined>((a, b) => (b && (!a || b > a) ? b : a), undefined);
 
 export function sitemapEntries(input: {
+  transferSlugs?: string[];
+  languageUrls?: boolean;
   siteUrl: string;
   pageSlugs: string[];
   destinationSlugs: string[];
@@ -31,7 +35,8 @@ export function sitemapEntries(input: {
     const slug = categorySlug(c);
     categories.set(slug, latest([categories.get(slug), postDate(post)]));
   }
-  return [
+  const entries: Entry[] = [
+    ...(input.transferSlugs?.length ? [page('/transfers','weekly',.8), ...input.transferSlugs.map(slug=>page(`/transfers/${slug}`,'weekly',.8))] : []),
     page("", "weekly", 1),
     page("/help", "monthly", .7),
     page("/destinations", "monthly", .9),
@@ -50,4 +55,10 @@ export function sitemapEntries(input: {
     page("/privacy", "yearly", .3),
     page("/data-deletion", "yearly", .2),
   ];
+  if (!input.languageUrls) return entries;
+  return entries.flatMap(entry=>{
+    const path=new URL(entry.url).pathname;
+    const alternates={languages:languageAlternates(path,siteUrl)};
+    return SITE_LANGS.map(lang=>({...entry,url:siteUrl+languagePath(path,lang.code),alternates}));
+  });
 }
