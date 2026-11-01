@@ -4,14 +4,15 @@ import { createServer } from 'vite';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 
-test('vehicle details badge uses capacity recommendation rather than cheapest price',async()=>{
- const source=await readFile(new URL('../components/booking-results-map.tsx',import.meta.url),'utf8');
- assert.match(source,/info\.bestForYou && <span/);
-});
+// Load the module before declaring any test: a test that finishes early would otherwise run after() and close Vite mid-load.
 const root=fileURLToPath(new URL('..',import.meta.url));
 const vite=await createServer({appType:'custom',configFile:false,root,optimizeDeps:{noDiscovery:true},resolve:{alias:{'@':root}},server:{middlewareMode:true}});
 after(()=>vite.close());
 const {recommendVehicles}=await vite.ssrLoadModule('/lib/vehicle-recommendation.ts');
+test('vehicle details badge uses capacity recommendation rather than cheapest price',async()=>{
+ const source=await readFile(new URL('../components/booking-results-map.tsx',import.meta.url),'utf8');
+ assert.match(source,/info\.bestForYou && <span/);
+});
 test('smallest fitting class is best, next fitting class upgrades comfort',()=>{
  assert.deepEqual(recommendVehicles(2,2,'economy_sedan'),{best:'economy_sedan',upgrade:'comfort_bmw'});
  assert.deepEqual(recommendVehicles(4,3,'comfort_suv'),{best:'comfort_suv',upgrade:'premium_minivan'});
