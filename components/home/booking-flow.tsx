@@ -463,6 +463,28 @@ export function BookingFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Public MCP links carry only trip inputs. Validate once; never restore a price or draft.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mcp = parseMcpPrefill(params);
+    if (!mcp) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStage("search");
+    setServiceType(mcp.service);
+    setAdultPassengers(mcp.passengers);
+    setChildPassengers(0);
+    setExtraBagSets(Math.max(0, mcp.bags - mcp.passengers));
+    setDepartureSelected(true);
+    setVehicle(mcp.vehicle);
+    setBooking(current => ({ ...current, pickup: mcp.pickup, dropoff: mcp.dropoff,
+      date: mcp.date, time: mcp.time, passengers: mcp.passengers, luggage: mcp.bags,
+      bookedHours: mcp.hours ?? current.bookedHours }));
+    setFareQuote(null); setReturnFareQuote(null); setQuoteSummary(null); setHourlyQuote(null);
+    setRoutePrefill({ pickupPlaceId: mcp.pickup.startsWith("place_id:") ? mcp.pickup.slice(9) : "",
+      dropoffPlaceId: mcp.dropoff.startsWith("place_id:") ? mcp.dropoff.slice(9) : "", nonce: Date.now() });
+    window.history.replaceState({ waydidiStage: "search" }, "", window.location.pathname + window.location.hash);
+  }, []);
+
   // "Book again" / "Book the return trip" from the customer account arrive as
   // query parameters. Runs after the draft restore so the chosen trip wins.
   useEffect(() => {
@@ -470,26 +492,6 @@ export function BookingFlow({
     // Remember which travel guide sent the visitor, so the booking can be credited to it.
     const ref = params.get("ref");
     if (ref && /^blog:[a-z0-9-]{1,90}$/.test(ref)) { try { sessionStorage.setItem("waydidi_source", ref); } catch { /* storage blocked */ } }
-    // Public MCP links carry only trip inputs. Validate once; never restore a price or draft.
-    if (params.get("rebook") === "mcp") {
-      const mcp = parseMcpPrefill(params);
-      if (!mcp) return;
-      setStage("search");
-      setServiceType(mcp.service);
-      setAdultPassengers(mcp.passengers);
-      setChildPassengers(0);
-      setExtraBagSets(Math.max(0, mcp.bags - mcp.passengers));
-      setDepartureSelected(true);
-      setVehicle(mcp.vehicle);
-      setBooking(current => ({ ...current, pickup: mcp.pickup, dropoff: mcp.dropoff,
-        date: mcp.date, time: mcp.time, passengers: mcp.passengers, luggage: mcp.bags,
-        bookedHours: mcp.hours ?? current.bookedHours }));
-      setFareQuote(null); setReturnFareQuote(null); setQuoteSummary(null); setHourlyQuote(null);
-      setRoutePrefill({ pickupPlaceId: mcp.pickup.startsWith("place_id:") ? mcp.pickup.slice(9) : "",
-        dropoffPlaceId: mcp.dropoff.startsWith("place_id:") ? mcp.dropoff.slice(9) : "", nonce: Date.now() });
-      window.history.replaceState({ waydidiStage: "search" }, "", window.location.pathname + window.location.hash);
-      return;
-    }
     const mode = params.get("rebook");
     if (mode !== "again" && mode !== "return" && mode !== "chat" && mode !== "flight") return;
     const count = (key: string, fallback: number) => {
