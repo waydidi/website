@@ -90,11 +90,34 @@ test("approval refuses pre-existing pending requests for purchased non-standard 
     // Model a request queued by the old version. Use an integer total to prove
     // the existing integer guard alone cannot protect purchased option fares.
     await saveAcceptedPolicy(fixture.reference, new Date().toISOString(), option, cancellationConfig({ CANCELLATION_OPTIONS: '1' }));
-    assert.equal(await applyBookingChange(fixture.body.requestId, new Date().toISOString()), 'invalid');
+    assert.equal(await applyBookingChange(fixture.body.requestId, new Date().toISOString()), 'blocked');
     const booking = await db.prepare('SELECT total,booking_version,pickup FROM bookings WHERE reference=?').bind(fixture.reference).first();
     assert.deepEqual(booking, { total: 1200, booking_version: 1, pickup: 'Old pickup' });
     assert.equal((await db.prepare('SELECT status FROM booking_change_requests WHERE id=?').bind(fixture.body.requestId).first()).status, 'pending');
   }
+});
+
+test("staff approving a pre-deploy request for a purchased option are told to handle it manually, in Thai", async () => {
+  const { saveAcceptedPolicy } = await vite.ssrLoadModule('/lib/accepted-policy.ts');
+  const { cancellationConfig } = await vite.ssrLoadModule('/lib/cancellation-options.ts');
+  const changes = await vite.ssrLoadModule('/lib/telegram/booking-changes.ts');
+  const fixture = await seed();
+  assert.equal((await route.POST(request(fixture))).status, 200);
+  await saveAcceptedPolicy(fixture.reference, new Date().toISOString(), 'flexible', cancellationConfig({ CANCELLATION_OPTIONS: '1' }));
+  const id = fixture.body.requestId;
+  await db.prepare("INSERT INTO telegram_request_cards(id,booking_reference,kind,telegram_message_id,created_at) VALUES(?,?,'change',77,?)").bind(`chg:${id}`, fixture.reference, new Date().toISOString()).run();
+  const sent = [], realFetch = globalThis.fetch;
+  Object.assign(globalThis.__customerChangeEnv, { TELEGRAM_BOT_TOKEN: 'test-only', TELEGRAM_CHAT_ID: '-1' });
+  globalThis.fetch = async (url, init) => { sent.push(JSON.parse(init.body)); return Response.json({ ok: true, result: { message_id: 77 } }); };
+  let reply;
+  try { reply = await changes.approveChange(id, 'Audit'); } finally { globalThis.fetch = realFetch; delete globalThis.__customerChangeEnv.TELEGRAM_BOT_TOKEN; delete globalThis.__customerChangeEnv.TELEGRAM_CHAT_ID; }
+  for (const text of [reply, sent.at(-1)?.text ?? '']) {
+    assert.match(text, /ติดต่อลูกค้า/);
+    assert.match(text, /แอดมิน/);
+    assert.doesNotMatch(text, /send it again|incomplete|ส่งคำขอใหม่/i);
+  }
+  assert.deepEqual(await db.prepare('SELECT total,booking_version,pickup FROM bookings WHERE reference=?').bind(fixture.reference).first(), { total: 1200, booking_version: 1, pickup: 'Old pickup' });
+  assert.equal((await db.prepare('SELECT status FROM booking_change_requests WHERE id=?').bind(id).first()).status, 'expired');
 });
 
 test("submission rejects an accepted total that differs from the server preview", async () => {

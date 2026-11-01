@@ -61,7 +61,8 @@ export async function applyBookingChange(id: string, at: string) {
   await ensureBookingChangeHistory(db);
   const c = await db.prepare("SELECT * FROM booking_change_requests WHERE id=?").bind(id).first<Change>();
   if (!c || c.status !== "pending") return "handled";
-  if (!await onlineBookingChangeAllowed(c.booking_reference)) return "invalid";
+  // Purchased option or stops: the site refuses new requests, so staff must handle it.
+  if (!await onlineBookingChangeAllowed(c.booking_reference)) return "blocked";
   const b = await db.prepare("SELECT return_date,return_time FROM bookings WHERE reference=?").bind(c.booking_reference).first<{ return_date: string | null; return_time: string | null }>();
   const out = await db.prepare("SELECT * FROM fare_quotes WHERE id=?").bind(c.fare_quote_id).first<Quote>();
   const back = c.return_fare_quote_id ? await db.prepare("SELECT * FROM fare_quotes WHERE id=?").bind(c.return_fare_quote_id).first<Quote>() : null;
