@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import type { SecurityDatabase } from "./worker-db";
+import type { SecurityDatabase, SecurityStatement } from "./worker-db";
 import type { RouteStopOffer, RouteStopSnapshot } from "./route-stops";
 
 export type { RouteStopOffer, RouteStopSnapshot } from "./route-stops";
@@ -150,13 +150,18 @@ export function ensureBookingRouteStops(): Promise<void> {
 }
 
 /** Snapshots and booking are inserted in one D1 transaction, including retries. */
-export async function insertBookingWithRouteStops(query: { sql: string; params: unknown[] }, reference: string, stops: RouteStopSnapshot[]): Promise<void> {
+/**
+ * Saves the booking, its route stops and every row that belongs with it (promo use, commissions, sources) in one D1
+ * batch: if any statement fails, none of them is written, so there is never a booking without its records.
+ */
+export async function insertBookingWithRouteStops(query: { sql: string; params: unknown[] }, reference: string, stops: RouteStopSnapshot[], related: SecurityStatement[] = []): Promise<void> {
   const { parseRouteStopSnapshots } = await import("./route-stops");
   const json = JSON.stringify(parseRouteStopSnapshots(JSON.stringify(stops)));
   await ensureBookingRouteStops();
   await (env.DB as SecurityDatabase).batch([
     (env.DB as SecurityDatabase).prepare(query.sql).bind(...query.params),
     (env.DB as SecurityDatabase).prepare("INSERT INTO booking_route_stops(booking_reference,route_stops_json) VALUES(?,?)").bind(reference, json),
+    ...related,
   ]);
 }
 
