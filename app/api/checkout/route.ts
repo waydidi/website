@@ -11,13 +11,14 @@ import { toSatang } from "@/lib/money";
 import { payPageUrl } from "@/lib/stripe";
 import { NextResponse } from "next/server";
 import { storeCommission, storeDiscount, storefrontBySlug } from "@/lib/storefront";
-import { recordReferral } from "@/lib/referrals";
-import { affiliateByCode, affiliateBySlug, affiliateDiscount, isSelfReferral, linkBooking, refFromRequest, type Affiliate } from "@/lib/affiliates";
+import { referralUseStatement } from "@/lib/referrals";
+import { affiliateByCode, affiliateBySlug, affiliateDiscount, affiliateLinkStatement, isSelfReferral, refFromRequest, type Affiliate } from "@/lib/affiliates";
 import { customerFromRequest } from "@/lib/customer-auth";
-import { bookingContacts, bookingFreeAddons, bookingMemberDiscounts, bookingSources, bookingStorefronts, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks, promoRedemptions } from "@/db/schema";
+import { bookingContacts, bookingFreeAddons, bookingMemberDiscounts, bookingSources, bookingStorefronts, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks } from "@/db/schema";
 import { and as andWhere, eq as eqWhere } from "drizzle-orm";
 import { normalizeCode } from "@/lib/promo";
-import { checkPromo, normalizePhone } from "@/lib/promo-db";
+import { checkPromo, normalizePhone, PROMO_LIMIT_ERROR, promoRedemptionStatement } from "@/lib/promo-db";
+import type { SecurityDatabase, SecurityStatement } from "@/lib/worker-db";
 import { claimGift, freeAddonsWithGifts, listMemberGifts, releaseGifts } from "@/lib/gifts";
 import { isAirportPickup } from "@/lib/waiting-policy";
 import { memberTierStatus, tierDiscount, tierFreeAddons, TIERS, type Tier } from "@/lib/member-tier";
@@ -549,23 +550,49 @@ export async function POST(request: Request) {
         extraHourRate: hourlyData?.extraHourRate,
         extraDistanceRate: hourlyData?.extraDistanceRate,
       }).toSQL();
-    await insertBookingWithRouteStops(bookingInsert, reference, routeStops);
+    // Everything the booking's price and commissions depend on is saved with it, in one batch: the promo use
+    // (re-checked against the code's limits inside the write), the store's or partner's commission, the friend
+    // invite and where the booking came from. If any of them fails, the booking is not saved either.
+    const statement = (query: { toSQL(): { sql: string; params: unknown[] } }) => { const q = query.toSQL(); return (env.DB as SecurityDatabase).prepare(q.sql).bind(...q.params); };
+    const related = [];
+    // Order matters: promo_redemptions and booking_sources keep one row per booking, the first one written.
+    if (promoApplied) related.push(promoRedemptionStatement({
+      promoId: promoApplied.promoId, code: promoApplied.code, bookingReference: reference,
+      customerEmail: input.customerEmail.trim().toLowerCase(), customerPhone: normalizePhone(input.customerPhone), customerId: account?.customer.id ?? null,
+      originalTotal: promoApplied.originalTotal, discount: promoApplied.discount, finalTotal: total, createdAt: now,
+    }));
+    if (input.source) related.push(statement(getDb().insert(bookingSources).values({ bookingReference: reference, source: input.source, createdAt: now }).onConflictDoNothing()));
+    if (storefront && storeApplied) {
+      related.push(statement(getDb().insert(bookingStorefronts).values({
+        bookingReference: reference, storefrontId: storefront.id,
+        fareBeforeDiscount: storeApplied.fare, discountPercent: storeApplied.percent, discount: storeApplied.discount,
+        commissionPercent: storefront.commissionPercent, commission: storeCommission(storeApplied.fare - storeApplied.discount, storefront.commissionPercent),
+        cashAtStore: input.paymentMethod === "cash", createdAt: now,
+      }).onConflictDoNothing()));
+      if (storeApplied.discount > 0) related.push(promoRedemptionStatement({
+        promoId: "storefront", code: `${storefront.name} special price`, bookingReference: reference, customerEmail: input.customerEmail, customerPhone: input.customerPhone,
+        originalTotal: storeApplied.fare, discount: storeApplied.discount, finalTotal: storeApplied.fare - storeApplied.discount, createdAt: now,
+      }));
+    }
+    // Friend invite: remembered so the member gets their thank-you coupon once this ride is completed.
+    if (promoApplied?.promoId.startsWith("referral:")) related.push(await referralUseStatement(reference, promoApplied.promoId.slice(9), input.customerEmail, input.customerPhone));
+    if (affiliate) {
+      // Commission on what the customer finally pays.
+      related.push(await affiliateLinkStatement({ reference, affiliate, via: affiliateVia, fare: total + affiliateDiscountThb, discount: affiliateDiscountThb }));
+      related.push(statement(getDb().insert(bookingSources).values({ bookingReference: reference, source: `aff:${affiliate.slug}`, createdAt: now }).onConflictDoNothing()));
+      if (affiliateDiscountThb > 0) related.push(promoRedemptionStatement({
+        promoId: "affiliate", code: affiliate.code, bookingReference: reference, customerEmail: input.customerEmail, customerPhone: input.customerPhone,
+        originalTotal: total + affiliateDiscountThb, discount: affiliateDiscountThb, finalTotal: total, createdAt: now,
+      }));
+    }
+    try { await insertBookingWithRouteStops(bookingInsert, reference, routeStops, related as SecurityStatement[]); }
+    catch (error) {
+      if (!PROMO_LIMIT_ERROR.test(String((error as Error)?.message))) throw error;
+      // Another checkout took the code's last use (overall or for this customer) since it was checked: nothing was saved.
+      await releaseGifts(reference);
+      return NextResponse.json({ code: "PROMO_INVALID", error: "This promo code has just been fully used. Please check your price and try again.", field: "promoCode", retryable: true }, { status: 409 });
+    }
     await saveAcceptedPolicy(reference,now,cancellationOption,cancellationSettings);
-    // Bookings made while signed in are linked to the customer's account,
-    // even when booked for someone else's email.
-    if (promoApplied) await getDb().insert(promoRedemptions).values({
-      id: crypto.randomUUID(),
-      promoId: promoApplied.promoId,
-      code: promoApplied.code,
-      bookingReference: reference,
-      customerEmail: input.customerEmail.trim().toLowerCase(),
-      customerPhone: normalizePhone(input.customerPhone),
-      customerId: account?.customer.id ?? null,
-      originalTotal: promoApplied.originalTotal,
-      discount: promoApplied.discount,
-      finalTotal: total,
-      createdAt: now,
-    }).onConflictDoNothing();
     // Copies of the booking emails: an address the customer typed, and the signed-in
     // booker when the ride is for someone else.
     const leadEmail = input.customerEmail.trim().toLowerCase();
@@ -591,30 +618,8 @@ export async function POST(request: Request) {
     }
     if (freeAddons.childSeats > 0 || freeAddons.exchangeStop) await getDb().insert(bookingFreeAddons).values({ bookingReference: reference, tier: `${memberTier?.id ?? "bronze"}${freeAddons.usedGifts.length ? "+gift" : ""}`, childSeats: freeAddons.childSeats, exchangeStop: freeAddons.exchangeStop, createdAt: now }).onConflictDoNothing();
     if (memberApplied && account) await getDb().insert(bookingMemberDiscounts).values({ bookingReference: reference, customerId: account.customer.id, ...memberApplied, createdAt: now }).onConflictDoNothing();
-    if (input.source) await getDb().insert(bookingSources).values({ bookingReference: reference, source: input.source, createdAt: now }).onConflictDoNothing().catch(() => undefined);
-    if (storefront && storeApplied) await getDb().insert(bookingStorefronts).values({
-      bookingReference: reference, storefrontId: storefront.id,
-      fareBeforeDiscount: storeApplied.fare, discountPercent: storeApplied.percent, discount: storeApplied.discount,
-      commissionPercent: storefront.commissionPercent, commission: storeCommission(storeApplied.fare - storeApplied.discount, storefront.commissionPercent),
-      cashAtStore: input.paymentMethod === "cash", createdAt: now,
-    }).onConflictDoNothing().catch((error) => console.error("storefront link failed", error));
-    if (storefront && storeApplied && storeApplied.discount > 0) await getDb().insert(promoRedemptions).values({
-      id: crypto.randomUUID(), promoId: "storefront", code: `${storefront.name} special price`, bookingReference: reference,
-      customerEmail: input.customerEmail, customerPhone: input.customerPhone,
-      originalTotal: storeApplied.fare, discount: storeApplied.discount, finalTotal: storeApplied.fare - storeApplied.discount, createdAt: now,
-    }).onConflictDoNothing().catch(() => undefined);
-    // Friend invite: remembered so the member gets their thank-you coupon once this ride is completed.
-    if (promoApplied?.promoId.startsWith("referral:")) await recordReferral(reference, promoApplied.promoId.slice(9), input.customerEmail, input.customerPhone).catch((error) => console.error("referral record failed", error));
-    if (affiliate) {
-      // Commission on what the customer finally pays.
-      await linkBooking({ reference, affiliate, via: affiliateVia, fare: total + affiliateDiscountThb, discount: affiliateDiscountThb }).catch((error) => console.error("affiliate link failed", error));
-      await getDb().insert(bookingSources).values({ bookingReference: reference, source: `aff:${affiliate.slug}`, createdAt: now }).onConflictDoNothing().catch(() => undefined);
-      if (affiliateDiscountThb > 0) await getDb().insert(promoRedemptions).values({
-        id: crypto.randomUUID(), promoId: "affiliate", code: affiliate.code, bookingReference: reference,
-        customerEmail: input.customerEmail, customerPhone: input.customerPhone,
-        originalTotal: total + affiliateDiscountThb, discount: affiliateDiscountThb, finalTotal: total, createdAt: now,
-      }).onConflictDoNothing().catch(() => undefined);
-    }
+    // Bookings made while signed in are linked to the customer's account,
+    // even when booked for someone else's email.
     if (account) await getDb().insert(customerBookingLinks).values({ bookingReference: reference, customerId: account.customer.id, createdAt: now }).onConflictDoNothing();
     await getDb().insert(bookingPayments).values({
       id: `primary:${reference}`,

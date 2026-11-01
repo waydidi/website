@@ -89,13 +89,18 @@ export const isSelfReferral = (a: Affiliate, email?: string | null, phone?: stri
   return Boolean((a.email && email && a.email.trim().toLowerCase() === email.trim().toLowerCase()) || (a.phone && phone && digits(a.phone).length >= 8 && digits(a.phone) === digits(phone)));
 };
 
-export async function linkBooking(input: { reference: string; affiliate: Affiliate; via: "link" | "code"; fare: number; discount: number }) {
+/** The partner's commission row for a booking, ready to save in the same batch as the booking itself. */
+export async function affiliateLinkStatement(input: { reference: string; affiliate: Affiliate; via: "link" | "code"; fare: number; discount: number }) {
   await ensureAffiliateTables();
   // The rate when the booking is made (own rate + tier bonus) stays with the booking.
   const rate = effectiveRate(input.affiliate, await completedRides(input.affiliate.id).catch(() => 0));
   const commission = affiliateCommission(input.fare - input.discount, rate);
-  await db().prepare("INSERT INTO booking_affiliates(booking_reference,affiliate_id,via,fare_before_discount,discount,commission_percent,commission,created_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(booking_reference) DO NOTHING")
-    .bind(input.reference, input.affiliate.id, input.via, input.fare, input.discount, rate, commission, new Date().toISOString()).run();
+  return db().prepare("INSERT INTO booking_affiliates(booking_reference,affiliate_id,via,fare_before_discount,discount,commission_percent,commission,created_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(booking_reference) DO NOTHING")
+    .bind(input.reference, input.affiliate.id, input.via, input.fare, input.discount, rate, commission, new Date().toISOString());
+}
+
+export async function linkBooking(input: Parameters<typeof affiliateLinkStatement>[0]) {
+  await (await affiliateLinkStatement(input)).run();
 }
 
 export type AffiliateSummary = Affiliate & { clicks30: number; bookings: number; sales: number; pending: number; earned: number; paid: number; completed: number; tier: string; rate: number };

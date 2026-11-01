@@ -62,10 +62,15 @@ export async function checkReferral(input: { code: string; total: number; email?
   return { ok: true as const, discount, finalTotal: input.total - discount, referrerId: owner.customer_id, promo: { id: `referral:${owner.customer_id}`, code: input.code, title: `Friend invite · ฿${FRIEND_DISCOUNT} off your first ride` } };
 }
 
-export async function recordReferral(reference: string, referrerId: string, email?: string, phone?: string) {
+/** The friend-invite row for a booking, ready to save in the same batch as the booking itself. */
+export async function referralUseStatement(reference: string, referrerId: string, email?: string, phone?: string) {
   await ensureReferralTables();
-  await db().prepare("INSERT INTO referral_uses(booking_reference,referrer_id,friend_email,friend_phone,created_at) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING")
-    .bind(reference, referrerId, (email ?? "").toLowerCase() || null, phone || null, new Date().toISOString()).run();
+  return db().prepare("INSERT INTO referral_uses(booking_reference,referrer_id,friend_email,friend_phone,created_at) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING")
+    .bind(reference, referrerId, (email ?? "").toLowerCase() || null, phone || null, new Date().toISOString());
+}
+
+export async function recordReferral(reference: string, referrerId: string, email?: string, phone?: string) {
+  await (await referralUseStatement(reference, referrerId, email, phone)).run();
 }
 
 const randomCode = () => `THANKS${Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 32]).join("")}`;

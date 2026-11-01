@@ -1,4 +1,6 @@
+import { env } from "cloudflare:workers";
 import { checkReferral } from "@/lib/referrals";
+import type { SecurityDatabase } from "@/lib/worker-db";
 import { and, count, eq, inArray, notInArray, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookings, memberCoupons, promoCodes, promoRedemptions } from "@/db/schema";
@@ -30,6 +32,34 @@ async function liveUses(promoId: string, who?: { email: string; phone: string; c
     .innerJoin(bookings, eq(bookings.reference, promoRedemptions.bookingReference))
     .where(and(eq(promoRedemptions.promoId, promoId), notInArray(bookings.status, RELEASED_STATUSES), customer));
   return row?.uses ?? 0;
+}
+
+/** The D1 error a guarded promo use raises when the code ran out of uses between the check and the save. */
+export const PROMO_LIMIT_ERROR = /NOT NULL constraint failed: promo_redemptions\.promo_id/;
+
+/** Discounts that are not rows in promo_codes and have no shared use limit (gifts are claimed separately). */
+const BUILT_IN_PROMO = /^(loyalty|storefront|affiliate)$|^(gift|referral):/;
+
+/**
+ * A booking's promo use, saved in the same batch as the booking. For codes from promo_codes, the row is only written
+ * while the code still has uses left overall and for this customer, counted like liveUses. Otherwise promo_id is
+ * NULL, the insert fails (PROMO_LIMIT_ERROR) and the whole booking rolls back, so two checkouts at once cannot both
+ * take the last use. Built-in discounts (loyalty, gifts, friend invites, store and partner prices) are saved as they are.
+ */
+export function promoRedemptionStatement(r: { promoId: string; code: string; bookingReference: string; customerEmail: string; customerPhone: string; customerId?: string | null;
+  originalTotal: number; discount: number; finalTotal: number; createdAt: string }) {
+  const db = env.DB as SecurityDatabase, limited = !BUILT_IN_PROMO.test(r.promoId);
+  const released = RELEASED_STATUSES.map(() => "?").join(",");
+  const live = `SELECT COUNT(*) FROM promo_redemptions r JOIN bookings b ON b.reference = r.booking_reference WHERE r.promo_id = p.id AND b.status NOT IN (${released})`;
+  const guard = limited
+    ? `EXISTS (SELECT 1 FROM promo_codes p WHERE p.id = ? AND (p.max_uses IS NULL OR (${live}) < p.max_uses)
+        AND (${live} AND (r.customer_email = ? OR r.customer_phone = ? OR r.customer_id = ?)) < MAX(1, p.per_customer_limit))`
+    : "1";
+  const guardParams = limited ? [r.promoId, ...RELEASED_STATUSES, ...RELEASED_STATUSES, r.customerEmail || "-", r.customerPhone || "-", r.customerId ?? null] : [];
+  // No OR IGNORE: that would also swallow the NOT NULL failure the guard relies on. ON CONFLICT covers only the unique booking_reference.
+  return db.prepare(`INSERT INTO promo_redemptions (id, promo_id, code, booking_reference, customer_email, customer_phone, customer_id, original_total, discount, final_total, created_at)
+    VALUES (?, CASE WHEN ${guard} THEN ? END, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(booking_reference) DO NOTHING`)
+    .bind(crypto.randomUUID(), ...guardParams, r.promoId, r.code, r.bookingReference, r.customerEmail, r.customerPhone, r.customerId ?? null, r.originalTotal, r.discount, r.finalTotal, r.createdAt);
 }
 
 async function priorBooking(email: string, phone: string) {
