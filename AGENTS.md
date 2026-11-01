@@ -47,3 +47,12 @@ Prefer behaviour tests through real modules and an in-memory D1 (Miniflare, see 
 ## Commits and pull requests
 
 Commit subjects are short plain-English sentences describing the user-visible change (e.g. "Bookings on phone: cards sorted by nearest date first"). Pull request bodies say what changed for customers and staff, what was tested, and which Worker variables the owner must set. Release runbooks for larger features go in `docs/<feature>-release.md`.
+
+## Review guidelines
+
+Every pull request is reviewed by two AIs against the same list, `docs/review-checklist.md`: Codex (GitHub code review) and Claude Code (`/code-review`, `/security-review`). Read it before reviewing.
+
+- Report P0 (money, customer data, access or outage) and P1 (wrong results or races real users will hit) findings. Each one gives file:line, a concrete failure scenario and the fix. Skip style nits.
+- Pay most attention to: money writes that are not one guarded D1 batch; limits checked before a separate write (promo codes, gifts, coupons); errors on money or commission writes that are swallowed; routes without a server-side session, ownership or role check; webhooks without signature checks; personal data in logs, URLs or public endpoints; server-side fetches of stored URLs; features that move money or message customers without an off-by-default Worker variable.
+- When the other reviewer has already commented, say whether you agree with each of their findings.
+- Never merge, and never push to a pull request you did not open. The owner approves every merge to `main`.
