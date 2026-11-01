@@ -52,11 +52,12 @@ export async function localizePublicHtml(response: Response, page: {lang: SiteLa
         if (!translations && el.tagName === 'meta' && ['robots','googlebot'].includes((el.getAttribute('name') ?? '').toLowerCase()) && noindexRule(el.getAttribute('content'))) noindex = true;
         if (!translations && el.tagName === 'link' && el.getAttribute('rel') === 'canonical' && pageCanonical === null) pageCanonical = el.getAttribute('href');
         if (el.tagName === 'meta' && ['description','og:title','og:description'].includes(el.getAttribute('name') ?? el.getAttribute('property') ?? '')) {
-          const value=el.getAttribute('content');const t=value && core(value);if(t) texts.add(t);
+          const value=el.getAttribute('content');const t=value && core(decodeText(value));if(t) texts.add(t);
         }
         if (!skipped && !skip) for (const attr of attrs) {
-          const value = el.getAttribute(attr); const t=value && core(value);
-          if (t) { texts.add(t); if (translations?.has(t)) el.setAttribute(attr,value!.replace(t,()=>translations.get(t)!)); }
+          // Attribute values carry entities like text nodes: look up decoded, write back encoded once.
+          const raw = el.getAttribute(attr), value = raw && decodeText(raw), t = value && core(value);
+          if (t) { texts.add(t); if (translations?.has(t)) el.setAttribute(attr,escape(value!.replace(t,()=>translations.get(t)!))); }
         }
       },
     }).onDocument({text(chunk) {
@@ -96,7 +97,7 @@ export async function localizePublicHtml(response: Response, page: {lang: SiteLa
     .on('html',{element(el){el.setAttribute('lang',SITE_LANGS.find(l=>l.code===page.lang)!.htmlLang);el.setAttribute('data-url-language',page.lang);}})
     .on('link[rel="canonical"],link[hreflang]',{element(el){el.remove();}})
     .on('meta[property="og:url"]',{element(el){if(!noindex && canonical) el.setAttribute('content',canonical);}})
-    .on('meta[name="description"],meta[property="og:title"],meta[property="og:description"]',{element(el){const v=el.getAttribute('content');if(v && translations.has(v)) el.setAttribute('content',translations.get(v)!);}})
+    .on('meta[name="description"],meta[property="og:title"],meta[property="og:description"]',{element(el){const raw=el.getAttribute('content'),v=raw && decodeText(raw),t=v && core(v);if(t && translations.has(t)) el.setAttribute('content',escape(v!.replace(t,()=>translations.get(t)!)));}})
     .on('a[href]',{element(el){const href=el.getAttribute('href')!;if(href.startsWith('/')&&!href.startsWith('//'))el.setAttribute('href',languagePath(href,page.lang));}})
     .on('head',{element(el){el.append(tags+`<script type="application/json" id="wd-url-translations">${seed}</script>`,{html:true});}});
   const headers=new Headers(response.headers);headers.delete('content-length');headers.delete('etag');headers.set('Content-Language',page.lang);
