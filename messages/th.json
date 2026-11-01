@@ -1402,5 +1402,21 @@
   "payment.change.older": {
     "text": "รายการเก่ากว่า",
     "status": "machine"
+  },
+  "devNotice.title": {
+    "text": "เว็บไซต์กำลังอยู่ระหว่างการพัฒนา",
+    "status": "machine"
+  },
+  "devNotice.body": {
+    "text": "ขณะนี้ยังไม่สามารถจองผ่านเว็บไซต์ได้ หากต้องการจองบริการของเรา กรุณาติดต่อเราทาง WhatsApp:",
+    "status": "machine"
+  },
+  "devNotice.contact": {
+    "text": "ติดต่อเราทาง WhatsApp",
+    "status": "machine"
+  },
+  "devNotice.close": {
+    "text": "ปิด",
+    "status": "machine"
   }
 }
