@@ -47,7 +47,7 @@ async function driver(id,name){
 const alice={id:1001,first_name:'Somchai'}, bob={id:1002,first_name:'Anan'}, stranger={id:1003,first_name:'X'};
 members.set(1001,'member');members.set(1002,'member');
 
-test('the taken post only says whether the job is paid or cash, never an amount or a payment label',()=>{
+test('the taken post marks only a cash job, never an amount or a payment label',()=>{
  const job={reference:'PC0001',vehicleName:'SUV',serviceType:'transfer',bookedHours:null,pickupDate:'2099-01-15',pickupTime:'09:30',pickup:'A',dropoff:'B',passengers:2,luggage:1,returnDate:null,returnTime:null,driverCost:800,paymentMethod:'card',paymentStatus:'paid',cashDue:0};
  const taken={kind:'taken',driverName:'Somchai'};
  const paid=rules.offerText(job,taken), cash=rules.offerText({...job,paymentMethod:'cash',paymentStatus:'pending',cashDue:2500},taken);
