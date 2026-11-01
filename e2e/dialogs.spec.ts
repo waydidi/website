@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { WHATSAPP_URL } from "../lib/contact";
+import { closeDevNotice, devNotice } from "./dev-notice";
 
 // Popups are Radix dialogs: focus moves inside, Esc closes, focus returns to the opener.
 test("maintenance sign-in popup works with the keyboard", async ({ page }) => {
@@ -18,10 +20,29 @@ test("maintenance sign-in popup works with the keyboard", async ({ page }) => {
   await expect(dialog).toBeHidden();
 });
 
+test("homepage under-development popup: WhatsApp link, focus kept inside, Esc closes", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const dialog = devNotice(page);
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("You cannot book through the website right now.");
+  await expect(dialog.getByRole("link", { name: "Contact us on WhatsApp" })).toHaveAttribute("href", WHATSAPP_URL);
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press("Tab");
+    expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await page.goto("/flights");
+  await page.waitForLoadState("networkidle");
+  await expect(devNotice(page)).toHaveCount(0);
+});
+
 test("header Transfer menu opens with the keyboard and lists its links", async ({ page, isMobile }) => {
   test.skip(isMobile, "the phone header uses the side menu instead");
   await page.goto("/");
   await page.waitForLoadState("networkidle");
+  await closeDevNotice(page);
   const trigger = page.getByRole("navigation").getByRole("button", { name: "Transfer" });
   await trigger.focus();
   await page.keyboard.press("Enter");
@@ -36,6 +57,7 @@ test("header Transfer menu opens with the keyboard and lists its links", async (
 test("chat window opens, closes with Esc and returns focus to the chat button", async ({ page }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
+  await closeDevNotice(page);
   const launcher = page.getByRole("button", { name: "Ask Waydidi" });
   await launcher.click();
   const chat = page.getByRole("dialog", { name: "Ask Waydidi" });

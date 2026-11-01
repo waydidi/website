@@ -349,5 +349,9 @@
   "payment.change.noMoney": "A price difference or approval does not confirm a payment or refund. Waydidi will explain any separate payment arrangements.",
   "payment.change.refresh": "Refresh history",
   "payment.change.newer": "Newer changes",
-  "payment.change.older": "Older changes"
+  "payment.change.older": "Older changes",
+  "devNotice.title": "We're under development",
+  "devNotice.body": "You cannot book through the website right now. If you want to book our service, please contact us on WhatsApp:",
+  "devNotice.contact": "Contact us on WhatsApp",
+  "devNotice.close": "Close"
 }
