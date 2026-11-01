@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { getDb } from "@/db";
-import { bookings, journeyLocations, smartTrips, smartTripVersions } from "@/db/schema";
-import { tripSnapshot, type TripRow, type TripSnapshot } from "@/lib/smart-trips";
+import { bookings, journeyLocations, smartTrips } from "@/db/schema";
+import { publishTripVersions, tripSnapshot, type TripRow, type TripSnapshot } from "@/lib/smart-trips";
 import { activeAssignment } from "@/lib/trip-access";
 import { liveStatus } from "@/lib/trip-live";
 
@@ -40,9 +40,8 @@ export async function adjustLive(trip: TripRow, change: { kind: "skip" | "shorte
     next.stops = snap.stops.map((s) => (s.id === stop.id ? { ...s, end: s.end - minutes } : s));
     note = `On the day: ${stop.name} shortened by ${minutes} min`;
   }
-  const now = new Date().toISOString();
-  await getDb().insert(smartTripVersions).values({ id: crypto.randomUUID(), tripId: trip.id, version: next.version, snapshotJson: JSON.stringify(next), note, createdBy: by, createdAt: now });
-  await getDb().update(smartTrips).set({ snapshotJson: JSON.stringify(next), version: next.version, updatedAt: now }).where(eq(smartTrips.id, trip.id));
+  // Changes on the day apply to paid trips too; the version guard still stops two staff changes overwriting each other.
+  await publishTripVersions([{ trip, snapshot: next, note }], by);
   return note;
 }
 

@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { logoPng } from "@/lib/pdf-addon-images";
+import { PDF_IMAGE_MAX_BYTES, PDF_IMAGE_MAX_PER_FILE, PDF_IMAGE_MAX_REDIRECTS, imageHeader, imageWithinLimits, pdfImageUrl, readCapped } from "@/lib/pdf-image-policy";
 import type { TripSnapshot } from "@/lib/smart-trips";
 
 const orange = rgb(254 / 255, 139 / 255, 5 / 255);
@@ -29,15 +30,28 @@ function wrap(text: string, font: PDFFont, size: number, width: number) {
   return lines;
 }
 
-/** Fetches a JPEG or PNG for the gallery pages; other formats are skipped. */
+/**
+ * Fetches a JPEG or PNG for a place page under the photo policy (approved hosts, each redirect checked, bytes and pixels
+ * capped). Anything else, or any failure, leaves the page without a photo.
+ */
 async function image(pdf: PDFDocument, url: string | null, origin: string): Promise<PDFImage | null> {
-  if (!url) return null;
+  let target = pdfImageUrl(url, origin);
   try {
-    const res = await fetch(new URL(url, origin), { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return null;
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    if (bytes[0] === 0xff && bytes[1] === 0xd8) return await pdf.embedJpg(bytes);
-    if (bytes[0] === 0x89 && bytes[1] === 0x50) return await pdf.embedPng(bytes);
+    const signal = AbortSignal.timeout(5000);
+    for (let hop = 0; target && hop <= PDF_IMAGE_MAX_REDIRECTS; hop++) {
+      const res = await fetch(target, { redirect: "manual", signal });
+      if (res.status >= 300 && res.status < 400) {
+        const next = res.headers.get("location");
+        await res.body?.cancel().catch(() => undefined);
+        target = next ? pdfImageUrl(new URL(next, target).href, origin) : null;
+        continue;
+      }
+      if (!res.ok || Number(res.headers.get("content-length") ?? 0) > PDF_IMAGE_MAX_BYTES) { await res.body?.cancel().catch(() => undefined); return null; }
+      const bytes = await readCapped(res.body);
+      const header = bytes && imageHeader(bytes);
+      if (!bytes || !header || !imageWithinLimits(header)) return null;
+      return header.type === "jpg" ? await pdf.embedJpg(bytes) : await pdf.embedPng(bytes);
+    }
     return null;
   } catch { return null; }
 }
@@ -134,7 +148,7 @@ export async function createTripPdf(s: TripSnapshot, origin: string, preparedBy:
     text(String(n).padStart(2, "0"), M, y - 8, 28, bold, orange);
     for (const [i, l] of wrap(st.name.toUpperCase(), bold, 18, W - M * 2 - 60).entries()) text(l, M + 56, y - 4 - i * 22, 18, bold);
     y -= Math.max(52, wrap(st.name.toUpperCase(), bold, 18, W - M * 2 - 60).length * 22 + 20);
-    const img = await image(pdf, st.cover, origin);
+    const img = n <= PDF_IMAGE_MAX_PER_FILE ? await image(pdf, st.cover, origin) : null;
     if (img) { const w = W - M * 2, h = Math.min(300, (img.height / img.width) * w); page.drawImage(img, { x: M, y: y - h, width: w, height: h }); y -= h + 18; }
     for (const l of wrap(`${st.program ? `${st.program} · ` : ""}${hhmm(st.start)}-${hhmm(st.end)}`, bold, 11, W - M * 2)) { need(16); text(l, M, y, 11, bold, orange); y -= 16; }
     y -= 4;

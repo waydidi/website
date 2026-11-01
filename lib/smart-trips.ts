@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
@@ -210,8 +211,44 @@ function snapshotStops(plan: Plan, views: Record<string, AttractionView>): Snaps
   });
 }
 
-/** Freezes the trip as the customer will see it, and records the version. */
-export async function snapshotTrip(trip: TripRow, by: string, note: string) {
+/** A new customer version for one day, built from the row as it was read (its version and edit time are the guard). */
+export type TripPublish = { trip: TripRow; snapshot: TripSnapshot; note: string; prices?: { total: number; feesTotal: number } };
+
+/**
+ * Writes new customer versions for one or more days in one D1 batch, so a multi-day send never leaves days on different
+ * versions. Each day must still be at the version and edit time it was read at (and, with `markSent`, not paid or
+ * cancelled); otherwise the batch rolls back and CONFLICT is thrown. Two sends, a send racing an edit, a live change or
+ * a payment therefore cannot both win, and a retried request cannot publish the same version twice.
+ */
+export async function publishTripVersions(entries: TripPublish[], by: string, options: { markSent?: boolean; blockPaid?: boolean } = {}) {
+  const { markSent = false, blockPaid = markSent } = options;
+  const db = env.DB, now = Date.now();
+  const statements = entries.flatMap(({ trip, snapshot, note, prices }) => {
+    if (snapshot.version !== trip.version + 1) throw new Error("CONFLICT");
+    // Strictly later than the read, like saveTrip, so an editor holding the old edit time always sees the change.
+    const stamp = new Date(Math.max(now, Date.parse(trip.updatedAt) + 1)).toISOString();
+    const body = JSON.stringify(snapshot);
+    const sets = ["snapshot_json = ?", "version = ?", "updated_at = ?"], values: unknown[] = [body, snapshot.version, stamp];
+    if (prices) { sets.push("total = ?", "fees_total = ?"); values.push(prices.total, prices.feesTotal); }
+    if (markSent) { sets.push("status = 'sent'", "sent_at = ?", "change_request = NULL"); values.push(stamp); }
+    const paid = blockPaid ? " AND status NOT IN ('accepted', 'cancelled')" : "";
+    return [
+      // trip_id is NOT NULL: when the guard finds no matching row the insert fails and the whole batch rolls back.
+      db.prepare(`INSERT INTO smart_trip_versions (id, trip_id, version, snapshot_json, note, created_by, created_at)
+        VALUES (?, (SELECT id FROM smart_trips WHERE id = ? AND version = ? AND updated_at = ?${paid}), ?, ?, ?, ?, ?)`)
+        .bind(crypto.randomUUID(), trip.id, trip.version, trip.updatedAt, snapshot.version, body, note, by, stamp),
+      db.prepare(`UPDATE smart_trips SET ${sets.join(", ")} WHERE id = ? AND version = ?`).bind(...values, trip.id, trip.version),
+    ];
+  });
+  try { await db.batch(statements); }
+  catch (error) {
+    if (/NOT NULL constraint failed: smart_trip_versions\.trip_id|UNIQUE constraint failed: smart_trip_versions/.test(String((error as Error)?.message))) throw new Error("CONFLICT");
+    throw error;
+  }
+}
+
+/** Plans the trip and freezes it as the customer will see it, without saving anything. */
+export async function buildSnapshot(trip: TripRow) {
   const input = inputFromRow(trip);
   const planned = await planFor(input);
   const version = trip.version + 1;
@@ -226,10 +263,14 @@ export async function snapshotTrip(trip: TripRow, by: string, note: string) {
     transportPrice: trip.transportPrice, feesIncluded: planned.fees.included, feesOnSite: planned.fees.onSite, discount: trip.discount,
     total: planned.total, packing: planned.packing,
   };
-  const now = new Date().toISOString();
-  await getDb().insert(smartTripVersions).values({ id: crypto.randomUUID(), tripId: trip.id, version, snapshotJson: JSON.stringify(snap), note, createdBy: by, createdAt: now });
-  await getDb().update(smartTrips).set({ snapshotJson: JSON.stringify(snap), version, total: planned.total, feesTotal: planned.fees.included, updatedAt: now }).where(eq(smartTrips.id, trip.id));
-  return { snapshot: snap, problems: planned.plan.problems };
+  return { snapshot: snap, problems: planned.plan.problems, prices: { total: planned.total, feesTotal: planned.fees.included } };
+}
+
+/** Freezes the trip as the customer will see it, and records the version. */
+export async function snapshotTrip(trip: TripRow, by: string, note: string) {
+  const built = await buildSnapshot(trip);
+  await publishTripVersions([{ trip, snapshot: built.snapshot, note, prices: built.prices }], by, { blockPaid: true });
+  return { snapshot: built.snapshot, problems: built.problems };
 }
 
 export const tripSnapshot = (t: Pick<TripRow, "snapshotJson">) => json<TripSnapshot | null>(t.snapshotJson, null);
@@ -250,14 +291,15 @@ export async function tripByToken(token: string) {
  * Used by Admin → Send and by /trip in Telegram, so both send the same way. Callers check the date and price first.
  */
 export async function sendTripDays(days: TripRow[], by: string, note?: string | null) {
-  const now = new Date().toISOString();
+  // Plan every day first (this calls the travel-time provider), then write all days at once or not at all.
+  const built = [];
+  for (const d of days) built.push({ d, ...(await buildSnapshot(d)) });
+  await publishTripVersions(built.map(({ d, snapshot, prices }) => ({ trip: d, snapshot, prices, note: note?.slice(0, 200) || (d.version ? "Updated itinerary" : "First itinerary") })), by, { markSent: true });
   let total = 0, version = 0;
   const warnings: string[] = [];
-  for (const d of days) {
-    const { snapshot, problems } = await snapshotTrip(d, by, note?.slice(0, 200) || (d.version ? "Updated itinerary" : "First itinerary"));
+  for (const { d, snapshot, problems } of built) {
     total += snapshot.total; version = Math.max(version, snapshot.version);
     warnings.push(...problems.filter((p) => p.level === "error").map((e) => (days.length > 1 ? `Day ${d.dayNumber}: ${e.message}` : e.message)));
-    await getDb().update(smartTrips).set({ status: "sent", sentAt: now, changeRequest: null, updatedAt: now }).where(eq(smartTrips.id, d.id));
   }
   return { total, version, warnings };
 }

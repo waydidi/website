@@ -254,7 +254,14 @@ async function finishTrip(p: Pending, deps: BuilderDeps) {
     for (const [i, d] of days.entries()) await saveTrip({ ...inputFromRow(d), id: d.id, durationHours: charged[i]!, transportPrice: rates[i]! }, { name: p.by, agencyId: d.agencyId });
     days = await current();
   }
-  const { total, warnings } = await sendTripDays(days, p.by, "First itinerary (Telegram)");
+  let sent: Awaited<ReturnType<typeof sendTripDays>>;
+  try { sent = await sendTripDays(days, p.by, "First itinerary (Telegram)"); }
+  catch (error) {
+    if ((error as Error).message !== "CONFLICT") throw error;
+    await reply([`⚠️ ทริป <b>${esc(lead.ref)}</b> ยังไม่ได้ส่ง: มีคนแก้ไขหรือส่งทริปนี้พร้อมกัน`, `ตรวจแล้วกดส่งที่ Admin → Smart trips: ${esc(`${origin}/admin/trips/${lead.id}`)}`].join("\n"));
+    return;
+  }
+  const { total, warnings } = sent;
   const snaps = (await current()).map((d) => tripSnapshot(d)).filter((x): x is NonNullable<typeof x> => Boolean(x));
   const first = snaps[0];
   if (!first) return;
