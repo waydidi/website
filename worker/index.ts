@@ -82,6 +82,14 @@ const worker = {
       if (!allowedStaffRoute(staff.role,accessPath,request.method)) return withSecurityHeaders(Response.json({error:"Your staff role does not permit this action."},{status:403}),url);
     }
 
+    // MCP/discovery never read sessions, bypass maintenance, or use cached public content.
+    if (["/mcp", "/llms.txt", "/.well-known/mcp.json"].includes(accessPath)) {
+      if ((env as Env & { MCP_PUBLIC?: string }).MCP_PUBLIC !== "1") return withSecurityHeaders(new Response(null, { status: 404 }), url);
+      if (await maintenanceOn(env)) return withSecurityHeaders(Response.json({ error: "Waydidi is temporarily unavailable for maintenance." }, { status: 503, headers: { "Access-Control-Allow-Origin": "*", "Retry-After": "3600", "Cache-Control": "no-store" } }), url);
+      // With PUBLIC_LANGUAGE_URLS on, languageDelivery already moved the POST body into delivery.request.
+      return withSecurityHeaders(await handler.fetch(languagesEnabled ? delivery.request : request, env, ctx), url);
+    }
+
     // Maintenance mode (Admin → Settings): visitors see the maintenance page. Staff who are signed in,
     // admin, driver and customer trip/itinerary/payment links, the APIs (webhooks) and files keep working (lib/maintenance-paths.ts).
     if ((request.method === "GET" || request.method === "HEAD") && !openInMaintenance(accessPath) && await maintenanceOn(env)) {

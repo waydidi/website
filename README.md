@@ -44,6 +44,28 @@ Language-prefixed HTML is translated from D1 cache only, before crawlers see it.
 
 Public route HTML caches for five minutes; language is part of the URL cache key and language rollout uses a new cache namespace. Help and private pages remain uncached. After toggling route visibility or editing prices, allow five minutes or purge the affected public-page cache so footer links and estimates refresh. No new migration or secret is required. Parent release verification must run the full build and browser checks, including hydrated navigation and language switching.
 
+## AI assistants (MCP)
+
+The public read-only MCP endpoint and discovery documents are **off by default**. Set Worker variable `MCP_PUBLIC=1` to expose `POST /mcp`, `/llms.txt` and `/.well-known/mcp.json`; absent or any other value returns 404. Keep it off until the owner approves public quoting. D1, a private `RATE_LIMIT_SALT` and `GOOGLE_MAPS_SERVER_KEY` are required for quotes. No new dependencies or migrations are needed.
+
+The stateless Streamable HTTP transport returns JSON (no SSE or session IDs), supports protocol versions `2025-03-26`, `2025-06-18` and `2025-11-25`, and explicitly rejects JSON-RPC batches. `GET /mcp` returns 405 when enabled. CORS allows any origin for POST/OPTIONS without credentials; MCP never reads customer cookies or sessions. Maintenance mode returns 503 for all three endpoints, including POST, without a staff bypass.
+
+Tools: `search_places` reads static Waydidi destinations/airports without Google calls; `get_quote` calls the same in-process transfer/hourly quote handlers as the website; `get_booking_link` builds a normal booking-flow URL. Resources describe vehicles, cancellation, booking and contact. No tool creates a booking/draft, takes payment or sends messages. Do not send names, contact information or payment details. Quote handlers still persist their normal expiring fare/hourly quote records and rate counters; they may perform billable Google Places/Routes calls. Limits are 60 MCP POST requests and 5 quote attempts per IP per 15-minute window, using hashed IPs in the existing security rate-window table; database failures fail closed.
+
+Quotes use Asia/Bangkok dates, at least three hours ahead and on 15-minute slots. Prices are integer satang in `priceMinor`, in THB, filtered by passengers/bags; optional converted displays are indicative only. Quote expiry is informational, not a reservation or price lock. Custom/unsupported hourly itineraries return a tool error and must be reviewed on the website. Links use validated `rebook=mcp` query parameters (pickup, dropoff, date, time, passengers, bags, service, hours, vehicle and currency), prefill search only, and never restore a price or advance checkout automatically. Currency does not change checkout's THB charge.
+
+After enabling, test against the intended Worker origin:
+
+```sh
+curl -i https://waydidi.com/llms.txt
+curl -i https://waydidi.com/.well-known/mcp.json
+curl -i https://waydidi.com/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+curl -i https://waydidi.com/mcp -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+curl -i https://waydidi.com/mcp -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"search_places","arguments":{"query":"Bangkok"}}}'
+```
+
+Focused tests: `node --test --test-concurrency=1 tests/mcp.test.mjs tests/mcp-pricing.test.mjs`. The latter uses in-memory D1 and fake Google responses, compares both services against the real website handlers, and confirms no booking/customer rows are created.
+
 ## Receipt PDF documents
 
 After a payment is recorded, **Account → Receipts → Receipt PDF** downloads a separate financial document; **Booking confirmation** retains the original trip PDF. **Admin → Financials → Payments → Receipt PDF** is available to owner/finance staff. The authenticated endpoints are `/api/account/trips/:reference/receipt` and `/api/admin/payments/:reference/receipt`; customer ownership and finance roles are checked server-side.
