@@ -8,6 +8,8 @@ export type McpDependencies = {
   callTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   resources: Resource[];
 };
+// MCP allows an optional `_meta` object on every request's params (progressToken, openai/* keys).
+const meta = z.record(z.unknown()).optional();
 const envelope = z.object({ jsonrpc: z.literal("2.0"), id: z.union([z.string(), z.number().finite(), z.null()]).optional(), method: z.string(), params: z.record(z.unknown()).optional() }).strict();
 export const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Accept, MCP-Protocol-Version", "Cache-Control": "no-store" };
 export async function handleMcp(request: Request, deps: McpDependencies): Promise<Response> {
@@ -41,7 +43,7 @@ export async function handleMcp(request: Request, deps: McpDependencies): Promis
       case "ping": return result({});
       case "tools/list": return result({ tools: toolDefinitions });
       case "tools/call": {
-        const call = z.object({ name: z.string(), arguments: z.record(z.unknown()).default({}) }).strict().safeParse(params);
+        const call = z.object({ name: z.string(), arguments: z.record(z.unknown()).default({}), _meta: meta }).strict().safeParse(params);
         if (!call.success) return error(id, -32602, "Invalid tool call");
         const args = validateTool(call.data.name, call.data.arguments);
         if (!args.success) return error(id, -32602, "Unknown tool or invalid arguments");
@@ -53,7 +55,7 @@ export async function handleMcp(request: Request, deps: McpDependencies): Promis
       }
       case "resources/list": return result({ resources: deps.resources.map(({ uri, name, mimeType }) => ({ uri, name, mimeType })) });
       case "resources/read": {
-        const read = z.object({ uri: z.string() }).strict().safeParse(params);
+        const read = z.object({ uri: z.string(), _meta: meta }).strict().safeParse(params);
         if (!read.success) return error(id, -32602, "Invalid resource parameters");
         const resource = deps.resources.find(r => r.uri === read.data.uri);
         if (!resource) return error(id, -32002, "Resource not found");

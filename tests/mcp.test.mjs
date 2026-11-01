@@ -108,3 +108,20 @@ test('worker gates MCP and discovery on MCP_PUBLIC and reports maintenance befor
   assert.match(hunk, /status: 503/);
   assert.doesNotMatch(hunk, /readCookie|staffForToken/);
 });
+test('tools/call and resources/read accept spec-allowed params._meta, but tool arguments stay strict', async () => {
+  const { handleMcp } = await load();
+  const seen = [];
+  const deps = { ...dependencies, callTool: async (name, args) => { seen.push([name, args]); return { ok: true }; }, resources: [{ uri: 'waydidi://contact', name: 'c', mimeType: 'text/plain', text: 't' }] };
+  const call = await (await handleMcp(request(rpc('tools/call', { name: 'search_places', arguments: { query: 'phuket' }, _meta: { progressToken: 1, 'openai/userLocation': { city: 'x' } } })), deps)).json();
+  assert.ok(call.result, JSON.stringify(call));
+  assert.deepEqual(seen, [['search_places', { query: 'phuket' }]]);
+  const read = await (await handleMcp(request(rpc('resources/read', { uri: 'waydidi://contact', _meta: {} })), deps)).json();
+  assert.equal(read.result.contents[0].text, 't');
+  for (const params of [
+    { name: 'search_places', arguments: { query: 'phuket', _meta: {} } },
+    { name: 'search_places', arguments: { query: 'phuket' }, _meta: 'not-an-object' },
+    { name: 'search_places', arguments: { query: 'phuket' }, extra: 1 },
+  ]) assert.equal((await (await handleMcp(request(rpc('tools/call', params)), deps)).json()).error.code, -32602, JSON.stringify(params));
+  assert.equal((await (await handleMcp(request(rpc('resources/read', { uri: 'waydidi://contact', extra: 1 })), deps)).json()).error.code, -32602);
+  assert.equal(seen.length, 1);
+});
