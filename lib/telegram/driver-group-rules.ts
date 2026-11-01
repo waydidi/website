@@ -64,12 +64,12 @@ export type OfferJob = {
   returnDate: string | null; returnTime: string | null; driverCost: number | null;
   paymentMethod: string; paymentStatus: string; cashDue: number;
 };
-export type OfferState = { kind: "open" } | { kind: "taken"; driverName: string } | { kind: "closed"; reason: "cancelled" | "past" | "assigned" };
+export type OfferState = { kind: "open" } | { kind: "confirming" } | { kind: "taken"; driverName: string } | { kind: "closed"; reason: "cancelled" | "past" | "assigned" };
 
 /**
  * The job as the driver group sees it (the owner's templates). Open: car, date, time, route, group and
  * the driver cost. Once someone taps «รับงาน» (or it closes): the reference, the car, the trip, the
- * driver cost and what to collect, then who took it. Never the customer's name, phone or flight. Thai only.
+ * driver cost and what to collect, then "คนขับรับงานแล้ว✅: รอยืนยันข้อมูล" while the driver confirms their car or details, and who took it once they have. Never the customer's name, phone or flight. Thai only.
  */
 export function offerText(job: OfferJob, state: OfferState) {
   const [y, m, d] = job.pickupDate.split("-");
@@ -83,11 +83,13 @@ export function offerText(job: OfferJob, state: OfferState) {
     `ค่างาน: ${job.driverCost ? `${job.driverCost.toLocaleString("en-US")} บาท` : "รอแจ้งราคา"}`,
   ];
   if (state.kind === "open") return [`${escHtml(job.vehicleName)} งานใหม่🚗`, "", ...trip, "", "คนแรกที่กด «รับงาน» ได้งานนี้", "*กดรับงานแล้วยกเลิก ปรับ 20 บาท"].join("\n");
-  // The group only sees whether the job is paid or cash; the amount to collect is in the driver's private ใบงาน.
-  const payment = job.paymentMethod === "cash" ? "งานเงินสด" : "งานชำระแล้ว";
-  const status = state.kind === "taken" ? `✅ รับงานแล้ว: ${escHtml(state.driverName)}`
+  // The group only sees whether the job is cash; the amount to collect is in the driver's private ใบงาน.
+  // Only a cash job is marked; a paid job carries no payment line.
+  const payment = job.paymentMethod === "cash" ? ["งานเงินสด"] : [];
+  const status = state.kind === "confirming" ? "คนขับรับงานแล้ว✅: รอยืนยันข้อมูล"
+    : state.kind === "taken" ? `✅ รับงานแล้ว: ${escHtml(state.driverName)}`
     : state.reason === "cancelled" ? "❌ งานนี้ถูกยกเลิก" : state.reason === "past" ? "⏱ เลยเวลารับงานแล้ว" : "✅ มีคนขับแล้ว";
-  return [`🚗 งาน Ref ID: ${escHtml(job.reference)}`, `รถ: ${escHtml(job.vehicleName)}`, ...trip, payment, "", status].join("\n");
+  return [`🚗 งาน Ref ID: ${escHtml(job.reference)}`, `รถ: ${escHtml(job.vehicleName)}`, ...trip, ...payment, "", status].join("\n");
 }
 
 // The first-time questions, asked one at a time in the private chat.
