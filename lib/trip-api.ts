@@ -160,7 +160,13 @@ export async function handleAction(request: Request, id: string, actor: TripActo
         if (!d.tripDate) return NextResponse.json({ error: `${label}set the trip date first.` }, { status: 400 });
         if (d.total <= 0 && d.transportPrice <= 0) return NextResponse.json({ error: `${label}${actor.kind === "agency" ? "this trip needs a price from Waydidi first. Use “Ask Waydidi for a price”." : "set the transport price first."}` }, { status: 400 });
       }
-      const { total, version, warnings } = await sendTripDays(days, actor.name, note);
+      let sent: Awaited<ReturnType<typeof sendTripDays>>;
+      try { sent = await sendTripDays(days, actor.name, note); }
+      catch (error) {
+        if ((error as Error).message === "CONFLICT") return NextResponse.json({ error: "This trip changed, was sent or was paid in another session. Nothing was sent. Reload to see the latest version." }, { status: 409 });
+        throw error;
+      }
+      const { total, version, warnings } = sent;
       const lead = days[0];
       const link = `${origin}/itinerary/${lead.token}`;
       const delivery = notify && lead.customerEmail ? await notifyTripSent({ ...lead, total, holdDays: lead.holdDays }, link, actor.kind === "agency" ? actor.agencyName : null, days.length).catch(() => "failed") : "not_sent";
@@ -184,6 +190,7 @@ export async function handleAction(request: Request, id: string, actor: TripActo
       try { return NextResponse.json({ ok: true, note: await adjustLive(trip, change.data, actor.name) }); }
       catch (error) {
         const code = (error as Error).message;
+        if (code === "CONFLICT") return NextResponse.json({ error: "This itinerary changed in another session. Reload and try again." }, { status: 409 });
         if (["NO_SNAPSHOT", "NO_STOP", "TOO_SHORT"].includes(code)) return NextResponse.json({ error: code === "TOO_SHORT" ? "This visit is already too short to reduce." : "This itinerary stop is no longer available." }, { status: 409 });
         throw error;
       }
