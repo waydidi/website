@@ -48,7 +48,7 @@ Prefer behaviour tests through real modules and an in-memory D1 (Miniflare, see 
 
 Commit subjects are short plain-English sentences describing the user-visible change (e.g. "Bookings on phone: cards sorted by nearest date first"). Pull request bodies say what changed for customers and staff, what was tested, and which Worker variables the owner must set. Release runbooks for larger features go in `docs/<feature>-release.md`.
 
-## Review guidelines
+## Code Review Rules
 
 Every pull request is reviewed by two AIs against the same list, `docs/review-checklist.md`: Codex (GitHub code review) and Claude Code (`/code-review`, `/security-review`). Read it before reviewing.
 
