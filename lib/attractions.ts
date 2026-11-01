@@ -182,5 +182,9 @@ export async function importStarterPlaces(city: "bangkok") {
     await getDb().update(attractions).set({ seedKey: place.key }).where(eq(attractions.id, id));
     added++;
   }
+  if (added) {
+    const { seedRouteStopDrafts } = await import("@/lib/route-stops-db");
+    await seedRouteStopDrafts();
+  }
   return { added, skipped: list.length - added };
 }

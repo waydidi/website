@@ -20,8 +20,25 @@ const box = (south: number, north: number, west: number, east: number) => JSON.s
   { lat: south, lng: west }, { lat: south, lng: east }, { lat: north, lng: east }, { lat: north, lng: west },
 ]]);
 
-export async function ensureRouteStops(): Promise<void> {
+// Additive bootstrap (drizzle migration stays the source of truth): run once per
+// isolate, and forget a failed attempt so the next request retries it.
+let offersReady: Promise<void> | undefined;
+export function ensureRouteStops(): Promise<void> {
+  return offersReady ??= bootstrapRouteStops().catch((error) => { offersReady = undefined; throw error; });
+}
+
+async function bootstrapRouteStops(): Promise<void> {
   await (env.DB as SecurityDatabase).batch([(env.DB as SecurityDatabase).prepare(TABLE), (env.DB as SecurityDatabase).prepare(INDEX)]);
+  await insertDrafts();
+}
+
+/** Called after a starter-place import, since setup runs only once per isolate. */
+export async function seedRouteStopDrafts(): Promise<void> {
+  await ensureRouteStops();
+  await insertDrafts();
+}
+
+async function insertDrafts(): Promise<void> {
   // Suggestions only: attach to real library records, never publish or create places.
   // INSERT OR IGNORE preserves staff edits, including deactivation, across cold starts.
   const origin = box(13.45, 14.05, 100.25, 100.97);
@@ -126,8 +143,10 @@ const SNAPSHOTS = `CREATE TABLE IF NOT EXISTS booking_route_stops (
   route_stops_json TEXT NOT NULL CHECK(json_valid(route_stops_json) AND json_type(route_stops_json)='array')
 )`;
 
-export async function ensureBookingRouteStops(): Promise<void> {
-  await (env.DB as SecurityDatabase).prepare(SNAPSHOTS).run();
+let snapshotsReady: Promise<void> | undefined;
+export function ensureBookingRouteStops(): Promise<void> {
+  return snapshotsReady ??= (env.DB as SecurityDatabase).prepare(SNAPSHOTS).run().then(() => undefined)
+    .catch((error) => { snapshotsReady = undefined; throw error; });
 }
 
 /** Snapshots and booking are inserted in one D1 transaction, including retries. */
