@@ -99,3 +99,16 @@ test('snapshot failure rolls back the booking insert in the same D1 transaction'
  const reference='ATOMICSTOP';const query=getDb().insert(schema.bookings).values({reference,customerName:'Test',customerEmail:'test@example.invalid',pickup:'BKK',dropoff:'Pattaya',pickupDate:date,pickupTime:'10:00',passengers:1,luggage:0,vehicle:'economy_sedan',paymentMethod:'cash',total:1400,accessTokenHash:'test',createdAt:now,updatedAt:now}).toSQL();
  try {await assert.rejects(store.insertBookingWithRouteStops(query,reference,[{offerId:'paid-stop',attractionId:'stop-place',name:'Place',priceMinor:12345,durationMinutes:45}]));assert.equal(await d1.prepare('SELECT reference FROM bookings WHERE reference=?').bind(reference).first(),null);}finally{await d1.prepare('DROP TRIGGER reject_stop_snapshot').run();}
 });
+
+test('checkout started before the stops deploy replays to its booking, not a 409',async()=>{
+ const {sha256}=await vite.ssrLoadModule('/lib/security.ts');
+ const {checkoutInputSchema}=await vite.ssrLoadModule('/lib/booking-validation.ts');
+ const {routeStopIds:_s,cancellationOption:_c,...old}=input({childSeats:0});
+ const first=await checkout.POST(request('/api/checkout',old));const body=await first.json();assert.equal(first.status,200,JSON.stringify(body));
+ // The pre-deploy build hashed the parsed payload without routeStopIds (and never had cancellationOption).
+ const {routeStopIds,funnelId,...legacy}=checkoutInputSchema.parse(old);
+ await d1.prepare('UPDATE bookings SET checkout_payload_hash=? WHERE reference=?').bind(await sha256(JSON.stringify(legacy)),body.reference).run();
+ const retry=await checkout.POST(request('/api/checkout',old));const again=await retry.json();
+ assert.equal(retry.status,200,JSON.stringify(again));assert.equal(again.reference,body.reference);assert.equal(again.reused,true);
+ const changed=await checkout.POST(request('/api/checkout',{...old,routeStopIds:['paid-stop']}));assert.equal(changed.status,409);assert.equal((await changed.json()).code,'IDEMPOTENCY_CONFLICT');
+});

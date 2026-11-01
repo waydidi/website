@@ -1,4 +1,5 @@
 import { validBookingQuotes, validTransferPrice } from "@/lib/booking-quote-check";
+import { checkoutFingerprintInput } from "@/lib/checkout-fingerprint";
 import { insertBookingWithRouteStops, priceRouteStops } from "@/lib/route-stops-db";
 import { parseRouteStopSnapshots, RouteStopSelectionError, stopDurationMinutes, stopTotalMinor } from "@/lib/route-stops";
 import { bookingAddonRequests } from "@/lib/booking-addon-requests";
@@ -156,9 +157,7 @@ export async function POST(request: Request) {
     const input: CheckoutInput = parsed.data;
     checkoutInput = input;
     attemptHash = await sha256(`checkout-attempt:${input.checkoutAttemptId}`);
-    const financialInput = { ...input };
-    delete financialInput.funnelId;
-    payloadHash = await sha256(JSON.stringify(financialInput));
+    payloadHash = await sha256(JSON.stringify(checkoutFingerprintInput(input)));
     recoveryToken = await accessTokenForAttempt(input.checkoutAttemptId);
     const [existingAttempt] = await getDb()
       .select()

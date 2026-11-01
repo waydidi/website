@@ -51,3 +51,20 @@ test('persisted snapshots are frozen validated values and totals stay in integer
  assert.equal(rules.stopTotalMinor([snapshot,{...snapshot,priceMinor:1}]),12346);
  assert.equal(rules.stopDurationMinutes([snapshot,snapshot]),90);
 });
+
+test('checkout retry fingerprint: empty stops and Standard option hash like the pre-deploy payload',async()=>{
+ const {checkoutFingerprintInput}=await vite.ssrLoadModule('/lib/checkout-fingerprint.ts');
+ const old={checkoutAttemptId:crypto.randomUUID(),funnelId:crypto.randomUUID(),customerName:'Test',customerSurname:'Passenger',customerEmail:'test@example.invalid',customerPhone:'+66812345678',pickup:'Bangkok',dropoff:'Pattaya',pickupDate:new Date(Date.now()+30*86400000).toISOString().slice(0,10),pickupTime:'10:00',timezone:'Asia/Bangkok',passengers:2,luggage:1,vehicle:'economy_sedan',childSeats:0,oversizedLuggage:false,termsAccepted:true,paymentMethod:'card',fareQuoteId:crypto.randomUUID()};
+ const hash=payload=>JSON.stringify(checkoutFingerprintInput(validation.checkoutInputSchema.parse(payload)));
+ // Pre-deploy schema had neither key and stripped funnelId: same parse minus the new keys.
+ const {routeStopIds,funnelId,...legacy}=validation.checkoutInputSchema.parse(old);
+ assert.deepEqual(routeStopIds,[]);assert.ok(funnelId);
+ assert.equal(hash(old),JSON.stringify(legacy));
+ assert.equal(hash({...old,routeStopIds:[]}),hash(old));
+ assert.equal(hash({...old,cancellationOption:'standard'}),hash(old));
+ assert.equal(hash({...old,funnelId:crypto.randomUUID()}),hash(old));
+ assert.notEqual(hash({...old,routeStopIds:['offer']}),hash(old));
+ assert.notEqual(hash({...old,routeStopIds:['offer']}),hash({...old,routeStopIds:['other']}));
+ assert.notEqual(hash({...old,cancellationOption:'flexible'}),hash(old));
+ assert.notEqual(hash({...old,cancellationOption:'non_refundable'}),hash(old));
+});
