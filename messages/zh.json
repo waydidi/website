@@ -1574,5 +1574,21 @@
   "routeStops.snapshotTotal": {
     "text": "停靠点合计",
     "status": "machine"
+  },
+  "devNotice.title": {
+    "text": "网站正在开发中",
+    "status": "machine"
+  },
+  "devNotice.body": {
+    "text": "目前无法通过网站预订。如需预订我们的服务，请通过 WhatsApp 联系我们：",
+    "status": "machine"
+  },
+  "devNotice.contact": {
+    "text": "通过 WhatsApp 联系我们",
+    "status": "machine"
+  },
+  "devNotice.close": {
+    "text": "关闭",
+    "status": "machine"
   }
 }

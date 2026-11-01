@@ -15,6 +15,8 @@ import { HomeTagline } from "./tagline";
 import { ServiceCards } from "./service-cards";
 import { TransferPartners } from "./transfer-partners";
 import { DealsSection } from "./deals-section";
+import { DevNotice } from "./dev-notice";
+import { WHATSAPP, WHATSAPP_URL } from "@/lib/contact";
 
 export function homeMetadata(locale: Locale): Metadata {
   const messages = getMessages(locale);
@@ -40,8 +42,12 @@ export function homeMetadata(locale: Locale): Metadata {
 // below it render on the server and are handed in as children, so they ship
 // as HTML rather than as part of the client bundle.
 export function HomePage({ locale }: { locale: Locale }) {
+  const messages = getMessages(locale);
   return (
-    <BookingFlow locale={locale} messages={getMessages(locale)}>
+    <BookingFlow locale={locale} messages={messages}>
+      {/* Online booking is not ready yet: tell homepage visitors to book on WhatsApp. */}
+      <DevNotice title={messages["devNotice.title"]} body={messages["devNotice.body"]} whatsapp={WHATSAPP} whatsappUrl={WHATSAPP_URL}
+        contactLabel={messages["devNotice.contact"]} closeLabel={messages["devNotice.close"]} />
       <HomeTagline locale={locale} />
       <ServiceCards locale={locale} />
       <HowItWorks />

@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { closeDevNotice } from "./dev-notice";
 
 test("homepage search → choose a vehicle → passenger details", async ({ page }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle"); // let React take over the form before clicking
+  await closeDevNotice(page);
   await expect(page.getByRole("heading", { level: 1, name: "Your Thailand Journey Starts Here" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Pickup location" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Drop-off location" })).toBeVisible();

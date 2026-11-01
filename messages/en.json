@@ -392,5 +392,9 @@
   "routeStops.total": "Sightseeing stops: {amount}",
   "routeStops.snapshotHeading": "Sightseeing stops (outbound)",
   "routeStops.snapshotMinutes": "{minutes} min",
-  "routeStops.snapshotTotal": "Stops total"
+  "routeStops.snapshotTotal": "Stops total",
+  "devNotice.title": "We're under development",
+  "devNotice.body": "You cannot book through the website right now. If you want to book our service, please contact us on WhatsApp:",
+  "devNotice.contact": "Contact us on WhatsApp",
+  "devNotice.close": "Close"
 }
