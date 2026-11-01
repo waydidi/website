@@ -90,6 +90,7 @@ const tabs = [
   { href: "/admin/trips/live", label: "Live today", mobileLabel: "Live", title: "Live today", icon: Route },
   { href: "/admin/trips", label: "Trip planner", mobileLabel: "Planner", title: "Trip planner", icon: Route },
   { href: "/admin/attractions", label: "Attractions", mobileLabel: "Places", title: "Attractions", icon: Route },
+  { href: "/admin/route-stops", label: "Transfer stops", mobileLabel: "Stops", title: "Transfer stops", icon: Route },
   { href: "/admin/suppliers", label: "Supplier contacts", mobileLabel: "Suppliers", title: "Supplier contacts", icon: Route },
 
 
@@ -116,6 +117,7 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
       { href: "/admin/trips/packages", label: "Packages" },
       { href: "/admin/trips/live", label: "Live today" },
       { href: "/admin/attractions", label: "Attractions" },
+      { href: "/admin/route-stops", label: "Transfer stops" },
       { href: "/admin/suppliers", label: "Supplier contacts" },
     ] },
     { href: "/admin/financials", label: "Financials", icon: BarChart3 },

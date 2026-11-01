@@ -1,6 +1,11 @@
 import { validBookingQuotes, validTransferPrice } from "@/lib/booking-quote-check";
+import { checkoutFingerprintInput } from "@/lib/checkout-fingerprint";
+import { insertBookingWithRouteStops, priceRouteStops } from "@/lib/route-stops-db";
+import { parseRouteStopSnapshots, RouteStopSelectionError, stopDurationMinutes, stopTotalMinor } from "@/lib/route-stops";
 import { bookingAddonRequests } from "@/lib/booking-addon-requests";
 import { saveAcceptedPolicy } from "@/lib/accepted-policy";
+import { cancellationConfig, cancellationFareMinor, resolveCancellationOption } from "@/lib/cancellation-options";
+import { serviceStartMs } from "@/lib/refund-policy";
 import { REFUND_POLICY_VERSION } from "@/lib/refund-policy";
 import { toSatang } from "@/lib/money";
 import { payPageUrl } from "@/lib/stripe";
@@ -152,9 +157,7 @@ export async function POST(request: Request) {
     const input: CheckoutInput = parsed.data;
     checkoutInput = input;
     attemptHash = await sha256(`checkout-attempt:${input.checkoutAttemptId}`);
-    const financialInput = { ...input };
-    delete financialInput.funnelId;
-    payloadHash = await sha256(JSON.stringify(financialInput));
+    payloadHash = await sha256(JSON.stringify(checkoutFingerprintInput(input)));
     recoveryToken = await accessTokenForAttempt(input.checkoutAttemptId);
     const [existingAttempt] = await getDb()
       .select()
@@ -364,6 +367,18 @@ export async function POST(request: Request) {
         total = price.total + returnPrice.total;
       }
     }
+    const routeStops = parseRouteStopSnapshots(JSON.stringify(await priceRouteStops(input.routeStopIds, quoteData ?? {
+      pickupLatitude: null, pickupLongitude: null, dropoffLatitude: null, dropoffLongitude: null,
+    }, (env as unknown as Record<string, unknown>).ROUTE_STOPS === "1")));
+    // Adjust the server-quoted combined fare once in satang, before every discount.
+    const cancellationSettings = cancellationConfig(env as unknown as Record<string, unknown>);
+    let cancellationOption;
+    try {
+      cancellationOption = resolveCancellationOption(input.cancellationOption, cancellationSettings, (serviceStartMs(input.pickupDate,input.pickupTime)-Date.now())/3600000, input.paymentMethod);
+    } catch {
+      return NextResponse.json({code:"INVALID_CANCELLATION_OPTION",error:"Choose an available cancellation option.",field:"cancellationOption"},{status:400});
+    }
+    if (cancellationSettings.enabled) total = cancellationFareMinor(toSatang(total),cancellationOption,cancellationSettings)/100;
     // Promo code: checked here against the real quote price; the browser's
     // preview is never trusted.
     const account = await customerFromRequest(request);
@@ -436,7 +451,7 @@ export async function POST(request: Request) {
       if (!offered) return NextResponse.json({ code: "ADDON_UNAVAILABLE", error: "Ferry & Hotel transfer is only available to Koh Kood and Koh Mak.", field: "ferryHotel", retryable: false }, { status: 409 });
       ferryPeople = Math.min(input.ferryHotelPeople, input.passengers);
     }
-    total += addonsTotal(input.childSeats, input.exchangeStop, freeAddons, ferryPeople);
+    total = (toSatang(total) + toSatang(addonsTotal(input.childSeats, input.exchangeStop, freeAddons, ferryPeople)) + stopTotalMinor(routeStops)) / 100;
     // Nothing to pay (e.g. a free transfer gift with no add-ons): no card payment needed.
     if (total <= 0) { total = 0; input.paymentMethod = "cash"; }
     const reference = await uniqueBookingReference();
@@ -462,7 +477,7 @@ export async function POST(request: Request) {
       try { flight = await lookupFlight(input.flightNumber, input.pickupDate); }
       catch { /* Flight data is helpful, but never blocks a valid booking. */ }
     }
-    await getDb()
+    const bookingInsert = getDb()
       .insert(bookings)
       .values({
         reference,
@@ -517,7 +532,7 @@ export async function POST(request: Request) {
         returnRoutePolyline: returnData?.routePolyline,
         pricingArea: hourlyData?.areaName ?? quoteData?.areaName,
         routeDistanceMeters: hourlyData?.routeDistanceMeters ?? quoteData?.distanceMeters,
-        routeDurationSeconds: hourlyData?.routeDurationSeconds ?? quoteData?.durationSeconds,
+        routeDurationSeconds: hourlyData?.routeDurationSeconds ?? (quoteData ? quoteData.durationSeconds + stopDurationMinutes(routeStops) * 60 : undefined),
         expectedRoutePolyline: hourlyData?.routePolyline ?? quoteData?.routePolyline,
         pickupLatitude: hourlyData?.pickupLatitude ?? quoteData?.pickupLatitude,
         pickupLongitude: hourlyData?.pickupLongitude ?? quoteData?.pickupLongitude,
@@ -533,8 +548,9 @@ export async function POST(request: Request) {
         includedDistanceMeters: hourlyData?.includedDistanceMeters,
         extraHourRate: hourlyData?.extraHourRate,
         extraDistanceRate: hourlyData?.extraDistanceRate,
-      });
-    await saveAcceptedPolicy(reference,now);
+      }).toSQL();
+    await insertBookingWithRouteStops(bookingInsert, reference, routeStops);
+    await saveAcceptedPolicy(reference,now,cancellationOption,cancellationSettings);
     // Bookings made while signed in are linked to the customer's account,
     // even when booked for someone else's email.
     if (promoApplied) await getDb().insert(promoRedemptions).values({
@@ -673,6 +689,7 @@ export async function POST(request: Request) {
       });
     return NextResponse.json({ checkoutUrl: session.checkoutUrl, reference });
   } catch (error) {
+    if (error instanceof RouteStopSelectionError) return NextResponse.json({ code: error.message, error: "Your selected sightseeing stops are unavailable. Please review your journey.", field: "routeStopIds", retryable: true }, { status: 409 });
     logOperationalError("checkout.creation_failed", requestId, error, {
       hasAttempt: Boolean(attemptHash),
     });

@@ -1,3 +1,4 @@
+import { loadBookingRouteStopsJson } from "@/lib/route-stops-db";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -10,7 +11,7 @@ import { sameOrigin } from "@/lib/security";
 
 async function load(reference: string) {
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.reference, reference)).limit(1);
-  return booking ?? null;
+  return booking ? { ...booking, routeStopsJson: await loadBookingRouteStopsJson(reference) } : null;
 }
 
 // Admin: download any booking's confirmation PDF.
@@ -45,6 +46,7 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     returnPickup: booking.returnPickup, returnDropoff: booking.returnDropoff,
     returnDate: booking.returnDate, returnTime: booking.returnTime,
     outboundTotal: booking.outboundTotal, returnTotal: booking.returnTotal,
+    routeStopsJson: booking.routeStopsJson,
     extras, surname: booking.customerSurname, flightNumber: booking.flightNumber,
   });
   await getDb().update(bookings).set({ emailStatus: email.status, updatedAt: new Date().toISOString() }).where(eq(bookings.reference, reference));

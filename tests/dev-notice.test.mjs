@@ -9,7 +9,9 @@ import { dirname, join, relative, resolve } from 'node:path';
 // homepage visitors are told to book on WhatsApp. Every other page (including the other pages that
 // show the booking form) must stay free of it.
 const root = fileURLToPath(new URL('..', import.meta.url));
-const vite = await createServer({ root, configFile: false, appType: 'custom', logLevel: 'error', resolve: { alias: { '@': root } }, server: { middlewareMode: true } });
+// Homepage parts read Worker variables (e.g. the footer's route-page flag); give them an empty env.
+const vite = await createServer({ root, configFile: false, appType: 'custom', logLevel: 'error', resolve: { alias: { '@': root } }, server: { middlewareMode: true },
+  plugins: [{ name: 'dev-notice-env', enforce: 'pre', resolveId(id) { if (id === 'cloudflare:workers') return '\0dev-notice-env'; }, load(id) { if (id === '\0dev-notice-env') return 'export const env = {};'; } }] });
 after(() => vite.close());
 
 const NOTICE = '/components/home/dev-notice.tsx';

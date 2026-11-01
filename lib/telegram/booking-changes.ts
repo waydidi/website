@@ -171,6 +171,13 @@ export async function approveChange(id: string, by: string) {
   const at = now();
   const result = await applyBookingChange(id, at);
   if (result === "handled") return "Already handled.";
+  if (result === "blocked") {
+    // Queued before online changes were closed for these bookings; the customer can't resend.
+    const note = "เปลี่ยนอัตโนมัติไม่ได้: การจองนี้มีตัวเลือกการยกเลิกหรือจุดแวะที่ซื้อไว้ ลูกค้าส่งคำขอทางเว็บไม่ได้ กรุณาติดต่อลูกค้าและแก้ไขการจองเองในระบบแอดมิน";
+    await db().prepare("UPDATE booking_change_requests SET status='expired',resolved_at=? WHERE id=? AND status='pending'").bind(at, id).run();
+    await close(`chg:${id}`, changeText(b, c, `\n${note}`));
+    return note;
+  }
   if (result === "invalid") {
     await db().prepare("UPDATE booking_change_requests SET status='expired',resolved_at=? WHERE id=? AND status='pending'").bind(at, id).run();
     await close(`chg:${id}`, changeText(b, c, "The revised journey is incomplete or its return time is invalid."));

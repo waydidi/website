@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { env } from "cloudflare:workers";
 import { WaydidiWordmark } from "@/components/waydidi-logo";
 import { FooterLegal } from "@/components/footer-legal";
 import { getMessages, translate, type Locale, type MessageKey } from "@/lib/i18n";
@@ -27,6 +28,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
                 { label: t("nav.aToB"), href: "/a-to-b-transfer" },
                 { label: t("nav.longJourney"), href: "/long-journeys" },
                 { label: t("nav.checkBooking"), href: "/booking/manage" },
+                ...((env as unknown as Record<string,unknown>).TRANSFER_ROUTE_PAGES === "1" ? [{label:t("transfers.all"),href:"/transfers"}] : []),
               ]}
             />
             <FooterLinks

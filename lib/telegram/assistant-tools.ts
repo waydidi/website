@@ -1,3 +1,4 @@
+import { ensureBookingRouteStops, loadBookingRouteStopsJson } from "@/lib/route-stops-db";
 import { env } from "cloudflare:workers";
 import type { BetaTool } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
@@ -61,7 +62,7 @@ export const ASSISTANT_TOOLS: BetaTool[] = [
 ];
 
 type BookingRow = Record<string, string | number | null>;
-const SUMMARY = `b.reference,b.status,b.customer_name,b.customer_surname,b.pickup,b.dropoff,b.pickup_date,b.pickup_time,b.vehicle,b.passengers,b.luggage,
+const SUMMARY = `(SELECT route_stops_json FROM booking_route_stops WHERE booking_reference=b.reference) route_stops_json,b.reference,b.status,b.customer_name,b.customer_surname,b.pickup,b.dropoff,b.pickup_date,b.pickup_time,b.vehicle,b.passengers,b.luggage,
   b.payment_method,b.payment_status,b.total,b.service_type,b.return_date,b.return_time,
   (SELECT d.full_name FROM booking_assignments a JOIN drivers d ON d.id=a.driver_id WHERE a.booking_reference=b.reference AND a.leg='outbound' AND a.revoked_at IS NULL LIMIT 1) AS driver`;
 
@@ -89,6 +90,7 @@ export async function runAssistantTool(name: string, input: Record<string, unkno
   });
 
   if (name === "search_bookings") {
+    await ensureBookingRouteStops();
     const q = s("query"), where: string[] = [statusClause(s("status"))], params: unknown[] = [];
     if (q) {
       if (looksLikeReference(q)) { where.push("(b.reference=? OR lower(b.customer_name||' '||COALESCE(b.customer_surname,'')) LIKE ? ESCAPE '\\')"); params.push(q.toUpperCase(), namePattern(q)); }
@@ -118,11 +120,12 @@ export async function runAssistantTool(name: string, input: Record<string, unkno
     const driverCost = cost ? Number(cost.total_driver_cost) || Number(cost.agreed_driver_cost) || null : null;
     const job = driverJobText({ reference: ref, vehicle: String(b.vehicle), customerName: String(b.customer_name), customerSurname: b.customer_surname as string | null, passengers: Number(b.passengers), luggage: Number(b.luggage),
       pickupDate: String(b.pickup_date), pickupTime: String(b.pickup_time), pickup: String(b.pickup), dropoff: String(b.dropoff),
-      serviceType: b.service_type as string | null, pricingArea: b.pricing_area as string | null, bookedHours: b.booked_hours as number | null }, driverCost, { pickup: maps?.pickup_map_url, dropoff: maps?.dropoff_map_url });
+      routeStopsJson: await loadBookingRouteStopsJson(ref), serviceType: b.service_type as string | null, pricingArea: b.pricing_area as string | null, bookedHours: b.booked_hours as number | null }, driverCost, { pickup: maps?.pickup_map_url, dropoff: maps?.dropoff_map_url });
     return json({ booking, drivers: assignments.results, ...(seesMoney(role) ? { driver_cost_thb: driverCost, driver_cost_paid: cost?.payment_status ?? null } : {}), driver_job_message: job, admin_link: `${SITE_URL}/admin/journeys/${ref}` });
   }
 
   if (name === "schedule") {
+    await ensureBookingRouteStops();
     const { results } = await db().prepare(`SELECT ${SUMMARY},b.flight_number FROM bookings b WHERE b.status IN (${COMMITTED_SQL}) AND b.pickup_date BETWEEN ? AND ? ORDER BY b.pickup_date,b.pickup_time LIMIT 60`).bind(s("date_from"), s("date_to")).all<BookingRow>();
     return json(results.length ? results : { none: "No trips in that range." });
   }

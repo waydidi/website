@@ -16,7 +16,7 @@ for (const name of (await readdir(root + '/drizzle')).filter(n => n.endsWith('.s
 await d1.prepare('UPDATE price_seasons SET active = 0').run();
 globalThis.__hourlyTestEnv = { DB: d1, GOOGLE_MAPS_SERVER_KEY: 'mock', RATE_LIMIT_SALT: 'isolated-test-secret' };
 globalThis.__hourlyAdmin = true;
-const vite = await createServer({ root, configFile: false, appType: 'custom', resolve: { alias: { '@': root } }, plugins: [{ name: 'hourly-boundaries', enforce: 'pre', resolveId(id) {
+const vite = await createServer({ root, configFile: false, appType: 'custom', optimizeDeps: { noDiscovery: true }, resolve: { alias: { '@': root } }, plugins: [{ name: 'hourly-boundaries', enforce: 'pre', resolveId(id) {
   if (id === 'cloudflare:workers') return '\0hourly-env';
   if (id.endsWith('/lib/booking-fulfillment')) return '\0hourly-fulfillment';
   if (id.endsWith('/lib/admin')) return '\0hourly-admin';
@@ -144,6 +144,53 @@ test('checkout stores destination coordinates, route and fixed overtime rates', 
   const row = await d1.prepare('SELECT * FROM bookings WHERE hourly_quote_id=?').bind(q.quoteId).first();
   assert.equal(row.total, 1800); assert.equal(row.dropoff_latitude, places.pattaya[0]); assert.equal(row.dropoff_longitude, places.pattaya[1]);
   assert.equal(row.route_distance_meters, 90000); assert.equal(row.extra_hour_rate, 300); assert.equal(row.extra_distance_rate, 0);
+});
+
+test('cancellation choices are server priced, cash resets non-refundable, and tampering is denied', async () => {
+ const q=(await quote()).body;
+ const submit=async overrides=>{const r=await checkout.POST(request('/api/checkout',checkoutInput(q,overrides)));return {status:r.status,body:await r.json()};};
+ const env=globalThis.__hourlyTestEnv;
+ env.CANCELLATION_OPTIONS='1';
+ try {
+  for(const [option,total] of [['standard',1800],['flexible',2070],['non_refundable',1800]]) {
+   const r=await submit({cancellationOption:option,childSeats:1});
+   assert.equal(r.status,200,JSON.stringify(r.body));
+   const b=await d1.prepare('SELECT total FROM bookings WHERE reference=?').bind(r.body.reference).first();
+   assert.equal(b.total,total+300,'add-ons are outside the option adjustment');
+   const policy=await d1.prepare('SELECT policy_json FROM booking_policy_snapshots WHERE booking_reference=?').bind(r.body.reference).first();
+   assert.equal(JSON.parse(policy.policy_json).option??'standard',option==='non_refundable'?'standard':option);
+  }
+  assert.equal((await submit({cancellationOption:'hacked'})).status,400);
+  assert.equal((await submit({cancellationOption:'flexible',total:1})).status,400);
+  env.CANCELLATION_OPTIONS='0';
+  const r=await submit({cancellationOption:'flexible'});
+  assert.equal(r.status,200,JSON.stringify(r.body));
+  assert.equal((await d1.prepare('SELECT total FROM bookings WHERE reference=?').bind(r.body.reference).first()).total,1800);
+ } finally {delete env.CANCELLATION_OPTIONS;}
+});
+
+test('online cancellation pricing reaches Stripe in satang after promo and before add-ons', async () => {
+ const q=(await quote()).body;
+ const env=globalThis.__hourlyTestEnv, fetchBefore=globalThis.fetch;
+ env.CANCELLATION_OPTIONS='1'; env.STRIPE_SECRET_KEY='test-only';
+ let charged;
+ globalThis.fetch=async (url,init)=>{
+  if(String(url)==='https://api.stripe.com/v1/checkout/sessions') {
+   charged=Number(new URLSearchParams(init.body).get('line_items[0][price_data][unit_amount]'));
+   return Response.json({id:'cs_test_'+crypto.randomUUID().replaceAll('-',''),client_secret:'test-only'});
+  }
+  return fetchBefore(url,init);
+ };
+ try {
+  await d1.prepare("INSERT INTO promo_codes(id,code,title,discount_type,discount_value,min_fare,per_customer_limit,service,status,created_at,updated_at) VALUES('cancel-test','CANCELTEST','Test','fixed',100,0,100,'any','active',?,?)").bind(new Date().toISOString(),new Date().toISOString()).run();
+  for(const [option,expectedMinor] of [['standard',200000],['non_refundable',191000],['flexible',227000]]) {
+   const input=checkoutInput(q,{paymentMethod:'card',cancellationOption:option,promoCode:'CANCELTEST',childSeats:1});
+   const r=await checkout.POST(request('/api/checkout',input)); const body=await r.json();
+   assert.equal(r.status,200,JSON.stringify(body)); assert.equal(charged,expectedMinor);
+   const row=await d1.prepare('SELECT total FROM bookings WHERE reference=?').bind(body.reference).first();
+   assert.equal(Math.round(row.total*100),expectedMinor);
+  }
+ } finally {globalThis.fetch=fetchBefore;delete env.CANCELLATION_OPTIONS;delete env.STRIPE_SECRET_KEY;}
 });
 
 test('analytics consent and changing funnel IDs do not change financial checkout idempotency', async () => {

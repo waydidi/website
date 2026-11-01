@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteStopsDetails } from "@/components/route-stops-details";
 import { useCloseOutside } from "@/lib/use-close-outside";
 import { ArrowRight, ImagePlus, LoaderCircle, Luggage, Users, X } from "lucide-react";
 import { Modal, ModalTitle } from "@/components/ui/modal";
@@ -16,7 +17,7 @@ import { EvidenceSheet } from "@/components/drivers/evidence-sheet";
 import type { EditableBooking } from "@/components/bookings-admin/booking-edit";
 import { CopyTextButton } from "@/components/bookings-admin/copy-text";
 
-export type UpcomingRide = { reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return"; /** Round trip: false for the booking's other journey, listed only by the Completed filter. */ primary?: boolean; /** This journey is done (its Drop is confirmed). */ legDone?: boolean; /** Round trip paid in two parts: the price to collect for each trip; `total` is then this trip's part. */ split?: { first: number; second: number } | null; /** The booking's whole price. */ bookingTotal?: number; /** The customer's ride-status page. */ rideUrl?: string | null; /** The assigned driver's job page. */ driverUrl?: string | null; /** Driver cost set in Telegram ("Set cost"); null until then. */ cost?: number | null; /** What "Edit" on the card changes (booking cards). */ edit?: EditableBooking };
+export type UpcomingRide = { routeStopsJson?: string | null; reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string; vehicle: string; passengers: number; luggage: number; total?: number; paymentStatus?: string; status: string; driver: string | null; driverId: string | null; driverStatus?: string | null; roundtrip?: boolean; leg?: "outbound" | "return"; /** Round trip: false for the booking's other journey, listed only by the Completed filter. */ primary?: boolean; /** This journey is done (its Drop is confirmed). */ legDone?: boolean; /** Round trip paid in two parts: the price to collect for each trip; `total` is then this trip's part. */ split?: { first: number; second: number } | null; /** The booking's whole price. */ bookingTotal?: number; /** The customer's ride-status page. */ rideUrl?: string | null; /** The assigned driver's job page. */ driverUrl?: string | null; /** Driver cost set in Telegram ("Set cost"); null until then. */ cost?: number | null; /** What "Edit" on the card changes (booking cards). */ edit?: EditableBooking };
 
 // The badge follows the driver's trip status once a driver is assigned.
 const STATUS: Record<string, [string, string]> = {
@@ -98,6 +99,7 @@ export function RideCard({ r, drivers, open, onToggle, onAddDriver, actions, noA
           ["PDF", <a key="pdf" href={`/api/admin/bookings/${encodeURIComponent(r.reference)}/confirmation`} download className="font-semibold text-brand-darker underline underline-offset-4">Download</a>],
         ] as [string, React.ReactNode][]).map(([k, v]) => k === "Price" ? <PriceRow key={k} r={r} /> : <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}
       </dl>}
+      {open && r.leg !== "return" && <RouteStopsDetails routeStopsJson={r.routeStopsJson} />}
     </div>
     {!noAssign && <div className="flex min-w-0 items-center justify-between gap-2">
       <DriverPicker reference={r.reference} leg={r.leg} drivers={drivers} current={r.driverId} canAssign={r.status === "confirmed"} onAddDriver={onAddDriver} />

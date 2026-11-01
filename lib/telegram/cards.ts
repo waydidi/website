@@ -93,7 +93,9 @@ export const botEcho = (publicId: string, body: string) =>
 export const staffEcho = (publicId: string, name: string, body: string) =>
   `<b>${esc(name)}</b> replied on the website · ${esc(publicId)}\n<blockquote>${esc(clip(body, 3500))}</blockquote>`;
 
-export type CardBooking = { status?:string;returnAvailable?:boolean;returnCostSet?:boolean; reference: string; customerName: string; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; vehicle: string; passengers: number; luggage: number; total: number; payment: string; acknowledgedBy?: string | null; driverCost?: number | null; driverName?: string | null; costDone?: boolean; driverDone?: boolean; rideLink?: string | null; driverReturnLink?:string|null; driverLink?: string | null };
+import type { DriverRouteStop } from "../route-stop-display";
+
+export type CardBooking = { routeStops?: DriverRouteStop[]; status?:string;returnAvailable?:boolean;returnCostSet?:boolean; reference: string; customerName: string; pickup: string; dropoff: string; pickupDate: string; pickupTime: string; vehicle: string; passengers: number; luggage: number; total: number; payment: string; acknowledgedBy?: string | null; driverCost?: number | null; driverName?: string | null; costDone?: boolean; driverDone?: boolean; rideLink?: string | null; driverReturnLink?:string|null; driverLink?: string | null };
 
 export function bookingCard(b: CardBooking) {
   return [
@@ -102,6 +104,7 @@ export function bookingCard(b: CardBooking) {
     "",
     `Customer: <b>${esc(b.customerName)}</b>`,
     `Route: ${esc(b.pickup)} → ${esc(b.dropoff)}`,
+    ...(b.routeStops ?? []).map(stop => `จุดแวะเที่ยว (ขาไป): ${esc(stop.name)} · ${stop.durationMinutes} นาที`),
     `Date/Time: ${esc(b.pickupDate)} ${esc(b.pickupTime)}`,
     `Vehicle: ${esc(b.vehicle)}`,
     `Group: ${b.passengers} passengers, ${b.luggage} luggage`,

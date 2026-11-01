@@ -1,3 +1,4 @@
+import { loadBookingRouteStopsJson } from "@/lib/route-stops-db";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -49,10 +50,11 @@ export async function fulfillBooking(booking:Booking,paymentIntentId?:string|nul
 async function deliverBooking(booking:Booking) {
  if(!isCommittedStatus(booking.status)) return;
  await ensureDeliveryPayloads(env.DB);
+ const routeStopsJson = await loadBookingRouteStopsJson(booking.reference);
  const now=new Date(),stale=new Date(now.getTime()-5*60000).toISOString();
  const {results}=await env.DB.prepare("SELECT id FROM booking_deliveries WHERE booking_reference=? AND channel<>'confirmation' AND (status IN ('pending','failed','pending_configuration') OR (status='processing' AND attempted_at<?)) AND (next_attempt_at IS NULL OR next_attempt_at<=?) ORDER BY channel").bind(booking.reference,stale,now.toISOString()).all();
  let pdfPromise:Promise<Uint8Array>|null=null;
- const pdf=()=>pdfPromise??=(async()=>createConfirmationPdf(booking,await bookingExtras(booking)))();
+ const pdf=()=>pdfPromise??=(async()=>createConfirmationPdf({...booking,routeStopsJson},await bookingExtras(booking)))();
  for(const candidate of results) {
   const at=new Date().toISOString();
   const job=await env.DB.prepare("UPDATE booking_deliveries SET status='processing',attempts=attempts+1,attempted_at=?,updated_at=? WHERE id=? AND (status IN ('pending','failed','pending_configuration') OR (status='processing' AND attempted_at<?)) AND (next_attempt_at IS NULL OR next_attempt_at<=?) RETURNING *").bind(at,at,candidate.id,stale,at).first() as Delivery|null;
@@ -71,7 +73,7 @@ async function deliverBooking(booking:Booking) {
     if(!job.recipient || !env.RESEND_API_KEY || (!frozen && !env.BOOKING_FROM_EMAIL)){status="pending_configuration";error="configuration";}
     else {
     if(!frozen){
-     const prepared=prepareConfirmationEmail({to:job.recipient,name:booking.customerName,reference:booking.reference,pdf:await pdf(),pickup:booking.pickup,dropoff:booking.dropoff,pickupDate:booking.pickupDate,pickupTime:booking.pickupTime,vehicle:booking.vehicle,customerPhone:booking.customerPhone,passengers:booking.passengers,luggage:booking.luggage,total:booking.total,paymentMethod:booking.paymentMethod,paymentStatus:booking.paymentStatus,serviceType:booking.serviceType,bookedHours:booking.bookedHours,pricingArea:booking.pricingArea,returnPickup:booking.returnPickup,returnDropoff:booking.returnDropoff,returnDate:booking.returnDate,returnTime:booking.returnTime,outboundTotal:booking.outboundTotal,returnTotal:booking.returnTotal,extras:await bookingExtras(booking),surname:booking.customerSurname,flightNumber:booking.flightNumber,rideUrl:job.channel==="customer_email"?await rideUrl(SITE_URL,booking).catch(()=>undefined):undefined});
+     const prepared=prepareConfirmationEmail({to:job.recipient,name:booking.customerName,reference:booking.reference,pdf:await pdf(),pickup:booking.pickup,dropoff:booking.dropoff,pickupDate:booking.pickupDate,pickupTime:booking.pickupTime,vehicle:booking.vehicle,customerPhone:booking.customerPhone,passengers:booking.passengers,luggage:booking.luggage,total:booking.total,paymentMethod:booking.paymentMethod,paymentStatus:booking.paymentStatus,serviceType:booking.serviceType,bookedHours:booking.bookedHours,pricingArea:booking.pricingArea,returnPickup:booking.returnPickup,returnDropoff:booking.returnDropoff,returnDate:booking.returnDate,returnTime:booking.returnTime,outboundTotal:booking.outboundTotal,returnTotal:booking.returnTotal,routeStopsJson,extras:await bookingExtras(booking),surname:booking.customerSurname,flightNumber:booking.flightNumber,rideUrl:job.channel==="customer_email"?await rideUrl(SITE_URL,booking).catch(()=>undefined):undefined});
      await freezeDeliveryEmail(env.DB,job,prepared);
      frozen=await readDeliveryEmail(env.DB,job.id);
     }

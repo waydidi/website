@@ -1,3 +1,4 @@
+import { bookingRouteStopSnapshots } from "@/lib/booking-route-stop-snapshots";
 import { and, count, eq, gte, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
 import { fullName } from "@/lib/person-name";
 import { getDb } from "@/db";
@@ -20,6 +21,7 @@ export function bangkokDate(offset = 0, at = new Date()) {
 }
 
 export type OverviewRide = {
+  routeStopsJson?: string | null;
   reference: string; pickupDate: string; pickupTime: string; pickup: string; dropoff: string; name: string;
   vehicle: string; passengers: number; luggage: number; status: string; paymentMethod: string; paymentStatus: string; total: number; flightNumber: string | null; flightStatus: string | null;
   driver: string | null; driverId: string | null; driverStatus: string | null; attention: boolean;
@@ -64,6 +66,7 @@ export async function adminOverview(at = new Date()) {
 
   // Each booking's drivers (both trips) and first trips already completed.
   const refs = upcoming.map((b) => b.reference);
+  const routeStopSnapshots = await bookingRouteStopSnapshots(refs);
   const legRows: { ref: string; leg: string; driverId: string; status: string; driver: string | null }[] = [];
   const doneRefs: string[] = [];
   for (let i = 0; i < refs.length; i += 90) {
@@ -81,6 +84,7 @@ export async function adminOverview(at = new Date()) {
     const leg = onReturn ? "return" as const : "outbound" as const;
     const a = legOf(b.reference, leg);
     return {
+      routeStopsJson: onReturn ? null : routeStopSnapshots.get(b.reference) ?? null,
       reference: b.reference, pickupDate: onReturn ? b.returnDate! : b.pickupDate, pickupTime: onReturn ? b.returnTime! : b.pickupTime,
       pickup: onReturn ? b.returnPickup || b.dropoff : b.pickup, dropoff: onReturn ? b.returnDropoff || b.pickup : b.dropoff,
       name: fullName(b.customerName, b.customerSurname), vehicle: b.vehicle, passengers: b.passengers, luggage: b.luggage, status: b.status, paymentMethod: b.paymentMethod, paymentStatus: b.paymentStatus,

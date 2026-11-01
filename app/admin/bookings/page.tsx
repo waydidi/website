@@ -1,3 +1,5 @@
+import { bookingRouteStopSnapshots } from "@/lib/booking-route-stop-snapshots";
+import { RouteStopsDetails } from "@/components/route-stops-details";
 import { and, desc, eq, inArray, isNull, like , isNotNull} from "drizzle-orm";
 import {
   BookOpen,
@@ -65,6 +67,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
   const formsReceived = (await getDb().select({ token: bookingForms.token }).from(bookingForms).where(eq(bookingForms.status, "submitted")).catch(() => [])).length;
   // The bin is read on its own so older binned bookings still show.
   const binRows = await getDb().select().from(bookings).where(and(eq(bookings.status, "binned"),isNotNull(bookings.purgeAfter))).orderBy(desc(bookings.binnedAt)).limit(200);
+  const routeStopSnapshots = await bookingRouteStopSnapshots([...allRows, ...binRows].map(row => row.reference));
   const activeRows = allRows.filter((row) => row.status !== "binned");
   const [driverRows, assignmentRows, doneLegs] = await Promise.all([
     getDb().select({ id: drivers.id, name: drivers.fullName, phone: drivers.phone, email: drivers.email, area: drivers.baseLocation, vehicle: drivers.vehicle, plate: drivers.carPlate, vehicleType: drivers.vehicleType, photoKey: drivers.photoKey, status: drivers.status }).from(drivers),
@@ -221,6 +224,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
               const { roundtrip, shown, other } = journey(row), split = splits.get(row.reference) ?? null, finished = ["completed", "no_show"].includes(row.status);
               // The journey shown for the booking, and (round trip) its other journey, which the Completed filter lists as its own card once it is done.
               const ride = (side: typeof shown, primary: boolean) => { const driverId = side.assignment?.driverId ?? null, done = finished || ["completed", "no_show"].includes(side.assignment?.status ?? "") || (side.leg === "return" ? secondTripDone : firstTripDone).has(row.reference); return {
+                routeStopsJson: side.leg === "outbound" ? routeStopSnapshots.get(row.reference) ?? null : null,
                 reference: row.reference, pickupDate: side.date, pickupTime: side.time, pickup: side.from, dropoff: side.to, roundtrip, leg: side.leg, primary, legDone: done,
                 name: fullName(row.customerName, row.customerSurname), vehicle: row.vehicle, passengers: row.passengers, luggage: row.luggage,
                 total: split ? (side.leg === "return" ? split.second : split.first) : row.total, bookingTotal: row.total, split, paymentStatus: row.paymentStatus, status: row.status,
@@ -249,7 +253,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                     <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${shown.date}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{shown.time}</p>{other && <RoundtripPill label={shown.leg === "return" ? "Second trip" : "First trip"} leg={{ reference: row.reference, title: other.title, date: other.date, time: other.time, from: other.from, to: other.to, passengers: row.passengers, luggage: row.luggage, vehicle: row.vehicle }} />}</td>
                     <td className="px-4 py-4"><p className="font-medium text-slate-900">{row.customerName}</p><p className="text-[12px] text-slate-500">{row.customerPhone}</p>{tax && <p className="mt-1 text-[12px] font-medium text-amber-700">Tax invoice requested</p>}</td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{shown.from}</p></td>
-                    <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{shown.to}</p></td>
+                    <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{shown.to}</p>{shown.leg === "outbound" && <RouteStopsDetails routeStopsJson={routeStopSnapshots.get(row.reference)} />}</td>
                     <td className="px-4 py-4"><p className="text-slate-900">{row.vehicle.replaceAll("_", " ")}</p>{bookingAddonLabels(row).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{bookingAddonLabels(row).map((l) => <span key={l} className="whitespace-nowrap rounded-full bg-brand-tint px-2 py-0.5 text-[11px] font-semibold text-[#B85D00]">+ {l}</span>)}</div>}</td>
                     <td className="px-4 py-4"><span className="font-semibold text-slate-900">{row.reference}</span>{viaPartner.has(row.reference) && <span className="ml-1.5 rounded-full bg-violet-50 px-2 py-0.5 text-[11.5px] font-semibold text-violet-700">via {viaPartner.get(row.reference)}</span>}{row.status !== "confirmed" && <p className="mt-0.5 text-[12px] capitalize text-slate-500">{row.status.replaceAll("_", " ")}</p>}</td>
                     <td className="whitespace-nowrap px-4 py-4">

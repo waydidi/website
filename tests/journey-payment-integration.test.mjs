@@ -15,7 +15,7 @@ for (const name of (await readdir(root + '/drizzle')).filter(n => n.endsWith('.s
         await d1.batch(statements.map(s => d1.prepare(s)));
 }
 globalThis.__journeyTestEnv = { DB: d1 };
-const vite = await createServer({ root, configFile: false, appType: 'custom', resolve: { alias: { '@': root } }, plugins: [{ name: 'test-worker-boundaries', enforce: 'pre', resolveId(id) { if (id === 'cloudflare:workers')
+const vite = await createServer({ root, configFile: false, appType: 'custom', optimizeDeps: { noDiscovery: true }, resolve: { alias: { '@': root } }, plugins: [{ name: 'test-worker-boundaries', enforce: 'pre', resolveId(id) { if (id === 'cloudflare:workers')
                 return '\0test-env'; if (id.endsWith('/lib/booking-fulfillment'))
                 return '\0test-fulfillment'; if (id.endsWith('/lib/admin'))
                 return '\0test-admin'; }, load(id) { if (id === '\0test-env')
@@ -251,4 +251,58 @@ test('lost refund responses reconcile after idempotency retention without a repl
   };
   await refundFlow.reconcileRefunds(b.reference);assert.equal(lookups,1);const row=(await refundFlow.refundsFor(b.reference))[0];assert.equal(row.status,'refunded');assert.equal(row.providerRefundId,'re_lost');
  }finally{globalThis.fetch=originalFetch;}
+});
+test('transfer summary applies cancellation to the combined server fare and rejects tampering',async()=>{
+ const now=new Date().toISOString(),date=new Date(Date.now()+30*86400000).toISOString().slice(0,10),backDate=new Date(Date.now()+32*86400000).toISOString().slice(0,10);
+ const prices=JSON.stringify({economy_sedan:{total:100.10,basePrice:100.10,distanceSurcharge:0}});
+ const outId=crypto.randomUUID(),backId=crypto.randomUUID();
+ const row={areaId:'summary-test',areaName:'Test',distanceMeters:1000,durationSeconds:600,vehiclePricesJson:prices,pricingVersion:1,timezone:'Asia/Bangkok',expiresAt:new Date(Date.now()+30*60000).toISOString(),createdAt:now};
+ await db.insert(schema.fareQuotes).values([{...row,id:outId,pickupPlaceId:'a',dropoffPlaceId:'b',pickupText:'A',dropoffText:'B',departureDate:date,departureTime:'09:00'},{...row,id:backId,pickupPlaceId:'b',dropoffPlaceId:'a',pickupText:'B',dropoffText:'A',departureDate:backDate,departureTime:'09:00'}]);
+ const summary=await vite.ssrLoadModule('/app/api/booking/quote-summary/route.ts');
+ const send=async extras=>{const r=await summary.POST(adminRequest('/api/booking/quote-summary',{outboundQuoteId:outId,returnQuoteId:backId,...extras}));return {status:r.status,body:await r.json()};};
+ globalThis.__journeyTestEnv.CANCELLATION_OPTIONS='1';
+ try{
+  const flexible=await send({cancellationOption:'flexible',paymentMethod:'card'});
+  assert.equal(flexible.status,200,JSON.stringify(flexible.body));assert.equal(flexible.body.prices.economy_sedan.total,230.23);
+  const cash=await send({cancellationOption:'non_refundable',paymentMethod:'cash'});assert.equal(cash.body.prices.economy_sedan.total,200.2);
+  assert.equal((await send({cancellationOption:'hacked'})).status,400);
+  assert.equal((await send({total:1})).status,400);
+  globalThis.__journeyTestEnv.CANCELLATION_OPTIONS='0';
+  assert.equal((await send({cancellationOption:'flexible'})).body.prices.economy_sedan.total,200.2);
+ }finally{delete globalThis.__journeyTestEnv.CANCELLATION_OPTIONS;}
+});
+
+test('round-trip transfer checkout recomputes the purchased option before promo and add-ons',async()=>{
+ // This fixture quotes the unadjusted demo fare. Use future low-season dates
+ // so seeded high-season surcharges do not correctly invalidate that quote.
+ const year=new Date().getUTCFullYear()+1;
+ const date=`${year}-06-10`,backDate=`${year}-06-12`,now=new Date().toISOString();
+ const outId=crypto.randomUUID(),backId=crypto.randomUUID();
+ const common={areaId:'sample-pattaya',areaName:'Test',distanceMeters:125000,durationSeconds:6000,vehiclePricesJson:JSON.stringify({economy_sedan:{total:1400,basePrice:1400,distanceSurcharge:0}}),pricingVersion:1,timezone:'Asia/Bangkok',expiresAt:new Date(Date.now()+1800000).toISOString(),createdAt:now};
+ await db.insert(schema.fareQuotes).values([{...common,id:outId,pickupPlaceId:'airport',dropoffPlaceId:'pattaya',pickupText:'Suvarnabhumi Airport',dropoffText:'Pattaya',departureDate:date,departureTime:'09:00'},{...common,id:backId,pickupPlaceId:'pattaya',dropoffPlaceId:'airport',pickupText:'Pattaya',dropoffText:'Suvarnabhumi Airport',departureDate:backDate,departureTime:'09:00'}]);
+ await d1.prepare("INSERT INTO promo_codes(id,code,title,discount_type,discount_value,min_fare,per_customer_limit,service,status,created_at,updated_at) VALUES('transfer-cancel-test','TRANSFERTEST','Test','fixed',100,0,100,'any','active',?,?)").bind(now,now).run();
+ const checkout=await vite.ssrLoadModule('/app/api/checkout/route.ts'),env=globalThis.__journeyTestEnv;
+ env.CANCELLATION_OPTIONS='1';env.RATE_LIMIT_SALT='test-only-checkout-secret';
+ try{
+  for(const [option,total] of [['standard',3000],['flexible',3420],['non_refundable',3000]]){
+   const input={checkoutAttemptId:crypto.randomUUID(),customerName:'Test',customerSurname:'Passenger',customerEmail:'test@example.invalid',customerPhone:'+66123456789',pickup:'Suvarnabhumi Airport',dropoff:'Pattaya',pickupDate:date,pickupTime:'09:00',returnDate:backDate,returnTime:'09:00',timezone:'Asia/Bangkok',passengers:2,luggage:1,vehicle:'economy_sedan',childSeats:1,oversizedLuggage:false,termsAccepted:true,paymentMethod:'cash',fareQuoteId:outId,returnFareQuoteId:backId,cancellationOption:option,promoCode:'TRANSFERTEST'};
+   const response=await checkout.POST(adminRequest('/api/checkout',input)),body=await response.json();
+   assert.equal(response.status,200,JSON.stringify(body));
+   const stored=await d1.prepare('SELECT total FROM bookings WHERE reference=?').bind(body.reference).first();
+   assert.equal(stored.total,total);
+  }
+ }finally{delete env.CANCELLATION_OPTIONS;delete env.RATE_LIMIT_SALT;}
+});
+
+test('purchased option snapshots survive config changes and drive real refund quotes',async()=>{
+ const config={enabled:true,discountBps:500,surchargeBps:1500,fullRefundHours:12};
+ for(const [option,hours,percent] of [['non_refundable',100,0],['flexible',12,100],['flexible',11.99,0]]) {
+  const b=await seed({pickupDate:'2026-12-01',pickupTime:'09:00'});
+  await accepted.saveAcceptedPolicy(b.reference,new Date().toISOString(),option,config);
+  const snapshot=await accepted.acceptedPolicy(b.reference);
+  assert.equal(snapshot.option,option);
+  const at=new Date(Date.parse('2026-12-01T09:00:00+07:00')-hours*3600000).toISOString();
+  const q=await refundFlow.quoteRefund(b.reference,'customer_cancellation',at);
+  assert.equal(q.percent,percent);
+ }
 });

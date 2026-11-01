@@ -2,6 +2,26 @@
 
 A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
 
+## Cancellation choices and vehicle recommendations
+
+`CANCELLATION_OPTIONS=0` (default) preserves existing checkout prices and hides the option picker. Set the Worker variable to `1` to offer Standard (preselected), Non-refundable and Flexible for transfers and the shared hourly checkout. The public refund-policy page describes the choices only while enabled. This does not enable a new messaging category.
+
+- `CANCELLATION_NONREFUNDABLE_DISCOUNT_BPS=500`: fare discount in basis points (default 5%; valid integer 0–10000).
+- `CANCELLATION_FLEXIBLE_SURCHARGE_BPS=1500`: fare surcharge (default 15%; valid integer 0–100000).
+- `CANCELLATION_FLEXIBLE_FULL_REFUND_HOURS=12`: full-refund notice for Flexible (integer 0–48 hours, inclusive boundary).
+
+Invalid numeric settings fall back to those defaults. Non-refundable requires card checkout and strictly more than 48 hours until outbound pickup; switching to cash resets to Standard. Checkout rejects an ineligible online selection rather than silently changing its price. Standard retains the existing policy: more than 48 hours full, exactly 48 through 24 hours half, below 24 none. Flexible is full at or above its purchased notice window, none below. Waydidi cancellation remains full; no-show remains zero. A round trip uses the outbound pickup as the notice anchor for the entire booking.
+
+Pricing order: combine server-quoted outbound + return fares (or use the server hourly fare), convert once to integer satang, apply the cancellation multiplier with integer half-up rounding `(fareMinor * basisPoints + 5000) / 10000`, then existing storefront OR affiliate/promo rules, then member discount, then add-ons. Add-ons are not option-adjusted or discounted; free add-on gifts retain existing rules. Existing discount helpers retain their whole-baht rounding/caps. Client totals and unknown option identifiers are rejected. Fare quote endpoints remain base/Standard vehicle catalogues; `/api/booking/quote-summary` accepts an optional cancellation option/payment method and recomputes the combined option total, and checkout always recomputes independently.
+
+Accepted options and refund tiers are frozen in existing `booking_policy_snapshots` (migration `0060_booking_workflow.sql`, plus its existing first-use bootstrap); no new migration. Disabling the flag or changing the hours later does not change purchased policies. Earlier snapshots without an option remain Standard. Very old bookings without any accepted snapshot retain the existing fail-closed manual-review requirement rather than having contractual terms fabricated.
+
+Promo and automatic wallet previews send the option-adjusted fare as integer `totalMinor` (satang); the preview routes convert once at their legacy THB-helper boundary. Existing integer-THB `total` clients remain supported, but exactly one amount is required. Fractional THB `total`, fractional satang and out-of-range amounts remain invalid. Checkout remains the price authority and independently rechecks discounts.
+
+Online date/route changes (preview, submission and approval of already-pending requests) are blocked for purchased Non-refundable and Flexible bookings, even after `CANCELLATION_OPTIONS` is disabled. Customers must contact Waydidi. Existing snapshots freeze refund terms but not the price multiplier, so carrying an old option discount/surcharge over as a fixed amount would misprice a new fare. Standard and legacy bookings without an option retain their existing change flow; unreadable snapshots fail closed. No existing amount, concurrency or integer-total guards are relaxed.
+
+Vehicle recommendations are display-only and unflagged: the smallest fitting quoted class is “Best for you”; the next fitting quoted class offers a one-tap upgrade using the displayed quote difference. The server still checks and prices the selected class.
+
 ## Prerequisites
 
 - Node.js `>=22.13.0`
@@ -12,6 +32,39 @@ A clean full-stack starter running on [vinext](https://github.com/cloudflare/vin
 Waydidi’s only live site is [https://waydidi.com](https://waydidi.com). GitHub `main` is the source for the Cloudflare Worker `waydidi-website`. Use Cloudflare Workers Builds for deployment; pushing a review branch alone does not publish it. Keep `WAYDIDI_PUBLIC_URL` in the Worker settings equal to this origin. Do not publish this repository to the former ChatGPT Sites address.
 
 Canonical URLs, structured data, sitemap and robots metadata use `lib/site.ts`. The historical `.openai/hosting.json` is retained for build compatibility and logical bindings; it is not a deployment target.
+
+## Transfer route pages and public language URLs
+
+Both rollouts are off by default. Set Worker variables explicitly after review:
+
+- `TRANSFER_ROUTE_PAGES=1`: publishes `/transfers` and priced `/transfers/<from>-to-<to>` pages, footer discovery and sitemap entries. `0` or unset hides route pages. The curated catalog has 38 directional routes; Samui is not advertised without verified coverage. Only published, non-manual destination areas with valid live pricing rules appear, and a route must pass the same exactly-four-vehicle guard as `/api/fare-quote` after BMW route filtering. This deliberately hides routes that the current quote API would refuse; with complete rules, only the four Bangkok city ↔ BKK/DMK directions currently qualify out of the 38-route catalog. The quote API guard is unchanged. Prices call `lib/pricing.ts` and `lib/vehicle-routes.ts` on the server, convert once to integer satang, and never use demo or hardcoded fares. They are base-fare estimates using offline road distances, not binding quotes or date-specific seasonal prices. Booking re-resolves exact addresses, date, traffic and availability through the existing flow. Missing rules or database failures omit the route rather than inventing a price.
+- `PUBLIC_LANGUAGE_URLS=1`: English stays unprefixed; all 11 non-English `SITE_LANGS` codes serve `/<lang>/<path>` without redirecting. This replaces the legacy `/th` and `/zh` 301 behavior only when enabled. A URL's language overrides the preference cookie. Public HTML gets self canonical, 12 language alternates plus `x-default`, localized links and `html lang`; the sitemap emits matching entries. API, admin, driver, agency, account, booking, payment, LIFF, webhook and private token pages (including quote and marketing links) are never prefixed or machine-translated. Security headers, CSP and maintenance mode remain in the Worker.
+
+Language-prefixed HTML is translated from D1 cache only, before crawlers see it. Uncached or unapproved text stays English; protected `translate="no"` / `data-no-translate` / `.notranslate` text and code/scripts remain English. A crawler HTML request makes zero paid model calls and claims no translation budget. Existing browser translation queues and Admin translation tools can populate approved missing strings, still guarded by the existing atomic `DAILY_LIMIT` of 30,000 strings/day across languages. JavaScript-executing crawlers can use that same bounded browser path; enabling 11 additional crawlable variants increases D1 reads, cache storage and possible browser-initiated translations, not an unbounded synchronous indexing bill. Prime/review translations in Admin before enabling for search quality. Route names and copy are added by `node scripts/generate-translation-sources.mjs --transfers-only`; no runtime customer text is added to the approved catalog.
+
+Public route HTML caches for five minutes; language is part of the URL cache key and language rollout uses a new cache namespace. Help and private pages remain uncached. After toggling route visibility or editing prices, allow five minutes or purge the affected public-page cache so footer links and estimates refresh. No new migration or secret is required. Parent release verification must run the full build and browser checks, including hydrated navigation and language switching.
+
+## AI assistants (MCP)
+
+The public read-only MCP endpoint and discovery documents are **off by default**. Set Worker variable `MCP_PUBLIC=1` to expose `POST /mcp`, `/llms.txt` and `/.well-known/mcp.json`; absent or any other value returns 404. Keep it off until the owner approves public quoting. D1, a private `RATE_LIMIT_SALT` and `GOOGLE_MAPS_SERVER_KEY` are required for quotes. No new dependencies or migrations are needed.
+
+The stateless Streamable HTTP transport returns JSON (no SSE or session IDs), supports protocol versions `2025-03-26`, `2025-06-18` and `2025-11-25`, and explicitly rejects JSON-RPC batches. `GET /mcp` returns 405 when enabled. CORS allows any origin for POST/OPTIONS without credentials; MCP never reads customer cookies or sessions. Maintenance mode returns 503 for all three endpoints, including POST, without a staff bypass.
+
+Tools: `search_places` reads static Waydidi destinations/airports without Google calls; `get_quote` calls the same in-process transfer/hourly quote handlers as the website; `get_booking_link` builds a normal booking-flow URL. Resources describe vehicles, cancellation, booking and contact. No tool creates a booking/draft, takes payment or sends messages. Do not send names, contact information or payment details. Quote handlers still persist their normal expiring fare/hourly quote records and rate counters; they may perform billable Google Places/Routes calls. Limits are 60 MCP POST requests and 5 quote attempts per IP per 15-minute window, using hashed IPs in the existing security rate-window table; database failures fail closed.
+
+Quotes use Asia/Bangkok dates, at least three hours ahead and on 15-minute slots. Prices are integer satang in `priceMinor`, in THB, filtered by passengers/bags; optional converted displays are indicative only. Quote expiry is informational, not a reservation or price lock. Custom/unsupported hourly itineraries return a tool error and must be reviewed on the website. Links use validated `rebook=mcp` query parameters (pickup, dropoff, date, time, passengers, bags, service, hours, vehicle and currency), prefill search only, and never restore a price or advance checkout automatically. Currency does not change checkout's THB charge.
+
+After enabling, test against the intended Worker origin:
+
+```sh
+curl -i https://waydidi.com/llms.txt
+curl -i https://waydidi.com/.well-known/mcp.json
+curl -i https://waydidi.com/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+curl -i https://waydidi.com/mcp -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+curl -i https://waydidi.com/mcp -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"search_places","arguments":{"query":"Bangkok"}}}'
+```
+
+Focused tests: `node --test --test-concurrency=1 tests/mcp.test.mjs tests/mcp-pricing.test.mjs`. The latter uses in-memory D1 and fake Google responses, compares both services against the real website handlers, and confirms no booking/customer rows are created.
 
 ## Receipt PDF documents
 
@@ -201,6 +254,18 @@ Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the 
 SIWC establishes identity only; it does not prove workspace membership. Use the Sites hosting platform's access policy controls for workspace-wide restrictions, or enforce explicit server-side membership or allowlist checks.
 
 Use SIWC for account pages, user-specific dashboards, saved records, and write actions tied to the current ChatGPT user. Leave public content anonymous.
+
+## Paid sightseeing stops on transfers
+
+`ROUTE_STOPS=0` is the default. Only the Worker variable `ROUTE_STOPS=1` enables customer stop offers. With it off, no stop selector is shown, checkout/quote summary reject nonempty stop selections, and empty selections keep existing totals. Purchased snapshots remain visible even if the flag is later disabled.
+
+Owner and operations staff manage `/admin/route-stops` (also linked in Operations), independently of the customer flag. Offers reuse active Attractions and polygon pickup/drop-off zones, optionally in both directions. Prices are integer satang per vehicle booking, the same for all vehicle classes. Customers may select up to three stops on the outbound leg only. A short free comfort break is always included; admission tickets, meals and activities are not included in a stop price.
+
+Pricing order: combined outbound/return fare → cancellation-option fare adjustment → promo discount → member discount → existing add-ons → stop prices at face value. Promo/member discounts and cancellation-option surcharges/discounts never change stop prices. The entire paid total, including stops, follows the booking's accepted cancellation option for refunds. Checkout and quote summary revalidate offer IDs, active attractions, zones and direction against stored quote coordinates; client prices are rejected.
+
+Additive migrations `0116_route_stop_offers.sql` and `0117_booking_route_stops.sql` have matching first-use `CREATE TABLE IF NOT EXISTS` bootstrap. The booking and stop name/duration/price snapshots are inserted atomically; editing an offer never reprices a purchased booking. Snapshot data is used on customer confirmations, email/PDF, trip pages, admin bookings, Thai driver jobs and driver-group posts. Drivers see stop names/durations, not customer sale prices. Stop minutes extend the outbound duration; additional detour driving time and opening-hour feasibility are not automatically calculated. Online changes for bookings with stops are blocked pending assistance from operations, rather than silently dropping or repricing the purchased stops.
+
+Bootstrap inserts inactive suggestions only when the matching seeded attraction exists: Maeklong (THB 600 / 60 min) and Damnoen Saduak (THB 900 / 90 min) on Bangkok–Hua Hin; Bang Krachao (THB 1,200 / 150 min) on Bangkok–Pattaya; Damnoen Saduak (THB 900 / 90 min) on Bangkok–Kanchanaburi. These are draft suggestions, not verified sale prices. Staff must check actual routing, extra driving time, opening hours, admission exclusions and driver cost before activating any offer and enabling the Worker flag. Existing edits/deactivation survive bootstrap retries. Add other attractions (such as Muang Boran or Sanctuary of Truth) through Attractions before creating their route offers.
 
 ## Diagnostic Commands
 

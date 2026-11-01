@@ -1,6 +1,11 @@
 import { sql } from "drizzle-orm";
 import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+export const bookingRouteStops = sqliteTable("booking_route_stops", {
+  bookingReference: text("booking_reference").primaryKey().references(() => bookings.reference),
+  routeStopsJson: text("route_stops_json").notNull(),
+});
+
 export const bookings = sqliteTable(
   "bookings",
   {

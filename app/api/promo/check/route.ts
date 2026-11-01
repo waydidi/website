@@ -9,14 +9,17 @@ import { isJsonRequest, sameOrigin } from "@/lib/security";
 
 const input = z.object({
   code: z.string().max(40),
-  total: z.number().int().min(1).max(10_000_000),
+  // Legacy whole-baht callers stay valid; new previews send integer satang.
+  total: z.number().int().min(1).max(10_000_000).optional(),
+  totalMinor: z.number().int().min(100).max(1_000_000_000).optional(),
   serviceType: z.enum(["transfer", "hourly"]),
   returnTrip: z.boolean().optional(),
   airportTrip: z.boolean().optional(),
   vehicle: z.string().max(40),
   email: z.string().max(254).optional(),
   phone: z.string().max(40).optional(),
-}).strict();
+}).strict().refine(data => (data.total === undefined) !== (data.totalMinor === undefined), { message: "Provide exactly one amount" })
+  .transform(({ totalMinor, ...data }) => ({ ...data, total: totalMinor === undefined ? data.total! : totalMinor / 100 }));
 
 // Preview a code at the Payment step. Checkout re-checks it against the real
 // quote price, so the total sent here only affects what is shown.

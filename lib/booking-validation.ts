@@ -51,12 +51,19 @@ export const hourlyQuoteInputSchema = z.object({
   }
 });
 
+const routeStopIdsSchema = z.array(z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/)).max(3)
+  .refine(ids => new Set(ids).size === ids.length, "Choose each stop only once.").optional().default([]);
+
 export const quoteSummaryInputSchema = z.object({
+  routeStopIds: routeStopIdsSchema,
   outboundQuoteId: z.string().uuid(),
   returnQuoteId: z.string().uuid().optional(),
+  cancellationOption: z.enum(["standard", "non_refundable", "flexible"]).optional(),
+  paymentMethod: z.enum(["card", "cash"]).optional().default("card"),
 }).strict();
 
 export const checkoutInputSchema = z.object({
+  routeStopIds: routeStopIdsSchema,
   checkoutAttemptId: z.string().uuid(),
   funnelId: z.string().uuid().optional(),
   customerName: z.string().trim().min(2).max(120),
@@ -90,6 +97,7 @@ export const checkoutInputSchema = z.object({
   specialRequests: z.string().max(500).optional().default(""),
   termsAccepted: z.literal(true),
   paymentMethod: z.enum(["card", "cash"]),
+  cancellationOption: z.enum(["standard", "non_refundable", "flexible"]).optional(),
   serviceType: z.enum(["transfer", "hourly"]).default("transfer"),
   fareQuoteId: z.string().uuid().optional(),
   returnFareQuoteId: z.string().uuid().optional(),
@@ -117,6 +125,9 @@ export const checkoutInputSchema = z.object({
         context.addIssue({ code: z.ZodIssueCode.custom, path: ["returnDate"], message: "Choose a return date and time after your departure." });
       }
     }
+  }
+  if (input.serviceType === "hourly" && input.routeStopIds.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["routeStopIds"], message: "Sightseeing stops are available on transfers only." });
   }
   if (input.serviceType === "hourly" && input.vehicle === "comfort_bmw") {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["vehicle"], message: "BMW is not offered for By the Hour." });

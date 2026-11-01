@@ -3,11 +3,16 @@
 // and currency are applied in the browser after the page loads. A page that reads cookies
 // or the customer session on the server (e.g. /help) must never be listed.
 // Unit tested in tests/edge-cache.test.mjs.
+import { parseLanguagePath } from "./language-urls";
 
 const PUBLIC_PAGES = /^\/(destinations(\/[a-z0-9-]+)?|about|contact|faq|airport-transfer|a-to-b-transfer|long-journeys|hourly-driver|luggage-policy|airport-pickup-instructions|safety-driver-standards|drivers|agencies|partners|terms|privacy|refund-policy)$/;
 
 /** Seconds a public GET response may be served from the edge cache (0 = never). */
 export function edgeTtl(url: URL) {
+  const parsed=parseLanguagePath(url.pathname);
+  if(!parsed.valid)return 0;
+  url=new URL(url);url.pathname=parsed.path;
+  if (/^\/transfers(?:\/[a-z0-9-]+)?$/.test(url.pathname)) return 300;
   if (/^\/(th\/|zh\/)?blog(\/|$)/.test(url.pathname) && !url.searchParams.has("preview")) return 300;
   if (url.pathname === "/api/promotions") return 60;
   if (url.pathname === "/api/route-inclusions") return 300;

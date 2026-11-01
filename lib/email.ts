@@ -1,3 +1,5 @@
+import { parseRouteStopSnapshots } from "@/lib/route-stops";
+import { getMessages, translate } from "@/lib/i18n";
 import { confirmationPdfName } from "@/lib/confirmation-pdf";
 import type { BookingExtras } from "@/lib/booking-extras";
 import { VEHICLES } from "@/lib/vehicles";
@@ -12,6 +14,7 @@ import { WHATSAPP } from "@/lib/contact";
 import { offlineConfirmationLabel, paymentLabel } from "@/lib/payment-methods";
 
 type ConfirmationEmailInput = {
+  routeStopsJson?: string | null;
   to: string;
   name: string;
   reference: string;
@@ -130,6 +133,9 @@ export function prepareConfirmationEmail(input: ConfirmationEmailInput): Prepare
     ["From", input.pickup],
     ...(input.dropoff ? [["To", input.dropoff] as [string, string]] : []),
   ];
+  const stopMessages = getMessages("en");
+  const frozenStops = parseRouteStopSnapshots(input.routeStopsJson);
+  if (frozenStops.length) outbound.push([translate(stopMessages, "routeStops.snapshotHeading"), frozenStops.map(stop => `${stop.name} · ${translate(stopMessages, "routeStops.snapshotMinutes", { minutes: stop.durationMinutes })} · THB ${(stop.priceMinor / 100).toFixed(2)}`).join("; ")]);
   const back: [string, string][] = roundTrip ? [
     ["Date/Time", letterDate(input.returnDate!, input.returnTime!)],
     ["From", input.returnPickup ?? input.dropoff],
@@ -142,7 +148,7 @@ export function prepareConfirmationEmail(input: ConfirmationEmailInput): Prepare
   const backFerry = roundTrip && includesKohChangFerry(input.returnPickup ?? input.dropoff, input.returnDropoff ?? input.pickup);
   const ferryLeg = outFerry && backFerry ? "both ways" : outFerry ? (roundTrip ? "outbound only" : "one way") : "return only";
   const ferry: [string, string][] = vehicleClass && (outFerry || backFerry) ? [["Included", `Koh Chang car ferry tickets for ${vehicleClass.passengers} people (${ferryLeg})`]] : [];
-  const closing: [string, string][] = [["Price", price], ...ferry, ["Payment method", payment]];
+  const closing: [string, string][] = [["Price", price], ...ferry, ["Payment method", payment], ...(input.extras?.cancellationPolicy ? [["Cancellation option",input.extras.cancellationPolicy] as [string,string]] : [])];
   const blocks = roundTrip ? [outbound, [...back, ...closing]] : [[...outbound, ...closing]];
   const p = (inner: string, extra = "") => `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#211726${extra}">${inner}</p>`;
   const blockHtml = (lines: [string, string][]) => p(lines.map(([label, value]) => `${escapeHtml(label)}: <strong>${escapeHtml(value)}</strong>`).join("<br>"));
