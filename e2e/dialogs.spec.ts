@@ -26,6 +26,11 @@ test("homepage under-development popup: WhatsApp link, focus kept inside, Esc cl
   const dialog = devNotice(page);
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("You cannot book through the website right now.");
+  // Centred on every screen size (on phones too, not pinned to the bottom), with a gap at each side.
+  const box = (await dialog.boundingBox())!, view = page.viewportSize()!;
+  expect(Math.abs(box.y + box.height / 2 - view.height / 2)).toBeLessThan(2);
+  expect(Math.abs(box.x + box.width / 2 - view.width / 2)).toBeLessThan(2);
+  expect(box.x).toBeGreaterThanOrEqual(16);
   await expect(dialog.getByRole("link", { name: "Contact us on WhatsApp" })).toHaveAttribute("href", WHATSAPP_URL);
   for (let i = 0; i < 6; i++) {
     await page.keyboard.press("Tab");
