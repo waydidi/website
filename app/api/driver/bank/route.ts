@@ -5,7 +5,8 @@ import { getDb } from "@/db";
 import { bookings, drivers } from "@/db/schema";
 import { parseBankDetails } from "@/lib/driver-bank-rules";
 import { activeAssignmentForToken } from "@/lib/driver-operations";
-import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
+import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { openPii, PII_COLUMNS, piiFingerprint, sealPii } from "@/lib/pii";
 import { postDriverBankDetails } from "@/lib/telegram/driver-bank";
 
 // The driver's bank details ("กรอกข้อมูลบัญชี"), sent from the trip link once the Drop is done. The link's
@@ -29,14 +30,17 @@ export async function POST(request: Request) {
   const { bankCode, accountNumber, accountName } = parsed.value;
 
   const now = new Date().toISOString();
-  const previous = driver.bankCode && driver.bankAccountNumber && (driver.bankCode !== bankCode || driver.bankAccountNumber !== accountNumber)
-    ? { bankCode: driver.bankCode, accountNumber: driver.bankAccountNumber } : null;
-  const eventId = `driver-bank-details:${assignment.id}:${await sha256(`${bankCode}:${accountNumber}`)}`;
+  // Account numbers are encrypted at rest once PII_ENCRYPTION_KEY is set (lib/pii.ts).
+  const savedNumber = await openPii(driver.bankAccountNumber, PII_COLUMNS.driverAccount);
+  const previous = driver.bankCode && savedNumber && (driver.bankCode !== bankCode || savedNumber !== accountNumber)
+    ? { bankCode: driver.bankCode, accountNumber: savedNumber } : null;
+  const eventId = `driver-bank-details:${assignment.id}:${await piiFingerprint(`${bankCode}:${accountNumber}`)}`;
+  const [payoutNumber, driverNumber] = await Promise.all([sealPii(accountNumber, PII_COLUMNS.payoutAccount), sealPii(accountNumber, PII_COLUMNS.driverAccount)]);
   const results = await env.DB.batch([
     env.DB.prepare(`INSERT INTO driver_payout_details (id, booking_reference, assignment_id, driver_id, bank_code, account_number, account_name, submitted_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(assignment_id) DO UPDATE SET bank_code = excluded.bank_code, account_number = excluded.account_number, account_name = excluded.account_name, updated_at = excluded.updated_at`)
-      .bind(crypto.randomUUID(), assignment.bookingReference, assignment.id, assignment.driverId, bankCode, accountNumber, accountName, now, now),
-    env.DB.prepare("UPDATE drivers SET bank_code = ?, bank_account_number = ?, bank_account_name = ?, updated_at = ? WHERE id = ?").bind(bankCode, accountNumber, accountName, now, assignment.driverId),
+      .bind(crypto.randomUUID(), assignment.bookingReference, assignment.id, assignment.driverId, bankCode, payoutNumber, accountName, now, now),
+    env.DB.prepare("UPDATE drivers SET bank_code = ?, bank_account_number = ?, bank_account_name = ?, updated_at = ? WHERE id = ?").bind(bankCode, driverNumber, accountName, now, assignment.driverId),
     env.DB.prepare("INSERT OR IGNORE INTO booking_events (booking_reference, event_type, provider_event_id, created_at) VALUES (?, 'driver_bank_details_submitted', ?, ?)").bind(assignment.bookingReference, eventId, now),
   ]);
   // Announced once per distinct set of details: a retry finds its event already recorded.

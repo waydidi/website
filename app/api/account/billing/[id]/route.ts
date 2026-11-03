@@ -5,6 +5,7 @@ import { customerBillingProfiles } from "@/db/schema";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { validateBillingProfile } from "@/lib/customer-account";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
+import { storedBillingProfile } from "@/lib/billing-profiles";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -16,7 +17,7 @@ export async function PATCH(request: Request, context: Context) {
   const result = validateBillingProfile((await request.json().catch(() => ({}))) as Record<string, unknown>);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   const { id } = await context.params;
-  const updated = await getDb().update(customerBillingProfiles).set({ ...result.value, updatedAt: new Date().toISOString() })
+  const updated = await getDb().update(customerBillingProfiles).set({ ...(await storedBillingProfile(result.value)), updatedAt: new Date().toISOString() })
     .where(and(eq(customerBillingProfiles.id, id), eq(customerBillingProfiles.customerId, session.customer.id))).returning({ id: customerBillingProfiles.id });
   if (!updated.length) return NextResponse.json({ error: "Billing profile not found." }, { status: 404 });
   return NextResponse.json({ ok: true, profile: { id, ...result.value } }, { headers: { "Cache-Control": "no-store" } });

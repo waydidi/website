@@ -1,4 +1,8 @@
 import { bookingRouteStopSnapshots } from "@/lib/booking-route-stop-snapshots";
+import { SensitiveValue } from "@/components/admin-sensitive/reveal";
+import { canSeeFullPii } from "@/lib/sensitive-access-rules";
+import { maskTail } from "@/lib/field-crypto";
+import { openPii, PII_COLUMNS } from "@/lib/pii";
 import { RouteStopsDetails } from "@/components/route-stops-details";
 import { and, desc, eq, inArray, isNull, like , isNotNull} from "drizzle-orm";
 import {
@@ -63,7 +67,12 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
     .limit(100);
   // Tax invoice requests (the table may not exist yet before its migration runs).
   const taxRows = await getDb().select().from(bookingTaxInvoices).limit(500).catch(() => []);
-  const taxByBooking = new Map(taxRows.map((tax) => [tax.bookingReference, tax]));
+  // Tax IDs are encrypted at rest once PII_ENCRYPTION_KEY is set; staff see them masked, owner and finance can Show.
+  const taxByBooking = new Map(await Promise.all(taxRows.map(async (tax) => {
+    const plain = await openPii(tax.taxId, PII_COLUMNS.taxInvoiceTaxId).catch(() => null);
+    return [tax.bookingReference, { masked: plain === null ? "unreadable" : maskTail(plain) }] as const;
+  })));
+  const canRevealPii = canSeeFullPii(access.user.role);
   const formsReceived = (await getDb().select({ token: bookingForms.token }).from(bookingForms).where(eq(bookingForms.status, "submitted")).catch(() => [])).length;
   // The bin is read on its own so older binned bookings still show.
   const binRows = await getDb().select().from(bookings).where(and(eq(bookings.status, "binned"),isNotNull(bookings.purgeAfter))).orderBy(desc(bookings.binnedAt)).limit(200);
@@ -251,7 +260,7 @@ export default async function BookingAdminPage({ searchParams }: { searchParams:
                   const { shown, other } = journey(row);
                   return <tr key={row.reference} className="align-middle hover:bg-orange-50/40">
                     <td className="whitespace-nowrap px-4 py-4"><p className="text-slate-900">{new Date(`${shown.date}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p><p className="text-[12px] text-slate-500">{shown.time}</p>{other && <RoundtripPill label={shown.leg === "return" ? "Second trip" : "First trip"} leg={{ reference: row.reference, title: other.title, date: other.date, time: other.time, from: other.from, to: other.to, passengers: row.passengers, luggage: row.luggage, vehicle: row.vehicle }} />}</td>
-                    <td className="px-4 py-4"><p className="font-medium text-slate-900">{row.customerName}</p><p className="text-[12px] text-slate-500">{row.customerPhone}</p>{tax && <p className="mt-1 text-[12px] font-medium text-amber-700">Tax invoice requested</p>}</td>
+                    <td className="px-4 py-4"><p className="font-medium text-slate-900">{row.customerName}</p><p className="text-[12px] text-slate-500">{row.customerPhone}</p>{tax && <p className="mt-1 text-[12px] font-medium text-amber-700">Tax invoice requested{tax.masked === "unreadable" ? " · tax ID encrypted (key missing)" : <> · Tax ID <SensitiveValue masked={tax.masked} kind="tax_invoice" id={row.reference} canReveal={canRevealPii} /></>}</p>}</td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{shown.from}</p></td>
                     <td className="max-w-[180px] px-4 py-4"><p className="line-clamp-2 text-slate-900">{shown.to}</p>{shown.leg === "outbound" && <RouteStopsDetails routeStopsJson={routeStopSnapshots.get(row.reference)} />}</td>
                     <td className="px-4 py-4"><p className="text-slate-900">{row.vehicle.replaceAll("_", " ")}</p>{bookingAddonLabels(row).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{bookingAddonLabels(row).map((l) => <span key={l} className="whitespace-nowrap rounded-full bg-brand-tint px-2 py-0.5 text-[11px] font-semibold text-[#B85D00]">+ {l}</span>)}</div>}</td>

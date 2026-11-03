@@ -1,4 +1,6 @@
 import { and, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
+import { openPii, PII_COLUMNS } from "@/lib/pii";
+import { maskAccount } from "@/lib/driver-bank-rules";
 import { getDb } from "@/db";
 import { bookingAssignments, bookingCosts, bookingFreeAddons, bookingMemberDiscounts, bookings, drivers, journeyCosts, memberBoxes, promoRedemptions } from "@/db/schema";
 import { journeysFor } from "@/lib/journey-legs";
@@ -81,12 +83,14 @@ export function weekStart(date: string) {
 
 export type PayoutTrip = { reference: string; pickupDate: string; route: string; fare: number; cost: number | null; status: string; leg: string; costSource: "journey" | "booking" };
 export type PayoutGroup = {
-  driverId: string; driverName: string; phone: string; bank: { code: string; account: string; name: string };
+  driverId: string; driverName: string; phone: string;
+  /** account: masked ("xxxxxx4521") unless fullAccounts was asked for (owner/finance export); "" if none; "unreadable" if the key is missing. */
+  bank: { code: string; account: string; name: string };
   week: string; trips: PayoutTrip[]; owed: number; paid: number; unpaid: number; costMissing: number; state: "paid" | "unpaid" | "partly_paid";
 };
 
 /** Driver earnings per driver per week, from trips with a driver assigned. */
-export async function driverPayouts({ from, to }: ReportRange): Promise<PayoutGroup[]> {
+export async function driverPayouts({ from, to }: ReportRange, options: { fullAccounts?: boolean } = {}): Promise<PayoutGroup[]> {
   // D1 caps result columns at 100; select bookings separately from drivers.
   const [parents,driverRows] = await Promise.all([
     getDb().select().from(bookings).where(and(inArray(bookings.status,[...EARNING,"no_show"]),isNull(bookings.binnedAt),or(and(gte(bookings.pickupDate,from),lte(bookings.pickupDate,to)),and(gte(bookings.returnDate,from),lte(bookings.returnDate,to))))),
@@ -94,8 +98,13 @@ export async function driverPayouts({ from, to }: ReportRange): Promise<PayoutGr
   ]);
   const parentMap = new Map(parents.map(b=>[b.reference,b]));
   const driverMap = new Map(driverRows.map(d=>[d.id,d]));
+  // Account numbers are encrypted at rest once PII_ENCRYPTION_KEY is set; shown masked unless asked for in full.
+  const accounts = new Map(await Promise.all(driverRows.map(async (d) => {
+    const plain = await openPii(d.bankAccountNumber, PII_COLUMNS.driverAccount).catch(() => null);
+    return [d.id, plain === null ? "unreadable" : !plain ? "" : options.fullAccounts ? plain : maskAccount(plain)] as const;
+  })));
   const assignments = await inChunks(parents.map(b=>b.reference),part=>getDb().select().from(bookingAssignments).where(and(inArray(bookingAssignments.bookingReference,part),isNull(bookingAssignments.revokedAt))));
-  const joined = assignments.flatMap(a=>{const booking=parentMap.get(a.bookingReference);const driver=driverMap.get(a.driverId);return booking&&driver ? [{booking,leg:a.leg,driverId:driver.id,driverName:driver.fullName,phone:driver.phone,bankCode:driver.bankCode,bankAccount:driver.bankAccountNumber,bankName:driver.bankAccountName}] : [];});
+  const joined = assignments.flatMap(a=>{const booking=parentMap.get(a.bookingReference);const driver=driverMap.get(a.driverId);return booking&&driver ? [{booking,leg:a.leg,driverId:driver.id,driverName:driver.fullName,phone:driver.phone,bankCode:driver.bankCode,bankAccount:accounts.get(driver.id) ?? "",bankName:driver.bankAccountName}] : [];});
   const journeys = await journeysFor(joined.map(r=>r.booking));
   const journeyMap = new Map(journeys.map(j=>[j.journeyId,j]));
   const rows = joined.flatMap(r=>{const j=journeyMap.get(`${r.booking.reference}:${r.leg}`);return j && j.pickupDate>=from && j.pickupDate<=to ? [{...r,...j}] : [];});

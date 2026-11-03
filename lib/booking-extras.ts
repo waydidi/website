@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { openPii, PII_COLUMNS } from "@/lib/pii";
 import { acceptedPolicy } from "./accepted-policy";
 import { getDb } from "@/db";
 import { bookingFreeAddons, bookingMemberDiscounts, bookingTaxInvoices, promoRedemptions } from "@/db/schema";
@@ -21,8 +22,11 @@ export type BookingExtras = {
 export async function bookingExtras(booking: { reference: string; childSeats: number; specialRequests: string | null; createdAt: string }): Promise<BookingExtras> {
   const [redemption] = await getDb().select({ code: promoRedemptions.code, discount: promoRedemptions.discount })
     .from(promoRedemptions).where(eq(promoRedemptions.bookingReference, booking.reference)).limit(1).catch(() => []);
-  const [tax] = await getDb().select({ name: bookingTaxInvoices.name, taxId: bookingTaxInvoices.taxId, branch: bookingTaxInvoices.branch })
+  const [storedTax] = await getDb().select({ name: bookingTaxInvoices.name, taxId: bookingTaxInvoices.taxId, branch: bookingTaxInvoices.branch })
     .from(bookingTaxInvoices).where(eq(bookingTaxInvoices.bookingReference, booking.reference)).limit(1).catch(() => []);
+  // Tax IDs are encrypted at rest once PII_ENCRYPTION_KEY is set. Shown in the customer's own email and PDF;
+  // if the key is missing the email still goes out, without the number.
+  const tax = storedTax ? { ...storedTax, taxId: await openPii(storedTax.taxId, PII_COLUMNS.taxInvoiceTaxId).catch(() => "") } : undefined;
   const [member] = await getDb().select().from(bookingMemberDiscounts).where(eq(bookingMemberDiscounts.bookingReference, booking.reference)).limit(1).catch(() => []);
   const [free] = await getDb().select().from(bookingFreeAddons).where(eq(bookingFreeAddons.bookingReference, booking.reference)).limit(1).catch(() => []);
   const [tierId, gift] = (free?.tier ?? "").split("+");

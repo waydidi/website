@@ -20,6 +20,9 @@ export default async function SettingsPage() {
       ["Card payments (Stripe)", set("STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY", "STRIPE_WEBHOOK_SECRET"), "STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET"],
       ["LINE alerts", set("LINE_CHANNEL_ACCESS_TOKEN", "LINE_ADMIN_TARGET_ID"), "LINE_CHANNEL_ACCESS_TOKEN, LINE_ADMIN_TARGET_ID"],
     ] },
+    { title: "Data protection", rows: [
+      ["Encrypted bank accounts and tax IDs", String((env as Record<string, unknown>).PII_ENCRYPTION_KEY ?? "").length >= 32, "PII_ENCRYPTION_KEY (a random secret, 32+ characters; keep a copy safe: without it encrypted numbers can't be read)"],
+    ] },
     { title: "Maps and flights", rows: [
       ["Google Maps", set("GOOGLE_MAPS_SERVER_KEY"), "GOOGLE_MAPS_SERVER_KEY"],
       ["Flight tracking", set("AVIATIONSTACK_API_KEY"), "AVIATIONSTACK_API_KEY"],

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { SensitiveValue } from "@/components/admin-sensitive/reveal";
+import { canSeeFullPii } from "@/lib/sensitive-access-rules";
 import Link from "next/link";
 import { Download } from "lucide-react";
 import { AdminKeyLogin } from "@/components/admin-key-login";
@@ -142,7 +144,7 @@ export async function ReportsSection({ searchParams }: { searchParams: Promise<{
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[16px] font-black">{g.driverName} <span className="text-[13px] font-semibold text-slate-500">· week of {nice(g.week)}</span></p>
-                <p className="text-[13px] text-slate-500">{g.phone} · {g.bank.code || "No bank"} {g.bank.account} {g.bank.name && `(${g.bank.name})`}</p>
+                <p className="text-[13px] text-slate-500">{g.phone} · {g.bank.code || "No bank"} {g.bank.account === "unreadable" ? <span className="font-semibold text-amber-700">account encrypted (key missing)</span> : <SensitiveValue masked={g.bank.account} kind="driver_account" id={g.driverId} canReveal={canSeeFullPii(access.user.role)} />} {g.bank.name && `(${g.bank.name})`}</p>
               </div>
               <div className="text-right">
                 <p className="text-[20px] font-black">{thb(g.owed)}</p>
