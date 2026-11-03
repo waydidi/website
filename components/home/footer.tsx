@@ -2,6 +2,7 @@ import Link from "next/link";
 import { env } from "cloudflare:workers";
 import { WaydidiWordmark } from "@/components/waydidi-logo";
 import { FooterLegal } from "@/components/footer-legal";
+import { FooterLinkGroup as FooterLinks } from "@/components/footer-link-group";
 import { getMessages, translate, type Locale, type MessageKey } from "@/lib/i18n";
 
 export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
@@ -11,8 +12,8 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
     <footer id="support" className="no-print mt-14 bg-brand text-white">
       <div className="mx-auto max-w-[1180px] px-5 lg:px-0">
         <div className="pt-12">
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_.8fr_.8fr_.8fr_.8fr]">
-            <div>
+          <div className="grid sm:grid-cols-2 sm:gap-10 lg:grid-cols-[1.35fr_.8fr_.8fr_.8fr_.8fr]">
+            <div className="mb-8 sm:mb-0">
               <Link
                 href="/"
                 className="inline-flex text-white"
@@ -61,7 +62,7 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
           </div>
         </div>
 
-        <div className="mt-16 flex flex-col gap-5 border-t border-white/30 pt-8 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-5 border-t border-white/30 pt-8 text-sm sm:mt-16 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-x-6 gap-y-3 font-semibold">
             <Link href="/help">{t("footer.helpCenter")}</Link>
             <Link href="/booking/manage">{t("footer.manageBooking")}</Link>
@@ -78,25 +79,3 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
   );
 }
 
-function FooterLinks({
-  title,
-  links,
-}: {
-  title: string;
-  links: { label: string; href: string }[];
-}) {
-  return (
-    <div>
-      <h3 className="font-black">{title}</h3>
-      <ul className="mt-5 space-y-3 text-sm text-white/90">
-        {links.map((link) => (
-          <li key={link.href}>
-            <Link href={link.href} className="hover:text-white hover:underline">
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
