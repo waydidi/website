@@ -78,8 +78,11 @@ export async function newStaffSession(db: SecurityDatabase, staffId: string, rem
   await db.prepare("INSERT INTO staff_sessions(token_hash,staff_id,expires_at,last_used_at,created_at) VALUES(?,?,?,?,?)").bind(await sha256(token),staffId,new Date(now.getTime()+(remember?STAFF_REMEMBER_SECONDS:STAFF_SESSION_SECONDS)*1000).toISOString(),now.toISOString(),now.toISOString()).run();
   return token;
 }
-export function allowedStaffRoute(role: StaffRole, path: string, method: string) {
+export function allowedStaffRoute(role: StaffRole, rawPath: string, method: string) {
   if(role==="owner") return true;
+  // Tapping a link inside the admin fetches the page's data from "<page>.rsc" (e.g. /admin/bookings.rsc):
+  // check it as the page itself, or every in-app link is refused and the phone menu appears stuck.
+  const path=rawPath.replace(/\.rsc$/,"");
   if(path==="/api/admin/session") return true;
   if(path==="/admin/profile" || path==="/api/admin/profile" || path==="/api/admin/avatar") return true;
   if(path==="/admin/financials") return role==="finance" || role==="operations";

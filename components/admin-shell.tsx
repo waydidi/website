@@ -10,7 +10,7 @@ import {
 import Link from "next/link";
 import { ChatSectionPicker } from "@/components/chat-admin/section-picker";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { WaydidiLogo, WaydidiMark, WaydidiWordmark } from "@/components/waydidi-logo";
 import { NotificationBell } from "@/components/admin-settings/notification-bell";
 import { OPEN_SETTINGS_EVENT, SettingsDialog } from "@/components/admin-settings/settings-dialog";
@@ -360,23 +360,32 @@ export default function AdminShell({
           {children}
         </section>
       </div>
-      <MobileTabBar pathname={pathname} />
+      <MobileTabBar pathname={pathname} role={role} chatUnread={chatUnread} />
     </div>
   );
 }
 
 // Mobile bottom bar: three tabs plus "More" in one row. "More" expands the sheet upward
 // to show the rest. Press and hold a tab to swap it for another page; the choice is kept
-// on this device.
+// on this device. Motion (app/globals.css, from transitions.dev): one pill slides under the
+// active tab, Chat's unread count pops in as a badge, and a tab this staff role can't open
+// shakes with a short note instead of opening a "not permitted" page.
 const DEFAULT_MAIN = ["/admin", "/admin/bookings", "/admin/chat"];
 const MAIN_KEY = "waydidi-admin-tabs";
-function MobileTabBar({ pathname }: { pathname: string }) {
+const SHAKE_MS = 280, DENIED_HOLD_MS = 3000;
+function MobileTabBar({ pathname, role, chatUnread }: { pathname: string; role: StaffRole; chatUnread: number }) {
   const [open, setOpen] = useState(false);
   const [MAIN, setMain] = useState(DEFAULT_MAIN);
   const [editing, setEditing] = useState<number | null>(null);
   const [focused, setFocused] = useState(false);
+  // The tab just tapped, so the pill moves at once instead of after the next page has loaded.
+  const [pending, setPending] = useState<{ href: string; from: string } | null>(null);
+  const [denied, setDenied] = useState<{ href: string; label: string } | null>(null);
+  const deniedTimer = useRef<number | undefined>(undefined);
   const hidden = useScrollHidden(pathname, open || editing !== null || focused);
   const hold = useRef<{ timer?: number; fired?: boolean }>({});
+  const row = useRef<HTMLDivElement>(null);
+  const pill = useRef<HTMLSpanElement>(null);
   // Desktop-only sections are left out of the phone menu: CRM, financials, blog, giveaways, fare management, translations, flight data and the trip packages / live / attractions / suppliers pages. Partners is replaced by Planner.
   const phoneTabs = tabs.filter((tab) => !DESKTOP_ONLY.includes(tab.href) && !PHONE_HIDDEN.includes(tab.href));
   useEffect(() => {
@@ -389,10 +398,33 @@ function MobileTabBar({ pathname }: { pathname: string }) {
     } catch { /* storage unavailable: keep the defaults */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => () => window.clearTimeout(deniedTimer.current), []);
   const main = MAIN.map((href) => phoneTabs.find((tab) => tab.href === href)!).filter(Boolean);
   const more = phoneTabs.filter((tab) => !MAIN.includes(tab.href));
-  const moreActive = more.find((tab) => isActive(pathname, tab.href));
-  const item = (selected: boolean) => `flex min-w-0 select-none flex-col items-center justify-center gap-1 rounded-[21px] px-1 py-2.5 text-[10px] font-black transition-all duration-200 [-webkit-touch-callout:none] ${selected ? "bg-brand-tint text-brand-text" : "text-slate-600 active:bg-slate-100"}`;
+  const tapped = pending && pending.from === pathname ? pending.href : null;
+  const selectedTab = (href: string) => (tapped ? tapped === href : isActive(pathname, href));
+  const moreActive = more.some((tab) => selectedTab(tab.href));
+  const pillOn = main.find((tab) => selectedTab(tab.href))?.href ?? (moreActive || open ? "more" : null);
+  useLayoutEffect(() => {
+    const place = (animate: boolean) => {
+      const el = pill.current, target = pillOn ? row.current?.querySelector<HTMLElement>(`[data-tab="${pillOn}"]`) : null;
+      if (!el) return;
+      if (!target) { el.style.opacity = "0"; el.dataset.shown = ""; return; }
+      const snap = !animate || !el.dataset.shown;
+      if (snap) el.style.transition = "none";
+      el.style.transform = `translate(${target.offsetLeft}px, ${target.offsetTop}px)`;
+      el.style.width = `${target.offsetWidth}px`;
+      el.style.height = `${target.offsetHeight}px`;
+      el.style.opacity = "1";
+      el.dataset.shown = "1";
+      if (snap) { void el.offsetWidth; el.style.transition = ""; }
+    };
+    place(true);
+    const onResize = () => place(false);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [pillOn, MAIN]);
+  const item = (selected: boolean, onPill = false) => `t-tab flex min-w-0 select-none flex-col items-center justify-center gap-1 rounded-[21px] px-1 py-2.5 text-[10px] font-black transition-all duration-200 [-webkit-touch-callout:none] ${selected ? `${onPill ? "" : "bg-brand-tint "}text-brand-text` : "text-slate-600 active:bg-slate-100"}`;
   function swap(slot: number, href: string) {
     const next = [...MAIN];
     const other = next.indexOf(href);
@@ -401,19 +433,46 @@ function MobileTabBar({ pathname }: { pathname: string }) {
     setMain(next); setEditing(null);
     try { localStorage.setItem(MAIN_KEY, JSON.stringify(next)); } catch { /* not saved */ }
   }
-  const link = ({ href, mobileLabel, icon: Icon }: (typeof tabs)[number], slot?: number) => {
-    const selected = isActive(pathname, href);
+  // Error state shake: replay the shake, show why, and fade the note out after the hold.
+  function refuse(tabEl: HTMLElement, tab: (typeof tabs)[number]) {
+    tabEl.classList.remove("is-shaking");
+    void tabEl.offsetWidth;
+    tabEl.classList.add("is-shaking");
+    window.setTimeout(() => tabEl.classList.remove("is-shaking"), SHAKE_MS + 20);
+    navigator.vibrate?.([20, 40, 20]);
+    setDenied({ href: tab.href, label: tab.mobileLabel });
+    window.clearTimeout(deniedTimer.current);
+    deniedTimer.current = window.setTimeout(() => setDenied(null), SHAKE_MS + DENIED_HOLD_MS);
+  }
+  const link = (tab: (typeof tabs)[number], slot?: number) => {
+    const { href, mobileLabel, icon: Icon } = tab;
+    const selected = selectedTab(href);
     const holdable = slot !== undefined;
-    return <Link key={href} href={href} prefetch aria-current={selected ? "page" : undefined}
-      className={`${item(selected)} ${holdable && editing === slot ? "ring-2 ring-brand" : ""}`}
+    const allowed = allowedStaffRoute(role, href, "GET");
+    const isError = denied?.href === href;
+    const badge = href === "/admin/chat";
+    return <Link key={href} href={href} prefetch={allowed} data-tab={href} aria-current={selected ? "page" : undefined}
+      className={`t-input ${item(selected, holdable)} ${isError ? "!text-red-700" : ""} ${holdable && editing === slot ? "ring-2 ring-brand" : ""}`}
       onContextMenu={holdable ? (e) => e.preventDefault() : undefined}
       onPointerDown={holdable ? () => { hold.current.fired = false; hold.current.timer = window.setTimeout(() => { hold.current.fired = true; navigator.vibrate?.(15); setOpen(false); setEditing(slot); }, 500); } : undefined}
       onPointerUp={holdable ? () => window.clearTimeout(hold.current.timer) : undefined}
       onPointerLeave={holdable ? () => window.clearTimeout(hold.current.timer) : undefined}
       onPointerCancel={holdable ? () => window.clearTimeout(hold.current.timer) : undefined}
-      onClick={(e) => { if (holdable && hold.current.fired) { e.preventDefault(); hold.current.fired = false; return; } setOpen(false); setEditing(null); }}>
-      <Icon size={21} strokeWidth={selected ? 2.6 : 2.1} />
+      onClick={(e) => {
+        if (holdable && hold.current.fired) { e.preventDefault(); hold.current.fired = false; return; }
+        if (!allowed) { e.preventDefault(); refuse(e.currentTarget, tab); return; }
+        setDenied(null);
+        setPending({ href, from: pathname });
+        setOpen(false); setEditing(null);
+      }}>
+      <span className="relative">
+        <Icon size={21} strokeWidth={selected ? 2.6 : 2.1} />
+        {badge && <span className="t-badge" data-open={chatUnread > 0 ? "true" : "false"} aria-hidden="true">
+          <span className="t-badge-dot grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#E53935] px-1 text-[10.5px] font-bold leading-none text-white ring-2 ring-white">{chatUnread > 99 ? "99+" : chatUnread || ""}</span>
+        </span>}
+      </span>
       <span className="w-full truncate text-center">{mobileLabel}</span>
+      {badge && chatUnread > 0 && <span className="sr-only">, {chatUnread} unread</span>}
     </Link>;
   };
   const MoreIcon = open ? ChevronDown : ChevronUp;
@@ -422,8 +481,11 @@ function MobileTabBar({ pathname }: { pathname: string }) {
     <nav aria-label="Mobile admin sections"
       onFocusCapture={(event) => setFocused(event.target.matches(":focus-visible"))}
       onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}
-      className="fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-50 rounded-[28px] border border-white/80 bg-white/95 p-2 shadow-[0_14px_45px_rgba(33,23,38,.24)] backdrop-blur-xl transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none md:hidden"
+      className={`t-input-wrap ${denied ? "is-error" : ""} fixed inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] z-50 rounded-[28px] border border-white/80 bg-white/95 p-2 shadow-[0_14px_45px_rgba(33,23,38,.24)] backdrop-blur-xl transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none md:hidden`}
       style={{ transform: hidden ? "translateY(calc(100% + max(12px, env(safe-area-inset-bottom)) + 48px))" : "translateY(0)", opacity: hidden ? 0 : 1, pointerEvents: hidden ? "none" : undefined }}>
+      <p role="status" className="t-error-msg pointer-events-none absolute inset-x-0 bottom-full mb-2 text-center">
+        {denied && <span className="inline-block rounded-full bg-red-700 px-4 py-2 text-[12px] font-bold text-white shadow-lg">Your staff role can&apos;t open {denied.label}</span>}
+      </p>
       {editing !== null && <div className="mb-1 border-b border-slate-100 pb-2">
         <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
           <p className="text-[12px] font-bold text-slate-500">Replace {main[editing]?.mobileLabel} with…</p>
@@ -434,9 +496,10 @@ function MobileTabBar({ pathname }: { pathname: string }) {
       <div id="admin-more-tabs" hidden={!open} className="mb-1 border-b border-slate-100 pb-1">
         <div className="grid grid-cols-4 gap-1">{more.map((t) => link(t))}</div>
       </div>
-      <div className="grid grid-cols-4 gap-1">
+      <div ref={row} className="relative grid grid-cols-4 gap-1">
+        <span ref={pill} className="t-tabs-pill" aria-hidden="true" />
         {main.map((t, i) => link(t, i))}
-        <button type="button" onClick={() => { setEditing(null); setOpen((v) => !v); }} aria-expanded={open} aria-controls="admin-more-tabs" className={item(Boolean(moreActive) || open)}>
+        <button type="button" data-tab="more" onClick={() => { setEditing(null); setOpen((v) => !v); }} aria-expanded={open} aria-controls="admin-more-tabs" className={item(moreActive || open, true)}>
           <MoreIcon size={21} strokeWidth={moreActive || open ? 2.6 : 2.1} />
           <span className="w-full truncate text-center">{open ? "Less" : "More"}</span>
         </button>

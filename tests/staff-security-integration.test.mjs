@@ -40,6 +40,10 @@ test('sessions are individually revocable, expire when idle, and ignore old sign
 test('staff permissions deny finance operations, writes by support, and unknown routes',()=>{
  assert.equal(security.allowedStaffRoute('operations','/api/admin/refunds','POST'),false);assert.equal(security.allowedStaffRoute('finance','/api/admin/refunds','POST'),true);assert.equal(security.allowedStaffRoute('support','/api/admin/bookings','POST'),false);assert.equal(security.allowedStaffRoute('support','/api/admin/chat','POST'),true);assert.equal(security.allowedStaffRoute('editor','/api/admin/blog','POST'),true);assert.equal(security.allowedStaffRoute('operations','/api/admin/new-secret-route','GET'),false);
 });
+test('page data requests (<page>.rsc) get the same role check as the page',()=>{
+ assert.equal(security.allowedStaffRoute('operations','/admin/bookings.rsc','GET'),true);assert.equal(security.allowedStaffRoute('support','/admin/bookings.rsc','GET'),true);assert.equal(security.allowedStaffRoute('support','/admin/chat.rsc','GET'),true);assert.equal(security.allowedStaffRoute('finance','/admin/financials.rsc','GET'),true);
+ assert.equal(security.allowedStaffRoute('finance','/admin/bookings.rsc','GET'),false);assert.equal(security.allowedStaffRoute('operations','/admin/staff.rsc','GET'),false);assert.equal(security.allowedStaffRoute('support','/admin/payments.rsc','GET'),false);assert.equal(security.allowedStaffRoute('editor','/admin/settings.rsc','GET'),false);
+});
 test('parallel code guesses claim at most five allowed attempts',async()=>{
  const now=new Date().toISOString();await d1.prepare('INSERT INTO customer_login_codes(id,email,code_hash,attempts,expires_at,created_at) VALUES(?,?,?,?,?,?)').bind('parallel-code','parallel@example.invalid','invalid',0,new Date(Date.now()+60000).toISOString(),now).run();
  const verifier=await vite.ssrLoadModule('/app/api/account/verify/route.ts');
