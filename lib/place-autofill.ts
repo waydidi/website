@@ -57,7 +57,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
 /** Copies a chosen Commons photo into the file store (like an uploaded photo). Only Wikimedia's image server, images, up to 5 MB. */
 export async function importFreePhoto(url: string): Promise<string | null> {
   if (!isCommonsFileUrl(url)) return null;
-  const res = await fetch(url, { headers: COMMONS_HEADERS, redirect: "error", signal: AbortSignal.timeout(15000) }).catch(() => null);
+  const res = await fetch(url, { headers: COMMONS_HEADERS, redirect: "manual", signal: AbortSignal.timeout(15000) }).catch(() => null);
   const type = (res?.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
   if (!res?.ok || !TYPES[type] || Number(res.headers.get("content-length") ?? 0) > MAX_BYTES) return null;
   const bytes = await res.arrayBuffer().catch(() => null);

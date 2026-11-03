@@ -28,6 +28,9 @@ const vite=await createServer({root,configFile:false,appType:'custom',resolve:{a
 const realFetch=globalThis.fetch, sends=[];let mode='ok';
 globalThis.fetch=async(url,init)=>{
  if(!String(url).startsWith('https://api.telegram.org'))return realFetch(url,init);
+ // As in Cloudflare Workers: any redirect mode but "follow" / "manual" is refused before the request is sent.
+ if(init?.redirect!==undefined&&!['follow','manual'].includes(init.redirect))throw new TypeError('Invalid redirect value, must be one of "follow" or "manual"');
+ if(mode==='redirect')return new Response(null,{status:302,headers:{location:'https://example.invalid/elsewhere'}});
  if(mode==='timeout')throw new Error('network timeout test-token');
  if(mode==='denied')return Response.json({ok:false,description:'Forbidden: bot blocked'},{status:403});
  const body=JSON.parse(init.body);sends.push(body);
@@ -77,6 +80,13 @@ test('definite Telegram rejection retries; uncertain outcome never blindly dupli
  mode='ok';await delivery.retryAssignmentTelegram();assert.equal((await d1.prepare("SELECT status FROM booking_notifications WHERE assignment_id=?").bind(rejected.assignment.id).first()).status,'sent');
  mode='timeout';const uncertain=await assign();assert.equal(uncertain.telegramNotification,'uncertain');
  mode='ok';const count=sends.length;await delivery.retryAssignmentTelegram();assert.equal(sends.length,count);
+});
+test('sends work under the Workers fetch rules, and a redirect is a definite rejection, never followed',async()=>{
+ const client=await vite.ssrLoadModule('/lib/telegram/client.ts');
+ const before=sends.length;const sent=await client.sendTo('-100','Hello');assert.equal(sent.message_id,sends.length);assert.equal(sends.length,before+1);
+ mode='redirect';
+ await assert.rejects(client.sendTo('-100','Hello'),(error)=>error.message==='Telegram: request redirected'&&error.retryable===true);
+ mode='ok';
 });
 test('revoked assignment and rotated token cannot send obsolete driver links',async()=>{
  delete state.env.TELEGRAM_BOT_TOKEN;const result=await assign();
