@@ -19,8 +19,9 @@ export function DevNotice({ title, body, whatsapp, whatsappUrl, contactLabel, cl
   // eslint-disable-next-line react-hooks/set-state-in-effect -- open only once the page has hydrated
   useEffect(() => { setOpen(true); }, []);
   if (!open) return null;
-  return <Modal open onClose={() => setOpen(false)} sheet aria-describedby="dev-notice-body"
-    className="max-w-md rounded-t-card p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-left text-plum shadow-2xl sm:rounded-card sm:pb-6">
+  // A centred popup on every screen size (not a bottom sheet on phones).
+  return <Modal open onClose={() => setOpen(false)} aria-describedby="dev-notice-body"
+    className="max-w-md rounded-card p-6 text-left text-plum shadow-2xl">
     <ModalClose aria-label={closeLabel} className="absolute right-3 top-3 grid size-tap place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></ModalClose>
     <ModalTitle className="pr-10 text-[22px] font-black tracking-[-.035em]">{title}</ModalTitle>
     <p id="dev-notice-body" className="mt-2 text-[15px] leading-relaxed text-slate-600">
