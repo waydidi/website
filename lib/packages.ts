@@ -83,7 +83,7 @@ export async function packageStops(p: PackageView) {
     stops: input.stops.filter((s) => !s.skipped).map((s) => {
       const a = s.attractionId ? views[s.attractionId] : undefined;
       return { id: s.id, kind: s.kind, name: a ? (a.customerName || a.name) : s.name, durationMin: s.durationMin, sessionTime: s.sessionTime ?? null,
-        pitch: a?.shortLine ?? null, cover: a?.coverImage ?? null, type: a?.category ?? s.kind, mealSlots: a?.mealSlots ?? [], published: a?.published ?? true };
+        pitch: a?.shortLine ?? null, cover: a?.coverImage ?? null, type: a?.category ?? s.kind, openTime: a?.openTime ?? null, closeTime: a?.closeTime ?? null, mealSlots: a?.mealSlots ?? [], published: a?.published ?? true };
     }),
   };
 }

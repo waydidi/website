@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import { getMessages, localeInfo, type Locale } from "@/lib/i18n";
 import { SITE_URL } from "@/lib/public-content";
 import { BookingFlow } from "./booking-flow";
+import { multiCityEnabled } from "@/lib/multi-city-server";
 import { ThailandDestinationMap } from "./destination-map";
 const SHOW_MAP: boolean = false;
 import { WaydidiFooter } from "./footer";
@@ -44,7 +45,7 @@ export function homeMetadata(locale: Locale): Metadata {
 export function HomePage({ locale }: { locale: Locale }) {
   const messages = getMessages(locale);
   return (
-    <BookingFlow locale={locale} messages={messages}>
+    <BookingFlow locale={locale} messages={messages} multiCity={multiCityEnabled()}>
       {/* Online booking is not ready yet: tell homepage visitors to book on WhatsApp. */}
       <DevNotice title={messages["devNotice.title"]} body={messages["devNotice.body"]} whatsapp={WHATSAPP} whatsappUrl={WHATSAPP_URL}
         contactLabel={messages["devNotice.contact"]} closeLabel={messages["devNotice.close"]} />

@@ -6,7 +6,7 @@ import { FooterLegal } from "@/components/footer-legal";
 
 const columns = [
   {title:"Transfer",links:[["Airport transfer","/airport-transfer"],["City-to-city transfer","/a-to-b-transfer"],["Multi-city transfer","/long-journeys"],["Hourly driver","/hourly-driver"]]},
-  {title:"Destinations",links:[["Our destinations","/destinations"]]},
+  {title:"Destinations",links:[["Our destinations","/destinations"],["Private day trips","/trips"]]},
   {title:"Help",links:[["Help centre","/help"],["Contact support","/contact"],["Frequently asked questions","/faq"],["Manage booking","/booking/manage"],["Airport pickup guide","/airport-pickup-instructions"],["Check flights","/flights"],["Travel agencies","/agencies"],["Become a partner","/partners"],["Drive with Waydidi","/drivers"]]},
 ];
 

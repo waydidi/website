@@ -12,6 +12,7 @@ const entries = sitemapEntries({
   siteUrl: "https://waydidi.com",
   pageSlugs: ["faq"],
   transferSlugs: ['bkk-airport-to-pattaya'],
+  transferCitySlugs: ['pattaya'],
   languageUrls: true,
   destinationSlugs: ["phuket"],
   posts: [
@@ -43,7 +44,7 @@ test("blog dates come from the posts", () => {
 });
 
 test('only supplied priced routes are indexed, with language entries and reciprocal alternates',()=>{
- assert.ok(byUrl['/transfers']);assert.ok(byUrl['/transfers/bkk-airport-to-pattaya']);
+ assert.ok(byUrl['/transfers']);assert.ok(byUrl['/transfers/bkk-airport-to-pattaya']);assert.ok(byUrl['/transfers/city/pattaya']);assert.ok(byUrl['/trips']);assert.equal(byUrl['/transfers/city/bangkok'],undefined);
  assert.equal(byUrl['/transfers/not-priced'],undefined);
  assert.equal(byUrl['/th/transfers/bkk-airport-to-pattaya'].alternates.languages.en,'https://waydidi.com/transfers/bkk-airport-to-pattaya');
  assert.equal(byUrl['/help'].alternates.languages.th,'https://waydidi.com/th/help');

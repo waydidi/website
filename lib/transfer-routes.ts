@@ -1,4 +1,4 @@
-import { limitVehicles } from './vehicle-routes';
+import { limitVehicles, routeHasAllPrices } from './vehicle-routes';
 import type { Point } from './geo';
 
 export type TransferPlace = Point & {slug: string; name: string; destination: string};
@@ -22,6 +22,11 @@ const aonang=place('ao-nang','Ao Nang',8.0343,98.8236,'krabi');
 const cnx=place('chiang-mai','Chiang Mai',18.7883,98.9853,'chiang-mai');
 const rai=place('chiang-rai','Chiang Rai',19.9105,99.8406,'chiang-rai');
 const pai=place('pai','Pai',19.3582,98.4404,'pai');
+const sukhothai=place('sukhothai','Sukhothai',17.0078,99.8230,'sukhothai');
+const khaoyai=place('khao-yai','Khao Yai (Pak Chong)',14.7083,101.4167,'khao-yai');
+const rayong=place('rayong','Rayong',12.6814,101.2816,'rayong');
+const saiyok=place('sai-yok','Sai Yok',14.4408,98.8520,'sai-yok');
+const laemchabang=place('laem-chabang','Laem Chabang Port',13.0833,100.8833,'laem-chabang');
 export type TransferRoute = {slug:string;from:TransferPlace;to:TransferPlace;distanceMeters:number;durationMinutes:number};
 // Editorial road-distance / driving-time estimates, not live directions. Exact addresses,
 // traffic and date are priced again by the existing Google-backed booking flow.
@@ -34,11 +39,28 @@ const pairs: [TransferPlace,TransferPlace,number,number][] = [
  [hkt,patong,40,60],[hkt,kata,47,75],[hkt,khaolak,80,90],[hkt,krabi,145,160],
  [kbv,aonang,26,40],[krabi,aonang,18,30],
  [cnx,rai,185,210],[cnx,pai,130,180],
+ [bangkok,sukhothai,430,330],[bangkok,khaoyai,180,170],[bangkok,rayong,180,160],
+ [bangkok,saiyok,200,200],[bangkok,laemchabang,125,110],[bangkok,cnx,700,540],
 ];
 export const TRANSFER_ROUTES: TransferRoute[] = pairs.flatMap(([from,to,km,durationMinutes])=>[
  {slug:`${from.slug}-to-${to.slug}`,from,to,distanceMeters:km*1000,durationMinutes},
  {slug:`${to.slug}-to-${from.slug}`,from:to,to:from,distanceMeters:km*1000,durationMinutes},
 ]);
+
+/** Cities with a route hub at /transfers/city/<slug>; a slug matches a place's `destination`. */
+export const TRANSFER_CITIES:{slug:string;name:string}[]=[
+ ['bangkok','Bangkok'],['pattaya','Pattaya'],['hua-hin','Hua Hin'],['ayutthaya','Ayutthaya'],['kanchanaburi','Kanchanaburi'],['koh-chang','Koh Chang'],
+ ['phuket','Phuket'],['khao-lak','Khao Lak'],['krabi','Krabi'],['chiang-mai','Chiang Mai'],['chiang-rai','Chiang Rai'],['pai','Pai'],
+ ['sukhothai','Sukhothai'],['khao-yai','Khao Yai'],['rayong','Rayong'],['sai-yok','Sai Yok'],['laem-chabang','Laem Chabang'],
+].map(([slug,name])=>({slug,name}));
+export const transferCity=(slug:string)=>TRANSFER_CITIES.find(c=>c.slug===slug);
+export function cityRoutes<T extends TransferRoute>(routes:T[],slug:string){
+ return {from:routes.filter(r=>r.from.destination===slug),to:routes.filter(r=>r.to.destination===slug)};
+}
+/** Only cities with at least one priced route get a hub. */
+export function transferHubs(routes:TransferRoute[]){
+ return TRANSFER_CITIES.filter(c=>routes.some(r=>r.from.destination===c.slug||r.to.destination===c.slug));
+}
 
 type PricingDeps = {
  matchArea:(point:Point)=>Promise<{id:string;pricingType:string}|null>;
@@ -50,11 +72,11 @@ export async function quoteTransferRoute(route:TransferRoute, deps:PricingDeps):
  try {
   const area=await deps.matchArea({lat:route.to.lat,lng:route.to.lng});
   if(!area || area.pricingType==='manual')return null;
-  const prices=limitVehicles(await deps.prices(area.id,route.distanceMeters),
-   {latitude:route.from.lat,longitude:route.from.lng},{latitude:route.to.lat,longitude:route.to.lng});
+  const from={latitude:route.from.lat,longitude:route.from.lng},to={latitude:route.to.lat,longitude:route.to.lng};
+ const prices=limitVehicles(await deps.prices(area.id,route.distanceMeters),from,to);
   const entries=Object.entries(prices);
   // Match fare-quote's fail-closed guard AFTER applying its BMW restriction.
-  if(entries.length !== 4 || entries.some(([,p])=>!Number.isSafeInteger(p.total*100)||p.total<=0))return null;
+  if(!routeHasAllPrices(prices,from,to) || entries.some(([,p])=>!Number.isSafeInteger(p.total*100)||p.total<=0))return null;
   return {...route,pricesMinor:Object.fromEntries(entries.map(([id,p])=>[id,p.total*100]))};
  }catch{return null;}
 }

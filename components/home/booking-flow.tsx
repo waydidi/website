@@ -52,6 +52,8 @@ import { VEHICLES, smallestFittingVehicle, vehicleFits, type VehicleId } from "@
 import { cancellationConfig, cancellationFareMinor, displayCancellationOption, type CancellationConfig, type CancellationOption } from "@/lib/cancellation-options";
 import { recommendVehicles } from "@/lib/vehicle-recommendation";
 import { CancellationChoice } from "./cancellation-choice";
+import { MultiCityForm } from "./multi-city-form";
+import { Route as RouteIcon } from "lucide-react";
 import { RouteStopChoice } from "./route-stop-choice";
 import { selectedRouteStopIds, toggleRouteStop, type RouteStopCard, type RouteStopSelection } from "@/lib/route-stop-selection";
 import { VehicleUpgrade } from "./vehicle-upgrade";
@@ -231,8 +233,11 @@ export function BookingFlow({
   messages = enMessages,
   hero,
   initialRoute,
+  multiCity = false,
 }: {
   children: ReactNode;
+  /** Shows the Multi-city tab. The server reads MULTI_CITY_REQUESTS and passes it in. */
+  multiCity?: boolean;
   initialRoute?: {pickup:string;dropoff:string};
   locale?: Locale;
   messages?: Messages;
@@ -248,6 +253,7 @@ export function BookingFlow({
     return () => { delete document.documentElement.dataset.bookingStage; window.dispatchEvent(new Event("waydidi:booking-stage")); };
   }, [stage]);
   const [serviceType, setServiceType] = useState<ServiceType>("transfer");
+  const [multiCityOpen, setMultiCityOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [departureSelected, setDepartureSelected] = useState(false);
@@ -1636,15 +1642,18 @@ export function BookingFlow({
               </p>
             </div>
             <form id="booking-search" onSubmit={search} className="font-search w-full scroll-mt-28">
-              <div className="inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 md:mb-4 md:inline-flex md:h-auto md:w-auto md:gap-2 md:rounded-[16px] md:p-1.5 md:text-[19px]/[24px] md:font-semibold md:text-slate-800 lg:mb-4 lg:rounded-[14px] lg:p-1 lg:text-[15px]/[22px]">
-                <button onClick={()=>{if(serviceType==="hourly"){change("dropoff",transferDropoff.current);setHourlyDropoffId("");}setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
+              <div className={`inline-grid h-[46px] ${multiCity ? "w-full max-w-[380px] grid-cols-3" : "w-[min(270px,100%)] grid-cols-2"} gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 md:mb-4 md:inline-flex md:h-auto md:w-auto md:gap-2 md:rounded-[16px] md:p-1.5 md:text-[19px]/[24px] md:font-semibold md:text-slate-800 lg:mb-4 lg:rounded-[14px] lg:p-1 lg:text-[15px]/[22px]`}>
+                <button onClick={()=>{setMultiCityOpen(false);if(serviceType==="hourly"){change("dropoff",transferDropoff.current);setHourlyDropoffId("");}setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${!multiCityOpen && serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
                   <CarFront className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("hero.transfer")}
                 </button>
-                <button onClick={()=>{if(serviceType!=="hourly"){transferDropoff.current=booking.dropoff;change("dropoff","");setHourlyDropoffId("");}setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
+                <button onClick={()=>{setMultiCityOpen(false);if(serviceType!=="hourly"){transferDropoff.current=booking.dropoff;change("dropoff","");setHourlyDropoffId("");}setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${!multiCityOpen && serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
                   <Clock3 className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("hero.hourly")}
                 </button>
+                {multiCity && <button onClick={()=>setMultiCityOpen(true)} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${multiCityOpen ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
+                  <RouteIcon className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("multiCity.tab")}
+                </button>}
               </div>
-              {searchCard(false)}
+              {multiCityOpen ? <MultiCityForm t={t} /> : searchCard(false)}
               <DateTimePicker
                 open={dateOpen}
                 kind="departure"

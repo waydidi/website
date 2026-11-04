@@ -12,13 +12,13 @@ export function edgeTtl(url: URL) {
   const parsed=parseLanguagePath(url.pathname);
   if(!parsed.valid)return 0;
   url=new URL(url);url.pathname=parsed.path;
-  if (/^\/transfers(?:\/[a-z0-9-]+)?$/.test(url.pathname)) return 300;
+  if (/^\/transfers(?:\/[a-z0-9-]+|\/city\/[a-z0-9-]+)?$/.test(url.pathname)) return 300;
   if (/^\/(th\/|zh\/)?blog(\/|$)/.test(url.pathname) && !url.searchParams.has("preview")) return 300;
   if (url.pathname === "/api/promotions") return 60;
   if (url.pathname === "/api/route-inclusions") return 300;
   if (url.pathname === "/" || PUBLIC_PAGES.test(url.pathname)) return 300;
   // Tour packages show prices staff edit, so they refresh sooner.
-  if (/^\/trips\/[a-z0-9-]{3,80}$/.test(url.pathname)) return 120;
+  if (/^\/trips(?:\/[a-z0-9-]{3,80})?$/.test(url.pathname)) return 120;
   return 0;
 }
 

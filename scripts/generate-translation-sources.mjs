@@ -17,10 +17,16 @@ for(const name of ['destination-guides.ts','public-content.ts','destinations.ts'
 }
 function messages(v){if(typeof v==='string')add(v);else if(v&&typeof v==='object')Object.values(v).forEach(messages);}
 const englishMessages=JSON.parse(await readFile(resolve(root,'messages/en.json'),'utf8'));
-messages(transfersOnly?Object.fromEntries(Object.entries(englishMessages).filter(([key])=>key.startsWith('transfers.'))):englishMessages);
+messages(transfersOnly?Object.fromEntries(Object.entries(englishMessages).filter(([key])=>key.startsWith('transfers.')||key.startsWith('trips.'))):englishMessages);
 // Curated route names are repository-authored; never load pricing or customer data here.
 const routesBundle = await build({entryPoints:[resolve(root,'lib/transfer-routes.ts')],bundle:true,write:false,format:'esm',platform:'node'});
-const { TRANSFER_ROUTES } = await import('data:text/javascript;base64,'+Buffer.from(routesBundle.outputFiles[0].text).toString('base64'));
+const { TRANSFER_ROUTES, TRANSFER_CITIES } = await import('data:text/javascript;base64,'+Buffer.from(routesBundle.outputFiles[0].text).toString('base64'));
+const cityTemplates=['cityTitle','cityFrom','cityTo'].map(key=>englishMessages[`transfers.${key}`]);
+for (const city of TRANSFER_CITIES) {
+  add(city.name);
+  for (const template of cityTemplates) add(template.replace('{city}',city.name));
+  add(`${cityTemplates[0].replace('{city}',city.name)} | Waydidi`);
+}
 for (const route of TRANSFER_ROUTES) {
   add(route.from.name); add(route.to.name);
   add(`${route.from.name} to ${route.to.name}`);

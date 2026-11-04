@@ -18,6 +18,7 @@ const latest = (dates: (Date | undefined)[]) => dates.reduce<Date | undefined>((
 
 export function sitemapEntries(input: {
   transferSlugs?: string[];
+  transferCitySlugs?: string[];
   languageUrls?: boolean;
   siteUrl: string;
   pageSlugs: string[];
@@ -37,11 +38,13 @@ export function sitemapEntries(input: {
   }
   const entries: Entry[] = [
     ...(input.transferSlugs?.length ? [page('/transfers','weekly',.8), ...input.transferSlugs.map(slug=>page(`/transfers/${slug}`,'weekly',.8))] : []),
+    ...(input.transferCitySlugs ?? []).map(slug=>page(`/transfers/city/${slug}`,'weekly',.8)),
     page("", "weekly", 1),
     page("/help", "monthly", .7),
     page("/destinations", "monthly", .9),
     ...input.pageSlugs.map((slug) => page(`/${slug}`, "monthly", .75)),
     ...input.destinationSlugs.map((slug) => page(`/destinations/${slug}`, "monthly", .8)),
+    ...(packages.length ? [page("/trips", "weekly", .8, latest(packages.map((p) => day(p.updatedAt))))] : []),
     ...packages.map((p) => page(`/trips/${p.slug}`, "monthly", .75, day(p.updatedAt))),
     page("/drivers", "monthly", .6),
     page("/agencies", "monthly", .6),

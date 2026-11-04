@@ -50,6 +50,10 @@ async function insertDrafts(): Promise<void> {
     ["draft-damnoen-hua-hin", "bkk-damnoen-saduak", 90000, 90, 20, huaHin],
     ["draft-green-lung-pattaya", "bkk-bang-krachao", 120000, 150, 30, pattaya],
     ["draft-damnoen-kanchanaburi", "bkk-damnoen-saduak", 90000, 90, 40, kanchanaburi],
+    ["draft-ancient-city-pattaya", "bkk-ancient-city", 120000, 120, 50, pattaya],
+    ["draft-wat-sothon-pattaya", "bkk-wat-sothon", 60000, 45, 60, pattaya],
+    ["draft-sanctuary-truth-pattaya", "pty-sanctuary-of-truth", 100000, 105, 70, pattaya],
+    ["draft-buddha-mountain-pattaya", "pty-buddha-mountain", 60000, 45, 80, pattaya],
   ].map(([id, key, price, duration, sort, destination]) => (env.DB as SecurityDatabase).prepare(`INSERT OR IGNORE INTO route_stop_offers
     (id,attraction_id,origin_zone_json,destination_zone_json,bidirectional,price_minor,duration_minutes,active,sort)
     SELECT ?,id,?,?,1,?,?,0,? FROM attractions WHERE seed_key=?`)

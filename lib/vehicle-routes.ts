@@ -14,6 +14,14 @@ const inBangkok = (p: Point) => p.latitude >= 13.48 && p.latitude <= 13.97 && p.
 
 export const bmwAllowed = (from: Point, to: Point) => (isAirport(from) && inBangkok(to)) || (isAirport(to) && inBangkok(from));
 
+/** Every car class. tests/vehicle-routes.test.mjs keeps this equal to VEHICLES. */
+export const ALL_VEHICLES = ["economy_sedan", "comfort_bmw", "comfort_suv", "premium_minivan"];
+
+/** True when every car sold on this route has a price. A missing price means the area is not set up yet. */
+export function routeHasAllPrices(prices: Record<string, unknown>, from: Point, to: Point) {
+  return ALL_VEHICLES.filter((id) => id !== "comfort_bmw" || bmwAllowed(from, to)).every((id) => Object.hasOwn(prices, id));
+}
+
 /** Removes cars that aren't sold on this route from a price list. */
 export function limitVehicles<T>(prices: Record<string, T>, from: Point, to: Point): Record<string, T> {
   if (bmwAllowed(from, to)) return prices;
