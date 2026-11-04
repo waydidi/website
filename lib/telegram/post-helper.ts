@@ -4,6 +4,7 @@ import { DEFAULT_USER_LIMIT, DEFAULT_WHATSAPP, MAX_USER_LIMIT, monthKey, nextMon
 import { quoteTransfer, type QuoteResult } from "@/lib/cee/quotes";
 import { ASSISTANT_MODEL, assistantConfigured, assistantUsage, reserveAssistantCall, settleAssistantCall } from "@/lib/telegram/assistant";
 import { esc } from "@/lib/telegram/cards";
+import { assistantFailure } from "@/lib/assistant-error-rules";
 import { answerCallback, sendTo, telegramChatId, telegramCommentChatId, tg, type InlineKeyboard } from "@/lib/telegram/client";
 import { ensureReliabilityTables, reliabilityDb } from "@/lib/telegram/reliability-db";
 
@@ -216,9 +217,11 @@ export async function handlePostCommand(rawText: string, replyTo: number, replyT
     for (let i = 0; i < parts.length; i++) await sendCard(parts[i], i === parts.length - 1 ? draft.keyboard : undefined, replyTo);
   } catch (error) {
     await releaseComment(user.id).catch(() => undefined);
-    console.error("post helper failed", error instanceof Error ? error.message : "unknown");
     const m = error instanceof Error ? error.message : "";
-    await sendCard(m === "ASSISTANT_BUDGET_REACHED" ? "The assistant has reached this month's spending limit." : m === "REFUSED" ? "Sorry, I can't draft that one." : "Sorry, I couldn't draft that just now. Try again in a moment.", undefined, replyTo);
+    // The reason (key refused, out of credit, busy…) is shown so the team knows what to fix; never the key or the post.
+    const failure = assistantFailure(error);
+    console.error("post helper failed", failure.code);
+    await sendCard(m === "ASSISTANT_BUDGET_REACHED" ? "The assistant has reached this month's spending limit." : m === "REFUSED" ? "Sorry, I can't draft that one." : `Sorry, I couldn't draft that. ${esc(failure.reason)}`, undefined, replyTo);
   }
 }
 
@@ -250,7 +253,7 @@ export async function handlePostCallback(action: string, id: string, who: string
     if (!claim.ok) return answerCallback(queryId, limitMessage(claim.limit), true);
     await answerCallback(queryId, "Searching again…");
     try { const fresh = await draftForPost(draft.text, {}, { forceFresh: true }); for (let i = 0; i < fresh.parts.length; i++) await sendCard(fresh.parts[i], i === fresh.parts.length - 1 ? fresh.keyboard : undefined, replyTo); }
-    catch (error) { await releaseComment(user.id).catch(() => undefined); console.error("post helper retry failed", error instanceof Error ? error.message : "unknown"); await sendCard("Sorry, I couldn't search again just now.", undefined, replyTo); }
+    catch (error) { await releaseComment(user.id).catch(() => undefined); const failure = assistantFailure(error); console.error("post helper retry failed", failure.code); await sendCard(`Sorry, I couldn't search again. ${esc(failure.reason)}`, undefined, replyTo); }
     return;
   }
   return answerCallback(queryId, "Unknown action.");
