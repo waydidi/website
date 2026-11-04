@@ -31,6 +31,8 @@ test("permanent errors, rate limits and ambiguous idempotency conflicts stay dis
     assert.equal(result.retryable, false); assert.equal(result.outcomeUnknown, false);
     assert.equal(JSON.stringify(result).includes("private@example.invalid"), false);
   }
+  // A redirect (not followed) means the provider did not take the email: a definite, non-retried rejection.
+  for (const status of [301, 302, 307, 308]) assert.deepEqual(rules.emailProviderOutcome(status, null), { status: "failed", retryable: false, outcomeUnknown: false, failureCode: "request_rejected" });
   assert.equal(rules.emailProviderOutcome(409, { name: "invalid_idempotent_request" }).failureCode, "payload_conflict");
   assert.equal(rules.emailProviderOutcome(409, { name: "invalid_idempotent_request" }).retryable, false);
   assert.equal(rules.emailProviderOutcome(409, { name: "concurrent_idempotent_requests" }).retryable, true);
@@ -51,7 +53,8 @@ test("serialized confirmation envelopes keep the same wire body and key across c
   globalThis.fetch = async (url, options) => {
     assert.equal(url, "https://api.resend.com/emails");
     assert.ok(options.signal instanceof AbortSignal);
-    assert.equal(options.redirect, "error");
+    // Redirects are never followed; Cloudflare Workers accept only "follow" or "manual" (tests/workerd-fetch-options.test.mjs).
+    assert.equal(options.redirect, "manual");
     calls.push({ body: options.body, key: options.headers["Idempotency-Key"] });
     return Response.json({ id: "provider-id" });
   };

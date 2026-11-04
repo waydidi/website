@@ -93,7 +93,7 @@ async function resend(payload: Record<string, unknown>, idempotencyKey: string):
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(20000),
-      redirect: "error",
+      redirect: "manual",
     });
     const payloadResult: unknown = await response.json().catch(() => null);
     const outcome = emailProviderOutcome(response.status, payloadResult, response.headers.get("Retry-After"));
