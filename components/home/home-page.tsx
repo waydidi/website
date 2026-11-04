@@ -12,7 +12,6 @@ const SHOW_MAP: boolean = false;
 import { WaydidiFooter } from "./footer";
 import { FleetSection } from "./fleet-section";
 import { HomeTagline } from "./tagline";
-import { ServiceCards } from "./service-cards";
 import { TransferPartners } from "./transfer-partners";
 import { DealsSection } from "./deals-section";
 import { DevNotice } from "./dev-notice";
@@ -49,7 +48,6 @@ export function HomePage({ locale }: { locale: Locale }) {
       <DevNotice title={messages["devNotice.title"]} body={messages["devNotice.body"]} whatsapp={WHATSAPP} whatsappUrl={WHATSAPP_URL}
         contactLabel={messages["devNotice.contact"]} closeLabel={messages["devNotice.close"]} />
       <HomeTagline locale={locale} />
-      <ServiceCards locale={locale} />
       <HowItWorks />
       {/* Hidden for now: "Where Waydidi takes you" map. */}
       {SHOW_MAP && <ThailandDestinationMap />}
