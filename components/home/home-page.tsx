@@ -13,8 +13,6 @@ const SHOW_MAP: boolean = false;
 import { WaydidiFooter } from "./footer";
 import { FleetSection } from "./fleet-section";
 import { HomeTagline } from "./tagline";
-import { HomeShowcase } from "./home-showcase";
-import { HomeIntro } from "./home-intro";
 import { TransferPartners } from "./transfer-partners";
 import { DealsSection } from "./deals-section";
 import { DevNotice } from "./dev-notice";
@@ -51,12 +49,6 @@ export function HomePage({ locale }: { locale: Locale }) {
       <DevNotice title={messages["devNotice.title"]} body={messages["devNotice.body"]} whatsapp={WHATSAPP} whatsappUrl={WHATSAPP_URL}
         contactLabel={messages["devNotice.contact"]} closeLabel={messages["devNotice.close"]} />
       <HomeTagline locale={locale} />
-      <HomeShowcase label={messages["home.showcase.label"]} slides={[
-        { title: messages["home.showcase.airport.title"], action: messages["home.showcase.airport.action"], href: "/airport-transfer", image: "/destinations/bangkok.webp", width: 1600, height: 1067 },
-        { title: messages["home.showcase.city.title"], action: messages["home.showcase.city.action"], href: "/a-to-b-transfer", image: "/destinations/pattaya.webp", width: 1920, height: 961 },
-        { title: messages["home.showcase.destinations.title"], action: messages["home.showcase.destinations.action"], href: "/destinations", image: "/destinations/phuket.webp", width: 1600, height: 1200 },
-      ]} />
-      <HomeIntro locale={locale} />
       <HowItWorks />
       {/* Hidden for now: "Where Waydidi takes you" map. */}
       {SHOW_MAP && <ThailandDestinationMap />}
