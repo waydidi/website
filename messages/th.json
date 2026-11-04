@@ -475,60 +475,12 @@
     "text": "เดือนถัดไป",
     "status": "machine"
   },
-  "services.heading": {
-    "text": "สำรวจสิ่งที่คุณทำได้กับ Waydidi",
-    "status": "machine"
-  },
   "home.tagline.title": {
     "text": "เดินทางอย่างสบายใจ",
     "status": "machine"
   },
   "home.tagline.text": {
     "text": "การเดินทางที่ราบรื่น ความทรงจำอันล้ำค่าให้จดจำไปตลอด",
-    "status": "machine"
-  },
-  "services.details": {
-    "text": "รายละเอียด",
-    "status": "machine"
-  },
-  "services.detailsAbout": {
-    "text": "เกี่ยวกับ{title}",
-    "status": "machine"
-  },
-  "services.ride.title": {
-    "text": "เดินทาง",
-    "status": "machine"
-  },
-  "services.ride.text": {
-    "text": "เดินทางได้ทุกที่ในไทยกับ Waydidi จองรถส่วนตัว ขึ้นรถ แล้วเพลิดเพลินได้เลย",
-    "status": "machine"
-  },
-  "services.ride.alt": {
-    "text": "รถส่วนตัว Waydidi สีส้ม",
-    "status": "machine"
-  },
-  "services.reserve.title": {
-    "text": "จองล่วงหน้า",
-    "status": "machine"
-  },
-  "services.reserve.text": {
-    "text": "จองรถล่วงหน้า เพื่อให้คุณสบายใจในวันเดินทาง",
-    "status": "machine"
-  },
-  "services.reserve.alt": {
-    "text": "ปฏิทินการจอง",
-    "status": "machine"
-  },
-  "services.dayTrips.title": {
-    "text": "ทริปวันเดียว",
-    "status": "machine"
-  },
-  "services.dayTrips.text": {
-    "text": "จองคนขับส่วนตัวแล้วเที่ยวหลายจุดหมายในวันเดียวอย่างสบาย",
-    "status": "machine"
-  },
-  "services.dayTrips.alt": {
-    "text": "หมุดสถานที่สามจุดเชื่อมต่อกันตามเส้นทางทริปวันเดียว",
     "status": "machine"
   },
   "map.heading": {
