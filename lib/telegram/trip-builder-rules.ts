@@ -17,7 +17,9 @@ export function parsePlaceCommand(message: string): string | null {
   return m ? (m[1] ?? "").trim() : null;
 }
 
-const AMOUNT = /(?:(?:THB|฿)\s*(\d[\d,]*(?:\.\d+)?))|(?:(\d[\d,]*(?:\.\d+)?)\s*(?:THB|บาท|baht|฿))/gi;
+// An amount never starts right after a digit, ":", "." or "," (so "08:30, THB 3,500" is one price, not 30 and 3,500).
+const AMOUNT_NUM = "(?<![\\d:.,])((?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?)";
+const AMOUNT = new RegExp(`(?:(?:THB|฿)\\s*${AMOUNT_NUM})|(?:${AMOUNT_NUM}\\s*(?:THB|บาท|baht|฿))`, "gi");
 const PRICE_WORD = /(price|ราคา|total|รวม|cost)\W{0,3}$/i;
 
 /**
@@ -177,22 +179,22 @@ export function tripText(staffLine: string, repliedChat: string): string {
 /** What staff need to type after /trip (Thai, for the Admin group). */
 export const TRIP_HELP = [
   "📝 <b>วิธีสร้างทริปผ่าน Telegram</b>",
-  "พิมพ์ /trip ตามด้วยรายละเอียดในข้อความเดียว เขียนแบบไหนก็ได้",
+  "พิมพ์ /trip ตามด้วย จำนวนคน, วันที่, สถานที่ เรียงแบบไหนก็ได้ คั่นด้วยจุลภาค (,)",
   "",
   "<b>ต้องมี</b>",
-  "• วันที่ เช่น 29 Nov 2026 หรือ 29/11",
-  "• สถานที่ที่จะไป เช่น Big Buddha, Wat Chalong (ถ้ายังไม่มีในรายการ บอทจะเพิ่มจาก Google Maps ให้)",
+  "• จำนวนคน เช่น 2, 2 people หรือ 2 adults 1 child",
+  "• วันที่ เช่น 29 Nov, 29/11 หรือ 2026-11-29 (วันก่อนเดือน)",
+  "• สถานที่ที่จะไป เรียงตามลำดับที่จะไป (ถ้ายังไม่มีในรายการ บอทจะเพิ่มจาก Google Maps)",
   "",
   "<b>ใส่เพิ่มได้</b>",
   "• ราคา เช่น THB 3,500 (ไม่ใส่ = ราคาตามเรทรายชั่วโมง)",
-  "• จุดรับและเวลารับ เช่น Hilton Patong 08:00 (ไม่ใส่ = รอยืนยัน ใส่ทีหลังได้)",
-  "• จำนวนคน เช่น 2 people หรือ 2 adults 1 child",
-  "• รถ เช่น SUV หรือ Van และจำนวนกระเป๋า",
+  "• จุดรับและเวลารับ เช่น pickup Hilton Patong 08:00 (ไม่ใส่ = รอยืนยัน ใส่ทีหลังได้)",
+  "• รถ เช่น SUV หรือ Van, กระเป๋า เช่น 3 bags, ชั่วโมง เช่น 6 hours",
   "• จำนวนวัน เช่น 3 days (ทริปหลายวันเมื่อเปิด TRIP_MULTIDAY)",
   "",
   "<b>ตัวอย่าง</b>",
-  "<code>/trip Big Buddha, Phuket Old Town, Wat Chalong, Promthep Cape 29 Nov 2026, 2 people</code>",
-  "<code>/trip recommendation tour package for two people as they requested as Big Buddha, Wat Chalong, Phuket Old Town, Promthep Cape. Date 20 Dec 2026. Make me a link</code>",
+  "<code>/trip 2, 29 Nov, Big Buddha, Wat Chalong, Phuket Old Town</code>",
+  "<code>/trip Big Buddha, Promthep Cape, 20 Dec 2026, 2 adults 1 child, SUV, THB 3,500</code>",
   "",
   "สถานที่ที่มีแพ็กเกจ บอทจะถามให้เลือกแพ็กเกจก่อนสร้างทริป",
   "",
@@ -209,3 +211,182 @@ export function tripChargeHours(places: number, plannedHours: number) {
   const floor = places >= 5 ? 10 : places === 4 ? 6 : 3;
   return Math.min(16, Math.max(floor, Math.ceil(plannedHours)));
 }
+
+// ── Typed /trip, read without AI ─────────────────────────────────────────────────────────────────────────────
+// Staff type the number of people, the date and the places in any order (docs: "/trip input template proposal").
+// The date and the people are found by their shape wherever they are; the price, car, bags, days, hours and a pickup
+// (a part with a time, or starting "pickup" / "รับ") are taken out too; every other comma-separated part is a place,
+// in the order written. Nothing is guessed: a missing or doubled part is a problem named back to staff.
+
+export type TypedTrip = {
+  adults: number; children: number; tripDate: string; places: string[];
+  bags: number | null; days: number | null; hours: number | null; pickupText: string; startTime: string | null;
+};
+export type TypedTripProblem =
+  | { code: "no_date" } | { code: "two_dates"; dates: string[] } | { code: "past_date"; date: string }
+  | { code: "no_people" } | { code: "two_people" } | { code: "no_places" } | { code: "too_many_places" } | { code: "long_place"; place: string };
+
+const EN_MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const EN_MONTH = "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+const TH_MONTHS = [["ม.ค.", "มกราคม"], ["ก.พ.", "กุมภาพันธ์"], ["มี.ค.", "มีนาคม"], ["เม.ย.", "เมษายน"], ["พ.ค.", "พฤษภาคม"], ["มิ.ย.", "มิถุนายน"],
+  ["ก.ค.", "กรกฎาคม"], ["ส.ค.", "สิงหาคม"], ["ก.ย.", "กันยายน"], ["ต.ค.", "ตุลาคม"], ["พ.ย.", "พฤศจิกายน"], ["ธ.ค.", "ธันวาคม"]];
+const escRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const TH_MONTH = `(${TH_MONTHS.flat().sort((a, b) => b.length - a.length).map(escRe).join("|")})`;
+const thMonthIndex = (m: string) => TH_MONTHS.findIndex((names) => names.includes(m));
+
+/** A real calendar date as YYYY-MM-DD, or null. Two-digit years are 20xx; Buddhist years (2500+) are converted. */
+function isoDate(y: number | null, month: number, day: number, today: string): { iso: string; yearGiven: boolean } | null {
+  const yearGiven = y !== null;
+  let year = y ?? Number(today.slice(0, 4));
+  if (year < 100) year += 2000;
+  if (year >= 2400) year -= 543;
+  const make = (yr: number) => {
+    const d = new Date(Date.UTC(yr, month - 1, day));
+    return d.getUTCFullYear() === yr && d.getUTCMonth() === month - 1 && d.getUTCDate() === day ? d.toISOString().slice(0, 10) : null;
+  };
+  let iso = make(year);
+  if (!iso) return null;
+  // No year: the next such date from today.
+  if (!yearGiven && iso < today) iso = make(year + 1);
+  return iso ? { iso, yearGiven } : null;
+}
+
+const SEP = " , ";
+const take = (text: string, re: RegExp, found: (m: RegExpExecArray) => void) => text.replace(re, (...args) => {
+  const m = args.slice(0, -2) as unknown as RegExpExecArray;
+  found(m);
+  return SEP;
+});
+
+/** The car words /trip knows (the same as pickVehicle): a part that is only a car is not a place. */
+const CAR_ONLY = /^(?:by\s+)?(?:an?\s+)?(?:mini\s*van|minivan|van|commuter|alphard|suv|fortuner|pajero|bmw|economy|sedan|camry|altis|รถตู้|ฟอร์จูนเนอร์|รถเก๋ง)(?:\s+car)?$/iu;
+const FILLER = /^(?:and|then|to|&|และ|date|วันที่|price|ราคา|total|รวม|people|pax)$/iu;
+const CLOCK = /\b([01]?\d|2[0-3])[:.]([0-5]\d)\s*(am|pm|น\.?)?|\b(1[0-2]|0?[1-9])\s*(am|pm)\b/iu;
+
+/** Reads a typed /trip (the text after the command). Pure; `today` is the Thailand date (YYYY-MM-DD). */
+export function parseTypedTrip(details: string, today: string): { ok: true; trip: TypedTrip } | { ok: false; problem: TypedTripProblem } {
+  // Prices first (they hold commas, "THB 3,500"); the price itself is read by parseStaffPrice.
+  const NUM = "(?<![\\d:.,])(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?";
+  let text = details.replace(new RegExp(`(?:\\b(?:price|total|cost|car|tickets?)\\b|ราคา|รวม)?\\s*:?\\s*(?:(?:THB|฿)\\s*${NUM}|${NUM}\\s*(?:THB|บาท|baht|฿))`, "giu"), SEP)
+    .replace(/\b(?:date|on)\s*:?\s*(?=\d)|วันที่\s*(?=\d)/giu, " ");
+
+  // Dates, anywhere: 2026-11-29, 29/11(/2026), 29 Nov (2026), Nov 29 (2026), 29 พ.ย. (2569).
+  const dates: { iso: string; yearGiven: boolean }[] = [];
+  const add = (y: string | undefined, mo: number, d: string) => { const r = isoDate(y ? Number(y) : null, mo, Number(d), today); if (r) dates.push(r); };
+  text = take(text, /\b(\d{4})-(\d{1,2})-(\d{1,2})\b/g, (m) => add(m[1], Number(m[2]), m[3]));
+  text = take(text, /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}|\d{2}))?\b/g, (m) => add(m[3], Number(m[2]), m[1]));
+  text = take(text, new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s+)?${EN_MONTH}\\.?(?:\\s*,?\\s*(\\d{4}))?(?![\\p{L}])`, "giu"), (m) => add(m[3], EN_MONTHS.indexOf(m[2].slice(0, 3).toLowerCase()) + 1, m[1]));
+  text = take(text, new RegExp(`\\b${EN_MONTH}\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?\\b`, "giu"), (m) => add(m[3], EN_MONTHS.indexOf(m[1].slice(0, 3).toLowerCase()) + 1, m[2]));
+  text = take(text, new RegExp(`(\\d{1,2})\\s*${TH_MONTH}(?:\\s*(\\d{4}))?`, "gu"), (m) => add(m[3], thMonthIndex(m[2]) + 1, m[1]));
+  const distinct = [...new Map(dates.map((d) => [d.iso, d])).values()];
+  if (distinct.length > 1) return { ok: false, problem: { code: "two_dates", dates: distinct.map((d) => d.iso) } };
+  if (!distinct.length) return { ok: false, problem: { code: "no_date" } };
+  if (distinct[0].iso < today) return { ok: false, problem: { code: "past_date", date: distinct[0].iso } };
+
+  // People: "2 adults 1 child", "ผู้ใหญ่ 2 เด็ก 1", "2 people / pax / คน", or a number alone between commas (below).
+  const adults: number[] = [], children: number[] = [], groups: number[] = [];
+  text = take(text, /(\d{1,2})\s*(?:adults?|ผู้ใหญ่)|ผู้ใหญ่\s*(\d{1,2})/giu, (m) => { adults.push(Number(m[1] ?? m[2])); });
+  text = take(text, /(\d{1,2})\s*(?:child(?:ren)?|kids?|เด็ก)|เด็ก\s*(\d{1,2})/giu, (m) => { children.push(Number(m[1] ?? m[2])); });
+  text = take(text, /(\d{1,2})\s*(?:people|persons?|pax|guests?|travell?ers?|คน|ท่าน)(?![\p{L}])/giu, (m) => { groups.push(Number(m[1])); });
+
+  // Bags, days and hours are optional; they are never places.
+  const extra: { bags: number | null; days: number | null; hours: number | null } = { bags: null, days: null, hours: null };
+  text = take(text, /(\d{1,2})\s*(?:bags?|luggage|suitcases?|กระเป๋า)(?![\p{L}])/giu, (m) => { extra.bags = Number(m[1]); });
+  text = take(text, /(\d{1,2})\s*(?:days?|วัน)(?![\p{L}])/giu, (m) => { extra.days = Number(m[1]); });
+  text = take(text, /(\d{1,2})\s*(?:hours?|hrs?|ชม\.?|ชั่วโมง)(?![\p{L}])/giu, (m) => { extra.hours = Number(m[1]); });
+
+  // What is left, part by part: the pickup (a part starting "pickup" / "รับ", or with a clock time: a place to visit
+  // has no time), a plain number (people), a car word or filler (skipped), else a place.
+  let pickupText = "", startTime: string | null = null;
+  const places: string[] = [], seen = new Set<string>();
+  for (const raw of text.split(/[\n,;]+/)) {
+    const part = raw.replace(/^[\s.&\-–—:]+|[\s.&\-–—:]+$/g, "").replace(/\s+/g, " ").replace(/^(?:and|then|to|และ)\s+/i, "");
+    if (!part || FILLER.test(part) || CAR_ONLY.test(part)) continue;
+    if (/^\d{1,2}$/.test(part)) { groups.push(Number(part)); continue; }
+    const keyword = /^(?:pick\s*-?\s*up|รับที่|รับ)(?:\s*(?:at|from|ที่))?\s*:?\s*/iu.exec(part);
+    const clock = CLOCK.exec(part);
+    if (!pickupText && !startTime && (keyword || clock)) {
+      if (clock) {
+        let h = Number(clock[1] ?? clock[4]); const min = Number(clock[2] ?? 0), ap = (clock[3] ?? clock[5] ?? "").toLowerCase();
+        if (ap === "pm" && h < 12) h += 12;
+        if (ap === "am" && h === 12) h = 0;
+        startTime = `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+      }
+      pickupText = part.replace(keyword?.[0] ?? "", "").replace(CLOCK, "").replace(/\s+(?:at|@)\s*$/i, "").replace(/\s+/g, " ").trim().slice(0, 300);
+      continue;
+    }
+    const key = placeKey(part);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    places.push(part.slice(0, 120));
+  }
+
+  // A sentence is not a place ("recommendation tour package for … as they requested"): places are short names.
+  const long = places.find((p) => p.split(" ").length > 7);
+  if (long) return { ok: false, problem: { code: "long_place", place: long } };
+  // One number of people. "3 people, 1 child" = 2 adults and 1 child; adults given must add up with the group.
+  if (adults.length > 1 || children.length > 1 || groups.length > 1) return { ok: false, problem: { code: "two_people" } };
+  const childCount = children[0] ?? 0;
+  const adultCount = adults.length ? adults[0] : groups.length ? groups[0] - childCount : 0;
+  if (groups.length && adults.length && groups[0] !== adultCount + childCount) return { ok: false, problem: { code: "two_people" } };
+  if (adultCount < 0) return { ok: false, problem: { code: "two_people" } };
+  if (adultCount + childCount === 0) return { ok: false, problem: { code: "no_people" } };
+  if (!places.length) return { ok: false, problem: { code: "no_places" } };
+  if (places.length > 10) return { ok: false, problem: { code: "too_many_places" } };
+  return { ok: true, trip: { adults: adultCount, children: childCount, tripDate: distinct[0].iso, places, ...extra, pickupText, startTime } };
+}
+
+/**
+ * A typed place name matched to a listed place: exactly (matchPlace), else the one listed place whose name contains the
+ * typed words as whole words, or whose words are all in the typed name ("Elephant Sanctuary" → "Phuket Elephant
+ * Sanctuary", "Big Buddha Phuket" → "Big Buddha"). Two candidates, or a one-word name: no match (Google decides).
+ */
+export function looseMatchPlace<T extends { name: string; customerName: string | null; createdAt: string }>(name: string, rows: T[]): T | null {
+  const exact = matchPlace(name, rows);
+  if (exact) return exact;
+  const typed = placeKey(name);
+  if (typed.split(" ").length < 2) return null;
+  const within = (a: string, b: string) => ` ${b} `.includes(` ${a} `);
+  const hits = rows.filter((r) => [r.name, r.customerName ?? ""].filter(Boolean).some((n) => {
+    const listed = placeKey(n);
+    return listed.split(" ").length >= 2 && (within(typed, listed) || within(listed, typed));
+  }));
+  return hits.length === 1 ? hits[0] : null;
+}
+
+/** The two places furthest apart (km, straight line), for the "places far apart" check. */
+export function farthestPair(points: { name: string; lat: number | null; lng: number | null }[]): { a: string; b: string; km: number } | null {
+  const ok = points.filter((p): p is { name: string; lat: number; lng: number } => typeof p.lat === "number" && typeof p.lng === "number");
+  let best: { a: string; b: string; km: number } | null = null;
+  for (let i = 0; i < ok.length; i++) for (let j = i + 1; j < ok.length; j++) {
+    const r = Math.PI / 180, dLat = (ok[j].lat - ok[i].lat) * r, dLng = (ok[j].lng - ok[i].lng) * r;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(ok[i].lat * r) * Math.cos(ok[j].lat * r) * Math.sin(dLng / 2) ** 2;
+    const km = 2 * 6371 * Math.asin(Math.sqrt(h));
+    if (!best || km > best.km) best = { a: ok[i].name, b: ok[j].name, km };
+  }
+  return best;
+}
+/** Places further apart than this can't be one day trip. */
+export const FAR_APART_KM = 200;
+
+const escHtml = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** "2026-11-29" → "29 Nov 2026": the month spelled out, so a day/month mix-up is easy to see. */
+export const spellDate = (iso: string) => `${Number(iso.slice(8, 10))} ${MONTHS_SHORT[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+
+/** The Thai reply when a typed /trip can't be read: what is wrong, then one example. */
+export function typedTripProblemTh(problem: TypedTripProblem): string {
+  const why = problem.code === "no_date" ? "ใส่วันที่ เช่น 29 Nov"
+    : problem.code === "two_dates" ? `พบวันที่ ${problem.dates.length} วัน (${problem.dates.map(spellDate).join(", ")}) ใส่วันเดียว`
+    : problem.code === "past_date" ? `วันที่ ${spellDate(problem.date)} ผ่านมาแล้ว`
+    : problem.code === "no_people" ? "ใส่จำนวนคน เช่น 2 people หรือ 2 adults 1 child"
+    : problem.code === "two_people" ? "พบจำนวนคนมากกว่าหนึ่งแบบ ใส่จำนวนคนครั้งเดียว เช่น 2 adults 1 child"
+    : problem.code === "no_places" ? "ใส่สถานที่อย่างน้อย 1 แห่ง"
+    : problem.code === "too_many_places" ? "ใส่สถานที่ได้ไม่เกิน 10 แห่ง"
+    : `"${escHtml(problem.place.slice(0, 80))}" ยาวเกินไปสำหรับชื่อสถานที่ แยกแต่ละสถานที่ด้วยจุลภาค (,)`;
+  return `⚠️ ยังไม่ได้สร้างทริป: ${why}\nตัวอย่าง: <code>/trip 2, 29 Nov, Big Buddha, Wat Chalong</code> (ดูวิธีเขียน: <code>/trip help</code>)`;
+}
+
+/** The Thai reply when two places can't be one day trip. */
+export const farApartTh = (far: { a: string; b: string; km: number }) =>
+  `⚠️ ยังไม่ได้สร้างทริป: ${escHtml(far.a)} กับ ${escHtml(far.b)} ห่างกันประมาณ ${Math.round(far.km).toLocaleString("en-US")} กม. ไปในวันเดียวไม่ได้ ตรวจชื่อสถานที่อีกครั้ง`;

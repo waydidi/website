@@ -144,3 +144,82 @@ test('/trip hours charged: 5+ places 10 h, 4 places 6 h, fewer the hours the day
   assert.deepEqual([h(5, 7), h(7, 4), h(4, 3), h(3, 2), h(2, 4.3), h(1, 0)], [10, 10, 6, 3, 5, 3]);
   assert.deepEqual([h(5, 11.2), h(4, 7.5)], [12, 8], 'never less than the day takes');
 });
+
+// Typed /trip without AI: people, date and places in any order (parseTypedTrip).
+const T = '2026-11-04';
+const typed = (s) => r.parseTypedTrip(s, T);
+const ok = (s) => { const x = typed(s); assert.equal(x.ok, true, `${s} → ${JSON.stringify(x)}`); return x.trip; };
+const problem = (s) => { const x = typed(s); assert.equal(x.ok, false, s); return x.problem; };
+
+test('people, date and places are read in any order, and places keep the order written', () => {
+  const want = { adults: 2, children: 0, tripDate: '2026-11-29', places: ['Big Buddha', 'Wat Chalong', 'Phuket Old Town'] };
+  for (const s of ['2, 29 Nov, Big Buddha, Wat Chalong, Phuket Old Town', 'Big Buddha, Wat Chalong, Phuket Old Town, 29 Nov, 2 people',
+    '29/11, Big Buddha, 2 pax, Wat Chalong, Phuket Old Town', 'Big Buddha\nWat Chalong\nPhuket Old Town\n2026-11-29\n2 คน']) {
+    const t = ok(s);
+    assert.deepEqual({ adults: t.adults, children: t.children, tripDate: t.tripDate, places: t.places }, want, s);
+  }
+  // The 4 November message works as typed: the date and people need no comma before them.
+  assert.deepEqual(ok('wat pho, big Buddha Phuket, Patong beach 29 Nov 2 people').places, ['wat pho', 'big Buddha Phuket', 'Patong beach']);
+});
+
+test('dates: day first, every spelling, the next one when no year, Buddhist years, a past date refused', () => {
+  for (const [s, iso] of [['29 Nov', '2026-11-29'], ['29 November 2026', '2026-11-29'], ['Nov 29', '2026-11-29'], ['29/11', '2026-11-29'],
+    ['05/12', '2026-12-05'], ['5/12/26', '2026-12-05'], ['2026-12-05', '2026-12-05'], ['29 พ.ย.', '2026-11-29'], ['29 พฤศจิกายน 2569', '2026-11-29'],
+    ['3 Jan', '2027-01-03'], ['1 Nov', '2027-11-01'], ['Date 20 Dec 2026', '2026-12-20'], ['4 Nov', '2026-11-04']])
+    assert.equal(ok(`2, ${s}, Big Buddha`).tripDate, iso, s);
+  assert.deepEqual(problem('2, 1 Nov 2026, Big Buddha'), { code: 'past_date', date: '2026-11-01' });
+  assert.deepEqual(problem('2, 29 Nov, 30 Nov, Big Buddha'), { code: 'two_dates', dates: ['2026-11-29', '2026-11-30'] });
+  assert.equal(problem('2, Big Buddha').code, 'no_date');
+  assert.equal(problem('2, 31/11, Big Buddha').code, 'no_date', 'no such day');
+});
+
+test('people: a number alone, with a word, adults and children; never a number inside a place name', () => {
+  assert.deepEqual([ok('2 adults 1 child, 29 Nov, Big Buddha').adults, ok('2 adults 1 child, 29 Nov, Big Buddha').children], [2, 1]);
+  assert.deepEqual([ok('ผู้ใหญ่ 2 เด็ก 1, 29 Nov, Big Buddha').adults, ok('ผู้ใหญ่ 2 เด็ก 1, 29 Nov, Big Buddha').children], [2, 1]);
+  assert.deepEqual([ok('3 people, 1 child, 29 Nov, Big Buddha').adults, ok('3 people, 1 child, 29 Nov, Big Buddha').children], [2, 1]);
+  assert.equal(ok('4, 29 Nov, Phi Phi Island').adults, 4);
+  const t = ok('2, 29 Nov, Soi 8 Night Market, 7 Islands');
+  assert.deepEqual(t.places, ['Soi 8 Night Market', '7 Islands']);
+  assert.equal(problem('29 Nov, Big Buddha').code, 'no_people');
+  assert.equal(problem('2 people, 3 people, 29 Nov, Big Buddha').code, 'two_people');
+  assert.equal(problem('4 people, 1 adult, 29 Nov, Big Buddha').code, 'two_people');
+});
+
+test('price, car, bags, hours, days and the pickup are never places', () => {
+  const t = ok('/trip 2 adults 1 child, 29 Nov, Big Buddha, Wat Chalong, SUV, 3 bags, 6 hours, pickup Hilton Patong 08:00, THB 3,500'.slice(6));
+  assert.deepEqual(t.places, ['Big Buddha', 'Wat Chalong']);
+  assert.deepEqual([t.bags, t.hours, t.days, t.pickupText, t.startTime], [3, 6, null, 'Hilton Patong', '08:00']);
+  const u = ok('12 Dec, 2 adults, Hilton Sukhumvit 08:00, Grand Palace, Wat Pho, SUV, THB 3,500');
+  assert.deepEqual([u.places, u.pickupText, u.startTime], [['Grand Palace', 'Wat Pho'], 'Hilton Sukhumvit', '08:00']);
+  assert.deepEqual([ok('2, 29 Nov, Big Buddha, รับ Kata Beach Resort 9am').pickupText, ok('2, 29 Nov, Big Buddha, รับ Kata Beach Resort 9am').startTime], ['Kata Beach Resort', '09:00']);
+  assert.equal(ok('2, 29 Nov, Big Buddha, 3 days').days, 3);
+  assert.equal(ok('2, 29 Nov, Big Buddha, ราคา 3500 บาท').places.length, 1);
+});
+
+test('a sentence, no places or too many places is refused, so nothing is guessed', () => {
+  assert.deepEqual(problem('recommendation tour package for two people as they requested as Grand Palace, Wat Pho. Date 20 Dec 2026. Make me a link').code, 'long_place');
+  assert.equal(problem('2, 29 Nov').code, 'no_places');
+  assert.equal(problem(`2, 29 Nov, ${Array.from({ length: 11 }, (_, i) => `Place ${String.fromCharCode(65 + i)}`).join(', ')}`).code, 'too_many_places');
+  assert.deepEqual(ok('2, 29 Nov, Big Buddha, big buddha').places, ['Big Buddha'], 'the same place twice is one stop');
+});
+
+test('a typed name matches a listed place loosely only when exactly one fits', () => {
+  const rows = [{ name: 'Phuket Elephant Sanctuary', customerName: null, createdAt: '1' }, { name: 'Big Buddha', customerName: null, createdAt: '2' },
+    { name: 'Wat Chalong', customerName: 'Chalong Temple', createdAt: '3' }, { name: 'Kata Beach', customerName: null, createdAt: '4' }, { name: 'Karon Beach', customerName: null, createdAt: '5' }];
+  assert.equal(r.looseMatchPlace('Elephant Sanctuary', rows)?.name, 'Phuket Elephant Sanctuary');
+  assert.equal(r.looseMatchPlace('Big Buddha Phuket', rows)?.name, 'Big Buddha');
+  assert.equal(r.looseMatchPlace('chalong temple', rows)?.name, 'Wat Chalong');
+  assert.equal(r.looseMatchPlace('Beach', rows), null, 'one word never matches loosely');
+  assert.equal(r.looseMatchPlace('Phuket Beach', rows), null);
+});
+
+test('places more than 200 km apart are found (Wat Pho in Bangkok, Big Buddha in Phuket)', () => {
+  const far = r.farthestPair([{ name: 'Wat Pho', lat: 13.746, lng: 100.493 }, { name: 'Big Buddha', lat: 7.828, lng: 98.312 }, { name: 'No coords', lat: null, lng: null }]);
+  assert.deepEqual([far.a, far.b], ['Wat Pho', 'Big Buddha']);
+  assert.ok(far.km > r.FAR_APART_KM);
+  assert.ok(r.farthestPair([{ name: 'Big Buddha', lat: 7.828, lng: 98.312 }, { name: 'Wat Chalong', lat: 7.846, lng: 98.337 }]).km < 10);
+});
+
+test('a pickup time just before the price is not read as a second price', () => {
+  assert.deepEqual(r.parseStaffPrice('2, 29 Nov, Big Buddha, Hilton 08:30, THB 3,500'), { ok: true, thb: 3500 });
+});
