@@ -1702,49 +1702,5 @@
   "trips.faq.cancel.a": {
     "text": "การคืนเงินเป็นไปตามนโยบายที่แสดงเมื่อคุณจอง ดูเงื่อนไขปัจจุบันได้ที่หน้านโยบายการคืนเงิน",
     "status": "machine"
-  },
-  "home.showcase.label": {
-    "text": "วิธีเดินทางกับ Waydidi",
-    "status": "machine"
-  },
-  "home.showcase.airport.title": {
-    "text": "รถรับส่งสนามบินส่วนตัว",
-    "status": "machine"
-  },
-  "home.showcase.airport.action": {
-    "text": "ดูบริการรับส่งสนามบิน",
-    "status": "machine"
-  },
-  "home.showcase.city.title": {
-    "text": "รถส่วนตัวของคุณระหว่างเมืองในไทย",
-    "status": "machine"
-  },
-  "home.showcase.city.action": {
-    "text": "ดูบริการเดินทางระหว่างเมือง",
-    "status": "machine"
-  },
-  "home.showcase.destinations.title": {
-    "text": "เมืองไทยจะพาคุณไปที่ไหน",
-    "status": "machine"
-  },
-  "home.showcase.destinations.action": {
-    "text": "ดูจุดหมายปลายทาง",
-    "status": "machine"
-  },
-  "home.intro.title": {
-    "text": "รถส่วนตัวและคนขับท้องถิ่นทั่วประเทศไทย",
-    "status": "machine"
-  },
-  "home.intro.private": {
-    "text": "รถส่วนตัว ไม่ใช้ร่วมกับใคร",
-    "status": "machine"
-  },
-  "home.intro.price": {
-    "text": "เห็นราคาก่อนจอง",
-    "status": "machine"
-  },
-  "home.intro.local": {
-    "text": "คนขับและทีมดูแลในพื้นที่",
-    "status": "machine"
   }
 }
