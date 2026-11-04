@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { SIGN_IN_EMAIL_KEY } from "@/lib/sign-in-handoff";
 import { ArrowLeft, BadgeCheck, CarFront } from "lucide-react";
 import { useTurnstile } from "@/components/use-turnstile";
 import type { SocialProvider } from "@/lib/social-auth";
@@ -52,9 +53,17 @@ const PROVIDERS: Record<SocialProvider, { label: string; icon: () => React.JSX.E
   facebook: { label: "Facebook", icon: FacebookIcon },
 };
 
-export function SignInForm({ next, initialEmail, providers, providerError }: { next: string | null; initialEmail?: string; providers: SocialProvider[]; providerError?: string }) {
+export function SignInForm({ next, providers, providerError }: { next: string | null; providers: SocialProvider[]; providerError?: string }) {
   const [step, setStep] = useState<"email" | "code">("email");
-  const [email, setEmail] = useState(initialEmail ?? "");
+  const [email, setEmail] = useState("");
+  useEffect(() => {
+    try {
+      const handed = sessionStorage.getItem(SIGN_IN_EMAIL_KEY);
+      sessionStorage.removeItem(SIGN_IN_EMAIL_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once after hydration
+      if (handed) setEmail((current) => current || handed.slice(0, 254));
+    } catch { /* storage unavailable: the customer types it */ }
+  }, []);
   const [code, setCode] = useState("");
   const [error, setError] = useState(providerError ? PROVIDER_ERRORS[providerError] ?? PROVIDER_ERRORS.failed : "");
   const [loading, setLoading] = useState(false);

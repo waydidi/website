@@ -182,6 +182,14 @@ Worker variables: `WAYDIDI_SLIP_PAYEE_NAMES` (turns the feature on), `WAYDIDI_SL
 
 **LINE quick book:** when pricing a filled customer form in LINE, each suggested price has a cash and a โอน (transfer) button; a typed price books cash (`3400`) or waiting for transfer (`3400 โอน`, `3400 transfer`). Rules: `lib/quick-book-rules.ts`.
 
+## Encrypted bank accounts and tax IDs
+
+Driver bank account numbers (`drivers`, `driver_payout_details`) and tax IDs (`booking_tax_invoices`, `customer_billing_profiles`, and the copy inside new receipt snapshots) are encrypted in the database with AES-256-GCM once the Worker secret **`PII_ENCRYPTION_KEY`** is set (32+ random characters; Admin → Settings → Data protection shows whether it is on). Until then they are stored as before.
+
+- **Turning it on:** generate a random value (for example `openssl rand -base64 48`), keep a copy in a password manager, then add it in Cloudflare as a secret. New values are encrypted straight away; older rows are encrypted by the every-minute job, a few at a time. Without the key, encrypted numbers cannot be read (payout report, receipts and the driver bank check stop with a clear message), so never delete or change it. There is no key rotation yet.
+- **Who sees full numbers:** staff screens show them masked (`xxxxxx4521`, `•••• 1234`). The **owner and finance** get a **Show** button (Reports → Driver payouts, Bookings → Tax invoice requested); the payout CSV export (owner and finance only) has full numbers for paying drivers. Every Show and every export is recorded in `sensitive_access_log` (who, role, what, when; never the number).
+- **Unchanged on purpose:** the Telegram "driver bank details" post and the LINE payment message still carry the full account number, because the team pays drivers from them. Customers see their own full tax ID in their account and on their own confirmation and tax invoice (a Thai tax invoice must print it). Receipts issued before the key was set keep the tax ID as written (financial documents are never rewritten).
+
 ## Design system (G7)
 
 Tokens and rules are in [`docs/design-system-g7.md`](docs/design-system-g7.md); the values live in `app/globals.css`.

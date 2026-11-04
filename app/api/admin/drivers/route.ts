@@ -6,6 +6,8 @@ import { prepareDriverImage } from "@/lib/admin-driver-images";
 import { deleteFile, putFile } from "@/lib/file-store";
 import { sameOrigin } from "@/lib/security";
 import { THAI_BANKS } from "@/lib/thai-banks";
+import { maskAccount } from "@/lib/driver-bank-rules";
+import { PII_COLUMNS, sealPii } from "@/lib/pii";
 
 const phoneValid = (value: string) => /^[+0-9() .-]{7,30}$/u.test(value.trim());
 const emailValid = (value: string) =>
@@ -109,7 +111,8 @@ export async function POST(request: Request) {
       baseLocation,
       vehicle,
       bankCode,
-      bankAccountNumber,
+      // Encrypted at rest once PII_ENCRYPTION_KEY is set (lib/pii.ts).
+      bankAccountNumber: await sealPii(bankAccountNumber, PII_COLUMNS.driverAccount),
       idImageKey,
       idImageMime: idImage.mime,
       idImageBytes: idImage.size,
@@ -130,7 +133,7 @@ export async function POST(request: Request) {
     };
     await getDb().insert(drivers).values(driver);
     return NextResponse.json({
-      driver: { ...driver, idImageKey: "available", carImageKey: "available", photoKey: photoKey ? "available" : null },
+      driver: { ...driver, bankAccountNumber: bankAccountNumber ? maskAccount(bankAccountNumber) : "", idImageKey: "available", carImageKey: "available", photoKey: photoKey ? "available" : null },
     });
   } catch {
     await Promise.all([

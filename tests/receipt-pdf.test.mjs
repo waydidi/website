@@ -75,3 +75,17 @@ test('Thai billing details preserved; long content paginates; generate visual fi
  await mkdir(root+'/outputs/receipts',{recursive:true});await writeFile(root+'/outputs/receipts/Waydidi-Receipt-Sample.pdf',bytes);
  const long=await createReceiptPdf({...fixture,items:[{description:'Long route details '.repeat(300),quantity:1,unitMinor:107000,totalMinor:107000}]});assert.ok((await PDFDocument.load(long)).getPageCount()>1);
 });
+test('with PII_ENCRYPTION_KEY set: the receipt prints the full tax ID, the stored snapshot holds it sealed, and a missing key stops the receipt',async()=>{
+ s.env.PII_ENCRYPTION_KEY='test-only-pii-key-0123456789abcdefghijklmnop';
+ try{
+  const pii=await vite.ssrLoadModule('/lib/pii.ts');
+  const b=await seed();
+  await db.insert(schema.bookingTaxInvoices).values({id:crypto.randomUUID(),bookingReference:b.reference,name:'บริษัท ทดสอบ จำกัด',taxId:await pii.sealPii('0105555555555',pii.PII_COLUMNS.taxInvoiceTaxId),branch:'สำนักงานใหญ่',address:'1 Road',createdAt:new Date().toISOString()});
+  const [r1,r2]=await Promise.all([receiptForBooking(b),receiptForBooking(b)]);
+  assert.equal(r1.customer.taxId,'0105555555555');assert.equal(r1.number,r2.number);
+  const snapshot=await d1.prepare('SELECT snapshot_json FROM booking_receipt_documents WHERE booking_reference=?').bind(b.reference).first('snapshot_json');
+  assert.ok(!snapshot.includes('0105555555555'));assert.match(JSON.parse(snapshot).customer.taxId,/^enc:v1:/);
+  delete s.env.PII_ENCRYPTION_KEY;
+  await assert.rejects(()=>receiptForBooking(b),/PII_KEY_MISSING/);
+ }finally{delete s.env.PII_ENCRYPTION_KEY;}
+});
