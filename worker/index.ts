@@ -186,6 +186,8 @@ const worker = {
       ctx.waitUntil(import("../lib/telegram/post-helper").then(async (m) => { await m.refreshKnowledgeDue(new Date(controller.scheduledTime)); if (new Date(controller.scheduledTime).getUTCMinutes() === 0) await m.purgeOldDrafts(new Date(controller.scheduledTime)); }).catch((e) => console.error("post helper upkeep failed", e)));
       // Once PII_ENCRYPTION_KEY is set: older bank account numbers and tax IDs are encrypted a few at a time.
       ctx.waitUntil(import("../lib/pii-backfill").then((m) => m.encryptPlainPii()).catch((e) => console.error("PII encryption backfill failed", e instanceof Error ? e.message : "unknown")));
+      // The Admin group's job lists: today's at 07:00, tomorrow's at 18:00 (Bangkok time), once each.
+      ctx.waitUntil(import("../lib/telegram/daily-jobs").then((m) => m.sendDailyJobs(new Date(controller.scheduledTime))).catch((e) => console.error("daily job list failed", e instanceof Error ? e.message : "unknown")));
       // A confirmed booking whose Telegram card was never posted gets one.
       ctx.waitUntil(import("../lib/telegram/bookings").then((m) => m.postMissingBookingCards(new Date(controller.scheduledTime))).catch((e) => console.error("missing booking cards failed", e)));
       // Every 15 minutes: flights of upcoming airport pickups; the team is told about delays in Telegram.
