@@ -15,7 +15,6 @@ import { FleetSection } from "./fleet-section";
 import { HomeTagline } from "./tagline";
 import { HomeShowcase } from "./home-showcase";
 import { HomeIntro } from "./home-intro";
-import { ServiceCards } from "./service-cards";
 import { TransferPartners } from "./transfer-partners";
 import { DealsSection } from "./deals-section";
 import { DevNotice } from "./dev-notice";
@@ -58,7 +57,6 @@ export function HomePage({ locale }: { locale: Locale }) {
         { title: messages["home.showcase.destinations.title"], action: messages["home.showcase.destinations.action"], href: "/destinations", image: "/destinations/phuket.webp", width: 1600, height: 1200 },
       ]} />
       <HomeIntro locale={locale} />
-      <ServiceCards locale={locale} />
       <HowItWorks />
       {/* Hidden for now: "Where Waydidi takes you" map. */}
       {SHOW_MAP && <ThailandDestinationMap />}

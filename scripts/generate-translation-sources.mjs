@@ -17,7 +17,7 @@ for(const name of ['destination-guides.ts','public-content.ts','destinations.ts'
 }
 function messages(v){if(typeof v==='string')add(v);else if(v&&typeof v==='object')Object.values(v).forEach(messages);}
 const englishMessages=JSON.parse(await readFile(resolve(root,'messages/en.json'),'utf8'));
-messages(transfersOnly?Object.fromEntries(Object.entries(englishMessages).filter(([key])=>key.startsWith('transfers.')||key.startsWith('trips.'))):englishMessages);
+messages(transfersOnly?Object.fromEntries(Object.entries(englishMessages).filter(([key])=>key.startsWith('transfers.')||key.startsWith('trips.')||key.startsWith('home.showcase.')||key.startsWith('home.intro.'))):englishMessages);
 // Curated route names are repository-authored; never load pricing or customer data here.
 const routesBundle = await build({entryPoints:[resolve(root,'lib/transfer-routes.ts')],bundle:true,write:false,format:'esm',platform:'node'});
 const { TRANSFER_ROUTES, TRANSFER_CITIES } = await import('data:text/javascript;base64,'+Buffer.from(routesBundle.outputFiles[0].text).toString('base64'));

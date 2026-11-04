@@ -475,60 +475,12 @@
     "text": "下个月",
     "status": "machine"
   },
-  "services.heading": {
-    "text": "探索 Waydidi 能为您做什么",
-    "status": "machine"
-  },
   "home.tagline.title": {
     "text": "轻松出行。",
     "status": "machine"
   },
   "home.tagline.text": {
     "text": "旅程顺畅，珍贵回忆值得铭记。",
-    "status": "machine"
-  },
-  "services.details": {
-    "text": "详情",
-    "status": "machine"
-  },
-  "services.detailsAbout": {
-    "text": "关于{title}",
-    "status": "machine"
-  },
-  "services.ride.title": {
-    "text": "出行",
-    "status": "machine"
-  },
-  "services.ride.text": {
-    "text": "乘坐 Waydidi 畅游泰国各地。预订私人专车，上车即享。",
-    "status": "machine"
-  },
-  "services.ride.alt": {
-    "text": "橙色 Waydidi 私人专车",
-    "status": "machine"
-  },
-  "services.reserve.title": {
-    "text": "提前预订",
-    "status": "machine"
-  },
-  "services.reserve.text": {
-    "text": "提前预订专车，出行当天轻松无忧。",
-    "status": "machine"
-  },
-  "services.reserve.alt": {
-    "text": "预订日历",
-    "status": "machine"
-  },
-  "services.dayTrips.title": {
-    "text": "一日游",
-    "status": "machine"
-  },
-  "services.dayTrips.text": {
-    "text": "预订私人司机，一天内舒适游览多个目的地。",
-    "status": "machine"
-  },
-  "services.dayTrips.alt": {
-    "text": "沿一日游路线相连的三个地点标记",
     "status": "machine"
   },
   "map.heading": {

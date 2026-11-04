@@ -1,16 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { closeDevNotice } from "./dev-notice";
 
-test("the photo slides and intro sit between Travel Effortlessly and the services, in that order", async ({ page }) => {
+test("the photo slides and intro sit between Travel Effortlessly and How it works, in that order", async ({ page }) => {
   await page.goto("/");
   const position = async (selector: string) => (await page.locator(selector).boundingBox())!.y;
   const tagline = await position("section[aria-labelledby=home-tagline]");
   const showcase = await position("[data-testid=home-showcase]");
   const intro = await position("section[aria-labelledby=home-intro]");
-  const services = await position("#services");
+  const next = await position("section[aria-labelledby=how-heading]");
   expect(tagline).toBeLessThan(showcase);
   expect(showcase).toBeLessThan(intro);
-  expect(intro).toBeLessThan(services);
+  expect(intro).toBeLessThan(next);
   await expect(page.locator("h1")).toHaveCount(1);
   await expect(page.locator("section[aria-labelledby=home-intro] li")).toHaveCount(3);
 });
