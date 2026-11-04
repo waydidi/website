@@ -436,5 +436,16 @@
   "trips.faq.tickets.q": "Are tickets and meals included?",
   "trips.faq.tickets.a": "Check the Included and Not included lists on this page. Anything not listed as included is yours to pay on the day.",
   "trips.faq.cancel.q": "What if I need to cancel?",
-  "trips.faq.cancel.a": "Refunds follow the policy shown when you book. See our refund policy page for the current terms."
+  "trips.faq.cancel.a": "Refunds follow the policy shown when you book. See our refund policy page for the current terms.",
+  "home.showcase.label": "Ways to travel with Waydidi",
+  "home.showcase.airport.title": "Private airport transfers",
+  "home.showcase.airport.action": "See airport transfers",
+  "home.showcase.city.title": "Your own car between Thai cities",
+  "home.showcase.city.action": "See city-to-city rides",
+  "home.showcase.destinations.title": "Where will Thailand take you?",
+  "home.showcase.destinations.action": "See destinations",
+  "home.intro.title": "Private cars and local drivers across Thailand",
+  "home.intro.private": "Private car, never shared",
+  "home.intro.price": "Price shown before you book",
+  "home.intro.local": "Local drivers and support"
 }

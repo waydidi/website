@@ -1750,5 +1750,49 @@
   "trips.faq.cancel.a": {
     "text": "退款按您预订时显示的政策执行。当前条款请查看退款政策页面。",
     "status": "machine"
+  },
+  "home.showcase.label": {
+    "text": "与 Waydidi 一起出行的方式",
+    "status": "machine"
+  },
+  "home.showcase.airport.title": {
+    "text": "私人机场接送",
+    "status": "machine"
+  },
+  "home.showcase.airport.action": {
+    "text": "查看机场接送",
+    "status": "machine"
+  },
+  "home.showcase.city.title": {
+    "text": "往返泰国各城市的专属用车",
+    "status": "machine"
+  },
+  "home.showcase.city.action": {
+    "text": "查看城际用车",
+    "status": "machine"
+  },
+  "home.showcase.destinations.title": {
+    "text": "泰国将带您去往何方?",
+    "status": "machine"
+  },
+  "home.showcase.destinations.action": {
+    "text": "查看目的地",
+    "status": "machine"
+  },
+  "home.intro.title": {
+    "text": "遍及泰国的私人用车与本地司机",
+    "status": "machine"
+  },
+  "home.intro.private": {
+    "text": "私人用车,绝不拼车",
+    "status": "machine"
+  },
+  "home.intro.price": {
+    "text": "预订前显示价格",
+    "status": "machine"
+  },
+  "home.intro.local": {
+    "text": "本地司机和支持团队",
+    "status": "machine"
   }
 }
