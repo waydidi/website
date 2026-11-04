@@ -78,8 +78,11 @@ export async function newStaffSession(db: SecurityDatabase, staffId: string, rem
   await db.prepare("INSERT INTO staff_sessions(token_hash,staff_id,expires_at,last_used_at,created_at) VALUES(?,?,?,?,?)").bind(await sha256(token),staffId,new Date(now.getTime()+(remember?STAFF_REMEMBER_SECONDS:STAFF_SESSION_SECONDS)*1000).toISOString(),now.toISOString(),now.toISOString()).run();
   return token;
 }
-export function allowedStaffRoute(role: StaffRole, path: string, method: string) {
+export function allowedStaffRoute(role: StaffRole, rawPath: string, method: string) {
   if(role==="owner") return true;
+  // Tapping a link inside the admin fetches the page's data from "<page>.rsc" (e.g. /admin/bookings.rsc):
+  // check it as the page itself, or every in-app link is refused and the phone menu appears stuck.
+  const path=rawPath.replace(/\.rsc$/,"");
   if(path==="/api/admin/session") return true;
   if(path==="/admin/profile" || path==="/api/admin/profile" || path==="/api/admin/avatar") return true;
   if(path==="/admin/financials") return role==="finance" || role==="operations";
@@ -93,7 +96,7 @@ export function allowedStaffRoute(role: StaffRole, path: string, method: string)
   if(section==="users") return ["operations","support"].includes(role) && method==="GET";
   if(section==="chat") return ["operations","support"].includes(role);
   if(["staff","settings"].includes(section)) return false;
-  if(["payments","refunds","finance","reports","payouts"].includes(section)) return role==="finance";
+  if(["payments","refunds","finance","reports","payouts","sensitive"].includes(section)) return role==="finance";
   if(["blog","posts","content"].includes(section)) return role==="editor";
   if(role==="operations") return ["bookings","calendar","drivers","assignments","alerts","operations","flights","routes","vehicles","dashboard","manual-booking","journeys","notifications","automation","evidence","driver-images","driver-applications","forms","trips","attractions","route-stops","suppliers"].includes(section);
   if(role==="support") return method==="GET" && ["bookings","customers"].includes(section);

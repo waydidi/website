@@ -9,14 +9,14 @@ import { putFile } from "@/lib/file-store";
 import { publicSiteUrl } from "@/lib/site";
 import { HOURLY_MIN_HOURS } from "@/lib/hourly-area-pricing";
 import { getTrip, groupDays, inputFromRow, planFor, saveTrip, sendTripDays, splitTrip, suggestedTransport, tripSchema, tripSnapshot, type TripInput } from "@/lib/smart-trips";
-import type { PlaceOption } from "@/lib/trip-chat-rules";
+import type { ChatDraft, DraftStop, PlaceOption } from "@/lib/trip-chat-rules";
 import { chatPlanConfigured, draftFromChat, type ModelCall } from "@/lib/trip-from-chat";
 import { itineraryPdf } from "@/lib/trip-itinerary-file";
 import { MAX_DAY_HOURS } from "@/lib/trip-split";
 import { VEHICLES } from "@/lib/vehicles";
 import { esc } from "./cards";
 import { downloadFile, sendDocument, sendTo, tg, telegramChatId, type InlineKeyboard, type TelegramMessage } from "./client";
-import { BLOCKING, MISSING_TH, PLACE_HELP, TRIP_HELP, hoursFromGoogle, packageOptions, tripMultidayOn, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, tripChargeHours, tripText, wantsTripGuide, placeHoursLineTh, type GooglePeriod, type PlaceHours } from "./trip-builder-rules";
+import { BLOCKING, FAR_APART_KM, MISSING_TH, PLACE_HELP, TRIP_HELP, farApartTh, farthestPair, hoursFromGoogle, looseMatchPlace, parseTypedTrip, typedTripProblemTh, type TypedTrip, packageOptions, tripMultidayOn, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, tripChargeHours, tripText, wantsTripGuide, placeHoursLineTh, type GooglePeriod, type PlaceHours } from "./trip-builder-rules";
 
 // /trip and /place in the Admin group (team list only; the webhook checks that). /trip builds a smart trip from the
 // staff's text, sends it (freezes the version and makes the link) and posts the link and the PDF back to the Admin
@@ -97,15 +97,23 @@ async function buildTrip(details: string, m: TelegramMessage, member: { display_
     await reply(`⚠️ ยังไม่ได้สร้างทริป: พบหลายราคา (${price.amounts.map(thb).join(", ")}) เขียนราคาทริปให้ชัด เช่น <code>ราคา 3500 บาท</code> หรือไม่ใส่ราคาเพื่อใช้ราคาตามเรทรายชั่วโมง`);
     return;
   }
-  if (!deps.call && !chatPlanConfigured()) { await reply("ยังไม่ได้เปิดผู้ช่วย AI (ANTHROPIC_API_KEY) จึงอ่านรายละเอียดทริปไม่ได้"); return; }
+  // A typed trip (people, date and places in any order) is read by code, never by AI. Only a pasted customer
+  // chat (a reply) goes to the AI, which is the one path that needs ANTHROPIC_API_KEY and credit.
+  const typed = replied ? null : parseTypedTrip(details, deps.today ?? bangkokToday());
+  if (replied && !deps.call && !chatPlanConfigured()) { await reply("ยังไม่ได้เปิดผู้ช่วย AI (ANTHROPIC_API_KEY) จึงอ่านแชตลูกค้าไม่ได้"); return; }
   if (!(await claim(chatId, m.message_id, "trip"))) return;
+  if (typed && !typed.ok) { await reply(typedTripProblemTh(typed.problem)); return; }
   await tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => undefined);
   const list = await listAttractions();
-  const places: PlaceOption[] = list.map((a) => ({ id: a.id, name: a.customerName || a.name, area: a.area, durationMin: a.durationMin, lat: a.latitude, lng: a.longitude, usedIn: 0 }));
-  const drafted = await draftFromChat(tripText(details, replied), places, deps.today ?? bangkokToday(), ...(deps.call ? [deps.call] : [])).catch(() => null);
-  if (!drafted) { await reply("⚠️ สร้างทริปไม่สำเร็จ ลองส่ง /trip อีกครั้ง"); return; }
-  if (!drafted.ok) { await reply(`⚠️ ยังไม่ได้สร้างทริป: ${esc(drafted.error)}`); return; }
-  const d = drafted.draft;
+  let d: ChatDraft;
+  if (typed?.ok) d = typedDraft(typed.trip, list);
+  else {
+    const places: PlaceOption[] = list.map((a) => ({ id: a.id, name: a.customerName || a.name, area: a.area, durationMin: a.durationMin, lat: a.latitude, lng: a.longitude, usedIn: 0 }));
+    const drafted = await draftFromChat(tripText(details, replied), places, deps.today ?? bangkokToday(), ...(deps.call ? [deps.call] : [])).catch(() => null);
+    if (!drafted) { await reply("⚠️ สร้างทริปไม่สำเร็จ ลองส่ง /trip อีกครั้ง"); return; }
+    if (!drafted.ok) { await reply(`⚠️ ยังไม่ได้สร้างทริป: ${esc(drafted.error)}`); return; }
+    d = drafted.draft;
+  }
   if (d.suggested) { await reply("⚠️ ยังไม่ได้สร้างทริป: ระบุชื่อสถานที่ที่จะไปด้วย (บอทไม่เลือกสถานที่ให้เอง)"); return; }
   // A place not in Admin → Attractions is looked up on Google Maps and added, like /place; one Google can't find is left out.
   const added: string[] = [], notFound: string[] = [];
@@ -125,6 +133,11 @@ async function buildTrip(details: string, m: TelegramMessage, member: { display_
   if ([...new Set(missing)].length) {
     await reply(`⚠️ ยังไม่ได้สร้างทริป: ขาด${[...new Set(missing)].map((x) => MISSING_TH[x] ?? x).join(", ")}${notFound.length ? `\nไม่พบใน Google Maps: ${notFound.map(esc).join(", ")}` : ""}\n\n${TRIP_HELP}`);
     return;
+  }
+  // Places too far apart for one day (Wat Pho in Bangkok and Big Buddha in Phuket): staff check the names first.
+  if (!tripMultidayOn(vars()) || (d.days ?? 1) <= 1) {
+    const far = farthestPair(stops.map((x) => ({ name: x.name, lat: x.lat ?? null, lng: x.lng ?? null })));
+    if (far && far.km > FAR_APART_KM) { await reply(farApartTh(far)); return; }
   }
   const car = pickVehicle(details, d.adults + d.children, d.bags);
   if (!car.ok) {
@@ -152,6 +165,23 @@ async function buildTrip(details: string, m: TelegramMessage, member: { display_
     db().prepare("INSERT INTO telegram_trip_pending(id,chat_id,message_id,step,payload_json,created_at) VALUES(?,?,?,0,?,?)").bind(id, chatId, m.message_id, JSON.stringify(pending), now.toISOString()),
   ]);
   await askPackage(id, pending, 0);
+}
+
+/** A typed /trip as the draft the builder works from: places matched to Attractions (loosely, when one fits), others looked up. */
+function typedDraft(t: TypedTrip, list: Awaited<ReturnType<typeof listAttractions>>): ChatDraft {
+  const stops: DraftStop[] = t.places.map((name) => {
+    const a = looseMatchPlace(name, list);
+    const id = crypto.randomUUID().slice(0, 8);
+    return a ? { id, kind: "attraction", name: a.customerName || a.name, attractionId: a.id, lat: a.latitude, lng: a.longitude, durationMin: a.durationMin, priority: "must" }
+      : { id, kind: "custom", name, durationMin: 45, priority: "must" };
+  });
+  const area = list.find((a) => stops.some((x) => x.attractionId === a.id))?.area ?? "";
+  return {
+    title: stops.map((x) => x.name).join(" · ").slice(0, 120), area, tripDate: t.tripDate, startTime: t.startTime ?? "08:00",
+    durationHours: t.hours ?? 8, days: t.days, hoursGiven: t.hours != null, adults: t.adults, children: t.children, bags: t.bags ?? 2,
+    pickupText: t.pickupText, customerName: null, notes: null, language: "en", stops, unmatched: [], suggested: false,
+    missing: t.pickupText ? [] : ["pickup place"],
+  };
 }
 
 /** A /trip waiting for package choices (telegram_trip_pending.payload_json). */

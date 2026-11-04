@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { openPii, PII_COLUMNS } from "@/lib/pii";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { bookingAssignments, bookings, drivers, driverStatusEvents } from "@/db/schema";
@@ -22,6 +23,8 @@ export async function verifyTripCompletion(eventId: string, verifiedBy: string):
   await completeJourney(booking.reference, parseLeg(assignment.leg), "completed");
   await env.DB.prepare("INSERT OR IGNORE INTO booking_events (booking_reference, event_type, provider_event_id, created_at) VALUES (?, 'trip_completed_verified', ?, ?)").bind(booking.reference, `completed:${statusEvent.id}`, now).run();
   const [driver] = await getDb().select().from(drivers).where(eq(drivers.id, assignment.driverId)).limit(1);
-  if (driver) await notifyLineDriverPayment({ reference: booking.reference, driverName: driver.fullName, bankCode: driver.bankCode, bankAccountNumber: driver.bankAccountNumber }).catch((error) => console.error("LINE payment notification failed", error));
+  if (driver) await openPii(driver.bankAccountNumber, PII_COLUMNS.driverAccount)
+    .then((bankAccountNumber) => notifyLineDriverPayment({ reference: booking.reference, driverName: driver.fullName, bankCode: driver.bankCode, bankAccountNumber }))
+    .catch((error) => console.error("LINE payment notification failed", error instanceof Error ? error.message : "unknown"));
   return { result: "done", reference: booking.reference, leg: assignment.leg };
 }

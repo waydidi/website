@@ -1,4 +1,5 @@
 import { ensureReliabilityTables,reliabilityDb } from "./reliability-db";
+import { assistantFailure } from "@/lib/assistant-error-rules";
 import Anthropic from "@anthropic-ai/sdk";
 import type { BetaMessageParam, BetaToolResultBlockParam } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { env } from "cloudflare:workers";
@@ -165,9 +166,10 @@ export async function answerInGroup(question: string, replyTo: number, asker: { 
   let answer: AssistantAnswer;
   try { answer = await assistantTurn(question, { role, name: asker.name, previous }, client); }
   catch (error) {
-    console.error("Telegram assistant failed", error instanceof Error ? error.message : error);
+    const failure = assistantFailure(error);
+    console.error("Telegram assistant failed", failure.code);
     await recordSpend().catch(()=>undefined);
-    await sendCard(error instanceof Error && error.message==="ASSISTANT_BUDGET_REACHED"?"The assistant has reached this month's spending limit. Try again after the owner reviews the budget.":"Sorry, I couldn't answer just now. Please try again in a minute.", undefined, replyTo);
+    await sendCard(error instanceof Error && error.message==="ASSISTANT_BUDGET_REACHED"?"The assistant has reached this month's spending limit. Try again after the owner reviews the budget.":`Sorry, I couldn't answer. ${esc(failure.reason)}`, undefined, replyTo);
     return;
   }
   await recordSpend();

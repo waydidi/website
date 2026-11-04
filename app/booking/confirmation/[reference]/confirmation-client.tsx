@@ -1,6 +1,7 @@
 "use client";
 
 import { RouteStopsDetails } from "@/components/route-stops-details";
+import { SIGN_IN_EMAIL_KEY } from "@/lib/sign-in-handoff";
 import { PurchasedCancellationPolicy } from "@/components/home/purchased-cancellation-policy";
 import type { CancellationOption } from "@/lib/cancellation-options";
 import { confirmationPaymentLabel } from "@/lib/confirmation-payment";
@@ -364,7 +365,9 @@ function AccountPrompt({ email, reference }: { email: string; reference: string 
         <p className="mt-1 text-sm text-slate-600">{signedIn ? "Track your driver, change the date or download receipts any time." : "Sign in with this email to see this booking, change it and download receipts. No password needed."}</p>
       </div>
       <Link
-        href={signedIn ? tripPath : `/account/sign-in?email=${encodeURIComponent(email)}&next=${encodeURIComponent(tripPath)}`}
+        href={signedIn ? tripPath : `/account/sign-in?next=${encodeURIComponent(tripPath)}`}
+        // The email is handed to the sign-in form on this device, never put in the URL (history, logs, analytics).
+        onClick={signedIn ? undefined : () => { try { sessionStorage.setItem(SIGN_IN_EMAIL_KEY, email); } catch { /* the customer types it */ } }}
         className="shrink-0 rounded-full bg-plum px-6 py-3 text-center font-bold text-white"
       >
         {signedIn ? "View in my account" : "Create account"}

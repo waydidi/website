@@ -1,4 +1,6 @@
 import { validBookingQuotes, validTransferPrice } from "@/lib/booking-quote-check";
+import { PII_COLUMNS, sealPii } from "@/lib/pii";
+import { billingProfilesFor, storedBillingProfile } from "@/lib/billing-profiles";
 import { checkoutFingerprintInput } from "@/lib/checkout-fingerprint";
 import { insertBookingWithRouteStops, priceRouteStops } from "@/lib/route-stops-db";
 import { parseRouteStopSnapshots, RouteStopSelectionError, stopDurationMinutes, stopTotalMinor } from "@/lib/route-stops";
@@ -15,7 +17,6 @@ import { referralUseStatement } from "@/lib/referrals";
 import { affiliateByCode, affiliateBySlug, affiliateDiscount, affiliateLinkStatement, isSelfReferral, refFromRequest, type Affiliate } from "@/lib/affiliates";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { bookingContacts, bookingFreeAddons, bookingMemberDiscounts, bookingSources, bookingStorefronts, bookingTaxInvoices, customerBillingProfiles, customerBookingLinks } from "@/db/schema";
-import { and as andWhere, eq as eqWhere } from "drizzle-orm";
 import { normalizeCode } from "@/lib/promo";
 import { checkPromo, normalizePhone, PROMO_LIMIT_ERROR, promoRedemptionStatement } from "@/lib/promo-db";
 import type { SecurityDatabase, SecurityStatement } from "@/lib/worker-db";
@@ -604,7 +605,7 @@ export async function POST(request: Request) {
       id: crypto.randomUUID(),
       bookingReference: reference,
       name: input.taxInvoice.name,
-      taxId: input.taxInvoice.taxId,
+      taxId: await sealPii(input.taxInvoice.taxId, PII_COLUMNS.taxInvoiceTaxId),
       branch: input.taxInvoice.branch || "Head office",
       address: input.taxInvoice.address,
       createdAt: now,
@@ -612,9 +613,10 @@ export async function POST(request: Request) {
     // "Save to my account": keep these billing details for next time (once per tax ID + name).
     if (input.taxInvoice && input.saveBilling && account) {
       const tax = input.taxInvoice;
-      const [existing] = await getDb().select({ id: customerBillingProfiles.id }).from(customerBillingProfiles)
-        .where(andWhere(eqWhere(customerBillingProfiles.customerId, account.customer.id), eqWhere(customerBillingProfiles.taxId, tax.taxId), eqWhere(customerBillingProfiles.name, tax.name))).limit(1).catch(() => []);
-      if (!existing) await getDb().insert(customerBillingProfiles).values({ id: crypto.randomUUID(), customerId: account.customer.id, name: tax.name, taxId: tax.taxId, branch: tax.branch || "Head office", address: tax.address, createdAt: now, updatedAt: now }).catch(() => undefined);
+      // Tax IDs may be encrypted (random per value), so compare the customer's profiles after opening them.
+      const saved = await billingProfilesFor(account.customer.id).catch(() => null);
+      const existing = saved?.some((p) => p.taxId === tax.taxId && p.name === tax.name);
+      if (saved && !existing) await getDb().insert(customerBillingProfiles).values({ id: crypto.randomUUID(), customerId: account.customer.id, ...(await storedBillingProfile({ name: tax.name, taxId: tax.taxId, branch: tax.branch || "Head office", address: tax.address })), createdAt: now, updatedAt: now }).catch(() => undefined);
     }
     if (freeAddons.childSeats > 0 || freeAddons.exchangeStop) await getDb().insert(bookingFreeAddons).values({ bookingReference: reference, tier: `${memberTier?.id ?? "bronze"}${freeAddons.usedGifts.length ? "+gift" : ""}`, childSeats: freeAddons.childSeats, exchangeStop: freeAddons.exchangeStop, createdAt: now }).onConflictDoNothing();
     if (memberApplied && account) await getDb().insert(bookingMemberDiscounts).values({ bookingReference: reference, customerId: account.customer.id, ...memberApplied, createdAt: now }).onConflictDoNothing();

@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import en from "@/messages/en.json";
 import { WaydidiWordmark } from "@/components/waydidi-logo";
 import { FooterLegal } from "@/components/footer-legal";
+import { FooterLinkGroup } from "@/components/footer-link-group";
 
 const columns = [
   {title:"Transfer",links:[["Airport transfer","/airport-transfer"],["City-to-city transfer","/a-to-b-transfer"],["Multi-city transfer","/long-journeys"],["Hourly driver","/hourly-driver"]]},
@@ -12,11 +13,11 @@ const columns = [
 
 export function PublicFooter(){return <footer className="bg-brand text-white">
   <div className="mx-auto max-w-[1240px] px-5 py-14 lg:px-8">
-    <div className="grid gap-10 lg:grid-cols-[1.25fr_2fr]">
+    <div className="grid gap-8 sm:gap-10 lg:grid-cols-[1.25fr_2fr]">
       <div><Link href="/" className="inline-flex text-white" aria-label="Waydidi home"><WaydidiWordmark className="h-[40px] w-[156px]"/></Link><p className="mt-5 max-w-sm text-base leading-7 text-white/90">Private transfers across Thailand with clear booking details and local driver operations.</p></div>
-      <div className="grid gap-8 sm:grid-cols-3">{columns.map(c=><div key={c.title}><h3 className="font-black">{c.title}</h3><ul className="mt-4 space-y-3 text-sm text-white/90">{c.links.map(([label,href])=><li key={href}><a className="hover:text-white hover:underline" href={href}>{label}</a></li>)}</ul></div>)}</div>
+      <div className="grid sm:grid-cols-3 sm:gap-8">{columns.map(c=><FooterLinkGroup key={c.title} title={c.title} links={c.links.map(([label,href])=>({label,href}))}/>)}</div>
     </div>
-    <div className="mt-12 flex flex-col gap-4 border-t border-white/30 pt-7 text-sm text-white/85 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap gap-5"><Link href="/about">About</Link><Link href="/refund-policy">Refund & Cancellation Policy</Link><Link href="/luggage-policy">Luggage</Link><Link href="/safety-driver-standards">Safety</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy / PDPA</Link></div></div>
+    <div className="flex flex-col gap-4 border-t border-white/30 pt-7 text-sm sm:mt-12 text-white/85 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap gap-5"><Link href="/about">About</Link><Link href="/refund-policy">Refund & Cancellation Policy</Link><Link href="/luggage-policy">Luggage</Link><Link href="/safety-driver-standards">Safety</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy / PDPA</Link></div></div>
     {(env as unknown as Record<string,unknown>).TRANSFER_ROUTE_PAGES === "1" ? <Link href="/transfers" prefetch={false} className="mt-5 inline-flex min-h-tap items-center underline">{en["transfers.all"]}</Link> : null}
     <FooterLegal />
   </div>

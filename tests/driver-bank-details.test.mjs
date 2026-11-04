@@ -148,3 +148,25 @@ test('after the Drop the job just completes: the trip link only asks for bank de
   assert.equal(await needed(cash),false);
  }finally{delete globalThis.__bankTest.env.DRIVER_BANK_DETAILS;}
 });
+
+test('with PII_ENCRYPTION_KEY set: saved encrypted in both places, announced once, a change is still flagged against the old (encrypted) account',async()=>{
+ globalThis.__bankTest.env.PII_ENCRYPTION_KEY='test-only-pii-key-0123456789abcdefghijklmnop';
+ try{
+  const pii=await vite.ssrLoadModule('/lib/pii.ts');
+  const t=await seed();
+  await d1.prepare("UPDATE drivers SET bank_code='SCB',bank_account_number=?,bank_account_name='สมชาย ใจดี' WHERE id=?").bind(await pii.sealPii('9876543210',pii.PII_COLUMNS.driverAccount),t.driverId).run();
+  sent.length=0;
+  const [r1,r2]=await Promise.all([post({token:t.token,...good}),post({token:t.token,...good})]);
+  assert.deepEqual([r1.status,r2.status],[200,200]);
+  const payout=await d1.prepare('SELECT account_number FROM driver_payout_details WHERE assignment_id=?').bind(t.assignmentId).first('account_number');
+  const saved=await d1.prepare('SELECT bank_account_number FROM drivers WHERE id=?').bind(t.driverId).first('bank_account_number');
+  assert.ok(payout.startsWith('enc:v1:')&&saved.startsWith('enc:v1:'));
+  assert.equal(await pii.openPii(payout,pii.PII_COLUMNS.payoutAccount),'1234567890');
+  assert.equal(await pii.openPii(saved,pii.PII_COLUMNS.driverAccount),'1234567890');
+  const event=await d1.prepare("SELECT provider_event_id FROM booking_events WHERE booking_reference=? AND event_type='driver_bank_details_submitted'").bind(t.reference).first('provider_event_id');
+  assert.ok(!event.includes(await sha256('KBANK:1234567890')),'the idempotency id is a keyed hash, not a guessable plain hash');
+  assert.equal(sent.length,1);
+  assert.match(sent[0].text,/<code>1234567890<\/code>/);
+  assert.match(sent[0].text,/เปลี่ยนจากบัญชีเดิม: ธนาคารไทยพาณิชย์ xxxxxx3210/);
+ }finally{delete globalThis.__bankTest.env.PII_ENCRYPTION_KEY;}
+});

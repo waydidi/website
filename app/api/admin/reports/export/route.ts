@@ -1,6 +1,8 @@
 import { getWaydidiAdmin } from "@/lib/admin";
 import { discountReport, driverPayouts, revenueReport, toCsv } from "@/lib/reports";
 import { VEHICLES } from "@/lib/vehicles";
+import { canSeeFullPii } from "@/lib/sensitive-access-rules";
+import { logSensitiveAccess } from "@/lib/sensitive-access";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const vehicleName = (id: string) => (VEHICLES as Record<string, { name: string }>)[id]?.name ?? id;
@@ -22,7 +24,10 @@ export async function GET(request: Request) {
       [], ["Total", "", d.discountedTrips, d.cost, "", ""],
     ]);
   } else if (type === "payouts") {
-    const groups = await driverPayouts({ from, to });
+    // Full account numbers (finance pays from this file): owner and finance only, and every export is logged.
+    if (!canSeeFullPii(admin.role)) return new Response("Only the owner and finance can export driver payouts.", { status: 403 });
+    const groups = await driverPayouts({ from, to }, { fullAccounts: true });
+    await logSensitiveAccess(admin, "payout_export", `${from}..${to}`, new Set(groups.map((g) => g.driverId)).size);
     csv = toCsv([
       ["Week starting", "Driver", "Phone", "Bank", "Account number", "Account name", "Booking", "Trip date", "Route", "Fare (THB)", "Driver cost (THB)", "Payout status"],
       ...groups.flatMap((g) => g.trips.map((t) => [g.week, g.driverName, g.phone, g.bank.code, g.bank.account, g.bank.name, t.reference, t.pickupDate, t.route, t.fare, t.cost, t.cost == null ? "cost not set" : t.status])),
