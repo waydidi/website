@@ -10,6 +10,10 @@ import { publishedPosts } from "@/lib/blog-store";
 import { Breadcrumbs, JsonLd, breadcrumbSchema, faqSchema, SHARE_IMAGE, destinationShareImage } from "@/components/seo";
 import { destinations, SITE_URL, type Destination } from "@/lib/public-content";
 import { fromPrice, KIND_LABEL, listPackages } from "@/lib/packages";
+import { publishedTransferRoutes } from "@/lib/transfer-routes-server";
+import { cityRoutes, transferCity } from "@/lib/transfer-routes";
+import { multiCityEnabled } from "@/lib/multi-city-server";
+import en from "@/messages/en.json";
 
 export function generateStaticParams(){return destinations.map(({slug})=>({slug}))}
 
@@ -51,8 +55,11 @@ export default async function DestinationPage({params}:{params:Promise<{slug:str
   const schemas:object[]=[breadcrumbSchema(crumbs),{"@context":"https://schema.org","@type":"TaxiService",name:`Waydidi private transfers in ${d.name}`,description:d.seoDescription??d.intro,url:`${SITE_URL}/destinations/${d.slug}`,provider:{"@type":"Organization",name:"Waydidi",url:SITE_URL},areaServed:{"@type":"City",name:d.name,containedInPlace:{"@type":"Country",name:"Thailand"}}}];
   if(d.faq?.length)schemas.push(faqSchema(d.faq));
   const packages=await listPackages({city:d.slug,publishedOnly:true}).catch(()=>[]);
+  const hub=transferCity(d.slug);
+  const hubRoutes=hub?cityRoutes(await publishedTransferRoutes().catch(()=>[]),d.slug):null;
+  const showHub=Boolean(hubRoutes&&(hubRoutes.from.length||hubRoutes.to.length));
 
-  return <BookingFlow hero={{title:d.h1??`Private transfers in ${d.name}`,subtitle:d.intro,image:d.image,top:<Breadcrumbs crumbs={crumbs} className="text-white"/>}}><main className="bg-white text-plum">
+  return <BookingFlow multiCity={multiCityEnabled()} hero={{title:d.h1??`Private transfers in ${d.name}`,subtitle:d.intro,image:d.image,top:<Breadcrumbs crumbs={crumbs} className="text-white"/>}}><main className="bg-white text-plum">
   <JsonLd data={schemas}/>
 
   {/* Hero: photo (or brand colour) background, breadcrumb, headline and a search bar that opens the booking form */}
@@ -65,6 +72,8 @@ export default async function DestinationPage({params}:{params:Promise<{slug:str
 
   {/* Day trip packages built from the trip planner */}
   {packages.length ? <section id="day-trips" className="py-16"><div className="mx-auto max-w-[1180px] px-5"><h2 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Day trips from {d.name}</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Private car and driver with hotel pickup. Check your date to see the exact timing and total.</p><div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{packages.map(p=>{const from=fromPrice(p);return <Link key={p.id} href={`/trips/${p.slug}`} className="group overflow-hidden rounded-[22px] border border-slate-200 bg-white transition hover:shadow-lg hover:shadow-slate-900/5"><div className="aspect-[16/10] overflow-hidden bg-canvas">{p.coverImage?<img src={p.coverImage} alt={p.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/>:null}</div><div className="p-5"><p className="text-sm font-bold text-brand-text">{KIND_LABEL[p.kind as keyof typeof KIND_LABEL]}</p><h3 className="mt-1 text-lg font-black">{p.name}</h3>{p.summary?<p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{p.summary}</p>:null}{from?<p className="mt-3 font-black">From THB {from.toLocaleString("en-US")} <span className="text-sm font-bold text-slate-500">per car</span></p>:null}</div></Link>})}</div></div></section> : null}
+
+  {showHub&&hub?<section className="mx-auto max-w-[1180px] px-5 pt-12"><a className="font-bold text-brand-deep underline" href={`/transfers/city/${hub.slug}`}>{en["transfers.cityTitle"].replace("{city}",hub.name)}</a></section>:null}
 
   {/* Areas + services */}
   <section className="mx-auto max-w-[1180px] px-5 py-16">

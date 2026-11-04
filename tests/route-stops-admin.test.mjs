@@ -26,3 +26,13 @@ test('Worker gate allows route stops only for owner and operations',async()=>{co
 test('inactive drafts cover Pattaya, Hua Hin and Kanchanaburi and survive edits',async()=>{sqlite.exec("INSERT INTO attractions(id,name,seed_key) VALUES('green','Bang Krachao','bkk-bang-krachao')");const db=await load();
  // Setup is memoised per isolate, so a starter-place import re-runs only the draft seed.
  assert.match(await readFile(root+'/lib/attractions.ts','utf8'),/importStarterPlaces[\s\S]*seedRouteStopDrafts\(\)/);await db.seedRouteStopDrafts();const all=await db.listRouteStopOffers();for(const suffix of ['pattaya','hua-hin','kanchanaburi']){const draft=all.find(o=>o.id.endsWith(suffix));assert.ok(draft,suffix);assert.equal(draft.active,false);} });
+test('the Bangkok-Pattaya drafts attach only to imported places and stay inactive',async()=>{const db=await load();
+ const ids=['draft-ancient-city-pattaya','draft-wat-sothon-pattaya','draft-sanctuary-truth-pattaya','draft-buddha-mountain-pattaya'];
+ await db.seedRouteStopDrafts();assert.deepEqual((await db.listRouteStopOffers()).filter(o=>ids.includes(o.id)),[]);
+ sqlite.exec("INSERT INTO attractions(id,name,seed_key) VALUES('ancient','Ancient City','bkk-ancient-city'),('sothon','Wat Sothon','bkk-wat-sothon'),('truth','Sanctuary of Truth','pty-sanctuary-of-truth'),('buddha','Buddha Mountain','pty-buddha-mountain')");
+ await db.seedRouteStopDrafts();const drafts=(await db.listRouteStopOffers()).filter(o=>ids.includes(o.id));
+ assert.equal(drafts.length,4);for(const draft of drafts)assert.equal(draft.active,false);
+ const {eligibleRouteStopOffers}=await vite.ssrLoadModule('/lib/route-stops.ts');
+ assert.deepEqual(eligibleRouteStopOffers(drafts,{lat:13.7466,lng:100.5347},{lat:12.9346,lng:100.8836}),[]);
+ const live=eligibleRouteStopOffers(drafts.map(o=>({...o,active:true})),{lat:13.7466,lng:100.5347},{lat:12.9346,lng:100.8836});
+ assert.equal(live.length,4);});

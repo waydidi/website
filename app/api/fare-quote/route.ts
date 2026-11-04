@@ -7,7 +7,7 @@ import { checkoutAttempts, fareQuotes } from "@/db/schema";
 import { BOOKING_TIMEZONE, bangkokDepartureIso } from "@/lib/booking-time";
 import { fareQuoteInputSchema, validationError } from "@/lib/booking-validation";
 import { matchPublishedArea, pricesForArea } from "@/lib/pricing";
-import { limitVehicles } from "@/lib/vehicle-routes";
+import { limitVehicles, routeHasAllPrices } from "@/lib/vehicle-routes";
 import { isJsonRequest, sameOrigin, sha256 } from "@/lib/security";
 import { loadInclusions } from "@/lib/route-inclusions-db";
 import { logOperationalError, monitoredHeaders, requestIdFor } from "@/lib/observability";
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
       { lat: pickup.location.latitude, lng: pickup.location.longitude },
       { lat: dropoff.location.latitude, lng: dropoff.location.longitude },
     );
-    if (Object.keys(prices).length !== 4)
+    if (!routeHasAllPrices(prices, pickup.location, dropoff.location))
       return NextResponse.json(
         { error: "This area is missing vehicle prices", manualReview: true },
         { status: 422 },

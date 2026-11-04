@@ -1542,5 +1542,209 @@
   "devNotice.close": {
     "text": "ปิด",
     "status": "machine"
+  },
+  "multiCity.tab": {
+    "text": "หลายเมือง",
+    "status": "machine"
+  },
+  "multiCity.intro": {
+    "text": "บอกเราทุกช่วงของการเดินทาง ทีมงานจะตรวจสอบเส้นทางและส่งราคาให้คุณ",
+    "status": "machine"
+  },
+  "multiCity.leg": {
+    "text": "ช่วงที่",
+    "status": "machine"
+  },
+  "multiCity.remove": {
+    "text": "ลบช่วงที่",
+    "status": "machine"
+  },
+  "multiCity.from": {
+    "text": "จาก",
+    "status": "machine"
+  },
+  "multiCity.to": {
+    "text": "ถึง",
+    "status": "machine"
+  },
+  "multiCity.date": {
+    "text": "วันที่",
+    "status": "machine"
+  },
+  "multiCity.time": {
+    "text": "เวลารับ",
+    "status": "machine"
+  },
+  "multiCity.addLeg": {
+    "text": "เพิ่มช่วงการเดินทาง",
+    "status": "machine"
+  },
+  "multiCity.name": {
+    "text": "ชื่อ-นามสกุล",
+    "status": "machine"
+  },
+  "multiCity.phone": {
+    "text": "WhatsApp หรือเบอร์โทร",
+    "status": "machine"
+  },
+  "multiCity.email": {
+    "text": "อีเมล",
+    "status": "machine"
+  },
+  "multiCity.passengers": {
+    "text": "ผู้โดยสาร",
+    "status": "machine"
+  },
+  "multiCity.bags": {
+    "text": "กระเป๋า",
+    "status": "machine"
+  },
+  "multiCity.note": {
+    "text": "มีอะไรเพิ่มเติมที่ควรทราบไหม (ไม่บังคับ)",
+    "status": "machine"
+  },
+  "multiCity.submit": {
+    "text": "ขอราคา",
+    "status": "machine"
+  },
+  "multiCity.sending": {
+    "text": "กำลังส่ง…",
+    "status": "machine"
+  },
+  "multiCity.noPayment": {
+    "text": "ยังไม่ต้องชำระเงิน นี่เป็นเพียงคำขอ ยังไม่ใช่การจองจนกว่าคุณจะยอมรับราคา",
+    "status": "machine"
+  },
+  "multiCity.sentTitle": {
+    "text": "ได้รับคำขอแล้ว",
+    "status": "machine"
+  },
+  "multiCity.sentBody": {
+    "text": "ทีมงานจะติดต่อคุณพร้อมราคา การเดินทางจะยังไม่ถูกจองจนกว่าคุณจะยอมรับราคา",
+    "status": "machine"
+  },
+  "multiCity.error": {
+    "text": "ไม่สามารถส่งคำขอได้ กรุณาลองอีกครั้ง",
+    "status": "machine"
+  },
+  "transfers.cityTitle": {
+    "text": "รถรับส่งส่วนตัวไปและกลับจาก{city}",
+    "status": "machine"
+  },
+  "transfers.cityFrom": {
+    "text": "เส้นทางจาก{city}",
+    "status": "machine"
+  },
+  "transfers.cityTo": {
+    "text": "เส้นทางไป{city}",
+    "status": "machine"
+  },
+  "transfers.byCity": {
+    "text": "เส้นทางรถรับส่งตามเมือง",
+    "status": "machine"
+  },
+  "transfers.stops": {
+    "text": "จุดแวะเที่ยวบนเส้นทางนี้",
+    "status": "machine"
+  },
+  "transfers.stopsNote": {
+    "text": "ไม่บังคับ เลือกจุดแวะได้หลังจากเลือกรถ ไม่รวมค่าเข้าชม อาหาร และกิจกรรม",
+    "status": "machine"
+  },
+  "transfers.stopDetail": {
+    "text": "ประมาณ {minutes} นาที · ฿{price} ต่อคัน",
+    "status": "machine"
+  },
+  "trips.title": {
+    "text": "ทริปส่วนตัวแบบไปเช้าเย็นกลับในไทย",
+    "status": "machine"
+  },
+  "trips.description": {
+    "text": "รถและคนขับส่วนตัวพร้อมรับจากโรงแรม เลือกทริปแล้วตรวจสอบวันที่เพื่อดูเวลาและราคารวม",
+    "status": "machine"
+  },
+  "trips.fromCity": {
+    "text": "ทริปจาก{city}",
+    "status": "machine"
+  },
+  "trips.fromPrice": {
+    "text": "เริ่มต้น {price} บาทต่อคัน",
+    "status": "machine"
+  },
+  "trips.hours": {
+    "text": "เวลาเปิดทำการปกติ: {open} ถึง {close}",
+    "status": "machine"
+  },
+  "trips.faq": {
+    "text": "คำถามเกี่ยวกับทริป",
+    "status": "machine"
+  },
+  "trips.faq.order.q": {
+    "text": "ลำดับจุดแวะเปลี่ยนได้ไหม",
+    "status": "machine"
+  },
+  "trips.faq.order.a": {
+    "text": "ได้ ลำดับอาจเปลี่ยนตามโรงแรมและวันเดินทางของคุณ คุณจะเห็นเวลาที่แน่นอนก่อนชำระเงิน",
+    "status": "machine"
+  },
+  "trips.faq.tickets.q": {
+    "text": "รวมค่าเข้าชมและอาหารไหม",
+    "status": "machine"
+  },
+  "trips.faq.tickets.a": {
+    "text": "ดูรายการรวมและไม่รวมในหน้านี้ สิ่งที่ไม่ได้ระบุว่ารวมไว้ คุณต้องชำระเองในวันเดินทาง",
+    "status": "machine"
+  },
+  "trips.faq.cancel.q": {
+    "text": "ถ้าต้องการยกเลิกต้องทำอย่างไร",
+    "status": "machine"
+  },
+  "trips.faq.cancel.a": {
+    "text": "การคืนเงินเป็นไปตามนโยบายที่แสดงเมื่อคุณจอง ดูเงื่อนไขปัจจุบันได้ที่หน้านโยบายการคืนเงิน",
+    "status": "machine"
+  },
+  "home.showcase.label": {
+    "text": "วิธีเดินทางกับ Waydidi",
+    "status": "machine"
+  },
+  "home.showcase.airport.title": {
+    "text": "รถรับส่งสนามบินส่วนตัว",
+    "status": "machine"
+  },
+  "home.showcase.airport.action": {
+    "text": "ดูบริการรับส่งสนามบิน",
+    "status": "machine"
+  },
+  "home.showcase.city.title": {
+    "text": "รถส่วนตัวของคุณระหว่างเมืองในไทย",
+    "status": "machine"
+  },
+  "home.showcase.city.action": {
+    "text": "ดูบริการเดินทางระหว่างเมือง",
+    "status": "machine"
+  },
+  "home.showcase.destinations.title": {
+    "text": "เมืองไทยจะพาคุณไปที่ไหน",
+    "status": "machine"
+  },
+  "home.showcase.destinations.action": {
+    "text": "ดูจุดหมายปลายทาง",
+    "status": "machine"
+  },
+  "home.intro.title": {
+    "text": "รถส่วนตัวและคนขับท้องถิ่นทั่วประเทศไทย",
+    "status": "machine"
+  },
+  "home.intro.private": {
+    "text": "รถส่วนตัว ไม่ใช้ร่วมกับใคร",
+    "status": "machine"
+  },
+  "home.intro.price": {
+    "text": "เห็นราคาก่อนจอง",
+    "status": "machine"
+  },
+  "home.intro.local": {
+    "text": "คนขับและทีมดูแลในพื้นที่",
+    "status": "machine"
   }
 }

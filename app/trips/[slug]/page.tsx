@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Check, Clock, X } from "lucide-react";
 import { PublicFooter } from "@/components/public-footer";
-import { Breadcrumbs, JsonLd, breadcrumbSchema } from "@/components/seo";
+import { Breadcrumbs, JsonLd, breadcrumbSchema, faqSchema } from "@/components/seo";
+import en from "@/messages/en.json";
 import { PackageBooking } from "@/components/packages/package-booking";
 import { earliestDate, fromPrice, KIND_LABEL, packageBySlug, packageStops } from "@/lib/packages";
 import { destinations, SITE_URL } from "@/lib/public-content";
@@ -23,14 +24,16 @@ export default async function PackagePage({ params }: { params: Promise<{ slug: 
   if (!p) notFound();
   const { stops } = await packageStops(p);
   const city = destinations.find((d) => d.slug === p.city);
-  const crumbs = [{ name: "Home", path: "/" }, ...(city ? [{ name: city.name, path: `/destinations/${city.slug}` }] : []), { name: p.name, path: `/trips/${p.slug}` }];
+  const crumbs = [{ name: "Home", path: "/" }, { name: en["trips.title"], path: "/trips" }, ...(city ? [{ name: city.name, path: `/destinations/${city.slug}` }] : []), { name: p.name, path: `/trips/${p.slug}` }];
   const from = fromPrice(p);
   const cars = Object.entries(p.prices).filter(([id, n]) => n > 0 && id in VEHICLES).map(([id, price]) => ({ id, price, name: VEHICLES[id as keyof typeof VEHICLES].name, seats: VEHICLES[id as keyof typeof VEHICLES].passengers }));
   const product = { "@context": "https://schema.org", "@type": "Product", name: p.name, description: p.summary ?? undefined, image: p.coverImage ?? undefined,
     offers: from ? { "@type": "Offer", price: from, priceCurrency: "THB", availability: "https://schema.org/InStock", url: `${SITE_URL}/trips/${p.slug}` } : undefined };
 
+  const faq = (["order", "tickets", "cancel"] as const).map((k) => ({ q: en[`trips.faq.${k}.q`], a: en[`trips.faq.${k}.a`] }));
+
   return <main className="bg-white text-plum">
-    <JsonLd data={[breadcrumbSchema(crumbs), product]} />
+    <JsonLd data={[breadcrumbSchema(crumbs), product, faqSchema(faq)]} />
     <section className="mx-auto max-w-[1180px] px-4 pt-5 sm:px-5">
       <div className="relative overflow-hidden rounded-[26px] bg-plum text-white">
         {p.coverImage && <><img src={p.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-plum/90 via-plum/50 to-plum/10" /></>}
@@ -55,6 +58,7 @@ export default async function PackagePage({ params }: { params: Promise<{ slug: 
               <div className="aspect-[16/10] bg-slate-100 sm:aspect-auto">{s.cover && <img src={s.cover} alt={s.name} loading="lazy" className="h-full w-full object-cover" />}</div>
               <div className="p-4 sm:pl-0"><p className="text-sm font-bold text-brand-text">Stop {i + 1}</p><h3 className="text-lg font-black">{s.name}</h3>
                 {s.pitch && <p className="mt-1 leading-7 text-slate-600">{s.pitch}</p>}
+                {s.openTime && s.closeTime && <p className="mt-2 text-sm text-slate-500">{en["trips.hours"].replace("{open}", s.openTime).replace("{close}", s.closeTime)}</p>}
                 <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-500"><Clock size={15} />About {s.durationMin >= 60 ? `${Math.round(s.durationMin / 30) / 2} h` : `${s.durationMin} min`}</p></div>
             </li>)}
             <li className="flex gap-3 rounded-2xl bg-canvas p-4 font-bold">Drop-off at your hotel</li>
@@ -64,6 +68,10 @@ export default async function PackagePage({ params }: { params: Promise<{ slug: 
         <div className="grid gap-6 sm:grid-cols-2">
           <div><h2 className="text-xl font-black">Included</h2><ul className="mt-3 grid gap-2">{p.included.map((x) => <li key={x} className="flex gap-2"><Check size={18} className="mt-1 shrink-0 text-emerald-600" />{x}</li>)}</ul></div>
           <div><h2 className="text-xl font-black">Not included</h2><ul className="mt-3 grid gap-2">{p.excluded.map((x) => <li key={x} className="flex gap-2"><X size={18} className="mt-1 shrink-0 text-slate-400" />{x}</li>)}</ul></div>
+        </div>
+        <div>
+          <h2 className="text-2xl font-black tracking-[-.03em]">{en["trips.faq"]}</h2>
+          {faq.map((f) => <details key={f.q} className="mt-3 rounded-2xl bg-canvas p-4"><summary className="cursor-pointer font-bold">{f.q}</summary><p className="mt-2 leading-7 text-slate-600">{f.a}</p></details>)}
         </div>
       </div>
       <aside id="book" className="lg:sticky lg:top-24 lg:self-start">

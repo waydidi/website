@@ -7,7 +7,7 @@ export const transferPagesEnabled = () => (env as unknown as Record<string,unkno
 export async function publishedTransferRoutes() {
  if (!transferPagesEnabled()) return [];
  const priced=[];
- // Bounded sequential reads avoid 38 parallel D1 operations per cache miss.
+ // Bounded sequential reads avoid one parallel D1 operation per route on a cache miss.
  for (const route of TRANSFER_ROUTES) {
   const quote=await quoteTransferRoute(route,{matchArea:matchPublishedArea,prices:pricesForArea});
   if(quote)priced.push(quote);

@@ -15,6 +15,9 @@ test("public marketing pages are cached; tour packages refresh sooner", () => {
   for (const path of ["/", "/destinations", "/drivers", "/agencies", "/partners", "/refund-policy", ...publicPages.map((p) => `/${p.slug}`), ...destinations.map((d) => `/destinations/${d.slug}`)])
     assert.equal(ttl(path), 300, path);
   assert.equal(ttl("/trips/bangkok-temples"), 120);
+  assert.equal(ttl("/trips"), 120);
+  assert.equal(ttl("/transfers/city/bangkok"), 300);
+  assert.equal(ttl("/transfers/city/bangkok/extra"), 0);
   assert.equal(ttl("/blog/some-post"), 300);
   assert.equal(ttl("/blog/some-post?preview=1"), 0);
 });

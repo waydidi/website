@@ -1542,5 +1542,209 @@
   "devNotice.close": {
     "text": "关闭",
     "status": "machine"
+  },
+  "multiCity.tab": {
+    "text": "多城市",
+    "status": "machine"
+  },
+  "multiCity.intro": {
+    "text": "请告诉我们您行程的每一段。我们的团队会核查路线并将报价发送给您。",
+    "status": "machine"
+  },
+  "multiCity.leg": {
+    "text": "行程段",
+    "status": "machine"
+  },
+  "multiCity.remove": {
+    "text": "删除行程段",
+    "status": "machine"
+  },
+  "multiCity.from": {
+    "text": "出发地",
+    "status": "machine"
+  },
+  "multiCity.to": {
+    "text": "目的地",
+    "status": "machine"
+  },
+  "multiCity.date": {
+    "text": "日期",
+    "status": "machine"
+  },
+  "multiCity.time": {
+    "text": "接车时间",
+    "status": "machine"
+  },
+  "multiCity.addLeg": {
+    "text": "再添加一段",
+    "status": "machine"
+  },
+  "multiCity.name": {
+    "text": "姓名",
+    "status": "machine"
+  },
+  "multiCity.phone": {
+    "text": "WhatsApp 或电话",
+    "status": "machine"
+  },
+  "multiCity.email": {
+    "text": "电子邮箱",
+    "status": "machine"
+  },
+  "multiCity.passengers": {
+    "text": "乘客人数",
+    "status": "machine"
+  },
+  "multiCity.bags": {
+    "text": "行李件数",
+    "status": "machine"
+  },
+  "multiCity.note": {
+    "text": "还有其他需要告诉我们的吗?(选填)",
+    "status": "machine"
+  },
+  "multiCity.submit": {
+    "text": "获取报价",
+    "status": "machine"
+  },
+  "multiCity.sending": {
+    "text": "正在发送…",
+    "status": "machine"
+  },
+  "multiCity.noPayment": {
+    "text": "现在无需付款。在您接受报价之前,这只是一项请求,并非预订。",
+    "status": "machine"
+  },
+  "multiCity.sentTitle": {
+    "text": "已收到您的请求",
+    "status": "machine"
+  },
+  "multiCity.sentBody": {
+    "text": "我们的团队会与您联系并提供报价。在您接受报价之前,行程尚未预订。",
+    "status": "machine"
+  },
+  "multiCity.error": {
+    "text": "无法发送您的请求,请重试。",
+    "status": "machine"
+  },
+  "transfers.cityTitle": {
+    "text": "往返{city}的私人接送",
+    "status": "machine"
+  },
+  "transfers.cityFrom": {
+    "text": "从{city}出发的路线",
+    "status": "machine"
+  },
+  "transfers.cityTo": {
+    "text": "前往{city}的路线",
+    "status": "machine"
+  },
+  "transfers.byCity": {
+    "text": "按城市查看接送路线",
+    "status": "machine"
+  },
+  "transfers.stops": {
+    "text": "此路线上的观光停靠点",
+    "status": "machine"
+  },
+  "transfers.stopsNote": {
+    "text": "可选。选择车辆后即可选择停靠点。不含门票、餐食和活动。",
+    "status": "machine"
+  },
+  "transfers.stopDetail": {
+    "text": "约 {minutes} 分钟 · 每车 ฿{price}",
+    "status": "machine"
+  },
+  "trips.title": {
+    "text": "泰国私人一日游",
+    "status": "machine"
+  },
+  "trips.description": {
+    "text": "专属车辆和司机,含酒店接送。选择行程后查看日期,了解具体时间和总价。",
+    "status": "machine"
+  },
+  "trips.fromCity": {
+    "text": "从{city}出发的一日游",
+    "status": "machine"
+  },
+  "trips.fromPrice": {
+    "text": "每车 {price} 泰铢起",
+    "status": "machine"
+  },
+  "trips.hours": {
+    "text": "通常开放时间:{open} 至 {close}",
+    "status": "machine"
+  },
+  "trips.faq": {
+    "text": "行程常见问题",
+    "status": "machine"
+  },
+  "trips.faq.order.q": {
+    "text": "停靠点的顺序会变吗?",
+    "status": "machine"
+  },
+  "trips.faq.order.a": {
+    "text": "会。顺序可能根据您的酒店和出行日期调整。付款前您可以看到确切时间。",
+    "status": "machine"
+  },
+  "trips.faq.tickets.q": {
+    "text": "包含门票和餐食吗?",
+    "status": "machine"
+  },
+  "trips.faq.tickets.a": {
+    "text": "请查看本页的“包含”和“不包含”列表。未列为包含的项目需您当天自行支付。",
+    "status": "machine"
+  },
+  "trips.faq.cancel.q": {
+    "text": "如果需要取消怎么办?",
+    "status": "machine"
+  },
+  "trips.faq.cancel.a": {
+    "text": "退款按您预订时显示的政策执行。当前条款请查看退款政策页面。",
+    "status": "machine"
+  },
+  "home.showcase.label": {
+    "text": "与 Waydidi 一起出行的方式",
+    "status": "machine"
+  },
+  "home.showcase.airport.title": {
+    "text": "私人机场接送",
+    "status": "machine"
+  },
+  "home.showcase.airport.action": {
+    "text": "查看机场接送",
+    "status": "machine"
+  },
+  "home.showcase.city.title": {
+    "text": "往返泰国各城市的专属用车",
+    "status": "machine"
+  },
+  "home.showcase.city.action": {
+    "text": "查看城际用车",
+    "status": "machine"
+  },
+  "home.showcase.destinations.title": {
+    "text": "泰国将带您去往何方?",
+    "status": "machine"
+  },
+  "home.showcase.destinations.action": {
+    "text": "查看目的地",
+    "status": "machine"
+  },
+  "home.intro.title": {
+    "text": "遍及泰国的私人用车与本地司机",
+    "status": "machine"
+  },
+  "home.intro.private": {
+    "text": "私人用车,绝不拼车",
+    "status": "machine"
+  },
+  "home.intro.price": {
+    "text": "预订前显示价格",
+    "status": "machine"
+  },
+  "home.intro.local": {
+    "text": "本地司机和支持团队",
+    "status": "machine"
   }
 }
