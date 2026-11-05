@@ -1598,9 +1598,9 @@ export function BookingFlow({
           <SiteHeader overlay />
         ) : mapView ? null : (
           <header className="relative z-40 h-[70px] w-full bg-brand text-ink sm:h-[76px]">
-            <div className="mx-auto flex h-full w-full max-w-[1200px] items-center justify-between px-4 sm:px-5">
+            <div className="mx-auto flex h-full w-full max-w-[1200px] items-center justify-between px-5">
               <Link href="/" className="inline-flex text-white" aria-label={t("nav.home")}>
-                <WaydidiLogo className="h-[32px] w-[84px] sm:h-[43px] sm:w-[112px]" />
+                <WaydidiLogo className="h-[47px] w-auto sm:h-[43px] sm:w-[112px]" />
               </Link>
             </div>
           </header>

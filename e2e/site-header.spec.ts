@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { closeDevNotice } from "./dev-notice";
 
 // The header follows Daytrip's proportions: a 76px bar from 640px wide (70px on phones, as before), the logo 112px wide
-// (84px on phones), content in a 1160px column, the full menu from 1280px and a "Menu" button below that.
+// (phones keep their own logo, 132px wide, or 100px under 360px), content in a 1160px column, the full menu from
+// 1280px and a "Menu" button below that.
 test.skip(({ isMobile }) => isMobile, "Sizes are set below; the phone project only repeats the desktop browser");
 
 const geometry = (page: import("@playwright/test").Page) => page.evaluate(() => {
@@ -27,7 +28,7 @@ const geometry = (page: import("@playwright/test").Page) => page.evaluate(() => 
 const sizes: Array<[number, number, number, number, boolean]> = [
   // width, height, bar, logo width, full menu
   [1440, 900, 76, 112, true], [1280, 800, 76, 112, true], [1279, 800, 76, 112, false], [1024, 768, 76, 112, false],
-  [768, 1024, 76, 112, false], [640, 900, 76, 112, false], [639, 900, 70, 84, false], [390, 844, 70, 84, false],
+  [768, 1024, 76, 112, false], [640, 900, 76, 112, false], [639, 900, 70, 132, false], [390, 844, 70, 132, false], [340, 700, 70, 100, false],
 ];
 for (const [width, height, bar, logo, full] of sizes) {
   test(`header at ${width}px: ${bar}px bar, ${logo}px logo, ${full ? "full menu" : "Menu button"}`, async ({ page }) => {
@@ -38,9 +39,8 @@ for (const [width, height, bar, logo, full] of sizes) {
     const g = await geometry(page);
     expect(g.header!.h).toBe(bar);
     expect(Math.round(g.logo!.w)).toBe(logo);
-    // Content stays in a 1160px column, centred; below that it keeps 16px (phones) or 20px of padding.
-    const edge = width >= 640 ? 20 : 16;
-    expect(Math.round(g.logo!.x)).toBe(Math.max(edge, Math.round((g.column - 1160) / 2)));
+    // Content stays in a 1160px column, centred; below that it keeps 20px of padding.
+    expect(Math.round(g.logo!.x)).toBe(Math.max(20, Math.round((g.column - 1160) / 2)));
     if (full) {
       expect(g.menuButton).toBeNull();
       expect(g.navText.slice(0, 5)).toEqual(["Transfer", "Trip", "Destinations", "Travel guides", "About Waydidi"]);

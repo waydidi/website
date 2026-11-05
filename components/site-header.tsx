@@ -90,11 +90,11 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
       className={`z-40 h-[70px] w-full transition-[background-color,color,box-shadow] duration-300 sm:h-[76px] ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-brand text-white" : "bg-transparent text-white"}`}
     >
       {/* Content sits in a 1160px column (1200px with its side padding), like the hero below it. */}
-      <div className="mx-auto flex h-full w-full max-w-[1200px] items-center justify-between px-4 sm:px-5">
+      <div className="mx-auto flex h-full w-full max-w-[1200px] items-center justify-between px-5">
       <Link href="/" className={`inline-flex shrink-0 transition-colors duration-300 ${light ? "text-brand" : "text-white"}`} aria-label={t("nav.home")}>
         {/* Explicit widths (logo is 810:308): Safari collapses a width-less
             mask span to 0px when its container is allowed to shrink. */}
-        <WaydidiLogo className="h-[32px] w-[84px] sm:h-[43px] sm:w-[112px]" />
+        <WaydidiLogo className="h-[38px] w-[100px] min-[360px]:h-[50px] min-[360px]:w-[132px] sm:h-[43px] sm:w-[112px]" />
       </Link>
       <nav className="hidden items-center gap-6 text-[14px] font-medium xl:flex">
         {navMenus.map((menu) => (
