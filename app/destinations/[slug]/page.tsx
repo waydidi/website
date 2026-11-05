@@ -1,19 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, BadgeCheck, CarFront, ChevronDown, Clock, Headphones, Luggage, MapPin, Plane, Route, ShieldCheck, Timer, UserRoundCheck } from "lucide-react";
 import { PublicFooter } from "@/components/public-footer";
 import { BookingFlow } from "@/components/home/booking-flow";
-import { DestinationGuides } from "@/components/destination-guides";
-import { guidesForDestination } from "@/lib/destination-guides";
-import { publishedPosts } from "@/lib/blog-store";
-import { Breadcrumbs, JsonLd, breadcrumbSchema, faqSchema, SHARE_IMAGE, destinationShareImage } from "@/components/seo";
-import { destinations, SITE_URL, type Destination } from "@/lib/public-content";
-import { fromPrice, KIND_LABEL, listPackages } from "@/lib/packages";
-import { publishedTransferRoutes } from "@/lib/transfer-routes-server";
-import { cityRoutes, transferCity } from "@/lib/transfer-routes";
+import { Breadcrumbs, JsonLd, breadcrumbSchema, SHARE_IMAGE, destinationShareImage } from "@/components/seo";
+import { destinations, SITE_URL } from "@/lib/public-content";
 import { multiCityEnabled } from "@/lib/multi-city-server";
-import en from "@/messages/en.json";
 
 export function generateStaticParams(){return destinations.map(({slug})=>({slug}))}
 
@@ -23,85 +14,12 @@ export async function generateMetadata({params}:{params:Promise<{slug:string}>})
   return{title,description,alternates:{canonical:url},openGraph:{title,description,url,type:"website",images:[d.image?destinationShareImage(d.slug,d.name):SHARE_IMAGE]}};
 }
 
-const services=[
-  {title:"Airport transfer",text:"Pickup or drop-off with meeting instructions",href:"/airport-transfer",icon:Plane},
-  {title:"A-to-B ride",text:"One private car between any two addresses",href:"/a-to-b-transfer",icon:CarFront},
-  {title:"Long journey",text:"Intercity trips without changing vehicles",href:"/long-journeys",icon:Route},
-  {title:"Hourly driver",text:"Keep a car and driver for several stops",href:"/hourly-driver",icon:Clock},
-];
-
-const features=[
-  {title:"One private vehicle",text:"No shared shuttle and no strangers. The car is yours from pickup to drop-off.",icon:CarFront},
-  {title:"Price before you book",text:"See the total for your exact route and vehicle before you confirm.",icon:BadgeCheck},
-  {title:"Help when you need it",text:"Contact Waydidi with your booking reference before, during or after your ride.",icon:Headphones},
-  {title:"Local drivers",text:"Drivers who know the city, its traffic and the right entrance to your hotel.",icon:UserRoundCheck},
-  {title:"Room for your luggage",text:"Choose a vehicle by passengers and bags so everything fits.",icon:Luggage},
-  {title:"Safety standards",text:"Roadworthy vehicles, lawful driving and journey status checks on every ride.",icon:ShieldCheck},
-];
-
-function PlaceCard({place}:{place:Destination}){
-  return <Link href={`/destinations/${place.slug}`} className="group block">
-    <div className="relative aspect-square overflow-hidden rounded-[22px]" style={{backgroundColor:place.color}}>
-      {place.image ? <img src={place.image} alt={`${place.name}, Thailand`} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"/> : <><div className="absolute -bottom-16 -right-10 size-56 rounded-full bg-white/10 transition duration-500 group-hover:scale-110"/><div className="absolute -left-8 -top-12 size-40 rounded-full bg-brand/25"/><span className="absolute bottom-5 left-5 text-sm font-bold text-white/75">{place.kicker}</span></>}
-    </div>
-    <p className="mt-3 px-1 text-lg font-bold">{place.name}</p>
-  </Link>;
-}
-
+// A city page is the header, the hero (photo, headline and booking form) and the footer, nothing else.
 export default async function DestinationPage({params}:{params:Promise<{slug:string}>}){
   const {slug}=await params;const d=destinations.find(x=>x.slug===slug);if(!d)notFound();
   const crumbs=[{name:"Home",path:"/"},{name:"Destinations",path:"/destinations"},{name:d.name,path:`/destinations/${d.slug}`}];
-  const nearby=(d.nearby??[]).map(s=>destinations.find(x=>x.slug===s)).filter(x=>x!==undefined);
   const schemas:object[]=[breadcrumbSchema(crumbs),{"@context":"https://schema.org","@type":"TaxiService",name:`Waydidi private transfers in ${d.name}`,description:d.seoDescription??d.intro,url:`${SITE_URL}/destinations/${d.slug}`,provider:{"@type":"Organization",name:"Waydidi",url:SITE_URL},areaServed:{"@type":"City",name:d.name,containedInPlace:{"@type":"Country",name:"Thailand"}}}];
-  if(d.faq?.length)schemas.push(faqSchema(d.faq));
-  const packages=await listPackages({city:d.slug,publishedOnly:true}).catch(()=>[]);
-  const hub=transferCity(d.slug);
-  const hubRoutes=hub?cityRoutes(await publishedTransferRoutes().catch(()=>[]),d.slug):null;
-  const showHub=Boolean(hubRoutes&&(hubRoutes.from.length||hubRoutes.to.length));
-
   return <BookingFlow multiCity={multiCityEnabled()} hero={{title:d.h1??`Private transfers in ${d.name}`,subtitle:d.intro,image:d.image,homeSpacing:true,top:<Breadcrumbs crumbs={crumbs} className="text-white"/>}}><main className="bg-white text-plum">
   <JsonLd data={schemas}/>
-
-  {/* Hero: photo (or brand colour) background, breadcrumb, headline and a search bar that opens the booking form */}
-
-  {/* Trust strip */}
-  <section className="border-b border-slate-200 bg-canvas"><div className="mx-auto flex max-w-[1180px] flex-wrap gap-x-8 gap-y-3 px-5 py-5 text-sm font-bold sm:text-base">{[["Private car, never shared",CarFront],["Price shown before you book",BadgeCheck],["Local drivers and support",Headphones]].map(([t,Icon])=>{const I=Icon as typeof CarFront;return <span key={t as string} className="flex items-center gap-2"><I size={19} className="text-brand-text"/>{t as string}</span>})}</div></section>
-
-  {/* Popular journeys: white cards on a light panel */}
-  {d.journeys?.length ? <section className="bg-canvas py-16"><div className="mx-auto max-w-[1180px] px-5"><h2 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Popular private transfers in {d.name}</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Drive times are typical estimates. Your exact time and price appear when you search your pickup and drop-off.</p><div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{d.journeys.map(j=><Link key={j.title} href="#booking-search" className="group flex flex-col rounded-[20px] bg-white p-5 transition hover:shadow-lg hover:shadow-slate-900/5"><h3 className="text-lg font-black">{j.title}</h3><p className="mt-1 inline-flex items-center gap-1.5 text-sm font-bold text-brand-text underline-offset-4 group-hover:underline"><Timer size={15}/>{j.time}</p><p className="mt-3 text-sm leading-6 text-slate-600">{j.text}</p></Link>)}</div></div></section> : null}
-
-  {/* Day trip packages built from the trip planner */}
-  {packages.length ? <section id="day-trips" className="py-16"><div className="mx-auto max-w-[1180px] px-5"><h2 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Day trips from {d.name}</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Private car and driver with hotel pickup. Check your date to see the exact timing and total.</p><div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{packages.map(p=>{const from=fromPrice(p);return <Link key={p.id} href={`/trips/${p.slug}`} className="group overflow-hidden rounded-[22px] border border-slate-200 bg-white transition hover:shadow-lg hover:shadow-slate-900/5"><div className="aspect-[16/10] overflow-hidden bg-canvas">{p.coverImage?<img src={p.coverImage} alt={p.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/>:null}</div><div className="p-5"><p className="text-sm font-bold text-brand-text">{KIND_LABEL[p.kind as keyof typeof KIND_LABEL]}</p><h3 className="mt-1 text-lg font-black">{p.name}</h3>{p.summary?<p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{p.summary}</p>:null}{from?<p className="mt-3 font-black">From THB {from.toLocaleString("en-US")} <span className="text-sm font-bold text-slate-500">per car</span></p>:null}</div></Link>})}</div></div></section> : null}
-
-  {showHub&&hub?<section className="mx-auto max-w-[1180px] px-5 pt-12"><a className="font-bold text-brand-deep underline" href={`/transfers/city/${hub.slug}`}>{en["transfers.cityTitle"].replace("{city}",hub.name)}</a></section>:null}
-
-  {/* Areas + services */}
-  <section className="mx-auto max-w-[1180px] px-5 py-16">
-    {d.areas?.length ? <><h2 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Areas we cover in {d.name}</h2><ul className="mt-6 flex flex-wrap gap-3">{d.areas.map(a=><li key={a} className="inline-flex items-center gap-2 rounded-full bg-canvas px-4 py-2 font-bold"><MapPin size={16} className="text-brand-text"/>{a}</li>)}</ul></> : null}
-    <h2 className={`${d.areas?.length?"mt-14":""} text-3xl font-black tracking-[-.035em] sm:text-4xl`}>Ride services in {d.name}</h2>
-    <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{services.map(({title,text,href,icon:Icon})=><a key={href} href={href} className="rounded-[20px] border border-slate-200 p-5 transition hover:border-brand"><Icon className="text-brand"/><h3 className="mt-4 font-black">{title}</h3><p className="mt-1 text-sm leading-6 text-slate-600">{text}</p></a>)}</div>
-  </section>
-
-  {/* Nearby destinations: square place cards */}
-  {nearby.length ? <section className="mx-auto max-w-[1180px] px-5 pb-16"><h2 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Popular destinations near {d.name}</h2><div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">{nearby.map(n=><PlaceCard key={n.slug} place={n}/>)}</div></section> : null}
-
-  {/* City travel guides from the blog */}
-  <DestinationGuides city={d.name} posts={guidesForDestination(d.slug, d.name, await publishedPosts())} fallbackImage={d.image} />
-
-  {/* Why Waydidi: tinted feature panel */}
-  <section className="px-3 sm:px-5"><div className="mx-auto max-w-[1440px] rounded-[30px] bg-brand-tint px-5 py-14 sm:py-16"><div className="mx-auto grid max-w-[1180px] gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">{features.map(({title,text,icon:Icon})=><div key={title}><Icon className="text-brand-text"/><h3 className="mt-4 text-xl font-black">{title}</h3><p className="mt-2 leading-7 text-slate-700">{text}</p></div>)}</div></div></section>
-
-  {/* Local knowledge */}
-  <section className="mx-auto max-w-[860px] px-5 py-16"><h2 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">Travel tips for {d.name} transfers</h2><div className="mt-6 grid gap-5 text-lg leading-8 text-slate-700">{(d.tips?.length?d.tips:[d.note]).map(t=><p key={t}>{t}</p>)}</div></section>
-
-  {/* FAQ: two-column accordion on a tinted panel */}
-  {d.faq?.length ? <section className="bg-canvas py-16"><div className="mx-auto max-w-[1180px] px-5"><h2 className="text-3xl font-black tracking-[-.035em] sm:text-4xl">{d.name} transfer FAQ</h2><p className="mt-2 text-lg text-slate-600">Quick answers before you book.</p><div className="mt-8 grid items-start gap-4 md:grid-cols-2">{d.faq.map(f=><details key={f.q} className="group rounded-[20px] bg-white px-6 py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-bold">{f.q}<ChevronDown size={22} className="shrink-0 text-brand-text transition group-open:rotate-180"/></summary><p className="mt-3 leading-7 text-slate-600">{f.a}</p></details>)}</div><div className="mt-8 text-center"><Link href="/faq" className="inline-flex rounded-full bg-brand px-6 py-3 font-black text-white">See all FAQs</Link></div></div></section> : null}
-
-  {/* Closing call to action */}
-  <section className="mx-auto max-w-[1180px] px-5 pb-16"><div className="relative overflow-hidden rounded-[30px] bg-plum px-6 py-14 text-center text-white sm:px-12"><div className="absolute -right-24 -top-24 size-80 rounded-full border-[40px] border-brand/25"/><h2 className="relative text-3xl font-black tracking-[-.04em] sm:text-5xl">Your {d.name} ride, ready when you land.</h2><p className="relative mx-auto mt-4 max-w-2xl text-lg leading-8 text-white/75">Choose your exact pickup and drop-off, pick a vehicle for your group and bags, and get a confirmed booking reference.</p><Link href="#booking-search" className="relative mt-8 inline-flex items-center gap-2 rounded-full bg-brand px-7 py-4 font-black">Search your ride <ArrowRight size={18}/></Link></div></section>
-
-  {/* All destinations: plain link columns for internal linking */}
-  <section className="border-t border-slate-200 py-14"><div className="mx-auto max-w-[1180px] px-5"><h2 className="text-2xl font-black">Private transfers across Thailand</h2><ul className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">{destinations.filter(x=>x.slug!==d.slug).map(x=><li key={x.slug}><Link href={`/destinations/${x.slug}`} className="text-slate-600 hover:text-brand-text hover:underline">{x.name} transfers</Link></li>)}<li><Link href="/destinations" className="font-bold text-brand-text hover:underline">All destinations</Link></li></ul></div></section>
-
   <PublicFooter/>
 </main></BookingFlow>}
