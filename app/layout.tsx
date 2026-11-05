@@ -10,16 +10,17 @@ import { PublicPathHeader } from "@/components/public-header";
 import { PwaProvider } from "@/components/pwa/pwa-provider";
 import { SiteTranslator } from "@/components/site-translator";
 import { PRE_HIDE } from "@/lib/site-languages";
+import { UNSUPPORTED_BROWSER_SCRIPT, unsupportedBrowserCheckEnabled } from "@/lib/unsupported-browser";
 import { JsonLd, organizationSchema, websiteSchema, SHARE_IMAGE } from "@/components/seo";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "Waydidi — Private Transfers in Thailand",
+  title: "Waydidi.com Official Site | Private Transfers, Day Trips, and Hourly Drivers in Thailand",
   description:
     "Book a comfortable private transfer across Thailand with professional drivers and clear, upfront pricing.",
   applicationName: "Waydidi Travel",
   openGraph: {
-    title: "Waydidi — Private Transfers in Thailand",
+    title: "Waydidi.com Official Site | Private Transfers, Day Trips, and Hourly Drivers in Thailand",
     description: "Book a comfortable private transfer across Thailand with trusted local drivers.",
     type: "website",
     locale: "en_TH",
@@ -47,6 +48,8 @@ export default function RootLayout({
       {/* A relative link: metadata icons are made absolute with metadataBase,
           which breaks the favicon on any other domain (e.g. workers.dev). */}
       <head>
+        {/* Browsers without CSS cascade layers cannot show the styled site: send them to a plain explanation page first. */}
+        {unsupportedBrowserCheckEnabled(env) && <script dangerouslySetInnerHTML={{ __html: UNSUPPORTED_BROWSER_SCRIPT }} />}
         <link rel="icon" href="/favicon.png" type="image/png" sizes="256x256" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />

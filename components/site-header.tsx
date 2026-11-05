@@ -87,14 +87,16 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
 
   return (
     <header
-      className={`z-40 flex h-[70px] w-full items-center justify-between px-5 transition-[background-color,color,box-shadow] duration-300 lg:h-[98px] lg:px-8 ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-brand text-white" : "bg-transparent text-white"}`}
+      className={`z-40 h-[70px] w-full transition-[background-color,color,box-shadow] duration-300 sm:h-[76px] ${overlay ? "fixed inset-x-0 top-0" : "sticky top-0"} ${light ? "bg-white text-[#E57A00] shadow-[0_2px_12px_rgba(0,0,0,.08)]" : solid ? "bg-brand text-white" : "bg-transparent text-white"}`}
     >
+      {/* Content sits in a 1160px column (1200px with its side padding), like the hero below it. */}
+      <div className="mx-auto flex h-full w-full max-w-[1200px] items-center justify-between px-5">
       <Link href="/" className={`inline-flex shrink-0 transition-colors duration-300 ${light ? "text-brand" : "text-white"}`} aria-label={t("nav.home")}>
         {/* Explicit widths (logo is 810:308): Safari collapses a width-less
             mask span to 0px when its container is allowed to shrink. */}
-        <WaydidiLogo className="h-[38px] w-[100px] min-[360px]:h-[50px] min-[360px]:w-[132px] sm:h-[65px] sm:w-[170px] lg:h-[86px] lg:w-[228px]" />
+        <WaydidiLogo className="h-[38px] w-[100px] min-[360px]:h-[50px] min-[360px]:w-[132px] sm:h-[43px] sm:w-[112px]" />
       </Link>
-      <nav className="hidden items-center gap-10 text-[16px] font-semibold xl:flex">
+      <nav className="hidden items-center gap-6 text-[14px] font-medium xl:flex">
         {navMenus.map((menu) => (
           <NavDropdown key={menu.labelKey} label={t(menu.labelKey)} links={menu.links.map((link) => ({ href: link.href, label: t(link.labelKey) }))} />
         ))}
@@ -107,32 +109,35 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             {t(link.labelKey)}
           </Link>
         ))}
+        <LocalePicker className="text-[14px]" />
         <Link
           href={accountHref}
           className={`flex items-center gap-2 rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current ${account ? "" : "invisible"}`}
         >
-          <span className={`grid size-8 place-items-center rounded-full ${light ? "bg-orange-50" : "bg-white/20"}`}><UserRound size={18} /></span>
-          <span className="max-w-[140px] truncate">{accountLabel}</span>
+          <UserRound size={16} />
+          <span className="max-w-[110px] truncate">{accountLabel}</span>
         </Link>
         <Link
           href="/booking/manage"
-          className={`flex h-12 items-center gap-2 rounded-full px-6 font-bold transition-colors duration-300 ${light ? "bg-brand text-white hover:bg-brand-strong" : "bg-white text-brand-text hover:bg-orange-50"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand`}
+          className={`flex h-9 items-center gap-2 rounded-full px-4 font-semibold transition-colors duration-300 ${light ? "bg-brand text-white hover:bg-brand-strong" : "bg-white text-brand-text hover:bg-orange-50"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand`}
         >
-          <CarFront size={20} /> {t("nav.checkBooking")}
+          <CarFront size={16} /> {t("nav.checkBooking")}
         </Link>
       </nav>
-      <div className="flex shrink-0 items-center gap-2 min-[360px]:gap-4 xl:hidden">
-        {/* Phones and tablets: only the menu button; Sign in / My account is inside the menu. */}
+      <div className="flex shrink-0 items-center xl:hidden">
+        {/* Phones and tablets: a "Menu" button; Sign in / My account is inside the menu. */}
         <button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
           aria-expanded={menuOpen}
           aria-controls="mobile-menu"
           aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
-          className="grid size-[38px] place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
+          className="flex h-10 items-center gap-2 rounded-full px-1 text-[16px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
         >
-          {menuOpen ? <X size={27} /> : <Menu size={27} />}
+          <span>{t("nav.menu")}</span>
+          {menuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
+      </div>
       </div>
       {menuOpen && (
         // Side drawer from the right (Daytrip-style): about 82% of the screen, max 340px.
