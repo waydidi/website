@@ -10,3 +10,7 @@
 /offline.html
   Cache-Control: no-cache
   X-Robots-Tag: noindex
+
+/unsupported.html
+  Cache-Control: no-cache
+  X-Robots-Tag: noindex
