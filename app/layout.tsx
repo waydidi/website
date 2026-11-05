@@ -4,6 +4,8 @@ import type { Metadata, Viewport } from "next";
 import { env } from "cloudflare:workers";
 import "./globals.css";
 import { GoogleAnalytics } from "@/components/google-analytics";
+import { WebMonitoring } from "@/components/web-monitoring";
+import { webMonitoringEnabled } from "@/lib/web-monitoring-rules";
 import { PublicPathHeader } from "@/components/public-header";
 import { PwaProvider } from "@/components/pwa/pwa-provider";
 import { SiteTranslator } from "@/components/site-translator";
@@ -72,6 +74,7 @@ export default function RootLayout({
           <SiteTranslator />
         </PwaProvider>
         {gaId && <GoogleAnalytics id={gaId} />}
+        {webMonitoringEnabled(env) && <WebMonitoring />}
         <JsonLd data={[organizationSchema(), websiteSchema()]} />
       </body>
     </html>
