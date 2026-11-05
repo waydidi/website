@@ -59,7 +59,7 @@ export default async function DestinationPage({params}:{params:Promise<{slug:str
   const hubRoutes=hub?cityRoutes(await publishedTransferRoutes().catch(()=>[]),d.slug):null;
   const showHub=Boolean(hubRoutes&&(hubRoutes.from.length||hubRoutes.to.length));
 
-  return <BookingFlow multiCity={multiCityEnabled()} hero={{title:d.h1??`Private transfers in ${d.name}`,subtitle:d.intro,image:d.image,top:<Breadcrumbs crumbs={crumbs} className="text-white"/>}}><main className="bg-white text-plum">
+  return <BookingFlow multiCity={multiCityEnabled()} hero={{title:d.h1??`Private transfers in ${d.name}`,subtitle:d.intro,image:d.image,homeSpacing:true,top:<Breadcrumbs crumbs={crumbs} className="text-white"/>}}><main className="bg-white text-plum">
   <JsonLd data={schemas}/>
 
   {/* Hero: photo (or brand colour) background, breadcrumb, headline and a search bar that opens the booking form */}
