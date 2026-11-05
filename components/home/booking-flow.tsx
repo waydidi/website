@@ -1631,7 +1631,7 @@ export function BookingFlow({
           </>
         )}
         {stage === "search" && (
-          <div className={`relative z-10 mx-auto w-full max-w-[1440px] px-5 animate-in fade-in duration-300 motion-reduce:animate-none md:px-[58px] lg:px-14 ${hero ? "pb-8 pt-[88px] md:pb-10 md:pt-[120px] lg:pb-12 lg:pt-[128px]" : "pb-[73px] pt-[123px] md:pb-[81px] md:pt-[195px] lg:pb-[89px] lg:pt-[175px]"}`}>
+          <div className={`relative z-10 mx-auto w-full max-w-[1440px] px-5 animate-in fade-in duration-300 motion-reduce:animate-none md:px-[58px] lg:px-14 ${hero ? "pb-8 pt-[88px] md:pb-10 md:pt-[120px] lg:pb-12 lg:pt-[128px]" : "pb-12 pt-[123px] md:pb-14 md:pt-[195px] lg:pb-16 lg:pt-[175px]"}`}>
             <div className={hero ? "mb-5 max-w-2xl md:mb-8 md:max-w-[820px]" : "mb-6 max-w-2xl md:mb-[62px] md:max-w-[820px] lg:mb-[52px]"}>
               {hero?.top}
               <h1 className={`${locale === "en" ? "" : "text-balance "}font-semibold tracking-[-.03em] md:tracking-[-.02em] ${hero ? "mt-3 text-[32px] leading-[1.1] sm:text-[44px]" : "text-[32.5px] leading-[1.08] sm:text-[45.3px] md:text-[58px] md:leading-[1.02] lg:text-[60px]"}`}>
