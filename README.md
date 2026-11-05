@@ -326,3 +326,11 @@ Existing Telegram general, assignment and chat queues stop after 12 claims/seven
 Owner-only `/admin/delivery-reviews` records immutable, version-checked decisions across booking email/PDF and Telegram queues. `NOTIFICATION_DELIVERY_RETRY=0` keeps reviewed retries off; receipt confirmation and closure remain available. Enabling retry requires verified production consumers/configuration. Reviews queue the original message without resetting its counters, expiry or provider key. Additive migration `0115` has matching runtime bootstrap. See [delivery review release notes](docs/delivery-reviews-release.md). Legacy-job reconciliation and production resource verification remain unfinished.
 
 `GA_ENHANCED_MEASUREMENT_VERIFIED=0` keeps the remote Google Analytics tag off until its automatic event settings and private-route network behavior have been verified. This is independent of the first-party funnel flag.
+
+# Site speed and browser error measurement
+
+`WEB_MONITORING_ENABLED=0` is the default. Set `1` only with a private `RATE_LIMIT_SALT` of at least 32 characters. Nothing is sent to a third party. Owner and finance staff see the results in the reports section of `/admin/financials`.
+
+The browser reports only after analytics consent, and never with Do Not Track or Global Privacy Control. It sends LCP, INP, CLS, FCP and TTFB from the `web-vitals` package, plus uncaught errors and unhandled promise rejections. Each stored row holds a route template, a device width class and either a measurement with connection type or an error type with this site's script file and position. Error messages, stacks, full URLs and visitor, session or IP values are not stored in these rows; `/api/web-monitoring` rejects unexpected fields. Times are cut to the hour and rows are deleted after 30 days. Admin, agency, driver and partner pages are not measured.
+
+Migration `0119_web_monitoring.sql` and the matching runtime bootstrap in `lib/web-monitoring-db.ts` create the tables. Abuse protection uses the existing `overRateLimit` helper.
