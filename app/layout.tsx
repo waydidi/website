@@ -12,12 +12,12 @@ import { JsonLd, organizationSchema, websiteSchema, SHARE_IMAGE } from "@/compon
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "Waydidi — Private Transfers in Thailand",
+  title: "Waydidi.com Official Site | Private Transfers, Day Trips, and Hourly Drivers in Thailand",
   description:
     "Book a comfortable private transfer across Thailand with professional drivers and clear, upfront pricing.",
   applicationName: "Waydidi Travel",
   openGraph: {
-    title: "Waydidi — Private Transfers in Thailand",
+    title: "Waydidi.com Official Site | Private Transfers, Day Trips, and Hourly Drivers in Thailand",
     description: "Book a comfortable private transfer across Thailand with trusted local drivers.",
     type: "website",
     locale: "en_TH",
