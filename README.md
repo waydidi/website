@@ -326,3 +326,9 @@ Existing Telegram general, assignment and chat queues stop after 12 claims/seven
 Owner-only `/admin/delivery-reviews` records immutable, version-checked decisions across booking email/PDF and Telegram queues. `NOTIFICATION_DELIVERY_RETRY=0` keeps reviewed retries off; receipt confirmation and closure remain available. Enabling retry requires verified production consumers/configuration. Reviews queue the original message without resetting its counters, expiry or provider key. Additive migration `0115` has matching runtime bootstrap. See [delivery review release notes](docs/delivery-reviews-release.md). Legacy-job reconciliation and production resource verification remain unfinished.
 
 `GA_ENHANCED_MEASUREMENT_VERIFIED=0` keeps the remote Google Analytics tag off until its automatic event settings and private-route network behavior have been verified. This is independent of the first-party funnel flag.
+
+# Unsupported-browser page
+
+A small script at the top of every page checks whether the browser supports CSS cascade layers, which the site's styles need. A browser without them is sent to the static `/unsupported.html` (English, Thai and Chinese, with the support phone and email) with the page it wanted in `?redirect=`. Only paths on this site are accepted there; anything else goes to `/`. The page offers "Try this page anyway", remembered for that tab only, so nobody is locked out and there is no redirect loop. Nothing is submitted by the page, and it loads no outside resources.
+
+`UNSUPPORTED_BROWSER_PAGE=1` is the default. Set `0` in Cloudflare to switch the check off if it ever misfires; public pages are cached for five minutes, so allow that long. The page and its `noindex` header are in `public/`.
