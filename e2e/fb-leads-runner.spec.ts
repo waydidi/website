@@ -1,30 +1,35 @@
 import { expect, test, type Page } from "@playwright/test";
 import path from "node:path";
 
-// The Collect button's scroller (extensions/fb-leads/runner.js). The page, the clock, the pauses and the scanner are
-// faked so the run is instant; the scroll calls and pauses it asks for are recorded and checked. Nothing here
-// touches Facebook.
+// The Collect button's scroller (extensions/fb-leads/runner.js). The page is real and really scrolls; the clock, the
+// pauses and the scanner are faked so a run is instant. The scroll calls and pauses it asks for are recorded and
+// checked. Nothing here touches Facebook.
 const RUNNER = path.join(process.cwd(), "extensions", "fb-leads", "runner.js");
+const PAGE = "https://www.facebook.com/groups/test/";
 
-type Opts = { scan?: "posts" | "idle" | "fail"; leadsPerStep?: number; rng?: number[] | number; maxMs?: number; clockStepMs?: number; hide?: number; touchAt?: number; leaveAt?: number; abortAt?: number; maxLeads?: number; maxPosts?: number };
+// posts: 4 new posts every screen. known: posts on screen were all sent before (a second run over the same feed).
+// blank: no readable post at all. fail: sending is refused.
+type Opts = { scan?: "posts" | "known" | "blank" | "fail"; leadsPerStep?: number; rng?: number[] | number; maxMs?: number; clockStepMs?: number; hide?: number; touchAt?: number; leaveAt?: number; abortAt?: number; maxPosts?: number; maxSteps?: number; pageHeight?: number };
 type Out = { result: { reason: string; posts: number; leads: number; steps: number }; scrolls: number[]; sleeps: number[]; clicks: number; height: number };
 
 async function run(page: Page, opts: Opts = {}): Promise<Out> {
-  await page.route("https://www.facebook.com/groups/test/", (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>t</title><div style='height:40000px'>feed</div>" }));
-  await page.goto("https://www.facebook.com/groups/test/");
+  await page.unroute(PAGE).catch(() => undefined);
+  await page.route(PAGE, (route) => route.fulfill({ contentType: "text/html", body: `<!doctype html><title>t</title><div style='height:${opts.pageHeight ?? 40000}px'>feed</div>` }));
+  await page.goto(PAGE);
   await page.addScriptTag({ path: RUNNER });
   return page.evaluate(async (o: Opts) => {
     const w = window as unknown as { WaydidiLeads: { collect: (x: Record<string, unknown>) => Promise<Out["result"]> } };
     const scrolls: number[] = [], sleeps: number[] = [];
     let clicks = 0, calls = 0, clock = 0, n = 0;
     document.addEventListener("click", () => clicks++, true);
-    window.scrollBy = ((arg: ScrollToOptions) => { scrolls.push(arg.top as number); }) as typeof window.scrollBy;
+    const realScrollBy = window.scrollBy.bind(window);
+    window.scrollBy = ((arg: ScrollToOptions) => { scrolls.push(arg.top as number); realScrollBy({ top: arg.top, behavior: "instant" }); }) as typeof window.scrollBy;
     if (o.hide !== undefined) Object.defineProperty(document, "hidden", { configurable: true, get: () => calls >= (o.hide as number) });
     const seq = Array.isArray(o.rng) ? o.rng : null;
     const rng = () => (seq ? seq[n++ % seq.length] : typeof o.rng === "number" ? o.rng : (n++ * 0.37 + 0.11) % 1);
     const abort = new AbortController();
     const result = await w.WaydidiLeads.collect({
-      win: window, rng, signal: abort.signal, maxMs: o.maxMs, maxLeads: o.maxLeads, maxPosts: o.maxPosts,
+      win: window, rng, signal: abort.signal, maxMs: o.maxMs, maxPosts: o.maxPosts, maxSteps: o.maxSteps,
       now: () => clock,
       sleep: async (ms: number) => {
         sleeps.push(ms); clock += o.clockStepMs ?? ms;
@@ -35,8 +40,9 @@ async function run(page: Page, opts: Opts = {}): Promise<Out> {
         calls++;
         if (o.leaveAt === calls) history.pushState({}, "", "/marketplace/");
         if (o.scan === "fail") return null;
-        if (o.scan === "idle") return { posts: 0, leads: 0 };
-        return { posts: 4, leads: o.leadsPerStep ?? 1 };
+        if (o.scan === "blank") return { posts: 0, leads: 0, visible: 0 };
+        if (o.scan === "known") return { posts: 0, leads: 0, visible: 6 };
+        return { posts: 4, leads: o.leadsPerStep ?? 1, visible: 6 };
       },
     });
     return { result, scrolls, sleeps, clicks, height: window.innerHeight };
@@ -44,7 +50,7 @@ async function run(page: Page, opts: Opts = {}): Promise<Out> {
 }
 
 test("reads like a person: uneven distances, pauses of different lengths within human range, never clicks", async ({ page }) => {
-  const out = await run(page, { leadsPerStep: 1, maxLeads: 25, maxPosts: 1000 });
+  const out = await run(page, { maxPosts: 100 });
   expect(out.result.reason).toBe("enough");
   expect(out.scrolls.length).toBeGreaterThan(10);
   const down = out.scrolls.filter((d) => d > 0);
@@ -58,27 +64,41 @@ test("reads like a person: uneven distances, pauses of different lengths within 
 });
 
 test("now and then scrolls back up a little, but never on the first step", async ({ page }) => {
-  const out = await run(page, { rng: 0.05, leadsPerStep: 0, maxMs: 10 ** 9 });
+  const out = await run(page, { rng: 0.05, scan: "known", maxSteps: 6 });
   expect(out.scrolls[0]).toBeGreaterThan(0);
   expect(out.scrolls.slice(1).every((d) => d < 0 && d >= -0.3 * out.height - 1)).toBe(true);
 });
 
-test("stops when there is enough, at the end of the feed, or when time is up", async ({ page }) => {
-  expect((await run(page, { leadsPerStep: 10, maxLeads: 30 })).result).toMatchObject({ reason: "enough", leads: 30 });
-  await page.unroute("**/*");
-  expect((await run(page, { scan: "idle" })).result).toMatchObject({ reason: "end", steps: 4 });
-  await page.unroute("**/*");
-  expect((await run(page, { leadsPerStep: 0, maxMs: 60_000, clockStepMs: 20_000, maxPosts: 10 ** 6 })).result.reason).toBe("time");
+test("keeps going until it has the target number of new posts, not a fixed number of screens", async ({ page }) => {
+  const out = await run(page, { maxPosts: 50 });
+  expect(out.result.reason).toBe("enough");
+  expect(out.result.posts).toBeGreaterThanOrEqual(50);
+  expect(out.result.posts).toBeLessThan(54);
+});
+
+test("scrolls past posts it already sent, to reach new ones (it does not call that the end of the feed)", async ({ page }) => {
+  const out = await run(page, { scan: "known", maxSteps: 25, maxMs: 10 ** 9, clockStepMs: 1 });
+  expect(out.result).toMatchObject({ reason: "steps", steps: 25, posts: 0 });
+});
+
+test("ends only when the page really stops moving and growing", async ({ page }) => {
+  const out = await run(page, { scan: "known", pageHeight: 1800, maxMs: 10 ** 9, clockStepMs: 1 });
+  expect(out.result.reason).toBe("end");
+  expect(out.result.steps).toBeLessThan(12);
+});
+
+test("says so when no post on the page can be read, instead of pretending it reached the end", async ({ page }) => {
+  expect((await run(page, { scan: "blank" })).result).toMatchObject({ reason: "unreadable", steps: 3 });
+});
+
+test("stops when time is up", async ({ page }) => {
+  expect((await run(page, { scan: "known", maxMs: 60_000, clockStepMs: 20_000 })).result.reason).toBe("time");
 });
 
 test("stops at once when you touch the page, switch tab, leave the group, press Stop or sending fails", async ({ page }) => {
-  expect((await run(page, { touchAt: 2, leadsPerStep: 0, maxPosts: 10 ** 6 })).result).toMatchObject({ reason: "touched", steps: 2 });
-  await page.unroute("**/*");
-  expect((await run(page, { hide: 3, leadsPerStep: 0, maxPosts: 10 ** 6 })).result.reason).toBe("hidden");
-  await page.unroute("**/*");
-  expect((await run(page, { leaveAt: 3, leadsPerStep: 0, maxPosts: 10 ** 6 })).result.reason).toBe("left");
-  await page.unroute("**/*");
-  expect((await run(page, { abortAt: 2, leadsPerStep: 0, maxPosts: 10 ** 6 })).result.reason).toBe("stopped");
-  await page.unroute("**/*");
+  expect((await run(page, { touchAt: 2, scan: "known" })).result).toMatchObject({ reason: "touched", steps: 2 });
+  expect((await run(page, { hide: 3, scan: "known" })).result.reason).toBe("hidden");
+  expect((await run(page, { leaveAt: 3, scan: "known" })).result.reason).toBe("left");
+  expect((await run(page, { abortAt: 2, scan: "known" })).result.reason).toBe("stopped");
   expect((await run(page, { scan: "fail" })).result).toMatchObject({ reason: "problem", steps: 0 });
 });
