@@ -40,6 +40,8 @@ test('a fresh search: only facts with allowed, recent, supporting sources reach 
  assert.match(out,/Fresh search · Source from 21\/10\/2026/);assert.match(out,/airportthai\.co\.th/);assert.match(out,/blog\.example\.com/);
  assert.doesNotMatch(out,/facebook\.com|example\.com\/not-returned/);assert.match(out,/Left out: 3 statements/);assert.match(out,/Draft only/);
  assert.equal(m.calls.search,1);
+ // What the Facebook leads flow reads to decide "ready to post" (lib/fb-leads-rules → reliability).
+ assert.deepEqual([d.replyType,d.factCount,d.stale],['info',2,false]);
  assert.ok(!JSON.stringify(d.keyboard).includes('ph_save'),'no save button before the question repeats');
  // Two messages: the comment alone (easy to copy), then the checks with the buttons.
  assert.equal(d.parts.length,2);assert.ok(d.parts[0].startsWith('Trains and taxis both work.'));
