@@ -4,7 +4,8 @@
   var enabled = document.getElementById("enabled"), collect = document.getElementById("collect"), stopButton = document.getElementById("stop");
   var target = document.getElementById("target");
   var REASONS = {
-    enough: "Done: reached your target.",
+    enough: "Done: reached your lead target.",
+    looked: "Stopped: looked at 1,000 posts in this run without reaching the target (safety stop).",
     end: "Done: reached the end of the feed (the page stopped loading more posts).",
     time: "Done: the time limit for one run was reached.",
     steps: "Done: the screen limit for one run was reached.",
@@ -32,9 +33,12 @@
       var run = s.run, running = Boolean(run && run.state === "running" && Date.now() - run.at < 5 * 60000);
       collect.hidden = running; stopButton.hidden = !running;
       target.disabled = running;
-      var of = run && run.target ? " of " + run.target : "";
-      var text = !run ? "" : running ? "Collecting… " + run.posts + of + " new posts so far."
-        : (REASONS[run.reason] || "Done.") + (run.posts || run.reason === "enough" ? " " + run.posts + of + " new posts collected." : "");
+      // Leads are posts the website's free filter keeps; the rest of the posts looked at were ignored.
+      // While running: "7 of 50 leads"; at the end: "52 leads (target 50)" (the last batch can go a little past it).
+      var leadText = run ? (running ? run.leads + (run.target ? " of " + run.target : "") + " leads" : run.leads + " leads" + (run.target ? " (target " + run.target + ")" : "")) : "";
+      var progress = run ? leadText + " · " + run.posts + " posts looked at · " + Math.max(0, run.posts - run.leads) + " ignored" : "";
+      var text = !run ? "" : running ? "Collecting… " + progress
+        : (REASONS[run.reason] || "Done.") + (run.posts ? " " + progress + "." : "");
       if (run && !running && run.diag && (run.reason === "unreadable" || run.reason === "end") && run.posts === 0) {
         text += " On the page: " + run.diag.articles + " posts, " + run.diag.withLink + " with a post link, " + run.diag.withText + " with text.";
       }
@@ -43,7 +47,7 @@
   }
 
   target.addEventListener("change", function () {
-    var value = Math.min(100, Math.max(10, parseInt(target.value, 10) || 50));
+    var value = Math.min(100, Math.max(5, parseInt(target.value, 10) || 50));
     target.value = value;
     chrome.storage.local.set({ target: value });
   });

@@ -25,20 +25,23 @@ After you update the files (for example after pulling a new version), click the 
 
 ## Collect (scrolling for you)
 
-Open a group, sort it by **New posts**, click the extension icon, set **Posts to collect** (10 to 100, default 50) and press
+Open a group, sort it by **New posts**, click the extension icon, set **Lead posts to collect** (5 to 100, default 50) and press
 **Collect from this group**. Keep that tab in front. It then scrolls the way a person reads: a different distance each time (about half to four-fifths of a
 screen), a pause of 3 to 9 seconds on each screen, a longer read of 12 to 25 seconds now and then, and a small scroll
 back up now and then. A run is limited and always ends by itself:
 
-- when it has sent your target number of **new** posts (posts sent before do not count; it scrolls past them), or after
-  20 minutes or 200 screens;
+- when it has your target number of **lead posts**: posts the website's free filter keeps. Adverts, long stays, chat
+  and posts sent before do not count; it scrolls past them. There is **no time limit**. A safety stop ends a run that
+  looked at 1,000 posts without reaching the target. A few lead posts may still be sorted as chat by the AI a minute
+  later and get no comment;
 - at the real end of the feed: the page stops moving and stops growing for 3 scrolls in a row;
 - if no post on the page can be read: the popup says so and shows how many posts the page has, how many with a post
   link and how many with text, which tells the developer what changed on Facebook;
 - the moment you touch the page (wheel, keys, mouse), switch to another tab or leave the group;
 - if a post cannot be sent (wrong token, website off, no connection).
 
-At this pace 10 new posts take a few minutes and 50 can take 15 minutes or more (posts with photos are tall).
+At this pace a run often takes 30 minutes or more: if 1 post in 6 is a lead, 50 leads means looking at about 300 posts.
+The AI drafts at most `FB_LEADS_DAILY_LIMIT` posts a day (default 50); extra leads wait for the next day.
 At most **4 runs a day**. It never clicks "See more", never opens a post and never types. Press **Stop** in the popup to
 end a run early. Scrolling by script is the part Facebook is most likely to notice, so keep these limits; do not raise
 them without thinking about the Facebook account used.

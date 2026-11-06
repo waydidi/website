@@ -9,7 +9,7 @@ const PAGE = "https://www.facebook.com/groups/test/";
 
 // posts: 4 new posts every screen. known: posts on screen were all sent before (a second run over the same feed).
 // blank: no readable post at all. fail: sending is refused.
-type Opts = { scan?: "posts" | "known" | "blank" | "fail"; leadsPerStep?: number; rng?: number[] | number; maxMs?: number; clockStepMs?: number; hide?: number; touchAt?: number; leaveAt?: number; abortAt?: number; maxPosts?: number; maxSteps?: number; pageHeight?: number };
+type Opts = { scan?: "posts" | "known" | "blank" | "fail"; leadsPerStep?: number; rng?: number[] | number; maxMs?: number; clockStepMs?: number; hide?: number; touchAt?: number; leaveAt?: number; abortAt?: number; maxPosts?: number; maxLeads?: number; maxSteps?: number; pageHeight?: number };
 type Out = { result: { reason: string; posts: number; leads: number; steps: number }; scrolls: number[]; sleeps: number[]; clicks: number; height: number };
 
 async function run(page: Page, opts: Opts = {}): Promise<Out> {
@@ -29,7 +29,7 @@ async function run(page: Page, opts: Opts = {}): Promise<Out> {
     const rng = () => (seq ? seq[n++ % seq.length] : typeof o.rng === "number" ? o.rng : (n++ * 0.37 + 0.11) % 1);
     const abort = new AbortController();
     const result = await w.WaydidiLeads.collect({
-      win: window, rng, signal: abort.signal, maxMs: o.maxMs, maxPosts: o.maxPosts, maxSteps: o.maxSteps,
+      win: window, rng, signal: abort.signal, maxMs: o.maxMs, maxPosts: o.maxPosts, maxLeads: o.maxLeads, maxSteps: o.maxSteps,
       now: () => clock,
       sleep: async (ms: number) => {
         sleeps.push(ms); clock += o.clockStepMs ?? ms;
@@ -50,7 +50,7 @@ async function run(page: Page, opts: Opts = {}): Promise<Out> {
 }
 
 test("reads like a person: uneven distances, pauses of different lengths within human range, never clicks", async ({ page }) => {
-  const out = await run(page, { maxPosts: 100 });
+  const out = await run(page, { maxLeads: 25 });
   expect(out.result.reason).toBe("enough");
   expect(out.scrolls.length).toBeGreaterThan(10);
   const down = out.scrolls.filter((d) => d > 0);
@@ -69,11 +69,16 @@ test("now and then scrolls back up a little, but never on the first step", async
   expect(out.scrolls.slice(1).every((d) => d < 0 && d >= -0.3 * out.height - 1)).toBe(true);
 });
 
-test("keeps going until it has the target number of new posts, not a fixed number of screens", async ({ page }) => {
-  const out = await run(page, { maxPosts: 50 });
-  expect(out.result.reason).toBe("enough");
-  expect(out.result.posts).toBeGreaterThanOrEqual(50);
-  expect(out.result.posts).toBeLessThan(54);
+test("keeps going until it has the target number of lead posts; ignored posts do not count", async ({ page }) => {
+  // Every screen has 4 new posts of which 1 is a lead: 10 leads means looking at 40 posts.
+  const out = await run(page, { maxLeads: 10, leadsPerStep: 1 });
+  expect(out.result).toMatchObject({ reason: "enough", leads: 10, posts: 40 });
+});
+
+test("has no time limit unless one is given; a safety stop ends a run that looked at too many posts", async ({ page }) => {
+  // An hour passes on every screen and still nothing stops the run until its leads are in.
+  expect((await run(page, { maxLeads: 8, leadsPerStep: 1, clockStepMs: 3_600_000 })).result.reason).toBe("enough");
+  expect((await run(page, { maxLeads: 50, leadsPerStep: 0, maxPosts: 40 })).result).toMatchObject({ reason: "looked", leads: 0, posts: 40 });
 });
 
 test("scrolls past posts it already sent, to reach new ones (it does not call that the end of the feed)", async ({ page }) => {
