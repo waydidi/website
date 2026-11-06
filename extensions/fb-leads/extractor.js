@@ -51,17 +51,64 @@
     try { return new URL(href, base).href; } catch { return ""; }
   }
 
+  /** The group in the page address (/groups/<id or name>/), for links built from a post number. */
+  function groupKey(doc) {
+    var m = doc.location && /^\/groups\/([A-Za-z0-9._-]+)\/?/.exec(doc.location.pathname);
+    return m && !/^(?:feed|discover|joins|search|create)$/.test(m[1]) ? m[1] : "";
+  }
+
   function postUrl(unit, doc) {
-    var links = unit.querySelectorAll("a[href]"), fromComment = "";
+    var links = unit.querySelectorAll("a[href]"), fromComment = "", fromPhoto = "";
     for (var i = 0; i < links.length; i++) {
       var href = links[i].getAttribute("href") || "";
+      // A photo in a group post links to /photo/?fbid=…&set=gm.<post> (or pcb.<post>): the post number, as a backup.
+      var set = /[?&]set=(?:gm|pcb)\.(\d{5,25})(?:&|$)/.exec(href);
+      if (set && !fromPhoto && groupKey(doc)) fromPhoto = "https://www.facebook.com/groups/" + groupKey(doc) + "/posts/" + set[1] + "/";
       if (!POST_LINK.test(href)) continue;
       // A comment's link is the post's link plus ?comment_id=…: use it only when the post's own link is missing.
       if (COMMENT.test(href)) { if (!fromComment) fromComment = absolute(href.split("?")[0], doc); continue; }
       var url = absolute(href, doc);
       if (url) return url;
     }
-    return fromComment;
+    return fromComment || fromPhoto;
+  }
+
+  // Facebook hides a post's link: the time next to the author's name is a link with no address ("?__cft__…") until a
+  // mouse moves over it, and then Facebook fills in the real address. These are the links that may be it.
+  function hiddenTimeLinks(unit) {
+    var name = unit.querySelector('[data-ad-rendering-role="profile_name"]');
+    var header = name && name.closest("span[dir]") && name.closest("span[dir]").parentElement;
+    var scope = header || unit, out = [];
+    var links = scope.querySelectorAll("a[href]");
+    for (var i = 0; i < links.length; i++) {
+      var href = links[i].getAttribute("href") || "";
+      if (/^(?:\?|#|\/\?)/.test(href) && !links[i].closest(MESSAGE) && !(name && name.contains(links[i]))) out.push(links[i]);
+    }
+    return out;
+  }
+
+  var hovered = typeof WeakSet === "function" ? new WeakSet() : null;
+  /**
+   * For each post on screen whose link is hidden, moves a simulated mouse over its time link once, so Facebook fills
+   * in the address. Only hover events: it never clicks, focuses or scrolls. Returns how many links were hovered
+   * (the caller waits a moment before reading the page again).
+   */
+  function revealLinks(doc) {
+    var list = units(doc), count = 0, win = doc.defaultView;
+    if (!hovered || !win) return 0;
+    for (var i = 0; i < list.length; i++) {
+      if (postUrl(list[i], doc) || postText(list[i]).length < MIN_TEXT) continue;
+      hiddenTimeLinks(list[i]).forEach(function (a) {
+        if (hovered.has(a)) return;
+        hovered.add(a);
+        count++;
+        ["pointerover", "pointerenter", "mouseover", "mouseenter", "mousemove"].forEach(function (type) {
+          var Ctor = type.indexOf("pointer") === 0 && win.PointerEvent ? win.PointerEvent : win.MouseEvent;
+          a.dispatchEvent(new Ctor(type, { bubbles: type !== "mouseenter" && type !== "pointerenter", cancelable: true, view: win }));
+        });
+      });
+    }
+    return count;
   }
 
   function postText(unit) {
@@ -69,7 +116,8 @@
     function consider(el) {
       if (inComment(el, unit)) return;
       if (el.closest('a, [role="button"], [role="toolbar"], [role="navigation"]')) return;
-      var text = (el.innerText || el.textContent || "").replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
+      var text = (el.innerText || el.textContent || "").replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim()
+        .replace(/(?:…|\.\.\.)?\s*(?:See more|ดูเพิ่มเติม|查看更多|显示更多|展开)\s*$/i, "").trim(); // the "See more" button's label
       if (text.length > best.length) best = text;
     }
     var marked = unit.querySelectorAll(MESSAGE);
@@ -146,5 +194,5 @@
     return lines.join("\n").slice(0, 20000);
   }
 
-  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findPosts: findPosts, diagnose: diagnose, sample: sample });
+  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findPosts: findPosts, diagnose: diagnose, sample: sample, revealLinks: revealLinks });
 })(typeof window !== "undefined" ? window : globalThis);
