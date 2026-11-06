@@ -29,7 +29,7 @@ const searchBlocks=()=>[{type:'web_search_tool_result',content:[{type:'web_searc
 function model(opts={}){const calls={router:0,search:0,compose:0,composeInputs:[]};
  return {calls,create:async(body)=>{const sys=String(body.system);
   if(sys.startsWith('You read a post')){calls.router++;const r=Array.isArray(opts.router)?opts.router[calls.router-1]:opts.router;return {stop_reason:r?.stop_reason??'end_turn',content:[{type:'text',text:(r?.text??r)??routedJson()}]};}
-  if(sys.startsWith('You research facts')){calls.search++;return {stop_reason:'end_turn',content:searchBlocks()};}
+  if(sys.startsWith('You research facts')){calls.search++;(calls.maxUses??=[]).push(body.tools[0].max_uses);return {stop_reason:'end_turn',content:searchBlocks()};}
   calls.compose++;calls.composeInputs.push(JSON.parse(body.messages[0].content));return {stop_reason:'end_turn',content:[{type:'text',text:opts.compose??JSON.stringify({comment:'Trains and taxis both work.',template:opts.template===undefined?null:opts.template})}]};}};}
 const text=(d)=>d.parts.join('\n');
 
@@ -170,4 +170,26 @@ test('only the team can save knowledge; any group member can use the other butto
  assert.equal((await db.prepare("SELECT COUNT(*) n FROM post_helper_knowledge WHERE topic_key='bkk-airport-to-pattaya-options'").first()).n,0);
  await ph.handlePostCallback('ph_save',d.id,'Anna','q10',undefined,'-100',{id:'78',isTeam:true});
  assert.equal((await db.prepare("SELECT status FROM post_helper_knowledge WHERE topic_key='bkk-airport-to-pattaya-options'").first()).status,'approved');
+});
+
+test('cheaper drafts for Facebook leads: a social post stops after sorting, booking requests skip the search, one search otherwise',async()=>{
+ // Social: sorted, then nothing else is paid for.
+ let m=model({router:routedJson({replyType:'social',kind:'other',topic:'cheap-social'})});
+ let d=await ph.draftForPost('Anyone else on Koh Chang this week?',{client:m,now:()=>now},{leadsOnly:true});
+ assert.deepEqual([d.replyType,d.parts.length,m.calls.search,m.calls.compose],['social',0,0,0]);
+ // Booking request: written (offer and one question) without a web search; no "check the facts" warning.
+ m=model({router:routedJson({replyType:'sales',kind:'transport',topic:'cheap-sales'})});
+ d=await ph.draftForPost('Looking for a driver tomorrow',{client:m,now:()=>now},{leadsOnly:true,noSearchForBookings:true,maxSearches:1});
+ assert.deepEqual([m.calls.search,m.calls.compose,d.factCount,d.searched],[0,1,0,false]);
+ assert.match(text(d),/Booking request: no web search/);assert.doesNotMatch(text(d),/No fact passed/);
+ // Information post: still searched, but at most once.
+ m=model({router:routedJson({topic:'cheap-info'})});
+ d=await ph.draftForPost('Which beach is best in Koh Chang?',{client:m,now:()=>now},{leadsOnly:true,noSearchForBookings:true,maxSearches:1});
+ assert.deepEqual([m.calls.search,m.calls.maxUses,d.searched],[1,[1],true]);
+ // /c is unchanged: two searches allowed, and a social post still gets a comment.
+ m=model({router:routedJson({topic:'cheap-c'})});await ph.draftForPost('Which beach is best?',{client:m,now:()=>now});
+ assert.deepEqual(m.calls.maxUses,[2]);
+ m=model({router:routedJson({replyType:'social',kind:'other',topic:'cheap-c-social'})});
+ d=await ph.draftForPost('Hello everyone',{client:m,now:()=>now});
+ assert.equal(m.calls.compose,1);assert.equal(d.parts.length,2);
 });
