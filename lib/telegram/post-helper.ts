@@ -83,7 +83,7 @@ This post is type "${type}".
 ${notes ? `\nThe owner's playbook (follow it; it ranks above the rules here only where it is more specific; its reference prices are NOT quotes and must not be used):\n${notes.slice(0, 40000)}` : ""}`;
 
 /** `factCount` and `stale` let the Facebook leads flow decide whether a draft is ready to post (lib/fb-leads-rules). */
-export type Draft = { id: string; text: string; keyboard: InlineKeyboard; parts: string[]; replyType: Routed["replyType"]; factCount: number; stale: boolean };
+export type Draft = { id: string; text: string; keyboard: InlineKeyboard; parts: string[]; replyType: Routed["replyType"]; factCount: number; stale: boolean; searched: boolean };
 type Deps = { client?: PostClient; quote?: (r: NonNullable<Routed["route"]>) => Promise<QuoteResult>; now?: () => Date };
 
 async function ask(client: PostClient, body: Record<string, unknown>) {
@@ -104,15 +104,15 @@ async function routePost(text: string, client: PostClient): Promise<Routed> {
   throw new Error("UNREADABLE");
 }
 
-/** Searches the web for the question and keeps only the facts the sources support. */
-export async function researchFacts(question: string, client: PostClient, now: Date) {
+/** Searches the web for the question and keeps only the facts the sources support. `maxSearches` caps the searches (US$0.01 each). */
+export async function researchFacts(question: string, client: PostClient, now: Date, maxSearches = 2) {
   const blocked = await blockedDomains();
   const messages: Message[] = [{ role: "user", content: question }];
   const found: { url: string; title?: string; pageAge?: string | null }[] = [];
   let reply = "";
   for (let step = 0; step < 3; step++) {
     const res = await ask(client, { max_tokens: 3000, system: SEARCH(new Date(now.getTime() + 7 * 3_600_000).toISOString().slice(0, 10)), messages,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2, blocked_domains: blocked }] });
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: maxSearches, blocked_domains: blocked }] });
     for (const b of res.content) if (b.type === "web_search_tool_result" && Array.isArray(b.content)) for (const r of b.content as Record<string, unknown>[]) if (typeof r.url === "string") found.push({ url: r.url, title: typeof r.title === "string" ? r.title : undefined, pageAge: typeof r.page_age === "string" ? r.page_age : null });
     reply = replyText(res);
     if (res.stop_reason !== "pause_turn") break;
@@ -133,19 +133,30 @@ async function countTopic(topic: string, now: Date) {
 const TIER_LABEL = { 1: "🏛 official", 2: "📰 news", 3: "✍️ blog" } as const;
 const sourceLines = (facts: KeptFact[]) => [...new Map(facts.flatMap((f) => f.sources.slice(0, 2)).map((s) => [s.url, s])).values()].map((s) => `${TIER_LABEL[s.tier]} ${esc(s.host)} · ${esc(s.dateLabel)}\n${esc(s.url)}`);
 
+/**
+ * Ways to spend less on a draft, used by the Facebook leads flow (`/c` uses none of them):
+ * - leadsOnly: a social post is not a lead and gets no message, so stop after sorting it (no search, no writing);
+ * - maxSearches: web searches allowed (default 2);
+ * - noSearchForBookings: a booking request ("looking for a driver / transfer / tour") gets the Waydidi offer and one
+ *   question with the price from Waydidi's own price table, so no web search is made (saved knowledge is still used).
+ */
+export type DraftOptions = { forceFresh?: boolean; leadsOnly?: boolean; maxSearches?: number; noSearchForBookings?: boolean };
+
 /** The whole flow for one pasted post. Pure apart from the client, quote lookup and database (injectable for tests). */
-export async function draftForPost(text: string, deps: Deps = {}, options: { forceFresh?: boolean } = {}): Promise<Draft> {
+export async function draftForPost(text: string, deps: Deps = {}, options: DraftOptions = {}): Promise<Draft> {
   await ensurePostHelperTables();
   const now = (deps.now ?? (() => new Date()))(), client = deps.client ?? realClient();
   const routed = await routePost(text, client);
+  if (options.leadsOnly && routed.replyType === "social") return { id: "", text, keyboard: [], parts: [], replyType: "social", factCount: 0, stale: false, searched: false };
   const repeats = await countTopic(routed.topic, now);
   const saved = options.forceFresh ? null : await knowledgeFor(routed.topic);
   const useSaved = saved?.status === "approved";
-  let facts: KeptFact[], dropped: { claim: string; reason: string }[] = [], mode: "saved" | "fresh";
+  let facts: KeptFact[], dropped: { claim: string; reason: string }[] = [], mode: "saved" | "fresh" | "nosearch";
   if (useSaved) {
     facts = JSON.parse(saved!.facts_json) as KeptFact[]; mode = "saved";
     await db().prepare("UPDATE post_helper_knowledge SET hits=hits+1,last_used_at=? WHERE id=?").bind(now.toISOString(), saved!.id).run();
-  } else { const r = await researchFacts(routed.question, client, now); facts = r.kept; dropped = r.dropped; mode = "fresh"; }
+  } else if (options.noSearchForBookings && routed.replyType === "sales") { facts = []; mode = "nosearch"; }
+  else { const r = await researchFacts(routed.question, client, now, options.maxSearches ?? 2); facts = r.kept; dropped = r.dropped; mode = "fresh"; }
   const quote = routed.kind === "transport" && routed.route ? await (deps.quote ?? defaultQuote)(routed.route).catch(() => null) : null;
   const notes = (await setting("post_helper_notes")) ?? "", whatsapp = (await setting("post_helper_whatsapp")) || DEFAULT_WHATSAPP;
   const selling = routed.replyType === "sales" || routed.replyType === "adjacent";
@@ -159,13 +170,15 @@ export async function draftForPost(text: string, deps: Deps = {}, options: { for
   const stale = mode === "saved" && staleWarning({ timeSensitive: saved!.time_sensitive === 1, collectedAt: saved!.collected_at }, now);
   const status = mode === "saved"
     ? `💾 Saved knowledge · Source from ${formatDate(saved!.collected_at)} (${Math.max(0, Math.floor((now.getTime() - Date.parse(saved!.collected_at)) / 86_400_000))} days ago)\n${stale ? "⚠️ Time-sensitive and over 3 months old: it may be out of date. Tap Search again before posting." : "✅ Up to date: checked when saved, and refreshed every 10 January and 10 July."}`
+    : mode === "nosearch"
+    ? "💬 Booking request: no web search. The comment is the Waydidi offer and one question, with no web facts to check."
     : `🔎 Fresh search · Source from ${formatDate(now)}\n${facts.length ? "✅ Up to date: searched just now." : ""}`;
   const TYPE_LABEL = { sales: "Sales (wants to hire)", adjacent: "Transport opportunity", info: "Information only", social: "Community / social" } as const;
   // Two messages: the comment alone (long-press, Copy Text, paste into Facebook), then everything to check before posting.
   const details = [
     `<b>Check before posting</b> · ${TYPE_LABEL[routed.replyType]}`,
     ...(selling && routed.kind === "transport" && !wantQuote ? [`<i>No Waydidi price in the comment${quote && !quote.ok ? ` (${esc(quote.reason)})` : ""}: it invites a WhatsApp quote. Add a price yourself only if it is approved for that route.</i>`] : []),
-    `${status}${facts.length ? "" : "\n⚠️ No fact passed the source checks. The comment has no web facts in it: check before posting."}`,
+    `${status}${facts.length || mode === "nosearch" ? "" : "\n⚠️ No fact passed the source checks. The comment has no web facts in it: check before posting."}`,
     ...(facts.length ? [`<b>Sources</b>\n${sourceLines(facts).join("\n")}`] : []),
     ...(dropped.length ? [`<i>Left out: ${dropped.length} statement${dropped.length === 1 ? "" : "s"} without a good enough source.</i>`] : []),
     "<i>Draft only: nothing was posted. Post it yourself.</i>",
@@ -173,7 +186,7 @@ export async function draftForPost(text: string, deps: Deps = {}, options: { for
   const parts = [esc(comment), details];
   const keyboard: InlineKeyboard = [[{ text: "🔄 Search again", callback_data: `ph_again:${id}` }, { text: "👎 Wrong or outdated", callback_data: `ph_bad:${id}` }],
     ...(mode === "fresh" && repeats >= REPEATS_TO_SAVE && facts.length ? [[{ text: `💾 Save as knowledge (asked ${repeats}×)`, callback_data: `ph_save:${id}` }]] : [])];
-  return { id, text, keyboard, parts, replyType: routed.replyType, factCount: facts.length, stale: Boolean(stale) };
+  return { id, text, keyboard, parts, replyType: routed.replyType, factCount: facts.length, stale: Boolean(stale), searched: mode === "fresh" };
 }
 
 async function defaultQuote(route: NonNullable<Routed["route"]>): Promise<QuoteResult> {

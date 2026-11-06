@@ -79,6 +79,14 @@ test('posts that ask for nothing, adverts and long-stay searches are kept out of
   assert.equal(calls,2,'the photo caption, the advert and the long-stay search are never drafted');
 });
 
+test('a booking request drafted without a web search is ready to post (no "Needs your check")', async () => {
+  await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'G' }], now);
+  const s = sender();
+  await fl.processLeads({ draft: draftOf({ factCount: 0, searched: false }), send: s.send, now: () => now });
+  assert.doesNotMatch(s.sent[1].text, /Needs your check/);
+  assert.equal((await lead(1)).reliable, 1);
+});
+
 test('not ready: no checked facts → sent with "Needs your check"; social post → no message', async () => {
   await fl.queueLeads([1, 2].map((n) => ({ groupKey: 'thaitravel', postKey: String(1000000 + n), url: post(n).url, text: post(n).text, groupName: 'G' })), now);
   const s = sender();

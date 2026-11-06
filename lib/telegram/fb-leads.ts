@@ -95,7 +95,9 @@ async function deliver(id: string, deps: Deps) {
 
 /** Drafts one claimed lead and stores the result. A social post is closed as "not a lead" without a message. */
 async function draftLead(lead: Lead, deps: Deps) {
-  const draft = await (deps.draft ?? ((text: string) => draftForPost(text)))(lead.post_text);
+  // The cheap way (see DraftOptions in post-helper): social posts stop after sorting, booking requests skip the web
+  // search, everything else gets one search instead of two.
+  const draft = await (deps.draft ?? ((text: string) => draftForPost(text, {}, { leadsOnly: true, maxSearches: 1, noSearchForBookings: true })))(lead.post_text);
   const at = (deps.now ?? (() => new Date()))().toISOString();
   if (!isLead(draft.replyType)) {
     await db().prepare("UPDATE fb_leads SET status='not_lead',reply_type=?,draft_id=?,updated_at=? WHERE id=? AND status='drafting'").bind(draft.replyType, draft.id, at, lead.id).run();

@@ -54,6 +54,10 @@ test('which posts are leads, and when a draft is ready to post', () => {
   assert.deepEqual(r.reliability({ factCount: 2, stale: false }), { reliable: true });
   assert.equal(r.reliability({ factCount: 0, stale: false }).reliable, false);
   assert.match(r.reliability({ factCount: 3, stale: true }).reason, /over 3 months old/);
+  // A booking request answered without a web search has no facts to check: ready. Searched and found nothing: not ready.
+  assert.deepEqual(r.reliability({ factCount: 0, stale: false, replyType: 'sales', searched: false }), { reliable: true });
+  assert.equal(r.reliability({ factCount: 0, stale: false, replyType: 'sales', searched: true }).reliable, false);
+  assert.equal(r.reliability({ factCount: 0, stale: false, replyType: 'info', searched: false }).reliable, false);
 });
 
 test('which posts ask for something: questions and travel words pass, plain sharing does not',()=>{

@@ -119,8 +119,11 @@ export const isLead = (replyType: string) => replyType === "sales" || replyType 
  * Ready to post only when at least one fact passed the source checks and saved knowledge is not out of date.
  * Otherwise the draft is still sent, marked "Needs your check" with the reason.
  */
-export function reliability(d: { factCount: number; stale: boolean }): { reliable: true } | { reliable: false; reason: string } {
+export function reliability(d: { factCount: number; stale: boolean; replyType?: string; searched?: boolean }): { reliable: true } | { reliable: false; reason: string } {
   if (d.stale) return { reliable: false, reason: "the saved facts are time-sensitive and over 3 months old" };
+  // A booking request is answered with the Waydidi offer and one question, without a web search: it has no web facts
+  // to check, so it is ready to post. (The price, if any, comes from Waydidi's own price table.)
+  if (d.replyType === "sales" && d.searched === false && d.factCount < 1) return { reliable: true };
   if (d.factCount < 1) return { reliable: false, reason: "no fact passed the source checks" };
   return { reliable: true };
 }
