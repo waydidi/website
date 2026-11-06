@@ -83,6 +83,35 @@ export function readIngest(body: unknown): { posts: IncomingPost[]; rejected: Re
   return { posts, rejected };
 }
 
+// A browser extension sees every post in a busy group (photos, chat, adverts). This cheap check keeps those out of the
+// AI queue, so the daily limit goes to posts where someone asks or needs something. It is deliberately broad: a question
+// mark, or a word about asking, transport or tours in English, Thai or Chinese. The AI still decides what a lead is.
+const REQUEST_WORDS = /recommend|looking for|look for|anyone|anybody|any ideas|suggest|how to|how do|how much|how can|how far|where|which|what is|what's|best way|best time|can i|can we|should i|need|advice|tips|help|driver|transfer|taxi|grab|bolt|\btour|\bvan\b|rent|ferry|airport|visa|แนะนำ|ช่วย|รบกวน|ใครรู้|ไหม|มั้ย|หรือไม่|ที่ไหน|ยังไง|อย่างไร|เท่าไหร่|เท่าไร|อะไร|หา|ต้องการ|รถ|คนขับ|เหมา|ทัวร์|เที่ยว|推荐|请问|求|有没有|怎么|多少钱|包车|接机|送机|司机|哪里|哪个|攻略|需要/i;
+export const looksLikeRequest = (text: string) => /[?？]/.test(text) || REQUEST_WORDS.test(text);
+
+// Posts Waydidi should not answer even when they look like requests: other businesses' adverts and promotions, and
+// people looking for a long stay (a month or more) in a room, condo or house. Word lists, so they are tuned here (one
+// place, no extension reload). They are rules of thumb: a seeker's own words ("looking for", "anyone", "recommend")
+// always win over a promo word, and a stay post that also mentions a driver, transfer or tour is kept.
+const PROMO_WORDS = /book now|special (?:price|offer|deal)|promotion|promo\b|discount|\d\s?% ?off|contact us|message us|dm us|inbox us|call us|whatsapp us|we (?:offer|provide)|our (?:tours?|services?|team|drivers?|cars?|vans?|villas?|hotel|resort|rooms?)\b|ราคาพิเศษ|โปรโมชั่น|โปรโมชัน|ติดต่อสอบถาม|สอบถามได้|รับจอง|ให้บริการ|ลดราคา|ลดพิเศษ|สนใจติดต่อ|จองได้เลย|优惠|促销|欢迎咨询|欢迎联系|特价/i;
+const SEEKER_WORDS = /looking for|look for|anyone|anybody|recommend|suggest|need a|need an|does anyone|can anyone|can someone|any ideas|ใครมี|ใครรู้|ใครเคย|แนะนำ|有没有|请问|求|推荐/i;
+const CONTACT = /(?:\+?66|\b0)\d[\d\s-]{7,}|line\s*(?:id)?\s*[:@]|whatsapp|wa\.me/i;
+const PRICE = /฿|\bthb\b|baht|บาท/i;
+export const isPromo = (text: string) => !SEEKER_WORDS.test(text) && (PROMO_WORDS.test(text) || (CONTACT.test(text) && PRICE.test(text)));
+
+const STAY_TERM = /\b(?:[1-9]\d?|one|two|three|four|five|six|a)\s*\+?\s*months?\b|monthly|per month|\/\s*month|long[- ]?term|[1-9]\d?\s*เดือน|รายเดือน|เช่าระยะยาว|ระยะยาว|长租|月租|长期|[一二三四五六七八九十\d]+个月/i;
+const STAY_PLACE = /rent|rental|room|apartment|condo|house|villa|accommodation|accomodation|\bstay|hostel|studio|bungalow|ห้อง|คอนโด|บ้าน|หอพัก|ที่พัก|อพาร์ทเมนท์|公寓|租房|住宿/i;
+const TRANSPORT_WORDS = /driver|transfer|taxi|\btours?\b|\bvan\b|\bcar\b|minibus|pick ?up|รถ|คนขับ|ทัวร์|รับส่ง|包车|接机|司机/i;
+export const isLongStay = (text: string) => STAY_TERM.test(text) && STAY_PLACE.test(text) && !TRANSPORT_WORDS.test(text);
+
+/** Whether a post goes to the AI queue, and if not, why (so the rules can be tuned from real posts). */
+export function screenPost(text: string): { queue: true } | { queue: false; reason: "no_request" | "promo" | "long_stay" } {
+  if (isPromo(text)) return { queue: false, reason: "promo" };
+  if (isLongStay(text)) return { queue: false, reason: "long_stay" };
+  if (!looksLikeRequest(text)) return { queue: false, reason: "no_request" };
+  return { queue: true };
+}
+
 /** Posts a comment can help with. Social chat (introductions, "anyone here this week") is not a lead. */
 export const isLead = (replyType: string) => replyType === "sales" || replyType === "adjacent" || replyType === "info";
 
