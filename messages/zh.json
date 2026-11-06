@@ -179,6 +179,38 @@
     "text": "查询预订",
     "status": "machine"
   },
+  "nav.ourServices": {
+    "text": "我们的服务",
+    "status": "machine"
+  },
+  "nav.ourDestinations": {
+    "text": "我们的目的地",
+    "status": "machine"
+  },
+  "nav.travelAgentsB2B": {
+    "text": "旅行社与企业合作",
+    "status": "machine"
+  },
+  "nav.becomeDriver": {
+    "text": "成为司机",
+    "status": "machine"
+  },
+  "nav.dayTrips": {
+    "text": "一日游",
+    "status": "machine"
+  },
+  "nav.agentLogin": {
+    "text": "旅行社登录",
+    "status": "machine"
+  },
+  "nav.travelAgents": {
+    "text": "旅行社",
+    "status": "machine"
+  },
+  "nav.partners": {
+    "text": "合作伙伴",
+    "status": "machine"
+  },
   "nav.menu": {
     "text": "菜单",
     "status": "machine"

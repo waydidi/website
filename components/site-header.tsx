@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CarFront, ChevronRight, Menu, UserRound, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { NavDropdown, navLinks, navMenus } from "@/components/home/nav";
+import { NavDropdown, navItems } from "@/components/home/nav";
 import { useI18n } from "@/components/i18n-provider";
 import { LocalePicker } from "@/components/locale-picker";
 import { WaydidiLogo } from "@/components/waydidi-logo";
@@ -97,16 +97,15 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         <WaydidiLogo className="h-[38px] w-[100px] min-[360px]:h-[50px] min-[360px]:w-[132px] sm:h-[43px] sm:w-[112px]" />
       </Link>
       <nav className="hidden items-center gap-6 text-[14px] font-medium xl:flex">
-        {navMenus.map((menu) => (
-          <NavDropdown key={menu.labelKey} label={t(menu.labelKey)} links={menu.links.map((link) => ({ href: link.href, label: t(link.labelKey) }))} />
-        ))}
-        {navLinks.map((link) => (
+        {navItems.map((item) => item.type === "menu" ? (
+          <NavDropdown key={item.labelKey} label={t(item.labelKey)} links={item.links.map((link) => ({ href: link.href, label: t(link.labelKey) }))} />
+        ) : (
           <Link
-            key={link.href}
-            href={link.href}
+            key={item.href}
+            href={item.href}
             className="rounded-full px-1 py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
           >
-            {t(link.labelKey)}
+            {t(item.labelKey)}
           </Link>
         ))}
         <LocalePicker className="text-[14px]" />
@@ -116,12 +115,6 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         >
           <UserRound size={16} />
           <span className="max-w-[110px] truncate">{accountLabel}</span>
-        </Link>
-        <Link
-          href="/booking/manage"
-          className={`flex h-9 items-center gap-2 rounded-full px-4 font-semibold transition-colors duration-300 ${light ? "bg-brand text-white hover:bg-brand-strong" : "bg-white text-brand-text hover:bg-orange-50"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand`}
-        >
-          <CarFront size={16} /> {t("nav.checkBooking")}
         </Link>
       </nav>
       <div className="flex shrink-0 items-center xl:hidden">
@@ -155,11 +148,11 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             </div>
             <div className="px-5 pt-3 text-plum"><LocalePicker /></div>
             <ul className="px-5 pt-5">
-              {navMenus.map((menu) => (
-                <li key={menu.labelKey} className="mb-4">
-                  <p className="text-[16px] text-slate-500">{t(menu.labelKey)}</p>
+              {navItems.map((item) => item.type === "menu" ? (
+                <li key={item.labelKey} className="mb-4">
+                  <p className="text-[16px] text-slate-500">{t(item.labelKey)}</p>
                   <ul className="mt-2 border-l-[1.5px] border-slate-200 pl-5">
-                    {menu.links.map((link) => (
+                    {item.links.map((link) => (
                       <li key={link.href}>
                         <Link href={link.href} onClick={closeMenu} className="block py-2 text-[17px] font-semibold text-[#E57A00] hover:underline">
                           {t(link.labelKey)}
@@ -168,11 +161,10 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                     ))}
                   </ul>
                 </li>
-              ))}
-              {navLinks.map((link) => (
-                <li key={link.href}>
-                  <Link href={link.href} onClick={closeMenu} className="block py-2.5 text-[17px] font-semibold text-[#E57A00] hover:underline">
-                    {t(link.labelKey)}
+              ) : (
+                <li key={item.href}>
+                  <Link href={item.href} onClick={closeMenu} className="block py-2.5 text-[17px] font-semibold text-[#E57A00] hover:underline">
+                    {t(item.labelKey)}
                   </Link>
                 </li>
               ))}

@@ -43,15 +43,15 @@ test("homepage under-development popup: WhatsApp link, focus kept inside, Esc cl
   await expect(devNotice(page)).toHaveCount(0);
 });
 
-test("header Transfer menu opens with the keyboard and lists its links", async ({ page, isMobile }) => {
+test("header Our services menu opens with the keyboard and lists its links", async ({ page, isMobile }) => {
   test.skip(isMobile, "the phone header uses the side menu instead");
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await closeDevNotice(page);
-  const trigger = page.getByRole("navigation").getByRole("button", { name: "Transfer" });
+  const trigger = page.getByRole("navigation").getByRole("button", { name: "Our services" });
   await trigger.focus();
   await page.keyboard.press("Enter");
-  const menu = page.getByRole("menu", { name: "Transfer" });
+  const menu = page.getByRole("menu", { name: "Our services" });
   await expect(menu).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: "Airport transfer" })).toBeVisible();
   await page.keyboard.press("Escape");
