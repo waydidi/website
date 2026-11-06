@@ -105,3 +105,63 @@ test("older layout with wrappers: the post is the outermost article inside a fee
   expect(posts[0].text).toBe("Need a minivan from Hua Hin to Bangkok airport next Friday, any tips?");
   expect(posts[0].url).toContain("/groups/111/posts/7000007/");
 });
+
+// A copy of the real group layout sent by the owner's "Copy page sample" (November 2026): a numbered post, the author's
+// name in profile_name, the time as a link with no address ("?__cft__…") until a mouse moves over it, the message in
+// story_message ending with a "See more" button, and photo links carrying set=gm.<post>. Made-up content.
+const GROUP_PAGE = "https://www.facebook.com/groups/kohchangcommunity/";
+const real = (o: { id: string; text?: string; fills?: boolean; photo?: boolean }) => `
+  <div><div aria-posinset="1"><div>
+    <div><blockquote><span dir="auto"><span>reacted</span></span></blockquote><div role="button"></div></div>
+    <div>
+      <span><span><span><a role="link" href="/groups/111/user/999/?__cft__[0]=AZ&__tn__=R">avatar</a></span></span></span>
+      <div>
+        <span dir="ltr"><div data-ad-rendering-role="profile_name"><h2><span><a role="link" href="/groups/111/user/999/?__cft__[0]=AZ&__tn__=R"><b><span>Someone Else</span></b></a></span></h2></div></span>
+        <span dir="ltr"><div><span><span><span><a class="ts" ${o.fills === false ? "" : `data-post="${o.id}"`} role="link" href="?__cft__[0]=AZ&__tn__=%2CO%2CP-R"><span><span>2</span><span>h</span></span></a></span></span></span></div></span>
+      </div>
+    </div>
+    <div>${o.text === undefined ? "" : `<div dir="auto"><div data-ad-rendering-role="story_message"><span dir="auto"><span>${o.text}</span> <div role="button">See more</div></span></div></div>`}
+      ${o.photo ? `<div><a role="link" href="/photo/?fbid=888&set=gm.${o.id}&idorvanity=111&__cft__[0]=AZ"><img alt=""></a></div>` : ""}
+    </div>
+  </div></div></div>`;
+const realPage = (posts: string) => `<!doctype html><title>Koh Chang Community | Facebook</title><div role="feed">
+  <div><div role="button"><div>Sort group feed by</div><h2 dir="auto"><span dir="auto">New posts</span></h2></div></div>${posts}</div>
+  <script>document.addEventListener("mouseover", (e) => { const a = e.target.closest && e.target.closest("a.ts"); if (a && a.dataset.post) a.setAttribute("href", "https://www.facebook.com/groups/111/posts/" + a.dataset.post + "/?__cft__[0]=AZ"); }, true);
+  window.__clicks = 0; document.addEventListener("click", () => window.__clicks++, true);</script>`;
+type Leads = { findPosts: (d: Document) => Post[]; revealLinks: (d: Document) => number; diagnose: (d: Document) => Record<string, number> };
+async function openReal(page: import("@playwright/test").Page, posts: string) {
+  await page.unroute(GROUP_PAGE).catch(() => undefined);
+  await page.route(GROUP_PAGE, (route) => route.fulfill({ contentType: "text/html", body: realPage(posts) }));
+  await page.goto(GROUP_PAGE);
+  await page.addScriptTag({ path: EXTRACTOR });
+}
+
+test("real layout: a hidden time link is revealed by a hover, then the post is read without the See more label", async ({ page }) => {
+  await openReal(page, real({ id: "8000008", text: "Looking for a taxi from Trat airport to the Koh Chang ferry for 3 people on Monday" }));
+  const before = await page.evaluate(() => { const w = (window as unknown as { WaydidiLeads: Leads }).WaydidiLeads; return { posts: w.findPosts(document), d: w.diagnose(document) }; });
+  expect(before.posts).toEqual([]);
+  expect(before.d).toMatchObject({ withLink: 0, withText: 1 });
+  const after = await page.evaluate(() => { const w = (window as unknown as { WaydidiLeads: Leads }).WaydidiLeads; const n = w.revealLinks(document); return { n, posts: w.findPosts(document) }; });
+  expect(after.n).toBe(1);
+  expect(after.posts).toHaveLength(1);
+  expect(after.posts[0].url).toContain("/groups/111/posts/8000008/");
+  expect(after.posts[0].text).toBe("Looking for a taxi from Trat airport to the Koh Chang ferry for 3 people on Monday");
+  expect(after.posts[0].groupName).toBe("Koh Chang Community");
+  expect(JSON.stringify(after.posts)).not.toContain("Someone Else");
+});
+
+test("real layout: revealing only hovers (no click, no focus, no scroll) and hovers each link once", async ({ page }) => {
+  await openReal(page, real({ id: "8100008", text: "Which pier is best for the ferry to Koh Chang with a car?" }) + real({ id: "8200008" }));
+  const out = await page.evaluate(() => {
+    const w = (window as unknown as { WaydidiLeads: Leads; __clicks: number }); const y = scrollY;
+    const first = w.WaydidiLeads.revealLinks(document), second = w.WaydidiLeads.revealLinks(document);
+    return { first, second, clicks: w.__clicks, focus: document.activeElement === document.body, moved: scrollY !== y };
+  });
+  expect(out).toEqual({ first: 1, second: 0, clicks: 0, focus: true, moved: false }); // the post with no text is not hovered
+});
+
+test("real layout: when hovering does not fill the link, a photo's set=gm.<post> gives the post link", async ({ page }) => {
+  await openReal(page, real({ id: "8300008", fills: false, photo: true, text: "Anyone know a good songthaew driver on Koh Chang? Photos of the area" }));
+  const posts = await page.evaluate(() => { const w = (window as unknown as { WaydidiLeads: Leads }).WaydidiLeads; w.revealLinks(document); return w.findPosts(document); });
+  expect(posts.map((p) => p.url)).toEqual(["https://www.facebook.com/groups/kohchangcommunity/posts/8300008/"]);
+});

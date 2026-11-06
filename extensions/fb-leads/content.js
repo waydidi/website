@@ -27,6 +27,8 @@
    */
   async function doScan() {
     if (!loaded || location.pathname.indexOf("/groups/") !== 0) return { posts: 0, leads: 0, visible: 0 };
+    // Facebook fills in a post's hidden link when a mouse moves over its time: hover those once, give it a moment.
+    if (window.WaydidiLeads.revealLinks(document)) await new Promise(function (r) { setTimeout(r, 600); });
     var all = window.WaydidiLeads.findPosts(document), visible = all.length;
     var fresh = all.filter(function (p) { return !seen[key(p.url)]; });
     if (!fresh.length) return { posts: 0, leads: 0, visible: visible };

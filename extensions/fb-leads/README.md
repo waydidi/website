@@ -4,7 +4,9 @@ While you read a Facebook travel group, this extension sends the posts on screen
 from the owner's playbook (Admin → Writing assistant) and sends it to the Telegram Comment group, with the post link and
 ✅ Posted / ⏭ Skip buttons (`lib/telegram/fb-leads.ts`).
 
-It never clicks, comments or likes anything, and it never reads who wrote a post. By default it only reads what you
+It never clicks, comments or likes anything, and it never reads who wrote a post. Facebook hides each post's link
+until a mouse moves over the post's time, so the extension moves a simulated mouse over that time once per post (no
+click, no focus, no scrolling) and then reads the link. For a photo post the photo's link also carries the post number. By default it only reads what you
 scroll past. If you press **Collect** it also scrolls the group for you, slowly, like a person reading (see below). It
 works for private groups because it runs in your own browser, signed in as you. It is not published in any store; it is
 loaded from this folder.
@@ -36,6 +38,7 @@ back up now and then. A run is limited and always ends by itself:
 - the moment you touch the page (wheel, keys, mouse), switch to another tab or leave the group;
 - if a post cannot be sent (wrong token, website off, no connection).
 
+At this pace 10 new posts take a few minutes and 50 can take 15 minutes or more (posts with photos are tall).
 At most **4 runs a day**. It never clicks "See more", never opens a post and never types. Press **Stop** in the popup to
 end a run early. Scrolling by script is the part Facebook is most likely to notice, so keep these limits; do not raise
 them without thinking about the Facebook account used.
