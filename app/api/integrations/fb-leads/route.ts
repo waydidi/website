@@ -21,8 +21,8 @@ export async function POST(request: Request) {
   const read = readIngest(body);
   if ("error" in read) return json({ error: read.error }, 400);
   try {
-    const { accepted, duplicates } = await queueLeads(read.posts);
-    return json({ accepted, duplicates, rejected: read.rejected });
+    const { accepted, duplicates, skipped } = await queueLeads(read.posts);
+    return json({ accepted, duplicates, skipped, rejected: read.rejected });
   } catch (error) {
     console.error("fb leads ingest failed", error instanceof Error ? error.message : "unknown");
     return json({ error: "Please retry." }, 503);

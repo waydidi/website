@@ -83,6 +83,12 @@ export function readIngest(body: unknown): { posts: IncomingPost[]; rejected: Re
   return { posts, rejected };
 }
 
+// A browser extension sees every post in a busy group (photos, chat, adverts). This cheap check keeps those out of the
+// AI queue, so the daily limit goes to posts where someone asks or needs something. It is deliberately broad: a question
+// mark, or a word about asking, transport or tours in English, Thai or Chinese. The AI still decides what a lead is.
+const REQUEST_WORDS = /recommend|looking for|look for|anyone|anybody|any ideas|suggest|how to|how do|how much|how can|how far|where|which|what is|what's|best way|best time|can i|can we|should i|need|advice|tips|help|driver|transfer|taxi|grab|bolt|\btour|\bvan\b|rent|ferry|airport|visa|แนะนำ|ช่วย|รบกวน|ใครรู้|ไหม|มั้ย|หรือไม่|ที่ไหน|ยังไง|อย่างไร|เท่าไหร่|เท่าไร|อะไร|หา|ต้องการ|รถ|คนขับ|เหมา|ทัวร์|เที่ยว|推荐|请问|求|有没有|怎么|多少钱|包车|接机|送机|司机|哪里|哪个|攻略|需要/i;
+export const looksLikeRequest = (text: string) => /[?？]/.test(text) || REQUEST_WORDS.test(text);
+
 /** Posts a comment can help with. Social chat (introductions, "anyone here this week") is not a lead. */
 export const isLead = (replyType: string) => replyType === "sales" || replyType === "adjacent" || replyType === "info";
 

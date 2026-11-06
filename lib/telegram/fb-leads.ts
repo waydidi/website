@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { DRAFTING_TIMEOUT_MIN, LEAD_KEEP_DAYS, MAX_ATTEMPTS, dailyLimit, isLead, leadsEnabled, reliability, thaiDayStart, thaiStamp, type IncomingPost, type LeadAction } from "@/lib/fb-leads-rules";
+import { DRAFTING_TIMEOUT_MIN, LEAD_KEEP_DAYS, MAX_ATTEMPTS, dailyLimit, isLead, leadsEnabled, looksLikeRequest, reliability, thaiDayStart, thaiStamp, type IncomingPost, type LeadAction } from "@/lib/fb-leads-rules";
 import { assistantFailure } from "@/lib/assistant-error-rules";
 import { esc } from "@/lib/telegram/cards";
 import { answerCallback, editIn, sendTo, telegramCommentChatId, type InlineKeyboard, type TelegramMessage } from "@/lib/telegram/client";
@@ -35,17 +35,22 @@ export async function leadId(groupKey: string, postKey: string) {
   return [...hash.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Queues posts; a post already sent in (same group and post) is ignored, so collectors may send the same post again. A post that failed is queued again when it is sent in again. */
+/**
+ * Queues posts; a post already sent in (same group and post) is ignored, so collectors may send the same post again.
+ * A post that failed is queued again when it is sent in again. A post that asks or needs nothing (photos, chat) is
+ * stored as "not a lead" at once, with no AI cost and no message.
+ */
 export async function queueLeads(posts: IncomingPost[], now = new Date()) {
   await ensureLeadTables();
-  let accepted = 0;
+  let accepted = 0, skipped = 0;
   for (const p of posts) {
-    const at = now.toISOString();
-    const res = await db().prepare("INSERT OR IGNORE INTO fb_leads(id,group_key,group_name,post_key,post_url,post_text,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'queued',?,?) ON CONFLICT(group_key,post_key) DO UPDATE SET status='queued',attempts=0,post_text=excluded.post_text,group_name=excluded.group_name,updated_at=excluded.updated_at WHERE fb_leads.status='failed'")
-      .bind(await leadId(p.groupKey, p.postKey), p.groupKey, p.groupName, p.postKey, p.url, p.text, at, at).run();
+    const at = now.toISOString(), request = looksLikeRequest(p.text);
+    const res = await db().prepare("INSERT OR IGNORE INTO fb_leads(id,group_key,group_name,post_key,post_url,post_text,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(group_key,post_key) DO UPDATE SET status='queued',attempts=0,post_text=excluded.post_text,group_name=excluded.group_name,updated_at=excluded.updated_at WHERE fb_leads.status='failed'")
+      .bind(await leadId(p.groupKey, p.postKey), p.groupKey, p.groupName, p.postKey, p.url, p.text, request ? "queued" : "not_lead", at, at).run();
     accepted += res.meta.changes;
+    if (res.meta.changes && !request) skipped++;
   }
-  return { accepted, duplicates: posts.length - accepted };
+  return { accepted, duplicates: posts.length - accepted, skipped };
 }
 
 type Lead = { id: string; group_name: string; post_url: string; post_text: string; status: string; attempts: number; reliable: number | null; comment: string | null; details_html: string | null; keyboard_json: string | null; comment_message_id: number | null; link_message_id: number | null; marked_by: string | null; marked_at: string | null };

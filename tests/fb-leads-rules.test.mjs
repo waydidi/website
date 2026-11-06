@@ -56,6 +56,11 @@ test('which posts are leads, and when a draft is ready to post', () => {
   assert.match(r.reliability({ factCount: 3, stale: true }).reason, /over 3 months old/);
 });
 
+test('which posts ask for something: questions and travel words pass, plain sharing does not',()=>{
+  for(const yes of ['Anyone know a good driver?','Need a van from BKK to Pattaya for 6','How much is a taxi to Ayutthaya','แนะนำที่พักเกาะช้างหน่อยค่ะ','มีรถรับส่งสนามบินไหม','请问有没有包车推荐','Best time to visit Chiang Mai ？'])assert.equal(r.looksLikeRequest(yes),true,yes);
+  for(const no of ['Beautiful sunset at Kata beach today','Thank you all for the great trip, see you next year','Happy birthday to our admin'])assert.equal(r.looksLikeRequest(no),false,no);
+});
+
 test('daily limit, Thailand day start, buttons', () => {
   assert.equal(r.dailyLimit(undefined), 50);
   assert.equal(r.dailyLimit('0'), 50);

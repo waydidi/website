@@ -43,7 +43,7 @@ test('ingest: not found while off, 401 without the right token, 400 for a bad bo
 test('ingest: posts are queued once; sending the same post again (or twice at once) is ignored', async () => {
   const res = await ingest({ posts: [post(1), post(2), { url: 'https://example.com/', text: 'hi there' }] });
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { accepted: 2, duplicates: 0, rejected: [{ index: 2, reason: 'Not a Facebook group post link.' }] });
+  assert.deepEqual(await res.json(), { accepted: 2, duplicates: 0, skipped: 0, rejected: [{ index: 2, reason: 'Not a Facebook group post link.' }] });
   const [a, b] = await Promise.all([ingest({ posts: [post(1), post(3)] }), ingest({ posts: [post(3)] })]);
   const total = [(await a.json()), (await b.json())].reduce((s, x) => s + x.accepted, 0);
   assert.equal(total, 1, 'post 3 queued exactly once');
@@ -68,6 +68,14 @@ test('a lead is drafted and sent as two messages: the comment alone, then group,
   assert.equal(s.sent[1].keyboard[2][0].callback_data, 'ph_again:d1', 'the /c buttons are kept');
   assert.equal(row.status, 'sent'); assert.equal(row.comment_message_id, 101); assert.equal(row.link_message_id, 102);
   assert.deepEqual(await fl.processLeads({ draft: draftOf(), send: s.send, now: () => now }), { drafted: 0, sent: 0 }, 'nothing sent twice');
+});
+
+test('posts that ask for nothing (photos, chat) are kept out of the AI queue and cost nothing',async()=>{
+  const res=await ingest({posts:[post(1),post(2,{text:'Beautiful sunset at Kata beach today, so happy'}),post(3,{text:'ที่ไหนดีคะ ไปเกาะช้างช่วงปีใหม่'})]});
+  assert.deepEqual(await res.json(),{accepted:3,duplicates:0,skipped:1,rejected:[]});
+  assert.deepEqual([(await lead(1)).status,(await lead(2)).status,(await lead(3)).status],['queued','not_lead','queued']);
+  let calls=0;await fl.processLeads({draft:async(t)=>{calls++;return draftOf()(t);},send:sender().send,now:()=>now,batch:5});
+  assert.equal(calls,2,'the photo caption is never drafted');
 });
 
 test('not ready: no checked facts → sent with "Needs your check"; social post → no message', async () => {
@@ -119,9 +127,9 @@ test('retries: a failed draft is retried then marked failed; a failed send is re
   assert.equal(notes.length, 1, 'the team is told once, after the last try');
   assert.ok(notes[0].text.includes('<b>G</b>')); assert.doesNotMatch(notes[0].text, /Need a driver/, 'never the post text');
   // Sending the failed post in again queues it again (and only a failed one).
-  assert.deepEqual(await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'G' }], now), { accepted: 1, duplicates: 0 });
+  assert.deepEqual(await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'G' }], now), { accepted: 1, duplicates: 0, skipped: 0 });
   assert.equal((await lead(1)).status, 'queued');
-  assert.deepEqual(await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'G' }], now), { accepted: 0, duplicates: 1 }, 'a queued post is not queued twice');
+  assert.deepEqual(await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'G' }], now), { accepted: 0, duplicates: 1, skipped: 0 }, 'a queued post is not queued twice');
   await db.prepare("UPDATE fb_leads SET status='failed',attempts=3 WHERE post_key='1000001'").run();
 
   await fl.queueLeads([{ groupKey: 'g', postKey: '1000002', url: post(2).url, text: post(2).text, groupName: 'G' }], now);

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Waydidi Facebook Leads: Settings</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 520px; margin: 40px auto; padding: 0 16px; color: #1c2b24; }
+  h1 { font-size: 20px; }
+  label { display: block; font-weight: 600; margin: 20px 0 6px; }
+  input[type=password], input[type=text] { width: 100%; box-sizing: border-box; padding: 10px; font: inherit; border: 1px solid #9aa8a0; border-radius: 8px; }
+  button { margin-top: 12px; margin-right: 8px; padding: 9px 16px; font: inherit; border: 0; border-radius: 8px; background: #1f7a4d; color: #fff; cursor: pointer; }
+  button.secondary { background: #e4ece7; color: #1c2b24; }
+  #status { margin-top: 16px; min-height: 24px; }
+  .hint { color: #51635a; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>Waydidi Facebook Leads</h1>
+<p class="hint">Paste the token from your Cloudflare settings (FB_LEADS_INGEST_TOKEN). It is kept only in this browser and is sent only to waydidi.com.</p>
+<label for="token">Token</label>
+<input id="token" type="password" autocomplete="off" spellcheck="false">
+<button id="save">Save</button><button id="test" class="secondary">Test connection</button>
+<div id="status" role="status"></div>
+<script src="options.js"></script>
+</body>
+</html>
