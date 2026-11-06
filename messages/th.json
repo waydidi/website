@@ -179,6 +179,38 @@
     "text": "ตรวจสอบการจอง",
     "status": "machine"
   },
+  "nav.ourServices": {
+    "text": "บริการของเรา",
+    "status": "machine"
+  },
+  "nav.ourDestinations": {
+    "text": "จุดหมายปลายทางของเรา",
+    "status": "machine"
+  },
+  "nav.travelAgentsB2B": {
+    "text": "ตัวแทนท่องเที่ยวและ B2B",
+    "status": "machine"
+  },
+  "nav.becomeDriver": {
+    "text": "ร่วมเป็นคนขับ",
+    "status": "machine"
+  },
+  "nav.dayTrips": {
+    "text": "ทริปวันเดียว",
+    "status": "machine"
+  },
+  "nav.agentLogin": {
+    "text": "เข้าสู่ระบบสำหรับตัวแทนท่องเที่ยว",
+    "status": "machine"
+  },
+  "nav.travelAgents": {
+    "text": "ตัวแทนท่องเที่ยว",
+    "status": "machine"
+  },
+  "nav.partners": {
+    "text": "พาร์ตเนอร์",
+    "status": "machine"
+  },
   "nav.menu": {
     "text": "เมนู",
     "status": "machine"

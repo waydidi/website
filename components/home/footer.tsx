@@ -57,6 +57,9 @@ export function WaydidiFooter({ locale = "en" }: { locale?: Locale }) {
                 { label: t("footer.travelAgencies"), href: "/agencies" },
                 { label: t("footer.becomePartner"), href: "/partners" },
                 { label: t("footer.drivers"), href: "/drivers" },
+                // These two left the header menu to match Daytrip's; the footer keeps them one click away.
+                { label: t("nav.blog"), href: "/blog" },
+                { label: t("nav.about"), href: "/about" },
               ]}
             />
           </div>

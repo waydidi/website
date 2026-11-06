@@ -43,8 +43,9 @@ for (const [width, height, bar, logo, full] of sizes) {
     expect(Math.round(g.logo!.x)).toBe(Math.max(20, Math.round((g.column - 1160) / 2)));
     if (full) {
       expect(g.menuButton).toBeNull();
-      expect(g.navText.slice(0, 5)).toEqual(["Transfer", "Trip", "Destinations", "Travel guides", "About Waydidi"]);
-      expect(g.navText.at(-1)).toBe("Check your booking");
+      // The same four items, in the same order, as Daytrip's header; the rest moved to the phone menu and the footer.
+      expect(g.navText.slice(0, 4)).toEqual(["Our services", "Our destinations", "Travel agents & B2B", "Become a driver"]);
+      for (const gone of ["Check your booking", "Travel guides", "About Waydidi"]) expect(g.navText).not.toContain(gone);
     } else {
       expect(g.menuButton?.text).toBe("Menu");
       expect(g.menuButton!.h).toBe(40);
@@ -61,6 +62,39 @@ test("the homepage header over the hero has the same bar height", async ({ page 
   expect(await page.locator("header").first().evaluate(element => element.getBoundingClientRect().height)).toBe(76);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.locator("header").first().evaluate(element => element.getBoundingClientRect().height)).toBe(70);
+});
+
+test("the two menus list their items and every item goes to a Waydidi page", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/about");
+  await page.waitForLoadState("networkidle");
+  const nav = page.locator(".public-path-header header").getByRole("navigation");
+  await nav.getByRole("button", { name: "Our services" }).click();
+  const services = page.getByRole("menu", { name: "Our services" });
+  await expect(services.getByRole("menuitem")).toHaveText(["City-to-city transfer", "Airport transfer", "Hourly private driver", "Day trips"]);
+  await page.keyboard.press("Escape");
+  await nav.getByRole("button", { name: "Travel agents & B2B" }).click();
+  const agents = page.getByRole("menu", { name: "Travel agents & B2B" });
+  await expect(agents.getByRole("menuitem")).toHaveText(["Log in as travel agent", "Travel agents", "Partners"]);
+  await expect(agents.getByRole("menuitem", { name: "Log in as travel agent" })).toHaveAttribute("href", "/agency");
+  await page.keyboard.press("Escape");
+  await expect(nav.getByRole("link", { name: "Our destinations" })).toHaveAttribute("href", "/destinations");
+  await expect(nav.getByRole("link", { name: "Become a driver" })).toHaveAttribute("href", "/drivers");
+});
+
+test("the phone menu has the same items, plus Sign in and Check your booking", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/about");
+  await page.waitForLoadState("networkidle");
+  const open = page.locator(".public-path-header header").getByRole("button", { name: /open navigation menu/i });
+  const drawer = page.getByRole("navigation", { name: "Mobile navigation" });
+  await expect(async () => {
+    await open.click();
+    await expect(drawer).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 15_000 });
+  for (const name of ["City-to-city transfer", "Airport transfer", "Hourly private driver", "Day trips", "Our destinations", "Log in as travel agent", "Travel agents", "Partners", "Become a driver", "Sign in", "Check your booking"]) {
+    await expect(drawer.getByRole("link", { name, exact: true }), name).toBeVisible();
+  }
 });
 
 test("the language button is in the full menu and the Menu button opens the side menu", async ({ page }) => {

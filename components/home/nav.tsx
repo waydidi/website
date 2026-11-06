@@ -6,32 +6,37 @@ import { useState } from "react";
 import { DropdownMenu } from "radix-ui";
 import type { MessageKey } from "@/lib/i18n";
 
-export const navMenus = [
-  {
-    labelKey: "nav.ride",
-    links: [
-      { labelKey: "nav.airportTransfer", href: "/airport-transfer" },
-      { labelKey: "nav.aToB", href: "/a-to-b-transfer" },
-      { labelKey: "nav.longJourney", href: "/long-journeys" },
-    ],
-  },
-  {
-    labelKey: "nav.trip",
-    links: [
-      { labelKey: "nav.hourlyDriver", href: "/hourly-driver" },
-      { labelKey: "nav.pickupGuide", href: "/airport-pickup-instructions" },
-    ],
-  },
-] as const satisfies readonly { labelKey: MessageKey; links: readonly { labelKey: MessageKey; href: string }[] }[];
-
 export const aboutHref = "/about";
 
-// Shown as top-level links after the dropdowns.
-export const navLinks = [
-  { labelKey: "nav.destinations", href: "/destinations" },
-  { labelKey: "nav.blog", href: "/blog" },
-  { labelKey: "nav.about", href: aboutHref },
-] as const satisfies readonly { labelKey: MessageKey; href: string }[];
+type NavLink = { labelKey: MessageKey; href: string };
+export type NavItem = { type: "menu"; labelKey: MessageKey; links: readonly NavLink[] } | ({ type: "link" } & NavLink);
+
+// The header's items, in the same order and with the same shape as Daytrip's: a services menu, a destinations link,
+// a travel agents and business menu, and a driver link, then the language button and Sign in (drawn by the header).
+// "Check your booking", the travel guides and About live in the phone menu and the footer.
+export const navItems: readonly NavItem[] = [
+  {
+    type: "menu",
+    labelKey: "nav.ourServices",
+    links: [
+      { labelKey: "nav.aToB", href: "/a-to-b-transfer" },
+      { labelKey: "nav.airportTransfer", href: "/airport-transfer" },
+      { labelKey: "nav.hourlyDriver", href: "/hourly-driver" },
+      { labelKey: "nav.dayTrips", href: "/trips" },
+    ],
+  },
+  { type: "link", labelKey: "nav.ourDestinations", href: "/destinations" },
+  {
+    type: "menu",
+    labelKey: "nav.travelAgentsB2B",
+    links: [
+      { labelKey: "nav.agentLogin", href: "/agency" },
+      { labelKey: "nav.travelAgents", href: "/agencies" },
+      { labelKey: "nav.partners", href: "/partners" },
+    ],
+  },
+  { type: "link", labelKey: "nav.becomeDriver", href: "/drivers" },
+];
 
 export function NavDropdown({
   label,
