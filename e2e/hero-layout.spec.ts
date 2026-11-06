@@ -75,6 +75,27 @@ test("hero at 390px: 28px heading, no subtitle, card under the tabs, heading 24p
   expect(Math.round(g.h1.x)).toBe(20);
 });
 
+// The chosen departure date and time sit on two lines in the one-row bar. Even the widest weekday, month and time
+// ("Wed, Sep 30", "12:30 pm") must show in full on every desktop width, without making the bar taller.
+for (const width of [1440, 1280, 1100, 1024]) {
+  test(`the chosen departure date and time are never cut off at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    const result = await page.evaluate(() => {
+      const form = document.querySelector("#booking-search")!;
+      const button = [...form.querySelectorAll("button[aria-expanded]")].find((b) => /\d{1,2}:\d{2}/.test(b.textContent ?? "") && b.getBoundingClientRect().width > 0)!;
+      const lines = [...button.querySelectorAll("span")].filter((el) => el.children.length === 0 && (el.textContent ?? "").trim() && el.getBoundingClientRect().width > 0);
+      lines[0].textContent = "Wed, Sep 30";
+      lines[1].textContent = "12:30 pm";
+      return { count: lines.length, cut: lines.map((el) => el.scrollWidth > el.clientWidth + 1), bar: form.children[1].getBoundingClientRect().height };
+    });
+    expect(result.count, "date and time on two lines").toBe(2);
+    expect(result.cut, "nothing is cut off").toEqual([false, false]);
+    expect(result.bar, "the bar stays one row").toBeLessThan(80);
+  });
+}
+
 test("the service tabs are a white pill with the chosen one in orange, and the hero stays Waydidi orange", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
