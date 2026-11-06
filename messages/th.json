@@ -1547,6 +1547,10 @@
     "text": "หลายเมือง",
     "status": "machine"
   },
+  "multiCity.button": {
+    "text": "ทริปหลายเมือง",
+    "status": "machine"
+  },
   "multiCity.intro": {
     "text": "บอกเราทุกช่วงของการเดินทาง ทีมงานจะตรวจสอบเส้นทางและส่งราคาให้คุณ",
     "status": "machine"

@@ -1547,6 +1547,10 @@
     "text": "多城市",
     "status": "machine"
   },
+  "multiCity.button": {
+    "text": "多城市行程",
+    "status": "machine"
+  },
   "multiCity.intro": {
     "text": "请告诉我们您行程的每一段。我们的团队会核查路线并将报价发送给您。",
     "status": "machine"

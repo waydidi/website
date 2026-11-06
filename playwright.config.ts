@@ -1,8 +1,12 @@
+import { existsSync, writeFileSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 
 // Browser tests for the main customer and admin flows. They run against the local dev server
 // (emulated D1, no real payments or emails). CI runs them on every push and pull request.
 const PORT = 5199;
+// The multi-city button only shows when MULTI_CITY_REQUESTS=1, which the Worker reads from .dev.vars in local development.
+// The file is git-ignored; an existing one is never overwritten (add the line yourself if yours lacks it).
+if (!existsSync(".dev.vars")) writeFileSync(".dev.vars", "MULTI_CITY_REQUESTS=1\n");
 // In the Claude/cloud sandbox Chromium is pre-installed here; in GitHub Actions Playwright installs its own.
 const executablePath = process.env.PW_CHROMIUM_PATH || undefined;
 
