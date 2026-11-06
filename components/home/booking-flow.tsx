@@ -1398,13 +1398,13 @@ export function BookingFlow({
                 <button
                   type="button"
                   onClick={() => setPeopleOpen(true)}
-                  className={inRow ? `flex min-h-14 w-full min-w-0 items-center justify-between rounded-[14px] border border-slate-200 bg-white px-3.5 py-1.5 text-left ${compact ? "" : "md:min-h-[80px] md:px-4 lg:min-h-[64px] lg:rounded-none lg:border-0 lg:border-l lg:px-4"}` : `order-1 flex min-h-14 w-full items-center justify-between rounded-[14px] border border-slate-200 bg-white px-4 py-2 text-left ${compact ? "" : "md:order-5 md:col-span-2 md:min-h-[80px] md:px-4 lg:order-4 lg:col-span-1 lg:min-h-[64px] lg:rounded-none lg:border-0 lg:border-l lg:px-5"}`}
+                  className={inRow ? `flex min-h-14 w-full min-w-0 items-center justify-between rounded-[14px] border border-slate-200 bg-white px-3.5 py-1.5 text-left ${compact ? "" : "md:min-h-[80px] md:px-4 lg:min-h-[54px] lg:rounded-none lg:border-0 lg:border-l lg:px-4"}` : `order-1 flex min-h-14 w-full items-center justify-between rounded-[14px] border border-slate-200 bg-white px-4 py-2 text-left ${compact ? "" : "md:order-5 md:col-span-2 md:min-h-[80px] md:px-4 lg:order-4 lg:col-span-1 lg:min-h-[54px] lg:rounded-none lg:border-0 lg:border-l lg:px-5"}`}
                   aria-expanded={peopleOpen}
                   aria-controls="passenger-luggage-sheet"
                   aria-label={t("hero.travellersLabel", { passengers: booking.passengers, bags: booking.luggage })}
                 >
                   {!compact && <span className="hidden min-w-0 md:block">
-                    <span className="block text-[17px]/[24px] text-slate-500 lg:text-[13px]/[20px]">{t("hero.passengersLabel")}</span>
+                    <span className="block text-[17px]/[24px] text-slate-500 lg:truncate lg:text-[13px]/[20px]">{t("hero.passengersLabel")}</span>
                     <span className="mt-1 flex items-center gap-4 text-[19px]/[26px] font-semibold text-slate-950 lg:mt-0 lg:gap-3 lg:text-[15px]/[22px]">
                       <span className="flex items-center gap-1.5"><Users size={18} className="shrink-0 text-slate-500" aria-hidden="true" />{booking.passengers}</span>
                       <span className="flex items-center gap-1.5"><Luggage size={18} className="shrink-0 text-slate-500" aria-hidden="true" />{booking.luggage}</span>
@@ -1426,10 +1426,10 @@ export function BookingFlow({
                 </button>
     );
     return (
-              <div className={compact ? "overflow-visible rounded-[22px] bg-white text-slate-950" : `mt-2.5 overflow-visible rounded-[22px] bg-white p-2.5 text-slate-950 shadow-xl shadow-slate-900/10 md:mt-0 md:grid md:grid-cols-2 md:gap-2 md:rounded-[16px] md:p-2 lg:grid lg:items-stretch lg:gap-0 lg:rounded-[14px] lg:p-2 ${serviceType === "hourly" ? "lg:grid-cols-[1.5fr_1.1fr_1.1fr_1.8fr_auto]" : "lg:grid-cols-[1.1fr_1.1fr_2.5fr_.8fr_auto]"}`}>
+              <div className={compact ? "overflow-visible rounded-[22px] bg-white text-slate-950" : `overflow-visible rounded-[20px] bg-white p-2.5 text-slate-950 shadow-xl shadow-slate-900/10 md:grid md:grid-cols-2 md:gap-2 md:rounded-[20px] md:p-3 lg:grid lg:items-center lg:gap-0 lg:rounded-full lg:py-[5px] lg:pl-4 lg:pr-[5px] ${serviceType === "hourly" ? "lg:grid-cols-[1.5fr_1.1fr_1.1fr_1.8fr_auto]" : "lg:grid-cols-[1.3fr_1.3fr_2.8fr_1fr_auto]"}`}>
                 <div className={`flex w-full flex-col gap-2 overflow-visible rounded-[18px] bg-white ${compact ? "" : "md:contents md:w-auto"}`}>
                 {serviceType === "hourly" ? <div className={`order-1 grid grid-cols-2 gap-2 ${compact ? "" : "md:order-5 md:col-span-2 lg:order-first lg:col-span-1 lg:gap-0"}`}>
-                  <AreaPicker areas={hourlyAreas} value={hourlyArea} onChange={(slug) => { setHourlyArea(slug); setHourlyQuote(null); setPricingMessage(""); }} className={`flex min-h-14 min-w-0 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-1.5 ${compact ? "" : "md:min-h-[80px] md:px-5 lg:min-h-[64px] lg:rounded-none lg:border-0 lg:px-4"}`} />
+                  <AreaPicker areas={hourlyAreas} value={hourlyArea} onChange={(slug) => { setHourlyArea(slug); setHourlyQuote(null); setPricingMessage(""); }} className={`flex min-h-14 min-w-0 items-center gap-2.5 rounded-[14px] border border-slate-200 bg-white px-3.5 py-1.5 ${compact ? "" : "md:min-h-[80px] md:px-5 lg:min-h-[54px] lg:rounded-none lg:border-0 lg:px-4"}`} />
                   {peopleButton(true)}
                 </div> : peopleButton(false)}
                 <GoogleRoutePicker
@@ -1457,7 +1457,7 @@ export function BookingFlow({
                   prefill={routePrefill}
                   connectedMobile
                 />
-                <div className={`order-4 grid min-h-14 grid-cols-2 overflow-hidden rounded-[14px] border border-slate-200 bg-white ${compact ? "" : `md:order-3 md:min-h-[80px] md:overflow-visible md:border-0 md:gap-2 md:col-span-2 lg:order-3 lg:col-span-1 lg:min-h-[64px] lg:gap-0 lg:rounded-none lg:border-l lg:border-slate-200`}`}>
+                <div className={`order-4 grid min-h-14 grid-cols-2 overflow-hidden rounded-[14px] border border-slate-200 bg-white ${compact ? "" : `md:order-3 md:min-h-[80px] md:overflow-visible md:border-0 md:gap-2 md:col-span-2 lg:order-3 lg:col-span-1 lg:min-h-[54px] lg:gap-0 lg:rounded-none lg:border-l lg:border-slate-200`}`}>
                   <div className={`relative flex min-w-0 items-center border-r border-slate-200 ${compact ? "" : "md:rounded-[14px] md:border md:border-slate-200 lg:rounded-none lg:border-0 lg:border-r"}`}>
                     <button
                       type="button"
@@ -1467,7 +1467,7 @@ export function BookingFlow({
                     >
                       {departureSelected ? <CalendarCheck className="shrink-0 text-charcoal max-[359px]:hidden" size={20} aria-hidden="true" /> : <CalendarDays className="shrink-0 text-slate-950" size={20} />}
                       {!compact && <span className="hidden min-w-0 md:block">
-                        <span className="block text-[17px]/[24px] text-slate-500 lg:text-[13px]/[20px]">{t("hero.pickupDate")}</span>
+                        <span className="block text-[17px]/[24px] text-slate-500 lg:truncate lg:text-[13px]/[20px]">{t("hero.pickupDate")}</span>
                         <span className={`mt-1 block truncate text-[19px]/[26px] lg:mt-0 lg:text-[15px]/[22px] ${departureSelected ? "font-semibold text-slate-950" : "text-slate-400"}`}>{departureSelected ? `${shortDate(booking.date, locale)} · ${formatTimeLabel(booking.time, locale)}` : t("hero.departure")}</span>
                       </span>}
                       {departureSelected ? (
@@ -1550,7 +1550,7 @@ export function BookingFlow({
                 </div>
                 <div className="mt-2.5 flex items-center md:order-6 md:col-span-2 md:mt-0 lg:order-5 lg:col-span-1 lg:pl-2">
                   <button
-                    className="flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-brand px-8 text-[15px]/[24px] font-semibold text-white shadow-lg shadow-orange-900/20 transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 md:min-h-[66px] md:rounded-[14px] md:text-[21px] md:font-bold md:shadow-none lg:h-full lg:min-h-[64px] lg:w-auto lg:rounded-[10px] lg:px-10 lg:text-[17px]"
+                    className="flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-brand px-8 text-[16px]/[24px] font-semibold text-white shadow-lg shadow-orange-900/20 transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 md:text-[18px] md:shadow-none lg:h-[54px] lg:min-h-[54px] lg:w-auto lg:px-8 lg:text-[16px]"
                     type="submit"
                   >
                     {loading ? t("hero.calculating") : t("hero.seePrices")} <ArrowRight size={18} />
@@ -1633,18 +1633,18 @@ export function BookingFlow({
           </>
         )}
         {stage === "search" && (
-          <div className={`relative z-10 mx-auto w-full max-w-[1440px] px-5 animate-in fade-in duration-300 motion-reduce:animate-none md:px-[58px] lg:px-14 ${hero && !hero.homeSpacing ? "pb-8 pt-[88px] md:pb-10 md:pt-[120px] lg:pb-12 lg:pt-[128px]" : "pb-12 pt-[123px] md:pb-14 md:pt-[195px] lg:pb-16 lg:pt-[175px]"}`}>
-            <div className={hero ? "mb-5 max-w-2xl md:mb-8 md:max-w-[820px]" : "mb-6 max-w-2xl md:mb-[62px] md:max-w-[820px] lg:mb-[52px]"}>
+          <div className={`relative z-10 mx-auto w-full max-w-[1200px] px-5 animate-in fade-in duration-300 motion-reduce:animate-none ${hero && !hero.homeSpacing ? "pb-8 pt-[88px] md:pb-10 md:pt-[120px] lg:pb-12 lg:pt-[128px]" : "pb-12 pt-[94px] md:pb-14 md:pt-[120px] lg:pb-16"}`}>
+            <div className={hero ? "mb-5 max-w-2xl md:mb-8 md:max-w-[820px]" : "mb-6 max-w-2xl md:max-w-[820px]"}>
               {hero?.top}
-              <h1 className={`${locale === "en" ? "" : "text-balance "}font-semibold tracking-[-.03em] md:tracking-[-.02em] ${hero ? "mt-3 text-[32px] leading-[1.1] sm:text-[44px]" : "text-[32.5px] leading-[1.08] sm:text-[45.3px] md:text-[58px] md:leading-[1.02] lg:text-[60px]"}`}>
+              <h1 className={`${locale === "en" ? "" : "text-balance "}${hero ? "font-semibold tracking-[-.03em] md:tracking-[-.02em]" : "font-medium tracking-[-.01em]"} ${hero ? "mt-3 text-[32px] leading-[1.1] sm:text-[44px]" : "text-[28px] leading-[1.1] md:text-[36px]"}`}>
                 {hero?.title ?? t("hero.title")}
               </h1>
-              <p className={`mt-3 font-medium text-white md:mt-8 md:font-normal md:text-white/90 lg:mt-10 ${hero ? "text-[14px]/[1.33] sm:text-[20px]/[1.15]" : "text-[17px]/[28px] sm:text-[19px]/[28px] md:text-[25px]/[32px] lg:text-[17px]/[26px]"}`}>
+              <p className={hero ? "mt-3 text-[14px]/[1.33] font-medium text-white sm:text-[20px]/[1.15] md:mt-8 md:font-normal md:text-white/90 lg:mt-10" : "mt-2 hidden text-[20px]/[23px] font-normal text-white/90 md:block"}>
                 {hero?.subtitle ?? t("hero.subtitle")}
               </p>
             </div>
             <form id="booking-search" onSubmit={search} className="font-search w-full scroll-mt-28">
-              <div className={`inline-grid h-[46px] ${multiCity ? "w-full max-w-[380px] grid-cols-3" : "w-[min(270px,100%)] grid-cols-2"} gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 md:mb-4 md:inline-flex md:h-auto md:w-auto md:gap-2 md:rounded-[16px] md:p-1.5 md:text-[19px]/[24px] md:font-semibold md:text-slate-800 lg:mb-4 lg:rounded-[14px] lg:p-1 lg:text-[15px]/[22px]`}>
+              <div className={`inline-grid h-[46px] ${multiCity ? "w-full max-w-[380px] grid-cols-3" : "w-[min(270px,100%)] grid-cols-2"} gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 mb-4 md:mb-9 md:inline-flex md:h-auto md:w-auto md:gap-2 md:rounded-[16px] md:p-1.5 md:text-[19px]/[24px] md:font-semibold md:text-slate-800 lg:rounded-[14px] lg:p-1 lg:text-[15px]/[22px]`}>
                 <button onClick={()=>{setMultiCityOpen(false);if(serviceType==="hourly"){change("dropoff",transferDropoff.current);setHourlyDropoffId("");}setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${!multiCityOpen && serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
                   <CarFront className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("hero.transfer")}
                 </button>
@@ -1718,7 +1718,7 @@ export function BookingFlow({
                   {pricingMessage}
                 </div>
               )}
-              <p className="mt-5 hidden flex-wrap items-center gap-x-2.5 text-[17px] text-white/85 md:flex lg:mt-5 lg:text-[15px]">{[t("hero.trustArea"), t("hero.trustPrice"), t("hero.trustCancel")].map((item, i) => <span key={item} className="flex items-center gap-2.5">{i > 0 && <span aria-hidden="true">·</span>}{item}</span>)}</p>
+              <p className="mt-8 hidden flex-wrap items-center gap-x-2.5 text-[15px]/[24px] text-white/90 md:flex">{[t("hero.trustArea"), t("hero.trustPrice"), t("hero.trustCancel")].map((item, i) => <span key={item} className="flex items-center gap-2.5">{i > 0 && <span aria-hidden="true">·</span>}{item}</span>)}</p>
               {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-brand"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">Unlimited kilometres within your itinerary · Tolls included · Price held for 30 minutes</span></div>}
             </form>
           </div>

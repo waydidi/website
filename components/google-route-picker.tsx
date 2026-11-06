@@ -185,7 +185,7 @@ export function GoogleRoutePicker({
   return (
     <>
       <label className={`block min-w-0 ${connectedMobile ? "order-2 md:order-1" : ""}`}>
-        <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none md:min-h-[80px] md:gap-4 md:px-5 lg:min-h-[64px] lg:gap-3 lg:rounded-none lg:border-0 lg:focus-within:ring-0" : "rounded-xl border border-slate-200 shadow-sm"}`}>
+        <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none md:min-h-[80px] md:gap-4 md:px-5 lg:min-h-[54px]! lg:gap-3 lg:rounded-none lg:border-0 lg:focus-within:ring-0" : "rounded-xl border border-slate-200 shadow-sm"}`}>
         <MapPin size={20} className="shrink-0 text-slate-950" aria-hidden="true" />
         <span className="min-w-0 flex-1">
           <span className={`block text-[13px]/[20px] font-normal text-slate-500 ${connectedMobile ? "md:text-[17px]/[24px] lg:text-[13px]/[20px]" : ""}`}>{t("route.from")}</span>
@@ -202,7 +202,7 @@ export function GoogleRoutePicker({
         </span></span>
       </label>
       {(!pickupOnly || optionalDropoff) && <label className={`block min-w-0 ${connectedMobile ? "order-3 md:order-2 lg:border-l lg:border-slate-200" : "mt-3 lg:mt-0"}`}>
-        <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none md:min-h-[80px] md:gap-4 md:px-5 lg:min-h-[64px] lg:gap-3 lg:rounded-none lg:border-0 lg:focus-within:ring-0" : "rounded-xl border border-slate-200 shadow-sm"}`}>
+        <span className={`flex min-h-14 items-center gap-3 px-4 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40 lg:min-h-[88px] lg:gap-3 lg:px-5 ${connectedMobile ? "rounded-[14px] border border-slate-200 shadow-none md:min-h-[80px] md:gap-4 md:px-5 lg:min-h-[54px]! lg:gap-3 lg:rounded-none lg:border-0 lg:focus-within:ring-0" : "rounded-xl border border-slate-200 shadow-sm"}`}>
         <MapPin size={20} className="shrink-0 text-slate-950" aria-hidden="true" />
         <span className="min-w-0 flex-1">
           <span className={`block text-[13px]/[20px] font-normal text-slate-500 ${connectedMobile ? "md:text-[17px]/[24px] lg:text-[13px]/[20px]" : ""}`}>{optionalDropoff ? "Drop-off (optional)" : t("route.to")}</span>
