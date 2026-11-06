@@ -1,13 +1,9 @@
 @import "tailwindcss";
 /* Inter (SIL OFL) for the homepage search form only; see .font-search. */
 @import "@fontsource-variable/inter/index.css";
-/* Poppins (SIL OFL) for the whole homepage; see .font-home. */
-@import "@fontsource/poppins/400.css";
-@import "@fontsource/poppins/500.css";
-@import "@fontsource/poppins/600.css";
-@import "@fontsource/poppins/700.css";
-@import "@fontsource/poppins/800.css";
-@import "@fontsource/poppins/900.css";
+/* Figtree (SIL OFL) for the whole homepage; see .font-home. A free font chosen as the closest match to the licensed
+   Matter that Daytrip uses: its 36px headline is within 2% of Matter's width. One variable file covers weights 300-900. */
+@import "@fontsource-variable/figtree/index.css";
 
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
@@ -221,11 +217,11 @@ body {
   font-feature-settings: "cv11";
 }
 
-/* Homepage uses Poppins everywhere, including the search form. Thai and
+/* Homepage uses Figtree everywhere, including the search form. Thai and
   Chinese text falls back to the system font. */
 .font-home,
 .font-home .font-search {
-  font-family: "Poppins", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: "Figtree Variable", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-feature-settings: normal;
 }
 
