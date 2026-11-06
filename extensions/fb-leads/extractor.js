@@ -66,5 +66,20 @@
     return posts;
   }
 
-  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findPosts: findPosts });
+  /** What the page shows, for the popup when no post can be read: articles on screen, with a post link, with text. */
+  function diagnose(doc) {
+    var d = { articles: 0, withLink: 0, withText: 0, readable: 0 };
+    var articles = doc.querySelectorAll('[role="article"]');
+    for (var i = 0; i < articles.length; i++) {
+      if (!isTopLevel(articles[i])) continue;
+      d.articles++;
+      var link = Boolean(postUrl(articles[i], doc)), text = postText(articles[i]).length >= MIN_TEXT;
+      if (link) d.withLink++;
+      if (text) d.withText++;
+      if (link && text) d.readable++;
+    }
+    return d;
+  }
+
+  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findPosts: findPosts, diagnose: diagnose });
 })(typeof window !== "undefined" ? window : globalThis);

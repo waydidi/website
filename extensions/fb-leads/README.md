@@ -23,13 +23,16 @@ After you update the files (for example after pulling a new version), click the 
 
 ## Collect (scrolling for you)
 
-Open a group, sort it by **New posts**, click the extension icon and press **Collect from this group**. Keep that tab
-in front. It then scrolls the way a person reads: a different distance each time (about half to four-fifths of a
+Open a group, sort it by **New posts**, click the extension icon, set **Posts to collect** (10 to 100, default 50) and press
+**Collect from this group**. Keep that tab in front. It then scrolls the way a person reads: a different distance each time (about half to four-fifths of a
 screen), a pause of 3 to 9 seconds on each screen, a longer read of 12 to 25 seconds now and then, and a small scroll
 back up now and then. A run is limited and always ends by itself:
 
-- after 30 posts that look like requests, or 150 posts looked at, or 12 minutes;
-- at the end of the feed (5 screens in a row with nothing new);
+- when it has sent your target number of **new** posts (posts sent before do not count; it scrolls past them), or after
+  20 minutes or 200 screens;
+- at the real end of the feed: the page stops moving and stops growing for 3 scrolls in a row;
+- if no post on the page can be read: the popup says so and shows how many posts the page has, how many with a post
+  link and how many with text, which tells the developer what changed on Facebook;
 - the moment you touch the page (wheel, keys, mouse), switch to another tab or leave the group;
 - if a post cannot be sent (wrong token, website off, no connection).
 
