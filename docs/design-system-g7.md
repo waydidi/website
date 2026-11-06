@@ -34,7 +34,7 @@ Use them for state (paid, checking, not accepted, errors), and always add an ico
 
 ## Type
 
-- Site and account pages: system sans (`--font-sans`). Homepage: Poppins (`.font-home`). Search form: Inter (`.font-search`).
+- Site and account pages: system sans (`--font-sans`). Homepage: Figtree (`.font-home`), a free stand-in for the licensed Matter used by Daytrip. Search form: Inter (`.font-search`).
 - Headings use `font-black` and a slight negative tracking (`tracking-[-.035em]`). Labels use small `font-bold`, uppercase badges use `text-xs font-black uppercase tracking-wider`.
 - Form fields are at least 16px on touch screens (set globally), so iOS does not zoom.
 - Thai and Chinese fall back to the system font. Keep copy short enough to fit both Thai and English.
