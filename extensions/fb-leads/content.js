@@ -70,8 +70,9 @@
   async function startRun() {
     if (runAbort) return;
     if (location.pathname.indexOf("/groups/") !== 0) return setRun({ state: "done", reason: "notgroup", posts: 0, leads: 0 });
+    // The target is lead posts: posts the website's free filter keeps (adverts, long stays and chat do not count).
     var stored = await chrome.storage.local.get({ runs: {}, target: 50 });
-    var target = Math.min(100, Math.max(10, parseInt(stored.target, 10) || 50));
+    var target = Math.min(100, Math.max(5, parseInt(stored.target, 10) || 50));
     var runs = stored.runs && stored.runs.day === day() ? stored.runs : { day: day(), count: 0 };
     if (runs.count >= MAX_RUNS_PER_DAY) return setRun({ state: "done", reason: "limit", posts: 0, leads: 0 });
     runs.count++;
@@ -88,7 +89,7 @@
           lastPosts = sentPosts; lastLeads = sentLeads;
           return out;
         },
-        signal: runAbort.signal, maxPosts: target,
+        signal: runAbort.signal, maxLeads: target,
         onStep: function (p) { setRun({ state: "running", posts: p.posts, leads: p.leads, target: target }); },
       });
       setRun({ state: "done", reason: result.reason, posts: result.posts, leads: result.leads, target: target, diag: window.WaydidiLeads.diagnose(document) });
