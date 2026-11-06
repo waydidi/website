@@ -115,6 +115,14 @@ test('retries: a failed draft is retried then marked failed; a failed send is re
   const broken = async () => { throw new Error('model down'); };
   for (let k = 0; k < 3; k++) await fl.processLeads({ draft: broken, send: s.send, now: () => now });
   assert.deepEqual([(await lead(1)).status, (await lead(1)).attempts], ['failed', 3]);
+  const notes = s.sent.filter((m) => m.text.startsWith('⚠️ Couldn'));
+  assert.equal(notes.length, 1, 'the team is told once, after the last try');
+  assert.ok(notes[0].text.includes('<b>G</b>')); assert.doesNotMatch(notes[0].text, /Need a driver/, 'never the post text');
+  // Sending the failed post in again queues it again (and only a failed one).
+  assert.deepEqual(await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'G' }], now), { accepted: 1, duplicates: 0 });
+  assert.equal((await lead(1)).status, 'queued');
+  assert.deepEqual(await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'G' }], now), { accepted: 0, duplicates: 1 }, 'a queued post is not queued twice');
+  await db.prepare("UPDATE fb_leads SET status='failed',attempts=3 WHERE post_key='1000001'").run();
 
   await fl.queueLeads([{ groupKey: 'g', postKey: '1000002', url: post(2).url, text: post(2).text, groupName: 'G' }], now);
   let n = 0; const flaky = async (chat, text, kb) => { if (++n === 2) throw new Error('telegram down'); return s.send(chat, text, kb); };
