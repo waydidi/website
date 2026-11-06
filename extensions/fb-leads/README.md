@@ -65,8 +65,10 @@ Each post is sent once; the extension remembers the last 5,000.
 
 Facebook changes its page markup from time to time. If posts stop arriving while the token test still says "Connected":
 
-1. Copy the markup of one post (right-click the post → Inspect → copy outer HTML) with names removed.
-2. Add it as a new case in `e2e/fb-leads-extractor.spec.ts`, make it pass in `extractor.js`, and reload the extension.
+1. On the group page, click the extension icon → **Copy page sample for the developer**, and paste it to the developer.
+   It is an outline of the first posts on screen: element names, the few attributes the reader uses and link shapes, with
+   every word replaced by its length and every number and id replaced by N. No text, names or ids are copied.
+2. The developer adds that shape as a new case in `e2e/fb-leads-extractor.spec.ts`, make it pass in `extractor.js`, and reload the extension.
 
 ## Limits
 
