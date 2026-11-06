@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { DRAFTING_TIMEOUT_MIN, LEAD_KEEP_DAYS, MAX_ATTEMPTS, dailyLimit, isLead, leadsEnabled, reliability, thaiDayStart, thaiStamp, type IncomingPost, type LeadAction } from "@/lib/fb-leads-rules";
+import { assistantFailure } from "@/lib/assistant-error-rules";
 import { esc } from "@/lib/telegram/cards";
 import { answerCallback, editIn, sendTo, telegramCommentChatId, type InlineKeyboard, type TelegramMessage } from "@/lib/telegram/client";
 import { assistantUsage } from "@/lib/telegram/assistant";
@@ -34,13 +35,13 @@ export async function leadId(groupKey: string, postKey: string) {
   return [...hash.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Queues posts; a post already sent in (same group and post) is ignored, so collectors may send the same post again. */
+/** Queues posts; a post already sent in (same group and post) is ignored, so collectors may send the same post again. A post that failed is queued again when it is sent in again. */
 export async function queueLeads(posts: IncomingPost[], now = new Date()) {
   await ensureLeadTables();
   let accepted = 0;
   for (const p of posts) {
     const at = now.toISOString();
-    const res = await db().prepare("INSERT OR IGNORE INTO fb_leads(id,group_key,group_name,post_key,post_url,post_text,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'queued',?,?)")
+    const res = await db().prepare("INSERT OR IGNORE INTO fb_leads(id,group_key,group_name,post_key,post_url,post_text,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'queued',?,?) ON CONFLICT(group_key,post_key) DO UPDATE SET status='queued',attempts=0,post_text=excluded.post_text,group_name=excluded.group_name,updated_at=excluded.updated_at WHERE fb_leads.status='failed'")
       .bind(await leadId(p.groupKey, p.postKey), p.groupKey, p.groupName, p.postKey, p.url, p.text, at, at).run();
     accepted += res.meta.changes;
   }
@@ -133,8 +134,14 @@ export async function processLeads(deps: Deps & { batch?: number } = {}) {
       if (await draftLead(lead, deps)) { drafted++; if (await deliver(lead.id, deps)) sent++; }
     } catch (error) {
       // A failed draft goes back to the queue (failed after 3 tries); a failed send stays "drafted" and is sent next run.
-      console.error("fb lead draft failed", error instanceof Error ? error.message : "unknown");
-      await db().prepare("UPDATE fb_leads SET status=CASE WHEN attempts>=? THEN 'failed' ELSE 'queued' END,updated_at=? WHERE id=? AND status='drafting'").bind(MAX_ATTEMPTS, at, lead.id).run();
+      const budget = error instanceof Error && error.message === "ASSISTANT_BUDGET_REACHED";
+      const failure = assistantFailure(error);
+      console.error("fb lead draft failed", budget ? "budget" : failure.code);
+      const left = await db().prepare("UPDATE fb_leads SET status=CASE WHEN attempts>=? THEN 'failed' ELSE 'queued' END,updated_at=? WHERE id=? AND status='drafting' RETURNING status").bind(MAX_ATTEMPTS, at, lead.id).first<{ status: string }>();
+      // After the last try the team is told why (never the post text), so a broken key or an empty account is noticed.
+      if (left?.status === "failed") await (deps.send ?? sendTo)(telegramCommentChatId(), `⚠️ Couldn't draft a comment for a post in <b>${esc(lead.group_name)}</b>: ${esc(budget ? "the assistant has reached this month's spending limit." : failure.reason)}
+${esc(lead.post_url)}
+Send the post in again to retry.`).catch(() => undefined);
     }
   }
   return { drafted, sent };
