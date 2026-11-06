@@ -66,5 +66,5 @@
     return posts;
   }
 
-  root.WaydidiLeads = { findPosts: findPosts };
+  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findPosts: findPosts });
 })(typeof window !== "undefined" ? window : globalThis);

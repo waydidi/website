@@ -4,17 +4,26 @@
 <meta charset="utf-8">
 <title>Waydidi Facebook Leads</title>
 <style>
-  body { font: 14px/1.5 system-ui, sans-serif; width: 280px; margin: 0; padding: 14px; color: #1c2b24; }
+  body { font: 14px/1.5 system-ui, sans-serif; width: 300px; margin: 0; padding: 14px; color: #1c2b24; }
   h1 { font-size: 15px; margin: 0 0 8px; }
   label { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+  button { padding: 8px 14px; font: inherit; border: 0; border-radius: 8px; background: #1f7a4d; color: #fff; cursor: pointer; margin-right: 6px; }
+  button.secondary { background: #e4ece7; color: #1c2b24; }
+  button[hidden] { display: none; }
   .problem { color: #a12a1c; margin: 8px 0; }
-  .stats { color: #51635a; margin: 8px 0; }
+  .run, .stats, .hint { color: #51635a; margin: 8px 0; }
+  .hint { font-size: 12px; }
   a { color: #1f7a4d; cursor: pointer; }
 </style>
 </head>
 <body>
 <h1>Waydidi Facebook Leads</h1>
 <label><input id="enabled" type="checkbox"> Send posts while I browse groups</label>
+<div>
+  <button id="collect">Collect from this group</button><button id="stop" class="secondary" hidden>Stop</button>
+</div>
+<div id="run" class="run"></div>
+<div class="hint">Collect scrolls this group slowly, like a person reading, for a few minutes. Touch the page to stop it.</div>
 <div id="problem" class="problem"></div>
 <div id="stats" class="stats"></div>
 <a id="settings">Settings</a>

@@ -70,12 +70,13 @@ test('a lead is drafted and sent as two messages: the comment alone, then group,
   assert.deepEqual(await fl.processLeads({ draft: draftOf(), send: s.send, now: () => now }), { drafted: 0, sent: 0 }, 'nothing sent twice');
 });
 
-test('posts that ask for nothing (photos, chat) are kept out of the AI queue and cost nothing',async()=>{
-  const res=await ingest({posts:[post(1),post(2,{text:'Beautiful sunset at Kata beach today, so happy'}),post(3,{text:'ที่ไหนดีคะ ไปเกาะช้างช่วงปีใหม่'})]});
-  assert.deepEqual(await res.json(),{accepted:3,duplicates:0,skipped:1,rejected:[]});
-  assert.deepEqual([(await lead(1)).status,(await lead(2)).status,(await lead(3)).status],['queued','not_lead','queued']);
+test('posts that ask for nothing, adverts and long-stay searches are kept out of the AI queue and cost nothing',async()=>{
+  const res=await ingest({posts:[post(1),post(2,{text:'Beautiful sunset at Kata beach today, so happy'}),post(3,{text:'ที่ไหนดีคะ ไปเกาะช้างช่วงปีใหม่'}),post(4,{text:'Book now! Special price private van to Pattaya, contact us'}),post(5,{text:'Looking for a condo to rent for 3 months in Phuket'})]});
+  assert.deepEqual(await res.json(),{accepted:5,duplicates:0,skipped:3,rejected:[]});
+  const st=[];for(const n of [1,2,3,4,5])st.push((await lead(n)).status);
+  assert.deepEqual(st,['queued','not_lead','queued','not_lead','not_lead']);
   let calls=0;await fl.processLeads({draft:async(t)=>{calls++;return draftOf()(t);},send:sender().send,now:()=>now,batch:5});
-  assert.equal(calls,2,'the photo caption is never drafted');
+  assert.equal(calls,2,'the photo caption, the advert and the long-stay search are never drafted');
 });
 
 test('not ready: no checked facts → sent with "Needs your check"; social post → no message', async () => {

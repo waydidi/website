@@ -61,6 +61,14 @@ test('which posts ask for something: questions and travel words pass, plain shar
   for(const no of ['Beautiful sunset at Kata beach today','Thank you all for the great trip, see you next year','Happy birthday to our admin'])assert.equal(r.looksLikeRequest(no),false,no);
 });
 
+test('adverts, promotions and long-stay searches are screened out; seekers and transport asks are kept',()=>{
+  const reason=(t)=>{const x=r.screenPost(t);return x.queue?'queue':x.reason;};
+  for(const t of ['Book now! Special price for private van Bangkok to Pattaya, contact us on WhatsApp','We offer private tours and airport transfers all over Thailand. DM us','โปรโมชั่นรถรับส่งสนามบิน ราคาพิเศษ ติดต่อสอบถามได้เลย','Airport transfer 1,200 baht, Line ID: @fasttaxi, call 081 234 5678','欢迎咨询 包车 特价'])assert.equal(reason(t),'promo',t);
+  for(const t of ['Looking for a room or condo for 3 months in Chiang Mai, anyone?','Need a house to rent monthly near Phuket airport','ต้องการเช่าห้องระยะยาว 6 เดือน แถวพัทยา','求长租公寓 三个月 清迈'])assert.equal(reason(t),'long_stay',t);
+  for(const t of ['Looking for a driver, I will pay 2000 baht, whatsapp me','Anyone recommend a tour company? Special occasion','Need a car and driver for 1 month, Chiang Mai to Pai and back','Need a van for 6 people, room for luggage?','Stay near the airport tonight, which hotel and how do I get to Pattaya?','ใครรู้จักคนขับรถรายเดือนบ้างไหมคะ'])assert.equal(reason(t),'queue',t);
+  assert.equal(reason('Beautiful sunset at Kata beach today'),'no_request');
+});
+
 test('daily limit, Thailand day start, buttons', () => {
   assert.equal(r.dailyLimit(undefined), 50);
   assert.equal(r.dailyLimit('0'), 50);

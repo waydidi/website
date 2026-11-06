@@ -42,7 +42,7 @@ async function send(posts) {
   stats.duplicates += data.duplicates || 0;
   await chrome.storage.local.set({ stats: stats, problem: "" });
   badge(String(stats.accepted - stats.skipped), "#1f7a4d");
-  return { ok: true };
+  return { ok: true, accepted: data.accepted || 0, skipped: data.skipped || 0, duplicates: data.duplicates || 0 };
 }
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {

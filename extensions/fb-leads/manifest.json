@@ -2,14 +2,14 @@
   "manifest_version": 3,
   "name": "Waydidi Facebook Leads",
   "version": "1.0.0",
-  "description": "While you read a Facebook travel group, sends the posts on screen to Waydidi, which drafts a comment for your Telegram Comment group. Reads only; never posts.",
+  "description": "While you read a Facebook travel group, sends the posts on screen to Waydidi, which drafts a comment for your Telegram Comment group. Optionally scrolls at a human pace when you press Collect. Never clicks or posts.",
   "permissions": ["storage"],
   "host_permissions": ["https://waydidi.com/*"],
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
       "matches": ["https://www.facebook.com/*", "https://web.facebook.com/*"],
-      "js": ["extractor.js", "content.js"],
+      "js": ["extractor.js", "runner.js", "content.js"],
       "run_at": "document_idle"
     }
   ],
