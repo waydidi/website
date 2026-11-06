@@ -515,6 +515,38 @@
     "text": "การเดินทางที่ราบรื่น ความทรงจำอันล้ำค่าให้จดจำไปตลอด",
     "status": "machine"
   },
+  "home.cards.label": {
+    "text": "บริการของเรา",
+    "status": "machine"
+  },
+  "home.cards.learnMore": {
+    "text": "ดูเพิ่มเติม",
+    "status": "machine"
+  },
+  "home.cards.aToB": {
+    "text": "เดินทางระหว่างสองเมืองในไทยแบบส่งถึงที่ ในราคาคงที่",
+    "status": "machine"
+  },
+  "home.cards.airport": {
+    "text": "จองรถส่วนตัวไป-กลับสนามบินทุกแห่งในไทย ในราคาคงที่",
+    "status": "machine"
+  },
+  "home.cards.hourly": {
+    "text": "จ้างคนขับรถส่วนตัวรายชั่วโมง ไปได้ตามที่คุณต้องการ",
+    "status": "machine"
+  },
+  "home.cards.destinations": {
+    "text": "สำรวจเมืองต่าง ๆ ในไทยและดูบริการรถรับส่งไปยังแต่ละเมือง",
+    "status": "machine"
+  },
+  "home.cards.multiCity": {
+    "text": "วางแผนเดินทางไกลที่มีหลายเมืองและหลายจุดแวะในการเดินทางเดียว",
+    "status": "machine"
+  },
+  "home.cards.pickupGuide": {
+    "text": "ดูจุดนัดพบคนขับที่สนามบิน",
+    "status": "machine"
+  },
   "map.heading": {
     "text": "Waydidi พาคุณไปที่ไหนได้บ้าง",
     "status": "machine"

@@ -515,6 +515,38 @@
     "text": "旅程顺畅，珍贵回忆值得铭记。",
     "status": "machine"
   },
+  "home.cards.label": {
+    "text": "我们的服务",
+    "status": "machine"
+  },
+  "home.cards.learnMore": {
+    "text": "了解更多",
+    "status": "machine"
+  },
+  "home.cards.aToB": {
+    "text": "在泰国任意两座城市之间门到门出行，价格固定。",
+    "status": "machine"
+  },
+  "home.cards.airport": {
+    "text": "预订往返泰国各机场的私人接送，价格固定。",
+    "status": "machine"
+  },
+  "home.cards.hourly": {
+    "text": "按小时包私人司机，想去哪儿就去哪儿。",
+    "status": "machine"
+  },
+  "home.cards.destinations": {
+    "text": "探索泰国各城市，查看前往各地的接送服务。",
+    "status": "machine"
+  },
+  "home.cards.multiCity": {
+    "text": "在一次行程中规划包含多个城市和停靠点的长途旅行。",
+    "status": "machine"
+  },
+  "home.cards.pickupGuide": {
+    "text": "查看在机场与司机会合的地点。",
+    "status": "machine"
+  },
   "map.heading": {
     "text": "Waydidi 带您去哪里",
     "status": "machine"
