@@ -97,10 +97,12 @@
     }
   }
 
-  chrome.runtime.onMessage.addListener(function (message, sender) {
+  chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (sender.id !== chrome.runtime.id || !message) return;
     if (message.type === "collect") startRun();
     if (message.type === "stop" && runAbort) runAbort.abort();
+    // An anonymous outline of the posts on screen (no words, names or ids), for the developer to fix the reader.
+    if (message.type === "sample") sendResponse({ sample: window.WaydidiLeads.sample(document) });
   });
 
   chrome.storage.local.get({ sent: [] }, function (stored) {

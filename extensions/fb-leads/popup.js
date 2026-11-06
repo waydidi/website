@@ -58,6 +58,19 @@
       });
     });
   }
+  // The outline has no words, names or ids: only the page's structure and link shapes, so it is safe to paste in a chat.
+  document.getElementById("sample").addEventListener("click", function () {
+    var note = document.getElementById("sampleNote");
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      if (!tabs[0]) return;
+      chrome.tabs.sendMessage(tabs[0].id, { type: "sample" }, function (res) {
+        if (chrome.runtime.lastError || !res || !res.sample) { note.textContent = "Open a Facebook group page first."; return; }
+        navigator.clipboard.writeText(res.sample).then(
+          function () { note.textContent = "Copied (no words, names or ids). Paste it to the developer."; },
+          function () { note.textContent = "Could not copy. Try again."; });
+      });
+    });
+  });
   collect.addEventListener("click", function () { tellTab("collect"); });
   stopButton.addEventListener("click", function () { tellTab("stop"); });
   chrome.storage.onChanged.addListener(render);
