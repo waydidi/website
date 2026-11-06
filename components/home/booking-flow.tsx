@@ -53,7 +53,6 @@ import { cancellationConfig, cancellationFareMinor, displayCancellationOption, t
 import { recommendVehicles } from "@/lib/vehicle-recommendation";
 import { CancellationChoice } from "./cancellation-choice";
 import { MultiCityForm } from "./multi-city-form";
-import { Route as RouteIcon } from "lucide-react";
 import { RouteStopChoice } from "./route-stop-choice";
 import { selectedRouteStopIds, toggleRouteStop, type RouteStopCard, type RouteStopSelection } from "@/lib/route-stop-selection";
 import { VehicleUpgrade } from "./vehicle-upgrade";
@@ -254,6 +253,18 @@ export function BookingFlow({
   }, [stage]);
   const [serviceType, setServiceType] = useState<ServiceType>("transfer");
   const [multiCityOpen, setMultiCityOpen] = useState(false);
+  // Like Daytrip, multi-city is a mode of the search box with its own address: /?tripType=multiCity.
+  const showMultiCity = (open: boolean) => {
+    setMultiCityOpen(open);
+    const url = new URL(window.location.href);
+    if (open) url.searchParams.set("tripType", "multiCity"); else url.searchParams.delete("tripType");
+    window.history.replaceState(window.history.state, "", url);
+  };
+  useEffect(() => {
+    // The address is only readable after hydration. Only when the owner has multi-city switched on.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (multiCity && new URLSearchParams(window.location.search).get("tripType") === "multiCity") setMultiCityOpen(true);
+  }, [multiCity]);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [departureSelected, setDepartureSelected] = useState(false);
@@ -1645,18 +1656,17 @@ export function BookingFlow({
               </p>
             </div>
             <form id="booking-search" onSubmit={search} className="font-search w-full scroll-mt-28">
-              <div className={`inline-grid h-[46px] ${multiCity ? "w-full max-w-[380px] grid-cols-3" : "w-[min(270px,100%)] grid-cols-2"} gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 mb-4 md:mb-9 md:inline-flex md:h-auto md:w-auto md:gap-2 md:rounded-[16px] md:p-1.5 md:text-[19px]/[24px] md:font-semibold md:text-slate-800 lg:rounded-[14px] lg:p-1 lg:text-[15px]/[22px]`}>
-                <button onClick={()=>{setMultiCityOpen(false);if(serviceType==="hourly"){change("dropoff",transferDropoff.current);setHourlyDropoffId("");}setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${!multiCityOpen && serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
+              <div className={`inline-grid h-[46px] w-[min(270px,100%)] grid-cols-2 gap-1 rounded-[15px] bg-white p-1 text-[14px] font-medium text-slate-500 shadow-md shadow-orange-950/10 mb-4 md:mb-9 md:inline-flex md:h-auto md:w-auto md:gap-2 md:rounded-[16px] md:p-1.5 md:text-[19px]/[24px] md:font-semibold md:text-slate-800 lg:rounded-[14px] lg:p-1 lg:text-[15px]/[22px]`}>
+                <button onClick={()=>{showMultiCity(false);if(serviceType==="hourly"){change("dropoff",transferDropoff.current);setHourlyDropoffId("");}setServiceType("transfer");setHourlyQuote(null);}} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${!multiCityOpen && serviceType === "transfer" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
                   <CarFront className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("hero.transfer")}
                 </button>
-                <button onClick={()=>{setMultiCityOpen(false);if(serviceType!=="hourly"){transferDropoff.current=booking.dropoff;change("dropoff","");setHourlyDropoffId("");}setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${!multiCityOpen && serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
+                <button onClick={()=>{showMultiCity(false);if(serviceType!=="hourly"){transferDropoff.current=booking.dropoff;change("dropoff","");setHourlyDropoffId("");}setServiceType("hourly");setFareQuote(null);setPricingMessage("");}} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${!multiCityOpen && serviceType === "hourly" ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`} type="button">
                   <Clock3 className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("hero.hourly")}
                 </button>
-                {multiCity && <button onClick={()=>setMultiCityOpen(true)} type="button" className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] px-2.5 transition md:min-h-[46px] md:gap-3 md:rounded-[10px] md:px-5 lg:min-h-[36px] lg:gap-2 lg:rounded-[9px] lg:px-4 ${multiCityOpen ? "bg-brand text-white" : "hover:bg-orange-50 hover:text-slate-900"}`}>
-                  <RouteIcon className="size-[17px] md:size-5 lg:size-[17px]" aria-hidden="true" /> {t("multiCity.tab")}
-                </button>}
               </div>
               {multiCityOpen ? <MultiCityForm t={t} /> : searchCard(false)}
+              {/* Under the search box, like Daytrip's "+ Multi-city trip". Only when the owner has multi-city on. */}
+              {multiCity && !multiCityOpen && serviceType === "transfer" && <button type="button" onClick={() => showMultiCity(true)} className="mt-4 inline-flex h-10 items-center gap-2 rounded-full px-1 text-[16px] font-medium text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"><Plus size={18} aria-hidden="true" />{t("multiCity.button")}</button>}
               <DateTimePicker
                 open={dateOpen}
                 kind="departure"
@@ -1719,7 +1729,6 @@ export function BookingFlow({
                   {pricingMessage}
                 </div>
               )}
-              <p className="mt-8 hidden flex-wrap items-center gap-x-2.5 text-[15px]/[24px] text-white/90 md:flex">{[t("hero.trustArea"), t("hero.trustPrice"), t("hero.trustCancel")].map((item, i) => <span key={item} className="flex items-center gap-2.5">{i > 0 && <span aria-hidden="true">·</span>}{item}</span>)}</p>
               {hourlyQuote && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-800"><span className="size-3 rounded-full bg-brand"/><strong>{t("hero.hourlyDriverSummary", { hours: hourlyQuote.bookedHours })}</strong><span>{hourlyQuote.area.name}</span><span className="text-slate-500">Unlimited kilometres within your itinerary · Tolls included · Price held for 30 minutes</span></div>}
             </form>
           </div>

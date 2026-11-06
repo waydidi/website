@@ -46,7 +46,7 @@ Public route HTML caches for five minutes; language is part of the URL cache key
 
 ## Multi-city requests
 
-`MULTI_CITY_REQUESTS=0` is the default. Only `1` shows the Multi-city search tab and opens `POST /api/multi-city-requests`; otherwise the tab is hidden and the endpoint returns 404. Customers enter 2 to 6 legs and contact details. The request is saved once per request ID as a submitted form in Admin -> Bookings, with every leg in the note, and `BOOKING_ALERT_EMAIL` is alerted. Nothing is charged, no booking is created and the customer receives no message. Rollout order for this and the other flags is in `docs/daytrip-gaps-release.md`.
+`MULTI_CITY_REQUESTS=0` is the default. Only `1` shows the "Multi-city trip" button under the homepage and city page search box (it opens the multi-city form in place, at `/?tripType=multiCity`, like Daytrip) and opens `POST /api/multi-city-requests`; otherwise the button is hidden and the endpoint returns 404. Customers enter 2 to 6 legs and contact details. The request is saved once per request ID as a submitted form in Admin -> Bookings, with every leg in the note, and `BOOKING_ALERT_EMAIL` is alerted. Nothing is charged, no booking is created and the customer receives no message. Rollout order for this and the other flags is in `docs/daytrip-gaps-release.md`.
 
 ## AI assistants (MCP)
 
