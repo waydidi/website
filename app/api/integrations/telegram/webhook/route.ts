@@ -20,6 +20,8 @@ import { verifyTripCompletion } from "@/lib/trip-completion";
 import { acknowledgeEdit, approveChange, cancelBookingFromTelegram, declineChange, editKeepDriver, editNewDriver, keepBooking } from "@/lib/telegram/booking-changes";
 import { postCallbackAllowed, postCommandRoute } from "@/lib/post-helper-rules";
 import { handlePostCallback, handlePostCommand } from "@/lib/telegram/post-helper";
+import { parseLeadCallback } from "@/lib/fb-leads-rules";
+import { handleLeadCallback } from "@/lib/telegram/fb-leads";
 import { letAiAnswer } from "@/lib/cee/ask-first";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus, telegramClientId } from "@/lib/website-chat";
 
@@ -70,6 +72,13 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   if (q.message?.chat.type === "private" && (q.data ?? "").startsWith("dj_")) return handleDriverCallback(q);
   // «รับงาน» on a job in the driver group: the first tap gets the job.
   if (isDriverGroupChat(driverGroup(), String(q.message?.chat.id ?? ""))) return (q.data ?? "").startsWith("dj_take:") ? handleDriverTake(q) : answerCallback(q.id);
+  // ✅ Posted / ⏭ Skip under a Facebook lead: only in the Comment group, by any person there (not a bot).
+  if ((q.data ?? "").startsWith("fl_")) {
+    const lead = parseLeadCallback(q.data ?? ""), chat = String(q.message?.chat.id ?? "");
+    if (!lead || !telegramCommentChatId() || chat !== telegramCommentChatId() || q.from.is_bot) return answerCallback(q.id, "This button doesn't work here.", true);
+    const member = await approved(q.from);
+    return handleLeadCallback(lead.action, lead.id, { name: member?.display_name ?? q.from.first_name ?? "member", telegramUserId: String(q.from.id) }, q.id, chat, q.message?.message_id);
+  }
   // Buttons under a comment draft: in the Comment group (or the Admin group until one is set up).
   if ((q.data ?? "").startsWith("ph_") && postCallbackAllowed(String(q.message?.chat.id ?? ""), telegramChatId(), telegramCommentChatId())) {
     const member = await approved(q.from);

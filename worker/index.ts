@@ -185,6 +185,9 @@ const worker = {
       ctx.waitUntil(import("../lib/telegram/commands").then((m) => m.syncBotCommands()).catch((e) => console.error("telegram command menu failed", e)));
       // Post helper: saved knowledge is refreshed after 10 January and 10 July; pasted posts are kept 7 days.
       ctx.waitUntil(import("../lib/telegram/post-helper").then(async (m) => { await m.refreshKnowledgeDue(new Date(controller.scheduledTime)); if (new Date(controller.scheduledTime).getUTCMinutes() === 0) await m.purgeOldDrafts(new Date(controller.scheduledTime)); }).catch((e) => console.error("post helper upkeep failed", e)));
+      // Facebook group leads (off until FB_LEADS_ENABLED=true): queued posts are drafted and sent to the Comment group;
+      // post text is cleared after 90 days.
+      ctx.waitUntil(import("../lib/telegram/fb-leads").then(async (m) => { await m.processLeads(); if (new Date(controller.scheduledTime).getUTCMinutes() === 0 && m.fbLeadsOn()) await m.purgeOldLeads(new Date(controller.scheduledTime)); }).catch((e) => console.error("fb leads failed", e instanceof Error ? e.message : "unknown")));
       // Once PII_ENCRYPTION_KEY is set: older bank account numbers and tax IDs are encrypted a few at a time.
       ctx.waitUntil(import("../lib/pii-backfill").then((m) => m.encryptPlainPii()).catch((e) => console.error("PII encryption backfill failed", e instanceof Error ? e.message : "unknown")));
       // The Admin group's job lists: today's at 07:00, tomorrow's at 18:00 (Bangkok time), once each.
