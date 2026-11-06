@@ -2,8 +2,9 @@ import { expect, test } from "@playwright/test";
 import { closeDevNotice } from "./dev-notice";
 
 // The homepage hero follows Daytrip's proportions: the heading starts 44px under the 76px header (24px under the 70px
-// phone header), a 36px heading (28px on phones), underlined service tabs, one 64px-ish pill search bar from 1024px and
-// a stacked 20px-radius card below that, in the same 1160px column as the header. Colours stay Waydidi orange.
+// phone header), a 36px heading (28px on phones), the white service-tab pill with the chosen tab in orange, one
+// 64px-ish pill search bar from 1024px and a stacked 20px-radius card below that, in the same 1160px column as the
+// header. Colours stay Waydidi orange.
 test.skip(({ isMobile }) => isMobile, "Sizes are set below; the phone project only repeats the desktop browser");
 
 const layout = (page: import("@playwright/test").Page) => page.evaluate(() => {
@@ -74,17 +75,19 @@ test("hero at 390px: 28px heading, no subtitle, card under the tabs, heading 24p
   expect(Math.round(g.h1.x)).toBe(20);
 });
 
-test("the service tabs switch with an underline, and the hero stays Waydidi orange", async ({ page }) => {
+test("the service tabs are a white pill with the chosen one in orange, and the hero stays Waydidi orange", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await closeDevNotice(page);
   const tab = (name: string) => page.locator("#booking-search").getByRole("button", { name });
-  const underline = (name: string) => tab(name).evaluate(element => getComputedStyle(element, "::after").backgroundColor);
-  expect(await underline("Transfer")).toBe("rgb(255, 255, 255)");
-  expect(await underline("By the hour")).toBe("rgba(0, 0, 0, 0)");
+  const fill = (name: string) => tab(name).evaluate(element => getComputedStyle(element).backgroundColor);
+  const pill = await page.locator("#booking-search").evaluate(form => getComputedStyle(form.children[0]).backgroundColor);
+  expect(pill, "the white pill behind both tabs").toBe("rgb(255, 255, 255)");
+  expect(await fill("Transfer")).toBe("rgb(255, 138, 5)");
+  expect(await fill("By the hour")).toBe("rgba(0, 0, 0, 0)");
   await tab("By the hour").click();
-  await expect.poll(() => underline("By the hour")).toBe("rgb(255, 255, 255)");
-  expect(await underline("Transfer")).toBe("rgba(0, 0, 0, 0)");
+  await expect.poll(() => fill("By the hour")).toBe("rgb(255, 138, 5)");
+  expect(await fill("Transfer")).toBe("rgba(0, 0, 0, 0)");
   expect(await page.locator("h1").evaluate(element => getComputedStyle(element.closest("section")!).backgroundColor)).toBe("rgb(255, 138, 5)");
 });
