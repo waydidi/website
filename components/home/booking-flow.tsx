@@ -1457,23 +1457,24 @@ export function BookingFlow({
                   prefill={routePrefill}
                   connectedMobile
                 />
-                <div className={`order-4 grid min-h-14 grid-cols-2 overflow-hidden rounded-[14px] border border-slate-200 bg-white ${compact ? "" : `md:order-3 md:min-h-[80px] md:overflow-visible md:border-0 md:gap-2 md:col-span-2 lg:order-3 lg:col-span-1 lg:min-h-[54px] lg:gap-0 lg:rounded-none lg:border-l lg:border-slate-200`}`}>
+                <div className={`order-4 grid min-h-14 grid-cols-2 overflow-hidden rounded-[14px] border border-slate-200 bg-white ${compact ? "" : `md:order-3 md:min-h-[80px] md:overflow-visible md:border-0 md:gap-2 md:col-span-2 lg:order-3 lg:col-span-1 lg:min-h-[54px] lg:grid-cols-[1.15fr_1fr] xl:grid-cols-[1.3fr_1fr] lg:gap-0 lg:rounded-none lg:border-l lg:border-slate-200`}`}>
                   <div className={`relative flex min-w-0 items-center border-r border-slate-200 ${compact ? "" : "md:rounded-[14px] md:border md:border-slate-200 lg:rounded-none lg:border-0 lg:border-r"}`}>
                     <button
                       type="button"
                       onClick={() => setDateOpen(true)}
-                      className="flex h-full min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-1.5 text-left md:gap-4 md:px-5 lg:gap-3"
+                      className="flex h-full min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-1.5 text-left md:gap-4 md:px-5 lg:gap-3 lg:max-xl:px-3"
                       aria-expanded={dateOpen}
                     >
-                      {departureSelected ? <CalendarCheck className="shrink-0 text-charcoal max-[359px]:hidden" size={20} aria-hidden="true" /> : <CalendarDays className="shrink-0 text-slate-950" size={20} />}
-                      {!compact && <span className="hidden min-w-0 md:block">
+                      {departureSelected ? <CalendarCheck className="shrink-0 text-charcoal max-[359px]:hidden lg:max-xl:hidden" size={20} aria-hidden="true" /> : <CalendarDays className="shrink-0 text-slate-950 lg:max-xl:hidden" size={20} />}
+                      {!compact && <span className={`hidden min-w-0 md:block ${departureSelected ? "lg:hidden" : ""}`}>
                         <span className="block text-[17px]/[24px] text-slate-500 lg:truncate lg:text-[13px]/[20px]">{t("hero.pickupDate")}</span>
                         <span className={`mt-1 block truncate text-[19px]/[26px] lg:mt-0 lg:text-[15px]/[22px] ${departureSelected ? "font-semibold text-slate-950" : "text-slate-400"}`}>{departureSelected ? `${shortDate(booking.date, locale)} · ${formatTimeLabel(booking.time, locale)}` : t("hero.departure")}</span>
                       </span>}
                       {departureSelected ? (
-                        <span className={`min-w-0 font-normal text-slate-950 ${compact ? "" : "md:hidden"}`}>
-                          <span className="block truncate text-[14px] leading-[21px] tracking-[-.01em] max-[359px]:text-[13px]">{shortDate(booking.date, locale)}</span>
-                          <span className="block text-[13px] leading-[18px]">{formatTimeLabel(booking.time, locale)}</span>
+                        // On the one-row desktop bar the chosen date and time sit on two lines, so none of it is cut off.
+                        <span className={`min-w-0 font-normal text-slate-950 ${compact ? "" : "md:hidden lg:block"}`}>
+                          <span className="block truncate text-[14px] leading-[21px] tracking-[-.01em] max-[359px]:text-[13px] lg:text-[15px] lg:font-semibold lg:leading-[22px]">{shortDate(booking.date, locale)}</span>
+                          <span className="block text-[13px] leading-[18px] lg:leading-[20px]">{formatTimeLabel(booking.time, locale)}</span>
                         </span>
                       ) : (
                         <span className={`text-[15px]/[24px] font-normal text-slate-600 ${compact ? "" : "md:hidden"}`}>{t("hero.departure")}</span>
@@ -1509,13 +1510,13 @@ export function BookingFlow({
                         }
                         setReturnDateOpen(true);
                       }}
-                      className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch px-2.5 py-2 text-left text-slate-500 transition enabled:hover:bg-orange-50 disabled:cursor-not-allowed disabled:text-slate-300 sm:px-3.5 md:gap-3 md:rounded-[14px] md:px-5 md:text-[19px] md:font-semibold md:text-slate-700 lg:rounded-none lg:text-[15px]"
+                      className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch px-2.5 py-2 text-left text-slate-500 transition enabled:hover:bg-orange-50 disabled:cursor-not-allowed disabled:text-slate-300 sm:px-3.5 md:gap-3 md:rounded-[14px] md:px-5 md:text-[19px] md:font-semibold md:text-slate-700 lg:rounded-none lg:text-[15px] lg:max-xl:px-3"
                       aria-label={returnTrip ? t("hero.editReturnLabel") : t("hero.addReturnLabel")}
                     >
                       {returnTrip ? (
-                        <CalendarDays className="shrink-0 text-slate-950" size={20} />
+                        <CalendarDays className="shrink-0 text-slate-950 lg:max-xl:hidden" size={20} />
                       ) : (
-                        <Plus className="shrink-0" size={20} />
+                        <Plus className="shrink-0 lg:max-xl:hidden" size={20} />
                       )}
                       <span className="min-w-0">
                         {returnTrip ? (
@@ -1765,7 +1766,7 @@ export function BookingFlow({
                   <ChevronDown aria-hidden="true" />
                 </button>
                 <button type="button" onClick={() => { setTripEditOpen(false); setReturnToTripEdit(true); setDateOpen(true); }} className="flex min-h-14 w-full items-center gap-3 rounded-[14px] border border-slate-200 bg-white px-4 py-2 text-left">
-                  <CalendarCheck className="shrink-0 text-charcoal max-[359px]:hidden" size={20} aria-hidden="true" />
+                  <CalendarCheck className="shrink-0 text-charcoal max-[359px]:hidden lg:max-xl:hidden" size={20} aria-hidden="true" />
                   <span className="min-w-0 text-slate-950">
                     <span className="block text-[16px] leading-[21px]">{shortDate(booking.date, locale)}</span>
                     <span className="block text-[14px] leading-[18px]">{formatTimeLabel(booking.time, locale)}</span>
