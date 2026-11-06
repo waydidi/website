@@ -1,4 +1,7 @@
-var enabled = document.getElementById("enabled"), collect = document.getElementById("collect"), stop = document.getElementById("stop");
+// Popup. Wrapped in a function so its names cannot clash with browser globals such as window.stop.
+(function () {
+"use strict";
+var enabled = document.getElementById("enabled"), collect = document.getElementById("collect"), stopButton = document.getElementById("stop");
 var REASONS = {
   enough: "Done: collected enough posts for one run.",
   time: "Done: the time limit for one run was reached.",
@@ -23,7 +26,7 @@ function render() {
       ? "Today: " + (n.accepted - n.skipped) + " new posts sent, " + n.skipped + " ignored (not a request, an advert or a long stay), " + n.duplicates + " already known."
       : "Nothing sent yet today.";
     var run = s.run, running = Boolean(run && run.state === "running" && Date.now() - run.at < 5 * 60000);
-    collect.hidden = running; stop.hidden = !running;
+    collect.hidden = running; stopButton.hidden = !running;
     document.getElementById("run").textContent = !run ? ""
       : running ? "Collecting… " + run.posts + " posts looked at, " + run.leads + " look like requests."
       : (REASONS[run.reason] || "Done.") + (run.posts ? " " + run.posts + " posts looked at, " + run.leads + " look like requests." : "");
@@ -42,6 +45,7 @@ function tellTab(type) {
   });
 }
 collect.addEventListener("click", function () { tellTab("collect"); });
-stop.addEventListener("click", function () { tellTab("stop"); });
+stopButton.addEventListener("click", function () { tellTab("stop"); });
 chrome.storage.onChanged.addListener(render);
 render();
+})();
