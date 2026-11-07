@@ -28,7 +28,7 @@ const searchBlocks=()=>[{type:'web_search_tool_result',content:[{type:'web_searc
 /** A scripted model: the router, the web search and the writer, told apart by their system prompt. */
 function model(opts={}){const calls={router:0,search:0,compose:0,composeInputs:[]};
  return {calls,create:async(body)=>{const sys=String(body.system);
-  if(sys.startsWith('You read a post')){calls.router++;const r=Array.isArray(opts.router)?opts.router[calls.router-1]:opts.router;return {stop_reason:r?.stop_reason??'end_turn',content:[{type:'text',text:(r?.text??r)??routedJson()}]};}
+  if(sys.startsWith('You read a post')){calls.router++;(calls.routerInputs??=[]).push(body.messages[0].content);const r=Array.isArray(opts.router)?opts.router[calls.router-1]:opts.router;return {stop_reason:r?.stop_reason??'end_turn',content:[{type:'text',text:(r?.text??r)??routedJson()}]};}
   if(sys.startsWith('You research facts')){calls.search++;(calls.maxUses??=[]).push(body.tools[0].max_uses);return {stop_reason:'end_turn',content:searchBlocks()};}
   calls.compose++;calls.composeInputs.push(JSON.parse(body.messages[0].content));return {stop_reason:'end_turn',content:[{type:'text',text:opts.compose??JSON.stringify({comment:'Trains and taxis both work.',template:opts.template===undefined?null:opts.template})}]};}};}
 const text=(d)=>d.parts.join('\n');
@@ -224,4 +224,31 @@ test('"no agents" posts: a booking request is answered as information, with no o
   assert.equal(m.calls.search, 1, 'answered with checked facts like any information post');
   assert.match(d.parts[1], /Information only/);
   assert.doesNotMatch(d.parts[0], /WhatsApp|wa\.me/);
+});
+
+test('Facebook leads answer for the group\'s place: the sorter sees the group, the writer gets "where", knowledge is kept per area', async () => {
+  // Owner's report: "Is anywhere doing anything for remembrance day" in Koh Chang Community was answered with Kanchanaburi.
+  const m = model({ router: routedJson({ topic: 'remembrance-day-events', question: 'Remembrance Day events on Koh Chang this year', area: 'Koh Chang', timeSensitive: true }) });
+  const d = await ph.draftForPost('Is anywhere doing anything for remembrance day', { client: m, now: () => now }, { leadsOnly: true, maxSearches: 1, noSearchForBookings: true, groupName: 'Koh Chang Community' });
+  assert.match(m.calls.routerInputs[0], /^<group>Koh Chang Community<\/group>\n<post>/);
+  assert.deepEqual(m.calls.composeInputs[0].where, { group: 'Koh Chang Community', area: 'Koh Chang' });
+  const row = await db.prepare('SELECT topic_key FROM post_helper_drafts WHERE id=?').bind(d.id).first();
+  assert.equal(row.topic_key, 'koh-chang-remembrance-day-events', 'a Koh Chang answer is never reused for another place');
+  // /c has no group: no group line, no "where", topic unchanged.
+  const c = model({ router: routedJson({ topic: 'remembrance-day-events-c' }) });
+  const dc = await ph.draftForPost('Is anywhere doing anything for remembrance day', { client: c, now: () => now });
+  assert.match(c.calls.routerInputs[0], /^<post>/);
+  assert.equal('where' in c.calls.composeInputs[0], false);
+  assert.equal((await db.prepare('SELECT topic_key FROM post_helper_drafts WHERE id=?').bind(dc.id).first()).topic_key, 'remembrance-day-events-c');
+});
+
+test('the writer is told to stay in the area and not to fill a gap with another province', async () => {
+  let system = '';
+  const m = model({ router: routedJson({ topic: 'area-rule', area: 'Koh Chang' }) });
+  const spy = { create: async (body) => { if (!String(body.system).startsWith('You read a post') && !String(body.system).startsWith('You research facts')) system = JSON.stringify(body.system); return m.create(body); } };
+  await ph.draftForPost('Any events this weekend?', { client: spy, now: () => now }, { leadsOnly: true, maxSearches: 1, groupName: 'Koh Chang Community' });
+  assert.match(system, /answer for that area only/);
+  assert.match(system, /Never recommend, describe or send people to events, places or services in another area/);
+  assert.match(system, /Do not fill the gap with another area/);
+  assert.doesNotMatch(system, /Koh Chang/, 'the group stays out of the cached instructions');
 });

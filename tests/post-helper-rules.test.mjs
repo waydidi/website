@@ -129,3 +129,12 @@ test('the monthly comment count follows the Thailand calendar month', () => {
   assert.equal(r.nextMonthStart(new Date('2026-10-21T05:00:00Z')), '1 November');
   assert.equal(r.nextMonthStart(new Date('2026-12-15T05:00:00Z')), '1 January');
 });
+
+test('the sorter\'s area is read once; a place-dependent topic gets the area in front', () => {
+  const base = r.parseRouted('{"topic":"remembrance-day-events","question":"Remembrance Day events on Koh Chang","area":"Koh Chang"}');
+  assert.equal(base.area, 'Koh Chang');
+  assert.equal(r.withAreaTopic(base).topic, 'koh-chang-remembrance-day-events');
+  assert.equal(r.withAreaTopic({ ...base, topic: 'koh-chang-ferry-times' }).topic, 'koh-chang-ferry-times', 'not added twice');
+  for (const v of ['null', 'Thailand', '', null, 5]) assert.equal(r.parseRouted(JSON.stringify({ topic: 'a', question: 'b', area: v })).area, null, String(v));
+  assert.equal(r.withAreaTopic({ ...base, area: null }).topic, 'remembrance-day-events');
+});

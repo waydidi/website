@@ -246,3 +246,10 @@ test('strong leads are drafted first; "no agents" posts are drafted with no sale
   await fl.processLeads({ draft: async (text, options) => { seen.push({ text, noSalesPitch: options.noSalesPitch, leadsOnly: options.leadsOnly }); return draftOf()(text); }, send: sender().send, now: () => now, batch: 1 });
   assert.deepEqual(seen, [{ text: 'Need a van from Bangkok to Pattaya on 3 Jan for 6 people, no agents please', noSalesPitch: true, leadsOnly: true }], 'the later but stronger lead first');
 });
+
+test('each lead is drafted with the name of the group it came from', async () => {
+  await fl.queueLeads([{ groupKey: 'kohchangcommunity', postKey: '1000001', url: post(1).url, text: 'Is anywhere doing anything for remembrance day?', groupName: 'Koh Chang Community' }], now);
+  const seen = [];
+  await fl.processLeads({ draft: async (text, options) => { seen.push(options.groupName); return draftOf()(text); }, send: sender().send, now: () => now });
+  assert.deepEqual(seen, ['Koh Chang Community']);
+});
