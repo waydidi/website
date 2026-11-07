@@ -39,6 +39,7 @@
       var progress = run ? leadText + " · " + run.posts + " posts looked at · " + Math.max(0, run.posts - run.leads) + " ignored" : "";
       var text = !run ? "" : running ? "Collecting… " + progress
         : (REASONS[run.reason] || "Done.") + (run.posts ? " " + progress + "." : "");
+      if (run && !running && run.free) text += " This run did not count towards today's 4.";
       if (run && !running && run.diag && (run.reason === "unreadable" || run.reason === "end") && run.posts === 0) {
         text += " On the page: " + run.diag.articles + " posts, " + run.diag.withLink + " with a post link, " + run.diag.withText + " with text.";
       }

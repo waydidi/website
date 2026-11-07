@@ -23,7 +23,8 @@
   /**
    * options: scan() → Promise<{posts, leads, visible} | null> (posts = new posts sent, visible = posts readable on screen
    * including ones sent before; null = could not send), win (window), sleep(ms), rng(), now(), signal, onStep(progress),
-   * plus any DEFAULTS above. Resolves { reason, posts, leads, steps }.
+   * plus any DEFAULTS above. Resolves { reason, posts, leads, steps, read } (read = at least one post on the page could
+   * be read during the run, new or sent before).
    * reason: enough (lead target) | looked (safety stop on posts) | end | time | steps | unreadable | hidden | left |
    * touched | problem | stopped
    */
@@ -80,7 +81,7 @@
     } finally {
       events.forEach(function (e) { doc.removeEventListener(e, touch, true); });
     }
-    return { reason: stop || "stopped", posts: posts, leads: leads, steps: steps };
+    return { reason: stop || "stopped", posts: posts, leads: leads, steps: steps, read: everRead };
   }
 
   root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { collect: collect, collectDefaults: DEFAULTS });

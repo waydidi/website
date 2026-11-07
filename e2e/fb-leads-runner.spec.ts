@@ -10,7 +10,7 @@ const PAGE = "https://www.facebook.com/groups/test/";
 // posts: 4 new posts every screen. known: posts on screen were all sent before (a second run over the same feed).
 // blank: no readable post at all. fail: sending is refused.
 type Opts = { scan?: "posts" | "known" | "blank" | "fail"; leadsPerStep?: number; rng?: number[] | number; maxMs?: number; clockStepMs?: number; hide?: number; touchAt?: number; leaveAt?: number; abortAt?: number; maxPosts?: number; maxLeads?: number; maxSteps?: number; pageHeight?: number };
-type Out = { result: { reason: string; posts: number; leads: number; steps: number }; scrolls: number[]; sleeps: number[]; clicks: number; height: number };
+type Out = { result: { reason: string; posts: number; leads: number; steps: number; read: boolean }; scrolls: number[]; sleeps: number[]; clicks: number; height: number };
 
 async function run(page: Page, opts: Opts = {}): Promise<Out> {
   await page.unroute(PAGE).catch(() => undefined);
@@ -93,7 +93,13 @@ test("ends only when the page really stops moving and growing", async ({ page })
 });
 
 test("says so when no post on the page can be read, instead of pretending it reached the end", async ({ page }) => {
-  expect((await run(page, { scan: "blank" })).result).toMatchObject({ reason: "unreadable", steps: 3 });
+  expect((await run(page, { scan: "blank" })).result).toMatchObject({ reason: "unreadable", steps: 3, read: false });
+});
+
+test("reports whether any post was read, so a run that read nothing does not use up one of the day's runs", async ({ page }) => {
+  expect((await run(page, { scan: "fail" })).result.read).toBe(false);
+  expect((await run(page, { scan: "known", maxSteps: 3 })).result.read).toBe(true); // posts sent before still count as read
+  expect((await run(page, { maxLeads: 2 })).result.read).toBe(true);
 });
 
 test("stops when time is up", async ({ page }) => {

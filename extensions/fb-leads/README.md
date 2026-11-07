@@ -42,7 +42,8 @@ back up now and then. A run is limited and always ends by itself:
 
 At this pace a run often takes 30 minutes or more: if 1 post in 6 is a lead, 50 leads means looking at about 300 posts.
 The AI drafts at most `FB_LEADS_DAILY_LIMIT` posts a day (default 50); extra leads wait for the next day.
-At most **4 runs a day**. It never clicks "See more", never opens a post and never types. Press **Stop** in the popup to
+At most **4 runs a day**. A run that could not read a single post (for example "no post on this page could be read", or
+posts could not be sent at once) does not count towards the 4; the popup says so. It never clicks "See more", never opens a post and never types. Press **Stop** in the popup to
 end a run early. Scrolling by script is the part Facebook is most likely to notice, so keep these limits; do not raise
 them without thinking about the Facebook account used.
 

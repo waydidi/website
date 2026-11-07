@@ -67,6 +67,11 @@
 
   function setRun(run) { chrome.storage.local.set({ run: Object.assign({ at: Date.now() }, run) }); }
 
+  async function giveRunBack(dayKey) {
+    var stored = await chrome.storage.local.get({ runs: {} });
+    if (stored.runs && stored.runs.day === dayKey && stored.runs.count > 0) await chrome.storage.local.set({ runs: { day: dayKey, count: stored.runs.count - 1 } });
+  }
+
   async function startRun() {
     if (runAbort) return;
     if (location.pathname.indexOf("/groups/") !== 0) return setRun({ state: "done", reason: "notgroup", posts: 0, leads: 0 });
@@ -77,6 +82,7 @@
     if (runs.count >= MAX_RUNS_PER_DAY) return setRun({ state: "done", reason: "limit", posts: 0, leads: 0 });
     runs.count++;
     chrome.storage.local.set({ runs: runs });
+    var read = false;
     runAbort = new AbortController();
     var lastPosts = sentPosts, lastLeads = sentLeads; // only posts sent after Collect was pressed count
     setRun({ state: "running", posts: 0, leads: 0, target: target });
@@ -92,11 +98,15 @@
         signal: runAbort.signal, maxLeads: target,
         onStep: function (p) { setRun({ state: "running", posts: p.posts, leads: p.leads, target: target }); },
       });
-      setRun({ state: "done", reason: result.reason, posts: result.posts, leads: result.leads, target: target, diag: window.WaydidiLeads.diagnose(document) });
+      read = Boolean(result.read);
+      setRun({ state: "done", reason: result.reason, posts: result.posts, leads: result.leads, target: target, diag: window.WaydidiLeads.diagnose(document), free: !read });
     } catch {
-      setRun({ state: "done", reason: "problem", posts: 0, leads: 0 });
+      setRun({ state: "done", reason: "problem", posts: 0, leads: 0, free: true });
     } finally {
       runAbort = null;
+      // A run that could not read a single post (unreadable page, sending refused at once, stopped straight away) did not
+      // scroll through anyone's posts, so it does not use up one of the day's runs.
+      if (!read) await giveRunBack(runs.day);
     }
   }
 
