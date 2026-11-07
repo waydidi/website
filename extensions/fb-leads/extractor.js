@@ -129,15 +129,70 @@
   }
 
   /** The posts on the page now: [{ url, text, groupName }]. Posts without a link or with very little text are left out. */
-  function findPosts(doc) {
-    var name = groupName(doc), seen = {}, posts = [], list = units(doc);
+  function findPosts(doc, options) {
+    var name = groupName(doc), seen = {}, posts = [], list = units(doc), names = (options && options.names) || [];
     for (var i = 0; i < list.length; i++) {
       var url = postUrl(list[i], doc), text = postText(list[i]);
       if (!url || text.length < MIN_TEXT || seen[url]) continue;
       seen[url] = true;
-      posts.push({ url: url, text: text, groupName: name });
+      var skip = pageSkip(list[i], names), post = { url: url, text: text, groupName: name };
+      if (skip) post.skip = skip;
+      posts.push(post);
     }
     return posts;
+  }
+
+  // The "See more" button at the end of a long post's text (English, Thai, Chinese, Russian, Korean).
+  var SEE_MORE = /^(?:see more|ดูเพิ่มเติม|查看更多|显示更多|展开|ещё|еще|показать полностью|더 보기)$/i;
+  var expanded = typeof WeakSet === "function" ? new WeakSet() : null;
+  /**
+   * Owner's choice: during a Collect run, taps the "See more" button inside each post's text once, so the whole post is
+   * read (contact details and conditions are often at the end). Only a button inside the message, never a link, so it
+   * opens nothing. Returns how many were tapped (the caller waits a moment before reading).
+   */
+  function expandPosts(doc) {
+    var list = units(doc), count = 0;
+    if (!expanded) return 0;
+    for (var i = 0; i < list.length; i++) {
+      var buttons = list[i].querySelectorAll(MESSAGE.split(", ").map(function (m) { return m + ' [role="button"]'; }).join(", ") + ', div[dir="auto"] [role="button"]');
+      for (var j = 0; j < buttons.length; j++) {
+        var b = buttons[j];
+        if (expanded.has(b) || b.closest("a") || inComment(b, list[i]) || !SEE_MORE.test((b.textContent || "").trim())) continue;
+        expanded.add(b);
+        b.click();
+        count++;
+        break; // one per post
+      }
+    }
+    return count;
+  }
+
+  // Facebook's note when the author or an admin closed the comments (English, Thai, Chinese, Russian, Korean).
+  var COMMENTS_OFF = /turned off commenting for this post|commenting has been turned off|ปิดการแสดงความคิดเห็นสำหรับโพสต์นี้|ปิดการแสดงความคิดเห็น|关闭了(?:此帖的)?评论|已关闭评论|отключил[аи]? комментари|댓글 기능을 해제/i;
+
+  /**
+   * Why Waydidi should not comment, from the page itself: comments are turned off, or Waydidi already commented (a
+   * visible comment by one of the names in Settings) or reacted (the reaction button is already pressed by the account
+   * that is browsing). Names are only compared here; they are never sent. Comments hidden behind "View more comments"
+   * cannot be seen.
+   */
+  function pageSkip(unit, names) {
+    if (COMMENTS_OFF.test(unit.textContent || "")) return "commenting_disabled";
+    var want = names.map(function (n) { return String(n).trim().toLowerCase(); }).filter(Boolean);
+    if (want.length) {
+      var comments = unit.querySelectorAll('[role="article"]');
+      for (var i = 0; i < comments.length; i++) {
+        if (comments[i] === unit) continue;
+        var label = (comments[i].getAttribute("aria-label") || "").toLowerCase();
+        if (want.some(function (n) { return label.indexOf(n) !== -1; })) return "already_engaged";
+        var links = comments[i].querySelectorAll("a");
+        for (var j = 0; j < links.length; j++) if (want.indexOf((links[j].textContent || "").trim().toLowerCase()) !== -1) return "already_engaged";
+      }
+    }
+    var like = unit.querySelector('[data-ad-rendering-role="like_button"]');
+    var button = like && like.closest('[role="button"]');
+    if (button && (button.getAttribute("aria-pressed") === "true" || /remove|change|unlike|ยกเลิก|เปลี่ยน|取消|更改|убрать|취소/i.test(button.getAttribute("aria-label") || ""))) return "already_engaged";
+    return "";
   }
 
   /** What the page shows, for the popup when no post can be read: posts on screen, with a post link, with text. */
@@ -194,5 +249,5 @@
     return lines.join("\n").slice(0, 20000);
   }
 
-  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findPosts: findPosts, diagnose: diagnose, sample: sample, revealLinks: revealLinks });
+  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findPosts: findPosts, diagnose: diagnose, sample: sample, revealLinks: revealLinks, expandPosts: expandPosts });
 })(typeof window !== "undefined" ? window : globalThis);

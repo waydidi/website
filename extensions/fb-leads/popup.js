@@ -15,7 +15,7 @@
     touched: "Stopped: you used the page.",
     stopped: "Stopped.",
     problem: "Stopped: posts could not be sent. See the message above.",
-    limit: "No more runs today (4 a day, to keep your account safe). Reading while you browse still works.",
+    limit: "No runs left today.",
     notgroup: "Open a Facebook group page first.",
   };
 

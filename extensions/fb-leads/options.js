@@ -4,12 +4,15 @@
   var ENDPOINT = "https://waydidi.com/api/integrations/fb-leads";
   var input = document.getElementById("token"), message = document.getElementById("status");
 
-  chrome.storage.local.get({ token: "" }, function (s) { input.value = s.token; });
+  var namesBox = document.getElementById("names");
+
+  chrome.storage.local.get({ token: "", names: ["Waydidi Travel"] }, function (s) { input.value = s.token; namesBox.value = s.names.join("\n"); });
 
   function say(text) { message.textContent = text; }
 
   document.getElementById("save").addEventListener("click", function () {
-    chrome.storage.local.set({ token: input.value.trim(), problem: "" }, function () {
+    var names = namesBox.value.split("\n").map(function (n) { return n.trim(); }).filter(Boolean).slice(0, 10);
+    chrome.storage.local.set({ token: input.value.trim(), names: names, problem: "" }, function () {
       chrome.action.setBadgeText({ text: "" });
       say("Saved.");
     });

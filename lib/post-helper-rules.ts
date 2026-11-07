@@ -135,8 +135,20 @@ const multiline = (v: unknown, max: number) => (typeof v === "string" ? v.split(
 export type Route = { pickup: string; dropoff: string; passengers: number; bags: number };
 /** The playbook's reply types: sales (asks to hire), adjacent (a transport problem Waydidi could solve), info, social. */
 export type ReplyType = "sales" | "adjacent" | "info" | "social";
-/** `advert`: the post offers something (a business, agent or owner advertising, renting out or selling); the Facebook leads flow drops those, /c ignores it. */
-export type Routed = { language: "en" | "th" | "zh" | "other"; kind: "transport" | "travel" | "other"; replyType: ReplyType; topic: string; question: string; timeSensitive: boolean; route: Route | null; advert: boolean };
+/**
+ * What kind of post it is, for the Facebook leads flow (only "request" becomes a lead; /c ignores it): a real request,
+ * an advert or self-promotion, a news repost, a giveaway, engagement bait, a meme, spam, or chat.
+ */
+export const POST_TYPES = ["request", "advert", "news", "giveaway", "bait", "meme", "spam", "chat"] as const;
+export type PostType = typeof POST_TYPES[number];
+/** `advert` = postType "advert" (kept for older code); `inThailand`: whether the question is about Thailand. */
+export type Routed = { language: "en" | "th" | "zh" | "other"; kind: "transport" | "travel" | "other"; replyType: ReplyType; topic: string; question: string; timeSensitive: boolean; route: Route | null; advert: boolean; postType: PostType; inThailand: "yes" | "no" | "unclear" };
+/** The sorter's post type and place. A missing or unknown answer keeps the post (request, place unclear). */
+function sortPost(o: Record<string, unknown>): Pick<Routed, "advert" | "postType" | "inThailand"> {
+  const postType: PostType = POST_TYPES.includes(o.postType as PostType) ? o.postType as PostType : o.advert === true ? "advert" : "request";
+  const inThailand = o.inThailand === "yes" || o.inThailand === "no" ? o.inThailand : "unclear";
+  return { advert: postType === "advert", postType, inThailand };
+}
 export function parseRouted(raw: string): Routed | null {
   const o = jsonObject(raw);
   if (!o) return null;
@@ -146,7 +158,7 @@ export function parseRouted(raw: string): Routed | null {
   const n = (v: unknown, d: number, max: number) => { const x = Math.round(Number(v)); return Number.isFinite(x) ? Math.min(max, Math.max(0, x)) : d; };
   const route = r && text(r.pickup, 120) && text(r.dropoff, 120) ? { pickup: text(r.pickup, 120), dropoff: text(r.dropoff, 120), passengers: Math.max(1, n(r.passengers, 2, 30)), bags: n(r.bags, 2, 40) } : null;
   const replyType: ReplyType = o.replyType === "sales" || o.replyType === "adjacent" || o.replyType === "social" ? o.replyType : "info";
-  return { language: o.language === "th" || o.language === "zh" || o.language === "en" ? o.language : "other", kind: o.kind === "transport" ? "transport" : o.kind === "travel" ? "travel" : "other", replyType, topic, question, timeSensitive: o.timeSensitive === true, route, advert: o.advert === true };
+  return { language: o.language === "th" || o.language === "zh" || o.language === "en" ? o.language : "other", kind: o.kind === "transport" ? "transport" : o.kind === "travel" ? "travel" : "other", replyType, topic, question, timeSensitive: o.timeSensitive === true, route, ...sortPost(o) };
 }
 export function parseFacts(raw: string): ProposedFact[] {
   const o = jsonObject(raw);

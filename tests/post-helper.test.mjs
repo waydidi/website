@@ -202,3 +202,26 @@ test('an advert (the sorter sees an offer) stops after sorting for Facebook lead
   d = await ph.draftForPost('Luxury Private Pool Villas for Yearly Rental', { client: m, now: () => now });
   assert.equal(m.calls.compose, 1); assert.equal(d.parts.length, 2);
 });
+
+test('the sorter post type and place: only a request about Thailand becomes a lead; /c ignores both', async () => {
+  for (const [over, want] of [[{ postType: 'news' }, 'news'], [{ postType: 'meme' }, 'meme'], [{ postType: 'giveaway' }, 'giveaway'], [{ inThailand: 'no' }, 'not_thailand']]) {
+    const m = model({ router: routedJson({ topic: 'type-' + want, ...over }) });
+    const d = await ph.draftForPost('A post', { client: m, now: () => now }, { leadsOnly: true, maxSearches: 1, noSearchForBookings: true });
+    assert.deepEqual([d.skipReason, m.calls.search, m.calls.compose], [want, 0, 0], want);
+  }
+  const m = model({ router: routedJson({ topic: 'type-unclear', inThailand: 'unclear' }) });
+  const d = await ph.draftForPost('Best beach?', { client: m, now: () => now }, { leadsOnly: true, maxSearches: 1 });
+  assert.equal(d.skipReason, undefined, 'unclear place is kept');
+  const c = model({ router: routedJson({ topic: 'type-c', postType: 'news', inThailand: 'no' }) });
+  await ph.draftForPost('A post', { client: c, now: () => now });
+  assert.equal(c.calls.compose, 1, '/c still drafts');
+});
+
+test('"no agents" posts: a booking request is answered as information, with no offer or WhatsApp', async () => {
+  const m = model({ router: routedJson({ topic: 'no-agents', replyType: 'sales', kind: 'transport' }) });
+  const d = await ph.draftForPost('Need a driver to Pattaya, no agents please', { client: m, now: () => now }, { leadsOnly: true, maxSearches: 1, noSearchForBookings: true, noSalesPitch: true });
+  assert.equal(d.replyType, 'info');
+  assert.equal(m.calls.search, 1, 'answered with checked facts like any information post');
+  assert.match(d.parts[1], /Information only/);
+  assert.doesNotMatch(d.parts[0], /WhatsApp|wa\.me/);
+});

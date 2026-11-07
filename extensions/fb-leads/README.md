@@ -1,39 +1,45 @@
 # Waydidi Facebook Leads (browser extension)
 
 While you read a Facebook travel group, this extension sends the posts on screen to Waydidi. Waydidi drafts a comment
-from the owner's playbook (Admin → Writing assistant) and sends it to the Telegram Comment group, with the post link and
-✅ Posted / ⏭ Skip buttons (`lib/telegram/fb-leads.ts`).
+from the owner's playbook (Admin → Writing assistant) and sends it to the Telegram Comment group: the comment alone,
+then the group name, the post link and "Check before posting · <type>" with two buttons, **Posted** and **Skip**
+(`lib/telegram/fb-leads.ts`).
 
-It never clicks, comments or likes anything, and it never reads who wrote a post. Facebook hides each post's link
-until a mouse moves over the post's time, so the extension moves a simulated mouse over that time once per post (no
-click, no focus, no scrolling) and then reads the link. For a photo post the photo's link also carries the post number. By default it only reads what you
-scroll past. If you press **Collect** it also scrolls the group for you, slowly, like a person reading (see below). It
-works for private groups because it runs in your own browser, signed in as you. It is not published in any store; it is
-loaded from this folder.
+It never comments or likes anything, and it never sends who wrote a post. Facebook hides each post's link until a mouse
+moves over the post's time, so the extension moves a simulated mouse over that time once per post (no click, no focus,
+no scrolling) and then reads the link. For a photo post the photo's link also carries the post number. By default it
+only reads what you scroll past. If you press **Collect** it also scrolls the group for you, slowly, like a person
+reading, and taps "See more" so it reads whole posts (see below). It works for private groups because it runs in your
+own browser, signed in as you. It is not published in any store; it is loaded from this folder.
 
 ## Install (Chrome or Edge)
 
 1. Open `chrome://extensions` (Edge: `edge://extensions`) and turn on **Developer mode**.
 2. Click **Load unpacked** and choose this folder, `extensions/fb-leads`.
-3. Click the extension's **Details → Extension options** (or the puzzle icon → Waydidi Facebook Leads → Settings),
-   paste the token (the `FB_LEADS_INGEST_TOKEN` value from Cloudflare), click **Save**, then **Test connection**.
-   It should say "Connected".
+3. Click the extension's **Details → Extension options** (or the puzzle icon → Waydidi Facebook Leads → Settings):
+   - paste the token (the `FB_LEADS_INGEST_TOKEN` value from Cloudflare);
+   - list the **Facebook names Waydidi comments with**, one per line (for example the Waydidi Travel page and the
+     staff profiles that comment). Posts where one of them already commented are skipped. The names stay in this
+     browser and are never sent.
+   Click **Save**, then **Test connection**. It should say "Connected".
 4. Open a group on facebook.com, sort it by **New posts**, and scroll as you normally would, or press **Collect**.
-   The toolbar icon shows how many new posts were sent today. A red "!" means a problem: click the icon to read it.
+   The toolbar icon (the Waydidi bird) shows how many new posts were sent today. A red "!" means a problem: click the
+   icon to read it.
 
 After you update the files (for example after pulling a new version), click the reload arrow on the extension card.
 
 ## Collect (scrolling for you)
 
-Open a group, sort it by **New posts**, click the extension icon, set **Lead posts to collect** (5 to 100, default 50) and press
-**Collect from this group**. Keep that tab in front. It then scrolls the way a person reads: a different distance each time (about half to four-fifths of a
-screen), a pause of 3 to 9 seconds on each screen, a longer read of 12 to 25 seconds now and then, and a small scroll
-back up now and then. A run is limited and always ends by itself:
+Open a group, sort it by **New posts**, click the extension icon, set **Lead posts to collect** (5 to 100, default 50)
+and press **Collect from this group**. Keep that tab in front. It then scrolls the way a person reads: a different
+distance each time (about half to four-fifths of a screen), a pause of 3 to 9 seconds on each screen, a longer read of
+12 to 25 seconds now and then, and a small scroll back up now and then. Before reading each screen it taps the
+**"See more"** button inside each post's text once (owner's choice), so contact details and conditions at the end of a
+post are read too. It only taps that button inside the message, never a link, so nothing opens. A run ends by itself:
 
-- when it has your target number of **lead posts**: posts the website's free filter keeps. Adverts, long stays, chat
-  and posts sent before do not count; it scrolls past them. There is **no time limit**. A safety stop ends a run that
-  looked at 1,000 posts without reaching the target. A few lead posts may still be sorted as chat by the AI a minute
-  later and get no comment;
+- when it has your target number of **lead posts**: posts the website's filter keeps. Skipped posts and posts sent
+  before do not count; it scrolls past them. There is **no time limit**. A safety stop ends a run that looked at
+  1,000 posts without reaching the target. A few lead posts may still be skipped by the AI a minute later;
 - at the real end of the feed: the page stops moving and stops growing for 3 scrolls in a row;
 - if no post on the page can be read: the popup says so and shows how many posts the page has, how many with a post
   link and how many with text, which tells the developer what changed on Facebook;
@@ -41,38 +47,46 @@ back up now and then. A run is limited and always ends by itself:
 - if a post cannot be sent (wrong token, website off, no connection).
 
 At this pace a run often takes 30 minutes or more: if 1 post in 6 is a lead, 50 leads means looking at about 300 posts.
-The AI drafts at most `FB_LEADS_DAILY_LIMIT` posts a day (default 50); extra leads wait for the next day.
-At most **4 runs a day**. A run that could not read a single post (for example "no post on this page could be read", or
-posts could not be sent at once) does not count towards the 4; the popup says so. It never clicks "See more", never opens a post and never types. Press **Stop** in the popup to
-end a run early. Scrolling by script is the part Facebook is most likely to notice, so keep these limits; do not raise
-them without thinking about the Facebook account used.
+The AI drafts at most `FB_LEADS_DAILY_LIMIT` posts a day (default 50); extra leads wait for the next day, strongest
+first. At most **4 runs a day**; a run that could not read a single post does not count. Press **Stop** in the popup to
+end a run early. Scrolling and tapping by script is the part Facebook is most likely to notice, so keep these limits.
 
-## What is left out
+## What is collected and what is skipped
 
-The server drops these before any AI is used, so they cost nothing and send no message (`screenPost` in
-`lib/fb-leads-rules.ts`):
+Collected: posts where a group member really asks about travel in Thailand: services, recommendations, advice,
+transport, tours, hotels, itineraries, island transfers, nightlife, beaches, restaurants or local information. Request
+words are checked in English, Thai, Chinese, Russian and Korean. Strong leads (travel dates, a from–to route, a number
+of people) are drafted first.
 
-- **Adverts and promotions** by other businesses ("book now", "special price", "contact us", "for rent", "ให้เช่า",
-  "we offer…", and the same in Thai and Chinese), unless the post is plainly someone asking.
-- **Any post with contact details** (owner's rule): a phone number, a LINE ID, a WhatsApp number or a wa.me link. One
-  exception: a traveller who adds their own number while plainly asking ("looking for a driver, WhatsApp me…") with no
-  advert words is still a lead. Facebook's own sponsored posts have no group post link, so they are never picked up.
-- **Long stays**: a room, condo, house, villa or accommodation for a month or more ("3 months", "monthly", "yearly",
-  "long term", "รายเดือน", "รายปี", "长租"). A post that also asks for a driver, transfer, car or tour is kept.
-- **Posts that ask for nothing**: photos, videos and chat with no question and no travel word. The extension reads text
-  only, never the pictures or videos themselves, so a photo or video is judged by its caption alone.
+Skipped, with the reason stored for each post (`skip_reason`):
 
-Facebook cuts long posts off at "See more", and the extension reads only the visible part, so contact details at the end
-are often not seen. The AI's sorting step (about US$0.0003 a post) also marks a post as an advert when the visible part
-already shows an offer (for example "Villas for Yearly Rental"); such a post stops there, with no search and no message.
+| Reason | What | Checked by |
+|---|---|---|
+| `commenting_disabled` | the page says comments are turned off | extension, on the page |
+| `already_engaged` | a visible comment by one of the names in Settings, or the reaction button is already pressed by the account browsing | extension, on the page |
+| `promo` | adverts, promotions, self-promotion, rentals for sale or rent, and any post with contact details (phone, LINE ID, WhatsApp number, wa.me). Exception: a traveller who adds their own number while plainly asking | word rules |
+| `long_stay` | a room, condo, house or villa for a month or more ("monthly", "yearly", "รายเดือน", "长租") unless it also asks for transport | word rules |
+| `giveaway`, `bait`, `spam` | prize draws, "comment YES / tag a friend", scams, crypto, loans, short links | word rules |
+| `solved` | "UPDATE: booked / solved / ได้แล้ว / 已解决" | word rules |
+| `admin_post` | group rules and admin announcements | word rules |
+| `not_served` | jobs, flatmates, lost and found, selling personal items, pets, legal or medical emergencies (a driver to a hospital is still a lead) | word rules |
+| `no_request` | no question and no travel word (photos, videos and chat; a photo or video is judged by its caption) | word rules |
+| `cross_posted` | the same question already received from another group in the last 7 days | website |
+| `advert`, `news`, `giveaway`, `bait`, `meme`, `spam`, `chat` | the AI sorter's type for the post (about US$0.0003; also catches what the word rules miss) | AI sorter |
+| `not_thailand` | the AI sorter says the question is clearly about another country | AI sorter |
 
-These are word lists, not understanding, so a few posts will be kept or dropped wrongly. Tell the developer which ones
-and the lists are changed in one place on the server, with no change to the extension.
+"No agents, please" posts ("no agents / no sellers / ไม่รับนายหน้า / 不要中介") are kept, but the comment is help only:
+no Waydidi offer, no price, no WhatsApp line. Post age is not checked: Facebook hides a post's time the same way it
+hides its link, so it cannot be read reliably.
+
+These are word lists and an AI judgement, so a few posts will be kept or skipped wrongly. Tell the developer which
+ones; the rules are changed in one place on the server (`lib/fb-leads-rules.ts`), with no change to the extension.
 
 ## What it sends
 
-For each post that has a link and some text: the post link, the post text and the group name. Nothing else.
-Each post is sent once; the extension remembers the last 5,000.
+For each post that has a link and some text: the post link, the post text, the group name and, when the page showed
+it, `commenting_disabled` or `already_engaged`. Nothing else. Each post is sent once; the extension remembers the last
+5,000.
 
 ## When it stops finding posts
 
@@ -81,13 +95,16 @@ Facebook changes its page markup from time to time. If posts stop arriving while
 1. On the group page, click the extension icon → **Copy page sample for the developer**, and paste it to the developer.
    It is an outline of the first posts on screen: element names, the few attributes the reader uses and link shapes, with
    every word replaced by its length and every number and id replaced by N. No text, names or ids are copied.
-2. The developer adds that shape as a new case in `e2e/fb-leads-extractor.spec.ts`, make it pass in `extractor.js`, and reload the extension.
+2. The developer adds that shape as a new case in `e2e/fb-leads-extractor.spec.ts`, makes it pass in `extractor.js`,
+   and you reload the extension.
 
 ## Limits
 
 - It collects only while a group page is open in the browser, and only the posts that were rendered on screen.
-- A long post shows "See more" on Facebook; only the visible part is read, so its comment may miss detail.
-- Automated collection is against Facebook's terms, and scrolling by script is easier to notice than reading alone.
-  The human pace and the limits above lower the risk; they do not remove it. Facebook may ask you to confirm it is you,
-  or limit the account. Use an account you can afford to have checked, and stop if it asks.
+- While you browse yourself (no Collect run), "See more" is not tapped, so only the visible part of a long post is read.
+- "Already engaged" sees only comments shown on the page (not those behind "View more comments"), and a reaction only
+  when you browse with the account that reacted.
+- Automated collection is against Facebook's terms, and scrolling and tapping by script are easier to notice than
+  reading alone. The human pace and the limits above lower the risk; they do not remove it. Facebook may ask you to
+  confirm it is you, or limit the account. Use an account you can afford to have checked, and stop if it asks.
 - Memory use is tiny (a script on the Facebook tab and one idle background worker).

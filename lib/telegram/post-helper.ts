@@ -55,12 +55,13 @@ const realClient = (): PostClient => {
 const replyText = (res: Awaited<ReturnType<PostClient["create"]>>) => res.content.filter((b) => b.type === "text").map((b) => String(b.text)).join("\n");
 
 const ROUTER = `You read a post from a Thailand travel group (a traveller asking or sharing something). Reply with ONLY one JSON object:
-{"language":"en"|"th"|"zh"|"other","replyType":"sales"|"adjacent"|"info"|"social","kind":"transport"|"travel"|"other","topic":"short-english-slug","question":"one clear English question to research","timeSensitive":true|false,"advert":true|false,"route":{"pickup":"","dropoff":"","passengers":2,"bags":2}|null}
+{"language":"en"|"th"|"zh"|"other","replyType":"sales"|"adjacent"|"info"|"social","kind":"transport"|"travel"|"other","topic":"short-english-slug","question":"one clear English question to research","timeSensitive":true|false,"postType":"request"|"advert"|"news"|"giveaway"|"bait"|"meme"|"spam"|"chat","inThailand":"yes"|"no"|"unclear","route":{"pickup":"","dropoff":"","passengers":2,"bags":2}|null}
 - replyType "sales": the poster wants to hire a driver, transfer, van, taxi, private tour or a tour company ("looking for a driver", "how much for a van to Pattaya", "recommend a tour company").
 - "adjacent": not a request to hire, but a transport or logistics problem a private driver would solve (how to get from A to B, many stops with kids or luggage, is the bus practical).
 - "info": a question about hotels, areas, beaches, weather, food, what to do, safety, visas.
 - "social": introductions, "anyone else here this week", casual chat.
-- "advert": true when the poster OFFERS something rather than asks or shares as a traveller: a business, agent or owner advertising, renting out, selling or promoting a tour, transport, room, villa, condo, product or service (often with prices, "contact us", a phone number or LINE ID). The text may be cut off, so judge from what is there. Otherwise false.
+- "postType": "request" when a group member really asks for something or needs help or information (a service, advice, a recommendation, transport, a tour, a hotel, an itinerary, food, nightlife, beaches, local information). "advert" when the poster OFFERS something instead (a business, agent, guide or owner advertising, self-promoting, renting out, selling or promoting a tour, transport, room, villa, condo, product or service, often with prices, "contact us", a phone number or LINE ID). "news" for a shared news article or announcement. "giveaway" for a prize draw or free give-away. "bait" for engagement bait ("comment YES if you love Thailand", "tag a friend"). "meme" for a joke or meme. "spam" for scams, crypto, loans, jobs or unrelated links. "chat" for anything else (stories, photos, greetings). The text may be cut off, so judge from what is there.
+- "inThailand": "yes" when the question is about Thailand, "no" when it is clearly about another country, "unclear" when you cannot tell.
 - kind "transport" when replyType is sales or adjacent; "route" only for a clear point-to-point trip with named places, otherwise null.
 - "topic": a stable slug for the question itself, e.g. "bkk-airport-to-pattaya-taxi" (same question, same slug; no names, dates or numbers of people).
 - timeSensitive true for visa, fees, prices, opening hours, schedules, safety, weather or events.
@@ -84,7 +85,7 @@ This post is type "${type}".
 ${notes ? `\nThe owner's playbook (follow it; it ranks above the rules here only where it is more specific; its reference prices are NOT quotes and must not be used):\n${notes.slice(0, 40000)}` : ""}`;
 
 /** `factCount` and `stale` let the Facebook leads flow decide whether a draft is ready to post (lib/fb-leads-rules). */
-export type Draft = { id: string; text: string; keyboard: InlineKeyboard; parts: string[]; replyType: Routed["replyType"]; factCount: number; stale: boolean; searched: boolean; advert?: boolean };
+export type Draft = { id: string; text: string; keyboard: InlineKeyboard; parts: string[]; replyType: Routed["replyType"]; factCount: number; stale: boolean; searched: boolean; advert?: boolean; skipReason?: string };
 type Deps = { client?: PostClient; quote?: (r: NonNullable<Routed["route"]>) => Promise<QuoteResult>; now?: () => Date };
 
 async function ask(client: PostClient, body: Record<string, unknown>) {
@@ -141,15 +142,21 @@ const sourceLines = (facts: KeptFact[]) => [...new Map(facts.flatMap((f) => f.so
  * - noSearchForBookings: a booking request ("looking for a driver / transfer / tour") gets the Waydidi offer and one
  *   question with the price from Waydidi's own price table, so no web search is made (saved knowledge is still used).
  */
-export type DraftOptions = { forceFresh?: boolean; leadsOnly?: boolean; maxSearches?: number; noSearchForBookings?: boolean };
+// - noSalesPitch: the poster asked for no agents or sellers, so a booking request is answered as information only
+//   (no Waydidi offer, no price, no WhatsApp line).
+export type DraftOptions = { forceFresh?: boolean; leadsOnly?: boolean; maxSearches?: number; noSearchForBookings?: boolean; noSalesPitch?: boolean };
 
 /** The whole flow for one pasted post. Pure apart from the client, quote lookup and database (injectable for tests). */
 export async function draftForPost(text: string, deps: Deps = {}, options: DraftOptions = {}): Promise<Draft> {
   await ensurePostHelperTables();
   const now = (deps.now ?? (() => new Date()))(), client = deps.client ?? realClient();
-  const routed = await routePost(text, client);
-  // A chat post or an advert is not a lead: stop after sorting (no search, no writing).
-  if (options.leadsOnly && (routed.replyType === "social" || routed.advert)) return { id: "", text, keyboard: [], parts: [], replyType: routed.replyType, factCount: 0, stale: false, searched: false, advert: routed.advert };
+  let routed = await routePost(text, client);
+  // Not a lead (chat, an advert, news, a giveaway, bait, a meme, spam, or not about Thailand): stop after sorting.
+  if (options.leadsOnly) {
+    const skipReason = routed.postType !== "request" ? routed.postType : routed.inThailand === "no" ? "not_thailand" : routed.replyType === "social" ? "chat" : "";
+    if (skipReason) return { id: "", text, keyboard: [], parts: [], replyType: routed.replyType, factCount: 0, stale: false, searched: false, advert: routed.advert, skipReason };
+  }
+  if (options.noSalesPitch && (routed.replyType === "sales" || routed.replyType === "adjacent")) routed = { ...routed, replyType: "info" };
   const repeats = await countTopic(routed.topic, now);
   const saved = options.forceFresh ? null : await knowledgeFor(routed.topic);
   const useSaved = saved?.status === "approved";
