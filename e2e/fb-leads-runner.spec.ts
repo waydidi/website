@@ -57,8 +57,8 @@ test("reads like a person: uneven distances, pauses of different lengths within 
   expect(new Set(out.scrolls).size).toBeGreaterThan(out.scrolls.length * 0.8); // no repeating rhythm
   expect(Math.min(...down)).toBeGreaterThanOrEqual(0.4 * out.height - 1);
   expect(Math.max(...down)).toBeLessThanOrEqual(0.85 * out.height + 1);
-  expect(Math.min(...out.sleeps)).toBeGreaterThanOrEqual(3000);
-  expect(Math.max(...out.sleeps)).toBeLessThanOrEqual(25000);
+  expect(Math.min(...out.sleeps)).toBeGreaterThanOrEqual(2000);
+  expect(Math.max(...out.sleeps)).toBeLessThanOrEqual(15000);
   expect(new Set(out.sleeps).size).toBeGreaterThan(out.sleeps.length * 0.8);
   expect(out.clicks).toBe(0);
 });
