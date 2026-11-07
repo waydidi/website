@@ -150,7 +150,7 @@ test("real layout: a hidden time link is revealed by a hover, then the post is r
   expect(JSON.stringify(after.posts)).not.toContain("Someone Else");
 });
 
-test("real layout: revealing only hovers (no click, no focus, no scroll) and hovers each link once", async ({ page }) => {
+test("real layout: revealing never clicks or scrolls, gives focus back, and stops once the link is found", async ({ page }) => {
   await openReal(page, real({ id: "8100008", text: "Which pier is best for the ferry to Koh Chang with a car?" }) + real({ id: "8200008" }));
   const out = await page.evaluate(() => {
     const w = (window as unknown as { WaydidiLeads: Leads; __clicks: number }); const y = scrollY;
@@ -207,4 +207,60 @@ test('"See more" is tapped once per post (a button in the message, never a link)
   expect(out.url).toBe(GROUP_PAGE); // nothing opened
   expect(out.posts[0].text).toContain("LINE ID: @villas");
   expect(out.posts[0].text).not.toMatch(/See more\s*$/);
+});
+
+// Hidden links on real Facebook did not fill on a simulated hover (owner's run, 7 Nov 2026: 9 posts, 0 with a link).
+// The reader now also retries, focuses the time link, and reads the address from the page's own data (page-world.js).
+const PAGE_WORLD = path.join(process.cwd(), "extensions", "fb-leads", "page-world.js");
+const hiddenUnit = (id: string, text: string) => `<div><div aria-posinset="1" data-id="${id}"><div>
+  <span dir="ltr"><div data-ad-rendering-role="profile_name"><h2><a href="/groups/111/user/999/"><span>Someone</span></a></h2></div></span>
+  <span dir="ltr"><div><a class="hid" role="link" tabindex="0" href="?__cft__[0]=AZ&__tn__=R"><span>2</span><span>h</span></a></div></span>
+  <div dir="auto"><div data-ad-rendering-role="story_message"><span dir="auto"><span>${text}</span></span></div></div></div></div></div>`;
+type Reveal = { revealLinks: (d: Document) => number; findPosts: (d: Document) => Post[]; diagnose: (d: Document) => Record<string, number> };
+const run2 = (page: import("@playwright/test").Page) => page.evaluate(async () => {
+  const w = (window as unknown as { WaydidiLeads: Reveal }).WaydidiLeads;
+  const tried = [w.revealLinks(document)];
+  await new Promise((r) => setTimeout(r, 50));
+  let posts = w.findPosts(document);
+  if (!posts.length) { tried.push(w.revealLinks(document)); await new Promise((r) => setTimeout(r, 50)); posts = w.findPosts(document); }
+  return { tried, posts, focus: document.activeElement === document.body, d: w.diagnose(document) };
+});
+
+test("hidden link: filled when the time link gets keyboard focus; focus is given back", async ({ page }) => {
+  await openReal(page, hiddenUnit("7100001", "Need a minivan from Trat airport to the ferry on Monday") +
+    `<script>document.addEventListener("focusin", (e) => { const a = e.target.closest && e.target.closest("a.hid"); if (a) a.setAttribute("href", "https://www.facebook.com/groups/111/posts/7100001/"); });</script>`);
+  const out = await run2(page);
+  expect(out.posts.map((p) => p.url)).toEqual(["https://www.facebook.com/groups/111/posts/7100001/"]);
+  expect(out.focus).toBe(true);
+});
+
+test("hidden link: Facebook not ready on the first hover, filled on a later try (at most 3 tries per link)", async ({ page }) => {
+  await openReal(page, hiddenUnit("7200001", "Which ferry to Koh Kood is best with luggage?") +
+    `<script>let n = 0; document.addEventListener("mouseover", (e) => { const a = e.target.closest && e.target.closest("a.hid"); if (a && ++n === 2) a.setAttribute("href", "/groups/111/posts/7200001/"); }, true);</script>`);
+  const out = await run2(page);
+  expect(out.tried).toEqual([1, 1]);
+  expect(out.posts.map((p) => p.url)).toEqual(["https://www.facebook.com/groups/111/posts/7200001/"]);
+  const more = await page.evaluate(() => { const w = (window as unknown as { WaydidiLeads: Reveal }).WaydidiLeads; return [w.revealLinks(document), w.revealLinks(document)]; });
+  expect(more).toEqual([0, 0]); // found: no more tries
+});
+
+test("hidden link: read from the page's own data, never from another post higher up", async ({ page }) => {
+  await openReal(page, hiddenUnit("7300001", "Looking for a driver from Pattaya to Bangkok airport tomorrow") + hiddenUnit("7300002", "Best seafood restaurant on Koh Samet anyone?") +
+    `<script>
+      // Like React: each link's internal data leads up through the post to the feed (which lists other posts).
+      const feed = { memoizedProps: { edges: [{ url: "https://www.facebook.com/groups/111/posts/9999999/" }] }, return: null };
+      document.querySelectorAll("[aria-posinset]").forEach((unit) => {
+        const id = unit.dataset.id, a = unit.querySelector("a.hid");
+        const postFiber = { memoizedProps: id === "7300001" ? { story: { url: "https://www.facebook.com/groups/111/posts/" + id + "/" } } : { feedback: { post_id: id } }, stateNode: unit, return: feed };
+        a.__reactFiber$test = { memoizedProps: { className: "x" }, stateNode: a, return: { memoizedProps: { tracking: "abc" }, return: postFiber } };
+      });
+      // A post with no address of its own must not get the feed's.
+      document.querySelector("[role=feed]").insertAdjacentHTML("beforeend", ${JSON.stringify("<div><div aria-posinset='3' data-id='x'><span dir='ltr'><div data-ad-rendering-role='profile_name'><h2><a href='/u'>P</a></h2></div></span><span dir='ltr'><a class='hid3' href='?__cft__[0]=AZ'>1h</a></span><div dir='auto'><div data-ad-rendering-role='story_message'><span>Any tips for a day on Koh Larn please?</span></div></div></div></div>")});
+      const u3 = document.querySelector("[data-id=x]"); document.querySelector("a.hid3").__reactFiber$test = { memoizedProps: {}, return: { memoizedProps: {}, stateNode: u3, return: feed } };
+    </script>`);
+  await page.addScriptTag({ path: PAGE_WORLD });
+  const out = await run2(page);
+  expect(out.posts.map((p) => p.url).sort()).toEqual(["https://www.facebook.com/groups/111/posts/7300001/", "https://www.facebook.com/groups/kohchangcommunity/posts/7300002/"]);
+  expect(JSON.stringify(out.posts)).not.toContain("9999999");
+  expect(out.d).toMatchObject({ withText: 3, withLink: 2, pageData: 2, hidden: 3 }); // all 3 time links stay hidden; 2 recovered from page data
 });

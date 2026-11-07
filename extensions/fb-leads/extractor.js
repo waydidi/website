@@ -58,9 +58,11 @@
   }
 
   function postUrl(unit, doc) {
-    var links = unit.querySelectorAll("a[href]"), fromComment = "", fromPhoto = "";
+    var links = unit.querySelectorAll("a[href], a[data-waydidi-href]"), fromComment = "", fromPhoto = "";
     for (var i = 0; i < links.length; i++) {
-      var href = links[i].getAttribute("href") || "";
+      // data-waydidi-href: the address page-world.js found in the page's own data for a link Facebook keeps hidden.
+      var real = links[i].getAttribute("href") || "", found = links[i].getAttribute("data-waydidi-href") || "";
+      var href = POST_LINK.test(real) ? real : found || real;
       // A photo in a group post links to /photo/?fbid=…&set=gm.<post> (or pcb.<post>): the post number, as a backup.
       var set = /[?&]set=(?:gm|pcb)\.(\d{5,25})(?:&|$)/.exec(href);
       if (set && !fromPhoto && groupKey(doc)) fromPhoto = "https://www.facebook.com/groups/" + groupKey(doc) + "/posts/" + set[1] + "/";
@@ -87,27 +89,38 @@
     return out;
   }
 
-  var hovered = typeof WeakSet === "function" ? new WeakSet() : null;
+  var MAX_TRIES = 3;
+  var tries = typeof WeakMap === "function" ? new WeakMap() : null;
   /**
-   * For each post on screen whose link is hidden, moves a simulated mouse over its time link once, so Facebook fills
-   * in the address. Only hover events: it never clicks, focuses or scrolls. Returns how many links were hovered
-   * (the caller waits a moment before reading the page again).
+   * For each post on screen whose link is hidden, asks for the address three ways (up to 3 tries per link, on later
+   * screens too, since Facebook may not be ready the first time):
+   * 1. a simulated mouse over the time link (Facebook fills the address on hover);
+   * 2. keyboard focus on it, like pressing Tab (links must have their address for keyboard users; the browser treats
+   *    focus as genuine). No scrolling, and the previous focus is put back;
+   * 3. page-world.js reads the address from the page's own data and marks the link (data-waydidi-href).
+   * Never clicks. Returns how many links were tried (the caller waits a moment before reading the page again).
    */
   function revealLinks(doc) {
     var list = units(doc), count = 0, win = doc.defaultView;
-    if (!hovered || !win) return 0;
+    if (!tries || !win) return 0;
     for (var i = 0; i < list.length; i++) {
       if (postUrl(list[i], doc) || postText(list[i]).length < MIN_TEXT) continue;
       hiddenTimeLinks(list[i]).forEach(function (a) {
-        if (hovered.has(a)) return;
-        hovered.add(a);
+        var n = tries.get(a) || 0;
+        if (n >= MAX_TRIES) return;
+        tries.set(a, n + 1);
         count++;
         ["pointerover", "pointerenter", "mouseover", "mouseenter", "mousemove"].forEach(function (type) {
           var Ctor = type.indexOf("pointer") === 0 && win.PointerEvent ? win.PointerEvent : win.MouseEvent;
           a.dispatchEvent(new Ctor(type, { bubbles: type !== "mouseenter" && type !== "pointerenter", cancelable: true, view: win }));
         });
+        var before = doc.activeElement;
+        try { a.focus({ preventScroll: true }); } catch { /* not focusable */ }
+        if (before && before !== a && typeof before.focus === "function" && before !== doc.body) { try { before.focus({ preventScroll: true }); } catch { /* ignore */ } }
+        else if (doc.activeElement === a) a.blur();
       });
     }
+    if (count) doc.dispatchEvent(new win.CustomEvent("waydidi:reveal"));
     return count;
   }
 
@@ -197,13 +210,18 @@
 
   /** What the page shows, for the popup when no post can be read: posts on screen, with a post link, with text. */
   function diagnose(doc) {
-    var d = { articles: 0, withLink: 0, withText: 0, readable: 0 }, list = units(doc);
+    // hidden: posts whose time link has no address; hovered/focused: tries made; pageData: links found by page-world.js.
+    var d = { articles: 0, withLink: 0, withText: 0, readable: 0, hidden: 0, tried: 0, pageData: 0 }, list = units(doc);
     for (var i = 0; i < list.length; i++) {
       d.articles++;
       var link = Boolean(postUrl(list[i], doc)), text = postText(list[i]).length >= MIN_TEXT;
       if (link) d.withLink++;
       if (text) d.withText++;
       if (link && text) d.readable++;
+      var hidden = hiddenTimeLinks(list[i]);
+      if (hidden.length) d.hidden++;
+      hidden.forEach(function (a) { d.tried += tries ? tries.get(a) || 0 : 0; });
+      if (list[i].querySelector("a[data-waydidi-href]")) d.pageData++;
     }
     return d;
   }
@@ -232,6 +250,7 @@
         if (el.hasAttribute(a)) attrs.push(VALUE[a] ? a + "=" + String(el.getAttribute(a)).replace(/\d+/g, "N").slice(0, 40) : a);
       });
       if (el.tagName === "A") attrs.push("href=" + shapeHref(el.getAttribute("href") || "(none)"));
+      if (el.tagName === "A" && el.hasAttribute("data-waydidi-href")) attrs.push("found=" + shapeHref(el.getAttribute("data-waydidi-href")));
       var own = 0;
       for (var n = el.firstChild; n; n = n.nextSibling) if (n.nodeType === 3) own += n.textContent.trim().length;
       var kids = el.children;

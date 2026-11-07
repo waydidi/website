@@ -41,7 +41,8 @@
         : (REASONS[run.reason] || "Done.") + (run.posts ? " " + progress + "." : "");
       if (run && !running && run.free) text += " This run did not count towards today's 4.";
       if (run && !running && run.diag && (run.reason === "unreadable" || run.reason === "end") && run.posts === 0) {
-        text += " On the page: " + run.diag.articles + " posts, " + run.diag.withLink + " with a post link, " + run.diag.withText + " with text.";
+        text += " On the page: " + run.diag.articles + " posts, " + run.diag.withLink + " with a post link, " + run.diag.withText + " with text" +
+          (run.diag.hidden !== undefined ? ", " + run.diag.hidden + " hidden links, " + run.diag.tried + " tries, " + run.diag.pageData + " found in page data" : "") + ".";
       }
       document.getElementById("run").textContent = text;
     });

@@ -1,19 +1,59 @@
 {
   "manifest_version": 3,
   "name": "Waydidi Facebook Leads",
-  "version": "1.1.0",
-  "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
-  "description": "While you read a Facebook travel group, sends the posts on screen to Waydidi, which drafts a comment for your Telegram Comment group. Optionally scrolls at a human pace when you press Collect. Never clicks or posts.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://waydidi.com/*"],
-  "background": { "service_worker": "background.js" },
+  "version": "1.2.0",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "description": "While you read a Facebook travel group, sends the posts on screen to Waydidi, which drafts a comment for your Telegram Comment group. On Collect it scrolls at a human pace and opens See more. Never comments or posts.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://waydidi.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
-      "matches": ["https://www.facebook.com/*", "https://web.facebook.com/*"],
-      "js": ["extractor.js", "runner.js", "content.js"],
+      "matches": [
+        "https://www.facebook.com/*",
+        "https://web.facebook.com/*"
+      ],
+      "js": [
+        "extractor.js",
+        "runner.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.facebook.com/*",
+        "https://web.facebook.com/*"
+      ],
+      "js": [
+        "page-world.js"
+      ],
+      "run_at": "document_idle",
+      "world": "MAIN"
     }
   ],
-  "options_ui": { "page": "options.html", "open_in_tab": true },
-  "action": { "default_title": "Waydidi Facebook Leads", "default_popup": "popup.html", "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png" } }
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "action": {
+    "default_title": "Waydidi Facebook Leads",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  }
 }
