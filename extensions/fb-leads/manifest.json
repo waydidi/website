@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Waydidi Facebook Leads",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
   "description": "While you read a Facebook travel group, sends the posts on screen to Waydidi, which drafts a comment for your Telegram Comment group. Optionally scrolls at a human pace when you press Collect. Never clicks or posts.",
   "permissions": ["storage"],
   "host_permissions": ["https://waydidi.com/*"],
@@ -14,5 +15,5 @@
     }
   ],
   "options_ui": { "page": "options.html", "open_in_tab": true },
-  "action": { "default_title": "Waydidi Facebook Leads", "default_popup": "popup.html" }
+  "action": { "default_title": "Waydidi Facebook Leads", "default_popup": "popup.html", "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png" } }
 }

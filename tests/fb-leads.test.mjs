@@ -63,9 +63,8 @@ test('a lead is drafted and sent as two messages: the comment alone, then group,
   assert.match(s.sent[1].text, /📌 <b>Thai &lt;Travel&gt;<\/b>\nhttps:\/\/www\.facebook\.com\/groups\/thaitravel\/posts\/1000001\//);
   assert.doesNotMatch(s.sent[1].text, /Needs your check/);
   const row = await lead(1);
-  assert.deepEqual(s.sent[1].keyboard[0].map((b) => b.callback_data), [`fl_posted:${row.id}`, `fl_skip:${row.id}`]);
-  assert.equal(s.sent[1].keyboard[1][0].url, post(1).url);
-  assert.equal(s.sent[1].keyboard[2][0].callback_data, 'ph_again:d1', 'the /c buttons are kept');
+  // Only two buttons, without emoji (owner's choice): no Open post, Search again or Wrong or outdated.
+  assert.deepEqual(s.sent[1].keyboard, [[{ text: 'Posted', callback_data: `fl_posted:${row.id}` }, { text: 'Skip', callback_data: `fl_skip:${row.id}` }]]);
   assert.equal(row.status, 'sent'); assert.equal(row.comment_message_id, 101); assert.equal(row.link_message_id, 102);
   assert.deepEqual(await fl.processLeads({ draft: draftOf(), send: s.send, now: () => now }), { drafted: 0, sent: 0 }, 'nothing sent twice');
 });
@@ -200,4 +199,50 @@ test('a post the AI sorter flags as an advert is closed with no message', async 
   await fl.processLeads({ draft: draftOf({ replyType: 'info', advert: true, parts: [] }), send: s.send, now: () => now });
   assert.equal(s.sent.length, 0);
   assert.deepEqual([(await lead(1)).status, (await lead(1)).reply_type], ['not_lead', 'advert']);
+});
+
+test('skip reasons are stored: the word rules, what the extension saw on the page, and the AI sorter', async () => {
+  const res = await ingest({ posts: [
+    post(1, { text: 'GIVEAWAY! Win a free island tour, tag a friend' }),
+    post(2, { text: 'Comment YES if you love Thailand' }),
+    post(3, { text: 'Earn $300 per day, work from home, bit.ly/xyz' }),
+    post(4, { text: 'UPDATE: booked, thanks everyone for the driver tips' }),
+    post(5, { text: 'Group rules: no selling, be kind' }),
+    post(6, { text: 'Looking for a flatmate in Chiang Mai, 2 bedroom' }),
+    post(7, { text: 'Need a driver from Trat airport tomorrow', skip: 'commenting_disabled' }),
+    post(8, { text: 'Which ferry is best to Koh Chang?', skip: 'already_engaged' }),
+    post(9, { text: 'Which beach is best for kids on Koh Chang?', skip: 'something_else' }),
+  ] });
+  assert.deepEqual(await res.json(), { accepted: 9, duplicates: 0, skipped: 8, rejected: [] });
+  const reasons = [];
+  for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) { const row = await lead(n); reasons.push(row.status === 'queued' ? 'queued' : row.skip_reason); }
+  assert.deepEqual(reasons, ['giveaway', 'bait', 'spam', 'solved', 'admin_post', 'not_served', 'commenting_disabled', 'already_engaged', 'queued'], 'an unknown skip value from a collector is ignored');
+  // The AI sorter's verdict is stored too, and gets no message.
+  const s = sender();
+  await fl.processLeads({ draft: draftOf({ replyType: 'info', postType: 'news', skipReason: 'news', parts: [] }), send: s.send, now: () => now });
+  assert.equal(s.sent.length, 0);
+  assert.deepEqual([(await lead(9)).status, (await lead(9)).skip_reason], ['not_lead', 'news']);
+});
+
+test('the same question copied into another group within 7 days is collected once (cross_posted)', async () => {
+  const text = 'Looking for a private driver from Bangkok airport to Hua Hin on 12 Dec for 4 people';
+  await fl.queueLeads([{ groupKey: 'g1', postKey: '1000001', url: post(1).url, text, groupName: 'G1' }], now);
+  const second = await fl.queueLeads([{ groupKey: 'g2', postKey: '1000002', url: post(2).url, text: '  looking for a PRIVATE driver from Bangkok airport to Hua Hin on 12 Dec for 4 people!! ', groupName: 'G2' }], now);
+  assert.equal(second.skipped, 1);
+  assert.equal((await lead(2)).skip_reason, 'cross_posted');
+  assert.equal((await lead(1)).status, 'queued');
+  // After 7 days the same text is a new request again.
+  await fl.queueLeads([{ groupKey: 'g3', postKey: '1000003', url: post(3).url, text, groupName: 'G3' }], new Date(now.getTime() + 8 * 86_400_000));
+  assert.equal((await lead(3)).status, 'queued');
+});
+
+test('strong leads are drafted first; "no agents" posts are drafted with no sales pitch', async () => {
+  await fl.queueLeads([
+    { groupKey: 'g', postKey: '1000001', url: post(1).url, text: 'Any tips for Koh Chang?', groupName: 'G' },
+    { groupKey: 'g', postKey: '1000002', url: post(2).url, text: 'Need a van from Bangkok to Pattaya on 3 Jan for 6 people, no agents please', groupName: 'G' },
+  ], now);
+  assert.ok((await lead(2)).priority > (await lead(1)).priority);
+  const seen = [];
+  await fl.processLeads({ draft: async (text, options) => { seen.push({ text, noSalesPitch: options.noSalesPitch, leadsOnly: options.leadsOnly }); return draftOf()(text); }, send: sender().send, now: () => now, batch: 1 });
+  assert.deepEqual(seen, [{ text: 'Need a van from Bangkok to Pattaya on 3 Jan for 6 people, no agents please', noSalesPitch: true, leadsOnly: true }], 'the later but stronger lead first');
 });

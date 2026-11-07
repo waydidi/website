@@ -20,6 +20,9 @@
 <p class="hint">Paste the token from your Cloudflare settings (FB_LEADS_INGEST_TOKEN). It is kept only in this browser and is sent only to waydidi.com.</p>
 <label for="token">Token</label>
 <input id="token" type="password" autocomplete="off" spellcheck="false">
+<label for="names">Facebook names Waydidi comments with (one per line)</label>
+<textarea id="names" rows="3" spellcheck="false" style="width:100%;box-sizing:border-box;padding:10px;font:inherit;border:1px solid #9aa8a0;border-radius:8px"></textarea>
+<p class="hint">Posts where one of these names has already commented are skipped. The names stay in this browser and are never sent.</p>
 <button id="save">Save</button><button id="test" class="secondary">Test connection</button>
 <div id="status" role="status"></div>
 <script src="options.js"></script>

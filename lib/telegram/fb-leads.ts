@@ -1,10 +1,10 @@
 import { env } from "cloudflare:workers";
-import { DRAFTING_TIMEOUT_MIN, LEAD_KEEP_DAYS, MAX_ATTEMPTS, dailyLimit, isLead, leadsEnabled, reliability, screenPost, thaiDayStart, thaiStamp, type IncomingPost, type LeadAction } from "@/lib/fb-leads-rules";
+import { DRAFTING_TIMEOUT_MIN, LEAD_KEEP_DAYS, MAX_ATTEMPTS, dailyLimit, isLead, leadPriority, leadsEnabled, noSalesPitch, normalisedText, reliability, screenPost, thaiDayStart, thaiStamp, type IncomingPost, type LeadAction } from "@/lib/fb-leads-rules";
 import { assistantFailure } from "@/lib/assistant-error-rules";
 import { esc } from "@/lib/telegram/cards";
 import { answerCallback, editIn, sendTo, telegramCommentChatId, type InlineKeyboard, type TelegramMessage } from "@/lib/telegram/client";
 import { assistantUsage } from "@/lib/telegram/assistant";
-import { draftForPost, postHelperOn, type Draft } from "@/lib/telegram/post-helper";
+import { draftForPost, postHelperOn, type Draft, type DraftOptions } from "@/lib/telegram/post-helper";
 
 // Facebook group leads: posts sent in by a collector are queued here, drafted by the same writer as /c (the owner's
 // playbook in Admin → Writing assistant, web facts checked), and sent to the Comment group as two messages: the
@@ -26,6 +26,12 @@ export function ensureLeadTables() {
       "CREATE INDEX IF NOT EXISTS fb_leads_drafted ON fb_leads(drafted_at)",
       "CREATE INDEX IF NOT EXISTS fb_leads_group ON fb_leads(group_key, status)",
     ]) await db().prepare(sql).bind().run();
+    // Added later (drizzle/0121_fb_leads_targeting.sql): why a post was skipped, how strong a lead it is, and its
+    // text fingerprint (the same question copied into several groups is collected once).
+    for (const col of ["skip_reason TEXT", "priority INTEGER NOT NULL DEFAULT 0", "text_hash TEXT"])
+      await db().prepare(`ALTER TABLE fb_leads ADD COLUMN ${col}`).bind().run().catch(() => undefined);
+    for (const sql of ["CREATE INDEX IF NOT EXISTS fb_leads_queue ON fb_leads(status, priority, created_at)", "CREATE INDEX IF NOT EXISTS fb_leads_text ON fb_leads(text_hash, created_at)"])
+      await db().prepare(sql).bind().run();
   })().catch((e) => { ready = null; throw e; }));
 }
 
@@ -44,15 +50,21 @@ export async function leadId(groupKey: string, postKey: string) {
 export async function queueLeads(posts: IncomingPost[], now = new Date()) {
   await ensureLeadTables();
   let accepted = 0, skipped = 0;
+  const since = new Date(now.getTime() - CROSS_POST_DAYS * 86_400_000).toISOString();
   for (const p of posts) {
-    const at = now.toISOString(), request = screenPost(p.text).queue;
-    const res = await db().prepare("INSERT OR IGNORE INTO fb_leads(id,group_key,group_name,post_key,post_url,post_text,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(group_key,post_key) DO UPDATE SET status='queued',attempts=0,post_text=excluded.post_text,group_name=excluded.group_name,updated_at=excluded.updated_at WHERE fb_leads.status='failed'")
-      .bind(await leadId(p.groupKey, p.postKey), p.groupKey, p.groupName, p.postKey, p.url, p.text, request ? "queued" : "not_lead", at, at).run();
+    const at = now.toISOString(), screen = screenPost(p.text), hash = await textHash(p.text);
+    // Why it is skipped, in order: what the extension saw on the page, the word rules, then a copy from another group.
+    let reason: string | null = p.skip ?? (screen.queue ? null : screen.reason);
+    if (!reason && await db().prepare("SELECT 1 AS x FROM fb_leads WHERE text_hash=? AND group_key<>? AND created_at>=? LIMIT 1").bind(hash, p.groupKey, since).first()) reason = "cross_posted";
+    const res = await db().prepare("INSERT OR IGNORE INTO fb_leads(id,group_key,group_name,post_key,post_url,post_text,status,skip_reason,priority,text_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(group_key,post_key) DO UPDATE SET status='queued',attempts=0,post_text=excluded.post_text,group_name=excluded.group_name,updated_at=excluded.updated_at WHERE fb_leads.status='failed'")
+      .bind(await leadId(p.groupKey, p.postKey), p.groupKey, p.groupName, p.postKey, p.url, p.text, reason ? "not_lead" : "queued", reason, reason ? 0 : leadPriority(p.text), hash, at, at).run();
     accepted += res.meta.changes;
-    if (res.meta.changes && !request) skipped++;
+    if (res.meta.changes && reason) skipped++;
   }
   return { accepted, duplicates: posts.length - accepted, skipped };
 }
+const CROSS_POST_DAYS = 7;
+const textHash = async (text: string) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalisedText(text))))].slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
 
 type Lead = { id: string; group_name: string; post_url: string; post_text: string; status: string; attempts: number; reliable: number | null; comment: string | null; details_html: string | null; keyboard_json: string | null; comment_message_id: number | null; link_message_id: number | null; marked_by: string | null; marked_at: string | null };
 const COLS = "id,group_name,post_url,post_text,status,attempts,reliable,comment,details_html,keyboard_json,comment_message_id,link_message_id,marked_by,marked_at";
@@ -72,14 +84,13 @@ function linkMessage(lead: Lead) {
   if (lead.marked_by && (lead.status === "posted" || lead.status === "skipped")) lines.push(`<b>${STATUS_LINE[lead.status]}</b> by ${esc(lead.marked_by)} · ${esc(thaiStamp(new Date(lead.marked_at ?? Date.now())))}`);
   return `📌 <b>${esc(lead.group_name)}</b>\n${esc(lead.post_url)}\n\n${lines.join("\n")}`;
 }
+/** Only two buttons, without emoji (owner's choice); once someone taps one, the buttons are removed. */
 function linkKeyboard(lead: Lead): InlineKeyboard {
-  const draftButtons = JSON.parse(lead.keyboard_json ?? "[]") as InlineKeyboard;
-  const open = [{ text: "🔗 Open post", url: lead.post_url }];
-  if (lead.status !== "sent") return [open, ...draftButtons];
-  return [[{ text: "✅ Posted", callback_data: `fl_posted:${lead.id}` }, { text: "⏭ Skip", callback_data: `fl_skip:${lead.id}` }], open, ...draftButtons];
+  if (lead.status !== "sent") return [];
+  return [[{ text: "Posted", callback_data: `fl_posted:${lead.id}` }, { text: "Skip", callback_data: `fl_skip:${lead.id}` }]];
 }
 
-type Deps = { draft?: (text: string) => Promise<Draft>; send?: (chatId: string, text: string, keyboard?: InlineKeyboard) => Promise<TelegramMessage>; now?: () => Date };
+type Deps = { draft?: (text: string, options: DraftOptions) => Promise<Draft>; send?: (chatId: string, text: string, keyboard?: InlineKeyboard) => Promise<TelegramMessage>; now?: () => Date };
 
 /**
  * Sends a drafted lead: message 1 is the comment alone, message 2 the link and checks. Each message id is saved
@@ -103,11 +114,14 @@ async function deliver(id: string, deps: Deps) {
 async function draftLead(lead: Lead, deps: Deps) {
   // The cheap way (see DraftOptions in post-helper): social posts stop after sorting, booking requests skip the web
   // search, everything else gets one search instead of two.
-  const draft = await (deps.draft ?? ((text: string) => draftForPost(text, {}, { leadsOnly: true, maxSearches: 1, noSearchForBookings: true })))(lead.post_text);
+  // "No agents, please" posts get a helpful comment with no sales pitch.
+  const options: DraftOptions = { leadsOnly: true, maxSearches: 1, noSearchForBookings: true, noSalesPitch: noSalesPitch(lead.post_text) };
+  const draft = await (deps.draft ?? ((text: string, o: DraftOptions) => draftForPost(text, {}, o)))(lead.post_text, options);
   const at = (deps.now ?? (() => new Date()))().toISOString();
-  // Chat posts and adverts (the AI sorter saw an offer, even in text cut off by "See more") get no message.
-  if (!isLead(draft.replyType) || draft.advert) {
-    await db().prepare("UPDATE fb_leads SET status='not_lead',reply_type=?,draft_id=?,updated_at=? WHERE id=? AND status='drafting'").bind(draft.advert ? "advert" : draft.replyType, draft.id, at, lead.id).run();
+  // The AI sorter's verdict (chat, an advert, news, a giveaway, bait, a meme, spam, not Thailand) gets no message.
+  const skip = draft.skipReason || (draft.advert ? "advert" : !isLead(draft.replyType) ? "chat" : "");
+  if (skip) {
+    await db().prepare("UPDATE fb_leads SET status='not_lead',skip_reason=?,reply_type=?,draft_id=?,updated_at=? WHERE id=? AND status='drafting'").bind(skip, skip === "advert" ? "advert" : draft.replyType, draft.id, at, lead.id).run();
     return false;
   }
   const check = reliability(draft);
@@ -139,7 +153,7 @@ export async function processLeads(deps: Deps & { batch?: number } = {}) {
   if (!postHelperOn() && !deps.draft) return { drafted, sent };
   if (!deps.draft) { const usage = await assistantUsage(); if (usage.usd + 0.05 >= usage.capUsd) return { drafted, sent }; }
   const limit = dailyLimit(vars().FB_LEADS_DAILY_LIMIT), dayStart = thaiDayStart(now);
-  const { results: queued } = await db().prepare(`SELECT ${COLS} FROM fb_leads WHERE status='queued' ORDER BY created_at LIMIT ?`).bind(deps.batch ?? 2).all<Lead>();
+  const { results: queued } = await db().prepare(`SELECT ${COLS} FROM fb_leads WHERE status='queued' ORDER BY priority DESC, created_at, rowid LIMIT ?`).bind(deps.batch ?? 2).all<Lead>();
   for (const lead of queued) {
     // The claim and the daily limit are one statement, so two runs at once cannot pass the limit or draft a post twice.
     const claim = await db().prepare("UPDATE fb_leads SET status='drafting',attempts=attempts+1,drafted_at=?,updated_at=? WHERE id=? AND status='queued' AND (SELECT COUNT(*) FROM fb_leads WHERE drafted_at>=?)<?")

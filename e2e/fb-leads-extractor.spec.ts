@@ -165,3 +165,46 @@ test("real layout: when hovering does not fill the link, a photo's set=gm.<post>
   const posts = await page.evaluate(() => { const w = (window as unknown as { WaydidiLeads: Leads }).WaydidiLeads; w.revealLinks(document); return w.findPosts(document); });
   expect(posts.map((p) => p.url)).toEqual(["https://www.facebook.com/groups/kohchangcommunity/posts/8300008/"]);
 });
+
+// Page checks on the copy of the real layout: comments turned off, Waydidi already commented or reacted, "See more".
+const unitWith = (id: string, inner: string) => `<div><div aria-posinset="1"><div>
+  <span dir="ltr"><div data-ad-rendering-role="profile_name"><h2><a href="/groups/111/user/999/"><span>Someone Else</span></a></h2></div></span>
+  <span dir="ltr"><div><a class="ts" href="https://www.facebook.com/groups/111/posts/${id}/">2h</a></div></span>
+  ${inner}</div></div></div>`;
+const msg = (text: string, seeMore = "") => `<div dir="auto"><div data-ad-rendering-role="story_message"><span dir="auto"><span class="t">${text}</span>${seeMore}</span></div></div>`;
+type PageLeads = { findPosts: (d: Document, o?: { names: string[] }) => (Post & { skip?: string })[]; expandPosts: (d: Document) => number };
+const leadsOn = (page: import("@playwright/test").Page, names: string[]) =>
+  page.evaluate((n) => (window as unknown as { WaydidiLeads: PageLeads }).WaydidiLeads.findPosts(document, { names: n }), names);
+
+test("page checks: comments turned off, a comment by one of our names, or our reaction already pressed", async ({ page }) => {
+  await openReal(page, [
+    unitWith("9000001", msg("Need a driver from Trat airport tomorrow for 3 people") + `<div><span>The author turned off commenting for this post.</span></div>`),
+    unitWith("9000002", msg("Which ferry pier is best for Koh Chang with a car?") + `<div role="article" aria-label="Comment by Waydidi Travel 1 hour ago"><a href="/groups/111/user/1/">Waydidi Travel</a><div dir="auto">The Centrepoint pier is easiest.</div></div>`),
+    unitWith("9000003", msg("Any tips for a family day trip to Koh Wai please?") + `<div role="article"><a href="/groups/111/user/2/">Narubordee Naowarat</a><div dir="auto">Go early, the sea is calmer in the morning.</div></div>`),
+    unitWith("9000004", msg("Best seafood restaurant near Lonely Beach anyone?") + `<div><div role="button" aria-label="Remove Like"><div data-ad-rendering-role="like_button"></div></div></div>`),
+    unitWith("9000005", msg("Looking for a taxi from Koh Chang ferry to Bangkok on Friday") + `<div role="article" aria-label="Comment by Somebody"><a href="/groups/111/user/3/">Somebody</a><div dir="auto">Try the minibus at the pier.</div></div><div><div role="button" aria-label="Like"><div data-ad-rendering-role="like_button"></div></div></div>`),
+  ].join(""));
+  const posts = await leadsOn(page, ["Waydidi Travel", "Narubordee Naowarat"]);
+  expect(posts.map((p) => [p.url.split("/posts/")[1], p.skip ?? ""])).toEqual([
+    ["9000001/", "commenting_disabled"], ["9000002/", "already_engaged"], ["9000003/", "already_engaged"], ["9000004/", "already_engaged"], ["9000005/", ""],
+  ]);
+  expect(JSON.stringify(posts)).not.toMatch(/Waydidi Travel|Narubordee|Somebody|Someone Else/); // names are compared, never sent
+  // Without our names, only the page facts count (comments off, reaction pressed).
+  expect((await leadsOn(page, [])).map((p) => p.skip ?? "")).toEqual(["commenting_disabled", "", "", "already_engaged", ""]);
+});
+
+test('"See more" is tapped once per post (a button in the message, never a link), then the whole post is read', async ({ page }) => {
+  await openReal(page, [
+    unitWith("9100001", msg("Luxury Private Pool Villas for Yearly Rental", `… <div role="button" class="more">See more</div>`)),
+    unitWith("9100002", msg("Need a van from Pattaya to Koh Chang", `… <a href="/groups/111/posts/9100002/" role="button">See more</a>`)),
+  ].join("") + `<script>document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest(".more"); if (b) { b.closest("span[dir]").querySelector(".t").textContent += " 📞 Tel +66 64 456 0999 LINE ID: @villas"; b.remove(); } });</script>`);
+  const out = await page.evaluate(() => {
+    const w = (window as unknown as { WaydidiLeads: PageLeads; __clicks: number });
+    const first = w.WaydidiLeads.expandPosts(document), second = w.WaydidiLeads.expandPosts(document);
+    return { first, second, url: location.href, posts: w.WaydidiLeads.findPosts(document, { names: [] }) };
+  });
+  expect([out.first, out.second]).toEqual([1, 0]); // the link-styled "See more" is not tapped; nothing twice
+  expect(out.url).toBe(GROUP_PAGE); // nothing opened
+  expect(out.posts[0].text).toContain("LINE ID: @villas");
+  expect(out.posts[0].text).not.toMatch(/See more\s*$/);
+});

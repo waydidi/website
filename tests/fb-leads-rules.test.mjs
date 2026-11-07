@@ -99,3 +99,35 @@ test('owner rule: contact details mean an advert; the Koh Chang villa post is dr
   assert.equal(reason('Looking for a driver tomorrow from Trat airport, WhatsApp me +66 81 234 5678'), 'queue');
   assert.equal(reason('Is there a WhatsApp group for Koh Chang drivers?'), 'queue', 'the word WhatsApp alone is not a contact');
 });
+
+test('owner targeting rules: giveaways, bait, spam, solved, admin posts and requests Waydidi cannot serve are skipped', () => {
+  const reason = (t) => { const x = r.screenPost(t); return x.queue ? 'queue' : x.reason; };
+  const cases = {
+    giveaway: ['GIVEAWAY time! Win a free island tour', 'แจกฟรี บัตรเข้าสวนน้ำ', '抽奖送门票', 'Розыгрыш экскурсии'],
+    bait: ['Comment YES if you love Thailand', 'Tag a friend you would bring to Phuket', 'ใครเห็นด้วยบ้าง'],
+    spam: ['Earn $500 per day from home', 'Crypto investment opportunity, DM', 'สินเชื่อด่วน อนุมัติไว', 'Check this bit.ly/abc'],
+    solved: ['UPDATE: booked, thanks all!', 'Solved, thank you everyone', 'ได้แล้วค่ะ ขอบคุณทุกคน', '已解决，谢谢'],
+    admin_post: ['Group rules: be kind, no selling', 'ประกาศจากแอดมิน ห้ามขายของ', 'Admin notice: posts about visas go in the pinned thread'],
+    not_served: ['We are hiring a receptionist in Pattaya', 'Looking for a roommate in Chiang Mai', 'Lost my wallet at Walking Street, anyone found it?', 'Puppies for adoption in Phuket', 'Need a lawyer urgently in Pattaya'],
+  };
+  for (const [want, list] of Object.entries(cases)) for (const t of list) assert.equal(reason(t), want, t);
+  // A driver to a hospital is still a lead; so are Russian, Korean, food, nightlife and plan questions.
+  for (const t of ['Need a taxi to Bangkok Hospital Pattaya tonight', 'Подскажите трансфер из аэропорта в Паттайю', '파타야 공항 픽업 추천해 주세요', 'Where to eat good seafood on Koh Samet?', 'Best nightlife in Pattaya', 'Itinerary for 5 days Phuket and Krabi', 'ร้านอาหารแถวหาดไหนดี', '曼谷夜生活', '普吉岛行程'])
+    assert.equal(reason(t), 'queue', t);
+});
+
+test('"no agents" posts are answered without a sales pitch; strong leads get a higher priority', () => {
+  for (const t of ['Need a driver, no agents please', 'หาคนขับรถ ไม่รับนายหน้า', '找司机 不要中介', 'Private persons only, need a van']) assert.equal(r.noSalesPitch(t), true, t);
+  assert.equal(r.noSalesPitch('Need a driver tomorrow'), false);
+  assert.equal(r.leadPriority('Any tips for Koh Chang?'), 0);
+  assert.equal(r.leadPriority('Need a van from Bangkok to Pattaya on 3 Jan for 6 people'), 6);
+  assert.equal(r.leadPriority('รถจากสุวรรณภูมิไปพัทยา พรุ่งนี้ 4 คน'), 6);
+  assert.equal(r.normalisedText(' Hello,  WORLD!! '), 'hello world');
+});
+
+test('the collector may mark a post commenting_disabled or already_engaged; any other value is ignored', () => {
+  const url = 'https://www.facebook.com/groups/g1/posts/1234567/';
+  const out = r.readIngest({ posts: [{ url, text: 'Need a driver tomorrow', skip: 'already_engaged' }, { url: url.replace('1234567', '7654321'), text: 'Need a driver tomorrow', skip: 'drop table' }] });
+  assert.equal(out.posts[0].skip, 'already_engaged');
+  assert.equal('skip' in out.posts[1], false);
+});
