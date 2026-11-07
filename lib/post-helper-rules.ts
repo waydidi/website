@@ -135,7 +135,8 @@ const multiline = (v: unknown, max: number) => (typeof v === "string" ? v.split(
 export type Route = { pickup: string; dropoff: string; passengers: number; bags: number };
 /** The playbook's reply types: sales (asks to hire), adjacent (a transport problem Waydidi could solve), info, social. */
 export type ReplyType = "sales" | "adjacent" | "info" | "social";
-export type Routed = { language: "en" | "th" | "zh" | "other"; kind: "transport" | "travel" | "other"; replyType: ReplyType; topic: string; question: string; timeSensitive: boolean; route: Route | null };
+/** `advert`: the post offers something (a business, agent or owner advertising, renting out or selling); the Facebook leads flow drops those, /c ignores it. */
+export type Routed = { language: "en" | "th" | "zh" | "other"; kind: "transport" | "travel" | "other"; replyType: ReplyType; topic: string; question: string; timeSensitive: boolean; route: Route | null; advert: boolean };
 export function parseRouted(raw: string): Routed | null {
   const o = jsonObject(raw);
   if (!o) return null;
@@ -145,7 +146,7 @@ export function parseRouted(raw: string): Routed | null {
   const n = (v: unknown, d: number, max: number) => { const x = Math.round(Number(v)); return Number.isFinite(x) ? Math.min(max, Math.max(0, x)) : d; };
   const route = r && text(r.pickup, 120) && text(r.dropoff, 120) ? { pickup: text(r.pickup, 120), dropoff: text(r.dropoff, 120), passengers: Math.max(1, n(r.passengers, 2, 30)), bags: n(r.bags, 2, 40) } : null;
   const replyType: ReplyType = o.replyType === "sales" || o.replyType === "adjacent" || o.replyType === "social" ? o.replyType : "info";
-  return { language: o.language === "th" || o.language === "zh" || o.language === "en" ? o.language : "other", kind: o.kind === "transport" ? "transport" : o.kind === "travel" ? "travel" : "other", replyType, topic, question, timeSensitive: o.timeSensitive === true, route };
+  return { language: o.language === "th" || o.language === "zh" || o.language === "en" ? o.language : "other", kind: o.kind === "transport" ? "transport" : o.kind === "travel" ? "travel" : "other", replyType, topic, question, timeSensitive: o.timeSensitive === true, route, advert: o.advert === true };
 }
 export function parseFacts(raw: string): ProposedFact[] {
   const o = jsonObject(raw);

@@ -66,6 +66,9 @@ test('time-sensitive saved answers over 3 months old carry a warning', () => {
 
 test('the model replies are read into checked values; bad replies are refused', () => {
   const routed = r.parseRouted('Sure: {"language":"th","kind":"transport","topic":"BKK Airport -> Pattaya taxi!","question":"Taxi from BKK to Pattaya","timeSensitive":true,"route":{"pickup":"BKK","dropoff":"Pattaya","passengers":99,"bags":-3}}');
+  assert.equal(routed.advert, false, 'not an advert unless the model says true');
+  assert.equal(r.parseRouted('{"topic":"a","question":"b","advert":true}').advert, true);
+  assert.equal(r.parseRouted('{"topic":"a","question":"b","advert":"yes"}').advert, false);
   assert.equal(routed.topic, 'bkk-airport-pattaya-taxi'); assert.equal(routed.route.passengers, 30); assert.equal(routed.route.bags, 0); assert.equal(routed.language, 'th');
   assert.equal(r.parseRouted('no json'), null); assert.equal(r.parseRouted('{"topic":"","question":"x"}'), null);
   const facts = r.parseFacts('{"facts":[{"claim":"A","category":"visa","sources":["https://x.go.th/a",5]},{"claim":"","category":"tip","sources":[]},{"claim":"B","category":"weird","sources":[]}]}');

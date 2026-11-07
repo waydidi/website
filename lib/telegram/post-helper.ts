@@ -55,11 +55,12 @@ const realClient = (): PostClient => {
 const replyText = (res: Awaited<ReturnType<PostClient["create"]>>) => res.content.filter((b) => b.type === "text").map((b) => String(b.text)).join("\n");
 
 const ROUTER = `You read a post from a Thailand travel group (a traveller asking or sharing something). Reply with ONLY one JSON object:
-{"language":"en"|"th"|"zh"|"other","replyType":"sales"|"adjacent"|"info"|"social","kind":"transport"|"travel"|"other","topic":"short-english-slug","question":"one clear English question to research","timeSensitive":true|false,"route":{"pickup":"","dropoff":"","passengers":2,"bags":2}|null}
+{"language":"en"|"th"|"zh"|"other","replyType":"sales"|"adjacent"|"info"|"social","kind":"transport"|"travel"|"other","topic":"short-english-slug","question":"one clear English question to research","timeSensitive":true|false,"advert":true|false,"route":{"pickup":"","dropoff":"","passengers":2,"bags":2}|null}
 - replyType "sales": the poster wants to hire a driver, transfer, van, taxi, private tour or a tour company ("looking for a driver", "how much for a van to Pattaya", "recommend a tour company").
 - "adjacent": not a request to hire, but a transport or logistics problem a private driver would solve (how to get from A to B, many stops with kids or luggage, is the bus practical).
 - "info": a question about hotels, areas, beaches, weather, food, what to do, safety, visas.
 - "social": introductions, "anyone else here this week", casual chat.
+- "advert": true when the poster OFFERS something rather than asks or shares as a traveller: a business, agent or owner advertising, renting out, selling or promoting a tour, transport, room, villa, condo, product or service (often with prices, "contact us", a phone number or LINE ID). The text may be cut off, so judge from what is there. Otherwise false.
 - kind "transport" when replyType is sales or adjacent; "route" only for a clear point-to-point trip with named places, otherwise null.
 - "topic": a stable slug for the question itself, e.g. "bkk-airport-to-pattaya-taxi" (same question, same slug; no names, dates or numbers of people).
 - timeSensitive true for visa, fees, prices, opening hours, schedules, safety, weather or events.
@@ -83,7 +84,7 @@ This post is type "${type}".
 ${notes ? `\nThe owner's playbook (follow it; it ranks above the rules here only where it is more specific; its reference prices are NOT quotes and must not be used):\n${notes.slice(0, 40000)}` : ""}`;
 
 /** `factCount` and `stale` let the Facebook leads flow decide whether a draft is ready to post (lib/fb-leads-rules). */
-export type Draft = { id: string; text: string; keyboard: InlineKeyboard; parts: string[]; replyType: Routed["replyType"]; factCount: number; stale: boolean; searched: boolean };
+export type Draft = { id: string; text: string; keyboard: InlineKeyboard; parts: string[]; replyType: Routed["replyType"]; factCount: number; stale: boolean; searched: boolean; advert?: boolean };
 type Deps = { client?: PostClient; quote?: (r: NonNullable<Routed["route"]>) => Promise<QuoteResult>; now?: () => Date };
 
 async function ask(client: PostClient, body: Record<string, unknown>) {
@@ -147,7 +148,8 @@ export async function draftForPost(text: string, deps: Deps = {}, options: Draft
   await ensurePostHelperTables();
   const now = (deps.now ?? (() => new Date()))(), client = deps.client ?? realClient();
   const routed = await routePost(text, client);
-  if (options.leadsOnly && routed.replyType === "social") return { id: "", text, keyboard: [], parts: [], replyType: "social", factCount: 0, stale: false, searched: false };
+  // A chat post or an advert is not a lead: stop after sorting (no search, no writing).
+  if (options.leadsOnly && (routed.replyType === "social" || routed.advert)) return { id: "", text, keyboard: [], parts: [], replyType: routed.replyType, factCount: 0, stale: false, searched: false, advert: routed.advert };
   const repeats = await countTopic(routed.topic, now);
   const saved = options.forceFresh ? null : await knowledgeFor(routed.topic);
   const useSaved = saved?.status === "approved";
@@ -186,7 +188,7 @@ export async function draftForPost(text: string, deps: Deps = {}, options: Draft
   const parts = [esc(comment), details];
   const keyboard: InlineKeyboard = [[{ text: "🔄 Search again", callback_data: `ph_again:${id}` }, { text: "👎 Wrong or outdated", callback_data: `ph_bad:${id}` }],
     ...(mode === "fresh" && repeats >= REPEATS_TO_SAVE && facts.length ? [[{ text: `💾 Save as knowledge (asked ${repeats}×)`, callback_data: `ph_save:${id}` }]] : [])];
-  return { id, text, keyboard, parts, replyType: routed.replyType, factCount: facts.length, stale: Boolean(stale), searched: mode === "fresh" };
+  return { id, text, keyboard, parts, replyType: routed.replyType, factCount: facts.length, stale: Boolean(stale), searched: mode === "fresh", advert: routed.advert };
 }
 
 async function defaultQuote(route: NonNullable<Routed["route"]>): Promise<QuoteResult> {

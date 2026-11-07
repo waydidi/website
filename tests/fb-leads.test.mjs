@@ -94,8 +94,8 @@ test('not ready: no checked facts → sent with "Needs your check"; social post 
   const draft = async (text) => draftOf(i++ === 0 ? { factCount: 0 } : { replyType: 'social' })(text);
   await fl.processLeads({ draft, send: s.send, now: () => now });
   assert.equal(s.sent.length, 2, 'only the first post is sent');
-  assert.match(s.sent[1].text, /⚠️ <b>Needs your check<\/b>/);
-  assert.match(s.sent[1].text, /no fact passed the source checks/);
+  assert.match(s.sent[1].text, /⚠️ Not ready to post: no fact passed the source checks$/);
+  assert.doesNotMatch(s.sent[1].text, /Check the facts yourself/, 'only the short reason, not the whole note');
   assert.equal((await lead(1)).reliable, 0);
   assert.equal((await lead(2)).status, 'not_lead');
 });
@@ -183,4 +183,21 @@ test('privacy: post text and comments are cleared after 90 days, the counts stay
   await fl.queueLeads([{ groupKey: 'g', postKey: '1000002', url: post(2).url, text: post(2).text, groupName: 'G' }], now);
   await fl.purgeOldLeads(now);
   assert.equal((await lead(2)).post_text, post(2).text, 'recent posts are kept');
+});
+
+test('the link message shows only the group, the post link and "Check before posting · type" (owner choice)', async () => {
+  await fl.queueLeads([{ groupKey: 'kohchangcommunity', postKey: '1754083255681086', url: 'https://www.facebook.com/groups/kohchangcommunity/posts/1754083255681086/', text: 'Which beach is best for kids on Koh Chang?', groupName: 'Koh Chang Community' }], now);
+  const s = sender();
+  const full = '<b>Check before posting</b> · Information only\n\n🔎 Fresh search · Source from 06/11/2026\n✅ Up to date: searched just now.\n\n<b>Sources</b>\n🏛 official tat.or.th · 01/11/2026\nhttps://www.tat.or.th/x\n\n<i>Draft only: nothing was posted. Post it yourself.</i>';
+  await fl.processLeads({ draft: draftOf({ replyType: 'info', parts: ['Kai Bae is calm for kids.', full] }), send: s.send, now: () => now });
+  assert.equal(s.sent[1].text, '📌 <b>Koh Chang Community</b>\nhttps://www.facebook.com/groups/kohchangcommunity/posts/1754083255681086/\n\n<b>Check before posting</b> · Information only');
+  assert.ok(s.sent[1].keyboard.flat().some((b) => b.callback_data?.startsWith('fl_posted:')), 'the buttons stay');
+});
+
+test('a post the AI sorter flags as an advert is closed with no message', async () => {
+  await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'G' }], now);
+  const s = sender();
+  await fl.processLeads({ draft: draftOf({ replyType: 'info', advert: true, parts: [] }), send: s.send, now: () => now });
+  assert.equal(s.sent.length, 0);
+  assert.deepEqual([(await lead(1)).status, (await lead(1)).reply_type], ['not_lead', 'advert']);
 });

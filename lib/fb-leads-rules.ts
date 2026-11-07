@@ -93,13 +93,21 @@ export const looksLikeRequest = (text: string) => /[?？]/.test(text) || REQUEST
 // people looking for a long stay (a month or more) in a room, condo or house. Word lists, so they are tuned here (one
 // place, no extension reload). They are rules of thumb: a seeker's own words ("looking for", "anyone", "recommend")
 // always win over a promo word, and a stay post that also mentions a driver, transfer or tour is kept.
-const PROMO_WORDS = /book now|special (?:price|offer|deal)|promotion|promo\b|discount|\d\s?% ?off|contact us|message us|dm us|inbox us|call us|whatsapp us|we (?:offer|provide)|our (?:tours?|services?|team|drivers?|cars?|vans?|villas?|hotel|resort|rooms?)\b|ราคาพิเศษ|โปรโมชั่น|โปรโมชัน|ติดต่อสอบถาม|สอบถามได้|รับจอง|ให้บริการ|ลดราคา|ลดพิเศษ|สนใจติดต่อ|จองได้เลย|优惠|促销|欢迎咨询|欢迎联系|特价/i;
+const PROMO_WORDS = /for rent|for sale|rental (?:rates?|price)|(?:private )?viewings?\b|ให้เช่า|ปล่อยเช่า|ทักแชท|ทักไลน์|สนใจทัก|นัดหมายเข้าชม|สอบถามรายละเอียดเพิ่มเติม|สอบถามราคา|出租|出售|book now|special (?:price|offer|deal)|promotion|promo\b|discount|\d\s?% ?off|contact us|message us|dm us|inbox us|call us|whatsapp us|we (?:offer|provide)|our (?:tours?|services?|team|drivers?|cars?|vans?|villas?|hotel|resort|rooms?)\b|ราคาพิเศษ|โปรโมชั่น|โปรโมชัน|ติดต่อสอบถาม|สอบถามได้|รับจอง|ให้บริการ|ลดราคา|ลดพิเศษ|สนใจติดต่อ|จองได้เลย|优惠|促销|欢迎咨询|欢迎联系|特价/i;
 const SEEKER_WORDS = /looking for|look for|anyone|anybody|recommend|suggest|need a|need an|does anyone|can anyone|can someone|any ideas|ใครมี|ใครรู้|ใครเคย|แนะนำ|有没有|请问|求|推荐/i;
-const CONTACT = /(?:\+?66|\b0)\d[\d\s-]{7,}|line\s*(?:id)?\s*[:@]|whatsapp|wa\.me/i;
-const PRICE = /฿|\bthb\b|baht|บาท/i;
-export const isPromo = (text: string) => !SEEKER_WORDS.test(text) && (PROMO_WORDS.test(text) || (CONTACT.test(text) && PRICE.test(text)));
+// Contact details for people to reach the poster: a phone number (Thai or international), a LINE ID, a WhatsApp number
+// or a wa.me link. The owner's rule: a post that gives these is an advert.
+const CONTACT = /(?:\+\s?66|\b0)[\s-]?\d[\d\s-]{7,}|\+\d{1,3}[\s-]?\d[\d\s-]{6,}|line\s*(?:id)?\s*[:：@]|ไลน์\s*(?:ไอดี)?\s*[:：@]|ไอดีไลน์|whatsapp\s*[:：]?\s*\+?\d|wa\.me/i;
+/**
+ * An advert or promotion: advert words, unless the poster is plainly asking; or contact details, unless the poster is
+ * plainly asking and uses no advert words (a traveller who adds their own WhatsApp while asking for a driver is a lead).
+ */
+export const isPromo = (text: string) => {
+  const seeker = SEEKER_WORDS.test(text), promo = PROMO_WORDS.test(text), contact = CONTACT.test(text);
+  return (promo && !seeker) || (contact && (!seeker || promo));
+};
 
-const STAY_TERM = /\b(?:[1-9]\d?|one|two|three|four|five|six|a)\s*\+?\s*months?\b|monthly|per month|\/\s*month|long[- ]?term|[1-9]\d?\s*เดือน|รายเดือน|เช่าระยะยาว|ระยะยาว|长租|月租|长期|[一二三四五六七八九十\d]+个月/i;
+const STAY_TERM = /\b(?:[1-9]\d?|one|two|three|four|five|six|a)\s*\+?\s*months?\b|monthly|per month|\/\s*month|long[- ]?term|yearly|annual(?:ly)?|per year|\/\s*year|รายปี|年租|包年|[1-9]\d?\s*เดือน|รายเดือน|เช่าระยะยาว|ระยะยาว|长租|月租|长期|[一二三四五六七八九十\d]+个月/i;
 const STAY_PLACE = /rent|rental|room|apartment|condo|house|villa|accommodation|accomodation|\bstay|hostel|studio|bungalow|ห้อง|คอนโด|บ้าน|หอพัก|ที่พัก|อพาร์ทเมนท์|公寓|租房|住宿/i;
 const TRANSPORT_WORDS = /driver|transfer|taxi|\btours?\b|\bvan\b|\bcar\b|minibus|pick ?up|รถ|คนขับ|ทัวร์|รับส่ง|包车|接机|司机/i;
 export const isLongStay = (text: string) => STAY_TERM.test(text) && STAY_PLACE.test(text) && !TRANSPORT_WORDS.test(text);

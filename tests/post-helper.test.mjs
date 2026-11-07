@@ -193,3 +193,12 @@ test('cheaper drafts for Facebook leads: a social post stops after sorting, book
  d=await ph.draftForPost('Hello everyone',{client:m,now:()=>now});
  assert.equal(m.calls.compose,1);assert.equal(d.parts.length,2);
 });
+
+test('an advert (the sorter sees an offer) stops after sorting for Facebook leads; /c still drafts it', async () => {
+  let m = model({ router: routedJson({ topic: 'cheap-advert', advert: true }) });
+  let d = await ph.draftForPost('Luxury Private Pool Villas for Yearly Rental', { client: m, now: () => now }, { leadsOnly: true, maxSearches: 1, noSearchForBookings: true });
+  assert.deepEqual([d.advert, d.parts.length, m.calls.search, m.calls.compose], [true, 0, 0, 0]);
+  m = model({ router: routedJson({ topic: 'cheap-advert-c', advert: true }) });
+  d = await ph.draftForPost('Luxury Private Pool Villas for Yearly Rental', { client: m, now: () => now });
+  assert.equal(m.calls.compose, 1); assert.equal(d.parts.length, 2);
+});
