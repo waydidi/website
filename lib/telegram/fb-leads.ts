@@ -59,12 +59,18 @@ const COLS = "id,group_name,post_url,post_text,status,attempts,reliable,comment,
 const getLead = (id: string) => db().prepare(`SELECT ${COLS} FROM fb_leads WHERE id=?`).bind(id).first<Lead>();
 
 const STATUS_LINE = { posted: "✅ Posted", skipped: "⏭ Skipped" } as const;
-/** The second message: group, link, whether it is ready to post, then the same checks as /c. */
+/**
+ * The second message, kept short (owner's choice): the group, the post link and "Check before posting · <type>".
+ * One more line only when it matters: why it is not ready to post, or who marked it Posted / Skipped.
+ * The full checks (sources, dates) stay stored in details_html; they are not shown.
+ */
 function linkMessage(lead: Lead) {
-  const head = [`📌 <b>${esc(lead.group_name)}</b>`, esc(lead.post_url)];
-  if (lead.reliable === 0) head.push(`⚠️ <b>Needs your check</b> before posting.`);
-  if (lead.marked_by && (lead.status === "posted" || lead.status === "skipped")) head.push(`<b>${STATUS_LINE[lead.status]}</b> by ${esc(lead.marked_by)} · ${esc(thaiStamp(new Date(lead.marked_at ?? Date.now())))}`);
-  return `${head.join("\n")}\n\n${lead.details_html ?? ""}`;
+  const paragraphs = (lead.details_html ?? "").split("\n\n");
+  const type = paragraphs.find((p) => p.startsWith("<b>Check before posting</b>")) ?? "<b>Check before posting</b>";
+  const notReady = lead.reliable === 0 ? paragraphs.find((p) => p.startsWith("⚠️ Not ready to post:"))?.split(". ")[0] ?? "⚠️ Not ready to post" : "";
+  const lines = [type, ...(notReady ? [notReady] : [])];
+  if (lead.marked_by && (lead.status === "posted" || lead.status === "skipped")) lines.push(`<b>${STATUS_LINE[lead.status]}</b> by ${esc(lead.marked_by)} · ${esc(thaiStamp(new Date(lead.marked_at ?? Date.now())))}`);
+  return `📌 <b>${esc(lead.group_name)}</b>\n${esc(lead.post_url)}\n\n${lines.join("\n")}`;
 }
 function linkKeyboard(lead: Lead): InlineKeyboard {
   const draftButtons = JSON.parse(lead.keyboard_json ?? "[]") as InlineKeyboard;
@@ -99,8 +105,9 @@ async function draftLead(lead: Lead, deps: Deps) {
   // search, everything else gets one search instead of two.
   const draft = await (deps.draft ?? ((text: string) => draftForPost(text, {}, { leadsOnly: true, maxSearches: 1, noSearchForBookings: true })))(lead.post_text);
   const at = (deps.now ?? (() => new Date()))().toISOString();
-  if (!isLead(draft.replyType)) {
-    await db().prepare("UPDATE fb_leads SET status='not_lead',reply_type=?,draft_id=?,updated_at=? WHERE id=? AND status='drafting'").bind(draft.replyType, draft.id, at, lead.id).run();
+  // Chat posts and adverts (the AI sorter saw an offer, even in text cut off by "See more") get no message.
+  if (!isLead(draft.replyType) || draft.advert) {
+    await db().prepare("UPDATE fb_leads SET status='not_lead',reply_type=?,draft_id=?,updated_at=? WHERE id=? AND status='drafting'").bind(draft.advert ? "advert" : draft.replyType, draft.id, at, lead.id).run();
     return false;
   }
   const check = reliability(draft);

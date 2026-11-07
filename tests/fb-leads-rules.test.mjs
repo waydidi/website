@@ -85,3 +85,17 @@ test('daily limit, Thailand day start, buttons', () => {
   for (const bad of ['fl_posted:xyz', 'fl_delete:0123456789abcdef', 'fl_posted:0123456789abcdef:1']) assert.equal(r.parseLeadCallback(bad), null);
   assert.equal(r.thaiStamp(new Date('2026-11-06T07:05:00Z')), '06/11/2026 14:05');
 });
+
+test('owner rule: contact details mean an advert; the Koh Chang villa post is dropped whole or cut off by See more', () => {
+  const reason = (t) => { const x = r.screenPost(t); return x.queue ? 'queue' : x.reason; };
+  // What the extension read (cut off by "See more"), and the full post with its contacts.
+  const cut = '64C & 64D KOH CHANG POOL VILLAS\nLuxury Private Pool Villas for Yearly Rental\nสัมผัสประสบการณ์การพักอาศัยเหนือระดับ ท่ามกลางธรรมชาติและบรรยากาศอันเงียบสงบของเกาะช้าง';
+  assert.notEqual(reason(cut), 'queue', cut);
+  assert.equal(reason(cut + '\nPlease contact us for rental rates.\n📞 Tel (Thai / English): +66 64 456 0999\n📲 WhatsApp: +66 64 557 8215\n📲 LINE ID: @kohchangvillas'), 'promo');
+  for (const t of ['Private van Bangkok to Pattaya every day. LINE ID: @fastvan', 'รถตู้รับส่งสนามบิน ทุกวัน ไลน์ไอดี: @vanbkk', 'Island tours daily, call 081 234 5678', 'Day trip to Koh Wai, WhatsApp +66 81 234 5678', 'Looking for a villa? Contact us +66 81 234 5678', 'Condo for rent near the beach', 'บ้านให้เช่า ใกล้ทะเล'])
+    assert.equal(reason(t), 'promo', t);
+  assert.equal(reason('Yearly rental condo in Jomtien, any good areas?'), 'long_stay');
+  // A traveller who adds their own number while asking is still a lead.
+  assert.equal(reason('Looking for a driver tomorrow from Trat airport, WhatsApp me +66 81 234 5678'), 'queue');
+  assert.equal(reason('Is there a WhatsApp group for Koh Chang drivers?'), 'queue', 'the word WhatsApp alone is not a contact');
+});

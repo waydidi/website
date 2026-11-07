@@ -52,13 +52,19 @@ them without thinking about the Facebook account used.
 The server drops these before any AI is used, so they cost nothing and send no message (`screenPost` in
 `lib/fb-leads-rules.ts`):
 
-- **Adverts and promotions** by other businesses ("book now", "special price", "contact us", "we offer…", a phone or
-  LINE contact next to a price, and the same in Thai and Chinese), unless the post is plainly someone asking.
-  Facebook's own sponsored posts have no group post link, so the extension never picks them up.
-- **Long stays**: a room, condo, house or accommodation wanted for a month or more ("3 months", "monthly",
-  "long term", "รายเดือน", "长租"). A post that also asks for a driver, transfer, car or tour is kept.
+- **Adverts and promotions** by other businesses ("book now", "special price", "contact us", "for rent", "ให้เช่า",
+  "we offer…", and the same in Thai and Chinese), unless the post is plainly someone asking.
+- **Any post with contact details** (owner's rule): a phone number, a LINE ID, a WhatsApp number or a wa.me link. One
+  exception: a traveller who adds their own number while plainly asking ("looking for a driver, WhatsApp me…") with no
+  advert words is still a lead. Facebook's own sponsored posts have no group post link, so they are never picked up.
+- **Long stays**: a room, condo, house, villa or accommodation for a month or more ("3 months", "monthly", "yearly",
+  "long term", "รายเดือน", "รายปี", "长租"). A post that also asks for a driver, transfer, car or tour is kept.
 - **Posts that ask for nothing**: photos, videos and chat with no question and no travel word. The extension reads text
   only, never the pictures or videos themselves, so a photo or video is judged by its caption alone.
+
+Facebook cuts long posts off at "See more", and the extension reads only the visible part, so contact details at the end
+are often not seen. The AI's sorting step (about US$0.0003 a post) also marks a post as an advert when the visible part
+already shows an offer (for example "Villas for Yearly Rental"); such a post stops there, with no search and no message.
 
 These are word lists, not understanding, so a few posts will be kept or dropped wrongly. Tell the developer which ones
 and the lists are changed in one place on the server, with no change to the extension.
