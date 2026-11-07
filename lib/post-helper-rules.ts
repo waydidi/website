@@ -142,12 +142,22 @@ export type ReplyType = "sales" | "adjacent" | "info" | "social";
 export const POST_TYPES = ["request", "advert", "news", "giveaway", "bait", "meme", "spam", "chat"] as const;
 export type PostType = typeof POST_TYPES[number];
 /** `advert` = postType "advert" (kept for older code); `inThailand`: whether the question is about Thailand. */
-export type Routed = { language: "en" | "th" | "zh" | "other"; kind: "transport" | "travel" | "other"; replyType: ReplyType; topic: string; question: string; timeSensitive: boolean; route: Route | null; advert: boolean; postType: PostType; inThailand: "yes" | "no" | "unclear" };
+export type Routed = { language: "en" | "th" | "zh" | "other"; kind: "transport" | "travel" | "other"; replyType: ReplyType; topic: string; question: string; timeSensitive: boolean; route: Route | null; advert: boolean; postType: PostType; inThailand: "yes" | "no" | "unclear"; area: string | null };
 /** The sorter's post type and place. A missing or unknown answer keeps the post (request, place unclear). */
-function sortPost(o: Record<string, unknown>): Pick<Routed, "advert" | "postType" | "inThailand"> {
+/**
+ * The place the post is about (the place it names, or the place in the Facebook group's name). A place-dependent
+ * answer must never be reused for another place, so the area is put at the front of the saved-knowledge key.
+ */
+export function withAreaTopic(routed: Routed): Routed {
+  if (!routed.area) return routed;
+  const slug = topicKey(routed.area);
+  return slug && !routed.topic.includes(slug) ? { ...routed, topic: topicKey(`${slug}-${routed.topic}`) } : routed;
+}
+function sortPost(o: Record<string, unknown>): Pick<Routed, "advert" | "postType" | "inThailand" | "area"> {
   const postType: PostType = POST_TYPES.includes(o.postType as PostType) ? o.postType as PostType : o.advert === true ? "advert" : "request";
   const inThailand = o.inThailand === "yes" || o.inThailand === "no" ? o.inThailand : "unclear";
-  return { advert: postType === "advert", postType, inThailand };
+  const area = text(o.area, 80);
+  return { advert: postType === "advert", postType, inThailand, area: area && !/^(?:null|none|thailand|unknown)$/i.test(area) ? area : null };
 }
 export function parseRouted(raw: string): Routed | null {
   const o = jsonObject(raw);

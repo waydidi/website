@@ -115,7 +115,8 @@ async function draftLead(lead: Lead, deps: Deps) {
   // The cheap way (see DraftOptions in post-helper): social posts stop after sorting, booking requests skip the web
   // search, everything else gets one search instead of two.
   // "No agents, please" posts get a helpful comment with no sales pitch.
-  const options: DraftOptions = { leadsOnly: true, maxSearches: 1, noSearchForBookings: true, noSalesPitch: noSalesPitch(lead.post_text) };
+  // The group the post came from: the comment answers for its place (a Koh Chang group gets Koh Chang answers).
+  const options: DraftOptions = { leadsOnly: true, maxSearches: 1, noSearchForBookings: true, noSalesPitch: noSalesPitch(lead.post_text), groupName: lead.group_name };
   const draft = await (deps.draft ?? ((text: string, o: DraftOptions) => draftForPost(text, {}, o)))(lead.post_text, options);
   const at = (deps.now ?? (() => new Date()))().toISOString();
   // The AI sorter's verdict (chat, an advert, news, a giveaway, bait, a meme, spam, not Thailand) gets no message.
