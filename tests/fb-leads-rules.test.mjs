@@ -131,3 +131,22 @@ test('the collector may mark a post commenting_disabled or already_engaged; any 
   assert.equal(out.posts[0].skip, 'already_engaged');
   assert.equal('skip' in out.posts[1], false);
 });
+
+test('owner\'s first real run: shop adverts, invitations, lost and found and new-member hellos are skipped for free', () => {
+  const reason = (t) => { const x = r.screenPost(t); return x.queue ? 'queue' : x.reason; };
+  const cases = [
+    ['I lost my lovely sunglasses around lonely beach yesterday... anyone found them?', 'not_served'],
+    ['Lost my phone in a taxi from the pier yesterday', 'not_served'],
+    ['Jay Nid Curry Rice \nHello! We’d like to recommend our curry rice shop on White Sand Beach', 'promo'],
+    ['Wanna feel something different like relaxing and having a good time with us', 'promo'],
+    ['Tonight the fun begin! We open at 20.00. Chill atmosphere, cool music', 'promo'],
+    ['ส้มตำปากหมา วันนี้ร้านปิดนะคะ', 'promo'],
+    ['Hello new member just want to say Hello and talk a little bit about me', 'intro'],
+    // Still leads:
+    ['Hi, I am new here, can anyone recommend a driver from Trat airport?', 'queue'],
+    ['Can anyone recommend a good restaurant near our resort?', 'queue'],
+    ['I lost my booking confirmation, how do I get the ferry ticket?', 'queue'],
+    ['Need a nice beach front bungalow, 8th January 3 nights any recommendations?', 'queue'],
+  ];
+  for (const [t, want] of cases) assert.equal(reason(t), want, t);
+});

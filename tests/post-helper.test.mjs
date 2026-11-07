@@ -252,3 +252,17 @@ test('the writer is told to stay in the area and not to fill a gap with another 
   assert.match(system, /Do not fill the gap with another area/);
   assert.doesNotMatch(system, /Koh Chang/, 'the group stays out of the cached instructions');
 });
+
+test('sorting on arrival: the sorter alone says lead or not; drafting reuses that answer without asking again', async () => {
+  let m = model({ router: routedJson({ topic: 'arrive-chat', replyType: 'social', postType: 'chat' }) });
+  let s = await ph.sortForLead('Hello everyone', 'Koh Chang Community', { client: m });
+  assert.deepEqual([s.skipReason, m.calls.router, m.calls.search, m.calls.compose], ['chat', 1, 0, 0]);
+  assert.match(m.calls.routerInputs[0], /<group>Koh Chang Community<\/group>/);
+  m = model({ router: routedJson({ topic: 'arrive-lead', area: 'Koh Chang' }) });
+  s = await ph.sortForLead('Best beach for kids?', 'Koh Chang Community', { client: m });
+  assert.equal(s.skipReason, '');
+  const d = await ph.draftForPost('Best beach for kids?', { client: m, now: () => now }, { leadsOnly: true, maxSearches: 1, groupName: 'Koh Chang Community', routed: s.routed });
+  assert.equal(m.calls.router, 1, 'not sorted a second time');
+  assert.equal(m.calls.compose, 1);
+  assert.equal(d.skipReason, undefined);
+});

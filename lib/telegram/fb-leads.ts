@@ -4,7 +4,8 @@ import { assistantFailure } from "@/lib/assistant-error-rules";
 import { esc } from "@/lib/telegram/cards";
 import { answerCallback, editIn, sendTo, telegramCommentChatId, type InlineKeyboard, type TelegramMessage } from "@/lib/telegram/client";
 import { assistantUsage } from "@/lib/telegram/assistant";
-import { draftForPost, postHelperOn, type Draft, type DraftOptions } from "@/lib/telegram/post-helper";
+import { draftForPost, postHelperOn, sortForLead, type Draft, type DraftOptions } from "@/lib/telegram/post-helper";
+import type { Routed } from "@/lib/post-helper-rules";
 
 // Facebook group leads: posts sent in by a collector are queued here, drafted by the same writer as /c (the owner's
 // playbook in Admin → Writing assistant, web facts checked), and sent to the Comment group as two messages: the
@@ -28,7 +29,7 @@ export function ensureLeadTables() {
     ]) await db().prepare(sql).bind().run();
     // Added later (drizzle/0121_fb_leads_targeting.sql): why a post was skipped, how strong a lead it is, and its
     // text fingerprint (the same question copied into several groups is collected once).
-    for (const col of ["skip_reason TEXT", "priority INTEGER NOT NULL DEFAULT 0", "text_hash TEXT"])
+    for (const col of ["skip_reason TEXT", "priority INTEGER NOT NULL DEFAULT 0", "text_hash TEXT", "routed_json TEXT"])
       await db().prepare(`ALTER TABLE fb_leads ADD COLUMN ${col}`).bind().run().catch(() => undefined);
     for (const sql of ["CREATE INDEX IF NOT EXISTS fb_leads_queue ON fb_leads(status, priority, created_at)", "CREATE INDEX IF NOT EXISTS fb_leads_text ON fb_leads(text_hash, created_at)"])
       await db().prepare(sql).bind().run();
@@ -47,27 +48,70 @@ export async function leadId(groupKey: string, postKey: string) {
  * advert or promotion, or a search for a long stay (a month or more) is stored as "not a lead" at once, with no AI
  * cost and no message (lib/fb-leads-rules → screenPost).
  */
-export async function queueLeads(posts: IncomingPost[], now = new Date()) {
+/** The sorter answer stored when the post arrived, or none (then drafting sorts it). Written by queueLeads only. */
+function storedRouted(json: string | null | undefined): Routed | undefined {
+  if (!json) return undefined;
+  try { const r = JSON.parse(json) as Routed; return r && typeof r.topic === "string" && typeof r.replyType === "string" ? r : undefined; } catch { return undefined; }
+}
+
+type Sorter = (text: string, groupName: string) => Promise<{ routed: Routed; skipReason: string }>;
+const SORT_AT_ONCE = 4;
+
+/** The AI sorter for arriving posts, while the assistant is on and this month's budget allows; otherwise none. */
+async function arrivalSorter(): Promise<Sorter | null> {
+  if (!postHelperOn()) return null;
+  const usage = await assistantUsage();
+  return usage.usd + 0.05 < usage.capUsd ? (text, groupName) => sortForLead(text, groupName) : null;
+}
+
+/**
+ * Queues posts; a post already sent in (same group and post) is ignored, so collectors may send the same post again.
+ * A post that failed is queued again when it is sent in again. Each new post is checked, in order:
+ * 1. free: what the extension saw on the page, the word rules (lib/fb-leads-rules → screenPost), a copy from another group;
+ * 2. the AI sorter (about US$0.0003), straight away, so the collector learns at once how many real leads it found and
+ *    a Collect run counts only those. Its answer is stored and reused when drafting. If it fails or the budget is
+ *    reached, the post stays queued and is sorted at drafting time instead.
+ * A skipped post is stored as "not a lead" with its reason, and gets no message.
+ */
+export async function queueLeads(posts: IncomingPost[], now = new Date(), deps: { sort?: Sorter | null } = {}) {
   await ensureLeadTables();
-  let accepted = 0, skipped = 0;
-  const since = new Date(now.getTime() - CROSS_POST_DAYS * 86_400_000).toISOString();
+  const at = now.toISOString(), since = new Date(now.getTime() - CROSS_POST_DAYS * 86_400_000).toISOString();
+  type Checked = { p: IncomingPost; id: string; hash: string; reason: string | null; routed: Routed | null };
+  const fresh: Checked[] = [];
   for (const p of posts) {
-    const at = now.toISOString(), screen = screenPost(p.text), hash = await textHash(p.text);
-    // Why it is skipped, in order: what the extension saw on the page, the word rules, then a copy from another group.
+    const id = await leadId(p.groupKey, p.postKey);
+    const existing = await db().prepare("SELECT status FROM fb_leads WHERE id=?").bind(id).first<{ status: string }>();
+    if (existing && existing.status !== "failed") continue; // already here: no AI, counted as a duplicate
+    const screen = screenPost(p.text), hash = await textHash(p.text);
     let reason: string | null = p.skip ?? (screen.queue ? null : screen.reason);
     if (!reason && await db().prepare("SELECT 1 AS x FROM fb_leads WHERE text_hash=? AND group_key<>? AND created_at>=? LIMIT 1").bind(hash, p.groupKey, since).first()) reason = "cross_posted";
-    const res = await db().prepare("INSERT OR IGNORE INTO fb_leads(id,group_key,group_name,post_key,post_url,post_text,status,skip_reason,priority,text_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(group_key,post_key) DO UPDATE SET status='queued',attempts=0,post_text=excluded.post_text,group_name=excluded.group_name,updated_at=excluded.updated_at WHERE fb_leads.status='failed'")
-      .bind(await leadId(p.groupKey, p.postKey), p.groupKey, p.groupName, p.postKey, p.url, p.text, reason ? "not_lead" : "queued", reason, reason ? 0 : leadPriority(p.text), hash, at, at).run();
+    fresh.push({ p, id, hash, reason, routed: null });
+  }
+
+  const toSort = fresh.filter((c) => !c.reason);
+  const sort = toSort.length ? (deps.sort !== undefined ? deps.sort : await arrivalSorter()) : null;
+  for (let i = 0; sort && i < toSort.length; i += SORT_AT_ONCE) {
+    await Promise.all(toSort.slice(i, i + SORT_AT_ONCE).map(async (c) => {
+      try { const s = await sort(c.p.text, c.p.groupName); c.routed = s.routed; if (s.skipReason) c.reason = s.skipReason; }
+      catch (error) { console.error("fb lead sort failed", error instanceof Error ? error.message : "unknown"); } // sorted at drafting instead
+    }));
+  }
+
+  let accepted = 0, skipped = 0;
+  for (const c of fresh) {
+    const p = c.p, routedJson = c.routed ? JSON.stringify(c.routed) : null;
+    const res = await db().prepare("INSERT OR IGNORE INTO fb_leads(id,group_key,group_name,post_key,post_url,post_text,status,skip_reason,priority,text_hash,routed_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(group_key,post_key) DO UPDATE SET status=excluded.status,skip_reason=excluded.skip_reason,routed_json=excluded.routed_json,attempts=0,post_text=excluded.post_text,group_name=excluded.group_name,updated_at=excluded.updated_at WHERE fb_leads.status='failed'")
+      .bind(c.id, p.groupKey, p.groupName, p.postKey, p.url, p.text, c.reason ? "not_lead" : "queued", c.reason, c.reason ? 0 : leadPriority(p.text), c.hash, routedJson, at, at).run();
     accepted += res.meta.changes;
-    if (res.meta.changes && reason) skipped++;
+    if (res.meta.changes && c.reason) skipped++;
   }
   return { accepted, duplicates: posts.length - accepted, skipped };
 }
 const CROSS_POST_DAYS = 7;
 const textHash = async (text: string) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalisedText(text))))].slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
 
-type Lead = { id: string; group_name: string; post_url: string; post_text: string; status: string; attempts: number; reliable: number | null; comment: string | null; details_html: string | null; keyboard_json: string | null; comment_message_id: number | null; link_message_id: number | null; marked_by: string | null; marked_at: string | null };
-const COLS = "id,group_name,post_url,post_text,status,attempts,reliable,comment,details_html,keyboard_json,comment_message_id,link_message_id,marked_by,marked_at";
+type Lead = { id: string; group_name: string; post_url: string; post_text: string; routed_json?: string | null; status: string; attempts: number; reliable: number | null; comment: string | null; details_html: string | null; keyboard_json: string | null; comment_message_id: number | null; link_message_id: number | null; marked_by: string | null; marked_at: string | null };
+const COLS = "id,group_name,post_url,post_text,routed_json,status,attempts,reliable,comment,details_html,keyboard_json,comment_message_id,link_message_id,marked_by,marked_at";
 const getLead = (id: string) => db().prepare(`SELECT ${COLS} FROM fb_leads WHERE id=?`).bind(id).first<Lead>();
 
 const STATUS_LINE = { posted: "✅ Posted", skipped: "⏭ Skipped" } as const;
@@ -116,7 +160,7 @@ async function draftLead(lead: Lead, deps: Deps) {
   // search, everything else gets one search instead of two.
   // "No agents, please" posts get a helpful comment with no sales pitch.
   // The group the post came from: the comment answers for its place (a Koh Chang group gets Koh Chang answers).
-  const options: DraftOptions = { leadsOnly: true, maxSearches: 1, noSearchForBookings: true, noSalesPitch: noSalesPitch(lead.post_text), groupName: lead.group_name };
+  const options: DraftOptions = { leadsOnly: true, maxSearches: 1, noSearchForBookings: true, noSalesPitch: noSalesPitch(lead.post_text), groupName: lead.group_name, routed: storedRouted(lead.routed_json) };
   const draft = await (deps.draft ?? ((text: string, o: DraftOptions) => draftForPost(text, {}, o)))(lead.post_text, options);
   const at = (deps.now ?? (() => new Date()))().toISOString();
   // The AI sorter's verdict (chat, an advert, news, a giveaway, bait, a meme, spam, not Thailand) gets no message.

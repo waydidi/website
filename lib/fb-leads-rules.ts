@@ -129,7 +129,18 @@ const EMERGENCY = /\b(?:emergency|ambulance|police|accident|lawyer|legal advice|
 const NO_AGENTS = /no agents?\b|no sellers?\b|no tour (?:agents?|companies)|no (?:dms?|pms?)\b|no business(?:es)?\b|private (?:people|persons?) only|ไม่รับนายหน้า|ไม่เอานายหน้า|ไม่รับเอเจนซี่|ไม่รับคนขาย|不要中介|中介勿扰|без посредников|업체 사절/i;
 export const noSalesPitch = (text: string) => NO_AGENTS.test(text);
 
-export type SkipReason = "promo" | "long_stay" | "giveaway" | "bait" | "spam" | "solved" | "admin_post" | "not_served" | "no_request";
+// Seen on the owner's first real run (7 Nov 2026), caught by the AI before; now free:
+// a shop or venue promoting itself (even with "recommend", which otherwise marks someone asking) …
+const SHOP_AD = /we(?:'|’)?d (?:like|love) to (?:recommend|invite|introduce)|(?:visit|try|come to|join us at) our (?:shop|restaurant|bar|cafe|café|place|resort|spa|kitchen)|\bour (?:shop|restaurant|bar|cafe|café|kitchen|menu|spa|massage)\b|we(?:'re| are) open\b|we open (?:at|from|daily|tonight)|open (?:daily|every day) from|ร้านเปิด|ร้านปิด|เปิดให้บริการ|แวะมาได้|ร้านเรา|欢迎光临/i;
+// … invitations that sell company or massage …
+const INVITATION = /wanna feel|feel something different|(?:have|having) a good time with (?:us|me)|(?:dm|pm|inbox) me for|happy ending|outcall|massage (?:service|at your)|นวดนอกสถานที่|เอ็นเตอร์เทน/i;
+// … lost and found for any item …
+// (losing something somewhere, or "anyone found…"; "I lost my booking, how do I get the ferry?" is still a question)
+const LOST_FOUND = /\blost (?:my|our|her|his) [^.?!\n]{1,40}? (?:at|around|near|in|on|from) |anyone (?:found|seen) (?:a|an|my|our|them|it)\b|found (?:a|an|this) [^.?!\n]{1,30}? (?:on|at|near|around) |ของหาย|ทำ\S{0,12}หาย|ใครเก็บได้|捡到|丢了/i;
+// … and new members saying hello (a new member who also asks something is still a lead).
+const INTRO = /\bnew (?:member|here|to (?:the|this) group)\b|just (?:want(?:ed)? to )?say (?:hello|hi)\b|\bmy name is\b|สมาชิกใหม่|ฝากเนื้อฝากตัว|新成员|新人报到/i;
+
+export type SkipReason = "promo" | "long_stay" | "giveaway" | "bait" | "spam" | "solved" | "admin_post" | "intro" | "not_served" | "no_request";
 
 /** Whether a post goes to the AI queue, and if not, why (stored as skip_reason, so the rules can be tuned from real posts). */
 export function screenPost(text: string): { queue: true } | { queue: false; reason: SkipReason } {
@@ -137,11 +148,12 @@ export function screenPost(text: string): { queue: true } | { queue: false; reas
   if (GIVEAWAY.test(text)) return { queue: false, reason: "giveaway" };
   if (BAIT.test(text)) return { queue: false, reason: "bait" };
   if (ADMIN_POST.test(text)) return { queue: false, reason: "admin_post" };
-  if (isPromo(text)) return { queue: false, reason: "promo" };
+  if (isPromo(text) || SHOP_AD.test(text) || INVITATION.test(text)) return { queue: false, reason: "promo" };
   if (isLongStay(text)) return { queue: false, reason: "long_stay" };
   if (SOLVED.test(text)) return { queue: false, reason: "solved" };
   // Emergencies are not Waydidi's to answer, unless the person asks for transport (a driver to a hospital is a lead).
-  if (NOT_SERVED.test(text) || (EMERGENCY.test(text) && !TRANSPORT_WORDS.test(text))) return { queue: false, reason: "not_served" };
+  if (NOT_SERVED.test(text) || LOST_FOUND.test(text) || (EMERGENCY.test(text) && !TRANSPORT_WORDS.test(text))) return { queue: false, reason: "not_served" };
+  if (INTRO.test(text) && !SEEKER_WORDS.test(text) && !/[?？]/.test(text)) return { queue: false, reason: "intro" };
   if (!looksLikeRequest(text)) return { queue: false, reason: "no_request" };
   return { queue: true };
 }
