@@ -5,9 +5,11 @@ from the owner's playbook (Admin → Writing assistant) and sends it to the Tele
 then the group name, the post link and "Check before posting · <type>" with two buttons, **Posted** and **Skip**
 (`lib/telegram/fb-leads.ts`).
 
-It never comments or likes anything, and it never sends who wrote a post. Facebook hides each post's link until a mouse
-moves over the post's time, so the extension moves a simulated mouse over that time once per post (no click, no focus,
-no scrolling) and then reads the link. For a photo post the photo's link also carries the post number. By default it
+It never comments or likes anything, and it never sends who wrote a post. Facebook hides each post's link (the post's
+time is a link with no address), so for each such post the extension tries, up to 3 times: a simulated mouse over the
+time, keyboard focus on it (like pressing Tab; no scrolling, focus is given back), and reading the address from the
+page's own data (`page-world.js`, which runs inside the Facebook page with no extension permissions, never looks above
+the post itself, and only marks the link). For a photo post the photo's link also carries the post number. By default it
 only reads what you scroll past. If you press **Collect** it also scrolls the group for you, slowly, like a person
 reading, and taps "See more" so it reads whole posts (see below). It works for private groups because it runs in your
 own browser, signed in as you. It is not published in any store; it is loaded from this folder.
