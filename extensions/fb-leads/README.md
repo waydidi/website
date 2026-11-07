@@ -34,8 +34,8 @@ After you update the files (for example after pulling a new version), click the 
 
 Open a group, sort it by **New posts**, click the extension icon, set **Lead posts to collect** (5 to 100, default 50)
 and press **Collect from this group**. Keep that tab in front. It then scrolls the way a person reads: a different
-distance each time (about half to four-fifths of a screen), a pause of 3 to 9 seconds on each screen, a longer read of
-12 to 25 seconds now and then, and a small scroll back up now and then. Before reading each screen it taps the
+distance each time (about half to four-fifths of a screen), a pause of 2 to 6 seconds on each screen, a longer read of
+8 to 15 seconds now and then, and a small scroll back up now and then. Before reading each screen it taps the
 **"See more"** button inside each post's text once (owner's choice), so contact details and conditions at the end of a
 post are read too. It only taps that button inside the message, never a link, so nothing opens. A run ends by itself:
 
@@ -49,7 +49,7 @@ post are read too. It only taps that button inside the message, never a link, so
 - the moment you touch the page (wheel, keys, mouse), switch to another tab or leave the group;
 - if a post cannot be sent (wrong token, website off, no connection).
 
-At this pace a run often takes 30 minutes or more: if 1 post in 6 is a lead, 50 leads means looking at about 300 posts.
+At this pace a run often takes 20 to 40 minutes: if 1 post in 6 is a lead, 50 leads means looking at about 300 posts.
 The AI drafts at most `FB_LEADS_DAILY_LIMIT` posts a day (default 50); extra leads wait for the next day, strongest
 first. At most **4 runs a day**; a run that could not read a single post does not count. Press **Stop** in the popup to
 end a run early. Scrolling and tapping by script is the part Facebook is most likely to notice, so keep these limits.

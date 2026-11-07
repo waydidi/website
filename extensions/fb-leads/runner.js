@@ -12,8 +12,8 @@
     maxSteps: 1500,           // safety stop: screens scrolled in one run
     stuckSteps: 3,            // this many scrolls in a row where the page neither moves nor grows = end of the feed
     blankSteps: 4,            // this many screens in a row with no readable post at all = we cannot read this page
-    readMs: [3000, 9000],     // normal pause on a screen, like reading
-    longReadMs: [12000, 25000], // now and then a post is read for longer
+    readMs: [2000, 6000],     // normal pause on a screen, like reading quickly (owner chose about a third faster)
+    longReadMs: [8000, 15000], // now and then a post is read for longer
     longReadChance: 0.12,
     backChance: 0.1,          // now and then scroll back up a little, as people do
   };
