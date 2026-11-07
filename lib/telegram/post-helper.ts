@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "cloudflare:workers";
-import { DEFAULT_USER_LIMIT, DEFAULT_WHATSAPP, MAX_USER_LIMIT, monthKey, nextMonthStart, REPEATS_TO_SAVE, REPEAT_WINDOW_DAYS, DRAFT_KEEP_DAYS, BLOCKED_DOMAINS, formatDate, jsonObject, lastRefreshDate, parseComposed, parseFacts, parseRouted, refreshDue, parsePostCommand, staleWarning, verifyFacts, withAreaTopic, withClosing, type KeptFact, type Routed } from "@/lib/post-helper-rules";
+import { DEFAULT_USER_LIMIT, DEFAULT_WHATSAPP, MAX_USER_LIMIT, monthKey, nextMonthStart, REPEATS_TO_SAVE, REPEAT_WINDOW_DAYS, DRAFT_KEEP_DAYS, BLOCKED_DOMAINS, formatDate, jsonObject, lastRefreshDate, parseComposed, parseFacts, parseRouted, refreshDue, parsePostCommand, staleWarning, verifyFacts, withAreaTopic, withClosing, leadSkipReason, type KeptFact, type Routed } from "@/lib/post-helper-rules";
 import { quoteTransfer, type QuoteResult } from "@/lib/cee/quotes";
 import { ASSISTANT_MODEL, assistantConfigured, assistantUsage, reserveAssistantCall, settleAssistantCall } from "@/lib/telegram/assistant";
 import { esc } from "@/lib/telegram/cards";
@@ -157,16 +157,27 @@ const sourceLines = (facts: KeptFact[]) => [...new Map(facts.flatMap((f) => f.so
 // - noSalesPitch: the poster asked for no agents or sellers, so a booking request is answered as information only
 //   (no Waydidi offer, no price, no WhatsApp line).
 // - groupName: the Facebook group the post was written in; the answer is for the group's place (Facebook leads).
-export type DraftOptions = { forceFresh?: boolean; leadsOnly?: boolean; maxSearches?: number; noSearchForBookings?: boolean; noSalesPitch?: boolean; groupName?: string };
+// - routed: the AI sorter's answer from when the post arrived (Facebook leads), so it is not asked twice.
+export type DraftOptions = { forceFresh?: boolean; leadsOnly?: boolean; maxSearches?: number; noSearchForBookings?: boolean; noSalesPitch?: boolean; groupName?: string; routed?: Routed };
+
+/**
+ * The AI sorter alone (about US$0.0003), for a Facebook post the moment it arrives, so the extension learns at once
+ * whether it is a real lead. Returns the sorter's answer and why it is not a lead ("" = it is one).
+ */
+export async function sortForLead(text: string, groupName: string | undefined, deps: Deps = {}) {
+  const routed = await routePost(text, deps.client ?? realClient(), groupName);
+  return { routed, skipReason: leadSkipReason(routed) };
+}
 
 /** The whole flow for one pasted post. Pure apart from the client, quote lookup and database (injectable for tests). */
 export async function draftForPost(text: string, deps: Deps = {}, options: DraftOptions = {}): Promise<Draft> {
   await ensurePostHelperTables();
   const now = (deps.now ?? (() => new Date()))(), client = deps.client ?? realClient();
-  let routed = await routePost(text, client, options.groupName);
+  // A Facebook lead was usually sorted when it arrived (sortForLead): that answer is reused, not asked again.
+  let routed = options.routed ?? await routePost(text, client, options.groupName);
   // Not a lead (chat, an advert, news, a giveaway, bait, a meme, spam, or not about Thailand): stop after sorting.
   if (options.leadsOnly) {
-    const skipReason = routed.postType !== "request" ? routed.postType : routed.inThailand === "no" ? "not_thailand" : routed.replyType === "social" ? "chat" : "";
+    const skipReason = leadSkipReason(routed);
     if (skipReason) return { id: "", text, keyboard: [], parts: [], replyType: routed.replyType, factCount: 0, stale: false, searched: false, advert: routed.advert, skipReason };
   }
   if (options.noSalesPitch && (routed.replyType === "sales" || routed.replyType === "adjacent")) routed = { ...routed, replyType: "info" };

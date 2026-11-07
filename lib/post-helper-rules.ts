@@ -153,6 +153,16 @@ export function withAreaTopic(routed: Routed): Routed {
   const slug = topicKey(routed.area);
   return slug && !routed.topic.includes(slug) ? { ...routed, topic: topicKey(`${slug}-${routed.topic}`) } : routed;
 }
+/**
+ * Why the AI sorter says a post is not a Facebook lead ("" = it is one): its post type when not a real request, a
+ * question clearly about another country, or chat. Used when a post arrives and again before drafting.
+ */
+export function leadSkipReason(routed: Pick<Routed, "postType" | "inThailand" | "replyType">): string {
+  if (routed.postType !== "request") return routed.postType;
+  if (routed.inThailand === "no") return "not_thailand";
+  if (routed.replyType === "social") return "chat";
+  return "";
+}
 function sortPost(o: Record<string, unknown>): Pick<Routed, "advert" | "postType" | "inThailand" | "area"> {
   const postType: PostType = POST_TYPES.includes(o.postType as PostType) ? o.postType as PostType : o.advert === true ? "advert" : "request";
   const inThailand = o.inThailand === "yes" || o.inThailand === "no" ? o.inThailand : "unclear";

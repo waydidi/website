@@ -39,9 +39,10 @@ distance each time (about half to four-fifths of a screen), a pause of 3 to 9 se
 **"See more"** button inside each post's text once (owner's choice), so contact details and conditions at the end of a
 post are read too. It only taps that button inside the message, never a link, so nothing opens. A run ends by itself:
 
-- when it has your target number of **lead posts**: posts the website's filter keeps. Skipped posts and posts sent
-  before do not count; it scrolls past them. There is **no time limit**. A safety stop ends a run that looked at
-  1,000 posts without reaching the target. A few lead posts may still be skipped by the AI a minute later;
+- when it has your target number of **lead posts**: posts that pass both the word rules and the AI sorter, which the
+  website runs the moment a post arrives, so the count matches the comments you get (a few may still be marked
+  "Needs your check"). Skipped posts and posts sent before do not count; it scrolls past them. There is **no time
+  limit**. A safety stop ends a run that looked at 1,000 posts without reaching the target;
 - at the real end of the feed: the page stops moving and stops growing for 3 scrolls in a row;
 - if no post on the page can be read: the popup says so and shows how many posts the page has, how many with a post
   link and how many with text, which tells the developer what changed on Facebook;
@@ -66,15 +67,16 @@ Skipped, with the reason stored for each post (`skip_reason`):
 |---|---|---|
 | `commenting_disabled` | the page says comments are turned off | extension, on the page |
 | `already_engaged` | a visible comment by one of the names in Settings, or the reaction button is already pressed by the account browsing | extension, on the page |
-| `promo` | adverts, promotions, self-promotion, rentals for sale or rent, and any post with contact details (phone, LINE ID, WhatsApp number, wa.me). Exception: a traveller who adds their own number while plainly asking | word rules |
+| `promo` | adverts, promotions, self-promotion, shops and bars promoting themselves ("we'd like to recommend our…", "we open at…"), invitations ("wanna feel something different", outcall massage), rentals for sale or rent, and any post with contact details (phone, LINE ID, WhatsApp number, wa.me). Exception: a traveller who adds their own number while plainly asking | word rules |
 | `long_stay` | a room, condo, house or villa for a month or more ("monthly", "yearly", "รายเดือน", "长租") unless it also asks for transport | word rules |
 | `giveaway`, `bait`, `spam` | prize draws, "comment YES / tag a friend", scams, crypto, loans, short links | word rules |
 | `solved` | "UPDATE: booked / solved / ได้แล้ว / 已解决" | word rules |
 | `admin_post` | group rules and admin announcements | word rules |
-| `not_served` | jobs, flatmates, lost and found, selling personal items, pets, legal or medical emergencies (a driver to a hospital is still a lead) | word rules |
+| `intro` | a new member saying hello, with no question | word rules |
+| `not_served` | jobs, flatmates, lost and found ("lost my sunglasses around…", "anyone found…"), selling personal items, pets, legal or medical emergencies (a driver to a hospital is still a lead) | word rules |
 | `no_request` | no question and no travel word (photos, videos and chat; a photo or video is judged by its caption) | word rules |
 | `cross_posted` | the same question already received from another group in the last 7 days | website |
-| `advert`, `news`, `giveaway`, `bait`, `meme`, `spam`, `chat` | the AI sorter's type for the post (about US$0.0003; also catches what the word rules miss) | AI sorter |
+| `advert`, `news`, `giveaway`, `bait`, `meme`, `spam`, `chat` | the AI sorter's type for the post (about US$0.0003, run as soon as the post arrives; also catches what the word rules miss) | AI sorter |
 | `not_thailand` | the AI sorter says the question is clearly about another country | AI sorter |
 
 "No agents, please" posts ("no agents / no sellers / ไม่รับนายหน้า / 不要中介") are kept, but the comment is help only:

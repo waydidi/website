@@ -253,3 +253,35 @@ test('each lead is drafted with the name of the group it came from', async () =>
   await fl.processLeads({ draft: async (text, options) => { seen.push(options.groupName); return draftOf()(text); }, send: sender().send, now: () => now });
   assert.deepEqual(seen, ['Koh Chang Community']);
 });
+
+const routedOf = (over = {}) => ({ language: 'en', kind: 'travel', replyType: 'info', topic: 't', question: 'q', timeSensitive: false, route: null, advert: false, postType: 'request', inThailand: 'yes', area: 'Koh Chang', ...over });
+
+test('posts are sorted by the AI as they arrive: the collector is told only real leads count; the answer is reused', async () => {
+  const calls = [];
+  const sort = async (text, groupName) => { calls.push([text.slice(0, 12), groupName]); return /massage|hello/i.test(text) ? { routed: routedOf({ replyType: 'social', postType: 'chat' }), skipReason: 'chat' } : { routed: routedOf(), skipReason: '' }; };
+  const first = await fl.queueLeads([
+    { groupKey: 'g', postKey: '1000001', url: post(1).url, text: 'Which beach on Koh Chang is best for kids?', groupName: 'Koh Chang Community' },
+    { groupKey: 'g', postKey: '1000002', url: post(2).url, text: 'Thai massage tips? Anyone know a good place near the pier?', groupName: 'Koh Chang Community' },
+    { groupKey: 'g', postKey: '1000003', url: post(3).url, text: 'Beautiful sunset tonight', groupName: 'Koh Chang Community' },
+  ], now, { sort });
+  assert.deepEqual(first, { accepted: 3, duplicates: 0, skipped: 2 }, 'the word rules skip 1, the AI skips 1: one real lead');
+  assert.deepEqual(calls, [['Which beach ', 'Koh Chang Community'], ['Thai massage', 'Koh Chang Community']], 'only posts that pass the word rules are sorted');
+  assert.deepEqual([(await lead(1)).status, (await lead(2)).status, (await lead(2)).skip_reason, (await lead(3)).skip_reason], ['queued', 'not_lead', 'chat', 'no_request']);
+  assert.equal(JSON.parse((await lead(1)).routed_json).area, 'Koh Chang');
+  // Sent again: a duplicate, not sorted again.
+  const again = await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: 'Which beach on Koh Chang is best for kids?', groupName: 'Koh Chang Community' }], now, { sort });
+  assert.deepEqual([again.duplicates, calls.length], [1, 2]);
+  // Drafting reuses the stored answer.
+  const seen = [];
+  await fl.processLeads({ draft: async (text, options) => { seen.push(options.routed?.area); return draftOf()(text); }, send: sender().send, now: () => now });
+  assert.deepEqual(seen, ['Koh Chang']);
+});
+
+test('when the AI sorter fails (or is off), the post stays queued and is sorted at drafting instead', async () => {
+  const out = await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: 'Which ferry is best to Koh Chang?', groupName: 'G' }], now, { sort: async () => { throw new Error('model down'); } });
+  assert.deepEqual(out, { accepted: 1, duplicates: 0, skipped: 0 });
+  assert.deepEqual([(await lead(1)).status, (await lead(1)).routed_json], ['queued', null]);
+  const seen = [];
+  await fl.processLeads({ draft: async (text, options) => { seen.push(options.routed === undefined); return draftOf()(text); }, send: sender().send, now: () => now });
+  assert.deepEqual(seen, [true], 'no stored answer: drafting sorts it');
+});
