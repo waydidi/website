@@ -10,7 +10,7 @@
     time: "Done: the time limit for one run was reached.",
     steps: "Done: the screen limit for one run was reached.",
     unreadable: "Stopped: no post on this page could be read. Facebook may have changed its layout.",
-    hidden: "Stopped: this tab was hidden. Keep it in front while collecting.",
+    hidden: "Stopped: this tab stayed hidden too long (over 2 minutes). A quick check elsewhere is fine.",
     left: "Stopped: you left the group.",
     touched: "Stopped: you used the page.",
     stopped: "Stopped.",

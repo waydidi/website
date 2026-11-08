@@ -50,7 +50,10 @@ post are read too. It only taps that button inside the message, never a link, so
 - at the real end of the feed: the page stops moving and stops growing for 3 scrolls in a row;
 - if no post on the page can be read: the popup says so and shows how many posts the page has, how many with a post
   link and how many with text, which tells the developer what changed on Facebook;
-- the moment you touch the page (wheel, keys, mouse), switch to another tab or leave the group;
+- the moment you touch the page (wheel, keys, mouse) or leave the group; switching to another tab for a quick check is
+  fine, but it stops if the tab stays hidden for more than 2 minutes at a stretch (Chrome itself slows down, and can
+  eventually pause, a tab's own scripts the longer it stays in the background, so a long time away may stall the run
+  rather than finish it quickly once you come back);
 - if a post cannot be sent (wrong token, website off, no connection).
 
 At this pace a run often takes 20 to 40 minutes: if 1 post in 6 is a lead, 50 leads means looking at about 300 posts.
