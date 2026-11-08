@@ -13,7 +13,9 @@ const PAGE = "https://www.facebook.com/groups/test/";
 // hideUntilCall: the tab becomes visible again from this call onward (simulates a brief switch away and back).
 // growOnCatchUpAt: the Nth scrollTo call (the catch-up attempt made when a screen looks stuck) grows the page, as if
 // Facebook's own "load more" had just landed a moment after the scroll — simulating a slower, not a genuinely empty, feed.
-type Opts = { scan?: "posts" | "known" | "blank" | "fail"; leadsPerStep?: number; rng?: number[] | number; maxMs?: number; clockStepMs?: number; hide?: number; hideUntilCall?: number; hiddenGraceMs?: number; touchAt?: number; leaveAt?: number; abortAt?: number; maxPosts?: number; maxLeads?: number; maxSteps?: number; pageHeight?: number; growOnCatchUpAt?: number };
+// pageHeightFactor: sets the page height to this many screens tall, relative to the real viewport (desktop vs the
+// "phone" project have very different heights), instead of a fixed pixel count; takes over from pageHeight when given.
+type Opts = { scan?: "posts" | "known" | "blank" | "fail"; leadsPerStep?: number; rng?: number[] | number; maxMs?: number; clockStepMs?: number; hide?: number; hideUntilCall?: number; hiddenGraceMs?: number; touchAt?: number; leaveAt?: number; abortAt?: number; maxPosts?: number; maxLeads?: number; maxSteps?: number; pageHeight?: number; pageHeightFactor?: number; growOnCatchUpAt?: number };
 type Out = { result: { reason: string; posts: number; leads: number; steps: number; read: boolean }; scrolls: number[]; sleeps: number[]; scrollTos: number; clicks: number; height: number };
 
 async function run(page: Page, opts: Opts = {}): Promise<Out> {
@@ -31,6 +33,7 @@ async function run(page: Page, opts: Opts = {}): Promise<Out> {
     let scrollTos = 0;
     const realScrollTo = window.scrollTo.bind(window);
     const feedDiv = document.querySelector("div") as HTMLDivElement;
+    if (o.pageHeightFactor !== undefined) feedDiv.style.height = Math.round(window.innerHeight * o.pageHeightFactor) + "px";
     window.scrollTo = ((arg: ScrollToOptions) => {
       scrollTos++;
       if (o.growOnCatchUpAt === scrollTos && feedDiv) feedDiv.style.height = (parseInt(feedDiv.style.height, 10) + 3000) + "px";
@@ -99,7 +102,7 @@ test("scrolls past posts it already sent, to reach new ones (it does not call th
 });
 
 test("ends only when the page really stops moving and growing", async ({ page }) => {
-  const out = await run(page, { scan: "known", pageHeight: 1800, maxMs: 10 ** 9, clockStepMs: 1 });
+  const out = await run(page, { scan: "known", pageHeightFactor: 2.5, maxMs: 10 ** 9, clockStepMs: 1 });
   expect(out.result.reason).toBe("end");
   expect(out.result.steps).toBeLessThan(12);
   // Each stuck-looking screen gets one catch-up scroll-to-bottom and one longer wait (3 to 6s) before it counts,
@@ -111,7 +114,7 @@ test("ends only when the page really stops moving and growing", async ({ page })
 test("a screen that looks stuck but grows once given the extra catch-up wait is not treated as the end", async ({ page }) => {
   // Reaches the (small) bottom almost at once, looks stuck, but the very first catch-up attempt reveals more content
   // (a slightly slow Facebook, not an empty one): the run must keep going instead of stopping with "end".
-  const out = await run(page, { scan: "known", pageHeight: 900, growOnCatchUpAt: 1, maxSteps: 6, maxMs: 10 ** 9, clockStepMs: 1 });
+  const out = await run(page, { scan: "known", pageHeightFactor: 1.2, growOnCatchUpAt: 1, maxSteps: 6, maxMs: 10 ** 9, clockStepMs: 1 });
   expect(out.result).toMatchObject({ reason: "steps", steps: 6 });
 });
 
