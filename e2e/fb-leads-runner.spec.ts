@@ -9,7 +9,9 @@ const PAGE = "https://www.facebook.com/groups/test/";
 
 // posts: 4 new posts every screen. known: posts on screen were all sent before (a second run over the same feed).
 // blank: no readable post at all. fail: sending is refused.
-type Opts = { scan?: "posts" | "known" | "blank" | "fail"; leadsPerStep?: number; rng?: number[] | number; maxMs?: number; clockStepMs?: number; hide?: number; touchAt?: number; leaveAt?: number; abortAt?: number; maxPosts?: number; maxLeads?: number; maxSteps?: number; pageHeight?: number };
+// hide: the tab is reported hidden from this scan call onward (and forever, unless hideUntilCall is also given).
+// hideUntilCall: the tab becomes visible again from this call onward (simulates a brief switch away and back).
+type Opts = { scan?: "posts" | "known" | "blank" | "fail"; leadsPerStep?: number; rng?: number[] | number; maxMs?: number; clockStepMs?: number; hide?: number; hideUntilCall?: number; hiddenGraceMs?: number; touchAt?: number; leaveAt?: number; abortAt?: number; maxPosts?: number; maxLeads?: number; maxSteps?: number; pageHeight?: number };
 type Out = { result: { reason: string; posts: number; leads: number; steps: number; read: boolean }; scrolls: number[]; sleeps: number[]; clicks: number; height: number };
 
 async function run(page: Page, opts: Opts = {}): Promise<Out> {
@@ -24,12 +26,12 @@ async function run(page: Page, opts: Opts = {}): Promise<Out> {
     document.addEventListener("click", () => clicks++, true);
     const realScrollBy = window.scrollBy.bind(window);
     window.scrollBy = ((arg: ScrollToOptions) => { scrolls.push(arg.top as number); realScrollBy({ top: arg.top, behavior: "instant" }); }) as typeof window.scrollBy;
-    if (o.hide !== undefined) Object.defineProperty(document, "hidden", { configurable: true, get: () => calls >= (o.hide as number) });
+    if (o.hide !== undefined) Object.defineProperty(document, "hidden", { configurable: true, get: () => calls >= (o.hide as number) && (o.hideUntilCall === undefined || calls < (o.hideUntilCall as number)) });
     const seq = Array.isArray(o.rng) ? o.rng : null;
     const rng = () => (seq ? seq[n++ % seq.length] : typeof o.rng === "number" ? o.rng : (n++ * 0.37 + 0.11) % 1);
     const abort = new AbortController();
     const result = await w.WaydidiLeads.collect({
-      win: window, rng, signal: abort.signal, maxMs: o.maxMs, maxPosts: o.maxPosts, maxLeads: o.maxLeads, maxSteps: o.maxSteps,
+      win: window, rng, signal: abort.signal, maxMs: o.maxMs, maxPosts: o.maxPosts, maxLeads: o.maxLeads, maxSteps: o.maxSteps, hiddenGraceMs: o.hiddenGraceMs,
       now: () => clock,
       sleep: async (ms: number) => {
         sleeps.push(ms); clock += o.clockStepMs ?? ms;
@@ -106,10 +108,27 @@ test("stops when time is up", async ({ page }) => {
   expect((await run(page, { scan: "known", maxMs: 60_000, clockStepMs: 20_000 })).result.reason).toBe("time");
 });
 
-test("stops at once when you touch the page, switch tab, leave the group, press Stop or sending fails", async ({ page }) => {
+test("stops at once when you touch the page, leave the group, press Stop or sending fails", async ({ page }) => {
   expect((await run(page, { touchAt: 2, scan: "known" })).result).toMatchObject({ reason: "touched", steps: 2 });
-  expect((await run(page, { hide: 3, scan: "known" })).result.reason).toBe("hidden");
   expect((await run(page, { leaveAt: 3, scan: "known" })).result.reason).toBe("left");
   expect((await run(page, { abortAt: 2, scan: "known" })).result.reason).toBe("stopped");
   expect((await run(page, { scan: "fail" })).result).toMatchObject({ reason: "problem", steps: 0 });
+});
+
+test("a brief switch away (under the grace period) does not stop the run", async ({ page }) => {
+  // Hidden for calls 2 and 3 only (2 steps x 10s = 20s, well under the 2-minute default), visible again from call 4.
+  const out = await run(page, { hide: 2, hideUntilCall: 4, scan: "known", clockStepMs: 10_000, maxSteps: 8 });
+  expect(out.result).toMatchObject({ reason: "steps", steps: 8 });
+});
+
+test("switching away twice, each time briefly, never stops the run (each return resets the grace period)", async ({ page }) => {
+  const out = await run(page, { hide: 2, hideUntilCall: 4, hiddenGraceMs: 25_000, scan: "known", clockStepMs: 10_000, maxSteps: 10 });
+  expect(out.result).toMatchObject({ reason: "steps", steps: 10 });
+});
+
+test("staying hidden longer than the grace period stops the run, with reason \"hidden\"", async ({ page }) => {
+  // Hidden from call 2 onward, never visible again; at 10s a step it crosses the (shortened, for a fast test) 25s grace on the 4th check.
+  const out = await run(page, { hide: 2, hiddenGraceMs: 25_000, scan: "known", clockStepMs: 10_000, maxSteps: 10 ** 6, maxMs: 10 ** 9 });
+  expect(out.result.reason).toBe("hidden");
+  expect(out.result.steps).toBe(5); // 2 steps visible, then hidden through steps 3,4,5 (30s > 25s grace) before halting
 });

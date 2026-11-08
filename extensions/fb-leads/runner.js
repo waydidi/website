@@ -1,7 +1,8 @@
 // Scrolls a group feed the way a person reads it, so more posts appear for extractor.js to read. It only scrolls: it
 // never clicks, types or opens anything. It starts only when you press "Collect" in the popup, and it always stops:
-// at your target number of lead posts, at the end of the feed, or if you touch the page, switch tab, leave the group,
-// or no post on the page can be read. There is no time limit unless one is given.
+// at your target number of lead posts, at the end of the feed, if you leave the group or touch the page, or if no post
+// on the page can be read. Switching to another tab is tolerated briefly (hiddenGraceMs, a quick check elsewhere); it
+// stops once the tab has stayed hidden longer than that. There is no time limit unless one is given.
 (function (root) {
   "use strict";
 
@@ -16,6 +17,7 @@
     longReadMs: [8000, 15000], // now and then a post is read for longer
     longReadChance: 0.12,
     backChance: 0.1,          // now and then scroll back up a little, as people do
+    hiddenGraceMs: 2 * 60 * 1000, // the tab may be hidden this long at a stretch (a quick check elsewhere) before it stops
   };
 
   function between(rng, range) { return range[0] + rng() * (range[1] - range[0]); }
@@ -35,7 +37,7 @@
     var win = o.win || window, doc = win.document;
     var sleep = o.sleep || function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
     var rng = o.rng || Math.random, now = o.now || Date.now;
-    var stop = "", posts = 0, leads = 0, steps = 0, started = now(), stuck = 0, blank = 0, everRead = false;
+    var stop = "", posts = 0, leads = 0, steps = 0, started = now(), stuck = 0, blank = 0, everRead = false, hiddenSince = null;
     var lastY = win.scrollY || 0, lastH = doc.documentElement.scrollHeight;
     function halt(reason) { if (!stop) stop = reason; }
 
@@ -49,7 +51,13 @@
       while (!stop) {
         if (now() - started > o.maxMs) { halt("time"); break; }
         if (steps >= o.maxSteps) { halt("steps"); break; }
-        if (doc.hidden) { halt("hidden"); break; }
+        // A brief check elsewhere does not stop the run; staying away longer than hiddenGraceMs does.
+        if (doc.hidden) {
+          if (hiddenSince === null) hiddenSince = now();
+          if (now() - hiddenSince > o.hiddenGraceMs) { halt("hidden"); break; }
+        } else {
+          hiddenSince = null;
+        }
         if (win.location.pathname.indexOf("/groups/") !== 0) { halt("left"); break; }
 
         var seen = await o.scan();
