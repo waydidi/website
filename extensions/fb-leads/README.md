@@ -12,7 +12,11 @@ page's own data (`page-world.js`, which runs inside the Facebook page with no ex
 the post itself, and only marks the link). For a photo post the photo's link also carries the post number. By default it
 only reads what you scroll past. If you press **Collect** it also scrolls the group for you, slowly, like a person
 reading, and taps "See more" so it reads whole posts (see below). It works for private groups because it runs in your
-own browser, signed in as you. It is not published in any store; it is loaded from this folder.
+own browser, signed in as you, and for **any group you open**, not only one you have already visited. A tab left open
+from before the extension's most recent reload has no working copy of these scripts (reloading always breaks the old
+one); the popup notices this the moment you press a button there and quietly re-adds them to that tab before trying
+again, so you never have to remember to refresh a tab yourself. It is not published in any store; it is loaded from
+this folder.
 
 ## Install (Chrome or Edge)
 

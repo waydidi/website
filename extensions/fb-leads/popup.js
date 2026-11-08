@@ -56,21 +56,52 @@
   enabled.addEventListener("change", function () { chrome.storage.local.set({ enabled: enabled.checked }); });
   document.getElementById("settings").addEventListener("click", function () { chrome.runtime.openOptionsPage(); });
 
-  function tellTab(type) {
+  var FB_URL = /^https:\/\/(?:www|web)\.facebook\.com\//;
+  // Any tab left open from before the extension's last reload has no content script (reloading kills the old one),
+  // so the first message to it fails. When that happens on a Facebook tab, the scripts are injected again on the
+  // spot (host_permissions in the manifest cover facebook.com, so this needs no click gesture) and the message is
+  // retried once; content.js and page-world.js each guard against running twice.
+  function withTab(onReady) {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      if (!tabs[0]) return;
-      chrome.tabs.sendMessage(tabs[0].id, { type: type }, function () {
-        if (chrome.runtime.lastError) chrome.storage.local.set({ run: { state: "done", reason: "notgroup", posts: 0, leads: 0, at: Date.now() } });
+      var tab = tabs[0];
+      if (!tab || !tab.id) return onReady(null);
+      onReady(tab);
+    });
+  }
+  function reinject(tab, then) {
+    if (!FB_URL.test(tab.url || "")) return then(false);
+    chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["extractor.js", "runner.js", "content.js"] }, function () {
+      if (chrome.runtime.lastError) return then(false);
+      chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["page-world.js"], world: "MAIN" }, function () {
+        then(!chrome.runtime.lastError);
+      });
+    });
+  }
+  function sendToTab(tab, message, callback) {
+    chrome.tabs.sendMessage(tab.id, message, function (res) {
+      if (!chrome.runtime.lastError) return callback(res);
+      reinject(tab, function (ok) {
+        if (!ok) return callback(undefined, true);
+        chrome.tabs.sendMessage(tab.id, message, function (res2) { callback(res2, Boolean(chrome.runtime.lastError)); });
+      });
+    });
+  }
+
+  function tellTab(type) {
+    withTab(function (tab) {
+      if (!tab) return;
+      sendToTab(tab, { type: type }, function (res, failed) {
+        if (failed) chrome.storage.local.set({ run: { state: "done", reason: "notgroup", posts: 0, leads: 0, at: Date.now() } });
       });
     });
   }
   // The outline has no words, names or ids: only the page's structure and link shapes, so it is safe to paste in a chat.
   document.getElementById("sample").addEventListener("click", function () {
     var note = document.getElementById("sampleNote");
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      if (!tabs[0]) return;
-      chrome.tabs.sendMessage(tabs[0].id, { type: "sample" }, function (res) {
-        if (chrome.runtime.lastError || !res || !res.sample) { note.textContent = "Open a Facebook group page first."; return; }
+    withTab(function (tab) {
+      if (!tab) return;
+      sendToTab(tab, { type: "sample" }, function (res, failed) {
+        if (failed || !res || !res.sample) { note.textContent = "Open a Facebook group page first."; return; }
         navigator.clipboard.writeText(res.sample).then(
           function () { note.textContent = "Copied (no words, names or ids). Paste it to the developer."; },
           function () { note.textContent = "Could not copy. Try again."; });

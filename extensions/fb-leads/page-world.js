@@ -6,6 +6,10 @@
 (function () {
   "use strict";
 
+  // Guard: the popup may inject this script again on a tab that had none (see content.js); never add the listener twice.
+  if (window.__waydidiLeadsPageWorld) return;
+  window.__waydidiLeadsPageWorld = true;
+
   var POST_LINK = /(?:https:\/\/(?:www|web|m)\.facebook\.com)?\/groups\/[^/?#"\s\\]+\/(?:posts|permalink)\/(?:\d+|pfbid[A-Za-z0-9]+)\/?/;
   var ID_KEYS = { post_id: true, postID: true, postId: true, top_level_post_id: true };
 

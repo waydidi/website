@@ -5,6 +5,12 @@
 (function () {
   "use strict";
 
+  // The popup injects this script again when a tab has none (any tab left open from before the extension's last
+  // reload: reloading invalidates old content scripts, so the tab stops answering until it is refreshed or
+  // re-injected). A guard, so running twice in the same page never doubles the listener or the page watcher.
+  if (window.__waydidiLeadsContent) return;
+  window.__waydidiLeadsContent = true;
+
   var BATCH = 25, MAX_REMEMBERED = 5000, RETRY_MS = 60000, SETTLE_MS = 1500, MAX_TEXT = 4000, MAX_RUNS_PER_DAY = 4;
   var seen = {}, loaded = false, timer = null, retryAt = 0, chain = Promise.resolve(), runAbort = null;
   var DEFAULT_NAMES = ["Waydidi Travel"], names = DEFAULT_NAMES;
@@ -118,7 +124,10 @@
     if (message.type === "collect") startRun();
     if (message.type === "stop" && runAbort) runAbort.abort();
     // An anonymous outline of the posts on screen (no words, names or ids), for the developer to fix the reader.
-    if (message.type === "sample") sendResponse({ sample: window.WaydidiLeads.sample(document) });
+    if (message.type === "sample") { sendResponse({ sample: window.WaydidiLeads.sample(document) }); return; }
+    // collect/stop are fire-and-forget, but always acknowledging means the popup never sees a false "no listener"
+    // error (the port can otherwise report closed before a response, even though the action above already ran).
+    sendResponse({ ok: true });
   });
 
   // The Facebook names Waydidi comments with (Settings), to skip posts it already commented on.
