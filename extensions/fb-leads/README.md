@@ -47,7 +47,9 @@ post are read too. It only taps that button inside the message, never a link, so
   website runs the moment a post arrives, so the count matches the comments you get (a few may still be marked
   "Needs your check"). Skipped posts and posts sent before do not count; it scrolls past them. There is **no time
   limit**. A safety stop ends a run that looked at 1,000 posts without reaching the target;
-- at the real end of the feed: the page stops moving and stops growing for 3 scrolls in a row;
+- at the real end of the feed: the page stops moving and stops growing for 3 scrolls in a row. Each time a screen
+  looks stuck, it first scrolls decisively to the true bottom and waits a bit longer (3 to 6 seconds, once), in case
+  Facebook was just about to load more — only after that still shows nothing does it count against the 3;
 - if no post on the page can be read: the popup says so and shows how many posts the page has, how many with a post
   link and how many with text, which tells the developer what changed on Facebook;
 - the moment you touch the page (wheel, keys, mouse) or leave the group; switching to another tab for a quick check is

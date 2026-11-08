@@ -18,6 +18,7 @@
     longReadChance: 0.12,
     backChance: 0.1,          // now and then scroll back up a little, as people do
     hiddenGraceMs: 2 * 60 * 1000, // the tab may be hidden this long at a stretch (a quick check elsewhere) before it stops
+    catchUpMs: [3000, 6000],  // one extra wait, only when a screen looks stuck, before it counts against the end-of-feed tally
   };
 
   function between(rng, range) { return range[0] + rng() * (range[1] - range[0]); }
@@ -82,7 +83,16 @@
 
         // The end of the feed is when the page stops moving and stops growing, not when there is nothing new to send.
         var y = win.scrollY || 0, h = doc.documentElement.scrollHeight;
-        if (!back) stuck = y <= lastY + 5 && h <= lastH + 5 ? stuck + 1 : 0;
+        var grew = y > lastY + 5 || h > lastH + 5;
+        if (!back && !grew) {
+          // Facebook can take longer than one reading pause to fetch the next batch: scroll decisively to the real
+          // bottom and give it one extra, longer wait before this screen counts towards giving up on the feed.
+          win.scrollTo({ top: doc.documentElement.scrollHeight, behavior: "smooth" });
+          await sleep(between(rng, o.catchUpMs));
+          y = win.scrollY || 0; h = doc.documentElement.scrollHeight;
+          grew = y > lastY + 5 || h > lastH + 5;
+        }
+        if (!back) stuck = grew ? 0 : stuck + 1;
         lastY = y; lastH = h;
         if (stuck >= o.stuckSteps) { halt(everRead ? "end" : "unreadable"); break; }
       }
