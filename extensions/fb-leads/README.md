@@ -105,8 +105,11 @@ they are already asking here; speak with the confidence of a real local travel a
 repeat the same stock opening ("Your best bet is…", "The trade-off is…") across comments. A hotel or where-to-stay
 question also gets its Agoda, Booking.com or Google review rating searched for, as a supporting detail. A question
 about booking tours or activities (app/website vs locally) gets real advice first, then Waydidi's private tour as the
-easier option. These are instructions to the AI, not guarantees: wording can still drift, so tell the developer about
-any comment that still reads as a disclaimer or repeats a phrase too often.
+easier option. A post asking what to do, for suggestions or for an itinerary (especially over several days or with
+family) is treated as a sales opening the same way, even with no booking question attached — "any suggestions of what
+to do for 9 days in Phuket with the kids" gets real activity ideas plus Waydidi's tour, not just a helpful answer.
+These are instructions to the AI, not guarantees: wording can still drift, so tell the developer about any comment
+that still reads as a disclaimer, repeats a phrase too often, or misses a lead that should have been treated as one.
 
 ## What it sends
 
