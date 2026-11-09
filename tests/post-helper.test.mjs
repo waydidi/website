@@ -249,7 +249,8 @@ test('the writer is told to stay in the area and not to fill a gap with another 
   await ph.draftForPost('Any events this weekend?', { client: spy, now: () => now }, { leadsOnly: true, maxSearches: 1, groupName: 'Koh Chang Community' });
   assert.match(system, /answer for that area only/);
   assert.match(system, /Never recommend, describe or send people to events, places or services in another area/);
-  assert.match(system, /Do not fill the gap with another area/);
+  assert.match(system, /move the comment toward how Waydidi can help directly/);
+  assert.doesNotMatch(system, /not sure what is on there|worth checking/i, 'no hedge about missing local data');
   assert.doesNotMatch(system, /Koh Chang/, 'the group stays out of the cached instructions');
 });
 
@@ -265,4 +266,24 @@ test('sorting on arrival: the sorter alone says lead or not; drafting reuses tha
   assert.equal(m.calls.router, 1, 'not sorted a second time');
   assert.equal(m.calls.compose, 1);
   assert.equal(d.skipReason, undefined);
+});
+
+test('the writer is told to avoid AI-sounding hedges, vary its openings, and never suggest asking someone else', async () => {
+  let system = '';
+  const m = model({ router: routedJson({ topic: 'quality-rule' }) });
+  const spy = { create: async (body) => { if (!String(body.system).startsWith('You read a post') && !String(body.system).startsWith('You research facts')) system = JSON.stringify(body.system); return m.create(body); } };
+  await ph.draftForPost('Any tips for a day trip?', { client: spy, now: () => now }, { leadsOnly: true, maxSearches: 1 });
+  assert.match(system, /I can't confirm/);
+  assert.match(system, /I don't have \[place\]-specific data/);
+  assert.match(system, /vary your sentence openings/i);
+  assert.match(system, /Your best bet is/);
+  assert.match(system, /The trade-off is/);
+  assert.match(system, /Never suggest the poster ask someone else/);
+  assert.match(system, /Agoda, Booking\.com or Google review rating/);
+});
+
+test('"adjacent" now covers booking tours/activities online vs locally, and country comparisons are chat, not a request', async () => {
+  const m = model({ router: routedJson({ topic: 'quality-router' }) });
+  const spy = { create: async (body) => { if (String(body.system).startsWith('You read a post')) { assert.match(body.system, /whether\/where to book tours, activities or day trips/); assert.match(body.system, /Turkey or Thailand resort holidays, which is better/i); assert.match(body.system, /missing person/); } return m.create(body); } };
+  await ph.draftForPost('Is it better to book activities on the app or locally for the best price?', { client: spy, now: () => now }, { leadsOnly: true, maxSearches: 1 });
 });

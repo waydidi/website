@@ -76,6 +76,7 @@ Skipped, with the reason stored for each post (`skip_reason`):
 |---|---|---|
 | `commenting_disabled` | the page says comments are turned off | extension, on the page |
 | `already_engaged` | a visible comment by one of the names in Settings, or the reaction button is already pressed by the account browsing | extension, on the page |
+| `group_admin` | the poster has the group's own "Admin" badge next to their name (English, Thai, Chinese). Not yet confirmed against a real admin post: tell the developer if one slips through or a non-admin post is wrongly skipped | extension, on the page |
 | `promo` | adverts, promotions, self-promotion, shops and bars promoting themselves ("we'd like to recommend our…", "we open at…"), invitations ("wanna feel something different", outcall massage), rentals for sale or rent, and any post with contact details (phone, LINE ID, WhatsApp number, wa.me). Exception: a traveller who adds their own number while plainly asking | word rules |
 | `long_stay` | a room, condo, house or villa for a month or more ("monthly", "yearly", "รายเดือน", "长租") unless it also asks for transport | word rules |
 | `giveaway`, `bait`, `spam` | prize draws, "comment YES / tag a friend", scams, crypto, loans, short links | word rules |
@@ -83,9 +84,10 @@ Skipped, with the reason stored for each post (`skip_reason`):
 | `admin_post` | group rules and admin announcements | word rules |
 | `intro` | a new member saying hello, with no question | word rules |
 | `not_served` | jobs, flatmates, lost and found ("lost my sunglasses around…", "anyone found…"), selling personal items, pets, legal or medical emergencies (a driver to a hospital is still a lead) | word rules |
+| `missing_person` | a missing person, not a lost item (never a lead, checked first, above every other reason) | word rules |
 | `no_request` | no question and no travel word (photos, videos and chat; a photo or video is judged by its caption) | word rules |
 | `cross_posted` | the same question already received from another group in the last 7 days | website |
-| `advert`, `news`, `giveaway`, `bait`, `meme`, `spam`, `chat` | the AI sorter's type for the post (about US$0.0003, run as soon as the post arrives; also catches what the word rules miss) | AI sorter |
+| `advert`, `news`, `giveaway`, `bait`, `meme`, `spam`, `chat` | the AI sorter's type for the post (about US$0.0003, run as soon as the post arrives; also catches what the word rules miss, including a broad "Turkey or Thailand, which is better?" style comparison with no specific Thailand question) | AI sorter |
 | `not_thailand` | the AI sorter says the question is clearly about another country | AI sorter |
 
 "No agents, please" posts ("no agents / no sellers / ไม่รับนายหน้า / 不要中介") are kept, but the comment is help only:
@@ -94,6 +96,17 @@ hides its link, so it cannot be read reliably.
 
 These are word lists and an AI judgement, so a few posts will be kept or skipped wrongly. Tell the developer which
 ones; the rules are changed in one place on the server (`lib/fb-leads-rules.ts`), with no change to the extension.
+
+## How the comment is written
+
+The writer (same one as **/c**) is told: never write disclaimer-style lines ("I can't confirm…", "I don't have
+[place]-specific data", "I wouldn't rely on…") or suggest the poster ask someone else, a local expat or "the group" —
+they are already asking here; speak with the confidence of a real local travel agency staff member instead, and never
+repeat the same stock opening ("Your best bet is…", "The trade-off is…") across comments. A hotel or where-to-stay
+question also gets its Agoda, Booking.com or Google review rating searched for, as a supporting detail. A question
+about booking tours or activities (app/website vs locally) gets real advice first, then Waydidi's private tour as the
+easier option. These are instructions to the AI, not guarantees: wording can still drift, so tell the developer about
+any comment that still reads as a disclaimer or repeats a phrase too often.
 
 ## What it sends
 
