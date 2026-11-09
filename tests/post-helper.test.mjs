@@ -287,3 +287,15 @@ test('"adjacent" now covers booking tours/activities online vs locally, and coun
   const spy = { create: async (body) => { if (String(body.system).startsWith('You read a post')) { assert.match(body.system, /whether\/where to book tours, activities or day trips/); assert.match(body.system, /Turkey or Thailand resort holidays, which is better/i); assert.match(body.system, /missing person/); } return m.create(body); } };
   await ph.draftForPost('Is it better to book activities on the app or locally for the best price?', { client: spy, now: () => now }, { leadsOnly: true, maxSearches: 1 });
 });
+
+test('for a broader trip (not a point-to-point transfer), the writer offers to help plan and arrange it, not a fixed line', async () => {
+  let system = '';
+  const m = model({ router: routedJson({ topic: 'trip-offer-rule' }) });
+  const spy = { create: async (body) => { if (!String(body.system).startsWith('You read a post') && !String(body.system).startsWith('You research facts')) system = JSON.stringify(body.system); return m.create(body); } };
+  await ph.draftForPost('9 days in Phuket with my boys, any suggestions of what to do?', { client: spy, now: () => now }, { leadsOnly: true, maxSearches: 1 });
+  assert.match(system, /Waydidi Travel can help plan and arrange it for them, not only drive them/);
+  assert.match(system, /never the same fixed sentence twice/);
+  assert.match(system, /this is not one fixed line to reuse, write it the way a different staff member would each time/);
+  // The transfer-specific wording (door to door, luggage) is still there for a plain point-to-point ask.
+  assert.match(system, /door to door, luggage, several stops, comfort/);
+});

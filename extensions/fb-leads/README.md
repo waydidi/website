@@ -105,8 +105,12 @@ they are already asking here; speak with the confidence of a real local travel a
 repeat the same stock opening ("Your best bet is…", "The trade-off is…") across comments. A hotel or where-to-stay
 question also gets its Agoda, Booking.com or Google review rating searched for, as a supporting detail. A question
 about booking tours or activities (app/website vs locally) gets real advice first, then Waydidi's private tour as the
-easier option. These are instructions to the AI, not guarantees: wording can still drift, so tell the developer about
-any comment that still reads as a disclaimer or repeats a phrase too often.
+easier option. The offer itself is worded differently depending on the ask: a specific point-to-point transfer gets
+transfer details (door to door, luggage, stops); anything broader — a multi-day visit, a tour, several places, "what
+to do" over a trip — gets offered Waydidi's help to plan and arrange the trip instead, in different words each time,
+never one fixed sentence. These are instructions to the AI, not guarantees: wording can still drift, so tell the
+developer about any comment that still reads as a disclaimer, repeats a phrase too often, or offers the wrong kind of
+help for what was actually asked.
 
 ## What it sends
 
