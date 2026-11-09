@@ -59,7 +59,7 @@ export function parsePostUrl(raw: unknown): PostRef | null {
 const clean = (s: string) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim();
 
 /** What the extension saw on the page itself: comments turned off, or Waydidi already commented or reacted. */
-export type PageSkip = "commenting_disabled" | "already_engaged";
+export type PageSkip = "commenting_disabled" | "already_engaged" | "group_admin";
 export type IncomingPost = PostRef & { groupName: string; text: string; skip?: PageSkip };
 export type Rejected = { index: number; reason: string };
 
@@ -80,7 +80,7 @@ export function readIngest(body: unknown): { posts: IncomingPost[]; rejected: Re
     const key = `${ref.groupKey}/${ref.postKey}`;
     if (seen.has(key)) return rejected.push({ index, reason: "The same post twice in one request." });
     seen.add(key);
-    const skip = p.skip === "commenting_disabled" || p.skip === "already_engaged" ? p.skip : undefined; // anything else is ignored
+    const skip = p.skip === "commenting_disabled" || p.skip === "already_engaged" || p.skip === "group_admin" ? p.skip : undefined; // anything else is ignored
     posts.push({ ...ref, groupName: name || ref.groupKey, text, ...(skip ? { skip } : {}) });
   });
   return { posts, rejected };
@@ -125,6 +125,9 @@ const SOLVED = /update\s*[:\-–]\s*(?:booked|solved|found|sorted|done|all good|
 const ADMIN_POST = /^\s*(?:📌\s*)?(?:group )?rules?\b|group rules|admin(?:istrator)? (?:note|notice|announcement|here)|announcement from (?:the )?admin|pinned post|กฎของกลุ่ม|กฎกลุ่ม|ประกาศจากแอดมิน|แอดมินขอ|แอดมินแจ้ง|群规|管理员公告|правила группы|공지사항/i;
 const NOT_SERVED = /we are hiring|\bhiring\b|job (?:vacancy|opening|offer)|looking for (?:a )?job|รับสมัครงาน|หางาน|ตำแหน่งงาน|招聘|找工作|вакансия|구인|flatmate|roommate|housemate|รูมเมท|เพื่อนร่วมห้อง|室友|合租|\blost (?:my )?(?:phone|wallet|bag|passport|keys?|dog|cat)|\bfound (?:a |this )?(?:phone|wallet|bag|passport|keys?|dog|cat)|ของหาย|เก็บได้|丢失|捡到|selling my|second ?hand|มือสอง|二手|\b(?:puppy|puppies|kitten)s?\b|adopt (?:a )?(?:dog|cat|pet)|หาบ้านให้(?:น้อง|หมา|แมว)|รับเลี้ยง|宠物/i;
 const EMERGENCY = /\b(?:emergency|ambulance|police|accident|lawyer|legal advice|arrested|got scammed)\b|ฉุกเฉิน|อุบัติเหตุ|ตำรวจ|ทนาย|急救|警察|律师|полиция|경찰/i;
+// A missing person, not a lost item: never a lead, whatever it also asks. Requires a person word, not just "missing"
+// alone (which can mean many other things), and excludes common lost-item phrasing already covered by NOT_SERVED.
+const MISSING_PERSON = /missing (?:person|tourist|traveler|traveller|hiker|backpacker|child|kid|son|daughter|husband|wife|boyfriend|girlfriend|friend|relative|father|mother|teenager|teen|man|woman|boy|girl)\b|has (?:anyone|anybody) seen (?:my|this|a)(?! wallet| phone| bag| passport| keys?| dog| cat)|went missing|missing since (?:yesterday|last|this|\d)|last seen (?:wearing|near|at|on|heading)|please help (?:us )?(?:find|locate) (?:him|her|them|my)|help (?:us )?find (?:him|her|them|my)|search(?:ing)? for (?:a |my )?missing|missing persons? (?:report|alert|case)|คนหาย\b|ตามหาคน(?:หาย)?|สูญหายตั้งแต่|หายตัวไป|失踪(?:了|人口|人员)?|寻人启事|寻找失踪|пропал(?:а|и)?\s*без вести|без вести пропал|실종자|실종\s*(?:신고|됐)/i;
 // "No agents, please": still a lead, but the comment is help only, with no Waydidi offer (a sales reply would be reported).
 const NO_AGENTS = /no agents?\b|no sellers?\b|no tour (?:agents?|companies)|no (?:dms?|pms?)\b|no business(?:es)?\b|private (?:people|persons?) only|ไม่รับนายหน้า|ไม่เอานายหน้า|ไม่รับเอเจนซี่|ไม่รับคนขาย|不要中介|中介勿扰|без посредников|업체 사절/i;
 export const noSalesPitch = (text: string) => NO_AGENTS.test(text);
@@ -140,10 +143,12 @@ const LOST_FOUND = /\blost (?:my|our|her|his) [^.?!\n]{1,40}? (?:at|around|near|
 // … and new members saying hello (a new member who also asks something is still a lead).
 const INTRO = /\bnew (?:member|here|to (?:the|this) group)\b|just (?:want(?:ed)? to )?say (?:hello|hi)\b|\bmy name is\b|สมาชิกใหม่|ฝากเนื้อฝากตัว|新成员|新人报到/i;
 
-export type SkipReason = "promo" | "long_stay" | "giveaway" | "bait" | "spam" | "solved" | "admin_post" | "intro" | "not_served" | "no_request";
+export type SkipReason = "promo" | "long_stay" | "giveaway" | "bait" | "spam" | "solved" | "admin_post" | "intro" | "not_served" | "missing_person" | "no_request";
 
 /** Whether a post goes to the AI queue, and if not, why (stored as skip_reason, so the rules can be tuned from real posts). */
 export function screenPost(text: string): { queue: true } | { queue: false; reason: SkipReason } {
+  // Checked first, above everything else: a missing person is never a lead, whatever else the post also says.
+  if (MISSING_PERSON.test(text)) return { queue: false, reason: "missing_person" };
   if (SPAM.test(text)) return { queue: false, reason: "spam" };
   if (GIVEAWAY.test(text)) return { queue: false, reason: "giveaway" };
   if (BAIT.test(text)) return { queue: false, reason: "bait" };

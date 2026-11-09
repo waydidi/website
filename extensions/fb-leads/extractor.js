@@ -77,10 +77,15 @@
 
   // Facebook hides a post's link: the time next to the author's name is a link with no address ("?__cft__…") until a
   // mouse moves over it, and then Facebook fills in the real address. These are the links that may be it.
-  function hiddenTimeLinks(unit) {
+  /** The small area around the author's name and time, as opposed to the post's message or buttons below it. */
+  function postHeader(unit) {
     var name = unit.querySelector('[data-ad-rendering-role="profile_name"]');
     var header = name && name.closest("span[dir]") && name.closest("span[dir]").parentElement;
-    var scope = header || unit, out = [];
+    return { header: header || unit, name: name };
+  }
+
+  function hiddenTimeLinks(unit) {
+    var h = postHeader(unit), name = h.name, scope = h.header, out = [];
     var links = scope.querySelectorAll("a[href]");
     for (var i = 0; i < links.length; i++) {
       var href = links[i].getAttribute("href") || "";
@@ -182,6 +187,18 @@
 
   // Facebook's note when the author or an admin closed the comments (English, Thai, Chinese, Russian, Korean).
   var COMMENTS_OFF = /turned off commenting for this post|commenting has been turned off|ปิดการแสดงความคิดเห็นสำหรับโพสต์นี้|ปิดการแสดงความคิดเห็น|关闭了(?:此帖的)?评论|已关闭评论|отключил[аи]? комментари|댓글 기능을 해제/i;
+  // Facebook's small "Admin" badge next to a poster's name in a group (not a comment's author). Owner's rule: never
+  // collect the group's own admin posts. A leaf element whose OWN text is exactly this (not a longer sentence that
+  // happens to contain the word), so a post merely mentioning "the admin" in its message is never mistaken for one.
+  var ADMIN_BADGE = /^(?:admin|แอดมิน|ผู้ดูแล(?:กลุ่ม)?|管理员|管理員)$/i;
+  function isGroupAdminPost(unit) {
+    var header = postHeader(unit).header, nodes = header.querySelectorAll("span, div, a");
+    for (var i = 0; i < nodes.length; i++) {
+      if (nodes[i].children.length) continue;
+      if (ADMIN_BADGE.test((nodes[i].textContent || "").trim())) return true;
+    }
+    return false;
+  }
 
   /**
    * Why Waydidi should not comment, from the page itself: comments are turned off, or Waydidi already commented (a
@@ -191,6 +208,7 @@
    */
   function pageSkip(unit, names) {
     if (COMMENTS_OFF.test(unit.textContent || "")) return "commenting_disabled";
+    if (isGroupAdminPost(unit)) return "group_admin";
     var want = names.map(function (n) { return String(n).trim().toLowerCase(); }).filter(Boolean);
     if (want.length) {
       var comments = unit.querySelectorAll('[role="article"]');

@@ -125,11 +125,16 @@ test('"no agents" posts are answered without a sales pitch; strong leads get a h
   assert.equal(r.normalisedText(' Hello,  WORLD!! '), 'hello world');
 });
 
-test('the collector may mark a post commenting_disabled or already_engaged; any other value is ignored', () => {
+test('the collector may mark a post commenting_disabled, already_engaged or group_admin; any other value is ignored', () => {
   const url = 'https://www.facebook.com/groups/g1/posts/1234567/';
-  const out = r.readIngest({ posts: [{ url, text: 'Need a driver tomorrow', skip: 'already_engaged' }, { url: url.replace('1234567', '7654321'), text: 'Need a driver tomorrow', skip: 'drop table' }] });
+  const out = r.readIngest({ posts: [
+    { url, text: 'Need a driver tomorrow', skip: 'already_engaged' },
+    { url: url.replace('1234567', '7654321'), text: 'Need a driver tomorrow', skip: 'group_admin' },
+    { url: url.replace('1234567', '1111111'), text: 'Need a driver tomorrow', skip: 'drop table' },
+  ] });
   assert.equal(out.posts[0].skip, 'already_engaged');
-  assert.equal('skip' in out.posts[1], false);
+  assert.equal(out.posts[1].skip, 'group_admin');
+  assert.equal('skip' in out.posts[2], false);
 });
 
 test('owner\'s first real run: shop adverts, invitations, lost and found and new-member hellos are skipped for free', () => {
@@ -149,4 +154,20 @@ test('owner\'s first real run: shop adverts, invitations, lost and found and new
     ['Need a nice beach front bungalow, 8th January 3 nights any recommendations?', 'queue'],
   ];
   for (const [t, want] of cases) assert.equal(reason(t), want, t);
+});
+
+test('a missing person is never a lead, in English, Thai, Chinese, Russian or Korean; lost items stay a different category', () => {
+  const reason = (t) => { const x = r.screenPost(t); return x.queue ? 'queue' : x.reason; };
+  for (const t of [
+    'My father went missing near Kata beach yesterday, please help find him',
+    'Has anyone seen this missing hiker? Last seen wearing a red shirt near the viewpoint',
+    'MISSING PERSON: my friend did not return from his trek, searching for a missing tourist',
+    'คนหายค่ะ สามีออกไปเดินป่าแล้วหายตัวไปตั้งแต่เมื่อวาน ใครเจอช่วยแจ้งด้วย',
+    '寻人启事：我朋友昨天在海边失踪了，有人看到吗',
+    'Пропал без вести турист, последний раз видели у отеля',
+    '실종자를 찾습니다 어제 저녁부터 실종됐어요',
+  ]) assert.equal(reason(t), 'missing_person', t);
+  // Still their own categories, not swept up as a missing person.
+  assert.equal(reason('I lost my passport near Patong, has anyone seen it or found it?'), 'not_served');
+  assert.equal(reason('Need a driver, I am missing my flight, can someone help urgently'), 'queue');
 });

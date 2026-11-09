@@ -124,7 +124,9 @@ const real = (o: { id: string; text?: string; fills?: boolean; photo?: boolean }
       ${o.photo ? `<div><a role="link" href="/photo/?fbid=888&set=gm.${o.id}&idorvanity=111&__cft__[0]=AZ"><img alt=""></a></div>` : ""}
     </div>
   </div></div></div>`;
-const realPage = (posts: string) => `<!doctype html><title>Koh Chang Community | Facebook</title><div role="feed">
+// route.fulfill's contentType sends no charset, so without this the browser can guess the wrong one for non-Latin
+// text (found via a real failure testing Thai/Chinese admin badges: they rendered garbled and so never matched).
+const realPage = (posts: string) => `<!doctype html><meta charset="utf-8"><title>Koh Chang Community | Facebook</title><div role="feed">
   <div><div role="button"><div>Sort group feed by</div><h2 dir="auto"><span dir="auto">New posts</span></h2></div></div>${posts}</div>
   <script>document.addEventListener("mouseover", (e) => { const a = e.target.closest && e.target.closest("a.ts"); if (a && a.dataset.post) a.setAttribute("href", "https://www.facebook.com/groups/111/posts/" + a.dataset.post + "/?__cft__[0]=AZ"); }, true);
   window.__clicks = 0; document.addEventListener("click", () => window.__clicks++, true);</script>`;
@@ -191,6 +193,23 @@ test("page checks: comments turned off, a comment by one of our names, or our re
   expect(JSON.stringify(posts)).not.toMatch(/Waydidi Travel|Narubordee|Somebody|Someone Else/); // names are compared, never sent
   // Without our names, only the page facts count (comments off, reaction pressed).
   expect((await leadsOn(page, [])).map((p) => p.skip ?? "")).toEqual(["commenting_disabled", "", "", "already_engaged", ""]);
+});
+
+test("page checks: a post by the group's own Admin is skipped, in English, Thai and Chinese; mentioning \"admin\" in the text is not", async ({ page }) => {
+  const adminUnit = (id: string, badge: string) => `<div><div aria-posinset="1"><div>
+    <span dir="ltr"><div data-ad-rendering-role="profile_name"><h2><a href="/groups/111/user/5/"><span>Group Owner</span></a></h2></div><span>${badge}</span></span>
+    <span dir="ltr"><div><a class="ts" href="https://www.facebook.com/groups/111/posts/${id}/">1h</a></div></span>
+    ${msg("Reminder: the monthly meetup is this Saturday at the pier")}</div></div></div>`;
+  await openReal(page, [
+    adminUnit("9500001", "Admin"),
+    adminUnit("9500002", "แอดมิน"),
+    adminUnit("9500003", "管理员"),
+    unitWith("9500004", msg("Please contact the admin team if your post was removed, otherwise any tips for Bang Bao?")),
+  ].join(""));
+  const posts = await leadsOn(page, []);
+  expect(posts.map((p) => [p.url.split("/posts/")[1], p.skip ?? ""])).toEqual([
+    ["9500001/", "group_admin"], ["9500002/", "group_admin"], ["9500003/", "group_admin"], ["9500004/", ""],
+  ]);
 });
 
 test('"See more" is tapped once per post (a button in the message, never a link), then the whole post is read', async ({ page }) => {
