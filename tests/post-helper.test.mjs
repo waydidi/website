@@ -287,3 +287,20 @@ test('"adjacent" now covers booking tours/activities online vs locally, and coun
   const spy = { create: async (body) => { if (String(body.system).startsWith('You read a post')) { assert.match(body.system, /whether\/where to book tours, activities or day trips/); assert.match(body.system, /Turkey or Thailand resort holidays, which is better/i); assert.match(body.system, /missing person/); } return m.create(body); } };
   await ph.draftForPost('Is it better to book activities on the app or locally for the best price?', { client: spy, now: () => now }, { leadsOnly: true, maxSearches: 1 });
 });
+
+test('"what to do" / itinerary requests route as a sales opening (adjacent), not plain info', async () => {
+  const m = model({ router: routedJson({ topic: 'itinerary-router' }) });
+  const spy = { create: async (body) => { if (String(body.system).startsWith('You read a post')) {
+    assert.match(body.system, /the poster is asking what to do, for suggestions or for an itinerary/);
+    assert.match(body.system, /sales opening even though they are not literally asking to hire/);
+    assert.match(body.system, /not a broader "what should we do" or itinerary request, which is "adjacent" instead/);
+  } return m.create(body); } };
+  await ph.draftForPost('Traveling with my boys (17 and 8) I would need suggestion of what to do, we will spend 9 days in Phuket (Kata) from Nov 7 to Nov 16. Any suggestions of what to do? And where is the best place to book.', { client: spy, now: () => now }, { leadsOnly: true, maxSearches: 1 });
+});
+
+test('the owner\'s itinerary example is drafted as adjacent (an offer, not just information)', async () => {
+  const m = model({ router: routedJson({ topic: 'itinerary-draft', replyType: 'adjacent', kind: 'travel', area: 'Phuket' }) });
+  const d = await ph.draftForPost('We will spend 9 days in Phuket (Kata) with my boys 17 and 8, any suggestions of what to do and where to book?', { client: m, now: () => now }, { leadsOnly: true, maxSearches: 1 });
+  assert.equal(d.replyType, 'adjacent');
+  assert.match(d.parts[1], /Transport opportunity/);
+});
