@@ -107,9 +107,13 @@ question also gets its Agoda, Booking.com or Google review rating searched for, 
 about booking tours or activities (app/website vs locally) gets real advice first, then Waydidi's private tour as the
 easier option. A post asking what to do, for suggestions or for an itinerary (especially over several days or with
 family) is treated as a sales opening the same way, even with no booking question attached — "any suggestions of what
-to do for 9 days in Phuket with the kids" gets real activity ideas plus Waydidi's tour, not just a helpful answer.
-These are instructions to the AI, not guarantees: wording can still drift, so tell the developer about any comment
-that still reads as a disclaimer, repeats a phrase too often, or misses a lead that should have been treated as one.
+to do for 9 days in Phuket with the kids" gets real activity ideas plus Waydidi's tour, not just a helpful answer. The
+offer itself is worded differently depending on the ask: a specific point-to-point transfer gets transfer details
+(door to door, luggage, stops); anything broader — a multi-day visit, a tour, several places, "what to do" over a trip
+— gets offered Waydidi's help to plan and arrange the trip instead, in different words each time, never one fixed
+sentence. These are instructions to the AI, not guarantees: wording can still drift, so tell the developer about any
+comment that still reads as a disclaimer, repeats a phrase too often, offers the wrong kind of help for what was
+actually asked, or misses a lead that should have been treated as one.
 
 ## What it sends
 

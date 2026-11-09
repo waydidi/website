@@ -304,3 +304,15 @@ test('the owner\'s itinerary example is drafted as adjacent (an offer, not just 
   assert.equal(d.replyType, 'adjacent');
   assert.match(d.parts[1], /Transport opportunity/);
 });
+
+test('for a broader trip (not a point-to-point transfer), the writer offers to help plan and arrange it, not a fixed line', async () => {
+  let system = '';
+  const m = model({ router: routedJson({ topic: 'trip-offer-rule' }) });
+  const spy = { create: async (body) => { if (!String(body.system).startsWith('You read a post') && !String(body.system).startsWith('You research facts')) system = JSON.stringify(body.system); return m.create(body); } };
+  await ph.draftForPost('9 days in Phuket with my boys, any suggestions of what to do?', { client: spy, now: () => now }, { leadsOnly: true, maxSearches: 1 });
+  assert.match(system, /Waydidi Travel can help plan and arrange it for them, not only drive them/);
+  assert.match(system, /never the same fixed sentence twice/);
+  assert.match(system, /this is not one fixed line to reuse, write it the way a different staff member would each time/);
+  // The transfer-specific wording (door to door, luggage) is still there for a plain point-to-point ask.
+  assert.match(system, /door to door, luggage, several stops, comfort/);
+});
