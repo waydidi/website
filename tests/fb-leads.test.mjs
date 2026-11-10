@@ -285,3 +285,20 @@ test('when the AI sorter fails (or is off), the post stays queued and is sorted 
   await fl.processLeads({ draft: async (text, options) => { seen.push(options.routed === undefined); return draftOf()(text); }, send: sender().send, now: () => now });
   assert.deepEqual(seen, [true], 'no stored answer: drafting sorts it');
 });
+
+test('a lead eligible to save knowledge (asked 3x) shows Save as knowledge next to Posted and Skip, with no emoji', async () => {
+  await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'G' }], now);
+  const s = sender();
+  await fl.processLeads({ draft: draftOf({ keyboard: [[{ text: '💾 Save as knowledge (asked 3×)', callback_data: 'ph_save:d1' }]] }), send: s.send, now: () => now });
+  assert.deepEqual(s.sent[1].keyboard, [
+    [{ text: 'Posted', callback_data: `fl_posted:${(await lead(1)).id}` }, { text: 'Skip', callback_data: `fl_skip:${(await lead(1)).id}` }],
+    [{ text: 'Save as knowledge (asked 3×)', callback_data: 'ph_save:d1' }],
+  ]);
+});
+
+test('a lead not yet eligible to save knowledge (no Search again/Wrong or outdated row either) shows only Posted and Skip', async () => {
+  await fl.queueLeads([{ groupKey: 'g', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'G' }], now);
+  const s = sender();
+  await fl.processLeads({ draft: draftOf(), send: s.send, now: () => now }); // draftOf's default keyboard: only Search again, no Save row
+  assert.deepEqual(s.sent[1].keyboard, [[{ text: 'Posted', callback_data: `fl_posted:${(await lead(1)).id}` }, { text: 'Skip', callback_data: `fl_skip:${(await lead(1)).id}` }]]);
+});

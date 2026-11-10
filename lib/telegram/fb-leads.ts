@@ -129,9 +129,18 @@ function linkMessage(lead: Lead) {
   return `📌 <b>${esc(lead.group_name)}</b>\n${esc(lead.post_url)}\n\n${lines.join("\n")}`;
 }
 /** Only two buttons, without emoji (owner's choice); once someone taps one, the buttons are removed. */
+/**
+ * Only two buttons normally (owner's choice: no Open post, Search again or Wrong or outdated). One exception: when
+ * this question has come up often enough that draftForPost already offers "Save as knowledge" (so the next repeat,
+ * from a lead or from /c, skips the search), that single button is kept too — without it, a question that only ever
+ * arrives as automatic leads could never be saved, and the owner would have to paste it into /c by hand to save it.
+ */
 function linkKeyboard(lead: Lead): InlineKeyboard {
   if (lead.status !== "sent") return [];
-  return [[{ text: "Posted", callback_data: `fl_posted:${lead.id}` }, { text: "Skip", callback_data: `fl_skip:${lead.id}` }]];
+  const rows: InlineKeyboard = [[{ text: "Posted", callback_data: `fl_posted:${lead.id}` }, { text: "Skip", callback_data: `fl_skip:${lead.id}` }]];
+  const saveRow = (JSON.parse(lead.keyboard_json ?? "[]") as InlineKeyboard).find((row) => row.some((b) => (b.callback_data ?? "").startsWith("ph_save:")));
+  if (saveRow) rows.push(saveRow.map((b) => ({ ...b, text: b.text.replace(/^💾\s*/, "") }))); // no emoji, to match Posted/Skip
+  return rows;
 }
 
 type Deps = { draft?: (text: string, options: DraftOptions) => Promise<Draft>; send?: (chatId: string, text: string, keyboard?: InlineKeyboard) => Promise<TelegramMessage>; now?: () => Date };
