@@ -157,6 +157,22 @@ whoever presses Post, so keep these limits low and stop if Facebook warns the ac
 
 If the comment box is not found (comments turned off, or Facebook changed the page), the bar offers **Copy draft**.
 
+## Page tag and QR picture
+
+After the draft is in the comment box, and before anything else happens:
+
+- **Page tag.** The first of the names in Settings that appears in the comment (normally "Waydidi Travel") becomes a
+  real Facebook tag, the way a person does it: the name is replaced by "@Waydidi Travel" and Facebook's matching
+  suggestion is clicked. If Facebook shows no suggestion within 4 seconds, the plain name is put back and the bar says
+  so. The comment is still sent as usual.
+- **QR picture.** A sales comment (one with "WhatsApp" and a phone number) gets the QR picture chosen in Settings →
+  **QR picture for sales comments**, for example `Waydidi Resource\Waydidi_QR.jpg`. Pick it once; it is kept only in
+  this browser. The picture is given to the comment's own photo button (or pasted into the box), and the extension waits
+  up to 10 seconds for Facebook's preview.
+
+If a sales comment has no QR picture (none set in Settings, or Facebook showed no preview), Chrome **never sends it**,
+even with Send from Telegram: the bar asks you to add the picture and press Post yourself. Neither step presses Post.
+
 ## Send from Telegram (ส่ง Comment, the extension presses send)
 
 Off until the owner sets `FB_LEADS_AUTO_POST_ENABLED=true` (the reply queue must be on too).

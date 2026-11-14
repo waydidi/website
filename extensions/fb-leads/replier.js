@@ -1,7 +1,8 @@
 // Reply queue helpers for one Facebook post page: find the comment box, put a drafted comment in it, and notice when a
-// comment by one of the Waydidi names (Settings) appears. findCommentBox, fillComment and ourComments never press Post,
-// Enter or any button on Facebook. submitComment does, and reply.js calls it only for a comment a team member approved
-// in Telegram. Pure page functions so the browser tests can run them on a copied page.
+// comment by one of the Waydidi names (Settings) appears. tagName turns the page's name into a real tag (it clicks
+// Facebook's suggestion), attachPicture adds the QR picture to a sales comment. None of these press Post, Enter or
+// send. submitComment does, and reply.js calls it only for a comment a team member approved in Telegram. Pure page
+// functions so the browser tests can run them on a copied page.
 (function (root) {
   "use strict";
 
@@ -120,5 +121,87 @@
     return "enter";
   }
 
-  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findCommentBox: findCommentBox, fillComment: fillComment, ourComments: ourComments, commentsLike: commentsLike, submitComment: submitComment });
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /** The text node and offset where `name` first appears in the box (case does not matter), or null. */
+  function findText(box, name) {
+    var want = name.toLowerCase(), walker = box.ownerDocument.createTreeWalker(box, NodeFilter.SHOW_TEXT), node;
+    while ((node = walker.nextNode())) {
+      var at = (node.nodeValue || "").toLowerCase().indexOf(want);
+      if (at !== -1) return { node: node, at: at };
+    }
+    return null;
+  }
+  function selectText(doc, box, hit, length) {
+    box.focus();
+    var range = doc.createRange();
+    range.setStart(hit.node, hit.at);
+    range.setEnd(hit.node, hit.at + length);
+    var sel = doc.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  /**
+   * Turns the page's name in the comment (for example "Waydidi Travel") into a real Facebook tag, the way a person does
+   * it: the name is replaced by "@" and the name typed in, then the matching suggestion in Facebook's list is clicked
+   * (a suggestion, never Post). If no suggestion appears within 4 seconds, the plain name is put back. Only the first
+   * time the name appears. Resolves "tagged", "absent" (the name is not in the comment) or "no_suggestion".
+   */
+  async function tagName(doc, box, name) {
+    name = String(name || "").trim();
+    var hit = name && findText(box, name);
+    if (!hit) return "absent";
+    selectText(doc, box, hit, name.length);
+    await wait(150); // the editor follows the selection a moment later
+    doc.execCommand("insertText", false, "@" + name);
+    for (var t = 0; t < 20; t++) {
+      await wait(200);
+      var options = doc.querySelectorAll('[role="option"]');
+      for (var i = 0; i < options.length; i++) {
+        if (norm(options[i].textContent).indexOf(norm(name)) === -1 || !shown(options[i])) continue;
+        options[i].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+        options[i].click();
+        return "tagged";
+      }
+    }
+    // No suggestion: put the plain name back where "@name" was typed.
+    var typed = findText(box, "@" + name);
+    if (typed) { selectText(doc, box, typed, name.length + 1); await wait(150); doc.execCommand("insertText", false, name); }
+    return "no_suggestion";
+  }
+
+  /** A sales comment: it gives Waydidi's WhatsApp number (the word WhatsApp and a phone number). */
+  function isSalesComment(text) {
+    return /whats\s?app/i.test(text || "") && /\+?\d[\d\s-]{7,}\d/.test(text || "");
+  }
+
+  /**
+   * Adds a picture to the comment being written, as a person does with the photo button: the file is given to the
+   * comment's own photo input (inside the same post), or pasted into the box when there is none. Waits up to 10
+   * seconds for Facebook's preview of the picture. Never presses Post. Resolves "attached" or "failed".
+   */
+  async function attachPicture(doc, box, file) {
+    var scope = box;
+    while (scope.parentElement && scope.getAttribute("role") !== "article") scope = scope.parentElement;
+    var previews = function () { return scope.querySelectorAll('img[src^="blob:"], img[src^="data:image"]').length; };
+    var before = previews(), data = new DataTransfer();
+    data.items.add(file);
+    var input = scope.querySelector('input[type="file"][accept*="image"]') || scope.querySelector('input[type="file"]');
+    if (input) {
+      input.files = data.files;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    } else {
+      box.focus();
+      box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+    }
+    for (var t = 0; t < 50; t++) {
+      if (previews() > before) return "attached";
+      await wait(200);
+    }
+    return "failed";
+  }
+
+  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findCommentBox: findCommentBox, fillComment: fillComment, ourComments: ourComments, commentsLike: commentsLike, submitComment: submitComment, tagName: tagName, isSalesComment: isSalesComment, attachPicture: attachPicture });
 })(typeof window !== "undefined" ? window : globalThis);
