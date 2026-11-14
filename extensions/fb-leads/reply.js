@@ -66,10 +66,19 @@
       return;
     }
     var lead = res.lead, names = (await chrome.storage.local.get({ names: ["Waydidi Travel"] })).names || [];
+    // What happened in this tab (Like, tag, QR), for "Copy details" when something did not work on the real page.
+    var results = {};
+    function copyDetails() {
+      var text = window.WaydidiLeads.details(document, box || window.WaydidiLeads.findCommentBox(document) || document.body, results);
+      navigator.clipboard.writeText(text).then(
+        function () { bar("Details copied (button labels and page shape only, no names or text). Paste them to the developer.", common); },
+        function () { bar("Could not copy. Try Copy details again.", common); });
+    }
     var common = [
       { text: "Posted", run: function () { done("posted"); } },
       { text: "Skip", run: function () { done("skipped"); } },
       { text: "Stop queue", run: stop },
+      { text: "Copy details", run: copyDetails },
     ];
     var box = null, baseline = 0, waited = 0, sendBy = 0, lastText = "", likeBase = 0;
 
@@ -134,6 +143,7 @@
     async function likeFirst() {
       if (!(await chrome.storage.local.get({ likeFirst: true })).likeFirst) return;
       var result = await window.WaydidiLeads.likePost(document, box);
+      results.like = result;
       if (finished) return;
       var seconds = LIKE_GAP_S[0] + Math.floor(Math.random() * (LIKE_GAP_S[1] - LIKE_GAP_S[0] + 1));
       bar((result === "liked" ? "Liked the post." : result === "already" ? "The post was already liked." : "The Like button could not be pressed.") + " Writing the comment in " + seconds + " seconds…", common);
@@ -158,7 +168,8 @@
           reader.onload = async function () {
             await chrome.storage.local.set({ qr: { name: file.name, data: String(reader.result) } });
             bar("QR picture saved. Adding it…", []);
-            var attached = (await window.WaydidiLeads.attachPicture(document, window.WaydidiLeads.findCommentBox(document) || box, file)) === "attached";
+            results.qr = await window.WaydidiLeads.attachPicture(document, window.WaydidiLeads.findCommentBox(document) || box, file);
+            var attached = results.qr === "attached";
             if (finished) return;
             carryOn(r, attached ? { ok: true, note: note } : { ok: false, note: note + " The QR picture could not be added." });
           };
@@ -177,6 +188,7 @@
       bar("Adding the page tag" + (W.isSalesComment(lead.comment) ? " and the QR picture…" : "…"), []);
       for (var i = 0; i < names.length; i++) {
         var tagged = await W.tagName(document, box, names[i]);
+        results.tag = tagged;
         if (tagged === "absent") continue;
         if (tagged === "no_suggestion") notes.push("The tag for " + names[i] + " could not be added (Facebook showed no suggestion).");
         if (tagged === "not_selected") notes.push("Facebook showed " + names[i] + " but did not take the selection, so the plain name was kept. Tag it yourself if you want: type @ and pick it.");
@@ -191,7 +203,8 @@
       var raw = atob(parts[2]), bytes = new Uint8Array(raw.length);
       for (var b = 0; b < raw.length; b++) bytes[b] = raw.charCodeAt(b);
       var file = new File([bytes], qr.name || "waydidi-qr.jpg", { type: parts[1] });
-      if ((await W.attachPicture(document, box, file)) !== "attached") return { ok: false, note: notes.concat("The QR picture could not be added.").join(" ") };
+      results.qr = await W.attachPicture(document, box, file);
+      if (results.qr !== "attached") return { ok: false, note: notes.concat("The QR picture could not be added (tap Copy details and send it to the developer).").join(" ") };
       return { ok: true, note: notes.join(" ") };
     }
     function copy() {

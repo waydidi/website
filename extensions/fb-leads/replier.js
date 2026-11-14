@@ -202,25 +202,49 @@
   }
 
   var LIKE_LABEL = /^(like|ถูกใจ|赞|讚|нравится|좋아요)$/i;
-  var LIKED_LABEL = /remove|change|unlike|ยกเลิก|เปลี่ยน|取消|更改|убрать|취소/i;
   /**
    * The post's own Like button: Facebook's like_button marker inside the post the comment box belongs to (or the only
    * post on the page), else a button labelled "Like" in that post but never inside a comment under it. Or null.
    */
   function likeButton(doc, box) {
-    var post = box;
-    while (post.parentElement && post.getAttribute("role") !== "article") post = post.parentElement;
-    var marked = post.querySelector('[data-ad-rendering-role="like_button"]') || doc.querySelector('[data-ad-rendering-role="like_button"]');
-    if (marked) return marked.closest('[role="button"]') || marked;
-    var buttons = post.querySelectorAll('[role="button"][aria-label], button[aria-label]');
-    for (var i = 0; i < buttons.length; i++) {
-      var b = buttons[i], inComment = b.parentElement && b.parentElement.closest('[role="article"]');
-      if (inComment && inComment !== post) continue;
-      if (LIKE_LABEL.test((b.getAttribute("aria-label") || "").trim()) && shown(b)) return b;
-    }
-    return null;
+    // The page can hold other posts too (the group feed behind an opened post, "more posts" below it), and the comment
+    // box is not always inside its post's article. So among all Like buttons on the page, the one nearest the comment
+    // box being filled is this post's: it shares the deepest container with the box (ties: the closest one above it).
+    var marked = Array.prototype.map.call(doc.querySelectorAll('[data-ad-rendering-role="like_button"]'), function (m) { return m.closest('[role="button"]') || m; });
+    var best = nearest(marked.filter(shown), box);
+    if (best) return best;
+    var labelled = Array.prototype.filter.call(doc.querySelectorAll('[role="button"][aria-label], button[aria-label]'), function (b) {
+      if (!LIKE_LABEL.test((b.getAttribute("aria-label") || "").trim()) || !shown(b)) return false;
+      var a = b.parentElement && b.parentElement.closest('[role="article"]');
+      return !(a && a.parentElement && a.parentElement.closest('[role="article"]')); // a comment's Like (an article inside an article)
+    });
+    return nearest(labelled, box);
   }
-  function liked(button) { return button.getAttribute("aria-pressed") === "true" || LIKED_LABEL.test(button.getAttribute("aria-label") || ""); }
+  /** The element in `list` nearest the box: the deepest container shared with it; ties go to the closest one above it. */
+  function nearest(list, box) {
+    var best = null, bestDepth = -1;
+    list.forEach(function (el) {
+      var shared = box, depth;
+      while (shared && !shared.contains(el)) shared = shared.parentElement;
+      if (!shared) return;
+      for (depth = 0, shared = shared.parentElement; shared; shared = shared.parentElement) depth++;
+      var above = Boolean(el.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING);
+      // Deeper wins; at equal depth, one above the box beats one below it, and a later one above beats an earlier one.
+      if (depth > bestDepth || (depth === bestDepth && above)) { best = el; bestDepth = depth; }
+    });
+    return best;
+  }
+  /**
+   * Whether the post is already liked. aria-pressed, when Facebook gives it, decides alone. Otherwise only a label that
+   * plainly says the Like can be removed counts ("Remove Like", "Unlike", "เลิกถูกใจ"): words like "change" are also
+   * used on buttons that are not liked, and reading those as liked skipped the Like on a post that had none.
+   */
+  function liked(button) {
+    var pressed = button.getAttribute("aria-pressed");
+    if (pressed === "true" || pressed === "false") return pressed === "true";
+    return LIKED_ONLY.test(button.getAttribute("aria-label") || "");
+  }
+  var LIKED_ONLY = /^(remove like|unlike)\b|เลิกถูกใจ|ยกเลิกการถูกใจ|ยกเลิกถูกใจ|取消赞|取消讚|убрать «нравится»|좋아요 취소/i;
 
   /**
    * Likes the post (the post itself, never a comment), the way a mouse does. Not pressed again when it is already
@@ -250,12 +274,13 @@
    * seconds for Facebook's preview of the picture. Never presses Post. Resolves "attached" or "failed".
    */
   async function attachPicture(doc, box, file) {
-    var scope = box;
-    while (scope.parentElement && scope.getAttribute("role") !== "article") scope = scope.parentElement;
-    var previews = function () { return scope.querySelectorAll('img[src^="blob:"], img[src^="data:image"]').length; };
+    // Facebook's photo input may sit outside the post's own article, next to the comment box: the nearest file input
+    // going up from the box is this comment's (another post's composer is further away).
+    var found = photoInput(box), input = found.input;
+    var previews = function () { return doc.querySelectorAll('img[src^="blob:"], img[src^="data:image"]').length; };
     var before = previews(), data = new DataTransfer();
     data.items.add(file);
-    var input = scope.querySelector('input[type="file"][accept*="image"]') || scope.querySelector('input[type="file"]');
+    lastAttach = { way: input ? "input" : "paste", levels: found.levels, accept: input ? input.getAttribute("accept") || "" : "", before: before };
     if (input) {
       input.files = data.files;
       input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -265,11 +290,63 @@
       box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
     }
     for (var t = 0; t < 50; t++) {
-      if (previews() > before) return "attached";
+      if (previews() > before) { lastAttach.after = previews(); return "attached"; }
       await wait(200);
     }
+    lastAttach.after = previews();
     return "failed";
   }
+  var lastAttach = null;
+  /**
+   * The nearest file input going up from the comment box (images preferred), within 14 levels, and how far up. Never
+   * one inside another post (an article that does not hold this box), and the search stops at a level that holds a
+   * second comment box (that level belongs to more than this comment).
+   */
+  function photoInput(box) {
+    var scope = box;
+    var ours = function (f) { var a = f.closest('[role="article"]'); return !a || a.contains(box); };
+    for (var up = 0; up < 14 && scope.parentElement; up++) {
+      scope = scope.parentElement;
+      var boxes = scope.querySelectorAll('[contenteditable="true"][role="textbox"]');
+      for (var k = 0; k < boxes.length; k++) if (boxes[k] !== box && BOX_LABEL.test(boxes[k].getAttribute("aria-label") || "")) return { input: null, levels: -1 };
+      var inputs = Array.prototype.filter.call(scope.querySelectorAll('input[type="file"]'), ours);
+      var input = inputs.filter(function (f) { return /image/.test(f.getAttribute("accept") || ""); })[0] || inputs[0];
+      if (input) return { input: input, levels: up + 1 };
+    }
+    return { input: null, levels: -1 };
+  }
 
-  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findCommentBox: findCommentBox, fillComment: fillComment, ourComments: ourComments, commentsLike: commentsLike, submitComment: submitComment, tagName: tagName, isSalesComment: isSalesComment, attachPicture: attachPicture, likePost: likePost });
+  /**
+   * What the extension saw around the comment box, for the developer when the Like, the tag or the QR picture does not
+   * work on the real page: button labels and states, the shape of the composer, file inputs and the results. No post
+   * or comment text and no names (labels of comments and posts are left out; only short button texts are kept).
+   */
+  function details(doc, box, results) {
+    var short = function (s) { s = String(s || "").replace(/\s+/g, " ").trim(); return s.length <= 24 ? s : "(" + s.length + " chars)"; };
+    var post = box;
+    while (post.parentElement && post.getAttribute("role") !== "article") post = post.parentElement;
+    var likeWords = /like|ถูกใจ|赞|讚|нравится|좋아요|react|ความรู้สึก/i, buttons = [];
+    var candidates = post.querySelectorAll('[role="button"], button, [data-ad-rendering-role="like_button"]');
+    for (var i = 0; i < candidates.length && buttons.length < 12; i++) {
+      var b = candidates[i], label = b.getAttribute("aria-label") || "", text = b.textContent || "";
+      var marker = Boolean(b.matches('[data-ad-rendering-role="like_button"]') || b.querySelector('[data-ad-rendering-role="like_button"]'));
+      if (!marker && !likeWords.test(label) && !likeWords.test(short(text))) continue;
+      var inComment = b.parentElement && b.parentElement.closest('[role="article"]');
+      buttons.push({ tag: b.tagName.toLowerCase(), role: b.getAttribute("role") || "", label: short(label), pressed: b.getAttribute("aria-pressed"), marker: marker, inComment: Boolean(inComment && inComment !== post), text: short(text), shown: shown(b) });
+    }
+    var chain = [], el = box;
+    for (var up = 0; up < 14 && el; up++, el = el.parentElement) {
+      var role = el.getAttribute && el.getAttribute("role");
+      chain.push(el.tagName.toLowerCase() + (role ? "[" + role + "]" : "") + (role === "article" ? "" : el.getAttribute && el.getAttribute("aria-label") ? '"' + short(el.getAttribute("aria-label")) + '"' : "") + (el.querySelector && el.querySelector('input[type="file"]') ? " +file" : ""));
+    }
+    var inputs = Array.prototype.map.call(doc.querySelectorAll('input[type="file"]'), function (f) { return { accept: f.getAttribute("accept") || "", multiple: f.multiple, nearBox: photoInput(box).input === f }; });
+    var options = doc.querySelectorAll('[role="option"], [role="listbox"] li, [role="menuitem"]').length;
+    return JSON.stringify({
+      page: (doc.location ? doc.location.pathname : "").replace(/\d+/g, "N").replace(/pfbid\w+/g, "pfbid"),
+      results: results || {}, likeButtons: buttons, composer: chain, fileInputs: inputs, attach: lastAttach,
+      previews: doc.querySelectorAll('img[src^="blob:"], img[src^="data:image"]').length, suggestionsOnPage: options,
+    }, null, 1).slice(0, 15000);
+  }
+
+  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findCommentBox: findCommentBox, fillComment: fillComment, ourComments: ourComments, commentsLike: commentsLike, submitComment: submitComment, tagName: tagName, isSalesComment: isSalesComment, attachPicture: attachPicture, likePost: likePost, details: details });
 })(typeof window !== "undefined" ? window : globalThis);

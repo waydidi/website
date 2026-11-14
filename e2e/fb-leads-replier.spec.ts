@@ -291,3 +291,58 @@ test("likePost: a press Facebook does not take is reported; no Like button at al
   await load(page, postPage());
   expect(await page.evaluate(`(async () => { const h = window.WaydidiLeads; return h.likePost(document, h.findCommentBox(document)); })()`)).toBe("none");
 });
+
+test("likePost: a Like button whose label also says 'change' is not read as already liked; aria-pressed decides when given", async ({ page }) => {
+  await load(page, `<div role="article" aria-label="Post"><div role="button" aria-label="Like, press and hold to change reaction" id="postLike"><span data-ad-rendering-role="like_button">Like</span></div>
+    <form><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px"></div></form></div>`);
+  await page.evaluate(() => {
+    document.getElementById("postLike")!.addEventListener("pointerdown", (e) => {
+      if ((e as PointerEvent).clientX > 0) document.getElementById("postLike")!.setAttribute("aria-pressed", "true");
+    });
+  });
+  expect(await page.evaluate(`(async () => { const h = window.WaydidiLeads; return h.likePost(document, h.findCommentBox(document)); })()`)).toBe("liked");
+  // aria-pressed="false" wins over a label that sounds liked.
+  await load(page, `<div role="article" aria-label="Post"><div role="button" aria-label="Remove Like" aria-pressed="false" id="postLike"><span data-ad-rendering-role="like_button">Like</span></div>
+    <form><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px"></div></form></div>`);
+  expect(await page.evaluate(`(async () => { const h = window.WaydidiLeads; return h.likePost(document, h.findCommentBox(document)); })()`)).toBe("not_taken");
+});
+
+test("attachPicture: Facebook's photo input outside the post's article (next to the composer) is found and used", async ({ page }) => {
+  await load(page, `<div class="dialog"><div role="article" aria-label="Post"><div dir="auto">Need a van</div></div>
+    <div class="composer"><div><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px">Hello</div></div>
+    <input type="file" id="mine" accept="image/*,image/heif,image/heic,video/*" multiple style="display:none"></div><div id="previews"></div></div>`);
+  await page.evaluate(() => {
+    document.getElementById("mine")!.addEventListener("change", (e) => {
+      const img = document.createElement("img"); img.src = URL.createObjectURL((e.target as HTMLInputElement).files![0]); document.getElementById("previews")!.appendChild(img);
+    });
+  });
+  expect(await attach(page)).toEqual({ r: "attached", name: "Waydidi_QR.jpg", previews: 1, pressed: [] });
+});
+
+test("details for the developer: button labels and page shape, no post text, comment text or names", async ({ page }) => {
+  await likePageFor(page);
+  const text = await page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); await h.likePost(document, box); return h.details(document, box, { like: "liked", qr: "failed" }); })()`) as string;
+  const d = JSON.parse(text);
+  expect(d.results).toEqual({ like: "liked", qr: "failed" });
+  expect(d.likeButtons.some((b: { marker: boolean; inComment: boolean }) => b.marker && !b.inComment)).toBe(true);
+  expect(d.likeButtons.some((b: { inComment: boolean }) => b.inComment)).toBe(true);
+  expect(d.composer[0]).toContain('div[textbox]"Write a comment"');
+  for (const secret of ["Need a van to Pattaya", "Try Grab", "Someone"]) expect(text).not.toContain(secret);
+});
+
+test("likePost: another post earlier on the page is already liked; this post's Like (nearest the comment box) is the one pressed", async ({ page }) => {
+  // Like the real page: an already-liked post from the feed comes first; the opened post's comment box is not inside
+  // its article.
+  const likeBtn = (id: string, label: string, pressed: string) => `<div role="button" aria-label="${label}" aria-pressed="${pressed}" id="${id}"><span data-ad-rendering-role="like_button">Like</span></div>`;
+  await load(page, `<div class="feed"><div role="article" aria-label="Older post"><div dir="auto">Older post text</div>${likeBtn("feedLike", "Like", "true")}</div></div>
+    <div class="dialog"><div role="article" aria-label="Post"><div dir="auto">Need a van to Pattaya</div>${likeBtn("postLike", "Like", "false")}</div>
+      <div class="composer"><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px"></div></div></div>
+    <div class="more"><div role="article" aria-label="More post">${likeBtn("moreLike", "Like", "false")}</div></div>`);
+  await page.evaluate(() => {
+    const w = window as unknown as { pressed: string[] };
+    for (const id of ["feedLike", "moreLike"]) document.getElementById(id)!.addEventListener("pointerdown", () => w.pressed.push("WRONG " + id));
+    document.getElementById("postLike")!.addEventListener("pointerdown", (e) => { if ((e as PointerEvent).clientX > 0) document.getElementById("postLike")!.setAttribute("aria-pressed", "true"); });
+  });
+  const out = await page.evaluate(`(async () => { const h = window.WaydidiLeads; const r = await h.likePost(document, h.findCommentBox(document)); return { r, mine: document.getElementById("postLike").getAttribute("aria-pressed"), wrong: window.pressed.filter((p) => p.startsWith("WRONG")) }; })()`);
+  expect(out).toEqual({ r: "liked", mine: "true", wrong: [] });
+});
