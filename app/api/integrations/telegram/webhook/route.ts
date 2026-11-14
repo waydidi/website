@@ -21,7 +21,7 @@ import { acknowledgeEdit, approveChange, cancelBookingFromTelegram, declineChang
 import { postCallbackAllowed, postCommandRoute } from "@/lib/post-helper-rules";
 import { handlePostCallback, handlePostCommand } from "@/lib/telegram/post-helper";
 import { parseLeadCallback } from "@/lib/fb-leads-rules";
-import { handleLeadCallback } from "@/lib/telegram/fb-leads";
+import { handleLeadApprove, handleLeadCallback } from "@/lib/telegram/fb-leads";
 import { letAiAnswer } from "@/lib/cee/ask-first";
 import { addStaffMessage, assign, conversationById, conversationForPrivateMessage, conversationForTelegramMessage, refreshCard, setStatus, telegramClientId } from "@/lib/website-chat";
 
@@ -77,6 +77,8 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
     const lead = parseLeadCallback(q.data ?? ""), chat = String(q.message?.chat.id ?? "");
     if (!lead || !telegramCommentChatId() || chat !== telegramCommentChatId() || q.from.is_bot) return answerCallback(q.id, "This button doesn't work here.", true);
     const member = await approved(q.from);
+    // Post to Facebook: only the Waydidi team may approve a comment that Chrome then posts.
+    if (lead.action === "approve") return handleLeadApprove(lead.id, { name: member?.display_name ?? q.from.first_name ?? "member", telegramUserId: String(q.from.id), isTeam: Boolean(member) }, q.id, chat, q.message?.message_id);
     return handleLeadCallback(lead.action, lead.id, { name: member?.display_name ?? q.from.first_name ?? "member", telegramUserId: String(q.from.id) }, q.id, chat, q.message?.message_id);
   }
   // Buttons under a comment draft: in the Comment group (or the Admin group until one is set up).

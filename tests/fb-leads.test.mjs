@@ -15,6 +15,7 @@ const vite = await createServer({ root, configFile: false, appType: 'custom', re
 after(async () => { await vite.close(); await mf.dispose(); delete globalThis.__flTest; });
 const fl = await vite.ssrLoadModule('/lib/telegram/fb-leads.ts');
 const route = await vite.ssrLoadModule('/app/api/integrations/fb-leads/route.ts');
+const replyRoute = await vite.ssrLoadModule('/app/api/integrations/fb-leads/reply/route.ts');
 
 // Telegram calls (answerCallbackQuery, editMessageText) are recorded, never sent.
 const tgCalls = [];
@@ -27,7 +28,7 @@ const draftOf = (over = {}) => async (text) => ({ id: 'd' + text.length, text, p
 function sender() { const sent = []; let id = 100; return { sent, send: async (chat, text, keyboard) => { sent.push({ chat, text, keyboard }); return { message_id: ++id, chat: { id: Number(chat) } }; } }; }
 const lead = (n) => db.prepare("SELECT * FROM fb_leads WHERE post_key=?").bind(String(1000000 + n)).first();
 
-beforeEach(async () => { await fl.ensureLeadTables(); await db.prepare('DELETE FROM fb_leads').run(); tgCalls.length = 0; env.FB_LEADS_ENABLED = 'true'; delete env.FB_LEADS_DAILY_LIMIT; });
+beforeEach(async () => { await fl.ensureLeadTables(); await db.prepare('DELETE FROM fb_leads').run(); tgCalls.length = 0; env.FB_LEADS_ENABLED = 'true'; delete env.FB_LEADS_DAILY_LIMIT; delete env.FB_LEADS_REPLY_QUEUE_ENABLED; delete env.FB_LEADS_REPLY_DAILY_CAP; delete env.FB_LEADS_REPLY_GAP_MIN; delete env.FB_LEADS_AUTO_POST_ENABLED; });
 
 test('ingest: not found while off, 401 without the right token, 400 for a bad body', async () => {
   env.FB_LEADS_ENABLED = '';
@@ -301,4 +302,191 @@ test('a lead not yet eligible to save knowledge (no Search again/Wrong or outdat
   const s = sender();
   await fl.processLeads({ draft: draftOf(), send: s.send, now: () => now }); // draftOf's default keyboard: only Search again, no Save row
   assert.deepEqual(s.sent[1].keyboard, [[{ text: 'Posted', callback_data: `fl_posted:${(await lead(1)).id}` }, { text: 'Skip', callback_data: `fl_skip:${(await lead(1)).id}` }]]);
+});
+
+// ---- Reply queue: the extension opens drafted leads one at a time; a person presses Post on Facebook. ----
+const replyCall = (body, token = TOKEN) => replyRoute.POST(new Request('https://waydidi.com/api/integrations/fb-leads/reply', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) }));
+const at = (min) => new Date(now.getTime() + min * 60_000);
+/** n leads drafted, sent to Telegram and ready to post (post 1 is the oldest). */
+async function sentLeads(n, over = {}) {
+  for (let i = 1; i <= n; i++) await fl.queueLeads([{ groupKey: 'thaitravel', postKey: String(1000000 + i), url: post(i).url, text: post(i).text, groupName: 'Thai Travel' }], new Date(now.getTime() + i * 1000), { sort: null });
+  await fl.processLeads({ draft: draftOf(over), send: sender().send, now: () => now, batch: n });
+}
+
+test('reply queue: not found while its switch is off, 401 without the token, 400 for a bad body', async () => {
+  await sentLeads(1);
+  assert.equal((await replyCall({ action: 'next' })).status, 404, 'Facebook leads on is not enough');
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+  assert.equal((await replyCall({ action: 'next' }, 'wrong')).status, 401);
+  assert.equal((await replyRoute.POST(new Request('https://waydidi.com/x', { method: 'POST', body: '{"action":"next"}' }))).status, 401, 'no token');
+  assert.equal((await replyCall({ action: 'posted' })).status, 400);
+  assert.equal((await lead(1)).reply_claimed_at, null, 'nothing claimed by a refused request');
+  const res = await replyCall({ action: 'next' });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.lead.comment, 'Take the train & then a taxi <3', 'the comment as plain text, for the comment box');
+  assert.equal(body.lead.url, `${post(1).url}#waydidi-reply=${body.lead.id}`);
+});
+
+test('reply queue: each lead is handed to one tab; two browsers at once get different leads; a claim lapses after 15 minutes', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+  await sentLeads(2);
+  const [a, b, c] = await Promise.all([fl.replyQueue({ action: 'next' }, now), fl.replyQueue({ action: 'next' }, now), fl.replyQueue({ action: 'next' }, now)]);
+  const ids = [a, b, c].filter((x) => x.lead).map((x) => x.lead.id);
+  assert.equal(ids.length, 2); assert.notEqual(ids[0], ids[1]);
+  assert.equal([a, b, c].filter((x) => x.wait === 'empty').length, 1);
+  assert.equal((await fl.replyQueue({ action: 'next' }, at(14))).wait, 'empty', 'still open in a tab');
+  assert.ok((await fl.replyQueue({ action: 'next' }, at(16))).lead, 'the tab was left: back in the queue');
+});
+
+test('reply queue: newest of the strongest first; a lead not ready to post is never handed out', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+  await sentLeads(2);
+  assert.equal((await fl.replyQueue({ action: 'next' }, now)).lead.id, (await lead(2)).id, 'the newer post first');
+  await db.prepare('DELETE FROM fb_leads').run();
+  await sentLeads(1, { factCount: 0, replyType: 'info' });
+  assert.equal((await lead(1)).reliable, 0);
+  assert.equal((await fl.replyQueue({ action: 'next' }, now)).wait, 'empty');
+  assert.equal((await fl.replyQueue({ action: 'next', id: (await lead(1)).id }, now)).wait, 'empty', 'not even by id');
+});
+
+test('reply queue: posted marks the lead like the Telegram button, once; Telegram then says who marked it', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+  await sentLeads(1);
+  const id = (await lead(1)).id;
+  assert.ok((await fl.replyQueue({ action: 'next', id }, now)).lead, 'opened from the Telegram button, by id');
+  const [x, y] = await Promise.all([fl.replyQueue({ action: 'posted', id }, now), fl.replyQueue({ action: 'posted', id }, now)]);
+  assert.deepEqual([x, y].map((r) => r.done ?? r.error).sort(), ['already_marked', 'posted'], 'counted once');
+  const row = await lead(1);
+  assert.equal(row.status, 'posted'); assert.equal(row.marked_by, 'Chrome extension'); assert.equal(row.reply_claimed_at, null);
+  const edit = tgCalls.find((c) => c.method === 'editMessageText');
+  assert.match(edit.body.text, /Posted<\/b> by Chrome extension/);
+  assert.deepEqual(edit.body.reply_markup.inline_keyboard, [], 'buttons removed');
+  assert.equal((await replyCall({ action: 'skipped', id })).status, 409, 'a later mark is refused');
+  tgCalls.length = 0;
+  await fl.handleLeadCallback('skipped', id, { name: 'Ann', telegramUserId: '7' }, 'q1', '-200', 102);
+  assert.match(tgCalls.find((c) => c.method === 'answerCallbackQuery').body.text, /Already marked posted by Chrome extension/);
+  assert.equal((await replyCall({ action: 'posted', id: 'f'.repeat(16) })).status, 404);
+});
+
+test('reply queue: the gap between comments and the daily cap hold, Telegram Posted taps included', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true'; env.FB_LEADS_REPLY_DAILY_CAP = '2'; env.FB_LEADS_REPLY_GAP_MIN = '5';
+  await sentLeads(4);
+  const first = (await fl.replyQueue({ action: 'next' }, now)).lead;
+  await fl.replyQueue({ action: 'posted', id: first.id }, now);
+  const wait = await fl.replyQueue({ action: 'next' }, at(2));
+  assert.equal(wait.wait, 'gap'); assert.equal(wait.retryAt, at(5).toISOString());
+  // Someone taps Posted in Telegram on another lead: it counts toward the cap too.
+  const second = (await fl.replyQueue({ action: 'next' }, at(6))).lead;
+  await fl.handleLeadCallback('posted', second.id, { name: 'Ann', telegramUserId: '7' }, 'q', '-200', 1, at(6));
+  assert.equal((await fl.replyQueue({ action: 'next' }, at(30))).wait, 'limit');
+  // Two browsers at once with one comment left today: opening is not limited, the next hand-out is.
+  env.FB_LEADS_REPLY_DAILY_CAP = '3';
+  const both = await Promise.all([fl.replyQueue({ action: 'next' }, at(30)), fl.replyQueue({ action: 'next' }, at(30))]);
+  assert.equal(both.filter((r) => r.lead).length, 2);
+  await fl.replyQueue({ action: 'posted', id: both[0].lead.id }, at(31));
+  const late = await fl.replyQueue({ action: 'posted', id: both[1].lead.id }, at(31));
+  assert.equal(late.done, 'posted', 'a comment already posted on Facebook is still recorded');
+  assert.equal((await fl.replyQueue({ action: 'next' }, at(60))).wait, 'limit');
+});
+
+test('reply queue: release hands the lead back at once; skipped closes it', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+  await sentLeads(1);
+  const { id } = (await fl.replyQueue({ action: 'next' }, now)).lead;
+  assert.deepEqual(await fl.replyQueue({ action: 'release', id }, now), { done: 'released' });
+  assert.equal((await fl.replyQueue({ action: 'next' }, now)).lead.id, id);
+  assert.deepEqual(await fl.replyQueue({ action: 'skipped', id }, now), { done: 'skipped' });
+  assert.equal((await lead(1)).status, 'skipped');
+  assert.equal((await fl.replyQueue({ action: 'next' }, at(20))).wait, 'empty');
+});
+
+test('reply queue: Telegram shows Open in Chrome only while the queue is on, and only for drafts ready to post', async () => {
+  const s = sender();
+  await fl.queueLeads([{ groupKey: 'thaitravel', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'Thai Travel' }], now, { sort: null });
+  await fl.processLeads({ draft: draftOf(), send: s.send, now: () => now });
+  assert.equal(s.sent[1].keyboard.length, 1, 'off: Posted and Skip only');
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+  await fl.queueLeads([{ groupKey: 'thaitravel', postKey: '1000002', url: post(2).url, text: post(2).text, groupName: 'Thai Travel' }], now, { sort: null });
+  await fl.processLeads({ draft: draftOf(), send: s.send, now: () => now });
+  const id = (await lead(2)).id;
+  assert.deepEqual(s.sent[3].keyboard[1], [{ text: 'Open in Chrome', url: `${post(2).url}#waydidi-reply=${id}` }]);
+  await fl.queueLeads([{ groupKey: 'thaitravel', postKey: '1000003', url: post(3).url, text: post(3).text, groupName: 'Thai Travel' }], now, { sort: null });
+  await fl.processLeads({ draft: draftOf({ factCount: 0, replyType: 'info' }), send: s.send, now: () => now });
+  assert.equal(s.sent[5].keyboard.length, 1, 'not ready to post: no Open in Chrome');
+});
+
+// ---- Post from Telegram: a team member approves one comment; the extension posts it. ----
+const team = { name: 'Ann', telegramUserId: '7', isTeam: true };
+const answers = () => tgCalls.filter((c) => c.method === 'answerCallbackQuery').map((c) => c.body.text);
+
+test('Post to Facebook: off by default; only the team can approve; the first tap wins and Telegram shows who', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+  await sentLeads(1);
+  const id = (await lead(1)).id;
+  await fl.handleLeadApprove(id, team, 'q0', '-200', 102, now);
+  assert.match(answers()[0], /switched off/);
+  env.FB_LEADS_AUTO_POST_ENABLED = 'true';
+  await fl.handleLeadApprove(id, { name: 'Stranger', telegramUserId: '99', isTeam: false }, 'q1', '-200', 102, now);
+  assert.match(answers()[1], /Only the Waydidi team/);
+  assert.equal((await lead(1)).post_approved_at, null, 'a refused tap changes nothing');
+  await Promise.all([fl.handleLeadApprove(id, team, 'q2', '-200', 102, now), fl.handleLeadApprove(id, { ...team, name: 'Bo' }, 'q3', '-200', 102, now)]);
+  const row = await lead(1);
+  assert.ok(row.post_approved_by === 'Ann' || row.post_approved_by === 'Bo');
+  assert.equal(answers().filter((t) => /^Approved/.test(t)).length, 1, 'approved once');
+  assert.equal(answers().filter((t) => /Already approved by/.test(t)).length, 1);
+  const edit = tgCalls.find((c) => c.method === 'editMessageText');
+  assert.match(edit.body.text, /⏳ Approved by (Ann|Bo) · Chrome will post it/);
+  assert.ok(!JSON.stringify(edit.body.reply_markup).includes('fl_go'), 'the Post to Facebook button is gone once approved');
+  assert.ok(JSON.stringify(edit.body.reply_markup).includes('fl_skip'), 'Skip is still there to cancel');
+});
+
+test('Post to Facebook: a draft not ready to post cannot be approved, and gets no button', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true'; env.FB_LEADS_AUTO_POST_ENABLED = 'true';
+  const s = sender();
+  await fl.queueLeads([{ groupKey: 'thaitravel', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'Thai Travel' }], now, { sort: null });
+  await fl.processLeads({ draft: draftOf({ factCount: 0, replyType: 'info' }), send: s.send, now: () => now });
+  assert.ok(!JSON.stringify(s.sent[1].keyboard).includes('fl_go'));
+  await fl.handleLeadApprove((await lead(1)).id, team, 'q', '-200', 102, now);
+  assert.equal((await lead(1)).post_approved_at, null);
+  await fl.queueLeads([{ groupKey: 'thaitravel', postKey: '1000002', url: post(2).url, text: post(2).text, groupName: 'Thai Travel' }], now, { sort: null });
+  await fl.processLeads({ draft: draftOf(), send: s.send, now: () => now });
+  assert.deepEqual(s.sent[3].keyboard.at(-1), [{ text: 'Post to Facebook', callback_data: `fl_go:${(await lead(2)).id}` }]);
+});
+
+test('approved comments go to the extension to post, oldest approval first, inside the cap and gap; the manual queue skips them', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true'; env.FB_LEADS_AUTO_POST_ENABLED = 'true'; env.FB_LEADS_REPLY_GAP_MIN = '5';
+  await sentLeads(3);
+  const [a, b] = [(await lead(1)).id, (await lead(2)).id];
+  assert.equal((await fl.replyQueue({ action: 'approved' }, now)).wait, 'empty', 'nothing approved yet');
+  await fl.handleLeadApprove(b, team, 'q', '-200', 1, now);
+  await fl.handleLeadApprove(a, team, 'q', '-200', 1, at(1));
+  const manual = await fl.replyQueue({ action: 'next' }, at(1));
+  assert.equal(manual.lead.id, (await lead(3)).id, 'the manual queue never hands out an approved comment');
+  assert.ok(!manual.lead.auto);
+  const first = await fl.replyQueue({ action: 'approved' }, at(1));
+  assert.equal(first.lead.id, b); assert.equal(first.lead.auto, true);
+  const [p, q] = await Promise.all([fl.replyQueue({ action: 'approved' }, at(1)), fl.replyQueue({ action: 'approved' }, at(1))]);
+  assert.deepEqual([p.wait, q.wait], ['empty', 'empty'], 'one approved comment in flight at a time, across browsers');
+  await fl.replyQueue({ action: 'posted', id: b }, at(2));
+  assert.equal((await fl.replyQueue({ action: 'approved' }, at(3))).wait, 'gap');
+  assert.equal((await fl.replyQueue({ action: 'approved' }, at(8))).lead.id, a);
+});
+
+test('a comment Chrome could not post: approval cleared, never retried by itself, the team is told', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true'; env.FB_LEADS_AUTO_POST_ENABLED = 'true';
+  await sentLeads(1);
+  const id = (await lead(1)).id;
+  await fl.handleLeadApprove(id, team, 'q', '-200', 1, now);
+  assert.ok((await fl.replyQueue({ action: 'approved' }, now)).lead);
+  tgCalls.length = 0;
+  const [x, y] = await Promise.all([replyCall({ action: 'auto_failed', id }), replyCall({ action: 'auto_failed', id })]);
+  assert.deepEqual([x.status, y.status].sort(), [200, 409], 'reported once');
+  const row = await lead(1);
+  assert.equal(row.status, 'sent'); assert.equal(row.post_approved_at, null); assert.equal(row.reply_claimed_at, null);
+  const note = tgCalls.find((c) => c.method === 'sendMessage');
+  assert.equal(note.body.chat_id, '-200');
+  assert.match(note.body.text, /couldn't post the comment for <b>Thai Travel<\/b>\. Please post it by hand\./);
+  assert.ok(JSON.stringify(tgCalls.find((c) => c.method === 'editMessageText').body.reply_markup).includes('fl_go'), 'Post to Facebook is offered again');
+  assert.equal((await fl.replyQueue({ action: 'approved' }, at(20))).wait, 'empty', 'not retried without a new tap');
 });

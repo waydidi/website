@@ -26,6 +26,15 @@
 <div id="run" class="run"></div>
 <div id="problem" class="problem"></div>
 <div id="stats" class="stats"></div>
+<h1 style="margin-top:14px">Reply queue</h1>
+<div class="hint">Opens drafted comments one at a time and puts each in the comment box. You read it and press Post on Facebook yourself.</div>
+<div>
+  <button id="replyStart">Start replying</button><button id="replyStop" class="secondary" hidden>Stop</button>
+</div>
+<div id="reply" class="run"></div>
+<label><input id="autoPost" type="checkbox"> Post comments approved in Telegram</label>
+<div class="hint">When someone on the team taps "Post to Facebook" in Telegram, this browser opens the post and posts that comment within about a minute. Keep it open and signed in to the Facebook account that comments.</div>
+<div id="autoProblem" class="problem"></div>
 <a id="settings">Settings</a> · <a id="sample">Copy page sample for the developer</a>
 <div id="sampleNote" class="hint"></div>
 <script src="popup.js"></script>

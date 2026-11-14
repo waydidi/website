@@ -1,7 +1,5 @@
-import { env } from "cloudflare:workers";
 import { readIngest } from "@/lib/fb-leads-rules";
-import { constantTimeEqual } from "@/lib/security";
-import { fbLeadsOn, queueLeads } from "@/lib/telegram/fb-leads";
+import { collectorAuthorized, fbLeadsOn, queueLeads } from "@/lib/telegram/fb-leads";
 
 // Collectors (email forward, browser extension) send Facebook group posts here:
 // POST {"posts":[{"url":"https://www.facebook.com/groups/<g>/posts/<p>/","text":"…","groupName":"…"}]}
@@ -11,9 +9,7 @@ const json = (body: unknown, status = 200) => Response.json(body, { status, head
 
 export async function POST(request: Request) {
   if (!fbLeadsOn()) return new Response("Not found", { status: 404 });
-  const token = String((env as unknown as Record<string, string | undefined>).FB_LEADS_INGEST_TOKEN ?? "");
-  const given = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "")?.[1]?.trim() ?? "";
-  if (!given || !constantTimeEqual(given, token)) return json({ error: "Unauthorized" }, 401);
+  if (!collectorAuthorized(request)) return json({ error: "Unauthorized" }, 401);
   const raw = await request.text();
   if (raw.length > 200_000) return json({ error: "Too large." }, 413);
   let body: unknown;

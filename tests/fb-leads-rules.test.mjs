@@ -171,3 +171,43 @@ test('a missing person is never a lead, in English, Thai, Chinese, Russian or Ko
   assert.equal(reason('I lost my passport near Patong, has anyone seen it or found it?'), 'not_served');
   assert.equal(reason('Need a driver, I am missing my flight, can someone help urgently'), 'queue');
 });
+
+test('reply queue: off unless both switches are on; cap and gap fall back to safe defaults', () => {
+  const on = { FB_LEADS_ENABLED: 'true', FB_LEADS_INGEST_TOKEN: token, TELEGRAM_COMMENT_CHAT_ID: '-1' };
+  assert.equal(r.replyQueueEnabled(on), false, 'leads on alone does not turn the reply queue on');
+  assert.equal(r.replyQueueEnabled({ FB_LEADS_REPLY_QUEUE_ENABLED: 'true' }), false, 'needs Facebook leads on too');
+  assert.equal(r.replyQueueEnabled({ ...on, FB_LEADS_REPLY_QUEUE_ENABLED: 'true' }), true);
+  assert.equal(r.replyDailyCap(undefined), 30);
+  assert.equal(r.replyDailyCap('10'), 10);
+  for (const bad of ['0', '101', '2.5', 'many', '']) assert.equal(r.replyDailyCap(bad), 30, bad);
+  assert.equal(r.replyGapMin(undefined), 3);
+  assert.equal(r.replyGapMin('5'), 5);
+  for (const bad of ['0', '61', '1.5', 'x']) assert.equal(r.replyGapMin(bad), 3, bad);
+});
+
+test('reply queue requests: next (optionally one lead), or a lead id with posted / skipped / release', () => {
+  const id = 'a'.repeat(16);
+  assert.deepEqual(r.readReplyRequest({ action: 'next' }), { action: 'next' });
+  assert.deepEqual(r.readReplyRequest({ action: 'next', id }), { action: 'next', id });
+  for (const action of ['posted', 'skipped', 'release']) assert.deepEqual(r.readReplyRequest({ action, id }), { action, id });
+  assert.ok('error' in r.readReplyRequest({ action: 'posted' }), 'posted needs an id');
+  assert.ok('error' in r.readReplyRequest({ action: 'post', id }), 'unknown action');
+  assert.ok('error' in r.readReplyRequest({ action: 'next', id: "x' OR 1=1" }), 'ids are checked');
+  assert.ok('error' in r.readReplyRequest([]));
+  assert.ok('error' in r.readReplyRequest(null));
+  assert.equal(r.replyTabUrl('https://www.facebook.com/groups/g/posts/123456/', id), `https://www.facebook.com/groups/g/posts/123456/#waydidi-reply=${id}`);
+});
+
+test('post from Telegram: off unless the reply queue and its own switch are on; its button and requests are read', () => {
+  const on = { FB_LEADS_ENABLED: 'true', FB_LEADS_INGEST_TOKEN: token, TELEGRAM_COMMENT_CHAT_ID: '-1', FB_LEADS_REPLY_QUEUE_ENABLED: 'true' };
+  assert.equal(r.autoPostEnabled(on), false);
+  assert.equal(r.autoPostEnabled({ ...on, FB_LEADS_REPLY_QUEUE_ENABLED: '', FB_LEADS_AUTO_POST_ENABLED: 'true' }), false, 'needs the reply queue on');
+  assert.equal(r.autoPostEnabled({ ...on, FB_LEADS_AUTO_POST_ENABLED: 'true' }), true);
+  const id = 'b'.repeat(16);
+  assert.deepEqual(r.parseLeadCallback(`fl_go:${id}`), { action: 'approve', id });
+  assert.deepEqual(r.parseLeadCallback(`fl_posted:${id}`), { action: 'posted', id });
+  assert.equal(r.parseLeadCallback(`fl_go:${id}x`), null);
+  assert.deepEqual(r.readReplyRequest({ action: 'approved' }), { action: 'approved' });
+  assert.deepEqual(r.readReplyRequest({ action: 'auto_failed', id }), { action: 'auto_failed', id });
+  assert.ok('error' in r.readReplyRequest({ action: 'auto_failed' }));
+});

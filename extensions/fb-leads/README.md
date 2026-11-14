@@ -131,6 +131,50 @@ Facebook changes its page markup from time to time. If posts stop arriving while
 2. The developer adds that shape as a new case in `e2e/fb-leads-extractor.spec.ts`, makes it pass in `extractor.js`,
    and you reload the extension.
 
+## Reply queue (you press Post)
+
+Off until the owner sets `FB_LEADS_REPLY_QUEUE_ENABLED=true` on the website. Click the extension icon → **Start replying**:
+
+1. The next drafted lead (ready to post, strongest and newest first) opens in a new tab.
+2. The draft is put in the post's comment box, and a small **Waydidi** bar appears at the bottom right.
+3. Read it, change it if needed, then press **Post on Facebook yourself**. The extension never presses Post, Enter or any
+   Facebook button.
+4. When your comment appears (a new comment by one of the names in Settings), the lead is marked **Posted** in Telegram,
+   the tab closes, and the next lead opens after the pause between comments. You can also tap **Posted** or **Skip** in
+   the bar (for example if your name in Settings is spelled differently on Facebook).
+5. **Stop queue** in the bar or **Stop** in the popup ends it. Closing a reply tab yourself hands that lead back and
+   pauses the queue.
+
+The Telegram link message also has an **Open in Chrome** button: open it in the browser that has this extension and the
+same bar appears for that one lead.
+
+The website holds the limits for every browser together: at most `FB_LEADS_REPLY_DAILY_CAP` comments a day (default 30;
+Posted taps in Telegram count too) and `FB_LEADS_REPLY_GAP_MIN` minutes between two comments (default 3, plus a random
+extra 20 to 90 seconds in the extension). Many similar comments in a short time is what Facebook flags as spam,
+whoever presses Post, so keep these limits low and stop if Facebook warns the account.
+
+If the comment box is not found (comments turned off, or Facebook changed the page), the bar offers **Copy draft**.
+
+## Post from Telegram (the extension presses Post)
+
+Off until the owner sets `FB_LEADS_AUTO_POST_ENABLED=true` (the reply queue must be on too). Ready drafts in Telegram
+then also get a **Post to Facebook** button. Only people on the Waydidi Telegram team can use it.
+
+1. In the popup, tick **Post comments approved in Telegram**. Keep this browser open and signed in to the Facebook
+   account that comments (one browser is enough).
+2. Someone taps **Post to Facebook** under a draft. Telegram shows "Approved by …".
+3. Within about a minute this browser opens the post in a new tab, puts the comment in, waits 3 to 6 seconds, and
+   presses Facebook's send button (or Enter in the comment box).
+4. Once the comment shows on the page, the lead is marked Posted and the tab closes.
+
+It never posts the same comment twice: if a Waydidi comment is already on the post, it is only marked Posted. If it
+cannot post (no comment box, the comment does not appear within 30 seconds, you close the tab or press Stop), the
+approval is cleared, nothing is retried, and the Comment group gets "Chrome couldn't post the comment… please post it by
+hand". Stop in the bar also unticks the box. The daily cap and the gap between comments still apply.
+
+This is the part of the extension Facebook is most likely to notice: a script pressing send. Approve only comments
+you have read, keep the cap low, and untick the box if Facebook warns the account.
+
 ## Limits
 
 - It collects only while a group page is open in the browser, and only the posts that were rendered on screen.
