@@ -89,10 +89,13 @@
       box = window.WaydidiLeads.findCommentBox(document);
       if (!box) return false;
       baseline = window.WaydidiLeads.ourComments(document, names, box);
-      var r = window.WaydidiLeads.fillComment(document, box, lead.comment);
-      if (lead.auto) autoPost(r);
-      else if (r === "filled") bar("The draft is in the comment box. Read it, change it if needed, then press Post on Facebook yourself.", common);
-      else bar(r === "busy" ? "The comment box already has text, so the draft was not added." : "The draft could not be added here.", [{ text: "Copy draft", main: true, run: copy }].concat(common));
+      // Filled once only: box is set above, so the timer below never tries again while the editor is still writing.
+      window.WaydidiLeads.fillComment(document, box, lead.comment).then(function (r) {
+        if (finished) return;
+        if (lead.auto) autoPost(r);
+        else if (r === "filled") bar("The draft is in the comment box. Read it, change it if needed, then press Post on Facebook yourself.", common);
+        else bar(r === "busy" ? "The comment box already has text, so the draft was not added." : "The draft could not be added here.", [{ text: "Copy draft", main: true, run: copy }].concat(common));
+      });
       return true;
     }
     function copy() {

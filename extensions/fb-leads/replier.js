@@ -21,23 +21,35 @@
   }
 
   /**
-   * Puts the text in the box as a paste (Facebook's editor takes pastes like typed text, and a paste never sends the
-   * comment). If the editor ignored the paste, the text is inserted with line breaks turned into spaces, because a
-   * typed line break can send a comment. Never fills a box that already has text. Resolves "filled", "busy" or "failed".
+   * Puts the text in the box once, as a paste (Facebook's editor takes pastes like typed text, and a paste never sends
+   * the comment). Facebook's editor takes the paste (it cancels the browser's own handling) but writes the text into
+   * the box a moment later, so an empty box right after the paste does not mean it was ignored: the text is typed in
+   * only when no editor took the paste, with line breaks turned into spaces because a typed line break can send a
+   * comment. Never both. Then waits up to 2 seconds for the text to show. Never fills a box that already has text.
+   * Resolves "filled", "busy" or "failed".
    */
   function fillComment(doc, box, text) {
-    if (norm(box.textContent)) return "busy";
+    if (norm(box.textContent)) return Promise.resolve("busy");
     box.focus();
+    var taken = false;
     try {
       var data = new DataTransfer();
       data.setData("text/plain", text);
-      box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
-    } catch { /* no paste support: insert below */ }
-    if (!norm(box.textContent)) {
+      var paste = new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true });
+      box.dispatchEvent(paste);
+      taken = paste.defaultPrevented;
+    } catch { /* no paste support: typed in below */ }
+    if (!taken && !norm(box.textContent)) {
       try { doc.execCommand("insertText", false, String(text).replace(/\s*\n+\s*/g, " ")); } catch { /* reported below */ }
     }
-    var want = norm(text).slice(0, 20);
-    return want && norm(box.textContent).indexOf(want) !== -1 ? "filled" : "failed";
+    var want = norm(text).slice(0, 20), tries = 0;
+    return new Promise(function (resolve) {
+      (function check() {
+        if (want && norm(box.textContent).indexOf(want) !== -1) return resolve("filled");
+        if (++tries > 20) return resolve("failed");
+        setTimeout(check, 100);
+      })();
+    });
   }
 
   /**
