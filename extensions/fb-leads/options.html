@@ -22,7 +22,12 @@
 <input id="token" type="password" autocomplete="off" spellcheck="false">
 <label for="names">Facebook names Waydidi comments with (one per line)</label>
 <textarea id="names" rows="3" spellcheck="false" style="width:100%;box-sizing:border-box;padding:10px;font:inherit;border:1px solid #9aa8a0;border-radius:8px"></textarea>
-<p class="hint">Posts where one of these names has already commented are skipped. The names stay in this browser and are never sent.</p>
+<p class="hint">Posts where one of these names has already commented are skipped. The names stay in this browser and are never sent. In the reply queue, the first of these names found in a comment becomes a real Facebook tag (@ and Facebook's suggestion).</p>
+<label for="qr">QR picture for sales comments</label>
+<input id="qr" type="file" accept="image/png,image/jpeg,image/webp">
+<p class="hint">Added as a picture to every comment that gives the WhatsApp number (for example Waydidi Resource\Waydidi_QR.jpg). It is kept only in this browser. Picked pictures are saved at once.</p>
+<img id="qrPreview" alt="QR picture" style="display:none;max-width:160px;border:1px solid #9aa8a0;border-radius:8px">
+<div><button id="qrRemove" class="secondary" hidden>Remove picture</button></div>
 <button id="save">Save</button><button id="test" class="secondary">Test connection</button>
 <div id="status" role="status"></div>
 <script src="options.js"></script>

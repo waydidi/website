@@ -77,14 +77,14 @@
     // waits SEND_DELAY_MS, presses send, and reports Posted only once the comment shows on the page. Anything that goes
     // wrong after the tap is reported as failed (the team is told to post it by hand); it is never retried by itself.
     // Until the tap, pressing Post on Facebook yourself works as usual.
-    function sendFromTelegram(filled) {
+    function sendFromTelegram(filled, note) {
       // A Waydidi comment, or one with these words, is already here (an earlier try did post): never twice.
       if (baseline > 0 || window.WaydidiLeads.commentsLike(document, lead.comment) > 0) return done("posted");
       if (filled !== "filled") return manualBar(filled);
       ask({ type: "reply-ready" }).then(function (r) {
         if (finished) return;
         if (!r || !r.ok) return bar(r && r.off ? "Sending from Telegram is switched off on the website. Press Post on Facebook yourself." : "Telegram could not be told. Press Post on Facebook yourself.", common);
-        bar("Waiting for ส่ง Comment in Telegram. You can also press Post on Facebook yourself.", common);
+        bar((note ? note + " " : "") + "Waiting for ส่ง Comment in Telegram. You can also press Post on Facebook yourself.", common);
         var poll = setInterval(function () {
           if (finished) return clearInterval(poll);
           ask({ type: "reply-status" }).then(function (s) {
@@ -104,8 +104,8 @@
         }, POLL_MS);
       });
     }
-    function manualBar(r) {
-      if (r === "filled") bar("The draft is in the comment box. Read it, change it if needed, then press Post on Facebook yourself.", common);
+    function manualBar(r, note) {
+      if (r === "filled") bar((note ? note + " " : "") + "The draft is in the comment box. Read it, change it if needed, then press Post on Facebook yourself.", common);
       else bar(r === "busy" ? "The comment box already has text, so the draft was not added." : "The draft could not be added here.", [{ text: "Copy draft", main: true, run: copy }].concat(common));
     }
 
@@ -114,12 +114,41 @@
       if (!box) return false;
       baseline = window.WaydidiLeads.ourComments(document, names, box);
       // Filled once only: box is set above, so the timer below never tries again while the editor is still writing.
-      window.WaydidiLeads.fillComment(document, box, lead.comment).then(function (r) {
+      window.WaydidiLeads.fillComment(document, box, lead.comment).then(async function (r) {
         if (finished) return;
-        if (lead.auto) sendFromTelegram(r);
-        else manualBar(r);
+        var extra = r === "filled" ? await tagAndPicture() : { ok: true, note: "" };
+        if (finished) return;
+        // A sales comment without its QR picture is never sent by Chrome: the person adds it and presses Post.
+        if (lead.auto && !extra.ok) return bar(extra.note + " Add it, then press Post on Facebook yourself.", common);
+        if (lead.auto) sendFromTelegram(r, extra.note);
+        else manualBar(r, extra.note);
       });
       return true;
+    }
+
+    // After the text is in: the page's name becomes a real tag (@ and Facebook's suggestion), and a sales comment (one
+    // with the WhatsApp number) gets the QR picture chosen in Settings. Resolves { ok, note }: ok is false when a sales
+    // comment is missing its picture; note says what could not be done.
+    async function tagAndPicture() {
+      var W = window.WaydidiLeads, notes = [];
+      bar("Adding the page tag" + (W.isSalesComment(lead.comment) ? " and the QR picture…" : "…"), []);
+      for (var i = 0; i < names.length; i++) {
+        var tagged = await W.tagName(document, box, names[i]);
+        if (tagged === "absent") continue;
+        if (tagged === "no_suggestion") notes.push("The tag for " + names[i] + " could not be added (Facebook showed no suggestion).");
+        break;
+      }
+      if (!W.isSalesComment(lead.comment)) return { ok: true, note: notes.join(" ") };
+      var qr = (await chrome.storage.local.get({ qr: null })).qr;
+      if (!qr || !qr.data) return { ok: false, note: notes.concat("No QR picture is set in Settings.").join(" ") };
+      // Decoded here rather than fetched, so the Facebook page's own rules cannot block it.
+      var parts = /^data:([^;,]+);base64,(.*)$/.exec(qr.data);
+      if (!parts) return { ok: false, note: notes.concat("The QR picture in Settings could not be read. Pick it again.").join(" ") };
+      var raw = atob(parts[2]), bytes = new Uint8Array(raw.length);
+      for (var b = 0; b < raw.length; b++) bytes[b] = raw.charCodeAt(b);
+      var file = new File([bytes], qr.name || "waydidi-qr.jpg", { type: parts[1] });
+      if ((await W.attachPicture(document, box, file)) !== "attached") return { ok: false, note: notes.concat("The QR picture could not be added.").join(" ") };
+      return { ok: true, note: notes.join(" ") };
     }
     function copy() {
       navigator.clipboard.writeText(lead.comment).then(function () {

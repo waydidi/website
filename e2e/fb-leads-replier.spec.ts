@@ -149,3 +149,74 @@ test("a posted comment is noticed by its words, whatever Facebook name posted it
   expect(await like(draft)).toBe(1);
   expect(await like("Hi!")).toBe(0); // too short to tell
 });
+
+// The page's name becomes a real tag: "@" + name is typed and Facebook's suggestion is clicked (never Post).
+const TAG_TEXT = "Waydidi Travel can arrange private airport pickups. WhatsApp: +66 63 206 4884";
+async function tagPage(page: Page, suggest: boolean) {
+  await load(page, `<div role="article" aria-label="Post"><form><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px">${TAG_TEXT}</div><button type="submit" aria-label="Post comment">Post</button></form><div id="menu"></div></div>`);
+  await page.evaluate((suggest) => {
+    const box = document.querySelector('[role="textbox"]') as HTMLElement, menu = document.getElementById("menu")!;
+    // Like Facebook: typing "@" and a name shows a list of suggestions; choosing one turns it into a link.
+    box.addEventListener("input", () => {
+      if (suggest && box.textContent!.includes("@Waydidi Travel") && !menu.firstChild) menu.innerHTML = '<div role="listbox"><div role="option" id="opt">Waydidi Travel<br><small>Travel company</small></div></div>';
+    });
+    menu.addEventListener("mousedown", (e) => {
+      if (!(e.target as HTMLElement).closest('[role="option"]')) return;
+      box.innerHTML = box.innerHTML.replace("@Waydidi Travel", '<a href="/waydiditravel">Waydidi Travel</a>');
+      menu.innerHTML = "";
+    });
+  }, suggest);
+}
+
+test("tagName: types @ and the page name, clicks Facebook's suggestion, never Post or Enter", async ({ page }) => {
+  await tagPage(page, true);
+  const out = await page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); const r = await h.tagName(document, box, "Waydidi Travel"); return { r, html: box.innerHTML, pressed: window.pressed }; })()`) as { r: string; html: string; pressed: string[] };
+  expect(out.r).toBe("tagged");
+  expect(out.html).toContain('<a href="/waydiditravel">Waydidi Travel</a> can arrange');
+  expect(out.html).not.toContain("@");
+  expect(out.pressed.filter((p) => p === "submit" || p === "enter")).toEqual([]);
+});
+
+test("tagName: no suggestion from Facebook puts the plain name back; a comment without the name is left alone", async ({ page }) => {
+  await tagPage(page, false);
+  const out = await page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); const r = await h.tagName(document, box, "Waydidi Travel"); return { r, text: box.textContent, pressed: window.pressed }; })()`) as { r: string; text: string; pressed: string[] };
+  expect(out.r).toBe("no_suggestion");
+  expect(out.text).toBe(TAG_TEXT);
+  expect(out.pressed).toEqual([]);
+  expect(await page.evaluate(`(async () => { const h = window.WaydidiLeads; return h.tagName(document, h.findCommentBox(document), "Another Page"); })()`)).toBe("absent");
+});
+
+test("isSalesComment: a comment with WhatsApp and a phone number", async ({ page }) => {
+  await load(page, postPage());
+  const out = await page.evaluate(`(() => { const h = window.WaydidiLeads; return [h.isSalesComment(${JSON.stringify(TAG_TEXT)}), h.isSalesComment("Message us on WhatsApp for details"), h.isSalesComment("Try the Grab app, it works fine"), h.isSalesComment("whatsapp 0632064884")]; })()`);
+  expect(out).toEqual([true, false, false, true]);
+});
+
+// The QR picture: given to the comment's own photo input (inside the same post); Facebook then shows a preview.
+async function picturePage(page: Page, withInput: boolean, preview = true) {
+  const other = `<div role="article" aria-label="Other post"><input type="file" id="other" accept="image/*"></div>`;
+  await load(page, other + `<div role="article" aria-label="Post"><form><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px">Hello</div>${withInput ? '<input type="file" id="mine" accept="image/*,video/*" style="display:none">' : ""}<div id="previews"></div><button type="submit" aria-label="Post comment">Post</button></form></div>`);
+  await page.evaluate(({ withInput, preview }) => {
+    const show = (file: File) => { if (preview) { const img = document.createElement("img"); img.src = URL.createObjectURL(file); document.getElementById("previews")!.appendChild(img); } };
+    if (withInput) document.getElementById("mine")!.addEventListener("change", (e) => show((e.target as HTMLInputElement).files![0]));
+    else document.querySelector('[role="textbox"]')!.addEventListener("paste", (e) => { const f = (e as ClipboardEvent).clipboardData?.files[0]; if (f) { e.preventDefault(); show(f); } });
+    document.getElementById("other")!.addEventListener("change", () => (window as unknown as { pressed: string[] }).pressed.push("WRONG INPUT"));
+  }, { withInput, preview });
+}
+const attach = (page: Page) => page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); const file = new File([new Uint8Array([255, 216, 255])], "Waydidi_QR.jpg", { type: "image/jpeg" }); const r = await h.attachPicture(document, box, file); const mine = document.getElementById("mine"); return { r, name: mine && mine.files[0] ? mine.files[0].name : null, previews: document.querySelectorAll("#previews img").length, pressed: window.pressed }; })()`) as Promise<{ r: string; name: string | null; previews: number; pressed: string[] }>;
+
+test("attachPicture: the QR goes to this comment's photo input, Facebook shows the preview, nothing is sent", async ({ page }) => {
+  await picturePage(page, true);
+  expect(await attach(page)).toEqual({ r: "attached", name: "Waydidi_QR.jpg", previews: 1, pressed: [] });
+});
+
+test("attachPicture: with no photo input the picture is pasted into the box", async ({ page }) => {
+  await picturePage(page, false);
+  expect(await attach(page)).toEqual({ r: "attached", name: null, previews: 1, pressed: [] });
+});
+
+test("attachPicture: no preview within 10 seconds is reported as failed", async ({ page }) => {
+  test.setTimeout(30_000);
+  await picturePage(page, true, false);
+  expect((await attach(page)).r).toBe("failed");
+});

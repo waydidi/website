@@ -10,6 +10,30 @@
 
   function say(text) { message.textContent = text; }
 
+  // The QR picture for sales comments, kept in this browser's extension storage (an extension cannot read a folder on
+  // the computer by itself, so it is picked here once).
+  var qrInput = document.getElementById("qr"), qrPreview = document.getElementById("qrPreview"), qrRemove = document.getElementById("qrRemove");
+  function showQr(qr) {
+    qrPreview.style.display = qr && qr.data ? "block" : "none";
+    qrPreview.src = qr && qr.data ? qr.data : "";
+    qrRemove.hidden = !(qr && qr.data);
+  }
+  chrome.storage.local.get({ qr: null }, function (s) { showQr(s.qr); });
+  qrInput.addEventListener("change", function () {
+    var file = qrInput.files && qrInput.files[0];
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 5 * 1024 * 1024) { say("Choose a PNG, JPEG or WebP picture under 5 MB."); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var qr = { name: file.name, data: String(reader.result) };
+      chrome.storage.local.set({ qr: qr }, function () { showQr(qr); say("QR picture saved."); });
+    };
+    reader.readAsDataURL(file);
+  });
+  qrRemove.addEventListener("click", function () {
+    chrome.storage.local.remove("qr", function () { showQr(null); qrInput.value = ""; say("QR picture removed. Sales comments will wait for you to add it."); });
+  });
+
   document.getElementById("save").addEventListener("click", function () {
     var names = namesBox.value.split("\n").map(function (n) { return n.trim(); }).filter(Boolean).slice(0, 10);
     chrome.storage.local.set({ token: input.value.trim(), names: names, problem: "" }, function () {
