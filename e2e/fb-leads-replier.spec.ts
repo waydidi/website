@@ -152,20 +152,20 @@ test("a posted comment is noticed by its words, whatever Facebook name posted it
 
 // The page's name becomes a real tag: "@" + name is typed and Facebook's suggestion is clicked (never Post).
 const TAG_TEXT = "Waydidi Travel can arrange private airport pickups. WhatsApp: +66 63 206 4884";
-async function tagPage(page: Page, suggest: boolean) {
+// How the copied suggestion list takes a choice. "pointer": like Facebook, only a real pointer press with a position
+// counts (a bare .click() or a mousedown without coordinates is ignored). "tab": only Tab in the box. "never": nothing.
+async function tagPage(page: Page, suggest: boolean, takes: "pointer" | "tab" | "never" = "pointer") {
   await load(page, `<div role="article" aria-label="Post"><form><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px">${TAG_TEXT}</div><button type="submit" aria-label="Post comment">Post</button></form><div id="menu"></div></div>`);
-  await page.evaluate((suggest) => {
+  await page.evaluate(({ suggest, takes }) => {
     const box = document.querySelector('[role="textbox"]') as HTMLElement, menu = document.getElementById("menu")!;
+    const choose = () => { box.innerHTML = box.innerHTML.replace("@Waydidi Travel", '<a href="/waydiditravel">Waydidi Travel</a>'); menu.innerHTML = ""; };
     // Like Facebook: typing "@" and a name shows a list of suggestions; choosing one turns it into a link.
     box.addEventListener("input", () => {
-      if (suggest && box.textContent!.includes("@Waydidi Travel") && !menu.firstChild) menu.innerHTML = '<div role="listbox"><div role="option" id="opt">Waydidi Travel<br><small>Travel company</small></div></div>';
+      if (suggest && box.textContent!.includes("@Waydidi Travel") && !menu.firstChild) menu.innerHTML = '<div role="listbox"><div role="option" id="opt"><span>Waydidi Travel</span><br><small>Travel company</small></div></div>';
     });
-    menu.addEventListener("mousedown", (e) => {
-      if (!(e.target as HTMLElement).closest('[role="option"]')) return;
-      box.innerHTML = box.innerHTML.replace("@Waydidi Travel", '<a href="/waydiditravel">Waydidi Travel</a>');
-      menu.innerHTML = "";
-    });
-  }, suggest);
+    menu.addEventListener("pointerdown", (e) => { if (takes === "pointer" && (e as PointerEvent).clientX > 0 && (e.target as HTMLElement).closest('[role="option"]')) choose(); });
+    box.addEventListener("keydown", (e) => { if (takes === "tab" && e.key === "Tab" && menu.firstChild) { e.preventDefault(); choose(); } });
+  }, { suggest, takes });
 }
 
 test("tagName: types @ and the page name, clicks Facebook's suggestion, never Post or Enter", async ({ page }) => {
@@ -219,4 +219,75 @@ test("attachPicture: no preview within 10 seconds is reported as failed", async 
   test.setTimeout(30_000);
   await picturePage(page, true, false);
   expect((await attach(page)).r).toBe("failed");
+});
+
+const runTag = (page: Page) => page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); const r = await h.tagName(document, box, "Waydidi Travel"); return { r, html: box.innerHTML, text: box.textContent, pressed: window.pressed }; })()`) as Promise<{ r: string; html: string; text: string; pressed: string[] }>;
+
+test("tagName: a list that ignores a bare click (like Facebook) still takes the mouse-like press on the suggestion", async ({ page }) => {
+  await tagPage(page, true, "pointer");
+  // A bare click, as the first version sent, is ignored by this list.
+  await page.evaluate(() => { document.querySelector('[role="textbox"]')!.textContent += ""; });
+  const out = await runTag(page);
+  expect(out.r).toBe("tagged");
+  expect(out.html).toContain('<a href="/waydiditravel">Waydidi Travel</a> can arrange');
+  expect(out.pressed.filter((p) => p === "submit" || p === "enter")).toEqual([]);
+});
+
+test("tagName: when the press is not taken, Tab chooses the suggestion (never Enter)", async ({ page }) => {
+  await tagPage(page, true, "tab");
+  const out = await runTag(page);
+  expect(out.r).toBe("tagged");
+  expect(out.html).toContain('<a href="/waydiditravel">Waydidi Travel</a>');
+  expect(out.pressed.filter((p) => p === "submit" || p === "enter")).toEqual([]);
+});
+
+test("tagName: a suggestion that takes nothing is reported, the plain name is put back, and nothing is sent", async ({ page }) => {
+  test.setTimeout(30_000);
+  await tagPage(page, true, "never");
+  const out = await runTag(page);
+  expect(out.r).toBe("not_selected");
+  expect(out.text).toBe(TAG_TEXT);
+  expect(out.pressed.filter((p) => p === "submit" || p === "enter")).toEqual([]);
+});
+
+// Like the post first: only the post's own Like button, pressed like a mouse; a comment's Like is never touched.
+async function likePageFor(page: Page, opts: { marker?: boolean; alreadyLiked?: boolean; takes?: boolean } = {}) {
+  const { marker = true, alreadyLiked = false, takes = true } = opts;
+  const postLike = marker
+    ? `<div role="button" aria-label="${alreadyLiked ? "Remove Like" : "Like"}" id="postLike"><span data-ad-rendering-role="like_button">Like</span></div>`
+    : `<div role="button" aria-label="${alreadyLiked ? "Remove Like" : "Like"}" id="postLike">Like</div>`;
+  await load(page, `<div role="article" aria-label="Post"><div dir="auto">Need a van to Pattaya</div>${postLike}
+    <div class="comments"><div role="article" aria-label="Comment by Someone"><div dir="auto">Try Grab</div><div role="button" aria-label="Like" id="commentLike">Like</div></div></div>
+    <form><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px"></div><button type="submit" aria-label="Post comment">Post</button></form></div>`);
+  await page.evaluate((takes) => {
+    const w = window as unknown as { pressed: string[] };
+    // Like Facebook: only a real pointer press with a position counts; the button then shows it is pressed.
+    document.getElementById("postLike")!.addEventListener("pointerdown", (e) => {
+      if (takes && (e as PointerEvent).clientX > 0) { const b = document.getElementById("postLike")!; b.setAttribute("aria-label", "Remove Like"); b.setAttribute("aria-pressed", "true"); }
+    });
+    document.getElementById("commentLike")!.addEventListener("click", () => w.pressed.push("COMMENT LIKE"));
+  }, takes);
+}
+const like = (page: Page) => page.evaluate(`(async () => { const h = window.WaydidiLeads; const r = await h.likePost(document, h.findCommentBox(document)); return { r, label: document.getElementById("postLike").getAttribute("aria-label"), pressed: window.pressed.filter((p) => p !== "click:DIV" && p !== "click:SPAN") }; })()`) as Promise<{ r: string; label: string; pressed: string[] }>;
+
+test("likePost: presses the post's own Like button (Facebook's marker), never a comment's, never Post", async ({ page }) => {
+  await likePageFor(page);
+  expect(await like(page)).toEqual({ r: "liked", label: "Remove Like", pressed: [] });
+});
+
+test("likePost: without Facebook's marker, the post's Like button by its label; a comment's Like is skipped", async ({ page }) => {
+  await likePageFor(page, { marker: false });
+  expect(await like(page)).toEqual({ r: "liked", label: "Remove Like", pressed: [] });
+});
+
+test("likePost: an already-liked post is not pressed again (pressing would remove the Like)", async ({ page }) => {
+  await likePageFor(page, { alreadyLiked: true });
+  expect(await like(page)).toEqual({ r: "already", label: "Remove Like", pressed: [] });
+});
+
+test("likePost: a press Facebook does not take is reported; no Like button at all is reported too", async ({ page }) => {
+  await likePageFor(page, { takes: false });
+  expect((await like(page)).r).toBe("not_taken");
+  await load(page, postPage());
+  expect(await page.evaluate(`(async () => { const h = window.WaydidiLeads; return h.likePost(document, h.findCommentBox(document)); })()`)).toBe("none");
 });

@@ -22,9 +22,12 @@
   var replyStart = document.getElementById("replyStart"), replyStop = document.getElementById("replyStop");
   var autoPost = document.getElementById("autoPost");
   autoPost.addEventListener("change", function () { chrome.storage.local.set({ autoPost: autoPost.checked }); });
+  var likeFirst = document.getElementById("likeFirst");
+  likeFirst.addEventListener("change", function () { chrome.storage.local.set({ likeFirst: likeFirst.checked }); });
   function renderReply() {
-    chrome.storage.local.get({ replyRun: {}, autoPost: false }, function (s) {
+    chrome.storage.local.get({ replyRun: {}, autoPost: false, likeFirst: true }, function (s) {
       autoPost.checked = s.autoPost;
+      likeFirst.checked = s.likeFirst;
       var r = s.replyRun || {}, d = new Date(), two = function (x) { return String(x).padStart(2, "0"); };
       var today = d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
       replyStart.hidden = Boolean(r.active); replyStop.hidden = !r.active;

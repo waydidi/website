@@ -5,7 +5,7 @@ from the owner's playbook (Admin → Writing assistant) and sends it to the Tele
 then the group name, the post link and "Check before posting · <type>" with two buttons, **Posted** and **Skip**
 (`lib/telegram/fb-leads.ts`).
 
-It never comments or likes anything, and it never sends who wrote a post. Facebook hides each post's link (the post's
+While collecting it never comments or likes anything, and it never sends who wrote a post (the reply queue below comments, and likes the post first unless that box is unticked). Facebook hides each post's link (the post's
 time is a link with no address), so for each such post the extension tries, up to 3 times: a simulated mouse over the
 time, keyboard focus on it (like pressing Tab; no scrolling, focus is given back), and reading the address from the
 page's own data (`page-world.js`, which runs inside the Facebook page with no extension permissions, never looks above
@@ -157,17 +157,23 @@ whoever presses Post, so keep these limits low and stop if Facebook warns the ac
 
 If the comment box is not found (comments turned off, or Facebook changed the page), the bar offers **Copy draft**.
 
-## Page tag and QR picture
+## Like first, page tag and QR picture
+
+**Like the post first** (popup, ticked by default): when a reply tab opens, the post's own Like button is pressed the
+way a mouse does (never a comment's Like), and the comment is put in 5 to 12 seconds later, at random. A post that is
+already liked is not pressed again. Untick the box to comment without liking.
 
 After the draft is in the comment box, and before anything else happens:
 
 - **Page tag.** The first of the names in Settings that appears in the comment (normally "Waydidi Travel") becomes a
   real Facebook tag, the way a person does it: the name is replaced by "@Waydidi Travel" and Facebook's matching
-  suggestion is clicked. If Facebook shows no suggestion within 4 seconds, the plain name is put back and the bar says
-  so. The comment is still sent as usual.
+  suggestion is pressed the way a mouse does (Tab is tried next while the list is open; never Enter). It counts as
+  tagged only once the "@" is gone. If Facebook shows no suggestion, or does not take the choice, the plain name is put
+  back and the bar says so. The comment is still sent as usual.
 - **QR picture.** A sales comment (one with "WhatsApp" and a phone number) gets the QR picture chosen in Settings →
   **QR picture for sales comments**, for example `Waydidi Resource\Waydidi_QR.jpg`. Pick it once; it is kept only in
-  this browser. The picture is given to the comment's own photo button (or pasted into the box), and the extension waits
+  this browser. If none is saved yet, the bar on the first sales comment has a **Choose QR picture** button that saves
+  it and adds it at once. The picture is given to the comment's own photo button (or pasted into the box), and the extension waits
   up to 10 seconds for Facebook's preview.
 
 If a sales comment has no QR picture (none set in Settings, or Facebook showed no preview), Chrome **never sends it**,
