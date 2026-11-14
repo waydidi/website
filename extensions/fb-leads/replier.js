@@ -1,7 +1,7 @@
 // Reply queue helpers for one Facebook post page: find the comment box, put a drafted comment in it, and notice when a
 // comment by one of the Waydidi names (Settings) appears. tagName turns the page's name into a real tag (it clicks
-// Facebook's suggestion), attachPicture adds the QR picture to a sales comment. None of these press Post, Enter or
-// send. submitComment does, and reply.js calls it only for a comment a team member approved in Telegram. Pure page
+// Facebook's suggestion), attachPicture adds the QR picture to a sales comment, likePost presses the post's own Like
+// button (the popup's "Like the post first"). None of these press Post, Enter or send. submitComment does, and reply.js calls it only for a comment a team member approved in Telegram. Pure page
 // functions so the browser tests can run them on a copied page.
 (function (root) {
   "use strict";
@@ -146,7 +146,9 @@
    * Turns the page's name in the comment (for example "Waydidi Travel") into a real Facebook tag, the way a person does
    * it: the name is replaced by "@" and the name typed in, then the matching suggestion in Facebook's list is clicked
    * (a suggestion, never Post). If no suggestion appears within 4 seconds, the plain name is put back. Only the first
-   * time the name appears. Resolves "tagged", "absent" (the name is not in the comment) or "no_suggestion".
+   * time the name appears. "tagged" is reported only once the "@" is really gone (Facebook turned it into a tag).
+   * Resolves "tagged", "absent" (the name is not in the comment), "no_suggestion" or "not_selected" (Facebook showed
+   * the suggestion but did not take the press; the plain name is put back).
    */
   async function tagName(doc, box, name) {
     name = String(name || "").trim();
@@ -155,20 +157,86 @@
     selectText(doc, box, hit, name.length);
     await wait(150); // the editor follows the selection a moment later
     doc.execCommand("insertText", false, "@" + name);
-    for (var t = 0; t < 20; t++) {
+    var tagged = function () { return !findText(box, "@" + name); }; // Facebook removes the "@" once a tag is chosen
+    var seen = false;
+    for (var t = 0; t < 20 && !tagged(); t++) {
       await wait(200);
-      var options = doc.querySelectorAll('[role="option"]');
-      for (var i = 0; i < options.length; i++) {
-        if (norm(options[i].textContent).indexOf(norm(name)) === -1 || !shown(options[i])) continue;
-        options[i].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
-        options[i].click();
-        return "tagged";
-      }
+      var option = suggestion(doc, name);
+      if (!option) continue;
+      seen = true;
+      // Facebook's list ignores a bare click: press it the way a mouse does, on the spot where it is drawn.
+      press(doc, option);
+      await wait(400);
+      if (tagged()) return "tagged";
+      // Still not chosen while the list is open: Tab chooses the highlighted suggestion (unlike Enter, Tab can never
+      // send the comment if the list has just closed).
+      if (suggestion(doc, name)) { key(box, "Tab", 9); await wait(400); }
+      if (tagged()) return "tagged";
     }
-    // No suggestion: put the plain name back where "@name" was typed.
+    if (tagged()) return "tagged";
+    // Not chosen: put the plain name back where "@name" was typed.
     var typed = findText(box, "@" + name);
     if (typed) { selectText(doc, box, typed, name.length + 1); await wait(150); doc.execCommand("insertText", false, name); }
-    return "no_suggestion";
+    return seen ? "not_selected" : "no_suggestion";
+  }
+
+  /** A visible suggestion in Facebook's list whose text has the name, or null. */
+  function suggestion(doc, name) {
+    var list = doc.querySelectorAll('[role="option"], [role="listbox"] li, [role="menuitem"]');
+    for (var i = 0; i < list.length; i++) if (shown(list[i]) && norm(list[i].textContent).indexOf(norm(name)) !== -1) return list[i];
+    return null;
+  }
+  /** Mouse-like press on the middle of an element: pointer and mouse down and up, then click, with coordinates. */
+  function press(doc, el) {
+    var r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    var target = doc.elementFromPoint(x, y);
+    if (!target || !el.contains(target)) target = el;
+    var at = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0, view: doc.defaultView };
+    ["pointerover", "pointerenter", "mouseover", "pointerdown", "mousedown", "pointerup", "mouseup", "click"].forEach(function (type) {
+      var Ev = type.indexOf("pointer") === 0 && typeof PointerEvent === "function" ? PointerEvent : MouseEvent;
+      target.dispatchEvent(new Ev(type, Object.assign({ pointerType: "mouse", isPrimary: true, buttons: /down/.test(type) ? 1 : 0 }, at)));
+    });
+  }
+  function key(el, name, code) {
+    ["keydown", "keyup"].forEach(function (type) { el.dispatchEvent(new KeyboardEvent(type, { key: name, code: name, keyCode: code, which: code, bubbles: true, cancelable: true })); });
+  }
+
+  var LIKE_LABEL = /^(like|ถูกใจ|赞|讚|нравится|좋아요)$/i;
+  var LIKED_LABEL = /remove|change|unlike|ยกเลิก|เปลี่ยน|取消|更改|убрать|취소/i;
+  /**
+   * The post's own Like button: Facebook's like_button marker inside the post the comment box belongs to (or the only
+   * post on the page), else a button labelled "Like" in that post but never inside a comment under it. Or null.
+   */
+  function likeButton(doc, box) {
+    var post = box;
+    while (post.parentElement && post.getAttribute("role") !== "article") post = post.parentElement;
+    var marked = post.querySelector('[data-ad-rendering-role="like_button"]') || doc.querySelector('[data-ad-rendering-role="like_button"]');
+    if (marked) return marked.closest('[role="button"]') || marked;
+    var buttons = post.querySelectorAll('[role="button"][aria-label], button[aria-label]');
+    for (var i = 0; i < buttons.length; i++) {
+      var b = buttons[i], inComment = b.parentElement && b.parentElement.closest('[role="article"]');
+      if (inComment && inComment !== post) continue;
+      if (LIKE_LABEL.test((b.getAttribute("aria-label") || "").trim()) && shown(b)) return b;
+    }
+    return null;
+  }
+  function liked(button) { return button.getAttribute("aria-pressed") === "true" || LIKED_LABEL.test(button.getAttribute("aria-label") || ""); }
+
+  /**
+   * Likes the post (the post itself, never a comment), the way a mouse does. Not pressed again when it is already
+   * liked. Never presses Post or send. Resolves "liked", "already", "none" (no Like button found) or "not_taken".
+   */
+  async function likePost(doc, box) {
+    var button = likeButton(doc, box);
+    if (!button) return "none";
+    if (liked(button)) return "already";
+    press(doc, button);
+    for (var t = 0; t < 10; t++) {
+      await wait(200);
+      var now = likeButton(doc, box) || button; // Facebook may redraw the button
+      if (liked(now)) return "liked";
+    }
+    return "not_taken";
   }
 
   /** A sales comment: it gives Waydidi's WhatsApp number (the word WhatsApp and a phone number). */
@@ -203,5 +271,5 @@
     return "failed";
   }
 
-  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findCommentBox: findCommentBox, fillComment: fillComment, ourComments: ourComments, commentsLike: commentsLike, submitComment: submitComment, tagName: tagName, isSalesComment: isSalesComment, attachPicture: attachPicture });
+  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findCommentBox: findCommentBox, fillComment: fillComment, ourComments: ourComments, commentsLike: commentsLike, submitComment: submitComment, tagName: tagName, isSalesComment: isSalesComment, attachPicture: attachPicture, likePost: likePost });
 })(typeof window !== "undefined" ? window : globalThis);

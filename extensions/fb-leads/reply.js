@@ -13,6 +13,7 @@
   var hash = /#waydidi-reply=([a-f0-9]{16})/.exec(location.hash || "");
   var hashId = hash ? hash[1] : "";
   var FIND_MS = 20000, WATCH_MS = 1500, POSTED_MS = 30000, POLL_MS = 4000, SEND_DELAY_MS = 15000; // 15 s after ส่ง Comment (owner choice)
+  var LIKE_GAP_S = [5, 12]; // seconds between the Like and the comment, at random (owner choice)
 
   function ask(message) {
     return chrome.runtime.sendMessage(message).catch(function () { return null; });
@@ -114,16 +115,58 @@
       if (!box) return false;
       baseline = window.WaydidiLeads.ourComments(document, names, box);
       // Filled once only: box is set above, so the timer below never tries again while the editor is still writing.
-      window.WaydidiLeads.fillComment(document, box, lead.comment).then(async function (r) {
+      likeFirst().then(function () {
+        if (finished) return null;
+        return window.WaydidiLeads.fillComment(document, box, lead.comment);
+      }).then(async function (r) {
+        if (finished || r === null) return;
         if (finished) return;
         var extra = r === "filled" ? await tagAndPicture() : { ok: true, note: "" };
         if (finished) return;
-        // A sales comment without its QR picture is never sent by Chrome: the person adds it and presses Post.
-        if (lead.auto && !extra.ok) return bar(extra.note + " Add it, then press Post on Facebook yourself.", common);
-        if (lead.auto) sendFromTelegram(r, extra.note);
-        else manualBar(r, extra.note);
+        // No QR picture saved yet: pick it here, once (it is kept for the next comments), then carry on.
+        if (extra.missing) return askForQr(r, extra.note);
+        carryOn(r, extra);
       });
       return true;
+    }
+    // "Like the post first" (popup, on unless unticked): the post's own Like button is pressed, then a random 5 to 12
+    // seconds pass before the comment is put in, like a person reading. An already-liked post is not pressed again.
+    async function likeFirst() {
+      if (!(await chrome.storage.local.get({ likeFirst: true })).likeFirst) return;
+      var result = await window.WaydidiLeads.likePost(document, box);
+      if (finished) return;
+      var seconds = LIKE_GAP_S[0] + Math.floor(Math.random() * (LIKE_GAP_S[1] - LIKE_GAP_S[0] + 1));
+      bar((result === "liked" ? "Liked the post." : result === "already" ? "The post was already liked." : "The Like button could not be pressed.") + " Writing the comment in " + seconds + " seconds…", common);
+      await new Promise(function (ok) { setTimeout(ok, seconds * 1000); });
+    }
+    function carryOn(r, extra) {
+      // A sales comment without its QR picture is never sent by Chrome: the person adds it and presses Post.
+      if (lead.auto && !extra.ok) return bar(extra.note + " Add it, then press Post on Facebook yourself.", common);
+      if (lead.auto) sendFromTelegram(r, extra.note);
+      else manualBar(r, extra.note);
+    }
+    function askForQr(r, note) {
+      var pick = function () {
+        // Opened from this button press (a browser only shows a file picker after a click).
+        var input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/png,image/jpeg,image/webp";
+        input.addEventListener("change", function () {
+          var file = input.files && input.files[0];
+          if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 5 * 1024 * 1024) return bar("Choose a PNG, JPEG or WebP picture under 5 MB.", [{ text: "Choose QR picture", main: true, run: pick }].concat(common));
+          var reader = new FileReader();
+          reader.onload = async function () {
+            await chrome.storage.local.set({ qr: { name: file.name, data: String(reader.result) } });
+            bar("QR picture saved. Adding it…", []);
+            var attached = (await window.WaydidiLeads.attachPicture(document, window.WaydidiLeads.findCommentBox(document) || box, file)) === "attached";
+            if (finished) return;
+            carryOn(r, attached ? { ok: true, note: note } : { ok: false, note: note + " The QR picture could not be added." });
+          };
+          reader.readAsDataURL(file);
+        });
+        input.click();
+      };
+      bar((note ? note + " " : "") + "This is a sales comment and no QR picture is saved yet. Choose it once (for example Waydidi Resource\\Waydidi_QR.jpg); it is kept for the next comments.", [{ text: "Choose QR picture", main: true, run: pick }].concat(common));
     }
 
     // After the text is in: the page's name becomes a real tag (@ and Facebook's suggestion), and a sales comment (one
@@ -136,11 +179,12 @@
         var tagged = await W.tagName(document, box, names[i]);
         if (tagged === "absent") continue;
         if (tagged === "no_suggestion") notes.push("The tag for " + names[i] + " could not be added (Facebook showed no suggestion).");
+        if (tagged === "not_selected") notes.push("Facebook showed " + names[i] + " but did not take the selection, so the plain name was kept. Tag it yourself if you want: type @ and pick it.");
         break;
       }
       if (!W.isSalesComment(lead.comment)) return { ok: true, note: notes.join(" ") };
       var qr = (await chrome.storage.local.get({ qr: null })).qr;
-      if (!qr || !qr.data) return { ok: false, note: notes.concat("No QR picture is set in Settings.").join(" ") };
+      if (!qr || !qr.data) return { ok: false, missing: true, note: notes.join(" ") };
       // Decoded here rather than fetched, so the Facebook page's own rules cannot block it.
       var parts = /^data:([^;,]+);base64,(.*)$/.exec(qr.data);
       if (!parts) return { ok: false, note: notes.concat("The QR picture in Settings could not be read. Pick it again.").join(" ") };
