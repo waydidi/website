@@ -149,6 +149,13 @@ async function replyReady(tabId) {
   var r = await replyCall({ action: "ready", id: entry.id });
   return { ok: r.status === 200, off: r.status === 409 && r.data && r.data.error === "off", message: r.status === 200 ? "" : replyProblem(r.status) };
 }
+/** Chrome cannot send this comment itself (the QR picture could not be added): the team is told in Telegram. */
+async function replyHand(tabId, reason) {
+  var entry = (await replyTabs())[tabId];
+  if (!entry || reason !== "qr") return { ok: false };
+  var r = await replyCall({ action: "needs_hand", id: entry.id, reason: reason });
+  return { ok: r.status === 200 };
+}
 async function replyStatus(tabId) {
   var entry = (await replyTabs())[tabId];
   if (!entry) return { ok: false };
@@ -184,6 +191,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   else if (message.type === "reply-draft" && tabId !== undefined) job = replyDraft(tabId, typeof message.id === "string" ? message.id : "");
   else if (message.type === "reply-ready" && tabId !== undefined) job = replyReady(tabId);
   else if (message.type === "reply-status" && tabId !== undefined) job = replyStatus(tabId);
+  else if (message.type === "reply-hand" && tabId !== undefined) job = replyHand(tabId, message.reason);
   else if (message.type === "reply-sending" && tabId !== undefined) job = replySending(tabId);
   else if (message.type === "reply-done" && tabId !== undefined && (message.action === "posted" || message.action === "skipped" || message.action === "auto_failed")) job = replyDone(tabId, message.action).then(function () { return { ok: true }; });
   if (!job) return;

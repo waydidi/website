@@ -209,6 +209,9 @@ test('send from Telegram: off unless the reply queue and its own switch are on; 
   assert.equal(r.parseLeadCallback(`fl_go:${id}x`), null);
   for (const action of ['ready', 'status']) { assert.deepEqual(r.readReplyRequest({ action, id }), { action, id }); assert.ok('error' in r.readReplyRequest({ action }), `${action} needs an id`); }
   assert.ok('error' in r.readReplyRequest({ action: 'approved' }), 'the old approved queue is gone');
+  assert.deepEqual(r.readReplyRequest({ action: 'needs_hand', id, reason: 'qr' }), { action: 'needs_hand', id, reason: 'qr' });
+  assert.ok('error' in r.readReplyRequest({ action: 'needs_hand', id, reason: 'x' }));
+  assert.ok('error' in r.readReplyRequest({ action: 'needs_hand', reason: 'qr' }));
   assert.deepEqual(r.readReplyRequest({ action: 'auto_failed', id }), { action: 'auto_failed', id });
   assert.ok('error' in r.readReplyRequest({ action: 'auto_failed' }));
 });

@@ -534,3 +534,42 @@ test('Chrome could not send after ส่ง Comment: approval cleared, the team 
   await fl.handleLeadApprove(id, team, 'q', '-200', 1, at(1));
   assert.match(answers().at(-1), /ตอนนี้ส่งลีดนี้ไม่ได้/, 'not retried by an old button');
 });
+
+test('QR could not be added (send from Telegram): the team is told under the lead, once per tab, no ส่ง Comment; then Posted shows', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+  await sentLeads(1);
+  const { id } = (await fl.replyQueue({ action: 'next' }, now)).lead;
+  tgCalls.length = 0;
+  assert.deepEqual(await fl.replyQueue({ action: 'needs_hand', id, reason: 'qr' }, now), { error: 'off' }, 'off while send from Telegram is off');
+  assert.equal(sends().length, 0);
+  env.FB_LEADS_AUTO_POST_ENABLED = 'true';
+  assert.deepEqual(await fl.replyQueue({ action: 'needs_hand', id, reason: 'qr' }, now), { done: 'notified' });
+  const row = await lead(1);
+  const m = sends()[0].body;
+  assert.equal(sends().length, 1);
+  assert.equal(m.reply_parameters.message_id, row.link_message_id, 'a reply to the lead');
+  assert.match(m.text, /⚠️ <b>แนบรูป QR ใน Chrome ไม่ได้<\/b> Chrome จะไม่ส่งเอง · Thai Travel/);
+  assert.match(m.text, /กรุณาแนบรูป QR เองแล้วกดโพสต์บน Facebook/);
+  assert.deepEqual(m.reply_markup?.inline_keyboard ?? [], [], 'no buttons: nothing for Chrome to send');
+  assert.equal(row.ready_message_id, 1);
+  // The same tab reports again: the same message is updated, not a second one.
+  assert.deepEqual(await fl.replyQueue({ action: 'needs_hand', id, reason: 'qr' }, at(1)), { done: 'notified' });
+  assert.equal(sends().length, 1);
+  // ส่ง Comment cannot be tapped for it (there is no such button, and a crafted tap is refused).
+  await fl.handleLeadApprove(id, team, 'q', '-200', 1, at(1));
+  assert.equal((await lead(1)).post_approved_at, row.post_approved_at);
+  // The person adds the QR and posts: the same message now says it was posted.
+  await fl.replyQueue({ action: 'posted', id }, at(2));
+  assert.match(edits().at(-1).body.text, /✅ <b>โพสต์บน Facebook แล้ว<\/b> จาก Chrome/);
+  assert.equal(sends().length, 1, 'no extra Posted message: the same one is updated');
+});
+
+test('needs_hand: only for a lead open in a tab', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true'; env.FB_LEADS_AUTO_POST_ENABLED = 'true';
+  await sentLeads(1);
+  const id = (await lead(1)).id;
+  tgCalls.length = 0;
+  assert.deepEqual(await fl.replyQueue({ action: 'needs_hand', id, reason: 'qr' }, now), { error: 'already_marked' }, 'not opened in any tab');
+  assert.equal(sends().length, 0);
+  assert.equal((await replyCall({ action: 'needs_hand', id, reason: 'other' })).status, 400, 'unknown reason refused');
+});
