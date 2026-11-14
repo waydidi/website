@@ -139,7 +139,9 @@ Off until the owner sets `FB_LEADS_REPLY_QUEUE_ENABLED=true` on the website. Cli
 2. The draft is put in the post's comment box, and a small **Waydidi** bar appears at the bottom right.
 3. Read it, change it if needed, then press **Post on Facebook yourself**. The extension never presses Post, Enter or any
    Facebook button.
-4. When your comment appears (a new comment by one of the names in Settings), the lead is marked **Posted** in Telegram,
+4. When your comment appears (a new comment by one of the names in Settings, or one that starts with the same words as
+   the draft, whatever Facebook name you post from), the lead is marked **Posted** and a "Posted on Facebook" message
+   is sent in Telegram as a reply to the lead,
    the tab closes, and the next lead opens after the pause between comments. You can also tap **Posted** or **Skip** in
    the bar (for example if your name in Settings is spelled differently on Facebook).
 5. **Stop queue** in the bar or **Stop** in the popup ends it. Closing a reply tab yourself hands that lead back and

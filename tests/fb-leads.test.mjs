@@ -362,6 +362,12 @@ test('reply queue: posted marks the lead like the Telegram button, once; Telegra
   const edit = tgCalls.find((c) => c.method === 'editMessageText');
   assert.match(edit.body.text, /Posted<\/b> by Chrome extension/);
   assert.deepEqual(edit.body.reply_markup.inline_keyboard, [], 'buttons removed');
+  // A new message under the lead too, once, so the team notices (an edit to an older message is easy to miss).
+  const notices = tgCalls.filter((c) => c.method === 'sendMessage');
+  assert.equal(notices.length, 1, 'one notice for one posted comment');
+  assert.equal(notices[0].body.chat_id, '-200');
+  assert.match(notices[0].body.text, /✅ <b>Posted on Facebook<\/b> from Chrome · Thai Travel\nhttps:\/\/www\.facebook\.com\/groups\/thaitravel\/posts\/1000001\//);
+  assert.equal(notices[0].body.reply_parameters.message_id, row.link_message_id, 'a reply to the lead');
   assert.equal((await replyCall({ action: 'skipped', id })).status, 409, 'a later mark is refused');
   tgCalls.length = 0;
   await fl.handleLeadCallback('skipped', id, { name: 'Ann', telegramUserId: '7' }, 'q1', '-200', 102);
@@ -398,6 +404,7 @@ test('reply queue: release hands the lead back at once; skipped closes it', asyn
   assert.equal((await fl.replyQueue({ action: 'next' }, now)).lead.id, id);
   assert.deepEqual(await fl.replyQueue({ action: 'skipped', id }, now), { done: 'skipped' });
   assert.equal((await lead(1)).status, 'skipped');
+  assert.equal(tgCalls.filter((c) => c.method === 'sendMessage').length, 0, 'a skip sends no new message');
   assert.equal((await fl.replyQueue({ action: 'next' }, at(20))).wait, 'empty');
 });
 

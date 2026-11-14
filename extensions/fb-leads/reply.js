@@ -69,13 +69,14 @@
       { text: "Skip", run: function () { done("skipped"); } },
       { text: "Stop queue", run: stop },
     ];
-    var box = null, baseline = 0, waited = 0, sendBy = 0;
+    var box = null, baseline = 0, waited = 0, sendBy = 0, lastText = "", likeBase = 0;
 
     // Approved in Telegram ("Post to Facebook"): put the comment in, wait a few seconds like a person, press send, and
     // report Posted only once the comment shows on the page. Anything unexpected is reported as failed (the team is
     // told in Telegram to post it by hand); it is never retried by itself.
     function autoPost(filled) {
-      if (baseline > 0) return done("posted"); // a Waydidi comment is already here (an earlier try did post): never twice
+      // A Waydidi comment, or one with these words, is already here (an earlier try did post): never twice.
+      if (baseline > 0 || window.WaydidiLeads.commentsLike(document, lead.comment) > 0) return done("posted");
       if (filled !== "filled") return done("auto_failed");
       bar("Posting the comment approved in Telegram…", [{ text: "Stop", run: stop }]);
       setTimeout(function () {
@@ -89,10 +90,13 @@
       box = window.WaydidiLeads.findCommentBox(document);
       if (!box) return false;
       baseline = window.WaydidiLeads.ourComments(document, names, box);
-      var r = window.WaydidiLeads.fillComment(document, box, lead.comment);
-      if (lead.auto) autoPost(r);
-      else if (r === "filled") bar("The draft is in the comment box. Read it, change it if needed, then press Post on Facebook yourself.", common);
-      else bar(r === "busy" ? "The comment box already has text, so the draft was not added." : "The draft could not be added here.", [{ text: "Copy draft", main: true, run: copy }].concat(common));
+      // Filled once only: box is set above, so the timer below never tries again while the editor is still writing.
+      window.WaydidiLeads.fillComment(document, box, lead.comment).then(function (r) {
+        if (finished) return;
+        if (lead.auto) autoPost(r);
+        else if (r === "filled") bar("The draft is in the comment box. Read it, change it if needed, then press Post on Facebook yourself.", common);
+        else bar(r === "busy" ? "The comment box already has text, so the draft was not added." : "The draft could not be added here.", [{ text: "Copy draft", main: true, run: copy }].concat(common));
+      });
       return true;
     }
     function copy() {
@@ -111,8 +115,14 @@
         if (waited >= FIND_MS) bar("No comment box found on this page (comments may be off).", [{ text: "Copy draft", main: true, run: copy }].concat(common));
         return;
       }
-      // A new comment by a Waydidi name since the draft was added: the person pressed Post.
+      // What is in the comment box now (the person may have edited the draft). Facebook may redraw the box, so it is
+      // looked up again; once the comment is sent the box is empty and the last text seen is kept.
+      var now = window.WaydidiLeads.findCommentBox(document) || box, text = (now.textContent || "").trim();
+      if (text && text !== lastText) { lastText = text; likeBase = window.WaydidiLeads.commentsLike(document, text); }
+      // Posted: a new comment by a Waydidi name, or a new comment starting with the same words as the draft (whatever
+      // Facebook name it was posted under, so a staff member's own profile works too).
       if (window.WaydidiLeads.ourComments(document, names, box) > baseline) return done("posted");
+      if (lastText && window.WaydidiLeads.commentsLike(document, lastText) > likeBase) return done("posted");
       if (sendBy && Date.now() > sendBy) done("auto_failed"); // sent, but the comment never appeared
     }, WATCH_MS);
   });

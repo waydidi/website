@@ -8,7 +8,7 @@ import path from "node:path";
 const REPLIER = path.join(process.cwd(), "extensions", "fb-leads", "replier.js");
 type Helpers = {
   findCommentBox: (d: Document) => HTMLElement | null;
-  fillComment: (d: Document, box: HTMLElement, text: string) => string;
+  fillComment: (d: Document, box: HTMLElement, text: string) => Promise<string>;
   ourComments: (d: Document, names: string[], box: HTMLElement | null) => number;
 };
 
@@ -55,7 +55,7 @@ test("finds the visible comment box, not the search box", async ({ page }) => {
 
 test("puts the draft in Facebook's editor as a paste, line breaks kept, and never presses Post or Enter", async ({ page }) => {
   await load(page, postPage({ pasteAware: true }));
-  const out = await page.evaluate(`(() => { const h = window.WaydidiLeads, box = h.findCommentBox(document); return { r: h.fillComment(document, box, ${JSON.stringify(DRAFT)}), text: box.innerText, pressed: window.pressed }; })()`) as { r: string; text: string; pressed: string[] };
+  const out = await page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); return { r: await h.fillComment(document, box, ${JSON.stringify(DRAFT)}), text: box.innerText, pressed: window.pressed }; })()`) as { r: string; text: string; pressed: string[] };
   expect(out.r).toBe("filled");
   expect(out.text).toBe(DRAFT);
   expect(out.pressed).toEqual([]);
@@ -63,7 +63,7 @@ test("puts the draft in Facebook's editor as a paste, line breaks kept, and neve
 
 test("an editor that ignores the paste gets the text typed in, line breaks as spaces (a typed line break can send)", async ({ page }) => {
   await load(page, postPage());
-  const out = await page.evaluate(`(() => { const h = window.WaydidiLeads, box = h.findCommentBox(document); return { r: h.fillComment(document, box, ${JSON.stringify(DRAFT)}), text: box.textContent, pressed: window.pressed }; })()`) as { r: string; text: string; pressed: string[] };
+  const out = await page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); return { r: await h.fillComment(document, box, ${JSON.stringify(DRAFT)}), text: box.textContent, pressed: window.pressed }; })()`) as { r: string; text: string; pressed: string[] };
   expect(out.r).toBe("filled");
   expect(out.text).toBe(DRAFT.replace("\n", " "));
   expect(out.pressed).toEqual([]);
@@ -71,13 +71,13 @@ test("an editor that ignores the paste gets the text typed in, line breaks as sp
 
 test("a comment box that already has text is left alone", async ({ page }) => {
   await load(page, postPage({ pasteAware: true, boxText: "my own words" }));
-  const out = await page.evaluate(`(() => { const h = window.WaydidiLeads, box = h.findCommentBox(document); return { r: h.fillComment(document, box, "draft"), text: box.textContent }; })()`) as { r: string; text: string };
+  const out = await page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); return { r: await h.fillComment(document, box, "draft"), text: box.textContent }; })()`) as { r: string; text: string };
   expect(out).toEqual({ r: "busy", text: "my own words" });
 });
 
 test("counts comments by the Waydidi names only, never the post holding the draft, and notices a new one", async ({ page }) => {
   await load(page, postPage({ pasteAware: true, comments: comment("Someone Else", "Try Grab") + comment("Waydidi Travel", "We did this route yesterday") }));
-  const before = await page.evaluate(`(() => { const h = window.WaydidiLeads, box = h.findCommentBox(document); h.fillComment(document, box, "Waydidi Travel can help"); return h.ourComments(document, ["waydidi travel"], box); })()`);
+  const before = await page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); await h.fillComment(document, box, "Waydidi Travel can help"); return h.ourComments(document, ["waydidi travel"], box); })()`);
   expect(before).toBe(1);
   await page.evaluate((html) => { document.querySelector(".comments")!.insertAdjacentHTML("beforeend", html); }, comment("Waydidi Travel", "Waydidi Travel can help"));
   expect(await page.evaluate(`window.WaydidiLeads.ourComments(document, ["Waydidi Travel"], window.WaydidiLeads.findCommentBox(document))`)).toBe(2);
@@ -85,7 +85,7 @@ test("counts comments by the Waydidi names only, never the post holding the draf
 });
 
 // Only for a comment approved in Telegram: submitComment presses the send button in the box's own composer.
-const submit = (page: Page) => page.evaluate(`(() => { const h = window.WaydidiLeads, box = h.findCommentBox(document); h.fillComment(document, box, "Waydidi Travel can help"); return { how: h.submitComment(document, box), pressed: window.pressed }; })()`) as Promise<{ how: string; pressed: string[] }>;
+const submit = (page: Page) => page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); await h.fillComment(document, box, "Waydidi Travel can help"); return { how: h.submitComment(document, box), pressed: window.pressed }; })()`) as Promise<{ how: string; pressed: string[] }>;
 
 test("submitComment presses the send button of this comment box only", async ({ page }) => {
   // Another post's composer, with its own send button, comes first on the page: it must not be pressed.
@@ -111,4 +111,41 @@ test("a disabled send button is not pressed", async ({ page }) => {
   const out = await submit(page);
   expect(out.how).toBe("enter");
   expect(out.pressed).toEqual(["enter"]);
+});
+
+test("Facebook's editor writes a paste a moment later: the draft goes in once, never twice", async ({ page }) => {
+  // Like Facebook: the editor takes the paste (cancels the browser's own handling) and writes the text 300 ms later.
+  await load(page, postPage());
+  await page.evaluate(() => {
+    const b = document.querySelector('[aria-label="Write a public comment…"]') as HTMLElement;
+    b.addEventListener("paste", (e) => {
+      e.preventDefault();
+      const text = (e as ClipboardEvent).clipboardData?.getData("text/plain") ?? "";
+      setTimeout(() => { b.innerText = b.innerText.trim() ? b.innerText + text : text; }, 300);
+    });
+  });
+  const out = await page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); const r = await h.fillComment(document, box, ${JSON.stringify(DRAFT)}); await new Promise((ok) => setTimeout(ok, 500)); return { r, text: box.innerText, pressed: window.pressed }; })()`) as { r: string; text: string; pressed: string[] };
+  expect(out.r).toBe("filled");
+  expect(out.text).toBe(DRAFT);
+  expect(out.pressed).toEqual([]);
+});
+
+test("an editor that took the paste but never wrote it: failed, and nothing typed in instead", async ({ page }) => {
+  await load(page, postPage());
+  await page.evaluate(() => { document.querySelector('[aria-label="Write a public comment…"]')!.addEventListener("paste", (e) => e.preventDefault()); });
+  const out = await page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); return { r: await h.fillComment(document, box, "Hello there, Waydidi here"), text: box.textContent }; })()`) as { r: string; text: string };
+  expect(out).toEqual({ r: "failed", text: "" });
+});
+
+test("a posted comment is noticed by its words, whatever Facebook name posted it; the draft still in the box is not", async ({ page }) => {
+  const draft = "Hi! 😊 Since Clark Airport is in the Philippines, the private part of your trip starts in Bangkok.";
+  await load(page, postPage({ pasteAware: true, comments: comment("Someone Else", "Try Grab, it works fine") }));
+  const like = (text: string) => page.evaluate(`window.WaydidiLeads.commentsLike(document, ${JSON.stringify(text)})`);
+  await page.evaluate(`(async () => { const h = window.WaydidiLeads; await h.fillComment(document, h.findCommentBox(document), ${JSON.stringify(draft)}); })()`);
+  expect(await like(draft)).toBe(0); // only in the comment box so far
+  // Posted from a staff member's own profile; Facebook shows the emoji as a picture, so the text has none.
+  await page.evaluate((html) => { document.querySelector(".comments")!.insertAdjacentHTML("beforeend", html); },
+    comment("Non Staff", 'Hi! <img alt="😊" src="data:,"> Since Clark Airport is in the Philippines, the private part of your trip starts in Bangkok.'));
+  expect(await like(draft)).toBe(1);
+  expect(await like("Hi!")).toBe(0); // too short to tell
 });
