@@ -23,9 +23,8 @@
   var autoPost = document.getElementById("autoPost");
   autoPost.addEventListener("change", function () { chrome.storage.local.set({ autoPost: autoPost.checked }); });
   function renderReply() {
-    chrome.storage.local.get({ replyRun: {}, autoPost: false, autoProblem: "" }, function (s) {
+    chrome.storage.local.get({ replyRun: {}, autoPost: false }, function (s) {
       autoPost.checked = s.autoPost;
-      document.getElementById("autoProblem").textContent = s.autoPost ? s.autoProblem : "";
       var r = s.replyRun || {}, d = new Date(), two = function (x) { return String(x).padStart(2, "0"); };
       var today = d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
       replyStart.hidden = Boolean(r.active); replyStop.hidden = !r.active;

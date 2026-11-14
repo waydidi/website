@@ -15,7 +15,7 @@ checks it and presses Post. Nothing is posted by code. See `extensions/fb-leads/
 | `FB_LEADS_REPLY_QUEUE_ENABLED` | `true` | Off when empty. Turning it off hides the Open in Chrome button and the endpoint answers 404. |
 | `FB_LEADS_REPLY_DAILY_CAP` | `30` (1 to 100) | Comments posted per Thailand day, all browsers and Telegram Posted taps together. Start low (10 to 20) for the first week. |
 | `FB_LEADS_REPLY_GAP_MIN` | `3` (1 to 60) | Minutes between two posted comments. |
-| `FB_LEADS_AUTO_POST_ENABLED` | empty, later `true` | Post from Telegram: a "Post to Facebook" button; Chrome presses send for approved comments. Turn on only after the manual queue has run for a few days. |
+| `FB_LEADS_AUTO_POST_ENABLED` | empty, later `true` | Send from Telegram: after the draft is in Chrome, a message under the lead with **ส่ง Comment**; Chrome presses send 15 seconds after the tap. Turn on only after the manual queue has run for a few days. |
 
 No new Secret: the extension uses the existing `FB_LEADS_INGEST_TOKEN`.
 
@@ -32,14 +32,17 @@ No new Secret: the extension uses the existing `FB_LEADS_INGEST_TOKEN`.
    If the tab does not close, the name in Settings does not match the commenting account: fix it, or use the bar's
    Posted button.
 
-## Post from Telegram
+## Send from Telegram
 
 1. Set `FB_LEADS_AUTO_POST_ENABLED=true`.
-2. In one browser that stays open, tick **Post comments approved in Telegram** in the extension popup.
-3. Tap **Post to Facebook** under one draft. Within about a minute the post opens, the comment is sent, the tab closes,
-   and Telegram shows "Posted by Chrome extension".
-4. If Telegram instead says "Chrome couldn't post the comment", Facebook's page differs from the tested shape: post it
-   by hand, untick the box, and send the developer a page sample (popup → Copy page sample).
+2. In one browser that stays open, tick **Send from Telegram (ส่ง Comment)** in the extension popup (version 1.5.0), then
+   press **Start replying**.
+3. In Telegram, a message "วางคอมเมนต์ใน Chrome แล้ว รอส่ง" appears under the lead. Tap **ส่ง Comment**. 15 seconds later
+   the comment is sent, the message changes to "โพสต์บน Facebook แล้ว", the tab closes and the next lead opens.
+4. If the message instead says "Chrome ส่งคอมเมนต์ไม่ได้", Facebook's page differs from the tested shape: post it by hand,
+   untick the box, and send the developer a page sample (popup → Copy page sample).
+
+Database: `drizzle/0124_fb_leads_send_from_telegram.sql` adds one column (`ready_message_id`); the Worker adds it on first use.
 
 ## Turning it off
 

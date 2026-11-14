@@ -198,7 +198,7 @@ test('reply queue requests: next (optionally one lead), or a lead id with posted
   assert.equal(r.replyTabUrl('https://www.facebook.com/groups/g/posts/123456/', id), `https://www.facebook.com/groups/g/posts/123456/#waydidi-reply=${id}`);
 });
 
-test('post from Telegram: off unless the reply queue and its own switch are on; its button and requests are read', () => {
+test('send from Telegram: off unless the reply queue and its own switch are on; its button and requests are read', () => {
   const on = { FB_LEADS_ENABLED: 'true', FB_LEADS_INGEST_TOKEN: token, TELEGRAM_COMMENT_CHAT_ID: '-1', FB_LEADS_REPLY_QUEUE_ENABLED: 'true' };
   assert.equal(r.autoPostEnabled(on), false);
   assert.equal(r.autoPostEnabled({ ...on, FB_LEADS_REPLY_QUEUE_ENABLED: '', FB_LEADS_AUTO_POST_ENABLED: 'true' }), false, 'needs the reply queue on');
@@ -207,7 +207,8 @@ test('post from Telegram: off unless the reply queue and its own switch are on; 
   assert.deepEqual(r.parseLeadCallback(`fl_go:${id}`), { action: 'approve', id });
   assert.deepEqual(r.parseLeadCallback(`fl_posted:${id}`), { action: 'posted', id });
   assert.equal(r.parseLeadCallback(`fl_go:${id}x`), null);
-  assert.deepEqual(r.readReplyRequest({ action: 'approved' }), { action: 'approved' });
+  for (const action of ['ready', 'status']) { assert.deepEqual(r.readReplyRequest({ action, id }), { action, id }); assert.ok('error' in r.readReplyRequest({ action }), `${action} needs an id`); }
+  assert.ok('error' in r.readReplyRequest({ action: 'approved' }), 'the old approved queue is gone');
   assert.deepEqual(r.readReplyRequest({ action: 'auto_failed', id }), { action: 'auto_failed', id });
   assert.ok('error' in r.readReplyRequest({ action: 'auto_failed' }));
 });
