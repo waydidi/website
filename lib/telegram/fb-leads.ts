@@ -315,7 +315,14 @@ export async function replyQueue(req: ReplyRequest, now = new Date()): Promise<R
   if (req.action === "posted" || req.action === "skipped") {
     const { changed, lead } = await markLead(req.action, req.id, EXTENSION, now);
     if (!lead) return { error: "not_found" };
-    return changed ? { done: req.action } : { error: "already_marked" };
+    if (!changed) return { error: "already_marked" };
+    // A comment posted from Chrome gets a new message under the lead, so the team sees it (an edit to an older message
+    // is easy to miss). A skip stays quiet.
+    if (req.action === "posted") {
+      await sendTo(telegramCommentChatId(), `✅ <b>Posted on Facebook</b> from Chrome · ${esc(lead.group_name)}\n${esc(lead.post_url)}`, undefined, lead.link_message_id ?? undefined)
+        .catch((error) => console.error("fb lead posted notice failed", error instanceof Error ? error.message : "unknown"));
+    }
+    return { done: req.action };
   }
   if (req.action === "auto_failed") {
     // Chrome could not post it (no comment box, or the comment never appeared). The approval is cleared, so it is

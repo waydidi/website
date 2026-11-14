@@ -136,3 +136,16 @@ test("an editor that took the paste but never wrote it: failed, and nothing type
   const out = await page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); return { r: await h.fillComment(document, box, "Hello there, Waydidi here"), text: box.textContent }; })()`) as { r: string; text: string };
   expect(out).toEqual({ r: "failed", text: "" });
 });
+
+test("a posted comment is noticed by its words, whatever Facebook name posted it; the draft still in the box is not", async ({ page }) => {
+  const draft = "Hi! 😊 Since Clark Airport is in the Philippines, the private part of your trip starts in Bangkok.";
+  await load(page, postPage({ pasteAware: true, comments: comment("Someone Else", "Try Grab, it works fine") }));
+  const like = (text: string) => page.evaluate(`window.WaydidiLeads.commentsLike(document, ${JSON.stringify(text)})`);
+  await page.evaluate(`(async () => { const h = window.WaydidiLeads; await h.fillComment(document, h.findCommentBox(document), ${JSON.stringify(draft)}); })()`);
+  expect(await like(draft)).toBe(0); // only in the comment box so far
+  // Posted from a staff member's own profile; Facebook shows the emoji as a picture, so the text has none.
+  await page.evaluate((html) => { document.querySelector(".comments")!.insertAdjacentHTML("beforeend", html); },
+    comment("Non Staff", 'Hi! <img alt="😊" src="data:,"> Since Clark Airport is in the Philippines, the private part of your trip starts in Bangkok.'));
+  expect(await like(draft)).toBe(1);
+  expect(await like("Hi!")).toBe(0); // too short to tell
+});

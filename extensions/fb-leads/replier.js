@@ -74,6 +74,26 @@
     return count;
   }
 
+  /** Letters and digits only (emoji, punctuation and spaces dropped): Facebook shows emoji as pictures with no text. */
+  function letters(s) { return String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ""); }
+
+  /**
+   * How many comments on the page start with the same words as `text` (its first 30 letters and digits), by anyone.
+   * This notices a posted comment whatever Facebook name it was posted under. Only innermost articles count, and never
+   * one holding a comment box (the draft still waiting in the box is not a posted comment).
+   */
+  function commentsLike(doc, text) {
+    var want = letters(text).slice(0, 30), count = 0;
+    if (want.length < 15) return 0;
+    var list = doc.querySelectorAll('[role="article"]');
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      if (c.querySelector('[role="article"]') || c.querySelector('[contenteditable="true"]')) continue;
+      if (letters(c.textContent).indexOf(want) !== -1) count++;
+    }
+    return count;
+  }
+
   var SEND_LABEL = /^(comment|post|post comment|send|reply|แสดงความคิดเห็น|ความคิดเห็น|ส่ง|โพสต์|ตอบกลับ|评论|发布|发送|回复|留言)$/i;
 
   /**
@@ -100,5 +120,5 @@
     return "enter";
   }
 
-  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findCommentBox: findCommentBox, fillComment: fillComment, ourComments: ourComments, submitComment: submitComment });
+  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findCommentBox: findCommentBox, fillComment: fillComment, ourComments: ourComments, commentsLike: commentsLike, submitComment: submitComment });
 })(typeof window !== "undefined" ? window : globalThis);
