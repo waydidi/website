@@ -157,25 +157,28 @@ whoever presses Post, so keep these limits low and stop if Facebook warns the ac
 
 If the comment box is not found (comments turned off, or Facebook changed the page), the bar offers **Copy draft**.
 
-## Post from Telegram (the extension presses Post)
+## Send from Telegram (ส่ง Comment, the extension presses send)
 
-Off until the owner sets `FB_LEADS_AUTO_POST_ENABLED=true` (the reply queue must be on too). Ready drafts in Telegram
-then also get a **Post to Facebook** button. Only people on the Waydidi Telegram team can use it.
+Off until the owner sets `FB_LEADS_AUTO_POST_ENABLED=true` (the reply queue must be on too).
 
-1. In the popup, tick **Post comments approved in Telegram**. Keep this browser open and signed in to the Facebook
-   account that comments (one browser is enough).
-2. Someone taps **Post to Facebook** under a draft. Telegram shows "Approved by …".
-3. Within about a minute this browser opens the post in a new tab, puts the comment in, waits 3 to 6 seconds, and
-   presses Facebook's send button (or Enter in the comment box).
-4. Once the comment shows on the page, the lead is marked Posted and the tab closes.
+1. In the popup, tick **Send from Telegram (ส่ง Comment)**, then press **Start replying**. Keep this browser open and
+   signed in to the Facebook account that comments.
+2. The next lead opens and the draft is put in the comment box, as in the reply queue.
+3. The Comment group in Telegram gets a message under that lead: "วางคอมเมนต์ใน Chrome แล้ว รอส่ง", the comment, and
+   two buttons, **ส่ง Comment** and **ข้าม**. Only people on the Waydidi Telegram team can use ส่ง Comment.
+4. When someone taps **ส่ง Comment**, Chrome waits **15 seconds** and presses Facebook's send button (or Enter in the
+   comment box).
+5. Once the comment shows on the page, the same Telegram message changes to "โพสต์บน Facebook แล้ว", the tab closes, and
+   the next lead opens after the pause between comments.
 
-It never posts the same comment twice: if a Waydidi comment is already on the post, it is only marked Posted. If it
-cannot post (no comment box, the comment does not appear within 30 seconds, you close the tab or press Stop), the
-approval is cleared, nothing is retried, and the Comment group gets "Chrome couldn't post the comment… please post it by
-hand". Stop in the bar also unticks the box. The daily cap and the gap between comments still apply.
+While it waits you can still press Post on Facebook yourself. **ข้าม** in Telegram closes the tab and moves on. If
+Chrome cannot send after the tap (the comment does not appear within 30 seconds, you close the tab or press Stop), the
+message changes to "Chrome ส่งคอมเมนต์ไม่ได้ กรุณาโพสต์เอง" and nothing is retried. Closing the tab before the tap hands
+the lead back to the queue. It never posts the same comment twice: if a Waydidi comment, or one with the same words, is
+already on the post, it is only marked Posted. The daily cap and the gap between comments still apply.
 
-This is the part of the extension Facebook is most likely to notice: a script pressing send. Approve only comments
-you have read, keep the cap low, and untick the box if Facebook warns the account.
+This is the part of the extension Facebook is most likely to notice: a script pressing send. Tap ส่ง Comment only for
+comments you have read, keep the cap low, and untick the box if Facebook warns the account.
 
 ## Limits
 

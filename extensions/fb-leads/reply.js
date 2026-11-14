@@ -1,8 +1,9 @@
 // Reply queue, inside a Facebook post tab the extension opened (or opened from the Telegram "Open in Chrome" button).
 // It asks background.js for the drafted comment, puts it in the comment box and shows a small Waydidi bar. A person
-// reads and edits the draft and presses Facebook's own Post button. The one exception is a comment a team member
-// approved in Telegram with "Post to Facebook" (lead.auto): then this script presses send itself. When a new comment by
-// one of the Waydidi names appears, it tells background.js, which marks the lead Posted and closes the tab.
+// reads and edits the draft and presses Facebook's own Post button. The one exception is "Send from Telegram"
+// (lead.auto): the team gets a message under the lead with ส่ง Comment, and 15 seconds after a team member taps it this
+// script presses send itself. When the comment appears (by a Waydidi name, or with the same words), it tells
+// background.js, which marks the lead Posted and closes the tab.
 (function () {
   "use strict";
   if (window.__waydidiReply) return;
@@ -11,7 +12,7 @@
   // Read now (run_at document_start): Facebook may rewrite the address once its page starts.
   var hash = /#waydidi-reply=([a-f0-9]{16})/.exec(location.hash || "");
   var hashId = hash ? hash[1] : "";
-  var FIND_MS = 20000, WATCH_MS = 1500, POSTED_MS = 30000;
+  var FIND_MS = 20000, WATCH_MS = 1500, POSTED_MS = 30000, POLL_MS = 4000, SEND_DELAY_MS = 15000; // 15 s after ส่ง Comment (owner choice)
 
   function ask(message) {
     return chrome.runtime.sendMessage(message).catch(function () { return null; });
@@ -71,19 +72,41 @@
     ];
     var box = null, baseline = 0, waited = 0, sendBy = 0, lastText = "", likeBase = 0;
 
-    // Approved in Telegram ("Post to Facebook"): put the comment in, wait a few seconds like a person, press send, and
-    // report Posted only once the comment shows on the page. Anything unexpected is reported as failed (the team is
-    // told in Telegram to post it by hand); it is never retried by itself.
-    function autoPost(filled) {
+    // Send from Telegram (the popup's "Send from Telegram" box): once the comment is in the box, the team gets a message
+    // under the lead with ส่ง Comment, and this tab asks every few seconds whether someone tapped it. After the tap it
+    // waits SEND_DELAY_MS, presses send, and reports Posted only once the comment shows on the page. Anything that goes
+    // wrong after the tap is reported as failed (the team is told to post it by hand); it is never retried by itself.
+    // Until the tap, pressing Post on Facebook yourself works as usual.
+    function sendFromTelegram(filled) {
       // A Waydidi comment, or one with these words, is already here (an earlier try did post): never twice.
       if (baseline > 0 || window.WaydidiLeads.commentsLike(document, lead.comment) > 0) return done("posted");
-      if (filled !== "filled") return done("auto_failed");
-      bar("Posting the comment approved in Telegram…", [{ text: "Stop", run: stop }]);
-      setTimeout(function () {
+      if (filled !== "filled") return manualBar(filled);
+      ask({ type: "reply-ready" }).then(function (r) {
         if (finished) return;
-        if (window.WaydidiLeads.submitComment(document, box) === "none") return done("auto_failed");
-        sendBy = Date.now() + POSTED_MS;
-      }, 3000 + Math.random() * 3000);
+        if (!r || !r.ok) return bar(r && r.off ? "Sending from Telegram is switched off on the website. Press Post on Facebook yourself." : "Telegram could not be told. Press Post on Facebook yourself.", common);
+        bar("Waiting for ส่ง Comment in Telegram. You can also press Post on Facebook yourself.", common);
+        var poll = setInterval(function () {
+          if (finished) return clearInterval(poll);
+          ask({ type: "reply-status" }).then(function (s) {
+            if (finished || !s || !s.ok) return;
+            // Someone tapped Posted or Skip (ข้าม) in Telegram instead: nothing to send here.
+            if (s.status !== "sent") { clearInterval(poll); return done(s.status === "posted" ? "posted" : "skipped"); }
+            if (!s.approved) return;
+            clearInterval(poll);
+            ask({ type: "reply-sending" });
+            bar("ส่ง Comment was tapped. Sending in " + SEND_DELAY_MS / 1000 + " seconds…", [{ text: "Stop", run: stop }]);
+            setTimeout(function () {
+              if (finished) return;
+              if (window.WaydidiLeads.submitComment(document, window.WaydidiLeads.findCommentBox(document) || box) === "none") return done("auto_failed");
+              sendBy = Date.now() + POSTED_MS;
+            }, SEND_DELAY_MS);
+          });
+        }, POLL_MS);
+      });
+    }
+    function manualBar(r) {
+      if (r === "filled") bar("The draft is in the comment box. Read it, change it if needed, then press Post on Facebook yourself.", common);
+      else bar(r === "busy" ? "The comment box already has text, so the draft was not added." : "The draft could not be added here.", [{ text: "Copy draft", main: true, run: copy }].concat(common));
     }
 
     function fill() {
@@ -93,9 +116,8 @@
       // Filled once only: box is set above, so the timer below never tries again while the editor is still writing.
       window.WaydidiLeads.fillComment(document, box, lead.comment).then(function (r) {
         if (finished) return;
-        if (lead.auto) autoPost(r);
-        else if (r === "filled") bar("The draft is in the comment box. Read it, change it if needed, then press Post on Facebook yourself.", common);
-        else bar(r === "busy" ? "The comment box already has text, so the draft was not added." : "The draft could not be added here.", [{ text: "Copy draft", main: true, run: copy }].concat(common));
+        if (lead.auto) sendFromTelegram(r);
+        else manualBar(r);
       });
       return true;
     }
@@ -111,7 +133,6 @@
       if (!box) {
         if (fill()) return;
         waited += WATCH_MS;
-        if (waited >= FIND_MS && lead.auto) return done("auto_failed");
         if (waited >= FIND_MS) bar("No comment box found on this page (comments may be off).", [{ text: "Copy draft", main: true, run: copy }].concat(common));
         return;
       }

@@ -423,77 +423,114 @@ test('reply queue: Telegram shows Open in Chrome only while the queue is on, and
   assert.equal(s.sent[5].keyboard.length, 1, 'not ready to post: no Open in Chrome');
 });
 
-// ---- Post from Telegram: a team member approves one comment; the extension posts it. ----
+// ---- Send from Telegram: the comment waits in Chrome; a team member taps ส่ง Comment; Chrome sends it 15 s later. ----
 const team = { name: 'Ann', telegramUserId: '7', isTeam: true };
 const answers = () => tgCalls.filter((c) => c.method === 'answerCallbackQuery').map((c) => c.body.text);
-
-test('Post to Facebook: off by default; only the team can approve; the first tap wins and Telegram shows who', async () => {
-  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+const sends = () => tgCalls.filter((c) => c.method === 'sendMessage');
+const edits = () => tgCalls.filter((c) => c.method === 'editMessageText');
+/** One lead opened in a tab, its comment in the box, and Telegram told (ready). */
+async function waitingLead() {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true'; env.FB_LEADS_AUTO_POST_ENABLED = 'true';
   await sentLeads(1);
-  const id = (await lead(1)).id;
-  await fl.handleLeadApprove(id, team, 'q0', '-200', 102, now);
-  assert.match(answers()[0], /switched off/);
-  env.FB_LEADS_AUTO_POST_ENABLED = 'true';
-  await fl.handleLeadApprove(id, { name: 'Stranger', telegramUserId: '99', isTeam: false }, 'q1', '-200', 102, now);
-  assert.match(answers()[1], /Only the Waydidi team/);
-  assert.equal((await lead(1)).post_approved_at, null, 'a refused tap changes nothing');
-  await Promise.all([fl.handleLeadApprove(id, team, 'q2', '-200', 102, now), fl.handleLeadApprove(id, { ...team, name: 'Bo' }, 'q3', '-200', 102, now)]);
+  const { id } = (await fl.replyQueue({ action: 'next' }, now)).lead;
+  tgCalls.length = 0;
+  assert.deepEqual(await fl.replyQueue({ action: 'ready', id }, now), { done: 'ready' });
+  return id;
+}
+
+test('ready: once the comment is in the box, the team gets a message under the lead with ส่ง Comment and ข้าม', async () => {
+  const id = await waitingLead();
   const row = await lead(1);
-  assert.ok(row.post_approved_by === 'Ann' || row.post_approved_by === 'Bo');
-  assert.equal(answers().filter((t) => /^Approved/.test(t)).length, 1, 'approved once');
-  assert.equal(answers().filter((t) => /Already approved by/.test(t)).length, 1);
-  const edit = tgCalls.find((c) => c.method === 'editMessageText');
-  assert.match(edit.body.text, /⏳ Approved by (Ann|Bo) · Chrome will post it/);
-  assert.ok(!JSON.stringify(edit.body.reply_markup).includes('fl_go'), 'the Post to Facebook button is gone once approved');
-  assert.ok(JSON.stringify(edit.body.reply_markup).includes('fl_skip'), 'Skip is still there to cancel');
+  assert.equal(sends().length, 1);
+  const m = sends()[0].body;
+  assert.equal(m.chat_id, '-200');
+  assert.equal(m.reply_parameters.message_id, row.link_message_id, 'a reply to the lead');
+  assert.match(m.text, /📝 <b>วางคอมเมนต์ใน Chrome แล้ว รอส่ง<\/b> · Thai Travel/);
+  assert.match(m.text, /Take the train &amp; then a taxi &lt;3/, 'the comment itself, escaped');
+  assert.match(m.text, /Chrome จะส่งใน 15 วินาที/);
+  assert.deepEqual(m.reply_markup.inline_keyboard, [[{ text: 'ส่ง Comment', callback_data: `fl_go:${id}` }, { text: 'ข้าม', callback_data: `fl_skip:${id}` }]]);
+  assert.equal(row.ready_message_id, 1, 'the message id is kept (the fake Telegram answers 1)');
+  // The same tab reloaded: the same message is updated, not a second one.
+  assert.deepEqual(await fl.replyQueue({ action: 'ready', id }, at(1)), { done: 'ready' });
+  assert.equal(sends().length, 1);
+  assert.deepEqual(await fl.replyQueue({ action: 'status', id }, at(1)), { status: 'sent', approved: false });
 });
 
-test('Post to Facebook: a draft not ready to post cannot be approved, and gets no button', async () => {
-  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true'; env.FB_LEADS_AUTO_POST_ENABLED = 'true';
+test('ready and status: refused while send from Telegram is off, and the link message has no send button', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
   const s = sender();
   await fl.queueLeads([{ groupKey: 'thaitravel', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'Thai Travel' }], now, { sort: null });
-  await fl.processLeads({ draft: draftOf({ factCount: 0, replyType: 'info' }), send: s.send, now: () => now });
-  assert.ok(!JSON.stringify(s.sent[1].keyboard).includes('fl_go'));
-  await fl.handleLeadApprove((await lead(1)).id, team, 'q', '-200', 102, now);
-  assert.equal((await lead(1)).post_approved_at, null);
-  await fl.queueLeads([{ groupKey: 'thaitravel', postKey: '1000002', url: post(2).url, text: post(2).text, groupName: 'Thai Travel' }], now, { sort: null });
   await fl.processLeads({ draft: draftOf(), send: s.send, now: () => now });
-  assert.deepEqual(s.sent[3].keyboard.at(-1), [{ text: 'Post to Facebook', callback_data: `fl_go:${(await lead(2)).id}` }]);
+  const { id } = (await fl.replyQueue({ action: 'next' }, now)).lead;
+  assert.deepEqual(await fl.replyQueue({ action: 'ready', id }, now), { error: 'off' });
+  assert.equal((await replyCall({ action: 'status', id })).status, 409);
+  assert.equal(sends().length, 0, 'nothing sent to Telegram');
+  env.FB_LEADS_AUTO_POST_ENABLED = 'true';
+  assert.ok(!JSON.stringify(s.sent[1].keyboard).includes('fl_go'), 'ส่ง Comment is only on the waiting message, never on the lead itself');
 });
 
-test('approved comments go to the extension to post, oldest approval first, inside the cap and gap; the manual queue skips them', async () => {
-  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true'; env.FB_LEADS_AUTO_POST_ENABLED = 'true'; env.FB_LEADS_REPLY_GAP_MIN = '5';
-  await sentLeads(3);
-  const [a, b] = [(await lead(1)).id, (await lead(2)).id];
-  assert.equal((await fl.replyQueue({ action: 'approved' }, now)).wait, 'empty', 'nothing approved yet');
-  await fl.handleLeadApprove(b, team, 'q', '-200', 1, now);
-  await fl.handleLeadApprove(a, team, 'q', '-200', 1, at(1));
-  const manual = await fl.replyQueue({ action: 'next' }, at(1));
-  assert.equal(manual.lead.id, (await lead(3)).id, 'the manual queue never hands out an approved comment');
-  assert.ok(!manual.lead.auto);
-  const first = await fl.replyQueue({ action: 'approved' }, at(1));
-  assert.equal(first.lead.id, b); assert.equal(first.lead.auto, true);
-  const [p, q] = await Promise.all([fl.replyQueue({ action: 'approved' }, at(1)), fl.replyQueue({ action: 'approved' }, at(1))]);
-  assert.deepEqual([p.wait, q.wait], ['empty', 'empty'], 'one approved comment in flight at a time, across browsers');
-  await fl.replyQueue({ action: 'posted', id: b }, at(2));
-  assert.equal((await fl.replyQueue({ action: 'approved' }, at(3))).wait, 'gap');
-  assert.equal((await fl.replyQueue({ action: 'approved' }, at(8))).lead.id, a);
-});
-
-test('a comment Chrome could not post: approval cleared, never retried by itself, the team is told', async () => {
+test('ส่ง Comment: only the team, only while the comment waits in an open tab; the first tap wins; Chrome then sees it', async () => {
   env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true'; env.FB_LEADS_AUTO_POST_ENABLED = 'true';
   await sentLeads(1);
-  const id = (await lead(1)).id;
+  const early = (await lead(1)).id;
+  await fl.handleLeadApprove(early, team, 'q0', '-200', 1, now);
+  assert.match(answers()[0], /ตอนนี้ส่งลีดนี้ไม่ได้/, 'nothing waiting in Chrome yet');
+  assert.equal((await lead(1)).post_approved_at, null);
+  await db.prepare('DELETE FROM fb_leads').run();
+  const id = await waitingLead();
+  await fl.handleLeadApprove(id, { name: 'Stranger', telegramUserId: '99', isTeam: false }, 'q1', '-200', 1, now);
+  assert.match(answers().at(-1), /เฉพาะทีม Waydidi/);
+  assert.equal((await lead(1)).post_approved_at, null, 'a refused tap changes nothing');
+  await Promise.all([fl.handleLeadApprove(id, team, 'q2', '-200', 1, now), fl.handleLeadApprove(id, { ...team, name: 'Bo' }, 'q3', '-200', 1, now)]);
+  assert.equal(answers().filter((t) => /^กดส่งแล้ว Chrome จะส่งใน 15 วินาที/.test(t)).length, 1, 'approved once');
+  assert.equal(answers().filter((t) => /กดส่งไปแล้ว$/.test(t)).length, 1);
+  const edit = edits().at(-1).body;
+  assert.match(edit.text, /⏳ <b>(Ann|Bo) กดส่งแล้ว<\/b> · Chrome จะส่งใน 15 วินาที/);
+  assert.deepEqual(edit.reply_markup.inline_keyboard, [], 'buttons gone once tapped');
+  assert.deepEqual(await fl.replyQueue({ action: 'status', id }, at(1)), { status: 'sent', approved: true });
+  // Chrome sends it: the waiting message becomes "posted", and no extra message is added.
+  const before = sends().length;
+  assert.deepEqual(await fl.replyQueue({ action: 'posted', id }, at(1)), { done: 'posted' });
+  assert.equal(sends().length, before, 'the waiting message is updated instead of a new one');
+  assert.match(edits().at(-1).body.text, /✅ <b>โพสต์บน Facebook แล้ว<\/b> จาก Chrome · Thai Travel/);
+});
+
+test('a tab waiting for ส่ง Comment keeps its lead: asking for status renews the claim past 15 minutes', async () => {
+  const id = await waitingLead();
+  for (const min of [10, 20, 30]) assert.equal((await fl.replyQueue({ action: 'status', id }, at(min))).status, 'sent');
+  assert.equal((await fl.replyQueue({ action: 'next' }, at(40))).wait, 'empty', 'not handed to another tab');
+  await fl.handleLeadApprove(id, team, 'q', '-200', 1, at(40));
+  assert.equal((await fl.replyQueue({ action: 'status', id }, at(40))).approved, true);
+});
+
+test('ข้าม in Telegram while the comment waits: Chrome sees it was skipped; the waiting message says so', async () => {
+  const id = await waitingLead();
+  await fl.handleLeadCallback('skipped', id, { name: 'Ann', telegramUserId: '7' }, 'q', '-200', 1, at(1));
+  assert.deepEqual(await fl.replyQueue({ action: 'status', id }, at(1)), { status: 'skipped', approved: false });
+  assert.ok(edits().some((e) => /⏭ <b>ข้ามแล้ว<\/b>/.test(e.body.text)));
+});
+
+test('the tab closed before ส่ง Comment: the lead goes back to the queue; a later tap is refused', async () => {
+  const id = await waitingLead();
+  await fl.replyQueue({ action: 'release', id }, at(1));
+  assert.match(edits().at(-1).body.text, /⏹ <b>ปิดแท็บแล้ว ยังไม่ได้ส่ง<\/b> ลีดกลับเข้าคิว/);
+  await fl.handleLeadApprove(id, team, 'q', '-200', 1, at(1));
+  assert.match(answers().at(-1), /ตอนนี้ส่งลีดนี้ไม่ได้/);
+  const again = (await fl.replyQueue({ action: 'next' }, at(2))).lead;
+  assert.equal(again.id, id, 'back in the queue');
+  assert.equal((await lead(1)).ready_message_id, null, 'a new tab starts clean');
+});
+
+test('Chrome could not send after ส่ง Comment: approval cleared, the team is told on the same message, not retried', async () => {
+  const id = await waitingLead();
   await fl.handleLeadApprove(id, team, 'q', '-200', 1, now);
-  assert.ok((await fl.replyQueue({ action: 'approved' }, now)).lead);
   tgCalls.length = 0;
   const [x, y] = await Promise.all([replyCall({ action: 'auto_failed', id }), replyCall({ action: 'auto_failed', id })]);
   assert.deepEqual([x.status, y.status].sort(), [200, 409], 'reported once');
   const row = await lead(1);
-  assert.equal(row.status, 'sent'); assert.equal(row.post_approved_at, null); assert.equal(row.reply_claimed_at, null);
-  const note = tgCalls.find((c) => c.method === 'sendMessage');
-  assert.equal(note.body.chat_id, '-200');
-  assert.match(note.body.text, /couldn't post the comment for <b>Thai Travel<\/b>\. Please post it by hand\./);
-  assert.ok(JSON.stringify(tgCalls.find((c) => c.method === 'editMessageText').body.reply_markup).includes('fl_go'), 'Post to Facebook is offered again');
-  assert.equal((await fl.replyQueue({ action: 'approved' }, at(20))).wait, 'empty', 'not retried without a new tap');
+  assert.equal(row.status, 'sent'); assert.equal(row.post_approved_at, null); assert.equal(row.reply_claimed_at, null); assert.equal(row.ready_message_id, null);
+  assert.match(edits().at(-1).body.text, /⚠️ <b>Chrome ส่งคอมเมนต์ไม่ได้<\/b> กรุณาโพสต์เอง · Thai Travel/);
+  assert.equal(sends().length, 0, 'the waiting message is updated, no extra message');
+  await fl.handleLeadApprove(id, team, 'q', '-200', 1, at(1));
+  assert.match(answers().at(-1), /ตอนนี้ส่งลีดนี้ไม่ได้/, 'not retried by an old button');
 });

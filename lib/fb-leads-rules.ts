@@ -232,29 +232,28 @@ export function replyGapMin(raw: string | undefined) {
 }
 
 /**
- * Post from Telegram: a team member taps "Post to Facebook" under a draft, and the browser that has the extension
- * open posts that one comment (it presses Post itself). Off until FB_LEADS_AUTO_POST_ENABLED=true, on top of the
- * reply queue; the same daily cap and gap apply.
+ * Send from Telegram: the reply queue puts the comment in Chrome's comment box, the team gets a message under the lead
+ * with "ส่ง Comment", and after a team member taps it the extension presses send itself. Off until
+ * FB_LEADS_AUTO_POST_ENABLED=true, on top of the reply queue; the same daily cap and gap apply.
  */
 export function autoPostEnabled(vars: Parameters<typeof replyQueueEnabled>[0] & { FB_LEADS_AUTO_POST_ENABLED?: string }) {
   return replyQueueEnabled(vars) && String(vars.FB_LEADS_AUTO_POST_ENABLED ?? "").trim().toLowerCase() === "true";
 }
 
-export type ReplyAction = "next" | "approved" | "posted" | "skipped" | "release" | "auto_failed";
-export type ReplyRequest = { action: "next"; id?: string } | { action: "approved" } | { action: Exclude<ReplyAction, "next" | "approved">; id: string };
+export type ReplyAction = "next" | "ready" | "status" | "posted" | "skipped" | "release" | "auto_failed";
+export type ReplyRequest = { action: "next"; id?: string } | { action: Exclude<ReplyAction, "next">; id: string };
 const LEAD_ID = /^[a-f0-9]{16}$/;
 
 /**
- * The extension's request to the reply queue: {"action":"next"} (optionally with "id"), {"action":"approved"} (the next
- * comment approved in Telegram), or a lead id with posted / skipped / release / auto_failed.
+ * The extension's request to the reply queue: {"action":"next"} (optionally with "id"), or a lead id with
+ * ready / status (send from Telegram) or posted / skipped / release / auto_failed.
  */
 export function readReplyRequest(body: unknown): ReplyRequest | { error: string } {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { error: "Expected a JSON object." };
   const { action, id } = body as { action?: unknown; id?: unknown };
   if (id !== undefined && (typeof id !== "string" || !LEAD_ID.test(id))) return { error: "Unknown lead id." };
   if (action === "next") return id ? { action, id } : { action };
-  if (action === "approved") return { action };
-  if (action === "posted" || action === "skipped" || action === "release" || action === "auto_failed") return id ? { action, id } : { error: "A lead id is needed." };
+  if (action === "ready" || action === "status" || action === "posted" || action === "skipped" || action === "release" || action === "auto_failed") return id ? { action, id } : { error: "A lead id is needed." };
   return { error: "Unknown action." };
 }
 

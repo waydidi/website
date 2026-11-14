@@ -89,9 +89,10 @@ async function openNext() {
   if (r.status !== 200) return setReplyRun({ active: false, message: replyProblem(r.status) });
   var d = r.data;
   if (d.lead) {
+    var auto = (await chrome.storage.local.get({ autoPost: false })).autoPost === true;
     var tab = await chrome.tabs.create({ url: d.lead.url, active: true });
-    await setReplyTab(tab.id, { id: d.lead.id, comment: d.lead.comment });
-    return setReplyRun({ message: "Check the comment in the open tab, then press Post on Facebook." });
+    await setReplyTab(tab.id, { id: d.lead.id, comment: d.lead.comment, auto: auto });
+    return setReplyRun({ message: auto ? "The comment is in the open tab. Waiting for ส่ง Comment in Telegram." : "Check the comment in the open tab, then press Post on Facebook." });
   }
   if (d.wait === "gap") {
     // A little extra after the website's gap, different each time.
@@ -118,9 +119,8 @@ async function replyDone(tabId, action) {
 async function replyStop(tabId) {
   chrome.alarms.clear(ALARM);
   var entry = tabId !== undefined ? (await replyTabs())[tabId] : null;
-  // Stop on an approved comment also stops posting from Telegram, and clears that approval (the team is told).
-  if (entry && entry.auto) { await chrome.storage.local.set({ autoPost: false }); await setReplyTab(tabId, null); await replyCall({ action: "auto_failed", id: entry.id }); }
-  else if (entry) { await setReplyTab(tabId, null); await replyCall({ action: "release", id: entry.id }); }
+  // Stop after ส่ง Comment was tapped: not sent, so the team is told to post it by hand. Before: back in the queue.
+  if (entry) { await setReplyTab(tabId, null); await replyCall({ action: entry.sending ? "auto_failed" : "release", id: entry.id }); }
   await setReplyRun({ active: false, message: "Stopped." });
 }
 
@@ -131,47 +131,45 @@ async function replyDraft(tabId, id) {
   if (!id) return null;
   var r = await replyCall({ action: "next", id: id });
   if (r.status !== 200) return { message: replyProblem(r.status) };
-  if (r.data.lead) { await setReplyTab(tabId, { id: r.data.lead.id, comment: r.data.lead.comment }); return { lead: r.data.lead }; }
+  if (r.data.lead) {
+    var auto = (await chrome.storage.local.get({ autoPost: false })).autoPost === true, entry = { id: r.data.lead.id, comment: r.data.lead.comment, auto: auto };
+    await setReplyTab(tabId, entry);
+    return { lead: entry };
+  }
   return { message: r.data.wait === "gap" ? "Wait a few minutes between comments, then open it again." : r.data.wait === "limit" ? "Today's comment limit is reached." : "This lead was already handled, or is open in another tab." };
 }
 
-// ---- Post from Telegram (off on the website until FB_LEADS_AUTO_POST_ENABLED=true) ----
-// With "Post comments approved in Telegram" ticked in the popup, this browser asks the website once a minute for a
-// comment a team member approved with "Post to Facebook", opens it, and reply.js posts it. One at a time; the website
-// holds the daily cap and the gap. Keep this browser open and signed in to the Facebook account that comments.
-var AUTO_ALARM = "auto-poll";
-
-async function autoPoll() {
-  var s = await chrome.storage.local.get({ autoPost: false });
-  if (!s.autoPost) return chrome.alarms.clear(AUTO_ALARM);
-  var tabs = await replyTabs();
-  if (Object.keys(tabs).some(function (k) { return tabs[k].auto; })) return; // one at a time
-  var r = await replyCall({ action: "approved" });
-  if (r.status !== 200) return chrome.storage.local.set({ autoProblem: replyProblem(r.status) });
-  await chrome.storage.local.set({ autoProblem: "" });
-  if (!r.data.lead) return;
-  var tab = await chrome.tabs.create({ url: r.data.lead.url, active: true });
-  await setReplyTab(tab.id, { id: r.data.lead.id, comment: r.data.lead.comment, auto: true });
+// ---- Send from Telegram (off on the website until FB_LEADS_AUTO_POST_ENABLED=true) ----
+// With "Send from Telegram (ส่ง Comment)" ticked in the popup, a reply tab does not wait for you to press Post: once the
+// comment is in the box, reply.js tells the website ("ready"), the team gets a message under the lead with ส่ง Comment,
+// and reply.js asks every few seconds ("status"). After the tap it waits 15 seconds and presses send itself.
+async function replyReady(tabId) {
+  var entry = (await replyTabs())[tabId];
+  if (!entry) return { ok: false };
+  var r = await replyCall({ action: "ready", id: entry.id });
+  return { ok: r.status === 200, off: r.status === 409 && r.data && r.data.error === "off", message: r.status === 200 ? "" : replyProblem(r.status) };
 }
-function autoAlarm(on) {
-  if (on) chrome.alarms.create(AUTO_ALARM, { periodInMinutes: 1, delayInMinutes: 0.1 });
-  else chrome.alarms.clear(AUTO_ALARM);
+async function replyStatus(tabId) {
+  var entry = (await replyTabs())[tabId];
+  if (!entry) return { ok: false };
+  var r = await replyCall({ action: "status", id: entry.id });
+  if (r.status !== 200) return { ok: false };
+  return { ok: true, status: r.data.status, approved: Boolean(r.data.approved) };
 }
-chrome.storage.onChanged.addListener(function (changes, area) { if (area === "local" && changes.autoPost) autoAlarm(Boolean(changes.autoPost.newValue)); });
-chrome.runtime.onStartup.addListener(function () { chrome.storage.local.get({ autoPost: false }, function (s) { autoAlarm(s.autoPost); }); });
+async function replySending(tabId) {
+  var entry = (await replyTabs())[tabId];
+  if (entry) await setReplyTab(tabId, Object.assign({}, entry, { sending: true }));
+  return { ok: true };
+}
 
-chrome.alarms.onAlarm.addListener(function (alarm) {
-  if (alarm.name === ALARM) openNext();
-  if (alarm.name === AUTO_ALARM) autoPoll();
-});
+chrome.alarms.onAlarm.addListener(function (alarm) { if (alarm.name === ALARM) openNext(); });
 // A reply tab closed by hand: the lead goes back to the queue and the queue pauses (the person has stepped away).
-// A tab posting an approved comment closed by hand counts as failed: the approval is cleared so it is not posted later.
+// Closed after ส่ง Comment was tapped (while Chrome was about to send): counted as failed, so the team posts it by hand.
 chrome.tabs.onRemoved.addListener(async function (tabId) {
   var entry = (await replyTabs())[tabId];
   if (!entry) return;
   await setReplyTab(tabId, null);
-  if (entry.auto) { await replyCall({ action: "auto_failed", id: entry.id }); return; }
-  await replyCall({ action: "release", id: entry.id });
+  await replyCall({ action: entry.sending ? "auto_failed" : "release", id: entry.id });
   chrome.alarms.clear(ALARM);
   await setReplyRun({ active: false, message: "Paused: a reply tab was closed. The lead went back to the queue." });
 });
@@ -184,6 +182,9 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   else if (message.type === "reply-start") job = setReplyRun({ active: true, message: "Starting…" }).then(openNext).then(function () { return { ok: true }; });
   else if (message.type === "reply-stop") job = replyStop(tabId).then(function () { return { ok: true }; });
   else if (message.type === "reply-draft" && tabId !== undefined) job = replyDraft(tabId, typeof message.id === "string" ? message.id : "");
+  else if (message.type === "reply-ready" && tabId !== undefined) job = replyReady(tabId);
+  else if (message.type === "reply-status" && tabId !== undefined) job = replyStatus(tabId);
+  else if (message.type === "reply-sending" && tabId !== undefined) job = replySending(tabId);
   else if (message.type === "reply-done" && tabId !== undefined && (message.action === "posted" || message.action === "skipped" || message.action === "auto_failed")) job = replyDone(tabId, message.action).then(function () { return { ok: true }; });
   if (!job) return;
   job.then(sendResponse, function () { sendResponse({ ok: false, error: "failed" }); });
