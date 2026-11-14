@@ -179,6 +179,10 @@ After the draft is in the comment box, and before anything else happens:
 If a sales comment has no QR picture (none set in Settings, or Facebook showed no preview), Chrome **never sends it**,
 even with Send from Telegram: the bar asks you to add the picture and press Post yourself. Neither step presses Post.
 
+If the Like, the tag or the QR picture does not work on a real post, press **Copy details** in the Waydidi bar and paste it
+to the developer: it holds the results, the Like buttons it saw (labels and pressed state), the shape of the comment box
+and the file inputs near it. No post text, comment text or names.
+
 ## Send from Telegram (ส่ง Comment, the extension presses send)
 
 Off until the owner sets `FB_LEADS_AUTO_POST_ENABLED=true` (the reply queue must be on too).
