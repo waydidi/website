@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { DRAFTING_TIMEOUT_MIN, LEAD_KEEP_DAYS, MAX_ATTEMPTS, dailyLimit, isLead, leadPriority, leadsEnabled, noSalesPitch, normalisedText, reliability, screenPost, thaiDayStart, thaiStamp, type IncomingPost, type LeadAction } from "@/lib/fb-leads-rules";
+import { DRAFTING_TIMEOUT_MIN, LEAD_KEEP_DAYS, MAX_ATTEMPTS, REPLY_CLAIM_MIN, autoPostEnabled, dailyLimit, isLead, leadPriority, leadsEnabled, noSalesPitch, normalisedText, reliability, replyDailyCap, replyGapMin, replyQueueEnabled, replyTabUrl, screenPost, thaiDayStart, thaiStamp, type IncomingPost, type LeadAction, type ReplyRequest } from "@/lib/fb-leads-rules";
+import { constantTimeEqual } from "@/lib/security";
 import { assistantFailure } from "@/lib/assistant-error-rules";
 import { esc } from "@/lib/telegram/cards";
 import { answerCallback, editIn, sendTo, telegramCommentChatId, type InlineKeyboard, type TelegramMessage } from "@/lib/telegram/client";
@@ -16,6 +17,15 @@ type Db = { prepare: (sql: string) => Stmt };
 const db = () => env.DB as unknown as Db;
 const vars = () => env as unknown as Record<string, string | undefined>;
 export const fbLeadsOn = () => leadsEnabled(vars());
+export const replyQueueOn = () => replyQueueEnabled(vars());
+export const autoPostOn = () => autoPostEnabled(vars());
+
+/** The collector token (FB_LEADS_INGEST_TOKEN) in "Authorization: Bearer <token>", compared in constant time. */
+export function collectorAuthorized(request: Request) {
+  const token = String(vars().FB_LEADS_INGEST_TOKEN ?? "");
+  const given = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "")?.[1]?.trim() ?? "";
+  return Boolean(given) && constantTimeEqual(given, token);
+}
 
 let ready: Promise<unknown> | null = null;
 /** Same tables as drizzle/0120_fb_leads.sql (Workers Builds does not apply migrations). */
@@ -31,7 +41,11 @@ export function ensureLeadTables() {
     // text fingerprint (the same question copied into several groups is collected once).
     for (const col of ["skip_reason TEXT", "priority INTEGER NOT NULL DEFAULT 0", "text_hash TEXT", "routed_json TEXT"])
       await db().prepare(`ALTER TABLE fb_leads ADD COLUMN ${col}`).bind().run().catch(() => undefined);
-    for (const sql of ["CREATE INDEX IF NOT EXISTS fb_leads_queue ON fb_leads(status, priority, created_at)", "CREATE INDEX IF NOT EXISTS fb_leads_text ON fb_leads(text_hash, created_at)"])
+    // Added later (drizzle/0123_fb_leads_reply_queue.sql): when the extension's reply queue opened this lead in a tab.
+    // Who approved "Post to Facebook" in Telegram, and when (same file).
+    for (const col of ["reply_claimed_at TEXT", "post_approved_by TEXT", "post_approved_at TEXT"])
+      await db().prepare(`ALTER TABLE fb_leads ADD COLUMN ${col}`).bind().run().catch(() => undefined);
+    for (const sql of ["CREATE INDEX IF NOT EXISTS fb_leads_queue ON fb_leads(status, priority, created_at)", "CREATE INDEX IF NOT EXISTS fb_leads_text ON fb_leads(text_hash, created_at)", "CREATE INDEX IF NOT EXISTS fb_leads_marked ON fb_leads(status, marked_at)"])
       await db().prepare(sql).bind().run();
   })().catch((e) => { ready = null; throw e; }));
 }
@@ -110,8 +124,8 @@ export async function queueLeads(posts: IncomingPost[], now = new Date(), deps: 
 const CROSS_POST_DAYS = 7;
 const textHash = async (text: string) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalisedText(text))))].slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
 
-type Lead = { id: string; group_name: string; post_url: string; post_text: string; routed_json?: string | null; status: string; attempts: number; reliable: number | null; comment: string | null; details_html: string | null; keyboard_json: string | null; comment_message_id: number | null; link_message_id: number | null; marked_by: string | null; marked_at: string | null };
-const COLS = "id,group_name,post_url,post_text,routed_json,status,attempts,reliable,comment,details_html,keyboard_json,comment_message_id,link_message_id,marked_by,marked_at";
+type Lead = { id: string; group_name: string; post_url: string; post_text: string; routed_json?: string | null; status: string; attempts: number; reliable: number | null; comment: string | null; details_html: string | null; keyboard_json: string | null; comment_message_id: number | null; link_message_id: number | null; marked_by: string | null; marked_at: string | null; post_approved_by?: string | null; post_approved_at?: string | null };
+const COLS = "id,group_name,post_url,post_text,routed_json,status,attempts,reliable,comment,details_html,keyboard_json,comment_message_id,link_message_id,marked_by,marked_at,post_approved_by,post_approved_at";
 const getLead = (id: string) => db().prepare(`SELECT ${COLS} FROM fb_leads WHERE id=?`).bind(id).first<Lead>();
 
 const STATUS_LINE = { posted: "✅ Posted", skipped: "⏭ Skipped" } as const;
@@ -125,6 +139,7 @@ function linkMessage(lead: Lead) {
   const type = paragraphs.find((p) => p.startsWith("<b>Check before posting</b>")) ?? "<b>Check before posting</b>";
   const notReady = lead.reliable === 0 ? paragraphs.find((p) => p.startsWith("⚠️ Not ready to post:"))?.split(". ")[0] ?? "⚠️ Not ready to post" : "";
   const lines = [type, ...(notReady ? [notReady] : [])];
+  if (lead.status === "sent" && lead.post_approved_by) lines.push(`⏳ Approved by ${esc(lead.post_approved_by)} · Chrome will post it`);
   if (lead.marked_by && (lead.status === "posted" || lead.status === "skipped")) lines.push(`<b>${STATUS_LINE[lead.status]}</b> by ${esc(lead.marked_by)} · ${esc(thaiStamp(new Date(lead.marked_at ?? Date.now())))}`);
   return `📌 <b>${esc(lead.group_name)}</b>\n${esc(lead.post_url)}\n\n${lines.join("\n")}`;
 }
@@ -138,6 +153,11 @@ function linkMessage(lead: Lead) {
 function linkKeyboard(lead: Lead): InlineKeyboard {
   if (lead.status !== "sent") return [];
   const rows: InlineKeyboard = [[{ text: "Posted", callback_data: `fl_posted:${lead.id}` }, { text: "Skip", callback_data: `fl_skip:${lead.id}` }]];
+  // With the reply queue on, one more button opens the post in the browser that has the extension, which puts the
+  // comment in Facebook's comment box for a person to check and post. Only for drafts that are ready to post.
+  if (replyQueueOn() && lead.reliable !== 0) rows.push([{ text: "Open in Chrome", url: replyTabUrl(lead.post_url, lead.id) }]);
+  // With posting from Telegram on: a team member approves this comment and Chrome posts it (removed once approved).
+  if (autoPostOn() && lead.reliable !== 0 && !lead.post_approved_at) rows.push([{ text: "Post to Facebook", callback_data: `fl_go:${lead.id}` }]);
   const saveRow = (JSON.parse(lead.keyboard_json ?? "[]") as InlineKeyboard).find((row) => row.some((b) => (b.callback_data ?? "").startsWith("ph_save:")));
   if (saveRow) rows.push(saveRow.map((b) => ({ ...b, text: b.text.replace(/^💾\s*/, "") }))); // no emoji, to match Posted/Skip
   return rows;
@@ -231,19 +251,107 @@ Send the post in again to retry.`).catch(() => undefined);
 }
 
 /**
- * ✅ Posted / ⏭ Skip under a lead. The first tap wins (guarded WHERE status='sent'); a later tap is told who
- * marked it. The webhook checks the chat and the person before calling this.
+ * Marks a lead Posted or Skipped. The first mark wins (guarded WHERE status='sent'), so a Telegram tap and the
+ * extension at the same moment cannot both count; the Telegram link message is updated to show who marked it.
  */
-export async function handleLeadCallback(action: LeadAction, id: string, who: { name: string; telegramUserId: string }, queryId: string, chatId: string, messageId: number | undefined, at = new Date()) {
-  await ensureLeadTables();
-  const res = await db().prepare("UPDATE fb_leads SET status=?,marked_by=?,marked_by_id=?,marked_at=?,updated_at=? WHERE id=? AND status='sent'")
+async function markLead(action: LeadAction, id: string, who: { name: string; telegramUserId: string }, at: Date, edit: { chatId?: string; messageId?: number } = {}) {
+  const res = await db().prepare("UPDATE fb_leads SET status=?,marked_by=?,marked_by_id=?,marked_at=?,reply_claimed_at=NULL,updated_at=? WHERE id=? AND status='sent'")
     .bind(action, who.name.slice(0, 80), who.telegramUserId, at.toISOString(), at.toISOString(), id).run();
   const lead = await getLead(id);
+  const target = lead?.link_message_id ?? edit.messageId;
+  if (res.meta.changes && lead && target) await editIn(edit.chatId ?? telegramCommentChatId(), target, linkMessage(lead), linkKeyboard(lead)).catch(() => undefined);
+  return { changed: res.meta.changes > 0, lead };
+}
+
+/** Posted / Skip under a lead. A later tap is told who marked it. The webhook checks the chat and the person first. */
+export async function handleLeadCallback(action: LeadAction, id: string, who: { name: string; telegramUserId: string }, queryId: string, chatId: string, messageId: number | undefined, at = new Date()) {
+  await ensureLeadTables();
+  const { changed, lead } = await markLead(action, id, who, at, { chatId, messageId });
   if (!lead) return answerCallback(queryId, "This lead was not found.", true);
-  if (!res.meta.changes) return answerCallback(queryId, lead.marked_by ? `Already marked ${lead.status} by ${lead.marked_by}.` : "This lead can't be marked now.", true);
+  if (!changed) return answerCallback(queryId, lead.marked_by ? `Already marked ${lead.status} by ${lead.marked_by}.` : "This lead can't be marked now.", true);
   await answerCallback(queryId, action === "posted" ? "Marked as posted. Thank you!" : "Skipped.");
+}
+
+/**
+ * Post to Facebook under a lead (off until FB_LEADS_AUTO_POST_ENABLED=true): a team member approves this one comment,
+ * and the browser with the extension posts it within about a minute, inside the daily cap and the gap. Team members
+ * only (the webhook passes isTeam); the first tap wins.
+ */
+export async function handleLeadApprove(id: string, who: { name: string; telegramUserId: string; isTeam: boolean }, queryId: string, chatId: string, messageId: number | undefined, at = new Date()) {
+  if (!autoPostOn()) return answerCallback(queryId, "Posting from Telegram is switched off.", true);
+  if (!who.isTeam) return answerCallback(queryId, `Only the Waydidi team can post to Facebook. Ask the owner to add your Telegram ID: ${who.telegramUserId}`, true);
+  await ensureLeadTables();
+  const res = await db().prepare("UPDATE fb_leads SET post_approved_by=?,post_approved_at=?,updated_at=? WHERE id=? AND status='sent' AND reliable=1 AND COALESCE(comment,'')<>'' AND post_approved_at IS NULL")
+    .bind(who.name.slice(0, 80), at.toISOString(), at.toISOString(), id).run();
+  const lead = await getLead(id);
+  if (!lead) return answerCallback(queryId, "This lead was not found.", true);
+  if (!res.meta.changes) return answerCallback(queryId, lead.post_approved_by ? `Already approved by ${lead.post_approved_by}.` : "This lead can't be posted now.", true);
+  await answerCallback(queryId, "Approved. Chrome will post it within a few minutes.");
   const target = lead.link_message_id ?? messageId;
   if (target) await editIn(chatId, target, linkMessage(lead), linkKeyboard(lead)).catch(() => undefined);
+}
+
+export type ReplyLead = { id: string; url: string; comment: string; groupName: string; auto?: true };
+export type ReplyAnswer = { lead: ReplyLead } | { wait: "limit" | "empty" } | { wait: "gap"; retryAt: string } | { done: "posted" | "skipped" | "released" | "failed" } | { error: "already_marked" | "not_found" };
+const EXTENSION = { name: "Chrome extension", telegramUserId: "extension" };
+
+/**
+ * The extension's reply queue (off until FB_LEADS_REPLY_QUEUE_ENABLED=true).
+ * - next: hands out one lead that was sent to Telegram, is ready to post and is not open in another tab (strongest and
+ *   newest first), or the one asked for by id (the Telegram "Open in Chrome" button). The daily cap
+ *   (FB_LEADS_REPLY_DAILY_CAP) and the gap since the last posted comment (FB_LEADS_REPLY_GAP_MIN) are checked in the
+ *   same statement as the claim, so two browsers at once cannot pass either. A claim lapses after REPLY_CLAIM_MIN.
+ * - posted / skipped: same as the Telegram buttons; the first mark wins.
+ * - release: the tab was closed without posting; the lead goes back to the queue.
+ * Nothing here posts on Facebook: a person presses Post there.
+ */
+export async function replyQueue(req: ReplyRequest, now = new Date()): Promise<ReplyAnswer> {
+  await ensureLeadTables();
+  const at = now.toISOString();
+  if (req.action === "release") {
+    await db().prepare("UPDATE fb_leads SET reply_claimed_at=NULL,updated_at=? WHERE id=? AND status='sent'").bind(at, req.id).run();
+    return { done: "released" };
+  }
+  if (req.action === "posted" || req.action === "skipped") {
+    const { changed, lead } = await markLead(req.action, req.id, EXTENSION, now);
+    if (!lead) return { error: "not_found" };
+    return changed ? { done: req.action } : { error: "already_marked" };
+  }
+  if (req.action === "auto_failed") {
+    // Chrome could not post it (no comment box, or the comment never appeared). The approval is cleared, so it is
+    // never retried by itself, and the team is told to post it by hand.
+    const res = await db().prepare("UPDATE fb_leads SET post_approved_by=NULL,post_approved_at=NULL,reply_claimed_at=NULL,updated_at=? WHERE id=? AND status='sent' AND post_approved_at IS NOT NULL").bind(at, req.id).run();
+    const lead = await getLead(req.id);
+    if (!lead) return { error: "not_found" };
+    if (!res.meta.changes) return { error: "already_marked" };
+    if (lead.link_message_id) await editIn(telegramCommentChatId(), lead.link_message_id, linkMessage(lead), linkKeyboard(lead)).catch(() => undefined);
+    await sendTo(telegramCommentChatId(), `⚠️ Chrome couldn't post the comment for <b>${esc(lead.group_name)}</b>. Please post it by hand.\n${esc(lead.post_url)}`).catch(() => undefined);
+    return { done: "failed" };
+  }
+  const cap = replyDailyCap(vars().FB_LEADS_REPLY_DAILY_CAP), gapMs = replyGapMin(vars().FB_LEADS_REPLY_GAP_MIN) * 60_000;
+  const dayStart = thaiDayStart(now), gapStart = new Date(now.getTime() - gapMs).toISOString();
+  const lapsed = new Date(now.getTime() - REPLY_CLAIM_MIN * 60_000).toISOString();
+  const open = "status='sent' AND reliable=1 AND COALESCE(comment,'')<>'' AND (reply_claimed_at IS NULL OR reply_claimed_at<?)";
+  // Approved in Telegram: the extension posts these itself, oldest approval first. The manual queue leaves them alone.
+  const auto = req.action === "approved";
+  const pick = "id" in req && req.id ? `SELECT id FROM fb_leads WHERE id=? AND ${open}`
+    : auto ? `SELECT id FROM fb_leads WHERE ${open} AND post_approved_at IS NOT NULL ORDER BY post_approved_at LIMIT 1`
+    : `SELECT id FROM fb_leads WHERE ${open} AND post_approved_at IS NULL ORDER BY priority DESC, created_at DESC LIMIT 1`;
+  // The claim, the daily cap and the gap are one statement, so two browsers at once cannot pass either.
+  const claimed = await db().prepare(`UPDATE fb_leads SET reply_claimed_at=?,updated_at=? WHERE id=(${pick}) AND ${open}
+      AND (SELECT COUNT(*) FROM fb_leads WHERE status='posted' AND marked_at>=?)<?
+      AND NOT EXISTS (SELECT 1 FROM fb_leads WHERE status='posted' AND marked_at>?)
+      ${auto ? "AND NOT EXISTS (SELECT 1 FROM fb_leads WHERE status='sent' AND post_approved_at IS NOT NULL AND reply_claimed_at>=?)" : ""}
+      RETURNING id,post_url,comment,group_name`)
+    // Approved comments are posted one at a time across all browsers (none other being posted right now), so the gap
+    // between comments holds even with two browsers polling.
+    .bind(at, at, ...("id" in req && req.id ? [req.id] : []), lapsed, lapsed, dayStart, cap, gapStart, ...(auto ? [lapsed] : [])).first<{ id: string; post_url: string; comment: string; group_name: string }>();
+  if (claimed) return { lead: { id: claimed.id, url: replyTabUrl(claimed.post_url, claimed.id), comment: claimed.comment, groupName: claimed.group_name, ...(auto ? { auto: true } : {}) } };
+  // Nothing claimed: say why, so the extension waits or stops.
+  const posted = await db().prepare("SELECT COUNT(*) AS n, MAX(marked_at) AS last FROM fb_leads WHERE status='posted' AND marked_at>=?").bind(dayStart).first<{ n: number; last: string | null }>();
+  if ((posted?.n ?? 0) >= cap) return { wait: "limit" };
+  if (posted?.last && posted.last > gapStart) return { wait: "gap", retryAt: new Date(new Date(posted.last).getTime() + gapMs).toISOString() };
+  return { wait: "empty" };
 }
 
 /** Cron (hourly): post text and comments are cleared after 90 days; the link, group and status stay for the counts. */

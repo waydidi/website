@@ -19,7 +19,24 @@
     notgroup: "Open a Facebook group page first.",
   };
 
+  var replyStart = document.getElementById("replyStart"), replyStop = document.getElementById("replyStop");
+  var autoPost = document.getElementById("autoPost");
+  autoPost.addEventListener("change", function () { chrome.storage.local.set({ autoPost: autoPost.checked }); });
+  function renderReply() {
+    chrome.storage.local.get({ replyRun: {}, autoPost: false, autoProblem: "" }, function (s) {
+      autoPost.checked = s.autoPost;
+      document.getElementById("autoProblem").textContent = s.autoPost ? s.autoProblem : "";
+      var r = s.replyRun || {}, d = new Date(), two = function (x) { return String(x).padStart(2, "0"); };
+      var today = d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
+      replyStart.hidden = Boolean(r.active); replyStop.hidden = !r.active;
+      document.getElementById("reply").textContent = (r.message || "") + (r.day === today && r.posted ? " Posted today through the queue: " + r.posted + "." : "");
+    });
+  }
+  replyStart.addEventListener("click", function () { chrome.runtime.sendMessage({ type: "reply-start" }); });
+  replyStop.addEventListener("click", function () { chrome.runtime.sendMessage({ type: "reply-stop" }); });
+
   function render() {
+    renderReply();
     chrome.storage.local.get({ enabled: true, problem: "", stats: {}, run: null, target: 50 }, function (s) {
       enabled.checked = s.enabled;
       if (document.activeElement !== target) target.value = s.target;

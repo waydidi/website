@@ -194,10 +194,10 @@ export function reliability(d: { factCount: number; stale: boolean; replyType?: 
 }
 
 export type LeadAction = "posted" | "skipped";
-/** A Posted / Skip button: `fl_posted:<id>` or `fl_skip:<id>`. */
-export function parseLeadCallback(data: string): { action: LeadAction; id: string } | null {
-  const m = /^fl_(posted|skip):([a-f0-9]{16})$/.exec(data);
-  return m ? { action: m[1] === "posted" ? "posted" : "skipped", id: m[2] } : null;
+/** A Posted / Skip button (`fl_posted:<id>`, `fl_skip:<id>`), or Post to Facebook (`fl_go:<id>`, approve). */
+export function parseLeadCallback(data: string): { action: LeadAction | "approve"; id: string } | null {
+  const m = /^fl_(posted|skip|go):([a-f0-9]{16})$/.exec(data);
+  return m ? { action: m[1] === "posted" ? "posted" : m[1] === "go" ? "approve" : "skipped", id: m[2] } : null;
 }
 
 /** "06/11/2026 14:05" in Thailand time. */
@@ -205,3 +205,58 @@ export function thaiStamp(d: Date) {
   const b = new Date(d.getTime() + 7 * 3_600_000), two = (n: number) => String(n).padStart(2, "0");
   return `${two(b.getUTCDate())}/${two(b.getUTCMonth() + 1)}/${b.getUTCFullYear()} ${two(b.getUTCHours())}:${two(b.getUTCMinutes())}`;
 }
+
+// Reply queue: the browser extension opens drafted leads one at a time, puts the comment in Facebook's comment box,
+// and a person reads it and presses Facebook's own Post button. The extension never presses Post. Off until the owner
+// sets FB_LEADS_REPLY_QUEUE_ENABLED=true (on top of FB_LEADS_ENABLED).
+export const DEFAULT_REPLY_DAILY_CAP = 30;
+export const MAX_REPLY_DAILY_CAP = 100;
+export const DEFAULT_REPLY_GAP_MIN = 3;
+/** A lead opened in a tab and not marked within this time goes back to the queue (the tab was left or the browser closed). */
+export const REPLY_CLAIM_MIN = 15;
+
+export function replyQueueEnabled(vars: { FB_LEADS_ENABLED?: string; FB_LEADS_INGEST_TOKEN?: string; TELEGRAM_COMMENT_CHAT_ID?: string; FB_LEADS_REPLY_QUEUE_ENABLED?: string }) {
+  return leadsEnabled(vars) && String(vars.FB_LEADS_REPLY_QUEUE_ENABLED ?? "").trim().toLowerCase() === "true";
+}
+
+/** Comments posted through the queue per Thailand day (FB_LEADS_REPLY_DAILY_CAP, 1 to 100, default 30). */
+export function replyDailyCap(raw: string | undefined) {
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= MAX_REPLY_DAILY_CAP ? n : DEFAULT_REPLY_DAILY_CAP;
+}
+
+/** Minutes between two comments posted through the queue (FB_LEADS_REPLY_GAP_MIN, 1 to 60, default 3). */
+export function replyGapMin(raw: string | undefined) {
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= 60 ? n : DEFAULT_REPLY_GAP_MIN;
+}
+
+/**
+ * Post from Telegram: a team member taps "Post to Facebook" under a draft, and the browser that has the extension
+ * open posts that one comment (it presses Post itself). Off until FB_LEADS_AUTO_POST_ENABLED=true, on top of the
+ * reply queue; the same daily cap and gap apply.
+ */
+export function autoPostEnabled(vars: Parameters<typeof replyQueueEnabled>[0] & { FB_LEADS_AUTO_POST_ENABLED?: string }) {
+  return replyQueueEnabled(vars) && String(vars.FB_LEADS_AUTO_POST_ENABLED ?? "").trim().toLowerCase() === "true";
+}
+
+export type ReplyAction = "next" | "approved" | "posted" | "skipped" | "release" | "auto_failed";
+export type ReplyRequest = { action: "next"; id?: string } | { action: "approved" } | { action: Exclude<ReplyAction, "next" | "approved">; id: string };
+const LEAD_ID = /^[a-f0-9]{16}$/;
+
+/**
+ * The extension's request to the reply queue: {"action":"next"} (optionally with "id"), {"action":"approved"} (the next
+ * comment approved in Telegram), or a lead id with posted / skipped / release / auto_failed.
+ */
+export function readReplyRequest(body: unknown): ReplyRequest | { error: string } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return { error: "Expected a JSON object." };
+  const { action, id } = body as { action?: unknown; id?: unknown };
+  if (id !== undefined && (typeof id !== "string" || !LEAD_ID.test(id))) return { error: "Unknown lead id." };
+  if (action === "next") return id ? { action, id } : { action };
+  if (action === "approved") return { action };
+  if (action === "posted" || action === "skipped" || action === "release" || action === "auto_failed") return id ? { action, id } : { error: "A lead id is needed." };
+  return { error: "Unknown action." };
+}
+
+/** The link the Telegram "Open in Chrome" button and the extension open: the post, marked with the lead it answers. */
+export const replyTabUrl = (postUrl: string, id: string) => `${postUrl.split("#")[0]}#waydidi-reply=${id}`;
