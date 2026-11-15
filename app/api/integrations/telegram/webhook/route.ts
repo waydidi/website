@@ -2,6 +2,8 @@ import { env } from "cloudflare:workers";
 import { answerInGroup, assistantConfigured } from "@/lib/telegram/assistant";
 import { answerJobLookup } from "@/lib/telegram/job-lookup";
 import { parseJobLookup } from "@/lib/telegram/job-lookup-rules";
+import { answerPdfCommand } from "@/lib/telegram/confirmation-pdf";
+import { parsePdfCommand } from "@/lib/telegram/confirmation-pdf-rules";
 import { NextResponse } from "next/server";
 import { constantTimeEqual } from "@/lib/security";
 import { answerCallback, telegramCommentChatId, sendCard, sendPrivate, telegramChatId, tg, type TelegramMessage, type TelegramUser } from "@/lib/telegram/client";
@@ -244,6 +246,9 @@ async function handleMessage(m: TelegramMessage) {
   }
   // Answers to "Set cost" / "Add driver information" questions on booking cards.
   const teamMember = await approved(m.from);
+  // /pdf REF or /pdf name (or /pdf replying to a booking card): the booking's confirmation PDF, for the team only.
+  const pdfQuery = parsePdfCommand(text);
+  if (pdfQuery !== null) { await answerPdfCommand(pdfQuery, m.message_id, m.reply_to_message?.text ?? m.reply_to_message?.caption ?? null, teamMember ? null : String(m.from?.id ?? "unknown")); return; }
   // /trip and /place (and photos replying to a /place confirmation): smart trips and attractions from Telegram.
   if (await handleTripBuilder(m, teamMember)) return;
   if (await handlePlacePhotoReply(m, teamMember)) return;

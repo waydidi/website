@@ -6,6 +6,7 @@ import { tripBuilderOn } from "@/lib/telegram/trip-builder-rules";
 // Registered with Telegram (setMyCommands, scoped to each group) once, and again only when the list or the groups change.
 export const COMMENT_COMMAND = { command: "c", description: "Draft a Facebook comment from a travel-group post" };
 const ADMIN_COMMANDS = [
+  { command: "pdf", description: "Booking confirmation PDF: /pdf REF or customer name" },
   { command: "ask", description: "Ask the assistant about bookings, drivers or prices" },
   { command: "id", description: "Show my Telegram ID" },
 ];
