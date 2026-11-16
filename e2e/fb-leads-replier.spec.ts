@@ -387,3 +387,15 @@ test("likePost: another post earlier on the page is already liked; this post's L
   const out = await page.evaluate(`(async () => { const h = window.WaydidiLeads; const r = await h.likePost(document, h.findCommentBox(document)); return { r, mine: document.getElementById("postLike").getAttribute("aria-pressed"), wrong: window.pressed.filter((p) => p.startsWith("WRONG")) }; })()`);
   expect(out).toEqual({ r: "liked", mine: "true", wrong: [] });
 });
+
+// Facebook's page for a deleted post, or one only some people can see: the lead is skipped and the queue goes on.
+test("unavailablePage: Facebook's 'content isn't available' page is recognised (English, Thai, Chinese); a normal post is not", async ({ page }) => {
+  const check = async (html: string) => { await load(page, html); return page.evaluate(`window.WaydidiLeads.unavailablePage(document)`); };
+  expect(await check(`<div><span>This content isn't available at the moment</span><span>When this happens, it's usually because the owner only shared it with a small group of people.</span><a>Go to Feed</a></div>`)).toBe(true);
+  expect(await check(`<h2>This content isn’t available right now</h2>`)).toBe(true);
+  expect(await check(`<span>เนื้อหานี้ไม่พร้อมใช้งานในขณะนี้</span>`)).toBe(true);
+  expect(await check(`<span>此内容暂时无法显示</span>`)).toBe(true);
+  expect(await check(postPage())).toBe(false);
+  // A comment quoting the words is long text inside a post, not Facebook's page.
+  expect(await check(`<div role="article"><span>Someone wrote that this content isn't available at the moment for them, but it works for me if you scroll down and refresh the page twice</span></div>`)).toBe(false);
+});

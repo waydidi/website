@@ -263,6 +263,20 @@
     return "not_taken";
   }
 
+  /**
+   * Facebook's "This content isn't available at the moment" page (the post was deleted, or only some people can see it):
+   * there is nothing to comment on. Read from the page's headings and short texts, in English, Thai and Chinese.
+   */
+  var UNAVAILABLE = /this content isn['’]t available|this page isn['’]t available|เนื้อหานี้ไม่พร้อมใช้งาน|เนื้อหานี้ไม่สามารถใช้งานได้|此内容暂时无法显示|目前无法查看此内容|此內容目前無法顯示|目前無法查看此內容/i;
+  function unavailablePage(doc) {
+    var texts = doc.querySelectorAll('h1, h2, h3, [role="heading"], span');
+    for (var i = 0; i < texts.length && i < 4000; i++) {
+      var t = texts[i].textContent || "";
+      if (t.length < 120 && UNAVAILABLE.test(t)) return true;
+    }
+    return false;
+  }
+
   /** A sales comment: it gives Waydidi's WhatsApp number (the word WhatsApp and a phone number). */
   function isSalesComment(text) {
     return /whats\s?app/i.test(text || "") && /\+?\d[\d\s-]{7,}\d/.test(text || "");
@@ -371,5 +385,5 @@
     }, null, 1).slice(0, 15000);
   }
 
-  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findCommentBox: findCommentBox, fillComment: fillComment, ourComments: ourComments, commentsLike: commentsLike, submitComment: submitComment, tagName: tagName, isSalesComment: isSalesComment, attachPicture: attachPicture, likePost: likePost, details: details });
+  root.WaydidiLeads = Object.assign(root.WaydidiLeads || {}, { findCommentBox: findCommentBox, fillComment: fillComment, ourComments: ourComments, commentsLike: commentsLike, submitComment: submitComment, tagName: tagName, isSalesComment: isSalesComment, unavailablePage: unavailablePage, attachPicture: attachPicture, likePost: likePost, details: details });
 })(typeof window !== "undefined" ? window : globalThis);
