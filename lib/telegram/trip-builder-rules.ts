@@ -390,3 +390,22 @@ export function typedTripProblemTh(problem: TypedTripProblem): string {
 /** The Thai reply when two places can't be one day trip. */
 export const farApartTh = (far: { a: string; b: string; km: number }) =>
   `⚠️ ยังไม่ได้สร้างทริป: ${escHtml(far.a)} กับ ${escHtml(far.b)} ห่างกันประมาณ ${Math.round(far.km).toLocaleString("en-US")} กม. ไปในวันเดียวไม่ได้ ตรวจชื่อสถานที่อีกครั้ง`;
+
+/** One date written any way /trip reads one (2026-11-29, 29/11, 29 Nov, Nov 29, 29 พ.ย.), as YYYY-MM-DD; no year = the next one. Null otherwise. */
+export function readDate(raw: string, today: string): string | null {
+  const t = raw.trim();
+  let m: RegExpExecArray | null;
+  const pick = (y: string | undefined, mo: number, d: string) => isoDate(y ? Number(y) : null, mo, Number(d), today)?.iso ?? null;
+  if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t))) return pick(m[1], Number(m[2]), m[3]);
+  if ((m = /^(\d{1,2})[/.](\d{1,2})(?:[/.](\d{4}|\d{2}))?$/.exec(t))) return pick(m[3], Number(m[2]), m[1]);
+  if ((m = new RegExp(`^(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s+)?${EN_MONTH}\\.?(?:\\s*,?\\s*(\\d{4}))?$`, "iu").exec(t))) return pick(m[3], EN_MONTHS.indexOf(m[2].slice(0, 3).toLowerCase()) + 1, m[1]);
+  if ((m = new RegExp(`^${EN_MONTH}\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?$`, "iu").exec(t))) return pick(m[3], EN_MONTHS.indexOf(m[1].slice(0, 3).toLowerCase()) + 1, m[2]);
+  if ((m = new RegExp(`^(\\d{1,2})\\s*${TH_MONTH}(?:\\s*(\\d{4}))?$`, "u").exec(t))) return pick(m[3], thMonthIndex(m[2]) + 1, m[1]);
+  return null;
+}
+
+/** A clock time ("08:30", "8.30", "8pm", "20.00 น."), as HH:MM, or null. */
+export const readClock = (raw: string) => clock(raw);
+
+/** The car class named in the text (the same words as /trip), or null. */
+export const namedVehicle = (text: string): VehicleId | null => VEHICLE_WORDS.find(([re]) => re.test(text))?.[1] ?? null;
