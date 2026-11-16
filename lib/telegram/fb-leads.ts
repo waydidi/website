@@ -44,7 +44,7 @@ export function ensureLeadTables() {
     // Added later (drizzle/0123_fb_leads_reply_queue.sql): when the extension's reply queue opened this lead in a tab.
     // Who approved "Post to Facebook" in Telegram, and when (same file).
     // And the ส่ง Comment message under the lead while its comment waits in Chrome (drizzle/0124_fb_leads_send_from_telegram.sql).
-    for (const col of ["reply_claimed_at TEXT", "post_approved_by TEXT", "post_approved_at TEXT", "ready_message_id INTEGER"])
+    for (const col of ["reply_claimed_at TEXT", "post_approved_by TEXT", "post_approved_at TEXT", "ready_message_id INTEGER", "hand_reason TEXT"])
       await db().prepare(`ALTER TABLE fb_leads ADD COLUMN ${col}`).bind().run().catch(() => undefined);
     for (const sql of ["CREATE INDEX IF NOT EXISTS fb_leads_queue ON fb_leads(status, priority, created_at)", "CREATE INDEX IF NOT EXISTS fb_leads_text ON fb_leads(text_hash, created_at)", "CREATE INDEX IF NOT EXISTS fb_leads_marked ON fb_leads(status, marked_at)"])
       await db().prepare(sql).bind().run();
@@ -274,7 +274,7 @@ export async function handleLeadCallback(action: LeadAction, id: string, who: { 
 
 /** Seconds Chrome waits after "ส่ง Comment" is tapped before it presses send (owner's choice). */
 export const SEND_DELAY_SECONDS = 15;
-type ReadyState = "waiting" | "approved" | "posted" | "skipped" | "failed" | "closed";
+type ReadyState = "waiting" | "approved" | "posted" | "skipped" | "failed" | "closed" | "hand_qr";
 /**
  * The message under a lead while its comment waits in Chrome (send from Telegram, FB_LEADS_AUTO_POST_ENABLED). Staff
  * text, so in Thai. Only the waiting message has buttons: ส่ง Comment and ข้าม.
@@ -288,6 +288,7 @@ function readyMessage(lead: Lead, state: ReadyState): { text: string; keyboard: 
     skipped: `⏭ <b>ข้ามแล้ว</b> · ${where}`,
     failed: `⚠️ <b>Chrome ส่งคอมเมนต์ไม่ได้</b> กรุณาโพสต์เอง · ${where}`,
     closed: `⏹ <b>ปิดแท็บแล้ว ยังไม่ได้ส่ง</b> ลีดกลับเข้าคิว · ${where}`,
+    hand_qr: `⚠️ <b>แนบรูป QR ใน Chrome ไม่ได้</b> Chrome จะไม่ส่งเอง · ${where}\n\nคอมเมนต์อยู่ในช่องคอมเมนต์ใน Chrome แล้ว กรุณาแนบรูป QR เองแล้วกดโพสต์บน Facebook`,
   }[state];
   const keyboard: InlineKeyboard = state === "waiting" ? [[{ text: "ส่ง Comment", callback_data: `fl_go:${lead.id}` }, { text: "ข้าม", callback_data: `fl_skip:${lead.id}` }]] : [];
   return { text, keyboard };
@@ -308,7 +309,7 @@ export async function handleLeadApprove(id: string, who: { name: string; telegra
   if (!who.isTeam) return answerCallback(queryId, `เฉพาะทีม Waydidi เท่านั้นที่กดส่งได้ ขอให้เจ้าของเพิ่ม Telegram ID ของคุณ: ${who.telegramUserId}`, true);
   await ensureLeadTables();
   const lapsed = new Date(at.getTime() - REPLY_CLAIM_MIN * 60_000).toISOString();
-  const res = await db().prepare("UPDATE fb_leads SET post_approved_by=?,post_approved_at=?,updated_at=? WHERE id=? AND status='sent' AND ready_message_id IS NOT NULL AND reply_claimed_at>=? AND post_approved_at IS NULL")
+  const res = await db().prepare("UPDATE fb_leads SET post_approved_by=?,post_approved_at=?,updated_at=? WHERE id=? AND status='sent' AND ready_message_id IS NOT NULL AND hand_reason IS NULL AND reply_claimed_at>=? AND post_approved_at IS NULL")
     .bind(who.name.slice(0, 80), at.toISOString(), at.toISOString(), id, lapsed).run();
   const lead = await getLead(id);
   if (!lead) return answerCallback(queryId, "ไม่พบลีดนี้", true);
@@ -319,7 +320,7 @@ export async function handleLeadApprove(id: string, who: { name: string; telegra
 }
 
 export type ReplyLead = { id: string; url: string; comment: string; groupName: string };
-export type ReplyAnswer = { lead: ReplyLead } | { wait: "limit" | "empty" } | { wait: "gap"; retryAt: string } | { done: "posted" | "skipped" | "released" | "failed" | "ready" } | { status: string; approved: boolean } | { error: "already_marked" | "not_found" | "off" };
+export type ReplyAnswer = { lead: ReplyLead } | { wait: "limit" | "empty" } | { wait: "gap"; retryAt: string } | { done: "posted" | "skipped" | "released" | "failed" | "ready" | "notified" } | { status: string; approved: boolean } | { error: "already_marked" | "not_found" | "off" };
 const EXTENSION = { name: "Chrome extension", telegramUserId: "extension" };
 
 /**
@@ -341,7 +342,7 @@ export async function replyQueue(req: ReplyRequest, now = new Date()): Promise<R
   if (req.action === "release") {
     // The tab was closed without posting: back in the queue; a waiting ส่ง Comment message says so and loses its buttons.
     const before = await getLead(req.id);
-    const res = await db().prepare("UPDATE fb_leads SET reply_claimed_at=NULL,ready_message_id=NULL,post_approved_by=NULL,post_approved_at=NULL,updated_at=? WHERE id=? AND status='sent'").bind(at, req.id).run();
+    const res = await db().prepare("UPDATE fb_leads SET reply_claimed_at=NULL,ready_message_id=NULL,hand_reason=NULL,post_approved_by=NULL,post_approved_at=NULL,updated_at=? WHERE id=? AND status='sent'").bind(at, req.id).run();
     if (res.meta.changes && before) await showReady(before, "closed");
     return { done: "released" };
   }
@@ -356,6 +357,23 @@ export async function replyQueue(req: ReplyRequest, now = new Date()): Promise<R
         .catch((error) => console.error("fb lead posted notice failed", error instanceof Error ? error.message : "unknown"));
     }
     return { done: req.action };
+  }
+  if (req.action === "needs_hand") {
+    // Send from Telegram, but Chrome cannot send this one itself (the QR picture could not be added): the team is told
+    // under the lead, so a person finishes it. Once per open tab; the message later shows Posted / Skipped like the
+    // ส่ง Comment message (it is kept in ready_message_id), and it has no ส่ง Comment button.
+    if (!autoPostOn()) return { error: "off" };
+    const res = await db().prepare("UPDATE fb_leads SET reply_claimed_at=?,hand_reason=?,updated_at=? WHERE id=? AND status='sent' AND reply_claimed_at IS NOT NULL").bind(at, req.reason, at, req.id).run();
+    const lead = await getLead(req.id);
+    if (!lead) return { error: "not_found" };
+    if (!res.meta.changes) return { error: "already_marked" };
+    const m = readyMessage(lead, "hand_qr");
+    if (lead.ready_message_id) await editIn(telegramCommentChatId(), lead.ready_message_id, m.text, m.keyboard).catch(() => undefined);
+    else {
+      const sent = await sendTo(telegramCommentChatId(), m.text, m.keyboard, lead.link_message_id ?? undefined);
+      await db().prepare("UPDATE fb_leads SET ready_message_id=? WHERE id=? AND ready_message_id IS NULL").bind(sent.message_id, req.id).run();
+    }
+    return { done: "notified" };
   }
   if (req.action === "ready" || req.action === "status") {
     if (!autoPostOn()) return { error: "off" };
@@ -378,7 +396,7 @@ export async function replyQueue(req: ReplyRequest, now = new Date()): Promise<R
     // Chrome could not send it (the comment never appeared, or the tab was closed after ส่ง Comment). The approval is
     // cleared, so it is never retried by itself, and the team is told to post it by hand.
     const before = await getLead(req.id);
-    const res = await db().prepare("UPDATE fb_leads SET post_approved_by=NULL,post_approved_at=NULL,reply_claimed_at=NULL,ready_message_id=NULL,updated_at=? WHERE id=? AND status='sent' AND (post_approved_at IS NOT NULL OR ready_message_id IS NOT NULL)").bind(at, req.id).run();
+    const res = await db().prepare("UPDATE fb_leads SET post_approved_by=NULL,post_approved_at=NULL,reply_claimed_at=NULL,ready_message_id=NULL,hand_reason=NULL,updated_at=? WHERE id=? AND status='sent' AND (post_approved_at IS NOT NULL OR ready_message_id IS NOT NULL)").bind(at, req.id).run();
     if (!before) return { error: "not_found" };
     if (!res.meta.changes) return { error: "already_marked" };
     if (before.ready_message_id) await showReady(before, "failed");
@@ -392,7 +410,7 @@ export async function replyQueue(req: ReplyRequest, now = new Date()): Promise<R
   const pick = req.id ? `SELECT id FROM fb_leads WHERE id=? AND ${open}` : `SELECT id FROM fb_leads WHERE ${open} ORDER BY priority DESC, created_at DESC LIMIT 1`;
   // The claim, the daily cap and the gap are one statement, so two browsers at once cannot pass either. A new claim
   // starts clean: no ส่ง Comment message or approval left from an earlier tab.
-  const claimed = await db().prepare(`UPDATE fb_leads SET reply_claimed_at=?,ready_message_id=NULL,post_approved_by=NULL,post_approved_at=NULL,updated_at=? WHERE id=(${pick}) AND ${open}
+  const claimed = await db().prepare(`UPDATE fb_leads SET reply_claimed_at=?,ready_message_id=NULL,hand_reason=NULL,post_approved_by=NULL,post_approved_at=NULL,updated_at=? WHERE id=(${pick}) AND ${open}
       AND (SELECT COUNT(*) FROM fb_leads WHERE status='posted' AND marked_at>=?)<?
       AND NOT EXISTS (SELECT 1 FROM fb_leads WHERE status='posted' AND marked_at>?)
       RETURNING id,post_url,comment,group_name`)

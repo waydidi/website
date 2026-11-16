@@ -240,8 +240,10 @@ export function autoPostEnabled(vars: Parameters<typeof replyQueueEnabled>[0] & 
   return replyQueueEnabled(vars) && String(vars.FB_LEADS_AUTO_POST_ENABLED ?? "").trim().toLowerCase() === "true";
 }
 
-export type ReplyAction = "next" | "ready" | "status" | "posted" | "skipped" | "release" | "auto_failed";
-export type ReplyRequest = { action: "next"; id?: string } | { action: Exclude<ReplyAction, "next">; id: string };
+export type ReplyAction = "next" | "ready" | "status" | "posted" | "skipped" | "release" | "auto_failed" | "needs_hand";
+/** Why Chrome cannot send a comment by itself and a person must finish it: the QR picture could not be added. */
+export type HandReason = "qr";
+export type ReplyRequest = { action: "next"; id?: string } | { action: "needs_hand"; id: string; reason: HandReason } | { action: Exclude<ReplyAction, "next" | "needs_hand">; id: string };
 const LEAD_ID = /^[a-f0-9]{16}$/;
 
 /**
@@ -253,6 +255,11 @@ export function readReplyRequest(body: unknown): ReplyRequest | { error: string 
   const { action, id } = body as { action?: unknown; id?: unknown };
   if (id !== undefined && (typeof id !== "string" || !LEAD_ID.test(id))) return { error: "Unknown lead id." };
   if (action === "next") return id ? { action, id } : { action };
+  if (action === "needs_hand") {
+    const reason = (body as { reason?: unknown }).reason;
+    if (!id) return { error: "A lead id is needed." };
+    return reason === "qr" ? { action, id, reason } : { error: "Unknown reason." };
+  }
   if (action === "ready" || action === "status" || action === "posted" || action === "skipped" || action === "release" || action === "auto_failed") return id ? { action, id } : { error: "A lead id is needed." };
   return { error: "Unknown action." };
 }

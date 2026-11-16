@@ -150,8 +150,12 @@
       await new Promise(function (ok) { setTimeout(ok, seconds * 1000); });
     }
     function carryOn(r, extra) {
-      // A sales comment without its QR picture is never sent by Chrome: the person adds it and presses Post.
-      if (lead.auto && !extra.ok) return bar(extra.note + " Add it, then press Post on Facebook yourself.", common);
+      // A sales comment without its QR picture is never sent by Chrome: the person adds it and presses Post. With Send
+      // from Telegram on, the team is also told in Telegram (under the lead), since nobody may be watching this tab.
+      if (lead.auto && !extra.ok) {
+        ask({ type: "reply-hand", reason: "qr" });
+        return bar(extra.note + " Add it, then press Post on Facebook yourself. The team was told in Telegram.", common);
+      }
       if (lead.auto) sendFromTelegram(r, extra.note);
       else manualBar(r, extra.note);
     }
