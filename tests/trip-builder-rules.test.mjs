@@ -9,13 +9,20 @@ const vite = await createServer({ root, configFile: false, appType: 'custom', re
 after(() => vite.close());
 const r = await vite.ssrLoadModule('/lib/telegram/trip-builder-rules.ts');
 
-test('only /trip and /place start the builder (also with the bot name)', () => {
-  assert.equal(r.parseTripCommand('/trip 12 Dec, Grand Palace, THB 3,500'), '12 Dec, Grand Palace, THB 3,500');
+test('only /add_trip (or the older /trip) and /place start the builder (also with the bot name)', () => {
+  assert.equal(r.parseTripCommand('/add_trip 12 Dec, Grand Palace, THB 3,500'), '12 Dec, Grand Palace, THB 3,500');
+  assert.equal(r.parseTripCommand('/add_trip@WaydidiBot x'), 'x');
+  assert.equal(r.parseTripCommand('/add_trip'), '');
+  for (const other of ['/add-trip x', '/add_trips x', '/addtrip x']) assert.equal(r.parseTripCommand(other), null, other);
+  assert.equal(r.parseTripCommand('/trip 12 Dec, Grand Palace, THB 3,500'), '12 Dec, Grand Palace, THB 3,500', 'the older name still works');
   assert.equal(r.parseTripCommand('/Trip@WaydidiBot x'), 'x');
   assert.equal(r.parseTripCommand('/trip'), '');
   for (const other of ['/trips x', '/tripx', 'trip x', 'please /trip x', '/place x', '/c x']) assert.equal(r.parseTripCommand(other), null, other);
-  assert.equal(r.parsePlaceCommand('/place Wat Saket | 07:00-19:00'), 'Wat Saket | 07:00-19:00');
-  assert.equal(r.parsePlaceCommand('/places x'), null);
+  assert.equal(r.parsePlaceCommand('/add_attraction Wat Saket | 07:00-19:00'), 'Wat Saket | 07:00-19:00');
+  assert.equal(r.parsePlaceCommand('/add_attraction@WaydidiBot Wat Saket'), 'Wat Saket');
+  assert.equal(r.parsePlaceCommand('/place Wat Saket | 07:00-19:00'), 'Wat Saket | 07:00-19:00', 'the older name still works');
+  for (const other of ['/places x', '/add-attraction x', '/add_attractions x', '/add_trip x']) assert.equal(r.parsePlaceCommand(other), null, other);
+  assert.equal(r.parseTripCommand('/add_attraction x'), null);
 });
 
 test('the price must be typed with a currency; it is never guessed', () => {
@@ -42,10 +49,16 @@ test('the named car is used when it seats the group; otherwise the owner rule: 1
   assert.deepEqual([1, 2, 3, 4, 5, 10, 11, 0].map(r.carForPeople), ['economy_sedan', 'economy_sedan', 'comfort_suv', 'comfort_suv', 'premium_minivan', 'premium_minivan', null, null]);
 });
 
-test('/place: name first, then opening hours, area and time spent in any order', () => {
-  assert.deepEqual(r.parsePlaceDetails('Wat Saket | 07:00-19:00 | Bangkok | 60 min'), { name: 'Wat Saket', openTime: '07:00', closeTime: '19:00', durationMin: 60, area: 'Bangkok' });
-  assert.deepEqual(r.parsePlaceDetails('Jodd Fairs | Bangkok | 1.5 ชม. | 16:00 - 24:00'), { name: 'Jodd Fairs', openTime: '16:00', closeTime: '23:59', durationMin: 90, area: 'Bangkok' });
-  assert.deepEqual(r.parsePlaceDetails('Big C'), { name: 'Big C', openTime: null, closeTime: null, durationMin: null, area: '' });
+test('/place: name first, then opening hours, category, area, time spent and #tags in any order', () => {
+  const none = { neighbourhood: null, category: null, bestTime: null, vibes: [], unknown: [] };
+  assert.deepEqual(r.parsePlaceDetails('Wat Saket | 07:00-19:00 | Bangkok | 60 min'), { name: 'Wat Saket', openTime: '07:00', closeTime: '19:00', durationMin: 60, area: 'Bangkok', ...none });
+  assert.deepEqual(r.parsePlaceDetails('Jodd Fairs | Bangkok | 1.5 ชม. | 16:00 - 24:00'), { name: 'Jodd Fairs', openTime: '16:00', closeTime: '23:59', durationMin: 90, area: 'Bangkok', ...none });
+  assert.deepEqual(r.parsePlaceDetails('Big C'), { name: 'Big C', openTime: null, closeTime: null, durationMin: null, area: '', ...none });
+  assert.deepEqual(r.parsePlaceDetails('Big Buddha | temple | Phuket | 07:00-17:00 #sunset #instagram'),
+    { name: 'Big Buddha', openTime: '07:00', closeTime: '17:00', durationMin: null, area: 'Phuket', neighbourhood: null, category: 'temple', bestTime: 'sunset', vibes: ['instagram'], unknown: [] });
+  const bangla = r.parsePlaceDetails('Bangla Road | Patong | nightlife');
+  assert.deepEqual([bangla.area, bangla.neighbourhood, bangla.category], ['Phuket', 'Patong', 'nightlife'], 'a beach or district is the neighbourhood, its area is Phuket');
+  assert.deepEqual(r.parsePlaceDetails('Somewhere | Old Town | tempel #banana').unknown, ['Old Town', 'tempel', '#banana'], 'not guessed: told back');
   assert.equal(r.parsePlaceDetails('x'), null);
   assert.equal(r.parsePlaceDetails(''), null);
 });
@@ -93,7 +106,7 @@ test('/place finds the existing place by its name, ignoring case, "The" and a br
 test('"/trip create a new trip" and other text with no date, time or price asks for the guide, not a trip', () => {
   for (const ask of ['', 'help', 'create a new trip', 'How do I make a trip?', '?', 'สร้างทริปใหม่', 'วิธีสร้างทริป', 'Grand Palace, Wat Pho, SUV']) assert.equal(r.wantsTripGuide(ask), true, ask);
   for (const trip of ['12 Dec, Hilton 08:00, Grand Palace, THB 3,500', 'tomorrow Hilton 8am Grand Palace 3500 baht', '๑๒ ธ.ค. รับ Hilton', 'Helping hands tour 12 Dec THB 2,000']) assert.equal(r.wantsTripGuide(trip), false, trip);
-  for (const line of ['วันที่', 'สถานที่ที่จะไป', 'Google Maps', 'ราคาตามเรทรายชั่วโมง', 'จุดรับและเวลารับ', 'สรุปให้ตรวจก่อน', '/trip 4 people', 'แพ็กเกจ', 'ใกล้ที่สุดก่อน']) assert.ok(r.TRIP_HELP.includes(line), line);
+  for (const line of ['วันที่', 'สถานที่ที่จะไป', 'Google Maps', 'ราคาตามเรทรายชั่วโมง', 'จุดรับและเวลารับ', 'สรุปให้ตรวจก่อน', '/add_trip 4 people', 'แพ็กเกจ', 'ใกล้ที่สุดก่อน']) assert.ok(r.TRIP_HELP.includes(line), line);
 });
 
 test('paste a chat: the AI reads the replied chat with the staff line as a note; without a chat, just the staff line', () => {

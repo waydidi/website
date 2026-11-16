@@ -50,7 +50,7 @@ const tap = async (button, name = 'Anna', messageId = lastSent().message_id) => 
 const bookingsCount = async () => (await d1.prepare('SELECT COUNT(*) n FROM bookings').first()).n;
 beforeEach(() => { Object.assign(globalThis.__tg, { sent: [], docs: [], answers: [], calls: [] }); globalThis.__bkEnv.TELEGRAM_BOOKING_BUILDER = '1'; });
 
-const FULL = ['/book', 'name: John Smith', 'phone: +66 81 234 5678', 'email: John@Example.com', 'date: 29/11/2099', 'time: 08:30',
+const FULL = ['/add_booking', 'name: John Smith', 'phone: +66 81 234 5678', 'email: John@Example.com', 'date: 29/11/2099', 'time: 08:30',
   'pickup: Suvarnabhumi Airport', 'dropoff: Hilton Pattaya', 'passengers: 3', 'luggage: 2', 'car: SUV', 'price: 2,500', 'payment: cash'].join('\n');
 
 test('labelled lines in English and Thai are read by code into checked fields', () => {
@@ -90,10 +90,11 @@ test('the AI answer is untrusted: only known keys, and each value is checked lik
   assert.equal(rules.parseAiFields('[1,2]'), null);
 });
 
-test('the /book command is recognised only at the start', () => {
-  assert.equal(rules.parseBookCommand('/book'), '');
-  assert.equal(rules.parseBookCommand('/book@WaydidiBot name: John'), 'name: John');
-  for (const t of ['book name', '/booking', 'please /book', '']) assert.equal(rules.parseBookCommand(t), null, t);
+test('the /add_booking command (or the older /book) is recognised only at the start', () => {
+  assert.equal(rules.parseBookCommand('/add_booking'), '');
+  assert.equal(rules.parseBookCommand('/add_booking@WaydidiBot name: John'), 'name: John');
+  assert.equal(rules.parseBookCommand('/book name: John'), 'name: John', 'the older name still works');
+  for (const t of ['book name', '/booking', 'please /add_booking', '/add-booking x', '/add_bookings', '']) assert.equal(rules.parseBookCommand(t), null, t);
 });
 
 test('a full /book shows the summary with สร้างการจอง; the tap saves one confirmed booking and sends the PDF, never an email', async () => {
@@ -120,7 +121,7 @@ test('a full /book shows the summary with สร้างการจอง; the
 });
 
 test('missing fields are listed; a reply to the bot fills them in and only then the button appears', async () => {
-  await builder.handleBookingBuilder(message('/book\nname: Ploy Many\ndate: 30/11\ntime: 10:00'), member, deps());
+  await builder.handleBookingBuilder(message('/add_booking\nname: Ploy Many\ndate: 30/11\ntime: 10:00'), member, deps());
   const first = lastSent();
   assert.match(first.text, /ยังขาด:.*เบอร์โทร.*อีเมล/s);
   assert.equal(okButton(first), undefined);
@@ -140,10 +141,10 @@ test('missing fields are listed; a reply to the bot fills them in and only then 
 
 test('free text is read by the AI reader; without AI the bot asks for labelled lines', async () => {
   const fake = async (system, user) => { assert.match(user, /<note>/); return JSON.stringify({ name: 'Mai Tran', email: 'mai@example.com', phone: '+84 90 123 4567', date: '2099-12-01', time: '07:15', pickup: 'Phuket Airport', dropoff: 'Patong Beach', passengers: '2', car: 'sedan', price: '900', payment: 'transfer' }); };
-  await builder.handleBookingBuilder(message('/book Mai Tran 2 pax Phuket airport to Patong 1 Dec 7.15 sedan 900 baht bank transfer mai@example.com +84 90 123 4567'), member, deps(fake));
+  await builder.handleBookingBuilder(message('/add_booking Mai Tran 2 pax Phuket airport to Patong 1 Dec 7.15 sedan 900 baht bank transfer mai@example.com +84 90 123 4567'), member, deps(fake));
   assert.match(lastSent().text, /ข้อมูลครบ/);
   assert.match(lastSent().text, /รอโอนก่อนเดินทาง/);
-  await builder.handleBookingBuilder(message('/book John from airport to hotel tomorrow'), member, deps(null));
+  await builder.handleBookingBuilder(message('/add_booking John from airport to hotel tomorrow'), member, deps(null));
   assert.match(lastSent().text, /ไม่มี AI/);
 });
 
@@ -152,7 +153,7 @@ test('someone not on the team cannot start or change a draft', async () => {
   await builder.handleBookingBuilder(message(FULL), null, deps());
   assert.match(lastSent().text, /เฉพาะทีม/);
   assert.equal((await d1.prepare('SELECT COUNT(*) n FROM telegram_booking_drafts').first()).n, before.n);
-  await builder.handleBookingBuilder(message('/book\nname: Team Draft'), member, deps());
+  await builder.handleBookingBuilder(message('/add_booking\nname: Team Draft'), member, deps());
   const summary = lastSent();
   await builder.handleBookingBuilder(message('name: Hacker', summary.message_id), null, deps());
   assert.match(lastSent().text, /เฉพาะทีม/);
@@ -161,7 +162,7 @@ test('someone not on the team cannot start or change a draft', async () => {
 });
 
 test('a webhook retry of the same /book message makes one draft; ยกเลิก closes it', async () => {
-  const m = message('/book\nname: Retry Person');
+  const m = message('/add_booking\nname: Retry Person');
   await builder.handleBookingBuilder(m, member, deps());
   await builder.handleBookingBuilder(m, member, deps());
   assert.equal((await d1.prepare('SELECT COUNT(*) n FROM telegram_booking_drafts WHERE request_message_id=?').bind(m.message_id).first()).n, 1);
@@ -185,7 +186,11 @@ test('off unless TELEGRAM_BOOKING_BUILDER=1: /book is ignored and not in the men
   assert.equal(await builder.handleBookingBuilder(message(FULL), member, deps()), false);
   assert.equal(globalThis.__tg.sent.length, 0);
   assert.deepEqual(cmd.menus(ADMIN, '', false, false)[0].commands.map((c) => c.command), ['c', 'pdf', 'ask', 'id']);
-  assert.deepEqual(cmd.menus(ADMIN, '', false, true)[0].commands.map((c) => c.command), ['c', 'book', 'pdf', 'ask', 'id']);
+  assert.deepEqual(cmd.menus(ADMIN, '', false, true)[0].commands.map((c) => c.command), ['c', 'add_booking', 'pdf', 'ask', 'id']);
+  // The owner's command names; Telegram allows only a–z, 0–9 and _ (no hyphen) in a command.
+  const all = cmd.menus(ADMIN, '', true, true)[0].commands.map((c) => c.command);
+  assert.deepEqual(all, ['c', 'add_booking', 'add_trip', 'add_attraction', 'pdf', 'ask', 'id']);
+  for (const c of all) assert.match(c, /^[a-z0-9_]{1,32}$/);
 });
 
 test('ordinary replies in the group are not taken as booking edits', async () => {

@@ -11,13 +11,13 @@ const ADMIN_COMMANDS = [
   { command: "ask", description: "Ask the assistant about bookings, drivers or prices" },
   { command: "id", description: "Show my Telegram ID" },
 ];
-/** The menu for each group: /c in the Comment group (the Admin group has it only until a Comment group is set up); /trip and /place in the Admin group once TELEGRAM_TRIP_BUILDER=1. */
+/** The menu for each group: /c in the Comment group (the Admin group has it only until a Comment group is set up); /add_trip and /add_attraction in the Admin group once TELEGRAM_TRIP_BUILDER=1. */
 const TRIP_BUILDER_COMMANDS = [
-  { command: "trip", description: "Build and send a smart trip: link and PDF" },
-  { command: "place", description: "Add or update an attraction (hours, photos)" },
+  { command: "add_trip", description: "Build a smart trip: type freely, check, then build" },
+  { command: "add_attraction", description: "Add or update an attraction (category, area, hours, photos)" },
 ];
-/** /book in the Admin group once TELEGRAM_BOOKING_BUILDER=1. */
-const BOOK_COMMAND = { command: "book", description: "Create a new booking: type the details, get the PDF" };
+/** /add_booking in the Admin group once TELEGRAM_BOOKING_BUILDER=1. */
+const BOOK_COMMAND = { command: "add_booking", description: "Create a new booking: type the details, get the PDF" };
 export const menus = (adminChat: string, commentChat: string, tripBuilder = false, bookingBuilder = false) => [
   { chat: adminChat, commands: [...(commentChat ? [] : [COMMENT_COMMAND]), ...(bookingBuilder ? [BOOK_COMMAND] : []), ...(tripBuilder ? TRIP_BUILDER_COMMANDS : []), ...ADMIN_COMMANDS] },
   ...(commentChat && commentChat !== adminChat ? [{ chat: commentChat, commands: [COMMENT_COMMAND] }] : []),
