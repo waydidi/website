@@ -10,3 +10,10 @@ test("the home page has the Travel Effortlessly section below the hero and above
   expect(tag!.y).toBeLessThan(next!.y);
   expect(tag!.y).toBeGreaterThan(300); // below the hero, not part of it
 });
+
+test("the six service cards are gone: the Travel Effortlessly section comes straight after the hero", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Travel Effortlessly." })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Our services" })).toHaveCount(0);
+  await expect(page.getByText("Ride between any two Thai cities, door to door, at a fixed price.")).toHaveCount(0);
+});
