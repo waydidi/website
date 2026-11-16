@@ -41,11 +41,19 @@
   }
   function closeBar() { var host = document.getElementById("waydidi-reply-bar"); if (host) host.remove(); }
 
-  var finished = false;
+  // When the extension itself closes this tab (Posted, Skip, failed), Facebook would ask "Leave site?" (ออกจากเว็บไซต์ไหม)
+  // because a comment is still in the box, and the tab stays open. Added at document_start, so it runs before
+  // Facebook's own handler and stops it: the tab just closes, as if "ออก" was pressed. Only after done(); leaving the
+  // page any other way still asks as usual.
+  var closing = false;
+  window.addEventListener("beforeunload", function (e) { if (closing) e.stopImmediatePropagation(); }, true);
+
+  var finished = false, gone = 0; // gone: checks in a row that showed Facebook's "not available" page
   function done(action) {
     if (finished) return;
     finished = true;
-    bar(action === "posted" ? "Marked as posted. Closing this tab…" : action === "auto_failed" ? "Could not post it. The team is told in Telegram. Closing this tab…" : "Skipped. Closing this tab…", []);
+    closing = true;
+    bar(action === "posted" ? "Marked as posted. Closing this tab…" : action === "auto_failed" ? "Could not post it. The team is told in Telegram. Closing this tab…" : gone >= 2 ? "This post is not available any more. Skipped. Closing this tab…" : "Skipped. Closing this tab…", []);
     ask({ type: "reply-done", action: action });
   }
   function stop() {
@@ -225,6 +233,11 @@
       if (finished) return clearInterval(timer);
       if (!box) {
         if (fill()) return;
+        // "This content isn't available at the moment" (deleted, or only some people can see it): nothing to comment
+        // on, so the lead is skipped, the tab closes and the queue goes on to the next post (owner choice). Seen on two
+        // checks in a row, so a page still loading is not taken for it.
+        gone = window.WaydidiLeads.unavailablePage(document) ? gone + 1 : 0;
+        if (gone >= 2) return done("skipped");
         waited += WATCH_MS;
         if (waited >= FIND_MS) bar("No comment box found on this page (comments may be off).", [{ text: "Copy draft", main: true, run: copy }].concat(common));
         return;
