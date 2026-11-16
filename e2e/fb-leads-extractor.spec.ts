@@ -283,3 +283,32 @@ test("hidden link: read from the page's own data, never from another post higher
   expect(JSON.stringify(out.posts)).not.toContain("9999999");
   expect(out.d).toMatchObject({ withText: 3, withLink: 2, pageData: 2, hidden: 3 }); // all 3 time links stay hidden; 2 recovered from page data
 });
+
+// content.js (the collector) in a tab the reply queue opened: the posts Facebook shows around the post being answered
+// must not be sent to Waydidi, or they come back to Telegram as new leads. Other group tabs are collected as before.
+async function runCollector(page: import("@playwright/test").Page, opts: { replyTab: boolean; hash?: boolean }) {
+  await page.addInitScript((replyTab) => {
+    const w = window as unknown as { __msgs: { type: string }[]; chrome: unknown };
+    w.__msgs = [];
+    const store = { sent: [], names: ["Waydidi Travel"] };
+    w.chrome = {
+      runtime: { id: "x", onMessage: { addListener() {} }, sendMessage: (m: { type: string }) => { w.__msgs.push(m); return Promise.resolve(m.type === "is-reply-tab" ? { reply: replyTab } : { ok: true, accepted: 1, skipped: 0 }); } },
+      storage: { local: { get: (d: object, cb?: (r: object) => void) => { const r = Object.assign({}, d, store); if (cb) cb(r); return Promise.resolve(r); }, set: () => Promise.resolve() }, onChanged: { addListener() {} } },
+    };
+  }, opts.replyTab);
+  await openReal(page, real({ id: "8400008", text: "Looking for a taxi from Trat airport to the Koh Chang ferry for 3 people on Monday" }));
+  if (opts.hash) await page.evaluate(() => { location.hash = "waydidi-reply=0123456789abcdef"; });
+  for (const f of ["runner.js", "content.js"]) await page.addScriptTag({ path: path.join(process.cwd(), "extensions", "fb-leads", f) });
+  await page.waitForTimeout(3500); // content.js scans 1.5 s after the page settles
+  return page.evaluate(() => (window as unknown as { __msgs: { type: string }[] }).__msgs.map((m) => m.type));
+}
+
+test("collector: a normal group tab sends the posts on screen", async ({ page }) => {
+  expect(await runCollector(page, { replyTab: false })).toContain("posts");
+});
+test("collector: a reply-queue tab sends nothing (no new leads from the posts around the one being answered)", async ({ page }) => {
+  expect(await runCollector(page, { replyTab: true })).not.toContain("posts");
+});
+test("collector: a tab opened from Telegram's Open in Chrome (#waydidi-reply) sends nothing", async ({ page }) => {
+  expect(await runCollector(page, { replyTab: false, hash: true })).not.toContain("posts");
+});

@@ -32,8 +32,18 @@
    * Sends the new posts on screen. Resolves { posts, leads, visible }: posts = new posts sent, leads = those that look like
    * requests, visible = posts readable on screen now including ones sent before. Null if sending failed.
    */
+  // A tab the reply queue opened (or the Telegram "Open in Chrome" button) is for commenting on one post: posts seen
+  // there (Facebook shows other posts around it) are not collected, or they come back to Telegram as new leads.
+  var READ_AT_START = /#waydidi-reply=/.test(location.hash || ""), replyTab = READ_AT_START;
+  async function isReplyTab() {
+    if (replyTab) return true;
+    try { replyTab = Boolean((await chrome.runtime.sendMessage({ type: "is-reply-tab" }) || {}).reply); } catch { /* ask again next scan */ }
+    return replyTab;
+  }
+
   async function doScan(expand) {
     if (!loaded || location.pathname.indexOf("/groups/") !== 0) return { posts: 0, leads: 0, visible: 0 };
+    if (await isReplyTab()) return { posts: 0, leads: 0, visible: 0 };
     // Facebook fills in a post's hidden link when a mouse moves over its time: hover those once, give it a moment.
     // During a Collect run (only), "See more" is tapped too, so the whole post is read before it is judged.
     var waited = window.WaydidiLeads.revealLinks(document) + (expand === true ? window.WaydidiLeads.expandPosts(document) : 0);
