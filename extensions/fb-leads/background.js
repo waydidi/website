@@ -194,6 +194,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   else if (message.type === "reply-status" && tabId !== undefined) job = replyStatus(tabId);
   else if (message.type === "reply-hand" && tabId !== undefined) job = replyHand(tabId, message.reason);
   else if (message.type === "reply-sending" && tabId !== undefined) job = replySending(tabId);
+  else if (message.type === "is-reply-tab" && tabId !== undefined) job = replyTabs().then(function (tabs) { return { reply: Boolean(tabs[tabId]) }; });
   else if (message.type === "reply-done" && tabId !== undefined && (message.action === "posted" || message.action === "skipped" || message.action === "auto_failed")) job = replyDone(tabId, message.action).then(function () { return { ok: true }; });
   if (!job) return;
   job.then(sendResponse, function () { sendResponse({ ok: false, error: "failed" }); });
