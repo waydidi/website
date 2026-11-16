@@ -22,7 +22,7 @@ test('without a Comment group the Admin group menu has /c first; it is registere
  const calls=[];const ok=async(method,payload)=>{calls.push([method,payload]);return true;};
  assert.equal(await cmd.syncBotCommands(ok,t0),true);
  assert.equal(calls.length,1);assert.equal(calls[0][0],'setMyCommands');assert.deepEqual(calls[0][1].scope,{type:'chat',chat_id:'-100555'});
- assert.deepEqual(calls[0][1].commands.map((c)=>c.command),['c','ask','id']);assert.match(calls[0][1].commands[0].description,/Facebook comment/);
+ assert.deepEqual(calls[0][1].commands.map((c)=>c.command),['c','pdf','ask','id']);assert.match(calls[0][1].commands[0].description,/Facebook comment/);
  for(const c of calls[0][1].commands){assert.match(c.command,/^[a-z0-9_]{1,32}$/);assert.ok(c.description.length>=3&&c.description.length<=256);}
  assert.equal(await cmd.syncBotCommands(ok,new Date(t0.getTime()+3600000)),false);assert.equal(calls.length,1);
 });
@@ -32,7 +32,7 @@ test('with a Comment group: /c is in its menu only, and the Admin group menu los
  assert.equal(await cmd.syncBotCommands(ok,new Date(t0.getTime()+7200000)),true);
  assert.equal(calls.length,2);
  const byChat=Object.fromEntries(calls.map(([,p])=>[p.scope.chat_id,p.commands.map((c)=>c.command)]));
- assert.deepEqual(byChat,{'-100555':['ask','id'],'-100999':['c']});
+ assert.deepEqual(byChat,{'-100555':['pdf','ask','id'],'-100999':['c']});
  assert.equal(await cmd.syncBotCommands(ok,new Date(t0.getTime()+10800000)),false);
  delete globalThis.__cmdTest.env.TELEGRAM_COMMENT_CHAT_ID;
 });
