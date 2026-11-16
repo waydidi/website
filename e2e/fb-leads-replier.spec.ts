@@ -195,7 +195,7 @@ test("isSalesComment: a comment with WhatsApp and a phone number", async ({ page
 // The QR picture: given to the comment's own photo input (inside the same post); Facebook then shows a preview.
 async function picturePage(page: Page, withInput: boolean, preview = true) {
   const other = `<div role="article" aria-label="Other post"><input type="file" id="other" accept="image/*"></div>`;
-  await load(page, other + `<div role="article" aria-label="Post"><form><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px">Hello</div>${withInput ? '<input type="file" id="mine" accept="image/*,video/*" style="display:none">' : ""}<div id="previews"></div><button type="submit" aria-label="Post comment">Post</button></form></div>`);
+  await load(page, other + `<div role="article" aria-label="Post"><form><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px">Hello</div>${withInput ? '<input type="file" id="mine" accept="image/*,video/*" style="display:none">' : ""}<div id="previews"></div><style>#previews > *, #above > *, #under > * { display:block; width:60px; height:60px }</style><button type="submit" aria-label="Post comment">Post</button></form></div>`);
   await page.evaluate(({ withInput, preview }) => {
     const show = (file: File) => { if (preview) { const img = document.createElement("img"); img.src = URL.createObjectURL(file); document.getElementById("previews")!.appendChild(img); } };
     if (withInput) document.getElementById("mine")!.addEventListener("change", (e) => show((e.target as HTMLInputElement).files![0]));
@@ -215,10 +215,51 @@ test("attachPicture: with no photo input the picture is pasted into the box", as
   expect(await attach(page)).toEqual({ r: "attached", name: null, previews: 1, pressed: [] });
 });
 
-test("attachPicture: no preview within 10 seconds is reported as failed", async ({ page }) => {
+test("attachPicture: no preview within 15 seconds is reported as failed", async ({ page }) => {
   test.setTimeout(30_000);
   await picturePage(page, true, false);
   expect((await attach(page)).r).toBe("failed");
+});
+
+// The real page: the QR was added, but Facebook showed it in other ways than one more blob picture.
+async function previewPage(page: Page, show: string) {
+  await load(page, `<div role="article" aria-label="Other post"><div id="above"></div></div><div role="article" aria-label="Post"><img id="old" src="data:image/gif;base64,R0lGODlhAQABAAAAACw="><form><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px">Hello</div><input type="file" id="mine" accept="image/*" style="display:none"><div id="previews"></div><style>#previews > *, #above > *, #under > * { display:block; width:60px; height:60px }</style></form></div>`);
+  await page.evaluate((show) => {
+    document.getElementById("mine")!.addEventListener("change", (e) => {
+      const url = URL.createObjectURL((e.target as HTMLInputElement).files![0]), box = document.getElementById("previews")!;
+      setTimeout(() => {
+        if (show === "background") { const d = document.createElement("div"); d.style.backgroundImage = `url("${url}")`; box.appendChild(d); }
+        if (show === "remove") { const b = document.createElement("div"); b.setAttribute("role", "button"); b.setAttribute("aria-label", "Remove photo"); box.appendChild(b); }
+        if (show === "swap") { document.getElementById("old")!.remove(); const img = document.createElement("img"); img.src = url; box.appendChild(img); }
+        if (show === "https") { const img = document.createElement("img"); img.src = "https://example.com/avatar.jpg"; document.getElementById("above")!.appendChild(img); }
+      }, show === "remove" ? 12_000 : 300);
+    });
+  }, show);
+}
+for (const show of ["background", "swap", "remove"]) {
+  test(`attachPicture: a preview shown as ${show} counts as attached`, async ({ page }) => {
+    test.setTimeout(30_000);
+    await previewPage(page, show);
+    expect((await attach(page)).r).toBe("attached");
+  });
+}
+test("attachPicture: a picture loading in another post (an avatar) is not taken for the QR", async ({ page }) => {
+  test.setTimeout(30_000);
+  await previewPage(page, "https");
+  expect((await attach(page)).r).toBe("failed");
+});
+
+// The real page (Facebook, November 2026): the preview is an https picture with a × button, shown below the comment's
+// bubble, outside the bubble and its form.
+test("attachPicture: Facebook's preview below the comment bubble (https picture, outside the form) counts as attached", async ({ page }) => {
+  await load(page, `<div role="article" aria-label="Post"><div class="bubble"><form><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:40px">Hello</div><input type="file" id="mine" accept="image/*" style="display:none"></form></div><div id="under"></div></div><style>#previews > *, #above > *, #under > * { display:block; width:60px; height:60px }</style>`);
+  await page.evaluate(() => {
+    document.getElementById("mine")!.addEventListener("change", () => setTimeout(() => {
+      const img = document.createElement("img"); img.src = "https://scontent.example.com/qr.jpg"; document.getElementById("under")!.appendChild(img);
+      const x = document.createElement("div"); x.setAttribute("role", "button"); x.setAttribute("aria-label", "Remove photo"); document.getElementById("under")!.appendChild(x);
+    }, 500));
+  });
+  expect(await attach(page)).toEqual({ r: "attached", name: "Waydidi_QR.jpg", previews: 0, pressed: [] });
 });
 
 const runTag = (page: Page) => page.evaluate(`(async () => { const h = window.WaydidiLeads, box = h.findCommentBox(document); const r = await h.tagName(document, box, "Waydidi Travel"); return { r, html: box.innerHTML, text: box.textContent, pressed: window.pressed }; })()`) as Promise<{ r: string; html: string; text: string; pressed: string[] }>;
@@ -310,7 +351,7 @@ test("likePost: a Like button whose label also says 'change' is not read as alre
 test("attachPicture: Facebook's photo input outside the post's article (next to the composer) is found and used", async ({ page }) => {
   await load(page, `<div class="dialog"><div role="article" aria-label="Post"><div dir="auto">Need a van</div></div>
     <div class="composer"><div><div contenteditable="true" role="textbox" aria-label="Write a comment" style="min-height:20px">Hello</div></div>
-    <input type="file" id="mine" accept="image/*,image/heif,image/heic,video/*" multiple style="display:none"></div><div id="previews"></div></div>`);
+    <input type="file" id="mine" accept="image/*,image/heif,image/heic,video/*" multiple style="display:none"></div><div id="previews"></div><style>#previews > *, #above > *, #under > * { display:block; width:60px; height:60px }</style></div>`);
   await page.evaluate(() => {
     document.getElementById("mine")!.addEventListener("change", (e) => {
       const img = document.createElement("img"); img.src = URL.createObjectURL((e.target as HTMLInputElement).files![0]); document.getElementById("previews")!.appendChild(img);

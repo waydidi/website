@@ -270,15 +270,19 @@
 
   /**
    * Adds a picture to the comment being written, as a person does with the photo button: the file is given to the
-   * comment's own photo input (inside the same post), or pasted into the box when there is none. Waits up to 10
+   * comment's own photo input (inside the same post), or pasted into the box when there is none. Waits up to 15
    * seconds for Facebook's preview of the picture. Never presses Post. Resolves "attached" or "failed".
    */
   async function attachPicture(doc, box, file) {
     // Facebook's photo input may sit outside the post's own article, next to the comment box: the nearest file input
     // going up from the box is this comment's (another post's composer is further away).
     var found = photoInput(box), input = found.input;
-    var previews = function () { return doc.querySelectorAll('img[src^="blob:"], img[src^="data:image"]').length; };
-    var before = previews(), data = new DataTransfer();
+    // What is on the page before: a preview counts only when it is new (an element that was not there).
+    var known = new Set(previewCandidates(doc)), before = known.size, data = new DataTransfer();
+    var appeared = function () {
+      var fresh = previewCandidates(doc).filter(function (el) { return !known.has(el) && underBox(el, box); });
+      return fresh.length ? fresh : null;
+    };
     data.items.add(file);
     lastAttach = { way: input ? "input" : "paste", levels: found.levels, accept: input ? input.getAttribute("accept") || "" : "", before: before };
     if (input) {
@@ -289,14 +293,33 @@
       box.focus();
       box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
     }
-    for (var t = 0; t < 50; t++) {
-      if (previews() > before) { lastAttach.after = previews(); return "attached"; }
+    for (var t = 0; t < 75; t++) {
+      var seen = appeared();
+      if (seen) { lastAttach.after = previewCandidates(doc).length; lastAttach.seenAs = seen[0].tagName.toLowerCase(); return "attached"; }
       await wait(200);
     }
-    lastAttach.after = previews();
+    lastAttach.after = previewCandidates(doc).length;
+    lastAttach.newAnywhere = previewCandidates(doc).filter(function (el) { return !known.has(el); }).map(function (el) { return el.tagName.toLowerCase() + (underBox(el, box) ? "" : " (far)"); }).slice(0, 10);
     return "failed";
   }
   var lastAttach = null;
+  var REMOVE_LABEL = /remove|delete|ลบ|นำออก|删除|移除|刪除/i;
+  /** Things that can be a picture preview: pictures, picture backgrounds, and remove (×) buttons. */
+  function previewCandidates(doc) {
+    var out = Array.prototype.slice.call(doc.querySelectorAll("img, image, [style*='background-image']"));
+    Array.prototype.forEach.call(doc.querySelectorAll('[role="button"], button'), function (b) { if (REMOVE_LABEL.test(b.getAttribute("aria-label") || "")) out.push(b); });
+    return out;
+  }
+  /**
+   * Shown where Facebook puts this comment's picture: under the comment box (Facebook shows it just below the box,
+   * outside the box's own bubble), starting within its width and at most 300 px down. Pictures elsewhere (avatars,
+   * other comments, another post) are not taken for it. Tiny ones (icons, emoji) do not count.
+   */
+  function underBox(el, box) {
+    var r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+    if (r.width < 16 || r.height < 16) return false;
+    return r.top >= b.top && r.top <= b.bottom + 300 && r.left >= b.left - 80 && r.left <= b.right;
+  }
   /**
    * The nearest file input going up from the comment box (images preferred), within 14 levels, and how far up. Never
    * one inside another post (an article that does not hold this box), and the search stops at a level that holds a

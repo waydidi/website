@@ -154,7 +154,8 @@ async function replyHand(tabId, reason) {
   var entry = (await replyTabs())[tabId];
   if (!entry || reason !== "qr") return { ok: false };
   var r = await replyCall({ action: "needs_hand", id: entry.id, reason: reason });
-  return { ok: r.status === 200 };
+  var off = r.status === 409 && r.data && r.data.error === "off";
+  return { ok: r.status === 200, off: off, message: r.status === 200 ? "" : off ? "Sending from Telegram is switched off on the website." : r.status === 409 ? "This lead is no longer open in this tab." : replyProblem(r.status) };
 }
 async function replyStatus(tabId) {
   var entry = (await replyTabs())[tabId];

@@ -153,8 +153,11 @@
       // A sales comment without its QR picture is never sent by Chrome: the person adds it and presses Post. With Send
       // from Telegram on, the team is also told in Telegram (under the lead), since nobody may be watching this tab.
       if (lead.auto && !extra.ok) {
-        ask({ type: "reply-hand", reason: "qr" });
-        return bar(extra.note + " Add it, then press Post on Facebook yourself. The team was told in Telegram.", common);
+        bar(extra.note + " Add it, then press Post on Facebook yourself. Telling the team in Telegram…", common);
+        return ask({ type: "reply-hand", reason: "qr" }).then(function (h) {
+          if (finished) return;
+          bar(extra.note + " Add it, then press Post on Facebook yourself. " + (h && h.ok ? "The team was told in Telegram." : "Telegram could not be told: " + ((h && h.message) || "no answer from the extension. Reload it in chrome://extensions.")), common);
+        });
       }
       if (lead.auto) sendFromTelegram(r, extra.note);
       else manualBar(r, extra.note);
