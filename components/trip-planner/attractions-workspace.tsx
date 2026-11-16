@@ -4,7 +4,7 @@ import Link from "next/link";
 import { BadgeCheck, CalendarX2, Clock, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AttractionView, SupplierRow } from "@/lib/attractions";
-import { BEST_TIMES, MAX_GALLERY_PHOTOS, MEAL_SLOTS, PLACE_TYPE_LABEL, PLACE_TYPES, PRICE_LEVEL, VIBES } from "@/lib/place-taxonomy";
+import { BEST_TIMES, MAX_GALLERY_PHOTOS, MEAL_SLOTS, PLACE_AREAS, PLACE_TYPE_LABEL, PLACE_TYPES, PRICE_LEVEL, VIBES } from "@/lib/place-taxonomy";
 import type { GooglePlaceFacts } from "@/lib/place-autofill";
 import { mergeCredits, type FreePhoto } from "@/lib/place-autofill-rules";
 import { PACKING_TAGS, type Program, type ScheduleException } from "@/lib/trip-plan";
@@ -47,7 +47,8 @@ export function AttractionsWorkspace() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load().catch((e: Error) => setError(e.message)); }, [load]);
 
-  const areas = useMemo(() => [...new Set((items ?? []).map((i) => i.area).filter(Boolean))].sort(), [items]);
+  // The fixed areas first; any older free-text area still on a place is listed after them until it is saved again.
+  const areas = useMemo(() => [...PLACE_AREAS, ...[...new Set((items ?? []).map((i) => i.area).filter((a) => a && !(PLACE_AREAS as readonly string[]).includes(a)))].sort()], [items]);
   const hoods = useMemo(() => [...new Set((items ?? []).filter((i) => !area || i.area === area).map((i) => i.neighbourhood).filter((x): x is string => Boolean(x)))].sort(), [items, area]);
   const shown = (items ?? []).filter((i) => (!area || i.area === area) && (!type || i.category === type) && (!hood || i.neighbourhood === hood)
     && (!state || (state === "unverified" ? !i.verifiedAt : state === "published" ? i.published : !i.published)) && `${i.name} ${i.customerName ?? ""} ${i.category} ${i.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase()));
@@ -105,7 +106,7 @@ export function AttractionsWorkspace() {
       </table></div>
     </section>
     {error && !draft && <p role="alert" className="mt-3 text-[13px] font-semibold text-red-600">{error}</p>}
-    {draft && <Editor draft={draft} setDraft={setDraft} suppliers={suppliers} areas={areas} hoods={[...new Set((items ?? []).map((i) => i.neighbourhood).filter((x): x is string => Boolean(x)))].sort()} verified={Boolean(items?.find((i) => i.id === draft.id)?.verifiedAt)} busy={busy} error={error} onSave={save} />}
+    {draft && <Editor draft={draft} setDraft={setDraft} suppliers={suppliers} hoods={[...new Set((items ?? []).map((i) => i.neighbourhood).filter((x): x is string => Boolean(x)))].sort()} verified={Boolean(items?.find((i) => i.id === draft.id)?.verifiedAt)} busy={busy} error={error} onSave={save} />}
   </main>;
 }
 
@@ -118,7 +119,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return <fieldset className="grid gap-3 border-t border-slate-100 pt-4"><legend className="pr-2 text-[15px] font-bold text-slate-900">{title}</legend>{children}</fieldset>;
 }
 
-function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, error, onSave }: { draft: Draft; setDraft: React.Dispatch<React.SetStateAction<Draft | null>>; suppliers: SupplierRow[]; areas: string[]; hoods: string[]; verified: boolean; busy: boolean; error: string; onSave: (d: Draft) => void }) {
+function Editor({ draft, setDraft, suppliers, hoods, verified, busy, error, onSave }: { draft: Draft; setDraft: React.Dispatch<React.SetStateAction<Draft | null>>; suppliers: SupplierRow[]; hoods: string[]; verified: boolean; busy: boolean; error: string; onSave: (d: Draft) => void }) {
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch });
   const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
   const [uploading, setUploading] = useState(false);
@@ -193,7 +194,13 @@ function Editor({ draft, setDraft, suppliers, areas, hoods, verified, busy, erro
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Internal name"><input required value={draft.name} onChange={(e) => set({ name: e.target.value })} className={inputCls} placeholder="Phuket Elephant Sanctuary" /></Field>
             <Field label="Name customers see" hint="Leave empty to use the internal name"><input value={draft.customerName ?? ""} onChange={(e) => set({ customerName: e.target.value })} className={inputCls} /></Field>
-            <Field label="Area"><input list="attraction-areas" value={draft.area} onChange={(e) => set({ area: e.target.value })} className={inputCls} placeholder="Phuket" /><datalist id="attraction-areas">{areas.map((a) => <option key={a} value={a} />)}</datalist></Field>
+            <Field label="Area" hint="A beach or district goes in Neighbourhood">
+              <select value={draft.area} onChange={(e) => set({ area: e.target.value })} className={inputCls}>
+                <option value="">Choose an area</option>
+                {PLACE_AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
+                {draft.area && !(PLACE_AREAS as readonly string[]).includes(draft.area) && <option value={draft.area}>{draft.area} (old: choose an area)</option>}
+              </select>
+            </Field>
             <Field label="Category"><select value={draft.category} onChange={(e) => set({ category: e.target.value })} className={inputCls}>{CATEGORIES.map((c) => <option key={c} value={c}>{PLACE_TYPE_LABEL[c]}</option>)}</select></Field>
           </div>
           <Field label="Location" hint={draft.latitude != null ? `Map position saved (${draft.latitude.toFixed(4)}, ${draft.longitude?.toFixed(4)})` : "Pick a suggestion so the planner can work out drive times"}>

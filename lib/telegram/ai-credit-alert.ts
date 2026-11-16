@@ -12,7 +12,7 @@ type Db = { prepare: (sql: string) => { bind: (...v: unknown[]) => { run: () => 
 
 export const CREDIT_ALERT_TH = [
   "⚠️ <b>เครดิต AI (Anthropic) หมดแล้ว</b>",
-  "คำสั่งที่ใช้ AI (/trip, /book แบบพิมพ์อิสระ, /c และผู้ช่วย /ask) ใช้ไม่ได้จนกว่าจะเติมเครดิต",
+  "คำสั่งที่ใช้ AI (/add_trip, /add_booking แบบพิมพ์อิสระ, /c และผู้ช่วย /ask) ใช้ไม่ได้จนกว่าจะเติมเครดิต",
   "แอดมินเติมได้ที่ console.anthropic.com → Billing (แนะนำเปิด Auto-reload เพื่อเติมอัตโนมัติก่อนหมด)",
 ].join("\n");
 

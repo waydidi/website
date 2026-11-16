@@ -1,4 +1,4 @@
-// /trip check-first summary (owner's design, 2026-11-16): the AI reads staff's free text, the bot looks the pickup and
+// /add_trip check-first summary (owner's design, 2026-11-16): the AI reads staff's free text, the bot looks the pickup and
 // drop-off up on Google Maps, picks the car by the number of people, orders the places nearest-first (moving a place
 // whose opening hours do not fit) and posts this summary. Nothing is built until a team member taps สร้างทริป; anything
 // missing or unsure is asked first and the button only appears when nothing is. Pure, so it is unit tested directly.
@@ -12,7 +12,7 @@ export type DraftPlace = {
   stopId: string; name: string; attractionId: string | null; lat: number | null; lng: number | null; durationMin: number;
   priority: "must" | "nice"; note?: string; day?: number;
   /** Not in Admin → Attractions: found on Google Maps and added only when the trip is built. */
-  fromGoogle?: { openTime: string | null; closeTime: string | null; closedDays: number[] } | null;
+  fromGoogle?: { openTime: string | null; closeTime: string | null; closedDays: number[]; category?: string | null; area?: string | null };
   /** Not in Attractions and Google Maps could not find it. */
   notFound?: boolean;
 };

@@ -1,4 +1,4 @@
-// /book in the Admin Telegram group: a new booking typed in free text, field by field. This file reads the text
+// /add_booking in the Admin Telegram group: a new booking typed in free text, field by field. This file reads the text
 // into booking fields, says what is still missing and shows the summary. Pure (no runtime imports beyond other pure
 // rules) so it is unit tested directly (tests/telegram-booking-builder.test.mjs). The AI reader's answer is untrusted:
 // every value it gives goes through the same readField checks as a typed one.
@@ -60,9 +60,10 @@ const LABELS: Record<FieldKey, string[]> = {
 };
 const LABEL_OF = new Map(Object.entries(LABELS).flatMap(([key, names]) => names.map((n) => [n, key as FieldKey] as const)));
 
-/** The text after /book ("" when nothing follows), or null when the message is not the /book command. */
+/** The text after /add_booking ("" when nothing follows), or null when the message is not the /add_booking command. */
 export function parseBookCommand(text: string): string | null {
-  const match = text.trim().match(/^\/book(?:@\w+)?(?:\s+([\s\S]*))?$/i);
+  // /add_booking (owner, 2026-11-16); the older /book still works.
+  const match = text.trim().match(/^\/(?:add_booking|book)(?:@\w+)?(?:\s+([\s\S]*))?$/i);
   return match ? (match[1] ?? "").trim() : null;
 }
 
@@ -210,7 +211,7 @@ export function draftProblem(f: DraftFields): string | null {
     return `${v.name} นั่งได้ ${v.passengers} คน กระเป๋า ${v.bags} ใบ: เปลี่ยนรถ หรือแก้จำนวนคน/กระเป๋า`;
   }
   if (service === "hourly" && ((f.bookedHours ?? 0) < 3 || f.vehicle === "comfort_bmw")) return "รายชั่วโมงเริ่มที่ 3 ชั่วโมง และไม่มี BMW";
-  if (service !== "transfer" && (f.returnDate || f.returnTime || f.returnPickup || f.returnDropoff)) return "ขากลับใช้ได้กับรับส่ง (transfer) เท่านั้น ถ้าต้องการให้สร้างอีกการจองด้วย /book";
+  if (service !== "transfer" && (f.returnDate || f.returnTime || f.returnPickup || f.returnDropoff)) return "ขากลับใช้ได้กับรับส่ง (transfer) เท่านั้น ถ้าต้องการให้สร้างอีกการจองด้วย /add_booking";
   if ((f.returnPickup || f.returnDropoff) && !f.returnDate && !f.returnTime) return "มีจุดรับ/ส่งขากลับ แต่ยังไม่มีวันและเวลากลับ";
   if (Boolean(f.returnDate) !== Boolean(f.returnTime) && service === "transfer") return f.returnDate ? "ใส่เวลากลับด้วย" : "ใส่วันกลับด้วย";
   if (f.returnDate && f.pickupDate && service === "transfer" && `${f.returnDate}T${f.returnTime ?? "00:00"}` <= `${f.pickupDate}T${f.pickupTime ?? "00:00"}`) return "วันกลับต้องหลังวันรับ";
@@ -279,10 +280,10 @@ const EXAMPLE: Record<FieldKey, string> = {
   passengers: "3", luggage: "2", car: "SUV", price: "2,500", discount: "200", payment: "cash", child_seats: "1", sign: "Mr John", notes: "-",
 };
 
-/** The help shown for /book with nothing after it. */
+/** The help shown for /add_booking with nothing after it. */
 export const BOOK_HELP = [
-  "📝 <b>สร้างการจองใหม่</b> พิมพ์ /book แล้วตามด้วยข้อมูล จะพิมพ์อิสระหรือทีละบรรทัดก็ได้ เช่น",
-  `<code>/book\n${(["name", "phone", "email", "date", "time", "pickup", "dropoff", "passengers", "luggage", "car", "price", "payment"] as FieldKey[]).map((k) => `${LABELS[k][0]}: ${EXAMPLE[k]}`).join("\n")}</code>`,
+  "📝 <b>สร้างการจองใหม่</b> พิมพ์ /add_booking แล้วตามด้วยข้อมูล จะพิมพ์อิสระหรือทีละบรรทัดก็ได้ เช่น",
+  `<code>/add_booking\n${(["name", "phone", "email", "date", "time", "pickup", "dropoff", "passengers", "luggage", "car", "price", "payment"] as FieldKey[]).map((k) => `${LABELS[k][0]}: ${EXAMPLE[k]}`).join("\n")}</code>`,
   "ไม่บังคับ: flight, return date / return time (ขากลับ; ถ้ารับหรือส่งคนละที่ใส่ return pickup / return dropoff), discount, child seats, sign, notes, service (transfer / hourly + hours / tour)",
   "บอทจะบอกว่าขาดอะไร ตอบกลับข้อความของบอทเพื่อเพิ่มหรือแก้ แล้วกด สร้างการจอง ระบบจะไม่ส่งอะไรให้ลูกค้า",
 ].join("\n");

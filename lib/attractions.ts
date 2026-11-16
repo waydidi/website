@@ -8,7 +8,8 @@ export type AttractionRow = typeof attractions.$inferSelect;
 export type SupplierRow = typeof suppliers.$inferSelect;
 
 const json = <T,>(value: string | null | undefined, fallback: T): T => { try { return value ? JSON.parse(value) as T : fallback; } catch { return fallback; } };
-import { BEST_TIMES, MAX_GALLERY_PHOTOS, MEAL_SLOTS, VIBES } from "@/lib/place-taxonomy";
+import { BEST_TIMES, MAX_GALLERY_PHOTOS, MEAL_SLOTS, PLACE_AREAS, VIBES } from "@/lib/place-taxonomy";
+import { areaOf } from "@/lib/place-words";
 export { BEST_TIMES, MEAL_SLOTS, PLACE_TYPES, VIBES, type PlaceI18n } from "@/lib/place-taxonomy";
 import type { PlaceI18n } from "@/lib/place-taxonomy";
 import { time, tripDate as day } from "@/lib/trip-validation";
@@ -37,7 +38,8 @@ export const attractionSchema = z.object({
   id: z.string().max(60).optional(),
   name: text(120).min(2),
   customerName: optText(120),
-  area: text(60).default(""),
+  // One of the fixed areas (PLACE_AREAS); "phuket" or "Patong" is saved as "Phuket". Empty is allowed (not known yet).
+  area: text(60).default("").transform((v) => (v ? areaOf(v) ?? v : "")).refine((v) => !v || (PLACE_AREAS as readonly string[]).includes(v), { message: `Choose an area from the list: ${PLACE_AREAS.join(", ")}.` }),
   address: optText(300),
   latitude: z.number().min(-90).max(90).nullable().default(null),
   longitude: z.number().min(-180).max(180).nullable().default(null),

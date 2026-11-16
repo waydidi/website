@@ -97,12 +97,12 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   if (!admin) return answerCallback(q.id, `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: ${q.from.id}`, true);
   const [action, target, extra] = (q.data ?? "").split(":");
   if (!target || target.length > 60) return answerCallback(q.id, "Unknown action.");
-  // A package choice under a /trip question (the team member is checked above).
+  // A package choice under a /add_trip question (the team member is checked above).
   if (action === "tp_pkg") return handleTripPackageChoice(q, admin);
-  // สร้างทริป / ยกเลิก under a /trip summary (the team member is checked above).
+  // สร้างทริป / ยกเลิก under a /add_trip summary (the team member is checked above).
   if (action === "tpd_ok" || action === "tpd_no") return handleTripDraftCallback(action, target, extra ?? "", admin, q);
   if (action === "tpd_done") return answerCallback(q.id);
-  // "สร้างการจอง" / "ยกเลิก" under a /book draft (the team member is checked above).
+  // "สร้างการจอง" / "ยกเลิก" under a /add_booking draft (the team member is checked above).
   if (action === "bkb_ok" || action === "bkb_no") return handleBookingCallback(action, target, extra ?? "", { name: admin.display_name }, q);
   if (action === "bkb_done") return answerCallback(q.id);
   const who = { name: admin.display_name, staffId: admin.staff_id, telegramUserId: String(q.from.id) };
@@ -256,9 +256,9 @@ async function handleMessage(m: TelegramMessage) {
   // /pdf REF or /pdf name (or /pdf replying to a booking card): the booking's confirmation PDF, for the team only.
   const pdfQuery = parsePdfCommand(text);
   if (pdfQuery !== null) { await answerPdfCommand(pdfQuery, m.message_id, m.reply_to_message?.text ?? m.reply_to_message?.caption ?? null, teamMember ? null : String(m.from?.id ?? "unknown")); return; }
-  // /book <details> (and replies to its draft messages): a new booking typed in Telegram, saved after "สร้างการจอง".
+  // /add_booking <details> (and replies to its draft messages): a new booking typed in Telegram, saved after "สร้างการจอง".
   if (await handleBookingBuilder(m, teamMember)) return;
-  // /trip and /place (and photos replying to a /place confirmation): smart trips and attractions from Telegram.
+  // /add_trip and /add_attraction (and photos replying to a /add_attraction confirmation): smart trips and attractions from Telegram.
   if (await handleTripBuilder(m, teamMember)) return;
   if (await handlePlacePhotoReply(m, teamMember)) return;
   // /c <travel-group post>: a drafted comment with web sources, and a Waydidi price post for transport questions.

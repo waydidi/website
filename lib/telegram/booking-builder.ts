@@ -13,7 +13,7 @@ import {
   isCancelWord, missingFields, parseAiFields, parseBookCommand, readFields, splitLabelled, type DraftFields,
 } from "@/lib/telegram/booking-builder-rules";
 
-// /book in the Admin Telegram group (Telegram team list only; off until TELEGRAM_BOOKING_BUILDER=1): staff type a new
+// /add_booking in the Admin Telegram group (Telegram team list only; off until TELEGRAM_BOOKING_BUILDER=1): staff type a new
 // booking freely, the bot shows what it understood and what is missing, staff reply to the bot to add or fix fields,
 // then "สร้างการจอง" saves it exactly like Admin → Manual booking (lib/manual-booking.ts) and the bot replies with the
 // confirmation PDF. Nothing is ever sent to the customer from here: staff forward the PDF.
@@ -90,7 +90,7 @@ async function postSummary(d: { id: string; chat_id: string; version: number }, 
 }
 
 /**
- * /book in the Admin group, or a reply to one of a draft's messages. Returns true when the message was handled.
+ * /add_booking in the Admin group, or a reply to one of a draft's messages. Returns true when the message was handled.
  * `member` is the approved Telegram team member (null = not on the team).
  */
 export async function handleBookingBuilder(m: TelegramMessage, member: { display_name: string } | null, deps: BookDeps = {}) {
@@ -108,7 +108,7 @@ export async function handleBookingBuilder(m: TelegramMessage, member: { display
     if (!member) { await reply(`เฉพาะทีม Waydidi ใน Telegram เท่านั้นที่สร้างการจองได้ Telegram ID ของคุณคือ <code>${esc(m.from?.id ?? "unknown")}</code>`); return true; }
     if (!command) { await reply(BOOK_HELP); return true; }
     if (command.length > MAX_BOOKING_TEXT) { await reply(`ยาวเกินไป (ไม่เกิน ${MAX_BOOKING_TEXT.toLocaleString("en-US")} ตัวอักษร)`); return true; }
-    // One draft per /book message: a webhook retry finds the same row and does nothing more.
+    // One draft per /add_booking message: a webhook retry finds the same row and does nothing more.
     const id = crypto.randomUUID(), stamp = now.toISOString();
     const claimed = await db().prepare(`INSERT OR IGNORE INTO telegram_booking_drafts(id,chat_id,request_message_id,created_by,created_by_name,fields_json,version,status,created_at,updated_at)
       VALUES(?,?,?,?,?,'{}',1,'draft',?,?)`).bind(id, chatId, m.message_id, String(m.from?.id ?? ""), member.display_name, stamp, stamp).run();
@@ -126,8 +126,8 @@ export async function handleBookingBuilder(m: TelegramMessage, member: { display
   const draft = await db().prepare("SELECT * FROM telegram_booking_drafts WHERE id=?").bind(link.draft_id).first<Draft>();
   if (!draft) return true;
   if (draft.status === "created") { await reply(`การจองนี้สร้างแล้ว: <b>${esc(draft.booking_reference)}</b> แก้ไขที่ Admin → Bookings`); return true; }
-  if (draft.status !== "draft") { await reply("ร่างนี้ปิดแล้ว เริ่มใหม่ด้วย /book"); return true; }
-  if (!fresh(draft, now)) { await reply(`ร่างนี้หมดอายุแล้ว (${DRAFT_HOURS} ชั่วโมง) เริ่มใหม่ด้วย /book`); return true; }
+  if (draft.status !== "draft") { await reply("ร่างนี้ปิดแล้ว เริ่มใหม่ด้วย /add_booking"); return true; }
+  if (!fresh(draft, now)) { await reply(`ร่างนี้หมดอายุแล้ว (${DRAFT_HOURS} ชั่วโมง) เริ่มใหม่ด้วย /add_booking`); return true; }
   if (isCancelWord(text)) {
     const done = await db().prepare("UPDATE telegram_booking_drafts SET status='cancelled',updated_at=? WHERE id=? AND status='draft'").bind(now.toISOString(), draft.id).run();
     await reply(done.meta.changes ? "ยกเลิกร่างการจองแล้ว" : "ร่างนี้ปิดแล้ว");
@@ -169,7 +169,7 @@ export async function handleBookingCallback(action: string, id: string, versionT
     return answerCallback(q.id, done.meta.changes ? "ยกเลิกแล้ว" : "ร่างนี้ปิดแล้ว");
   }
   if (action !== "bkb_ok") return answerCallback(q.id);
-  if (!fresh(draft, now)) return answerCallback(q.id, `ร่างนี้หมดอายุแล้ว (${DRAFT_HOURS} ชั่วโมง) เริ่มใหม่ด้วย /book`, true);
+  if (!fresh(draft, now)) return answerCallback(q.id, `ร่างนี้หมดอายุแล้ว (${DRAFT_HOURS} ชั่วโมง) เริ่มใหม่ด้วย /add_booking`, true);
 
   // Checked again as Admin → Manual booking checks it: the summary may be old, and a date may have passed since.
   const fields = fieldsOf(draft);
@@ -186,10 +186,10 @@ export async function handleBookingCallback(action: string, id: string, versionT
     reference = (await createManualBooking(parsed.data, publicSiteUrl(vars().WAYDIDI_PUBLIC_URL))).reference;
   } catch (error) {
     console.error("telegram booking builder: save failed", error instanceof Error ? error.message : "unknown");
-    // Not put back to draft: the booking may have been saved before the error. Staff check first, then /book again.
+    // Not put back to draft: the booking may have been saved before the error. Staff check first, then /add_booking again.
     await db().prepare("UPDATE telegram_booking_drafts SET status='failed',updated_at=? WHERE id=? AND status='creating'").bind(new Date().toISOString(), id).run();
     await markup("⚠️ สร้างไม่สำเร็จ");
-    if (q.message) await sendTo(draft.chat_id, "⚠️ สร้างการจองไม่สำเร็จ ตรวจที่ Admin → Bookings ก่อนว่ามีการจองนี้หรือยัง แล้วค่อย /book ใหม่", undefined, q.message.message_id).catch(() => undefined);
+    if (q.message) await sendTo(draft.chat_id, "⚠️ สร้างการจองไม่สำเร็จ ตรวจที่ Admin → Bookings ก่อนว่ามีการจองนี้หรือยัง แล้วค่อย /add_booking ใหม่", undefined, q.message.message_id).catch(() => undefined);
     return;
   }
   await db().prepare("UPDATE telegram_booking_drafts SET status='created',booking_reference=?,updated_at=? WHERE id=?").bind(reference, new Date().toISOString(), id).run();

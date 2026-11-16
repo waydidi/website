@@ -1,5 +1,5 @@
 // Google Places opening hours read into the one open and close time and the closed days an attraction keeps.
-// Pure (no runtime imports): used by Telegram /place and Admin → Attractions "Fill from Google Maps".
+// Pure (no runtime imports): used by Telegram /add_attraction and Admin → Attractions "Fill from Google Maps".
 
 /** One period of Google Places `regularOpeningHours` (day 0 is Sunday, as in the trip planner). */
 export type GooglePeriod = { open?: { day?: number; hour?: number; minute?: number }; close?: { day?: number; hour?: number; minute?: number } };

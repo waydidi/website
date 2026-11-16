@@ -15,22 +15,24 @@ import { itineraryPdf } from "@/lib/trip-itinerary-file";
 import { MAX_DAY_HOURS } from "@/lib/trip-split";
 import { esc } from "./cards";
 import { downloadFile, sendDocument, sendTo, tg, telegramChatId, type InlineKeyboard, type TelegramMessage } from "./client";
-import { FAR_APART_KM, PLACE_HELP, TRIP_HELP, farApartTh, farthestPair, hoursFromGoogle, namedVehicle, parseTypedTrip, packageOptions, tripMultidayOn, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, tripChargeHours, tripText, wantsTripGuide, placeHoursLineTh, type GooglePeriod, type PlaceHours } from "./trip-builder-rules";
+import { FAR_APART_KM, PLACE_HELP, placeFiledTh, placeUnknownTh, TRIP_HELP, farApartTh, farthestPair, hoursFromGoogle, namedVehicle, parseTypedTrip, packageOptions, tripMultidayOn, matchPlace, parsePlaceCommand, parsePlaceDetails, parseStaffPrice, parseTripCommand, pickVehicle, tripBuilderOn, tripChargeHours, tripText, wantsTripGuide, placeHoursLineTh, type GooglePeriod, type PlaceHours } from "./trip-builder-rules";
 import { MAX_TRIP_LINE, TRIP_DRAFT_HOURS, crossCheck, isCancelTrip, latestPrice, tripDraftReady, tripDraftSummary, type DraftPlace, type Located, type TripDraftState } from "./trip-draft-rules";
 import { alertAiOutOfCredit } from "./ai-credit-alert";
+import { areaOf, categoryFromGoogle } from "@/lib/place-words";
 import { fmt, nearestFirst, schedule, type TripStop } from "@/lib/trip-plan";
 
-// /trip and /place in the Admin group (team list only; the webhook checks that). /trip builds a smart trip from the
+// /add_trip and /add_attraction in the Admin group (team list only; the webhook checks that). /add_trip builds a smart trip from the
 // staff's text, sends it (freezes the version and makes the link) and posts the link and the PDF back to the Admin
-// group. The bot never messages the customer: staff forward the link. /place adds or updates an attraction (name,
-// opening hours, photos) so the next /trip can use it; hours left out are taken from Google Maps. Off until
+// group. The bot never messages the customer: staff forward the link. /add_attraction adds or updates an attraction (name,
+// opening hours, photos) so the next /add_trip can use it; hours left out are taken from Google Maps. Off until
 // TELEGRAM_TRIP_BUILDER=1.
 
 type Stmt = { first: <T>() => Promise<T | null>; run: () => Promise<{ meta: { changes: number } }> };
 type Db = { prepare: (sql: string) => { bind: (...v: unknown[]) => Stmt }; batch: (statements: Stmt[]) => Promise<unknown> };
 const db = () => env.DB as unknown as Db;
 const vars = () => env as unknown as Record<string, string | undefined>;
-export type PlaceInfo = { lat: number; lng: number; hours: PlaceHours | null };
+/** A place on Google Maps: where it is, its opening hours and (for its category and area) its types and address. */
+export type PlaceInfo = { lat: number; lng: number; hours: PlaceHours | null; primaryType?: string | null; types?: string[]; address?: string | null };
 export type BuilderDeps = { call?: ModelCall; locate?: (text: string) => Promise<{ lat: number; lng: number; name?: string; address?: string } | null>; place?: (text: string) => Promise<PlaceInfo | null>;
   /** The hourly-rate price of a day (city text, hours, car); null when the area has no rate. */
   rate?: (city: string, hours: number, vehicle: string) => Promise<number | null>; today?: string };
@@ -50,29 +52,29 @@ async function claim(chatId: string, messageId: number, kind: string) {
 const remember = (chatId: string, messageId: number, kind: string, refId: string) =>
   db().prepare("INSERT OR REPLACE INTO telegram_trip_builder(chat_id,message_id,kind,ref_id,created_at) VALUES(?,?,?,?,?)").bind(chatId, messageId, kind, refId, new Date().toISOString()).run();
 
-/** A /place on Google Maps: where it is and its regular opening hours (Places API, the server key /trip already uses). */
+/** A /add_attraction on Google Maps: where it is and its regular opening hours (Places API, the server key /add_trip already uses). */
 async function defaultPlaceInfo(text: string): Promise<PlaceInfo | null> {
   const key = vars().GOOGLE_MAPS_SERVER_KEY;
   if (!key) return null;
   const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
     method: "POST", signal: AbortSignal.timeout(8000),
-    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key, "X-Goog-FieldMask": "places.location,places.regularOpeningHours.periods" },
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key, "X-Goog-FieldMask": "places.location,places.regularOpeningHours.periods,places.primaryType,places.types,places.formattedAddress" },
     body: JSON.stringify({ textQuery: text.slice(0, 200), regionCode: "TH", languageCode: "en", pageSize: 1, locationRestriction: { rectangle: { low: { latitude: 5.5, longitude: 97.3 }, high: { latitude: 20.5, longitude: 105.7 } } } }),
   }).catch(() => null);
   if (!res?.ok) return null;
-  const data = await res.json().catch(() => ({})) as { places?: { location?: { latitude?: number; longitude?: number }; regularOpeningHours?: { periods?: GooglePeriod[] } }[] };
+  const data = await res.json().catch(() => ({})) as { places?: { location?: { latitude?: number; longitude?: number }; regularOpeningHours?: { periods?: GooglePeriod[] }; primaryType?: string; types?: string[]; formattedAddress?: string }[] };
   const p = data.places?.[0], lat = p?.location?.latitude, lng = p?.location?.longitude;
-  return typeof lat === "number" && typeof lng === "number" ? { lat, lng, hours: hoursFromGoogle(p?.regularOpeningHours?.periods) } : null;
+  return typeof lat === "number" && typeof lng === "number" ? { lat, lng, hours: hoursFromGoogle(p?.regularOpeningHours?.periods), primaryType: p?.primaryType ?? null, types: p?.types ?? [], address: p?.formattedAddress ?? null } : null;
 }
 const bangkokToday = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 const thaiDate = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "-");
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 
-/** True when the message was /trip or /place (handled here, whatever the outcome). */
+/** True when the message was /add_trip or /add_attraction (handled here, whatever the outcome). */
 export async function handleTripBuilder(m: TelegramMessage, member: { display_name: string } | null, deps: BuilderDeps = {}) {
   const raw = (m.text ?? m.caption ?? "").trim(), chatId = String(m.chat.id);
   const trip = parseTripCommand(raw), place = trip === null ? parsePlaceCommand(raw) : null;
-  // Not a command: maybe a reply to a /trip summary (adds to or corrects that draft).
+  // Not a command: maybe a reply to a /add_trip summary (adds to or corrects that draft).
   if (trip === null && place === null) return handleTripDraftReply(m, member, deps).catch(async (error) => {
     console.error("trip draft reply failed", error instanceof Error ? error.message : "unknown");
     await sendTo(chatId, "⚠️ แก้ร่างทริปไม่สำเร็จ ลองตอบกลับอีกครั้ง", undefined, m.message_id).catch(() => undefined);
@@ -80,19 +82,19 @@ export async function handleTripBuilder(m: TelegramMessage, member: { display_na
   });
   const reply = (text: string) => sendTo(chatId, text, undefined, m.message_id).catch(() => undefined);
   if (chatId !== telegramChatId()) return true; // only the Admin group
-  if (!member) { await reply(`เฉพาะทีม Waydidi ใน Telegram เท่านั้นที่ใช้ /trip และ /place ได้ Telegram ID ของคุณคือ <code>${m.from?.id ?? "unknown"}</code>`); return true; }
-  if (!tripBuilderOn(vars())) { await reply("คำสั่ง /trip และ /place ยังไม่ได้เปิดใช้ (เจ้าของตั้ง TELEGRAM_TRIP_BUILDER=1 ใน Cloudflare)"); return true; }
+  if (!member) { await reply(`เฉพาะทีม Waydidi ใน Telegram เท่านั้นที่ใช้ /add_trip และ /add_attraction ได้ Telegram ID ของคุณคือ <code>${m.from?.id ?? "unknown"}</code>`); return true; }
+  if (!tripBuilderOn(vars())) { await reply("คำสั่ง /add_trip และ /add_attraction ยังไม่ได้เปิดใช้ (เจ้าของตั้ง TELEGRAM_TRIP_BUILDER=1 ใน Cloudflare)"); return true; }
   try {
     if (trip !== null) await buildTrip(trip, m, member, reply, deps);
     else await addPlace(place!, m, reply, deps);
   } catch (error) {
     console.error("trip builder failed", error instanceof Error ? error.message : "unknown");
-    await reply(trip !== null ? "⚠️ สร้างทริปไม่สำเร็จ ส่ง /trip ใหม่อีกครั้ง (ข้อความใหม่)" : "⚠️ บันทึกสถานที่ไม่สำเร็จ ส่ง /place ใหม่อีกครั้ง");
+    await reply(trip !== null ? "⚠️ สร้างทริปไม่สำเร็จ ส่ง /add_trip ใหม่อีกครั้ง (ข้อความใหม่)" : "⚠️ บันทึกสถานที่ไม่สำเร็จ ส่ง /add_attraction ใหม่อีกครั้ง");
   }
   return true;
 }
 
-// ── /trip: read freely, check first, build after the tap ─────────────────────────────────────────────────────────
+// ── /add_trip: read freely, check first, build after the tap ─────────────────────────────────────────────────────────
 // The AI reads staff's text (and a customer chat it replies to); the code reader only double-checks the date and the
 // people. The bot looks the pickup and drop-off up on Google Maps, picks the car by the number of people, orders the
 // places nearest-first (moving a place whose hours do not fit) and posts a summary. Staff reply to it to change anything
@@ -117,14 +119,14 @@ const fresh = (row: { updated_at: string }) => Date.now() - Date.parse(row.updat
 
 async function buildTrip(details: string, m: TelegramMessage, member: { display_name: string }, reply: (t: string) => Promise<unknown>, deps: BuilderDeps) {
   const chatId = String(m.chat.id);
-  // "Paste a chat": /trip sent as a reply to the customer's chat (pasted or forwarded into the group). Not to a bot message.
+  // "Paste a chat": /add_trip sent as a reply to the customer's chat (pasted or forwarded into the group). Not to a bot message.
   const replied = m.reply_to_message && !m.reply_to_message.from?.is_bot ? (m.reply_to_message.text ?? m.reply_to_message.caption ?? "").trim() : "";
-  if (!replied && wantsTripGuide(details)) { await reply(TRIP_HELP); return; } // "/trip", "/trip help", "/trip create a new trip"
-  if (!deps.call && !chatPlanConfigured()) { await reply("ยังไม่ได้เปิดผู้ช่วย AI (ANTHROPIC_API_KEY) จึงอ่าน /trip ไม่ได้"); return; }
+  if (!replied && wantsTripGuide(details)) { await reply(TRIP_HELP); return; } // "/add_trip", "/add_trip help", "/add_trip create a new trip"
+  if (!deps.call && !chatPlanConfigured()) { await reply("ยังไม่ได้เปิดผู้ช่วย AI (ANTHROPIC_API_KEY) จึงอ่าน /add_trip ไม่ได้"); return; }
   if (details.length > MAX_TRIP_LINE) { await reply(`ยาวเกินไป (ไม่เกิน ${MAX_TRIP_LINE.toLocaleString("en-US")} ตัวอักษร)`); return; }
   await ensureDrafts();
   const now = new Date(), id = crypto.randomUUID();
-  // One draft per /trip message: a webhook retry or a second delivery finds the same row and does nothing more.
+  // One draft per /add_trip message: a webhook retry or a second delivery finds the same row and does nothing more.
   const [, claimed] = await db().batch([
     db().prepare("DELETE FROM telegram_trip_drafts WHERE updated_at < ? AND status <> 'building'").bind(new Date(now.getTime() - TRIP_DRAFT_HOURS * 3_600_000).toISOString()),
     db().prepare(`INSERT OR IGNORE INTO telegram_trip_drafts(id,chat_id,request_message_id,created_by,created_by_name,lines_json,replied_chat,version,status,created_at,updated_at)
@@ -178,7 +180,7 @@ async function readTripDraft(lines: string[], replied: string, previous: TripDra
   const staff = lines.map((l, i) => (i ? `Correction: ${l}` : l)).join("\n");
   const drafted = await draftFromChat(tripText(staff, replied), options, today, ...(deps.call ? [deps.call] : []));
   if (!drafted.ok) {
-    if (drafted.failure?.code === "credit") { await alertAiOutOfCredit(); return { error: "⚠️ เครดิต AI หมด จึงอ่าน /trip ไม่ได้ แจ้งแอดมินในกลุ่มให้เติมแล้ว เติมเสร็จส่ง /trip ใหม่" }; }
+    if (drafted.failure?.code === "credit") { await alertAiOutOfCredit(); return { error: "⚠️ เครดิต AI หมด จึงอ่าน /add_trip ไม่ได้ แจ้งแอดมินในกลุ่มให้เติมแล้ว เติมเสร็จส่ง /add_trip ใหม่" }; }
     return { error: `⚠️ ยังไม่ได้สร้างทริป: ${esc(drafted.error)}` };
   }
   const d = drafted.draft;
@@ -196,7 +198,8 @@ async function readTripDraft(lines: string[], replied: string, previous: TripDra
     const before = previous?.places.find((p) => p.fromGoogle !== undefined && p.name.toLowerCase() === s.name.toLowerCase());
     if (before) { places.push({ ...before, stopId: s.id }); continue; }
     const info = await (deps.place ?? defaultPlaceInfo)([s.name, d.area].filter(Boolean).join(", ")).catch(() => null);
-    places.push(info ? { ...base, attractionId: null, lat: info.lat, lng: info.lng, durationMin: 60, fromGoogle: info.hours ? { openTime: info.hours.openTime, closeTime: info.hours.closeTime, closedDays: info.hours.closedDays } : null }
+    places.push(info ? { ...base, attractionId: null, lat: info.lat, lng: info.lng, durationMin: 60, fromGoogle: { openTime: info.hours?.openTime ?? null, closeTime: info.hours?.closeTime ?? null,
+      closedDays: info.hours?.closedDays ?? [], category: categoryFromGoogle(info.primaryType, info.types), area: areaOf(info.address) } }
       : { ...base, attractionId: null, lat: null, lng: null, notFound: true });
   }
   const pickup = d.pickupText ? await locate(d.pickupText, previous?.pickup ?? null, deps) : null;
@@ -250,7 +253,7 @@ async function planTripDraft(state: TripDraftState, deps: BuilderDeps): Promise<
     times: plan.stops.map((s) => ({ stopId: s.id, arrival: fmt(s.start), end: fmt(s.end) })), endAt: fmt(plan.returnAt) };
 }
 
-/** A reply to one of a /trip draft's summaries: read again with the reply (or ยกเลิก). True when handled. */
+/** A reply to one of a /add_trip draft's summaries: read again with the reply (or ยกเลิก). True when handled. */
 async function handleTripDraftReply(m: TelegramMessage, member: { display_name: string } | null, deps: BuilderDeps) {
   const chatId = String(m.chat.id), repliedTo = m.reply_to_message?.message_id;
   if (!repliedTo || chatId !== telegramChatId() || !tripBuilderOn(vars())) return false;
@@ -261,8 +264,8 @@ async function handleTripDraftReply(m: TelegramMessage, member: { display_name: 
   if (!member) { await reply(`เฉพาะทีม Waydidi ใน Telegram เท่านั้นที่แก้ทริปได้ Telegram ID ของคุณคือ <code>${m.from?.id ?? "unknown"}</code>`); return true; }
   const text = (m.text ?? m.caption ?? "").trim();
   const draft = await db().prepare("SELECT * FROM telegram_trip_drafts WHERE id=?").bind(link.draft_id).first<DraftRow>();
-  if (!draft || draft.status !== "draft") { await reply(draft?.status === "built" ? "ทริปนี้สร้างแล้ว แก้ไขที่ Admin → Smart trips" : "ร่างนี้ปิดแล้ว ส่ง /trip ใหม่"); return true; }
-  if (!fresh(draft)) { await reply(`ร่างนี้หมดอายุแล้ว (${TRIP_DRAFT_HOURS} ชั่วโมง) ส่ง /trip ใหม่`); return true; }
+  if (!draft || draft.status !== "draft") { await reply(draft?.status === "built" ? "ทริปนี้สร้างแล้ว แก้ไขที่ Admin → Smart trips" : "ร่างนี้ปิดแล้ว ส่ง /add_trip ใหม่"); return true; }
+  if (!fresh(draft)) { await reply(`ร่างนี้หมดอายุแล้ว (${TRIP_DRAFT_HOURS} ชั่วโมง) ส่ง /add_trip ใหม่`); return true; }
   if (!text) return true;
   if (isCancelTrip(text)) {
     const done = await db().prepare("UPDATE telegram_trip_drafts SET status='cancelled',replied_chat=NULL,state_json=NULL,updated_at=? WHERE id=? AND status='draft'").bind(new Date().toISOString(), draft.id).run();
@@ -283,19 +286,19 @@ async function handleTripDraftReply(m: TelegramMessage, member: { display_name: 
 }
 
 /**
- * สร้างทริป / ยกเลิก under a /trip summary (Admin group, team only; the webhook checks both). The button carries the
+ * สร้างทริป / ยกเลิก under a /add_trip summary (Admin group, team only; the webhook checks both). The button carries the
  * version it was shown for: one under an older summary does nothing, and only the tap that moves draft → building
  * builds, so two taps, two people or a webhook retry build one trip.
  */
 export async function handleTripDraftCallback(action: string, id: string, versionText: string, member: { display_name: string }, q: { id: string; message?: TelegramMessage }, deps: BuilderDeps = {}) {
   const answer = (text: string, alert = false) => tg("answerCallbackQuery", { callback_query_id: q.id, text, show_alert: alert }).catch(() => undefined);
-  if (!tripBuilderOn(vars())) return answer("คำสั่ง /trip ยังไม่ได้เปิดใช้", true);
+  if (!tripBuilderOn(vars())) return answer("คำสั่ง /add_trip ยังไม่ได้เปิดใช้", true);
   await ensureDrafts();
   const version = Number(versionText);
   const draft = await db().prepare("SELECT * FROM telegram_trip_drafts WHERE id=?").bind(id).first<DraftRow>();
-  if (!draft || draft.chat_id !== telegramChatId()) return answer("ไม่พบร่างนี้ ส่ง /trip ใหม่", true);
+  if (!draft || draft.chat_id !== telegramChatId()) return answer("ไม่พบร่างนี้ ส่ง /add_trip ใหม่", true);
   if (draft.status === "built" || draft.status === "building") return answer("ทริปนี้กำลังสร้างหรือสร้างแล้ว", true);
-  if (draft.status !== "draft") return answer("ร่างนี้ปิดแล้ว ส่ง /trip ใหม่", true);
+  if (draft.status !== "draft") return answer("ร่างนี้ปิดแล้ว ส่ง /add_trip ใหม่", true);
   if (!Number.isInteger(version) || version !== draft.version) return answer("ข้อมูลเปลี่ยนแล้ว ใช้ปุ่มใต้ข้อความล่าสุด", true);
   const markup = (text: string) => q.message ? tg("editMessageReplyMarkup", { chat_id: draft.chat_id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [[{ text, callback_data: `tpd_done:${id}:0` }]] } }).catch(() => undefined) : undefined;
   if (action === "tpd_no") {
@@ -304,7 +307,7 @@ export async function handleTripDraftCallback(action: string, id: string, versio
     return answer(done.meta.changes ? "ยกเลิกแล้ว" : "ร่างนี้ปิดแล้ว");
   }
   if (action !== "tpd_ok") return answer("");
-  if (!fresh(draft)) return answer(`ร่างนี้หมดอายุแล้ว (${TRIP_DRAFT_HOURS} ชั่วโมง) ส่ง /trip ใหม่`, true);
+  if (!fresh(draft)) return answer(`ร่างนี้หมดอายุแล้ว (${TRIP_DRAFT_HOURS} ชั่วโมง) ส่ง /add_trip ใหม่`, true);
   const state = parse<TripDraftState | null>(draft.state_json, null);
   if (!state || !tripDraftReady(state) || !state.car.ok) return answer("ยังสร้างไม่ได้: ข้อมูลยังไม่ครบ ตอบกลับข้อความเพื่อแก้", true);
   if (state.tripDate && state.tripDate < (deps.today ?? bangkokToday())) return answer("วันที่ผ่านไปแล้ว ตอบกลับเพื่อแก้วันที่", true);
@@ -319,7 +322,7 @@ export async function handleTripDraftCallback(action: string, id: string, versio
     console.error("trip builder failed", error instanceof Error ? error.message : "unknown");
     // Not put back to draft: the trip may already exist. Staff check Admin → Smart trips first.
     await db().prepare("UPDATE telegram_trip_drafts SET status='failed',replied_chat=NULL,updated_at=? WHERE id=?").bind(new Date().toISOString(), id).run();
-    await sendTo(draft.chat_id, "⚠️ สร้างทริปไม่สำเร็จ ตรวจที่ Admin → Smart trips ก่อนว่ามีทริปนี้หรือยัง แล้วค่อยส่ง /trip ใหม่", undefined, draft.request_message_id).catch(() => undefined);
+    await sendTo(draft.chat_id, "⚠️ สร้างทริปไม่สำเร็จ ตรวจที่ Admin → Smart trips ก่อนว่ามีทริปนี้หรือยัง แล้วค่อยส่ง /add_trip ใหม่", undefined, draft.request_message_id).catch(() => undefined);
   }
 }
 
@@ -363,16 +366,22 @@ async function buildFromDraft(draft: DraftRow, s: TripDraftState, member: { disp
   await askPackage(pid, pending, 0);
 }
 
-/** A place from the confirmed summary that is not in Attractions: saved with the location and hours Google gave. */
-async function saveGooglePlace(p: DraftPlace, area: string) {
+/**
+ * A place from the confirmed summary that is not in Attractions: saved with the location, hours, category and area
+ * Google gave (the trip's area when Google's address names none; empty when neither is one of the fixed areas).
+ */
+async function saveGooglePlace(p: DraftPlace, tripArea: string) {
   if (p.lat == null || p.lng == null) return null;
-  const id = await saveAttraction(attractionSchema.parse({ name: p.name, area, openTime: p.fromGoogle?.openTime ?? null, closeTime: p.fromGoogle?.closeTime ?? null, closedDays: p.fromGoogle?.closedDays ?? [],
-    durationMin: 60, latitude: p.lat, longitude: p.lng, internalNotes: `Added from Telegram (/trip)${p.fromGoogle ? "; opening hours from Google Maps" : ""}` }));
+  const g = p.fromGoogle;
+  const hours = Boolean(g?.openTime);
+  const id = await saveAttraction(attractionSchema.parse({ name: p.name, area: g?.area ?? areaOf(tripArea) ?? "", category: g?.category ?? "sight",
+    openTime: g?.openTime ?? null, closeTime: g?.closeTime ?? null, closedDays: g?.closedDays ?? [], durationMin: 60, latitude: p.lat, longitude: p.lng,
+    internalNotes: `Added from Telegram (/add_trip)${hours ? "; opening hours from Google Maps" : ""}${g?.category ? "; category from Google Maps" : ""}` }));
   const [row] = await getDb().select().from(attractions).where(eq(attractions.id, id)).limit(1);
   return row ?? null;
 }
 
-/** A /trip waiting for package choices (telegram_trip_pending.payload_json). */
+/** A /add_trip waiting for package choices (telegram_trip_pending.payload_json). */
 type Pending = {
   chatId: string; messageId: number; by: string; member: string; price: number | null; days: number | null; pinned: Record<string, number>;
   hoursGiven: boolean; multiday: boolean; added: string[]; notFound: string[]; cityHint: string; queue: string[];
@@ -395,24 +404,24 @@ async function askPackage(id: string, p: Pending, step: number) {
   await sendTo(p.chatId, `🎟 <b>${esc(stop?.name ?? "")}</b> มีแพ็กเกจ เลือกแพ็กเกจสำหรับทริปนี้ (${step + 1}/${p.queue.length})`, keyboard, p.messageId);
 }
 
-/** A package button under a /trip question (Admin group, team only; the webhook checks both). */
+/** A package button under a /add_trip question (Admin group, team only; the webhook checks both). */
 export async function handleTripPackageChoice(q: { id: string; data?: string; message?: TelegramMessage }, member: { display_name: string }, deps: BuilderDeps = {}) {
   const answer = (text: string, alert = false) => tg("answerCallbackQuery", { callback_query_id: q.id, text, show_alert: alert }).catch(() => undefined);
   const [, id = "", choice = ""] = (q.data ?? "").split(":");
   const [stepText, pick] = choice.split(".");
   const step = Number(stepText);
-  if (!tripBuilderOn(vars())) return answer("คำสั่ง /trip ยังไม่ได้เปิดใช้", true);
+  if (!tripBuilderOn(vars())) return answer("คำสั่ง /add_trip ยังไม่ได้เปิดใช้", true);
   await ensurePending();
   const row = await db().prepare("SELECT step, payload_json, created_at FROM telegram_trip_pending WHERE id = ?").bind(id).first<{ step: number; payload_json: string; created_at: string }>();
-  if (!row || !Number.isInteger(step)) return answer("ไม่พบทริปนี้ ส่ง /trip ใหม่", true);
-  if (Date.now() - Date.parse(row.created_at) > PENDING_HOURS * 3600_000) return answer("หมดเวลาเลือกแล้ว ส่ง /trip ใหม่", true);
+  if (!row || !Number.isInteger(step)) return answer("ไม่พบทริปนี้ ส่ง /add_trip ใหม่", true);
+  if (Date.now() - Date.parse(row.created_at) > PENDING_HOURS * 3600_000) return answer("หมดเวลาเลือกแล้ว ส่ง /add_trip ใหม่", true);
   if (row.step !== step) return answer("ข้อนี้เลือกไปแล้ว");
   const p = JSON.parse(row.payload_json) as Pending;
   const stop = p.input.stops.find((x) => x.id === p.queue[step]);
   const place = stop?.attractionId ? (await attractionsById([stop.attractionId]))[stop.attractionId] : undefined;
-  if (!stop) return answer("ไม่พบทริปนี้ ส่ง /trip ใหม่", true);
+  if (!stop) return answer("ไม่พบทริปนี้ ส่ง /add_trip ใหม่", true);
   const option = pick === "g" ? null : packageOptions(place?.programs ?? [])[Number(pick)];
-  if (pick !== "g" && !option) return answer("ตัวเลือกนี้ใช้ไม่ได้แล้ว ส่ง /trip ใหม่", true);
+  if (pick !== "g" && !option) return answer("ตัวเลือกนี้ใช้ไม่ได้แล้ว ส่ง /add_trip ใหม่", true);
   const program = option ? place?.programs.find((x) => x.id === option.programId) : undefined;
   if (option && program) Object.assign(stop, { programId: program.id, feeIncluded: true, durationMin: program.durationMin, ...(option.session ? { sessionTime: option.session, priority: "fixed" as const } : {}) });
   // Only one tap per question counts: the step moves on only from the step this button was for.
@@ -426,7 +435,7 @@ export async function handleTripPackageChoice(q: { id: string; data?: string; me
   try { await finishTrip(p, deps); }
   catch (error) {
     console.error("trip builder failed", error instanceof Error ? error.message : "unknown");
-    await sendTo(p.chatId, "⚠️ สร้างทริปไม่สำเร็จ ส่ง /trip ใหม่อีกครั้ง (ข้อความใหม่)", undefined, p.messageId).catch(() => undefined);
+    await sendTo(p.chatId, "⚠️ สร้างทริปไม่สำเร็จ ส่ง /add_trip ใหม่อีกครั้ง (ข้อความใหม่)", undefined, p.messageId).catch(() => undefined);
   }
 }
 
@@ -475,7 +484,7 @@ async function finishTrip(p: Pending, deps: BuilderDeps) {
     const rates = await Promise.all(days.map((d, i) => (deps.rate ?? defaultRate)(city, charged[i]!, d.vehicle)));
     if (rates.some((r) => r == null)) {
       await reply([`⚠️ สร้างทริป <b>${esc(lead.ref)}</b> ไว้แล้วแต่ยังไม่ได้ส่ง: ไม่มีเรทรายชั่วโมงสำหรับพื้นที่นี้`,
-        `ใส่ราคาที่ Admin → Smart trips แล้วกดส่ง: ${esc(`${origin}/admin/trips/${lead.id}`)}`, "หรือส่ง /trip ใหม่พร้อมราคา เช่น <code>THB 3,500</code>"].join("\n"));
+        `ใส่ราคาที่ Admin → Smart trips แล้วกดส่ง: ${esc(`${origin}/admin/trips/${lead.id}`)}`, "หรือส่ง /add_trip ใหม่พร้อมราคา เช่น <code>THB 3,500</code>"].join("\n"));
       return;
     }
     for (const [i, d] of days.entries()) await saveTrip({ ...inputFromRow(d), id: d.id, durationHours: charged[i]!, transportPrice: rates[i]! }, { name: p.by, agencyId: d.agencyId });
@@ -504,7 +513,7 @@ async function finishTrip(p: Pending, deps: BuilderDeps) {
     `🚗 ${esc(first.vehicleName)} · ${people}`,
     `💰 ${thb(total)}${tickets ? ` (รถ ${thb(transport)} + แพ็กเกจ/ตั๋ว ${thb(tickets)})` : ""}${p.price == null ? ` · ราคารถตามเรทรายชั่วโมง (${charged.join(" + ")} ชม.) แก้ได้ที่ Admin` : ""}${onSite ? ` · ค่าเข้าชมจ่ายหน้างานประมาณ ${thb(onSite)}` : ""}`,
     ...(p.added.length ? [`➕ เพิ่มสถานที่ใหม่จาก Google Maps: ${p.added.map(esc).join(", ")}`] : []),
-    ...(p.notFound.length ? [`⚠️ ไม่พบใน Google Maps (ไม่ได้ใส่ในทริป): ${p.notFound.map(esc).join(", ")} เพิ่มได้ด้วย /place`] : []),
+    ...(p.notFound.length ? [`⚠️ ไม่พบใน Google Maps (ไม่ได้ใส่ในทริป): ${p.notFound.map(esc).join(", ")} เพิ่มได้ด้วย /add_attraction`] : []),
     ...(warnings.length ? [`⚠️ ตรวจก่อนส่งลูกค้า:\n${warnings.map((w) => `• ${esc(w)}`).join("\n")}`] : []),
     `🔗 ${esc(link)}`,
     "บอทไม่ได้ส่งให้ลูกค้า ส่งลิงก์นี้ให้ลูกค้าเอง แก้ไขได้ที่ Admin → Smart trips",
@@ -560,20 +569,38 @@ async function addPlace(details: string, m: TelegramMessage, reply: (t: string) 
   const typed = place.openTime ? { openTime: place.openTime, closeTime: place.closeTime } : null;
   const lookup = () => (deps.place ?? defaultPlaceInfo)([place.name, place.area].filter(Boolean).join(", ")).catch(() => null);
   let fromGoogle: PlaceHours | null = null;
+  // Where the category and the area came from, for the reply.
+  let categoryFrom: "typed" | "google" | "kept" | "default" = place.category ? "typed" : "kept";
+  let areaFrom: "typed" | "google" | "kept" = place.area ? "typed" : "kept";
   if (row) {
-    // Google only fills hours nobody has entered: staff hours, typed now or before, always win.
-    const info = !typed && !row.openTime ? await lookup() : null;
-    fromGoogle = info?.hours ?? null;
+    // Google only fills what nobody has entered: staff hours, typed now or before, always win. It is asked only when
+    // something is still missing (hours, location or area).
+    const savedArea = areaOf(row.area);
+    const info = (!typed && !row.openTime) || row.latitude == null || (!place.area && !savedArea) ? await lookup() : null;
+    fromGoogle = !typed && !row.openTime ? info?.hours ?? null : null;
+    const googleArea = !place.area && !savedArea ? areaOf(info?.address) : null;
+    if (googleArea) areaFrom = "google";
+    const saved = (() => { try { return JSON.parse(row.vibesJson) as string[]; } catch { return []; } })();
+    const vibes = place.vibes.length ? [...new Set([...saved, ...place.vibes])] : null;
+    // A typed area always wins; an old free-text area ("patong") is saved as its fixed area ("Phuket").
+    const area = place.area || googleArea || (savedArea && savedArea !== row.area ? savedArea : null);
     const changes = { ...(typed ?? {}), ...(fromGoogle ? { openTime: fromGoogle.openTime, closeTime: fromGoogle.closeTime, closedDaysJson: JSON.stringify(fromGoogle.closedDays) } : {}),
       ...(info && row.latitude == null ? { latitude: info.lat, longitude: info.lng } : {}),
-      ...(place.durationMin ? { durationMin: place.durationMin } : {}), ...(place.area && !row.area ? { area: place.area } : {}) };
+      ...(place.durationMin ? { durationMin: place.durationMin } : {}), ...(area ? { area } : {}), ...(place.neighbourhood ? { neighbourhood: place.neighbourhood } : {}),
+      ...(place.category ? { category: place.category } : {}), ...(place.bestTime ? { bestTime: place.bestTime } : {}), ...(vibes ? { vibesJson: JSON.stringify(vibes) } : {}) };
     if (Object.keys(changes).length) await getDb().update(attractions).set({ ...changes, updatedAt: new Date().toISOString() }).where(eq(attractions.id, row.id));
   } else {
     const info = await lookup();
     fromGoogle = typed ? null : info?.hours ?? null;
-    const id = await saveAttraction(attractionSchema.parse({ name: place.name, area: place.area, openTime: typed?.openTime ?? fromGoogle?.openTime ?? null, closeTime: typed?.closeTime ?? fromGoogle?.closeTime ?? null,
+    const googleCategory = place.category ? null : categoryFromGoogle(info?.primaryType, info?.types);
+    categoryFrom = place.category ? "typed" : googleCategory ? "google" : "default";
+    const googleArea = place.area ? null : areaOf(info?.address);
+    areaFrom = place.area ? "typed" : googleArea ? "google" : "kept";
+    const id = await saveAttraction(attractionSchema.parse({ name: place.name, area: place.area || googleArea || "", neighbourhood: place.neighbourhood,
+      category: place.category ?? googleCategory ?? "sight", bestTime: place.bestTime, vibes: place.vibes,
+      openTime: typed?.openTime ?? fromGoogle?.openTime ?? null, closeTime: typed?.closeTime ?? fromGoogle?.closeTime ?? null,
       closedDays: fromGoogle?.closedDays ?? [], durationMin: place.durationMin ?? 60, latitude: info?.lat ?? null, longitude: info?.lng ?? null,
-      internalNotes: `Added from Telegram (/place)${fromGoogle ? "; opening hours from Google Maps" : ""}` }));
+      internalNotes: `Added from Telegram (/add_attraction)${fromGoogle ? "; opening hours from Google Maps" : ""}${googleCategory ? "; category from Google Maps" : ""}` }));
     [row] = await getDb().select().from(attractions).where(eq(attractions.id, id)).limit(1);
   }
   if (!row) return;
@@ -581,9 +608,12 @@ async function addPlace(details: string, m: TelegramMessage, reply: (t: string) 
   if (photo) await addPhoto(row, photo);
   [row] = await getDb().select().from(attractions).where(eq(attractions.id, row.id)).limit(1);
   const photos = (row.coverImage ? 1 : 0) + ((() => { try { return (JSON.parse(row.galleryJson) as string[]).length; } catch { return 0; } })());
+  const vibesNow = (() => { try { return JSON.parse(row.vibesJson) as string[]; } catch { return []; } })();
   const sent = await sendTo(chatId, [
     `✅ ${created ? "เพิ่ม" : "อัปเดต"}สถานที่ <b>${esc(row.name)}</b> ${created ? "ในรายการสถานที่แล้ว" : "แล้ว"}`,
-    `🕘 ${placeHoursLineTh({ openTime: row.openTime, closeTime: row.closeTime, closedDays: (() => { try { return JSON.parse(row.closedDaysJson) as number[]; } catch { return []; } })() }, fromGoogle)} · ใช้เวลาประมาณ ${row.durationMin} นาที${row.area ? ` · ${esc(row.area)}` : ""}`,
+    `🕘 ${placeHoursLineTh({ openTime: row.openTime, closeTime: row.closeTime, closedDays: (() => { try { return JSON.parse(row.closedDaysJson) as number[]; } catch { return []; } })() }, fromGoogle)} · ใช้เวลาประมาณ ${row.durationMin} นาที`,
+    placeFiledTh({ name: row.name, category: row.category, area: row.area, neighbourhood: row.neighbourhood, bestTime: row.bestTime, vibes: vibesNow }, { categoryFrom, areaFrom }),
+    ...(place.unknown.length ? [placeUnknownTh(place.unknown)] : []),
     `📷 รูป ${photos} รูป${m.photo?.length && !photo ? " (บันทึกรูปไม่สำเร็จ ลองส่งใหม่)" : ""}`,
     created && row.latitude == null ? "📍 ยังไม่มีพิกัด: ระยะเวลาขับรถจะเป็นค่าประมาณ แก้ได้ที่ Admin → Attractions" : "",
     "ตอบกลับข้อความนี้ด้วยรูปเพื่อเพิ่มรูป",
@@ -591,7 +621,7 @@ async function addPlace(details: string, m: TelegramMessage, reply: (t: string) 
   if (sent) await remember(chatId, sent.message_id, "place_reply", row.id);
 }
 
-/** A photo sent as a reply to a /place confirmation: added to that attraction. True when handled. */
+/** A photo sent as a reply to a /add_attraction confirmation: added to that attraction. True when handled. */
 export async function handlePlacePhotoReply(m: TelegramMessage, member: { display_name: string } | null) {
   if (!member || !m.photo?.length || !m.reply_to_message || String(m.chat.id) !== telegramChatId() || !tripBuilderOn(vars())) return false;
   await ensureTable();

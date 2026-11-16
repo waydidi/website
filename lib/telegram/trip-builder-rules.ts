@@ -1,19 +1,23 @@
-// /trip and /place in the Admin group: staff type a trip (or a new place) and the bot builds it. Pure (no runtime
+// /add_trip and /add_attraction in the Admin group: staff type a trip (or a new place) and the bot builds it. Pure (no runtime
 // imports) so the reading of staff text is unit tested directly (tests/trip-builder-rules.test.mjs). Staff text is
 // read once here into checked values; the price is never guessed: no clear price in the message, no trip.
 import type { PlaceHours } from "@/lib/google-hours";
 import { placeKey } from "@/lib/trip-chat-rules";
 import { VEHICLES, type VehicleId } from "@/lib/vehicles";
+import { BEST_TIMES, PLACE_AREAS, PLACE_TYPES, PLACE_TYPE_LABEL, VIBES, type PlaceType } from "@/lib/place-taxonomy";
+import { areaOf, categoryOfWord, readTags, type PlaceTags } from "@/lib/place-words";
 
-/** `/trip <details>` (also `/trip@BotName`): the details, "" when only the command was sent, null when it is not /trip. */
+/** `/add_trip <details>` (also `/add_trip@BotName`): the details, "" when only the command was sent, null when it is not /add_trip. */
 export function parseTripCommand(message: string): string | null {
-  const m = /^\/trip(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
+  // /add_trip (owner, 2026-11-16); the older /trip still works.
+  const m = /^\/(?:add_trip|trip)(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
   return m ? (m[1] ?? "").trim() : null;
 }
 
-/** `/place <details>` (also as a photo caption): the details, "" when only the command was sent, null otherwise. */
+/** `/add_attraction <details>` (also as a photo caption): the details, "" when only the command was sent, null otherwise. */
 export function parsePlaceCommand(message: string): string | null {
-  const m = /^\/place(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
+  // /add_attraction (owner, 2026-11-16); the older /place still works.
+  const m = /^\/(?:add_attraction|place)(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(message.trim());
   return m ? (m[1] ?? "").trim() : null;
 }
 
@@ -47,7 +51,7 @@ const VEHICLE_WORDS: [RegExp, VehicleId][] = [
   [/\b(economy|sedan|camry|altis)\b|รถเก๋ง/i, "economy_sedan"],
 ];
 
-/** The owner's /trip car rule by number of people: 1–2 sedan, 3–4 SUV, 5–10 van (the van seats 10 at most). */
+/** The owner's /add_trip car rule by number of people: 1–2 sedan, 3–4 SUV, 5–10 van (the van seats 10 at most). */
 export function carForPeople(people: number): VehicleId | null {
   if (people >= 1 && people <= 2) return "economy_sedan";
   if (people <= 4) return people >= 1 ? "comfort_suv" : null;
@@ -63,7 +67,14 @@ export function pickVehicle(text: string, passengers: number): { ok: true; vehic
   return car ? { ok: true, vehicle: car, named: false } : { ok: false, vehicle: null };
 }
 
-export type PlaceDetails = { name: string; openTime: string | null; closeTime: string | null; durationMin: number | null; area: string };
+export type PlaceDetails = { name: string; openTime: string | null; closeTime: string | null; durationMin: number | null;
+  /** One of PLACE_AREAS, or "" when none was typed. */
+  area: string;
+  /** A beach or district typed instead of the area ("Patong"): kept as the place's neighbourhood. */
+  neighbourhood: string | null;
+  category: PlaceType | null; bestTime: PlaceTags["bestTime"]; vibes: PlaceTags["vibes"];
+  /** Parts that are none of the above (an area not on the list, a misspelt category, an unknown #tag): told back to staff. */
+  unknown: string[] };
 
 const pad = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 function clock(raw: string): string | null {
@@ -89,9 +100,9 @@ export { hoursFromGoogle, type GooglePeriod, type PlaceHours } from "@/lib/googl
 
 const TH_DAYS = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
 
-/** The hours line of a /place confirmation, saying when they came from Google Maps and when they differ by day. */
+/** The hours line of a /add_attraction confirmation, saying when they came from Google Maps and when they differ by day. */
 export function placeHoursLineTh(hours: { openTime: string | null; closeTime: string | null; closedDays: number[] }, fromGoogle: PlaceHours | null): string {
-  if (!hours.openTime || !hours.closeTime) return "ยังไม่มีเวลาเปิด (ไม่พบใน Google Maps ใส่เองได้: /place ชื่อ | 09:00-17:00)";
+  if (!hours.openTime || !hours.closeTime) return "ยังไม่มีเวลาเปิด (ไม่พบใน Google Maps ใส่เองได้: /add_attraction ชื่อ | 09:00-17:00)";
   const closed = hours.closedDays.length ? ` · ปิดวัน${hours.closedDays.map((d) => TH_DAYS[d]).join(", ")}` : "";
   const source = fromGoogle ? ` (จาก Google Maps${fromGoogle.varies ? " · เวลาไม่เท่ากันทุกวัน ตรวจที่ Admin → Attractions" : ""})` : "";
   return `เปิด ${hours.openTime}–${hours.closeTime}${closed}${source}`;
@@ -106,27 +117,38 @@ export function parseDuration(raw: string): number | null {
 }
 
 /**
- * `/place <name> | <opening hours> | <area> | <time spent>`: only the name is required, and the other parts are
+ * `/add_attraction <name> | <opening hours> | <area> | <time spent>`: only the name is required, and the other parts are
  * recognised by their shape in any order. Null when there is no usable name.
  */
+/**
+ * "/add_attraction Big Buddha | temple | Phuket | 07:00-17:00 | 60 min #sunset #instagram": the name first, then in any order the
+ * opening hours, the time spent, a category word, the area (or a beach or district in it, kept as the neighbourhood)
+ * and #tags (best time and vibes). Anything else is returned in "unknown" so staff are told, never guessed.
+ */
 export function parsePlaceDetails(details: string): PlaceDetails | null {
-  const parts = details.split(/\s*[|\n]\s*/).map((p) => p.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const tagText = (details.match(/#[\p{L}\p{N}-]+/gu) ?? []).join(" ");
+  const parts = details.replace(/#[\p{L}\p{N}-]+/gu, " ").split(/\s*[|\n]\s*/).map((p) => p.replace(/\s+/g, " ").trim()).filter(Boolean);
   const name = (parts.shift() ?? "").slice(0, 120);
   if (name.length < 2) return null;
-  let hours: ReturnType<typeof parseOpeningHours> = null, durationMin: number | null = null, area = "";
+  let hours: ReturnType<typeof parseOpeningHours> = null, durationMin: number | null = null, area = "", neighbourhood: string | null = null, category: PlaceType | null = null;
+  const unknown: string[] = [];
   for (const p of parts) {
-    const h = parseOpeningHours(p), d = parseDuration(p);
+    const h = parseOpeningHours(p), d = parseDuration(p), c = categoryOfWord(p), a = areaOf(p);
     if (h && !hours) hours = h;
     else if (d && !durationMin) durationMin = d;
-    else if (!area) area = p.slice(0, 60);
+    else if (c && !category) category = c;
+    else if (a && !area) { area = a; if (a.toLowerCase() !== p.toLowerCase()) neighbourhood = p.slice(0, 60); }
+    else unknown.push(p.slice(0, 60));
   }
-  return { name, openTime: hours?.openTime ?? null, closeTime: hours?.closeTime ?? null, durationMin, area };
+  const tags = readTags(tagText);
+  return { name, openTime: hours?.openTime ?? null, closeTime: hours?.closeTime ?? null, durationMin, area, neighbourhood, category, bestTime: tags.bestTime, vibes: tags.vibes,
+    unknown: [...unknown, ...tags.unknown.map((t) => `#${t}`)] };
 }
 
 export { placeKey }; // shared with the chat-to-trip reader (lib/trip-chat-rules.ts)
 
 /**
- * The existing attraction a /place name means, so photos and hours go to the place trips already use instead of a
+ * The existing attraction a /add_attraction name means, so photos and hours go to the place trips already use instead of a
  * duplicate: the same name (any case) first, else the same once brackets and "The" are dropped ("Wat Pho" is
  * "Wat Pho (Reclining Buddha)"), the oldest when several fit. Null when none does.
  */
@@ -139,14 +161,14 @@ export function matchPlace<T extends { name: string; customerName: string | null
 }
 
 export const tripBuilderOn = (vars: Record<string, string | undefined>) => vars.TELEGRAM_TRIP_BUILDER === "1";
-/** /trip builds several days when the places need them (Worker variable TRIP_MULTIDAY=1; off until the owner turns it on). */
+/** /add_trip builds several days when the places need them (Worker variable TRIP_MULTIDAY=1; off until the owner turns it on). */
 export const tripMultidayOn = (vars: Record<string, string | undefined>) => vars.TRIP_MULTIDAY === "1";
 
 export type PackageOption = { programId: string; session: string | null; label: string };
 type PackageLike = { id: string; name: string; durationMin: number; feeAdult?: number; feeChild?: number; sessions: { time: string }[] };
 
 /**
- * The buttons staff choose from when a place in a /trip has packages: one per package and start time (a package with
+ * The buttons staff choose from when a place in a /add_trip has packages: one per package and start time (a package with
  * no start time is one button), with its length and price per person. At most 12, so the question stays readable.
  */
 export function packageOptions(programs: PackageLike[]): PackageOption[] {
@@ -161,7 +183,7 @@ export function packageOptions(programs: PackageLike[]): PackageOption[] {
 }
 
 /**
- * True when the text after /trip is a request for help rather than a trip, e.g. "/trip", "/trip help" or "/trip create
+ * True when the text after /add_trip is a request for help rather than a trip, e.g. "/add_trip", "/add_trip help" or "/add_trip create
  * a new trip": a trip always has a date, a pickup time and a price, so text with no digits at all cannot be one.
  */
 export function wantsTripGuide(details: string): boolean {
@@ -170,19 +192,19 @@ export function wantsTripGuide(details: string): boolean {
 }
 
 /**
- * The text the AI reads for a /trip: the customer chat staff replied to (pasted or forwarded into the group), with the
- * staff's own /trip line as a note; or just the /trip line. The price never comes from here: it is read from the staff's
- * /trip line alone (parseStaffPrice), so a price the customer mentioned is never used.
+ * The text the AI reads for a /add_trip: the customer chat staff replied to (pasted or forwarded into the group), with the
+ * staff's own /add_trip line as a note; or just the /add_trip line. The price never comes from here: it is read from the staff's
+ * /add_trip line alone (parseStaffPrice), so a price the customer mentioned is never used.
  */
 export function tripText(staffLine: string, repliedChat: string): string {
   const chat = repliedChat.trim();
   return chat ? `${chat}\n\n(Staff note: ${staffLine.trim() || "none"})` : staffLine.trim();
 }
 
-/** What staff need to type after /trip (Thai, for the Admin group). */
+/** What staff need to type after /add_trip (Thai, for the Admin group). */
 export const TRIP_HELP = [
   "📝 <b>วิธีสร้างทริปผ่าน Telegram</b>",
-  "พิมพ์ /trip แล้วพิมพ์รายละเอียดแบบอิสระ เรียงแบบไหนก็ได้ บอทจะสรุปให้ตรวจก่อนทุกครั้ง",
+  "พิมพ์ /add_trip แล้วพิมพ์รายละเอียดแบบอิสระ เรียงแบบไหนก็ได้ บอทจะสรุปให้ตรวจก่อนทุกครั้ง",
   "",
   "<b>ต้องมี</b>",
   "• จำนวนคน เช่น 4 people หรือ 2 adults 1 child",
@@ -197,18 +219,43 @@ export const TRIP_HELP = [
   "• รถ (ไม่ใส่ = 1–2 คน Sedan, 3–4 คน SUV, 5–10 คน Van)",
   "",
   "<b>ตัวอย่าง</b>",
-  "<code>/trip 4 people, pickup graceland resort patong, big buddha, wat chalong, phuket old town, pickup 9:00 am, 20/12/2026, trip 8 hours</code>",
+  "<code>/add_trip 4 people, pickup graceland resort patong, big buddha, wat chalong, phuket old town, pickup 9:00 am, 20/12/2026, trip 8 hours</code>",
   "",
   "บอทหาจุดรับ/จุดส่งใน Google Maps แล้วส่งสรุปให้ตรวจ ตอบกลับสรุปเพื่อแก้ไข แล้วกด <b>สร้างทริป</b>",
   "สถานที่ที่มีแพ็กเกจ บอทจะถามให้เลือกแพ็กเกจก่อนสร้างทริป",
   "",
   "<b>หรือวางแชตลูกค้า</b>",
-  "วางหรือส่งต่อแชตของลูกค้าในกลุ่ม แล้วกดตอบกลับข้อความนั้นด้วย <code>/trip</code> (ใส่ราคาได้ เช่น <code>/trip THB 3,500</code> บอทไม่อ่านราคาจากแชตลูกค้า)",
+  "วางหรือส่งต่อแชตของลูกค้าในกลุ่ม แล้วกดตอบกลับข้อความนั้นด้วย <code>/add_trip</code> (ใส่ราคาได้ เช่น <code>/add_trip THB 3,500</code> บอทไม่อ่านราคาจากแชตลูกค้า)",
 ].join("\n");
-export const PLACE_HELP = "เพิ่มสถานที่: <code>/place ชื่อสถานที่ | 09:00-17:00 | พื้นที่ | 90 นาที</code>\nไม่ใส่เวลาเปิด บอทจะดึงเวลาเปิดจาก Google Maps ให้\nใส่เป็นคำบรรยายรูปได้ (ส่งรูปพร้อมพิมพ์ /place …) หรือตอบกลับข้อความยืนยันของบอทด้วยรูปเพื่อเพิ่มรูป";
+const categoryNamesTh = () => PLACE_TYPES.map((t) => t).join(", ");
+export const PLACE_HELP = [
+  "เพิ่มสถานที่: <code>/add_attraction ชื่อสถานที่ | หมวด | พื้นที่ | 09:00-17:00 | 90 นาที #sunset #instagram</code>",
+  "ต้องมีแค่ชื่อ ส่วนอื่นเรียงแบบไหนก็ได้ คั่นด้วย |",
+  `• หมวด (เลือก 1): ${categoryNamesTh()} (ไม่ใส่ = ใช้ประเภทจาก Google Maps)`,
+  `• พื้นที่: ${PLACE_AREAS.join(", ")} (พิมพ์หาด/ย่านได้ เช่น Patong = Phuket)`,
+  `• แท็ก: #${BEST_TIMES.filter((t) => t !== "any").join(" #")} และ #${VIBES.join(" #")}`,
+  "ไม่ใส่เวลาเปิด บอทจะดึงเวลาเปิดจาก Google Maps ให้",
+  "ใส่เป็นคำบรรยายรูปได้ (ส่งรูปพร้อมพิมพ์ /add_attraction …) หรือตอบกลับข้อความยืนยันของบอทด้วยรูปเพื่อเพิ่มรูป",
+].join("\n");
+
+const FROM_TH = { typed: "", google: " (จาก Google Maps)", kept: "", default: " (ค่าเริ่มต้น เปลี่ยนได้ เช่น <code>/add_attraction ชื่อ | temple</code>)" } as const;
+/** The /add_attraction reply line: category, area (and neighbourhood) and tags, with where each came from. */
+export function placeFiledTh(p: { name: string; category: string; area: string; neighbourhood: string | null; bestTime: string | null; vibes: string[] },
+  from: { categoryFrom: keyof typeof FROM_TH; areaFrom: "typed" | "google" | "kept" }): string {
+  const label = PLACE_TYPE_LABEL[p.category as PlaceType] ?? p.category;
+  const area = p.area && (PLACE_AREAS as readonly string[]).includes(p.area)
+    ? `📍 ${escHtml(p.area)}${p.neighbourhood ? ` (${escHtml(p.neighbourhood)})` : ""}${from.areaFrom === "google" ? " (จาก Google Maps)" : ""}`
+    : `❓ ยังไม่มีพื้นที่${p.area ? ` (“${escHtml(p.area)}” ไม่อยู่ในรายการ)` : ""}: ส่ง <code>/add_attraction ${escHtml(p.name)} | Phuket</code>`;
+  const tags = [...(p.bestTime ? [p.bestTime] : []), ...p.vibes];
+  return `🏷 ${escHtml(label)}${FROM_TH[from.categoryFrom]} · ${area}${tags.length ? ` · ${tags.map((t) => `#${escHtml(t)}`).join(" ")}` : ""}`;
+}
+
+/** Parts of a /add_attraction the bot did not understand: not saved, and what it does understand. */
+export const placeUnknownTh = (unknown: string[]) =>
+  `⚠️ ไม่เข้าใจ (ไม่ได้บันทึก): ${unknown.map(escHtml).join(", ")}\nหมวดที่ใช้ได้: ${categoryNamesTh()}\nพื้นที่ที่ใช้ได้: ${PLACE_AREAS.join(", ")}`;
 
 /**
- * The hours a /trip day is charged when no price is typed: 5 or more places count as 10 hours, 4 places as 6 hours,
+ * The hours a /add_trip day is charged when no price is typed: 5 or more places count as 10 hours, 4 places as 6 hours,
  * fewer as the hours the day takes (at least 3). A day that takes longer than that is charged the hours it takes.
  */
 export function tripChargeHours(places: number, plannedHours: number) {
@@ -216,8 +263,8 @@ export function tripChargeHours(places: number, plannedHours: number) {
   return Math.min(16, Math.max(floor, Math.ceil(plannedHours)));
 }
 
-// ── Typed /trip, read without AI ─────────────────────────────────────────────────────────────────────────────
-// Staff type the number of people, the date and the places in any order (docs: "/trip input template proposal").
+// ── Typed /add_trip, read without AI ─────────────────────────────────────────────────────────────────────────────
+// Staff type the number of people, the date and the places in any order (docs: "/add_trip input template proposal").
 // The date and the people are found by their shape wherever they are; the price, car, bags, days, hours and a pickup
 // (a part with a time, or starting "pickup" / "รับ") are taken out too; every other comma-separated part is a place,
 // in the order written. Nothing is guessed: a missing or doubled part is a problem named back to staff.
@@ -262,12 +309,12 @@ const take = (text: string, re: RegExp, found: (m: RegExpExecArray) => void) => 
   return SEP;
 });
 
-/** The car words /trip knows (the same as pickVehicle): a part that is only a car is not a place. */
+/** The car words /add_trip knows (the same as pickVehicle): a part that is only a car is not a place. */
 const CAR_ONLY = /^(?:by\s+)?(?:an?\s+)?(?:mini\s*van|minivan|van|commuter|alphard|suv|fortuner|pajero|bmw|economy|sedan|camry|altis|รถตู้|ฟอร์จูนเนอร์|รถเก๋ง)(?:\s+car)?$/iu;
 const FILLER = /^(?:and|then|to|&|และ|date|วันที่|price|ราคา|total|รวม|people|pax)$/iu;
 const CLOCK = /\b([01]?\d|2[0-3])[:.]([0-5]\d)\s*(am|pm|น\.?)?|\b(1[0-2]|0?[1-9])\s*(am|pm)\b/iu;
 
-/** Reads a typed /trip (the text after the command). Pure; `today` is the Thailand date (YYYY-MM-DD). */
+/** Reads a typed /add_trip (the text after the command). Pure; `today` is the Thailand date (YYYY-MM-DD). */
 export function parseTypedTrip(details: string, today: string): { ok: true; trip: TypedTrip } | { ok: false; problem: TypedTripProblem } {
   // Prices first (they hold commas, "THB 3,500"); the price itself is read by parseStaffPrice.
   const NUM = "(?<![\\d:.,])(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?";
@@ -382,7 +429,7 @@ export const spellDate = (iso: string) => `${Number(iso.slice(8, 10))} ${MONTHS_
 export const farApartTh = (far: { a: string; b: string; km: number }) =>
   `⚠️ ยังไม่ได้สร้างทริป: ${escHtml(far.a)} กับ ${escHtml(far.b)} ห่างกันประมาณ ${Math.round(far.km).toLocaleString("en-US")} กม. ไปในวันเดียวไม่ได้ ตรวจชื่อสถานที่อีกครั้ง`;
 
-/** One date written any way /trip reads one (2026-11-29, 29/11, 29 Nov, Nov 29, 29 พ.ย.), as YYYY-MM-DD; no year = the next one. Null otherwise. */
+/** One date written any way /add_trip reads one (2026-11-29, 29/11, 29 Nov, Nov 29, 29 พ.ย.), as YYYY-MM-DD; no year = the next one. Null otherwise. */
 export function readDate(raw: string, today: string): string | null {
   const t = raw.trim();
   let m: RegExpExecArray | null;
@@ -398,5 +445,5 @@ export function readDate(raw: string, today: string): string | null {
 /** A clock time ("08:30", "8.30", "8pm", "20.00 น."), as HH:MM, or null. */
 export const readClock = (raw: string) => clock(raw);
 
-/** The car class named in the text (the same words as /trip), or null. */
+/** The car class named in the text (the same words as /add_trip), or null. */
 export const namedVehicle = (text: string): VehicleId | null => VEHICLE_WORDS.find(([re]) => re.test(text))?.[1] ?? null;
