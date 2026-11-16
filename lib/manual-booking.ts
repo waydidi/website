@@ -24,6 +24,8 @@ export const manualBookingSchema = z.object({
   bookedHours: z.number().int().min(1).max(24).optional(),
   pickupDate: date, pickupTime: time,
   returnDate: date.optional().or(z.literal("")), returnTime: time.optional().or(z.literal("")),
+  /** The return trip's own pick-up and drop-off; empty = the outbound trip reversed (drop-off → pick-up). */
+  returnPickup: text(300).optional().default(""), returnDropoff: text(300).optional().default(""),
   flightNumber: text(20).optional().default(""),
   customerName: text(100).min(1), customerSurname: text(100).optional().default(""),
   customerEmail: z.string().trim().toLowerCase().email().max(254),
@@ -121,8 +123,8 @@ export async function createManualBooking(b: ManualBookingInput, origin: string)
     extraDistanceRate: b.serviceType === "hourly" ? 0 : null,
     pricingVersion: b.serviceType === "hourly" ? 2 : null,
     scheduledEndAt: b.serviceType === "hourly" && b.bookedHours ? new Date(new Date(`${b.pickupDate}T${b.pickupTime}:00+07:00`).getTime() + b.bookedHours * 3600_000).toISOString() : null,
-    returnPickup: hasReturn ? b.dropoff : null,
-    returnDropoff: hasReturn ? b.pickup : null,
+    returnPickup: hasReturn ? b.returnPickup || b.dropoff : null,
+    returnDropoff: hasReturn ? b.returnDropoff || b.pickup : null,
     returnDate: hasReturn ? b.returnDate : null,
     returnTime: hasReturn ? b.returnTime : null,
   });

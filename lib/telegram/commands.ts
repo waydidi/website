@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { telegramChatId, telegramCommentChatId, telegramConfigured, tg } from "@/lib/telegram/client";
 import { tripBuilderOn } from "@/lib/telegram/trip-builder-rules";
+import { bookingBuilderOn } from "@/lib/telegram/booking-builder-rules";
 
 // The "/" menu in the team groups: typing "/" shows these with their descriptions and tapping one fills it in.
 // Registered with Telegram (setMyCommands, scoped to each group) once, and again only when the list or the groups change.
@@ -15,8 +16,10 @@ const TRIP_BUILDER_COMMANDS = [
   { command: "trip", description: "Build and send a smart trip: link and PDF" },
   { command: "place", description: "Add or update an attraction (hours, photos)" },
 ];
-export const menus = (adminChat: string, commentChat: string, tripBuilder = false) => [
-  { chat: adminChat, commands: [...(commentChat ? [] : [COMMENT_COMMAND]), ...(tripBuilder ? TRIP_BUILDER_COMMANDS : []), ...ADMIN_COMMANDS] },
+/** /book in the Admin group once TELEGRAM_BOOKING_BUILDER=1. */
+const BOOK_COMMAND = { command: "book", description: "Create a new booking: type the details, get the PDF" };
+export const menus = (adminChat: string, commentChat: string, tripBuilder = false, bookingBuilder = false) => [
+  { chat: adminChat, commands: [...(commentChat ? [] : [COMMENT_COMMAND]), ...(bookingBuilder ? [BOOK_COMMAND] : []), ...(tripBuilder ? TRIP_BUILDER_COMMANDS : []), ...ADMIN_COMMANDS] },
   ...(commentChat && commentChat !== adminChat ? [{ chat: commentChat, commands: [COMMENT_COMMAND] }] : []),
 ];
 type Db = { prepare: (sql: string) => { bind: (...v: unknown[]) => { first: <T>() => Promise<T | null>; run: () => Promise<unknown> } } };
@@ -28,7 +31,8 @@ const RETRY_MINUTES = 10;
 /** Makes the "/" menu match TEAM_COMMANDS. Cheap when nothing changed (one settings read). Returns true when it registered them. */
 export async function syncBotCommands(call: (method: string, payload: Record<string, unknown>) => Promise<unknown> = tg, now = new Date()) {
   if (!telegramConfigured()) return false;
-  const list = menus(telegramChatId(), telegramCommentChatId(), tripBuilderOn(env as unknown as Record<string, string | undefined>)), want = JSON.stringify(list);
+  const vars = env as unknown as Record<string, string | undefined>;
+  const list = menus(telegramChatId(), telegramCommentChatId(), tripBuilderOn(vars), bookingBuilderOn(vars)), want = JSON.stringify(list);
   if ((await setting("tg_commands_synced")) === want) return false;
   const tried = Date.parse((await setting("tg_commands_tried")) ?? "");
   if (Number.isFinite(tried) && now.getTime() - tried < RETRY_MINUTES * 60_000) return false;
