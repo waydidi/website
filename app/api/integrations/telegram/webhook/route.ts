@@ -18,7 +18,7 @@ import { driverGroup, handleDriverCallback, handleDriverGroupMessage, handleDriv
 import { isDriverGroupChat } from "@/lib/telegram/driver-group-rules";
 import { answerPhotoLocation, isLocationQuestion } from "@/lib/telegram/photo-location";
 import { postJobCompleted } from "@/lib/telegram/trip-photos";
-import { handlePlacePhotoReply, handleTripBuilder, handleTripPackageChoice } from "@/lib/telegram/trip-builder";
+import { handlePlacePhotoReply, handleTripBuilder, handleTripDraftCallback, handleTripPackageChoice } from "@/lib/telegram/trip-builder";
 import { verifyTripCompletion } from "@/lib/trip-completion";
 import { acknowledgeEdit, approveChange, cancelBookingFromTelegram, declineChange, editKeepDriver, editNewDriver, keepBooking } from "@/lib/telegram/booking-changes";
 import { postCallbackAllowed, postCommandRoute } from "@/lib/post-helper-rules";
@@ -99,6 +99,9 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   if (!target || target.length > 60) return answerCallback(q.id, "Unknown action.");
   // A package choice under a /trip question (the team member is checked above).
   if (action === "tp_pkg") return handleTripPackageChoice(q, admin);
+  // สร้างทริป / ยกเลิก under a /trip summary (the team member is checked above).
+  if (action === "tpd_ok" || action === "tpd_no") return handleTripDraftCallback(action, target, extra ?? "", admin, q);
+  if (action === "tpd_done") return answerCallback(q.id);
   // "สร้างการจอง" / "ยกเลิก" under a /book draft (the team member is checked above).
   if (action === "bkb_ok" || action === "bkb_no") return handleBookingCallback(action, target, extra ?? "", { name: admin.display_name }, q);
   if (action === "bkb_done") return answerCallback(q.id);
