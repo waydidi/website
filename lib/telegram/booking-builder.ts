@@ -26,10 +26,13 @@ export type BookDeps = { call?: ModelCall | null; today?: string; now?: () => Da
 type Draft = { id: string; chat_id: string; fields_json: string; version: number; status: string; booking_reference: string | null; updated_at: string };
 
 const DRAFT_HOURS = 48;
-const MODEL = "claude-haiku-4-5";
+// Claude Haiku 5.5 at low effort: reading fields from a short note is simple work. It thinks before it answers and that
+// counts toward max_tokens, so the cap leaves room for both. A refusal or a cut-off answer is "could not read" (no fields).
+const MODEL = "claude-haiku-5-5";
 const callClaude: ModelCall = async (system, user) => {
   const client = new Anthropic({ apiKey: vars().ANTHROPIC_API_KEY, timeout: 30_000, maxRetries: 1 });
-  const res = await client.messages.create({ model: MODEL, max_tokens: 800, system, messages: [{ role: "user", content: user }] });
+  const res = await client.messages.create({ model: MODEL, max_tokens: 2000, output_config: { effort: "low" }, system, messages: [{ role: "user", content: user }] });
+  if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") throw new Error(`AI reader stopped: ${res.stop_reason}`);
   return res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
 };
 const defaultCall = () => (vars().ANTHROPIC_API_KEY ? callClaude : null);
