@@ -158,6 +158,59 @@ export function autoArrange(stops: TripStop[], input: PlanInput): TripStop[] {
   return seq;
 }
 
+/** A stop moved out of nearest-first order because of its opening hours. */
+export type HoursMove = { stopId: string; name: string; reason: "closed_by_then" | "not_open_yet" };
+const HOURS_ERROR = /closes at|Last entry/;
+const WAIT_TO_MOVE_MIN = 30;
+
+/**
+ * The owner's /trip order: from the pickup, always the nearest remaining place next (by the trip's drive times), then
+ * the drop-off. Stops with a package time or locked by staff keep their time and are fitted in where they cost least.
+ * A place reached after it closes (or its last entry), or so early that the group waits WAIT_TO_MOVE_MIN or more for it
+ * to open, is moved to the position where its hours fit best, only when that makes the day better (fewer hours
+ * problems, then less driving and waiting). A place closed all day on the date cannot be fixed by moving and stays.
+ */
+export function nearestFirst(stops: TripStop[], input: PlanInput): { stops: TripStop[]; moved: HoursMove[] } {
+  const anchored = stops.filter((s) => s.locked || s.sessionTime);
+  const located = stops.filter((s) => !s.locked && !s.sessionTime && pointOf(s));
+  const unlocated = stops.filter((s) => !s.locked && !s.sessionTime && !pointOf(s));
+  let seq: TripStop[] = [];
+  let at = input.from;
+  const left = [...located];
+  while (left.length) {
+    let best = 0;
+    if (at) for (let i = 1; i < left.length; i++) if (input.travel(at, pointOf(left[i])!) < input.travel(at, pointOf(left[best])!)) best = i;
+    const [next] = left.splice(best, 1);
+    seq.push(next);
+    at = pointOf(next) ?? at;
+  }
+  seq = [...seq, ...unlocated];
+  const bestPlace = (list: TripStop[], stop: TripStop) => {
+    let pick = list, pickScore = Infinity;
+    const rest = list.filter((s) => s.id !== stop.id);
+    for (let i = 0; i <= rest.length; i++) {
+      const trial = [...rest.slice(0, i), stop, ...rest.slice(i)];
+      const s = score(schedule(trial, input));
+      if (s < pickScore) { pickScore = s; pick = trial; }
+    }
+    return { list: pick, score: pickScore };
+  };
+  for (const stop of anchored) seq = bestPlace([...seq, stop], stop).list;
+  const moved: HoursMove[] = [], looked = new Set<string>();
+  for (let pass = 0; pass < stops.length; pass++) {
+    const plan = schedule(seq, input);
+    const bad = plan.stops.find((p) => !p.locked && !p.sessionTime && !looked.has(p.id)
+      && (p.problems.some((x) => x.level === "error" && HOURS_ERROR.test(x.message)) || p.wait >= WAIT_TO_MOVE_MIN));
+    if (!bad) break;
+    looked.add(bad.id); // each stop is looked at once, so the passes always end
+    const reason = bad.problems.some((x) => HOURS_ERROR.test(x.message)) ? "closed_by_then" as const : "not_open_yet" as const;
+    const tried = bestPlace(seq, seq.find((s) => s.id === bad.id)!);
+    const changed = tried.list.map((s) => s.id).join() !== seq.map((s) => s.id).join();
+    if (changed && tried.score < score(plan)) { seq = tried.list; moved.push({ stopId: bad.id, name: bad.name, reason }); }
+  }
+  return { stops: seq, moved };
+}
+
 export type Alternative = { label: string; returnAt: number; fits: boolean; stops: TripStop[]; extendHours?: number };
 
 /** Ways to bring an over-long trip back inside its hours. The admin picks one. */

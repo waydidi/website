@@ -3,7 +3,7 @@
 // read once here into checked values; the price is never guessed: no clear price in the message, no trip.
 import type { PlaceHours } from "@/lib/google-hours";
 import { placeKey } from "@/lib/trip-chat-rules";
-import { smallestFittingVehicle, vehicleFits, type VehicleId } from "@/lib/vehicles";
+import { VEHICLES, type VehicleId } from "@/lib/vehicles";
 
 /** `/trip <details>` (also `/trip@BotName`): the details, "" when only the command was sent, null when it is not /trip. */
 export function parseTripCommand(message: string): string | null {
@@ -47,12 +47,20 @@ const VEHICLE_WORDS: [RegExp, VehicleId][] = [
   [/\b(economy|sedan|camry|altis)\b|รถเก๋ง/i, "economy_sedan"],
 ];
 
-/** The car staff named, or else the smallest car that fits the group; not ok when the named car is too small. */
-export function pickVehicle(text: string, passengers: number, bags: number): { ok: true; vehicle: VehicleId } | { ok: false; vehicle: VehicleId | null } {
+/** The owner's /trip car rule by number of people: 1–2 sedan, 3–4 SUV, 5–10 van (the van seats 10 at most). */
+export function carForPeople(people: number): VehicleId | null {
+  if (people >= 1 && people <= 2) return "economy_sedan";
+  if (people <= 4) return people >= 1 ? "comfort_suv" : null;
+  if (people <= VEHICLES.premium_minivan.passengers) return "premium_minivan";
+  return null;
+}
+
+/** The car staff named when it seats the group, or else the car for the number of people; not ok when the named car is too small or the group is too big. */
+export function pickVehicle(text: string, passengers: number): { ok: true; vehicle: VehicleId; named: boolean } | { ok: false; vehicle: VehicleId | null } {
   const named = VEHICLE_WORDS.find(([re]) => re.test(text))?.[1];
-  if (named) return vehicleFits(named, passengers, bags) ? { ok: true, vehicle: named } : { ok: false, vehicle: named };
-  const smallest = smallestFittingVehicle(passengers, bags);
-  return smallest ? { ok: true, vehicle: smallest } : { ok: false, vehicle: null };
+  if (named) return passengers <= VEHICLES[named].passengers ? { ok: true, vehicle: named, named: true } : { ok: false, vehicle: named };
+  const car = carForPeople(passengers);
+  return car ? { ok: true, vehicle: car, named: false } : { ok: false, vehicle: null };
 }
 
 export type PlaceDetails = { name: string; openTime: string | null; closeTime: string | null; durationMin: number | null; area: string };
@@ -152,11 +160,6 @@ export function packageOptions(programs: PackageLike[]): PackageOption[] {
   return out.slice(0, 12);
 }
 
-/** Thai words for the parts the AI could not find in the message. */
-export const MISSING_TH: Record<string, string> = { date: "วันที่", "pickup place": "จุดรับ", places: "สถานที่" };
-/** What /trip cannot be built without: the date and at least one place (the pickup hotel can follow later). */
-export const BLOCKING = ["date", "places"];
-
 /**
  * True when the text after /trip is a request for help rather than a trip, e.g. "/trip", "/trip help" or "/trip create
  * a new trip": a trip always has a date, a pickup time and a price, so text with no digits at all cannot be one.
@@ -179,23 +182,24 @@ export function tripText(staffLine: string, repliedChat: string): string {
 /** What staff need to type after /trip (Thai, for the Admin group). */
 export const TRIP_HELP = [
   "📝 <b>วิธีสร้างทริปผ่าน Telegram</b>",
-  "พิมพ์ /trip ตามด้วย จำนวนคน, วันที่, สถานที่ เรียงแบบไหนก็ได้ คั่นด้วยจุลภาค (,)",
+  "พิมพ์ /trip แล้วพิมพ์รายละเอียดแบบอิสระ เรียงแบบไหนก็ได้ บอทจะสรุปให้ตรวจก่อนทุกครั้ง",
   "",
   "<b>ต้องมี</b>",
-  "• จำนวนคน เช่น 2, 2 people หรือ 2 adults 1 child",
-  "• วันที่ เช่น 29 Nov, 29/11 หรือ 2026-11-29 (วันก่อนเดือน)",
-  "• สถานที่ที่จะไป เรียงตามลำดับที่จะไป (ถ้ายังไม่มีในรายการ บอทจะเพิ่มจาก Google Maps)",
+  "• จำนวนคน เช่น 4 people หรือ 2 adults 1 child",
+  "• วันที่ เช่น 20/12/2026 หรือ 20 Dec (วันก่อนเดือน)",
+  "• จุดรับและเวลารับ เช่น pickup Graceland Resort Patong 9:00 am",
+  "• สถานที่ที่จะไป (บอทเรียงให้ ใกล้ที่สุดก่อน)",
   "",
   "<b>ใส่เพิ่มได้</b>",
+  "• จุดส่ง ถ้าไม่ใช่ที่เดียวกับจุดรับ เช่น drop off Phuket Airport",
+  "• ชั่วโมง เช่น trip 8 hours (ไม่ใส่ = คิดจากจำนวนสถานที่)",
   "• ราคา เช่น THB 3,500 (ไม่ใส่ = ราคาตามเรทรายชั่วโมง)",
-  "• จุดรับและเวลารับ เช่น pickup Hilton Patong 08:00 (ไม่ใส่ = รอยืนยัน ใส่ทีหลังได้)",
-  "• รถ เช่น SUV หรือ Van, กระเป๋า เช่น 3 bags, ชั่วโมง เช่น 6 hours",
-  "• จำนวนวัน เช่น 3 days (ทริปหลายวันเมื่อเปิด TRIP_MULTIDAY)",
+  "• รถ (ไม่ใส่ = 1–2 คน Sedan, 3–4 คน SUV, 5–10 คน Van)",
   "",
   "<b>ตัวอย่าง</b>",
-  "<code>/trip 2, 29 Nov, Big Buddha, Wat Chalong, Phuket Old Town</code>",
-  "<code>/trip Big Buddha, Promthep Cape, 20 Dec 2026, 2 adults 1 child, SUV, THB 3,500</code>",
+  "<code>/trip 4 people, pickup graceland resort patong, big buddha, wat chalong, phuket old town, pickup 9:00 am, 20/12/2026, trip 8 hours</code>",
   "",
+  "บอทหาจุดรับ/จุดส่งใน Google Maps แล้วส่งสรุปให้ตรวจ ตอบกลับสรุปเพื่อแก้ไข แล้วกด <b>สร้างทริป</b>",
   "สถานที่ที่มีแพ็กเกจ บอทจะถามให้เลือกแพ็กเกจก่อนสร้างทริป",
   "",
   "<b>หรือวางแชตลูกค้า</b>",
@@ -373,19 +377,6 @@ const escHtml = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").re
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** "2026-11-29" → "29 Nov 2026": the month spelled out, so a day/month mix-up is easy to see. */
 export const spellDate = (iso: string) => `${Number(iso.slice(8, 10))} ${MONTHS_SHORT[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
-
-/** The Thai reply when a typed /trip can't be read: what is wrong, then one example. */
-export function typedTripProblemTh(problem: TypedTripProblem): string {
-  const why = problem.code === "no_date" ? "ใส่วันที่ เช่น 29 Nov"
-    : problem.code === "two_dates" ? `พบวันที่ ${problem.dates.length} วัน (${problem.dates.map(spellDate).join(", ")}) ใส่วันเดียว`
-    : problem.code === "past_date" ? `วันที่ ${spellDate(problem.date)} ผ่านมาแล้ว`
-    : problem.code === "no_people" ? "ใส่จำนวนคน เช่น 2 people หรือ 2 adults 1 child"
-    : problem.code === "two_people" ? "พบจำนวนคนมากกว่าหนึ่งแบบ ใส่จำนวนคนครั้งเดียว เช่น 2 adults 1 child"
-    : problem.code === "no_places" ? "ใส่สถานที่อย่างน้อย 1 แห่ง"
-    : problem.code === "too_many_places" ? "ใส่สถานที่ได้ไม่เกิน 10 แห่ง"
-    : `"${escHtml(problem.place.slice(0, 80))}" ยาวเกินไปสำหรับชื่อสถานที่ แยกแต่ละสถานที่ด้วยจุลภาค (,)`;
-  return `⚠️ ยังไม่ได้สร้างทริป: ${why}\nตัวอย่าง: <code>/trip 2, 29 Nov, Big Buddha, Wat Chalong</code> (ดูวิธีเขียน: <code>/trip help</code>)`;
-}
 
 /** The Thai reply when two places can't be one day trip. */
 export const farApartTh = (far: { a: string; b: string; km: number }) =>

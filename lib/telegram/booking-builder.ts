@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "cloudflare:workers";
+import { assistantFailure } from "@/lib/assistant-error-rules";
+import { alertAiOutOfCredit } from "@/lib/telegram/ai-credit-alert";
 import { createManualBooking, manualBookingProblem, manualBookingSchema } from "@/lib/manual-booking";
 import { publicSiteUrl } from "@/lib/site";
 import { esc } from "@/lib/telegram/cards";
@@ -60,9 +62,14 @@ async function readText(text: string, today: string, call: ModelCall | null): Pr
   if (rest.trim()) {
     if (!call) problems.push(`อ่านไม่ได้ (ไม่มี AI): “${rest.slice(0, 80)}” พิมพ์เป็นบรรทัด เช่น name: John Smith`);
     else {
-      const raw = await call(AI_SYSTEM_PROMPT, aiUserPrompt(rest, today)).catch(() => null);
+      let outOfCredit = false;
+      const raw = await call(AI_SYSTEM_PROMPT, aiUserPrompt(rest, today)).catch((error) => {
+        outOfCredit = assistantFailure(error).code === "credit";
+        return null;
+      });
       const parsed = raw === null ? null : parseAiFields(raw);
       if (parsed) fromAi = parsed;
+      else if (outOfCredit) { problems.push("เครดิต AI หมด จึงอ่านข้อความอิสระไม่ได้ (แจ้งแอดมินให้เติมแล้ว) ตอนนี้พิมพ์เป็นบรรทัดได้ เช่น name: John Smith"); await alertAiOutOfCredit(); }
       else problems.push("AI อ่านข้อความไม่ได้ตอนนี้ ลองอีกครั้ง หรือพิมพ์เป็นบรรทัด เช่น name: John Smith");
     }
   }

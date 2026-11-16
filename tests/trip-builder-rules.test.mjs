@@ -32,13 +32,14 @@ test('the price must be typed with a currency; it is never guessed', () => {
   assert.equal(r.parseStaffPrice('THB 0').ok, false);
 });
 
-test('the named car is used when it fits; otherwise the smallest car that fits', () => {
-  assert.deepEqual(r.pickVehicle('2 adults, SUV', 2, 2), { ok: true, vehicle: 'comfort_suv' });
-  assert.deepEqual(r.pickVehicle('รถตู้ 8 คน', 8, 4), { ok: true, vehicle: 'premium_minivan' });
-  assert.deepEqual(r.pickVehicle('2 adults', 2, 1), { ok: true, vehicle: 'economy_sedan' });
-  assert.deepEqual(r.pickVehicle('6 adults', 6, 2), { ok: true, vehicle: 'premium_minivan' });
-  assert.deepEqual(r.pickVehicle('6 adults, sedan', 6, 2), { ok: false, vehicle: 'economy_sedan' }, 'a named car that is too small is refused');
-  assert.deepEqual(r.pickVehicle('20 people', 20, 2), { ok: false, vehicle: null });
+test('the named car is used when it seats the group; otherwise the owner rule: 1–2 sedan, 3–4 SUV, 5–10 van', () => {
+  assert.deepEqual(r.pickVehicle('2 adults, SUV', 2), { ok: true, vehicle: 'comfort_suv', named: true });
+  assert.deepEqual(r.pickVehicle('รถตู้ 8 คน', 8), { ok: true, vehicle: 'premium_minivan', named: true });
+  assert.deepEqual(r.pickVehicle('2 adults', 2), { ok: true, vehicle: 'economy_sedan', named: false });
+  assert.deepEqual(r.pickVehicle('6 adults', 6), { ok: true, vehicle: 'premium_minivan', named: false });
+  assert.deepEqual(r.pickVehicle('6 adults, sedan', 6), { ok: false, vehicle: 'economy_sedan' }, 'a named car that is too small is refused');
+  assert.deepEqual(r.pickVehicle('20 people', 20), { ok: false, vehicle: null });
+  assert.deepEqual([1, 2, 3, 4, 5, 10, 11, 0].map(r.carForPeople), ['economy_sedan', 'economy_sedan', 'comfort_suv', 'comfort_suv', 'premium_minivan', 'premium_minivan', null, null]);
 });
 
 test('/place: name first, then opening hours, area and time spent in any order', () => {
@@ -92,7 +93,7 @@ test('/place finds the existing place by its name, ignoring case, "The" and a br
 test('"/trip create a new trip" and other text with no date, time or price asks for the guide, not a trip', () => {
   for (const ask of ['', 'help', 'create a new trip', 'How do I make a trip?', '?', 'สร้างทริปใหม่', 'วิธีสร้างทริป', 'Grand Palace, Wat Pho, SUV']) assert.equal(r.wantsTripGuide(ask), true, ask);
   for (const trip of ['12 Dec, Hilton 08:00, Grand Palace, THB 3,500', 'tomorrow Hilton 8am Grand Palace 3500 baht', '๑๒ ธ.ค. รับ Hilton', 'Helping hands tour 12 Dec THB 2,000']) assert.equal(r.wantsTripGuide(trip), false, trip);
-  for (const line of ['วันที่', 'สถานที่ที่จะไป', 'เพิ่มจาก Google Maps', 'ราคาตามเรทรายชั่วโมง', 'จุดรับและเวลารับ', 'รอยืนยัน', '/trip Big Buddha', 'แพ็กเกจ']) assert.ok(r.TRIP_HELP.includes(line), line);
+  for (const line of ['วันที่', 'สถานที่ที่จะไป', 'Google Maps', 'ราคาตามเรทรายชั่วโมง', 'จุดรับและเวลารับ', 'สรุปให้ตรวจก่อน', '/trip 4 people', 'แพ็กเกจ', 'ใกล้ที่สุดก่อน']) assert.ok(r.TRIP_HELP.includes(line), line);
 });
 
 test('paste a chat: the AI reads the replied chat with the staff line as a note; without a chat, just the staff line', () => {
