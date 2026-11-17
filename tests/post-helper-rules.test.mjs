@@ -85,15 +85,55 @@ test('the model replies are read into checked values; bad replies are refused', 
 test('closings follow the playbook: sales get one WhatsApp line, info gets a sign-off, social gets nothing; em dashes are removed', () => {
   const wa = '+66 63 206 4884';
   const sales = r.withClosing('sales', 'Easier with bags — what date?', wa, 0);
-  assert.match(sales, /^Easier with bags, what date\?\n\nFor private trips, transfers or tour enquiries, WhatsApp \+66 63 206 4884\.$/);
-  assert.equal(r.withClosing('adjacent', 'Hi', wa, 1).includes('Want to check options for your dates?'), true);
+  assert.match(sales, /^Easier with bags, what date\?\n\nIf you'd like a clear price to compare, WhatsApp \+66 63 206 4884 with your dates and pickup point\. No pressure, we'll just give you the number\.$/);
+  assert.equal(r.withClosing('adjacent', 'Hi', wa, 1, { mood: 'family' }).includes('Travelling with family is much calmer'), true);
   assert.equal(r.withClosing('sales', 'Message us on WhatsApp +66 63 206 4884', wa, 0), 'Message us on WhatsApp +66 63 206 4884', 'no second WhatsApp line');
   const info = r.withClosing('info', 'Karon is quieter.', wa, 2);
   assert.match(info, /More Thailand tips and local travel ideas at Waydidi Travel\.$/); assert.doesNotMatch(info, /WhatsApp/);
   assert.equal(r.withClosing('social', 'Welcome!', wa, 0), 'Welcome!');
-  assert.deepEqual([0, 1, 2, 3, 4, 5].map((i) => r.pick(r.SALES_CTAS, i)).slice(0, 5).length, 5);
   assert.equal(r.parseRouted('{"topic":"a","question":"b","replyType":"sales"}').replyType, 'sales');
   assert.equal(r.parseRouted('{"topic":"a","question":"b","replyType":"weird"}').replyType, 'info');
+});
+
+// The same check as the extension's isSalesComment (extensions/fb-leads/replier.js): it attaches the QR picture.
+const qrSales = (t) => /whats\s?app/i.test(t) && /\+?\d[\d\s-]{7,}\d/.test(t);
+
+test('sales closings: five per mood, all different, each still gets the QR picture and has no em dash', () => {
+  const wa = '+66 63 206 4884', all = [];
+  for (const mood of r.MOODS) {
+    const lines = r.SALES_CLOSINGS[mood];
+    assert.equal(lines.length, 5, mood);
+    for (const l of lines) { const t = l.replace('{n}', wa); assert.equal(qrSales(t), true, t); assert.doesNotMatch(t, /—/); all.push(t); }
+  }
+  assert.equal(new Set(all).size, 25, 'no line used for two moods');
+  for (const mood of [...r.MOODS, 'none', undefined, 'angry']) assert.equal(qrSales(r.withClosing('sales', 'Sure.', wa, 3, { mood })), true, String(mood));
+});
+
+test('sales closings match the mood; no clear mood gets a line that suits anyone', () => {
+  const wa = '+66 63 206 4884', line = (mood, seed) => r.withClosing('sales', 'Body.', wa, seed, { mood }).split('\n\n')[1];
+  for (const mood of r.MOODS) for (let s = 0; s < 5; s++) assert.ok(r.SALES_CLOSINGS[mood].map((l) => l.replace('{n}', wa)).includes(line(mood, s)), `${mood} ${s}`);
+  const neutral = [...r.SALES_CLOSINGS.price, ...r.SALES_CLOSINGS.unsure].map((l) => l.replace('{n}', wa));
+  for (const mood of ['none', undefined, 'angry']) assert.ok(neutral.includes(line(mood, 7)), String(mood));
+});
+
+test('sales closings rotate per group: every line of a mood is seen before one comes back', () => {
+  const wa = '+66 63 206 4884', recent = [];
+  for (let i = 0; i < 5; i++) {
+    const c = r.withClosing('sales', `Comment ${i}.`, wa, 0, { mood: 'stressed', recent });
+    recent.unshift(c);
+  }
+  const used = recent.map((c) => c.split('\n\n')[1]);
+  assert.equal(new Set(used).size, 5, 'five comments, five different lines');
+  const sixth = r.withClosing('sales', 'Again.', wa, 0, { mood: 'stressed', recent }).split('\n\n')[1];
+  assert.equal(sixth, used[used.length - 1], 'the sixth reuses the line seen longest ago');
+  // The same seed with no history always gives the same line: rotation comes from the group's comments, not chance.
+  assert.equal(r.withClosing('sales', 'x', wa, 0, { mood: 'stressed' }), r.withClosing('sales', 'x', wa, 0, { mood: 'stressed', recent: ['another group line'] }));
+});
+
+test('the sorter mood is read once: known moods kept, anything else is "none"', () => {
+  for (const m of ['excited', 'stressed', 'family', 'price', 'unsure']) assert.equal(r.parseRouted(JSON.stringify({ topic: 'a', question: 'b', mood: m })).mood, m);
+  for (const m of ['angry', '', null, 3, 'FAMILY']) assert.equal(r.parseRouted(JSON.stringify({ topic: 'a', question: 'b', mood: m })).mood, 'none', String(m));
+  assert.equal(r.parseRouted('{"topic":"a","question":"b"}').mood, 'none');
 });
 
 test('only /c starts the post helper (also with the bot name); /comment, /p, /post and other commands do not', () => {

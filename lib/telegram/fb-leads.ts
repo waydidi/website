@@ -187,7 +187,9 @@ async function draftLead(lead: Lead, deps: Deps) {
   // search, everything else gets one search instead of two.
   // "No agents, please" posts get a helpful comment with no sales pitch.
   // The group the post came from: the comment answers for its place (a Koh Chang group gets Koh Chang answers).
-  const options: DraftOptions = { leadsOnly: true, maxSearches: 1, noSearchForBookings: true, noSalesPitch: noSalesPitch(lead.post_text), groupName: lead.group_name, routed: storedRouted(lead.routed_json) };
+  // The group's latest comments, so its sales closing line rotates and the same group does not see one line twice in a row.
+  const { results: recent } = await db().prepare("SELECT comment FROM fb_leads WHERE group_key=(SELECT group_key FROM fb_leads WHERE id=?) AND id<>? AND comment IS NOT NULL AND comment<>'' ORDER BY created_at DESC LIMIT 30").bind(lead.id, lead.id).all<{ comment: string }>();
+  const options: DraftOptions = { leadsOnly: true, maxSearches: 1, noSearchForBookings: true, noSalesPitch: noSalesPitch(lead.post_text), groupName: lead.group_name, routed: storedRouted(lead.routed_json), recentComments: recent.map((r) => r.comment) };
   const draft = await (deps.draft ?? ((text: string, o: DraftOptions) => draftForPost(text, {}, o)))(lead.post_text, options);
   const at = (deps.now ?? (() => new Date()))().toISOString();
   // The AI sorter's verdict (chat, an advert, news, a giveaway, bait, a meme, spam, not Thailand) gets no message.

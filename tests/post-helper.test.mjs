@@ -94,6 +94,17 @@ test('an information post gets a light sign-off and no WhatsApp; a social post g
  await db.prepare("DELETE FROM app_settings WHERE key='post_helper_whatsapp'").run();
 });
 
+test('a sales comment closes with a line for the poster\'s mood, avoids the group\'s recent lines, and the team sees the mood',async()=>{
+ const rules=await vite.ssrLoadModule('/lib/post-helper-rules.ts');
+ const family=rules.SALES_CLOSINGS.family.map((l)=>l.replace('{n}',rules.DEFAULT_WHATSAPP));
+ const recent=family.slice(0,4).map((l)=>'Earlier comment.\n\n'+l);
+ const d=await ph.draftForPost('5 days in Bangkok with our two kids, what should we do?',{client:model({router:routedJson({replyType:'adjacent',topic:'bkk-5-days-family',mood:'family'})}),now:()=>now},{recentComments:recent});
+ assert.ok(d.parts[0].endsWith(family[4].replace(/'/g,'&#39;'))||d.parts[0].endsWith(family[4]),'the one family line the group has not seen lately');
+ assert.match(d.parts[1],/Mood: Family/);
+ const info=await ph.draftForPost('Kata or Karon?',{client:model({router:routedJson({replyType:'info',topic:'kata-or-karon-2',mood:'family'})}),now:()=>now});
+ assert.doesNotMatch(info.parts[1],/Mood:/,'no mood label without a sales line');
+});
+
 test('the owner playbook is given to the writer, and its reference prices are marked as not quotes',async()=>{
  await db.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('post_helper_notes','PLAYBOOK: help first. Sedan 1,300','x')").run();
  let system='';const m=model();const wrapped={create:async(b)=>{if(String(JSON.stringify(b.system)).includes('Facebook community adviser'))system=JSON.stringify(b.system);return m.create({...b,system:Array.isArray(b.system)?b.system[0].text:b.system});}};
