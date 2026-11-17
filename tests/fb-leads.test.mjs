@@ -53,6 +53,20 @@ test('ingest: posts are queued once; sending the same post again (or twice at on
   assert.equal(row.status, 'queued'); assert.equal(row.group_name, 'Thai Travel'); assert.match(row.id, /^[a-f0-9]{16}$/);
 });
 
+test('drafting a lead passes only its own group\'s recent comments, newest first, so the closing line rotates per group', async () => {
+  await fl.queueLeads([
+    { groupKey: 'phuket', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'Phuket' },
+    { groupKey: 'pattaya', postKey: '1000002', url: post(2).url, text: post(2).text, groupName: 'Pattaya' },
+    { groupKey: 'phuket', postKey: '1000003', url: post(3).url, text: post(3).text, groupName: 'Phuket' },
+  ], now);
+  await db.prepare("UPDATE fb_leads SET status='posted',comment='older phuket',created_at='2026-11-01T00:00:00Z' WHERE post_key='1000001'").run();
+  await db.prepare("UPDATE fb_leads SET status='posted',comment='pattaya line',created_at='2026-11-02T00:00:00Z' WHERE post_key='1000002'").run();
+  await db.prepare("INSERT INTO fb_leads(id,group_key,group_name,post_key,post_url,post_text,status,comment,created_at,updated_at) SELECT 'f00000000000000a','phuket','Phuket','1000009',post_url,post_text,'sent','newer phuket','2026-11-03T00:00:00Z','2026-11-03T00:00:00Z' FROM fb_leads WHERE post_key='1000001'").run();
+  const seen = [];
+  await fl.processLeads({ draft: async (text, options) => { seen.push(options.recentComments); return draftOf()(text); }, send: sender().send, now: () => now });
+  assert.deepEqual(seen, [['newer phuket', 'older phuket']]);
+});
+
 test('a lead is drafted and sent as two messages: the comment alone, then group, link, checks and Posted / Skip', async () => {
   await fl.queueLeads([{ groupKey: 'thaitravel', postKey: '1000001', url: post(1).url, text: post(1).text, groupName: 'Thai <Travel>' }], now);
   const s = sender();

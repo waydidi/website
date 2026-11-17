@@ -141,8 +141,15 @@ export type ReplyType = "sales" | "adjacent" | "info" | "social";
  */
 export const POST_TYPES = ["request", "advert", "news", "giveaway", "bait", "meme", "spam", "chat"] as const;
 export type PostType = typeof POST_TYPES[number];
-/** `advert` = postType "advert" (kept for older code); `inThailand`: whether the question is about Thailand. */
-export type Routed = { language: "en" | "th" | "zh" | "other"; kind: "transport" | "travel" | "other"; replyType: ReplyType; topic: string; question: string; timeSensitive: boolean; route: Route | null; advert: boolean; postType: PostType; inThailand: "yes" | "no" | "unclear"; area: string | null };
+/** The poster's mood, read by the AI sorter, so a booking enquiry's closing line fits it. "none" when not clear. */
+export const MOODS = ["excited", "stressed", "family", "price", "unsure"] as const;
+export type Mood = typeof MOODS[number];
+export const MOOD_LABEL: Record<Mood | "none", string> = { excited: "Excited", stressed: "Stressed", family: "Family", price: "Price-minded", unsure: "Unsure", none: "No clear mood" };
+/**
+ * `advert` = postType "advert" (kept for older code); `inThailand`: whether the question is about Thailand. `mood` is
+ * missing on posts sorted before moods existed: read it as "none".
+ */
+export type Routed = { language: "en" | "th" | "zh" | "other"; kind: "transport" | "travel" | "other"; replyType: ReplyType; topic: string; question: string; timeSensitive: boolean; route: Route | null; advert: boolean; postType: PostType; inThailand: "yes" | "no" | "unclear"; area: string | null; mood?: Mood | "none" };
 /** The sorter's post type and place. A missing or unknown answer keeps the post (request, place unclear). */
 /**
  * The place the post is about (the place it names, or the place in the Facebook group's name). A place-dependent
@@ -178,7 +185,7 @@ export function parseRouted(raw: string): Routed | null {
   const n = (v: unknown, d: number, max: number) => { const x = Math.round(Number(v)); return Number.isFinite(x) ? Math.min(max, Math.max(0, x)) : d; };
   const route = r && text(r.pickup, 120) && text(r.dropoff, 120) ? { pickup: text(r.pickup, 120), dropoff: text(r.dropoff, 120), passengers: Math.max(1, n(r.passengers, 2, 30)), bags: n(r.bags, 2, 40) } : null;
   const replyType: ReplyType = o.replyType === "sales" || o.replyType === "adjacent" || o.replyType === "social" ? o.replyType : "info";
-  return { language: o.language === "th" || o.language === "zh" || o.language === "en" ? o.language : "other", kind: o.kind === "transport" ? "transport" : o.kind === "travel" ? "travel" : "other", replyType, topic, question, timeSensitive: o.timeSensitive === true, route, ...sortPost(o) };
+  return { language: o.language === "th" || o.language === "zh" || o.language === "en" ? o.language : "other", kind: o.kind === "transport" ? "transport" : o.kind === "travel" ? "travel" : "other", replyType, topic, question, timeSensitive: o.timeSensitive === true, route, ...sortPost(o), mood: MOODS.includes(o.mood as Mood) ? o.mood as Mood : "none" };
 }
 export function parseFacts(raw: string): ProposedFact[] {
   const o = jsonObject(raw);
@@ -200,14 +207,60 @@ export function parseComposed(raw: string): { comment: string } | null {
 }
 
 // Closings follow the owner's playbook: a booking enquiry gets one WhatsApp line, an information reply gets a light
-// signoff and no number, a social comment gets nothing. The wording rotates so the same line is not used everywhere.
-export const SALES_CTAS = [
-  "For private trips, transfers or tour enquiries, WhatsApp {n}.",
-  "Want to check options for your dates? WhatsApp {n}.",
-  "Need help arranging your Thailand trip? WhatsApp {n}.",
-  "Happy to help with the planning. WhatsApp {n}.",
-  "Planning your Thailand trip? You can reach Waydidi on WhatsApp: {n}.",
-];
+// signoff and no number, a social comment gets nothing.
+// A booking enquiry's line matches the poster's mood (owner's wording, five each). Every line keeps "WhatsApp" and the
+// number: the extension attaches the QR picture only to a comment that has both (isSalesComment in replier.js).
+export const SALES_CLOSINGS: Record<Mood, string[]> = {
+  excited: [
+    "Sounds like a brilliant trip. If you'd like a driver who works around your plans instead of a tour schedule, message us on WhatsApp {n} and we'll sort out the details with you.",
+    "What a trip to look forward to! When you're ready to lock in the transport, WhatsApp us on {n} and we'll fit it around your days.",
+    "You're going to love it. Send your dates to WhatsApp {n} and we'll help you get between places without the hassle.",
+    "Love this plan. If you want a private car so you can stop wherever you like along the way, our WhatsApp is {n}.",
+    "Exciting times! Drop us a message on WhatsApp {n} whenever you'd like help putting the days together.",
+  ],
+  stressed: [
+    "If it helps to take one thing off your list, send your flight time and hotel to WhatsApp {n} and we'll confirm a car for you quickly.",
+    "Don't worry, this is easy to sort out. Message us on WhatsApp {n} with where you are and where you need to be, and we'll take it from there.",
+    "Send the details to WhatsApp {n} now and you'll have an answer from us shortly, so you can stop thinking about it.",
+    "Late arrivals are something we handle all the time. WhatsApp {n} with your flight number and we'll plan the pickup around it.",
+    "If you'd rather have it settled tonight, our WhatsApp is {n}. Just tell us the pickup, drop-off and time.",
+  ],
+  family: [
+    "With kids it's so much easier when the car waits for you, not the other way round. Send your dates and how many of you are travelling to WhatsApp {n} and we'll suggest the right size of vehicle.",
+    "Travelling with family is much calmer when you can stop whenever someone needs a break. Message us on WhatsApp {n} and we'll plan the days at your pace.",
+    "Tell us who's coming and how many bags you have on WhatsApp {n}, and we'll make sure everyone and everything fits comfortably.",
+    "If you'd like the days planned around naps, snacks and slower walkers, WhatsApp {n} and we'll put something together with you.",
+    "A private car means no rushing for group tour times with the little ones. Our WhatsApp is {n} if you'd like to check your dates.",
+  ],
+  price: [
+    "If you'd like a clear price to compare, WhatsApp {n} with your dates and pickup point. No pressure, we'll just give you the number.",
+    "Send the route and date to WhatsApp {n} and we'll reply with one all-in price, so it's easy to compare.",
+    "For a group your size, splitting one car often works out well per person. Message WhatsApp {n} and we'll give you an exact figure.",
+    "Happy to give you a price to weigh up against other options. Our WhatsApp is {n}, just tell us where and when.",
+    "WhatsApp {n} with the details and we'll send you a straightforward quote.",
+  ],
+  unsure: [
+    "If you're still shaping the plan, drop us a message on WhatsApp {n}. Happy to talk it through first and book only when it feels right.",
+    "No need to have it all figured out yet. Message us on WhatsApp {n} with the dates you have, and we'll help you work out the rest.",
+    "First trips to Thailand come with lots of questions, and that's normal. Ask us anything on WhatsApp {n}, no booking needed.",
+    "If it helps to talk it over with someone local, our WhatsApp is {n}. We can suggest a plan and you decide from there.",
+    "Tell us roughly what you enjoy and how many days you have on WhatsApp {n}, and we'll suggest a few ideas to start from.",
+  ],
+};
+/** A post with no clear mood gets a line that suits anyone: the price and unsure sets. */
+const NEUTRAL_CLOSINGS = [...SALES_CLOSINGS.price, ...SALES_CLOSINGS.unsure];
+export const closingsFor = (mood: Mood | "none" | undefined) => (mood && mood !== "none" && SALES_CLOSINGS[mood]) || NEUTRAL_CLOSINGS;
+
+/**
+ * The closing a group has seen least lately: one it has not seen in its recent comments (newest first), else the one
+ * used longest ago, so a group sees every line of a mood before one comes back. The seed breaks ties.
+ */
+export function pickClosing(mood: Mood | "none" | undefined, whatsapp: string, recent: readonly string[], seed: number): string {
+  const lines = closingsFor(mood).map((l) => l.replace("{n}", whatsapp));
+  const lastUse = (line: string) => { const i = recent.findIndex((c) => c.includes(line)); return i < 0 ? Infinity : i; };
+  const oldest = Math.max(...lines.map(lastUse));
+  return pick(lines.filter((l) => lastUse(l) === oldest), seed);
+}
 export const SIGNOFFS = [
   "For more local-style travel recommendations, have a look at Waydidi Travel.",
   "If you enjoy Thailand travel tips like this, we share more at Waydidi Travel.",
@@ -219,9 +272,10 @@ export const pick = <T,>(list: T[], seed: number) => list[Math.abs(Math.floor(se
 /** Removes em dashes (the playbook never uses them) and tidies spaces. */
 export const cleanComment = (s: string) => s.replace(/\s*—\s*/g, ", ").replace(/ +,/g, ",").replace(/[ \t]{2,}/g, " ").trim();
 
-export function withClosing(type: ReplyType, comment: string, whatsapp: string, seed: number): string {
+/** `closing`: the poster's mood and the group's recent comments, so the sales line fits the post and rotates per group. */
+export function withClosing(type: ReplyType, comment: string, whatsapp: string, seed: number, closing: { mood?: Mood | "none"; recent?: readonly string[] } = {}): string {
   const body = cleanComment(comment);
-  if (type === "sales" || type === "adjacent") return /whatsapp/i.test(body) ? body : `${body}\n\n${pick(SALES_CTAS, seed).replace("{n}", whatsapp)}`;
+  if (type === "sales" || type === "adjacent") return /whatsapp/i.test(body) ? body : `${body}\n\n${pickClosing(closing.mood, whatsapp, closing.recent ?? [], seed)}`;
   if (type === "info") return /waydidi/i.test(body) ? body : `${body}\n\n${pick(SIGNOFFS, seed)}`;
   return body;
 }
