@@ -55,7 +55,7 @@ test("the arrows change the order and untick leaves a group out; both are saved 
   await expect(rows(page).nth(0)).toContainText("Katathani");
   await rows(page).nth(2).locator("input").uncheck();
   await expect(rows(page).nth(2)).toContainText("not in this run");
-  expect(await saved(page)).toEqual({ groups: [{ key: "kata", name: "Katathani", on: true }, { key: "khaolak", name: "Khao Lak Community", on: true }, { key: "pattaya", name: "Pattaya Expats", on: false }], per: 10 });
+  expect(await saved(page)).toEqual({ groups: [{ key: "kata", name: "Katathani", on: true, keys: ["kata"] }, { key: "khaolak", name: "Khao Lak Community", on: true, keys: ["khaolak"] }, { key: "pattaya", name: "Pattaya Expats", on: false, keys: ["pattaya"] }], per: 10 });
   await page.locator("#per").fill("99"); await page.locator("#per").blur();
   await expect(page.locator("#per")).toHaveValue("50");
   expect((await saved(page))?.per).toBe(50);

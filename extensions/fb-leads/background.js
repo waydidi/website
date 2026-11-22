@@ -92,7 +92,7 @@ async function openNext() {
   // Each ticked group is asked in turn; one with nothing ready is passed over. All of them empty: the run is done.
   for (var tries = 0; tries < (plan ? plan.groups.length : 1); tries++) {
     var group = plan ? WaydidiPlan.current(plan) : null;
-    var r = await replyCall(group ? { action: "next", group: group.key } : { action: "next" });
+    var r = await replyCall(group ? { action: "next", groups: group.keys && group.keys.length ? group.keys : [group.key] } : { action: "next" });
     if (r.status !== 200) return setReplyRun({ active: false, plan: plan, message: replyProblem(r.status) });
     var d = r.data;
     if (d.lead) {

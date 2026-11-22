@@ -243,21 +243,27 @@ export function autoPostEnabled(vars: Parameters<typeof replyQueueEnabled>[0] & 
 export type ReplyAction = "next" | "groups" | "ready" | "status" | "posted" | "skipped" | "release" | "auto_failed" | "needs_hand";
 /** Why Chrome cannot send a comment by itself and a person must finish it: the QR picture could not be added. */
 export type HandReason = "qr";
-export type ReplyRequest = { action: "next"; id?: string; group?: string } | { action: "groups" } | { action: "needs_hand"; id: string; reason: HandReason } | { action: Exclude<ReplyAction, "next" | "groups" | "needs_hand">; id: string };
+export type ReplyRequest = { action: "next"; id?: string; groups?: string[] } | { action: "groups" } | { action: "needs_hand"; id: string; reason: HandReason } | { action: Exclude<ReplyAction, "next" | "groups" | "needs_hand">; id: string };
 const LEAD_ID = /^[a-f0-9]{16}$/;
+const MAX_GROUP_KEYS = 10;
 
 /**
- * The extension's request to the reply queue: {"action":"next"} (optionally with "id", or with "group" for the next
- * lead of one Facebook group), {"action":"groups"} (the groups with comments waiting), or a lead id with
- * ready / status (send from Telegram) or posted / skipped / release / auto_failed.
+ * The extension's request to the reply queue: {"action":"next"} (optionally with "id", or with "groups": the addresses
+ * of one Facebook group, for its next lead; "group" with one address is read the same way), {"action":"groups"} (the
+ * groups with comments waiting), or a lead id with ready / status (send from Telegram) or posted / skipped / release /
+ * auto_failed.
  */
 export function readReplyRequest(body: unknown): ReplyRequest | { error: string } {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { error: "Expected a JSON object." };
-  const { action, id, group } = body as { action?: unknown; id?: unknown; group?: unknown };
+  const { action, id, group, groups } = body as { action?: unknown; id?: unknown; group?: unknown; groups?: unknown };
   if (id !== undefined && (typeof id !== "string" || !LEAD_ID.test(id))) return { error: "Unknown lead id." };
-  if (group !== undefined && (action !== "next" || id !== undefined || typeof group !== "string" || !GROUP.test(group))) return { error: "Unknown group." };
+  const asked = group !== undefined ? [group] : groups;
+  if (asked !== undefined) {
+    const bad = group !== undefined && groups !== undefined;
+    if (bad || action !== "next" || id !== undefined || !Array.isArray(asked) || !asked.length || asked.length > MAX_GROUP_KEYS || !asked.every((g) => typeof g === "string" && GROUP.test(g))) return { error: "Unknown group." };
+  }
   if (action === "groups") return { action };
-  if (action === "next") return id ? { action, id } : typeof group === "string" ? { action, group } : { action };
+  if (action === "next") return id ? { action, id } : asked ? { action, groups: [...new Set(asked as string[])] } : { action };
   if (action === "needs_hand") {
     const reason = (body as { reason?: unknown }).reason;
     if (!id) return { error: "A lead id is needed." };
@@ -265,6 +271,29 @@ export function readReplyRequest(body: unknown): ReplyRequest | { error: string 
   }
   if (action === "ready" || action === "status" || action === "posted" || action === "skipped" || action === "release" || action === "auto_failed") return id ? { action, id } : { error: "A lead id is needed." };
   return { error: "Unknown action." };
+}
+
+/**
+ * Facebook gives a group two addresses, its name (groups/khaolakcommunity) and its number (groups/984508081894004), and
+ * posts arrive under either. For the popup's list, addresses with the same group name are one group: their counts are
+ * added and all its addresses are kept, so the queue takes posts from each. The word address is the group's key (it
+ * is stable); a group known only by number keeps its number. Busiest first.
+ */
+export type ReplyGroup = { key: string; name: string; waiting: number; keys: string[] };
+export function mergeReplyGroups(rows: readonly { key: string; name: string | null; waiting: number }[]): ReplyGroup[] {
+  const byName = new Map<string, ReplyGroup>();
+  for (const r of rows) {
+    const name = (r.name || r.key).replace(/\s+/g, " ").trim(), id = name.toLowerCase();
+    const g = byName.get(id);
+    if (!g) { byName.set(id, { key: r.key, name, waiting: Number(r.waiting) || 0, keys: [r.key] }); continue; }
+    g.waiting += Number(r.waiting) || 0;
+    if (!g.keys.includes(r.key)) g.keys.push(r.key);
+  }
+  const numeric = (k: string) => /^\d+$/.test(k);
+  return [...byName.values()].map((g) => {
+    const keys = [...g.keys].sort((a, b) => Number(numeric(a)) - Number(numeric(b)) || a.localeCompare(b));
+    return { ...g, key: keys[0], keys };
+  }).sort((a, b) => b.waiting - a.waiting || a.name.localeCompare(b.name));
 }
 
 /** The link the Telegram "Open in Chrome" button and the extension open: the post, marked with the lead it answers. */

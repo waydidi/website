@@ -142,7 +142,9 @@ switch** (default 10, from 1 to 50). The queue works the first ticked group unti
 at the first. A group with nothing ready is passed over; when every ticked group is empty, the run ends. The order and
 ticks are kept in this browser. Pressing Start again with the same groups and number carries on where the last run
 stopped; changing them starts from the first group. While it runs, the popup shows the group it is in ("Now · 3 of 10
-posted") and the next one. A group you have not seen before is added at the end, ticked.
+posted") and the next one. A group you have not seen before is added at the end, ticked. Facebook gives a group two
+addresses (its name, `groups/khaolakcommunity`, and its number, `groups/984508081894004`); groups with the same name are
+one row, and the queue takes posts from both addresses (1.8.1).
 
 Click the extension icon → **Start replying**:
 
