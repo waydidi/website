@@ -3,15 +3,15 @@ import { env } from "cloudflare:workers";
 import { assistantFailure, type AssistantFailure } from "@/lib/assistant-error-rules";
 import { MAX_CHAT_CHARS, SYSTEM_PROMPT, parseChatPlan, userPrompt, type ChatDraft, type PlaceOption } from "@/lib/trip-chat-rules";
 
-// Claude Haiku 5.5 at medium effort (a chat into a trip plan is more work than reading fields). It thinks before it
-// answers and that counts toward max_tokens, so the cap leaves room for both; a refusal or a cut-off plan is an error.
+// Claude Haiku 5.5 at low effort (owner's choice 2026-11-22, to cut cost; being checked on real /add_trip messages). It
+// thinks before it answers and that counts toward max_tokens, so the cap leaves room for both; a refusal or a cut-off plan is an error.
 const MODEL = "claude-haiku-5-5";
 export const chatPlanConfigured = () => Boolean((env as unknown as Record<string, string | undefined>).ANTHROPIC_API_KEY);
 
 export type ModelCall = (system: string, user: string) => Promise<string>;
 const callClaude: ModelCall = async (system, user) => {
   const client = new Anthropic({ apiKey: (env as unknown as Record<string, string | undefined>).ANTHROPIC_API_KEY, timeout: 40_000, maxRetries: 1 });
-  const res = await client.messages.create({ model: MODEL, max_tokens: 8000, output_config: { effort: "medium" }, system, messages: [{ role: "user", content: user }] });
+  const res = await client.messages.create({ model: MODEL, max_tokens: 8000, output_config: { effort: "low" }, system, messages: [{ role: "user", content: user }] });
   if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") throw new Error(`trip planner stopped: ${res.stop_reason}`);
   return res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
 };
