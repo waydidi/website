@@ -62,9 +62,18 @@ test('the popup list: saved order and ticks kept, counts from the website, new g
   const rows = P.mergeGroups([{ key: 'kata', name: 'Kata old name', on: false }, { key: 'khaolak', name: 'Khao Lak', on: true }],
     [{ key: 'khaolak', name: 'Khao Lak Community', waiting: 14 }, { key: 'phuket', name: 'Phuket Travel', waiting: 21 }]);
   assert.deepEqual(plain(rows), [
-    { key: 'kata', name: 'Kata old name', on: false, waiting: 0 },
-    { key: 'khaolak', name: 'Khao Lak Community', on: true, waiting: 14 },
-    { key: 'phuket', name: 'Phuket Travel', on: true, waiting: 21 },
+    { key: 'kata', name: 'Kata old name', on: false, waiting: 0, keys: ['kata'] },
+    { key: 'khaolak', name: 'Khao Lak Community', on: true, waiting: 14, keys: ['khaolak'] },
+    { key: 'phuket', name: 'Phuket Travel', on: true, waiting: 21, keys: ['phuket'] },
   ]);
   assert.equal(P.mergeGroups([{ key: 'a' }, { key: 'a' }, null, { key: 5 }], []).length, 1, 'duplicates and bad rows dropped');
+});
+
+test('a group with two addresses is one row; two saved rows of it become one, at the first one\'s place and tick', () => {
+  const live = [{ key: 'khaolakcommunity', name: 'Khao Lak Community', waiting: 29, keys: ['khaolakcommunity', '984508081894004'] }, { key: 'kohchang', name: 'Koh Chang', waiting: 3, keys: ['kohchang'] }];
+  const rows = P.mergeGroups([{ key: 'kohchang', on: true }, { key: '984508081894004', name: 'Khao Lak Community', on: false }, { key: 'khaolakcommunity', on: true }], live);
+  assert.deepEqual(plain(rows).map((r) => [r.key, r.on, r.waiting, r.keys]), [['kohchang', true, 3, ['kohchang']], ['khaolakcommunity', false, 29, ['khaolakcommunity', '984508081894004']]]);
+  const plan = P.makePlan({ per: 10, groups: [{ key: 'khaolakcommunity', name: 'Khao Lak Community', on: true, keys: ['khaolakcommunity', '984508081894004'] }] });
+  assert.deepEqual(plain(P.current(plan).keys), ['khaolakcommunity', '984508081894004'], 'the queue asks with every address');
+  assert.deepEqual(plain(P.makePlan({ groups: [{ key: 'old', on: true }] }).groups[0].keys), ['old'], 'a list saved by 1.8.0 (no addresses) still works');
 });

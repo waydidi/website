@@ -359,15 +359,15 @@ test('reply queue by group: groups lists the groups with comments ready; next wi
   for (const [g, name, i] of leads) await fl.queueLeads([{ groupKey: g, postKey: String(1000000 + i), url: post(i).url.replace('thaitravel', g), text: post(i).text, groupName: name }], new Date(now.getTime() + i * 1000), { sort: null });
   await fl.processLeads({ draft: draftOf(), send: sender().send, now: () => now, batch: 3 });
   const listed = await (await replyCall({ action: 'groups' })).json();
-  assert.deepEqual(listed, { groups: [{ key: 'khaolak', name: 'Khao Lak Community', waiting: 2 }, { key: 'katathani', name: 'Katathani Phuket Resort', waiting: 1 }] });
-  const kata = await fl.replyQueue({ action: 'next', group: 'katathani' }, now);
+  assert.deepEqual(listed, { groups: [{ key: 'khaolak', name: 'Khao Lak Community', waiting: 2, keys: ['khaolak'] }, { key: 'katathani', name: 'Katathani Phuket Resort', waiting: 1, keys: ['katathani'] }] });
+  const kata = await fl.replyQueue({ action: 'next', groups: ['katathani'] }, now);
   assert.equal(kata.lead.id, (await lead(3)).id);
   assert.equal(kata.lead.groupName, 'Katathani Phuket Resort');
-  assert.equal((await fl.replyQueue({ action: 'next', group: 'katathani' }, now)).wait, 'empty', 'that group has nothing else ready');
+  assert.equal((await fl.replyQueue({ action: 'next', groups: ['katathani'] }, now)).wait, 'empty', 'that group has nothing else ready');
   assert.deepEqual((await fl.replyQueue({ action: 'groups' }, now)).groups.map((g) => [g.key, g.waiting]), [['khaolak', 2]], 'a lead open in a tab is not waiting');
-  assert.equal((await fl.replyQueue({ action: 'next', group: 'nosuchgroup' }, now)).wait, 'empty');
+  assert.equal((await fl.replyQueue({ action: 'next', groups: ['nosuchgroup'] }, now)).wait, 'empty');
   // Two browsers asking for the same group at once get different leads.
-  const [a, b, c] = await Promise.all([1, 2, 3].map(() => fl.replyQueue({ action: 'next', group: 'khaolak' }, now)));
+  const [a, b, c] = await Promise.all([1, 2, 3].map(() => fl.replyQueue({ action: 'next', groups: ['khaolak'] }, now)));
   const ids = [a, b, c].filter((x) => x.lead).map((x) => x.lead.id);
   assert.equal(ids.length, 2); assert.notEqual(ids[0], ids[1]);
 });
@@ -375,19 +375,36 @@ test('reply queue by group: groups lists the groups with comments ready; next wi
 test('reply queue by group: the gap and the daily cap still hold when a group is asked for', async () => {
   env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true'; env.FB_LEADS_REPLY_GAP_MIN = '3';
   await sentLeads(2);
-  const first = await fl.replyQueue({ action: 'next', group: 'thaitravel' }, now);
+  const first = await fl.replyQueue({ action: 'next', groups: ['thaitravel'] }, now);
   assert.deepEqual(await fl.replyQueue({ action: 'posted', id: first.lead.id }, now), { done: 'posted' });
-  assert.equal((await fl.replyQueue({ action: 'next', group: 'thaitravel' }, at(1))).wait, 'gap');
-  assert.ok((await fl.replyQueue({ action: 'next', group: 'thaitravel' }, at(4))).lead);
+  assert.equal((await fl.replyQueue({ action: 'next', groups: ['thaitravel'] }, at(1))).wait, 'gap');
+  assert.ok((await fl.replyQueue({ action: 'next', groups: ['thaitravel'] }, at(4))).lead);
   env.FB_LEADS_REPLY_DAILY_CAP = '1';
   await db.prepare("UPDATE fb_leads SET reply_claimed_at=NULL").run();
-  assert.equal((await fl.replyQueue({ action: 'next', group: 'thaitravel' }, at(10))).wait, 'limit');
+  assert.equal((await fl.replyQueue({ action: 'next', groups: ['thaitravel'] }, at(10))).wait, 'limit');
+});
+
+test('reply queue by group: a group Facebook gives two addresses (name and number) is one group, and next takes from both', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+  const leads = [['khaolakcommunity', 'Khao Lak Community - Thailand', 1], ['khaolakcommunity', 'Khao Lak Community - Thailand', 2], ['984508081894004', 'Khao Lak  Community - thailand', 3], ['kohchang', 'Koh Chang Community', 4]];
+  for (const [g, name, i] of leads) await fl.queueLeads([{ groupKey: g, postKey: String(1000000 + i), url: post(i).url.replace('thaitravel', g), text: post(i).text, groupName: name }], new Date(now.getTime() + i * 1000), { sort: null });
+  await fl.processLeads({ draft: draftOf(), send: sender().send, now: () => now, batch: 4 });
+  const { groups } = await (await replyCall({ action: 'groups' })).json();
+  assert.deepEqual(groups.map((g) => [g.key, g.waiting, g.keys]), [['khaolakcommunity', 3, ['khaolakcommunity', '984508081894004']], ['kohchang', 1, ['kohchang']]], 'one row, counts added, the word address first');
+  const claimed = [];
+  for (let i = 0; i < 3; i++) claimed.push((await (await replyCall({ action: 'next', groups: groups[0].keys })).json()).lead.id);
+  assert.deepEqual(claimed.sort(), [(await lead(1)).id, (await lead(2)).id, (await lead(3)).id].sort(), 'the number-address post is taken too');
+  assert.equal((await fl.replyQueue({ action: 'next', groups: groups[0].keys }, now)).wait, 'empty', 'and never Koh Chang');
+  // The 1.8.0 extension still sends one address as "group".
+  assert.ok((await (await replyCall({ action: 'next', group: 'kohchang' })).json()).lead);
 });
 
 test('reply queue by group: a bad group or a group with another action is refused before anything is claimed', async () => {
   env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
   await sentLeads(1);
-  for (const body of [{ action: 'next', group: '../x' }, { action: 'next', group: 5 }, { action: 'next', group: '' }, { action: 'posted', id: 'a'.repeat(16), group: 'thaitravel' }, { action: 'next', id: (await lead(1)).id, group: 'thaitravel' }, { action: 'groups', group: 'thaitravel' }]) {
+  const many = Array.from({ length: 11 }, (_, i) => `g${i}`);
+  for (const body of [{ action: 'next', group: '../x' }, { action: 'next', group: 5 }, { action: 'next', group: '' }, { action: 'posted', id: 'a'.repeat(16), group: 'thaitravel' }, { action: 'next', id: (await lead(1)).id, group: 'thaitravel' }, { action: 'groups', group: 'thaitravel' },
+    { action: 'next', groups: [] }, { action: 'next', groups: 'thaitravel' }, { action: 'next', groups: ['thaitravel', '../x'] }, { action: 'next', groups: many }, { action: 'next', group: 'a', groups: ['b'] }, { action: 'groups', groups: ['thaitravel'] }]) {
     const res = await replyCall(body);
     assert.equal(res.status, 400, JSON.stringify(body));
   }

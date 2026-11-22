@@ -13,17 +13,29 @@
 
   /**
    * The popup's saved list merged with the groups that have comments waiting now: saved groups keep their place and
-   * tick; a group not seen before is added at the end, ticked. Each row: { key, name, on, waiting }.
+   * tick; a group not seen before is added at the end, ticked. Each row: { key, name, on, waiting, keys }. A Facebook
+   * group can have two addresses (its name and its number): the website sends them together as one group ("keys"), and
+   * a saved row under either address is that group, so two saved rows of the same group become one.
    */
   function mergeGroups(saved, waiting) {
-    var counts = {}, names = {}, out = [], seen = {};
-    (waiting || []).forEach(function (g) { counts[g.key] = g.waiting; names[g.key] = g.name; });
-    (saved || []).forEach(function (g) {
-      if (!g || typeof g.key !== "string" || seen[g.key]) return;
-      seen[g.key] = true;
-      out.push({ key: g.key, name: names[g.key] || g.name || g.key, on: g.on !== false, waiting: counts[g.key] || 0 });
+    var byKey = {}, out = [], seen = {};
+    (waiting || []).forEach(function (g) {
+      if (!g || typeof g.key !== "string") return;
+      var keys = Array.isArray(g.keys) && g.keys.length ? g.keys : [g.key];
+      keys.forEach(function (k) { byKey[k] = { key: g.key, name: g.name || g.key, waiting: g.waiting || 0, keys: keys }; });
     });
-    (waiting || []).forEach(function (g) { if (!seen[g.key]) { seen[g.key] = true; out.push({ key: g.key, name: g.name || g.key, on: true, waiting: g.waiting }); } });
+    function add(row, on) {
+      if (seen[row.key]) return;
+      row.keys.forEach(function (k) { seen[k] = true; });
+      seen[row.key] = true;
+      out.push({ key: row.key, name: row.name, on: on, waiting: row.waiting, keys: row.keys });
+    }
+    (saved || []).forEach(function (g) {
+      if (!g || typeof g.key !== "string") return;
+      var live = byKey[g.key];
+      add(live || { key: g.key, name: g.name || g.key, waiting: 0, keys: Array.isArray(g.keys) && g.keys.length ? g.keys : [g.key] }, g.on !== false);
+    });
+    (waiting || []).forEach(function (g) { if (g && byKey[g.key]) add(byKey[g.key], true); });
     return out;
   }
 
@@ -38,7 +50,7 @@
    */
   function makePlan(settings, previous) {
     var groups = ((settings && settings.groups) || []).filter(function (g) { return g && g.on !== false && typeof g.key === "string"; })
-      .map(function (g) { return { key: g.key, name: g.name || g.key }; });
+      .map(function (g) { return { key: g.key, name: g.name || g.key, keys: Array.isArray(g.keys) && g.keys.length ? g.keys.slice(0, 10) : [g.key] }; });
     var per = perOf(settings && settings.per), sig = signature(groups, per);
     if (previous && previous.sig === sig && previous.at < groups.length) return Object.assign({}, previous, { groups: groups });
     return { groups: groups, per: per, at: 0, count: 0, round: 1, sig: sig };

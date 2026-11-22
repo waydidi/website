@@ -27,7 +27,7 @@
   var rows = [], waiting = null, waitingNote = "", running = false, plan = null;
 
   function saveGroups(then) {
-    chrome.storage.local.set({ replyGroups: { groups: rows.map(function (g) { return { key: g.key, name: g.name, on: g.on }; }), per: Plan.perOf(per.value) } }, then);
+    chrome.storage.local.set({ replyGroups: { groups: rows.map(function (g) { return { key: g.key, name: g.name, on: g.on, keys: g.keys }; }), per: Plan.perOf(per.value) } }, then);
   }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
   function drawGroups() {
