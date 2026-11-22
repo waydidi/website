@@ -7,7 +7,8 @@ import type { HoursMove } from "@/lib/trip-plan";
 import type { VehicleId } from "@/lib/vehicles";
 import { VEHICLES } from "@/lib/vehicles";
 
-export type Located = { text: string; found: true; name: string; address: string; lat: number; lng: number } | { text: string; found: false };
+/** `noMaps`: Google Maps is not set up (no GOOGLE_MAPS_SERVER_KEY), so the place is kept as typed, without a map location. */
+export type Located = { text: string; found: true; name: string; address: string; lat: number; lng: number } | { text: string; found: false; noMaps?: true };
 export type DraftPlace = {
   stopId: string; name: string; attractionId: string | null; lat: number | null; lng: number | null; durationMin: number;
   priority: "must" | "nice"; note?: string; day?: number;
@@ -15,6 +16,8 @@ export type DraftPlace = {
   fromGoogle?: { openTime: string | null; closeTime: string | null; closedDays: number[]; category?: string | null; area?: string | null };
   /** Not in Attractions and Google Maps could not find it. */
   notFound?: boolean;
+  /** With notFound: Google Maps is not set up, so only places in Admin → Attractions can be used. */
+  notInList?: boolean;
 };
 export type StopTime = { stopId: string; arrival: string; end: string };
 export type TripDraftState = {
@@ -50,9 +53,11 @@ export function tripDraftMissing(s: TripDraftState): string[] {
 export function tripDraftProblems(s: TripDraftState): string[] {
   const out: string[] = [];
   if (s.suggested) out.push("ใส่ชื่อสถานที่ที่จะไป (บอทไม่เลือกสถานที่ให้เอง)");
-  if (s.pickup && !s.pickup.found) out.push(`ไม่พบจุดรับ “${s.pickup.text}” ใน Google Maps: ตอบกลับด้วยชื่อที่ชัดขึ้น เช่น ชื่อโรงแรมเต็มและหาด/อำเภอ`);
-  if (s.dropoff && !s.dropoff.found) out.push(`ไม่พบจุดส่ง “${s.dropoff.text}” ใน Google Maps: ตอบกลับด้วยชื่อที่ชัดขึ้น`);
-  for (const p of s.places.filter((x) => x.notFound)) out.push(`ไม่พบ “${p.name}” ใน Google Maps: ตอบกลับด้วยชื่อที่ถูกต้อง หรือ “ไม่เอา ${p.name}”`);
+  if (s.pickup && !s.pickup.found && !s.pickup.noMaps) out.push(`ไม่พบจุดรับ “${s.pickup.text}” ใน Google Maps: ตอบกลับด้วยชื่อที่ชัดขึ้น เช่น ชื่อโรงแรมเต็มและหาด/อำเภอ`);
+  if (s.dropoff && !s.dropoff.found && !s.dropoff.noMaps) out.push(`ไม่พบจุดส่ง “${s.dropoff.text}” ใน Google Maps: ตอบกลับด้วยชื่อที่ชัดขึ้น`);
+  for (const p of s.places.filter((x) => x.notFound)) out.push(p.notInList
+    ? `“${p.name}” ไม่มีในรายการสถานที่ (ยังไม่ได้ตั้งค่า Google Maps จึงใช้ได้เฉพาะสถานที่ในรายการ): ตอบกลับด้วยชื่อตามรายการ หรือ “ไม่เอา ${p.name}” เพิ่มสถานที่ได้ด้วย /add_attraction`
+    : `ไม่พบ “${p.name}” ใน Google Maps: ตอบกลับด้วยชื่อที่ถูกต้อง หรือ “ไม่เอา ${p.name}”`);
   if (!s.car.ok) {
     const people = s.adults + s.children;
     out.push(s.car.vehicle ? `${VEHICLES[s.car.vehicle].name} นั่งได้ ${VEHICLES[s.car.vehicle].passengers} คน ไม่พอสำหรับ ${people} คน: เปลี่ยนรถหรือแก้จำนวนคน`
@@ -68,7 +73,8 @@ export const tripDraftReady = (s: TripDraftState) => !tripDraftMissing(s).length
 const esc = (v: unknown) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const thb = (n: number) => `THB ${n.toLocaleString("en-US")}`;
 const thaiDate = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-const place = (l: Located) => (l.found ? `${esc(l.name)}${l.address && !l.address.startsWith(l.name) ? `, ${esc(l.address)}` : ""} (Google Maps)` : `${esc(l.text)} ⚠️ ไม่พบใน Google Maps`);
+const place = (l: Located) => (l.found ? `${esc(l.name)}${l.address && !l.address.startsWith(l.name) ? `, ${esc(l.address)}` : ""} (Google Maps)`
+  : l.noMaps ? `${esc(l.text)} (ตามที่พิมพ์ ยังไม่มีพิกัด)` : `${esc(l.text)} ⚠️ ไม่พบใน Google Maps`);
 
 /** The summary staff check (Thai, HTML). */
 export function tripDraftSummary(s: TripDraftState): string {
