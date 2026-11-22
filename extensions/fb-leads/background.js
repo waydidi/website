@@ -1,6 +1,7 @@
 // Sends the posts the content script found to Waydidi. The token stays in this browser's extension storage and is
 // only ever sent to the one address below.
 var ENDPOINT = "https://waydidi.com/api/integrations/fb-leads";
+importScripts("queue-plan.js"); // WaydidiPlan: the reply queue's group order
 
 function today() {
   var d = new Date(), two = function (n) { return String(n).padStart(2, "0"); };
@@ -46,11 +47,12 @@ async function send(posts) {
 }
 
 // ---- Reply queue (off on the website until FB_LEADS_REPLY_QUEUE_ENABLED=true) ----
-// Start in the popup: one drafted lead at a time is opened in a new tab, reply.js puts the comment in the comment box,
-// and a person checks it and presses Post on Facebook. When the comment appears (or the person taps Posted / Skip in
-// the Waydidi bar) the lead is marked, the tab is closed and the next one opens after the website's gap between
-// comments. The website holds the daily cap and the gap, so they apply to every browser together. This file never
-// presses anything on Facebook.
+// Start in the popup: one drafted lead at a time is opened in a new tab, reply.js likes the post, puts the comment in
+// the comment box and the team approves it in Telegram (ส่ง Comment). When the comment appears (or someone taps Posted /
+// Skip) the lead is marked, the tab is closed and the next one opens after the website's gap between comments. The
+// website holds the daily cap and the gap, so they apply to every browser together.
+// Groups: the popup's ticked groups are worked in their order, a set number of posted comments in each before the next,
+// looping (queue-plan.js). With no groups listed, any group's lead is taken, strongest first, as before.
 var REPLY_ENDPOINT = ENDPOINT + "/reply", ALARM = "reply-next";
 
 async function replyCall(body) {
@@ -85,22 +87,43 @@ function replyProblem(status) {
 async function openNext() {
   var run = (await chrome.storage.local.get({ replyRun: {} })).replyRun || {};
   if (!run.active) return;
-  var r = await replyCall({ action: "next" });
-  if (r.status !== 200) return setReplyRun({ active: false, message: replyProblem(r.status) });
-  var d = r.data;
-  if (d.lead) {
-    var auto = (await chrome.storage.local.get({ autoPost: false })).autoPost === true;
-    var tab = await chrome.tabs.create({ url: d.lead.url, active: true });
-    await setReplyTab(tab.id, { id: d.lead.id, comment: d.lead.comment, auto: auto });
-    return setReplyRun({ message: auto ? "The comment is in the open tab. Waiting for ส่ง Comment in Telegram." : "Check the comment in the open tab, then press Post on Facebook." });
+  var plan = run.plan && run.plan.groups && run.plan.groups.length ? run.plan : null;
+  var where = function () { return plan ? WaydidiPlan.describe(plan) + ". " : ""; };
+  // Each ticked group is asked in turn; one with nothing ready is passed over. All of them empty: the run is done.
+  for (var tries = 0; tries < (plan ? plan.groups.length : 1); tries++) {
+    var group = plan ? WaydidiPlan.current(plan) : null;
+    var r = await replyCall(group ? { action: "next", group: group.key } : { action: "next" });
+    if (r.status !== 200) return setReplyRun({ active: false, plan: plan, message: replyProblem(r.status) });
+    var d = r.data;
+    if (d.lead) {
+      var tab = await chrome.tabs.create({ url: d.lead.url, active: true });
+      await setReplyTab(tab.id, { id: d.lead.id, comment: d.lead.comment, auto: true });
+      return setReplyRun({ plan: plan, message: where() + "The comment is in the open tab. Waiting for ส่ง Comment in Telegram." });
+    }
+    if (d.wait === "gap") {
+      // A little extra after the website's gap, different each time.
+      var when = Math.max(Date.now() + 30000, new Date(d.retryAt).getTime() + 20000 + Math.random() * 70000);
+      chrome.alarms.create(ALARM, { when: when });
+      return setReplyRun({ plan: plan, message: where() + "Next comment at " + new Date(when).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " (pause between comments)." });
+    }
+    if (d.wait === "limit") return setReplyRun({ active: false, plan: plan, message: "Done: today's comment limit is reached." });
+    if (plan) plan = WaydidiPlan.nextGroup(plan); // this group has nothing ready: the next one
   }
-  if (d.wait === "gap") {
-    // A little extra after the website's gap, different each time.
-    var when = Math.max(Date.now() + 30000, new Date(d.retryAt).getTime() + 20000 + Math.random() * 70000);
-    chrome.alarms.create(ALARM, { when: when });
-    return setReplyRun({ message: "Next comment at " + new Date(when).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " (pause between comments)." });
-  }
-  setReplyRun({ active: false, message: d.wait === "limit" ? "Done: today's comment limit is reached." : "Done: no drafted comments are waiting." });
+  setReplyRun({ active: false, plan: plan, message: plan ? "Done: no drafted comments are waiting in the chosen groups." : "Done: no drafted comments are waiting." });
+}
+
+/** Start: the plan from the popup's group order; the same groups and number carry on where the last run stopped. */
+async function replyStart() {
+  var s = await chrome.storage.local.get({ replyRun: {}, replyGroups: {} });
+  var plan = WaydidiPlan.makePlan(s.replyGroups, (s.replyRun || {}).plan);
+  await setReplyRun({ active: true, plan: plan, message: "Starting…" });
+  await openNext();
+}
+
+/** The groups with comments waiting, for the popup's list. */
+async function replyGroups() {
+  var r = await replyCall({ action: "groups" });
+  return r.status === 200 && Array.isArray(r.data.groups) ? { ok: true, groups: r.data.groups } : { ok: false, message: replyProblem(r.status) };
 }
 
 async function replyDone(tabId, action) {
@@ -112,6 +135,8 @@ async function replyDone(tabId, action) {
   if (r.status !== 200 && r.status !== 409) await setReplyRun({ active: false, message: replyProblem(r.status) });
   var run = (await chrome.storage.local.get({ replyRun: {} })).replyRun || {};
   if (action === "posted" && r.status === 200) await setReplyRun({ posted: (run.day === today() ? run.posted || 0 : 0) + 1, day: today() });
+  // The comment is on Facebook (409: someone also marked it in Telegram): it counts towards this group's number.
+  if (action === "posted" && (r.status === 200 || r.status === 409) && run.plan && run.plan.groups && run.plan.groups.length) await setReplyRun({ plan: WaydidiPlan.afterPosted(run.plan) });
   chrome.tabs.remove(tabId).catch(function () {});
   if (run.active) chrome.alarms.create(ALARM, { when: Date.now() + 30000 });
 }
@@ -132,7 +157,7 @@ async function replyDraft(tabId, id) {
   var r = await replyCall({ action: "next", id: id });
   if (r.status !== 200) return { message: replyProblem(r.status) };
   if (r.data.lead) {
-    var auto = (await chrome.storage.local.get({ autoPost: false })).autoPost === true, entry = { id: r.data.lead.id, comment: r.data.lead.comment, auto: auto };
+    var entry = { id: r.data.lead.id, comment: r.data.lead.comment, auto: true };
     await setReplyTab(tabId, entry);
     return { lead: entry };
   }
@@ -140,7 +165,7 @@ async function replyDraft(tabId, id) {
 }
 
 // ---- Send from Telegram (off on the website until FB_LEADS_AUTO_POST_ENABLED=true) ----
-// With "Send from Telegram (ส่ง Comment)" ticked in the popup, a reply tab does not wait for you to press Post: once the
+// Always on in the extension: a reply tab does not wait for you to press Post: once the
 // comment is in the box, reply.js tells the website ("ready"), the team gets a message under the lead with ส่ง Comment,
 // and reply.js asks every few seconds ("status"). After the tap it waits 15 seconds and presses send itself.
 async function replyReady(tabId) {
@@ -187,7 +212,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   var tabId = sender.tab && sender.tab.id;
   var job = null;
   if (message.type === "posts" && Array.isArray(message.posts)) job = send(message.posts);
-  else if (message.type === "reply-start") job = setReplyRun({ active: true, message: "Starting…" }).then(openNext).then(function () { return { ok: true }; });
+  else if (message.type === "reply-start") job = replyStart().then(function () { return { ok: true }; });
+  else if (message.type === "reply-groups") job = replyGroups();
   else if (message.type === "reply-stop") job = replyStop(tabId).then(function () { return { ok: true }; });
   else if (message.type === "reply-draft" && tabId !== undefined) job = replyDraft(tabId, typeof message.id === "string" ? message.id : "");
   else if (message.type === "reply-ready" && tabId !== undefined) job = replyReady(tabId);

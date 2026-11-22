@@ -14,6 +14,20 @@
   .run, .stats, .hint { color: #51635a; margin: 8px 0; }
   .hint { font-size: 12px; }
   a { color: #1f7a4d; cursor: pointer; }
+  .groups { border: 1px solid #dfe7e2; border-radius: 8px; margin: 6px 0; max-height: 220px; overflow: auto; }
+  .g { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-top: 1px solid #edf2ef; font-size: 13px; margin: 0; }
+  .g:first-child { border-top: 0; }
+  .g .n { width: 16px; color: #51635a; font-weight: 700; }
+  .g .name { flex: 1; line-height: 1.25; }
+  .g .name small { display: block; color: #51635a; font-size: 11px; }
+  .g.off { color: #8a9a92; }
+  .g.now { background: #e9f6ef; }
+  .g.now .name small { color: #1f7a4d; font-weight: 600; }
+  .g .move { padding: 0 5px; margin: 0; background: #eef3f0; color: #1c2b24; font-size: 11px; border-radius: 4px; line-height: 20px; }
+  .g .move:disabled { opacity: .35; cursor: default; }
+  .always { background: #f4f7f5; border-radius: 8px; padding: 8px 10px; margin: 10px 0; font-size: 12.5px; }
+  .always b { display: block; font-size: 12px; color: #51635a; margin-bottom: 2px; }
+  .always div::before { content: "✓ "; color: #1f7a4d; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -27,17 +41,22 @@
 <div id="problem" class="problem"></div>
 <div id="stats" class="stats"></div>
 <h1 style="margin-top:14px">Reply queue</h1>
-<div class="hint">Opens drafted comments one at a time and puts each in the comment box. You read it and press Post on Facebook yourself.</div>
+<div class="hint">Opens drafted comments group by group, in the order below. Each one waits for ส่ง Comment in Telegram before it is sent.</div>
+<div style="font-weight:600;font-size:13px;margin-top:6px">Groups, in order</div>
+<div id="groups" class="groups"><div class="hint" style="padding:6px 8px">Loading…</div></div>
+<label for="per">Comments per group, then switch <input id="per" type="number" min="1" max="50" value="10" style="width:50px"></label>
 <div>
   <button id="replyStart">Start replying</button><button id="replyStop" class="secondary" hidden>Stop</button>
 </div>
 <div id="reply" class="run"></div>
-<label><input id="likeFirst" type="checkbox"> Like the post first</label>
-<div class="hint">Presses the post's own Like button when the tab opens, then waits 5 to 12 seconds (at random) before putting the comment in. An already-liked post is not pressed again.</div>
-<label><input id="autoPost" type="checkbox"> Send from Telegram (ส่ง Comment)</label>
-<div class="hint">With this ticked, after the draft is in the comment box the team gets a message in Telegram with "ส่ง Comment". 15 seconds after someone taps it, this browser presses send, then opens the next post. Keep it open and signed in to the Facebook account that comments.</div>
+<div class="always">
+  <b>Always on</b>
+  <div>Likes the post first, then waits 5 to 12 seconds</div>
+  <div>Sends only after someone taps ส่ง Comment in Telegram (15 seconds later). Keep this browser open and signed in to the Facebook account that comments.</div>
+</div>
 <a id="settings">Settings</a> · <a id="sample">Copy page sample for the developer</a>
 <div id="sampleNote" class="hint"></div>
+<script src="queue-plan.js"></script>
 <script src="popup.js"></script>
 </body>
 </html>

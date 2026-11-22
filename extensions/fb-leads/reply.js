@@ -146,10 +146,9 @@
       });
       return true;
     }
-    // "Like the post first" (popup, on unless unticked): the post's own Like button is pressed, then a random 5 to 12
-    // seconds pass before the comment is put in, like a person reading. An already-liked post is not pressed again.
+    // Always (owner choice): the post's own Like button is pressed, then a random 5 to 12 seconds pass before the comment
+    // is put in, like a person reading. An already-liked post is not pressed again.
     async function likeFirst() {
-      if (!(await chrome.storage.local.get({ likeFirst: true })).likeFirst) return;
       var result = await window.WaydidiLeads.likePost(document, box);
       results.like = result;
       if (finished) return;

@@ -240,21 +240,24 @@ export function autoPostEnabled(vars: Parameters<typeof replyQueueEnabled>[0] & 
   return replyQueueEnabled(vars) && String(vars.FB_LEADS_AUTO_POST_ENABLED ?? "").trim().toLowerCase() === "true";
 }
 
-export type ReplyAction = "next" | "ready" | "status" | "posted" | "skipped" | "release" | "auto_failed" | "needs_hand";
+export type ReplyAction = "next" | "groups" | "ready" | "status" | "posted" | "skipped" | "release" | "auto_failed" | "needs_hand";
 /** Why Chrome cannot send a comment by itself and a person must finish it: the QR picture could not be added. */
 export type HandReason = "qr";
-export type ReplyRequest = { action: "next"; id?: string } | { action: "needs_hand"; id: string; reason: HandReason } | { action: Exclude<ReplyAction, "next" | "needs_hand">; id: string };
+export type ReplyRequest = { action: "next"; id?: string; group?: string } | { action: "groups" } | { action: "needs_hand"; id: string; reason: HandReason } | { action: Exclude<ReplyAction, "next" | "groups" | "needs_hand">; id: string };
 const LEAD_ID = /^[a-f0-9]{16}$/;
 
 /**
- * The extension's request to the reply queue: {"action":"next"} (optionally with "id"), or a lead id with
+ * The extension's request to the reply queue: {"action":"next"} (optionally with "id", or with "group" for the next
+ * lead of one Facebook group), {"action":"groups"} (the groups with comments waiting), or a lead id with
  * ready / status (send from Telegram) or posted / skipped / release / auto_failed.
  */
 export function readReplyRequest(body: unknown): ReplyRequest | { error: string } {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { error: "Expected a JSON object." };
-  const { action, id } = body as { action?: unknown; id?: unknown };
+  const { action, id, group } = body as { action?: unknown; id?: unknown; group?: unknown };
   if (id !== undefined && (typeof id !== "string" || !LEAD_ID.test(id))) return { error: "Unknown lead id." };
-  if (action === "next") return id ? { action, id } : { action };
+  if (group !== undefined && (action !== "next" || id !== undefined || typeof group !== "string" || !GROUP.test(group))) return { error: "Unknown group." };
+  if (action === "groups") return { action };
+  if (action === "next") return id ? { action, id } : typeof group === "string" ? { action, group } : { action };
   if (action === "needs_hand") {
     const reason = (body as { reason?: unknown }).reason;
     if (!id) return { error: "A lead id is needed." };

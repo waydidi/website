@@ -322,13 +322,16 @@ export async function handleLeadApprove(id: string, who: { name: string; telegra
 }
 
 export type ReplyLead = { id: string; url: string; comment: string; groupName: string };
-export type ReplyAnswer = { lead: ReplyLead } | { wait: "limit" | "empty" } | { wait: "gap"; retryAt: string } | { done: "posted" | "skipped" | "released" | "failed" | "ready" | "notified" } | { status: string; approved: boolean } | { error: "already_marked" | "not_found" | "off" };
+export type ReplyGroup = { key: string; name: string; waiting: number };
+export type ReplyAnswer = { lead: ReplyLead } | { groups: ReplyGroup[] } | { wait: "limit" | "empty" } | { wait: "gap"; retryAt: string } | { done: "posted" | "skipped" | "released" | "failed" | "ready" | "notified" } | { status: string; approved: boolean } | { error: "already_marked" | "not_found" | "off" };
 const EXTENSION = { name: "Chrome extension", telegramUserId: "extension" };
 
 /**
  * The extension's reply queue (off until FB_LEADS_REPLY_QUEUE_ENABLED=true).
  * - next: hands out one lead that was sent to Telegram, is ready to post and is not open in another tab (strongest and
- *   newest first), or the one asked for by id (the Telegram "Open in Chrome" button). The daily cap
+ *   newest first; only from one Facebook group when "group" is given), or the one asked for by id (the Telegram
+ *   "Open in Chrome" button). "empty" with a group means that group has nothing ready.
+ * - groups: the groups with leads ready to post, and how many each, for the popup's group order. The daily cap
  *   (FB_LEADS_REPLY_DAILY_CAP) and the gap since the last posted comment (FB_LEADS_REPLY_GAP_MIN) are checked in the
  *   same statement as the claim, so two browsers at once cannot pass either. A claim lapses after REPLY_CLAIM_MIN.
  * - posted / skipped: same as the Telegram buttons; the first mark wins.
@@ -409,14 +412,20 @@ export async function replyQueue(req: ReplyRequest, now = new Date()): Promise<R
   const dayStart = thaiDayStart(now), gapStart = new Date(now.getTime() - gapMs).toISOString();
   const lapsed = new Date(now.getTime() - REPLY_CLAIM_MIN * 60_000).toISOString();
   const open = "status='sent' AND reliable=1 AND COALESCE(comment,'')<>'' AND (reply_claimed_at IS NULL OR reply_claimed_at<?)";
-  const pick = req.id ? `SELECT id FROM fb_leads WHERE id=? AND ${open}` : `SELECT id FROM fb_leads WHERE ${open} ORDER BY priority DESC, created_at DESC LIMIT 1`;
+  if (req.action === "groups") {
+    // The groups with comments ready to post and not open in a tab, for the popup's group order.
+    const { results } = await db().prepare(`SELECT group_key AS key, MAX(group_name) AS name, COUNT(*) AS waiting FROM fb_leads WHERE ${open} GROUP BY group_key ORDER BY waiting DESC, name LIMIT 50`).bind(lapsed).all<ReplyGroup>();
+    return { groups: results.map((g) => ({ key: g.key, name: g.name || g.key, waiting: Number(g.waiting) })) };
+  }
+  const group = req.action === "next" && !req.id ? req.group : undefined;
+  const pick = req.id ? `SELECT id FROM fb_leads WHERE id=? AND ${open}` : `SELECT id FROM fb_leads WHERE ${open}${group ? " AND group_key=?" : ""} ORDER BY priority DESC, created_at DESC LIMIT 1`;
   // The claim, the daily cap and the gap are one statement, so two browsers at once cannot pass either. A new claim
   // starts clean: no ส่ง Comment message or approval left from an earlier tab.
   const claimed = await db().prepare(`UPDATE fb_leads SET reply_claimed_at=?,ready_message_id=NULL,hand_reason=NULL,post_approved_by=NULL,post_approved_at=NULL,updated_at=? WHERE id=(${pick}) AND ${open}
       AND (SELECT COUNT(*) FROM fb_leads WHERE status='posted' AND marked_at>=?)<?
       AND NOT EXISTS (SELECT 1 FROM fb_leads WHERE status='posted' AND marked_at>?)
       RETURNING id,post_url,comment,group_name`)
-    .bind(at, at, ...(req.id ? [req.id] : []), lapsed, lapsed, dayStart, cap, gapStart).first<{ id: string; post_url: string; comment: string; group_name: string }>();
+    .bind(at, at, ...(req.id ? [req.id, lapsed] : group ? [lapsed, group] : [lapsed]), lapsed, dayStart, cap, gapStart).first<{ id: string; post_url: string; comment: string; group_name: string }>();
   if (claimed) return { lead: { id: claimed.id, url: replyTabUrl(claimed.post_url, claimed.id), comment: claimed.comment, groupName: claimed.group_name } };
   // Nothing claimed: say why, so the extension waits or stops.
   const posted = await db().prepare("SELECT COUNT(*) AS n, MAX(marked_at) AS last FROM fb_leads WHERE status='posted' AND marked_at>=?").bind(dayStart).first<{ n: number; last: string | null }>();
