@@ -17,7 +17,7 @@ for (const name of (await readdir(root + '/drizzle')).filter((n) => n.endsWith('
   if (statements.length) await d1.batch(statements.map((s) => d1.prepare(s)));
 }
 const ADMIN = '-100111';
-globalThis.__tbEnv = { DB: d1, TELEGRAM_BOT_TOKEN: 'test-token', TELEGRAM_CHAT_ID: ADMIN, TELEGRAM_TRIP_BUILDER: '1', WAYDIDI_PUBLIC_URL: 'https://waydidi.example' };
+globalThis.__tbEnv = { DB: d1, TELEGRAM_BOT_TOKEN: 'test-token', TELEGRAM_CHAT_ID: ADMIN, TELEGRAM_TRIP_BUILDER: '1', GOOGLE_MAPS_SERVER_KEY: 'test-maps-key', WAYDIDI_PUBLIC_URL: 'https://waydidi.example' };
 const vite = await createServer({ root, configFile: false, appType: 'custom', resolve: { alias: { '@': root } }, server: { middlewareMode: true }, plugins: [{ name: 'tb-env', enforce: 'pre',
   resolveId(id) { if (id === 'cloudflare:workers') return '\0tb-env'; }, load(id) { if (id === '\0tb-env') return 'export const env=globalThis.__tbEnv'; } }] });
 after(async () => { await vite.close(); await mf.dispose(); delete globalThis.__tbEnv; });
@@ -180,6 +180,37 @@ test('a place not in Attractions is found on Google and added only on the tap; o
   const t = (await trips()).at(-1);
   assert.deepEqual(JSON.parse(t.stops_json).map((x) => x.attractionId).sort(), ['grand-palace', park.id].sort());
   assert.match(replies().join('\n'), /เพิ่มสถานที่ใหม่จาก Google Maps: Lumphini Park/);
+});
+
+test('no Google Maps key: the pickup is kept as typed, places come only from Attractions, and the trip is built without Google', async () => {
+  const key = globalThis.__tbEnv.GOOGLE_MAPS_SERVER_KEY;
+  delete globalThis.__tbEnv.GOOGLE_MAPS_SERVER_KEY;
+  try {
+    const lookups = [];
+    const google = async (q) => { lookups.push(q); return { lat: 1, lng: 1, hours: null }; };
+    const noGoogle = { ...deps(model(plan({ stops: [{ placeId: 'grand-palace', name: 'Grand Palace' }, { placeId: null, name: 'Wat Pho' }, { placeId: null, name: 'Chatuchak Market' }] })), google),
+      locate: async (q) => { lookups.push(q); return null; } };
+    const before = (await trips()).length, located0 = located.length;
+    await tb.handleTripBuilder(message('/add_trip 12 Dec, 2 people, Hilton Sukhumvit 08:00, Grand Palace, Wat Pho, Chatuchak Market, THB 3,000'), anna, noGoogle);
+    let s = summary();
+    assert.match(s.body.text, /📍 รับ: Hilton Sukhumvit \(ตามที่พิมพ์ ยังไม่มีพิกัด\)/);
+    assert.doesNotMatch(s.body.text, /ไม่พบจุดรับ/);
+    assert.match(s.body.text, /“Chatuchak Market” ไม่มีในรายการสถานที่/);
+    assert.match(s.body.text, /Wat Pho/, 'a place typed without its id is matched by name in Attractions');
+    assert.equal(button(s), undefined, 'a place not in Attractions holds the button back');
+    noGoogle.call = model(plan({ stops: [{ placeId: 'grand-palace', name: 'Grand Palace' }, { placeId: null, name: 'Wat Pho' }] })).call;
+    await tb.handleTripBuilder(replyTo(s, 'ไม่เอา Chatuchak Market'), anna, noGoogle);
+    s = summary();
+    assert.ok(button(s), 'only places from the list: the trip can be built');
+    await tap(s, noGoogle);
+    const t = (await trips()).at(-1);
+    assert.equal((await trips()).length, before + 1);
+    assert.deepEqual([t.status, t.pickup_text, t.pickup_lat, t.transport_price], ['sent', 'Hilton Sukhumvit', null, 3000]);
+    assert.deepEqual(JSON.parse(t.stops_json).map((x) => x.attractionId).sort(), ['grand-palace', 'wat-pho']);
+    assert.deepEqual(lookups, [], 'Google is never asked');
+    assert.equal(located.length, located0);
+    assert.equal(await d1.prepare("SELECT COUNT(*) n FROM attractions WHERE name='Chatuchak Market'").first('n'), 0);
+  } finally { globalThis.__tbEnv.GOOGLE_MAPS_SERVER_KEY = key; }
 });
 
 test('missing date, people, pickup time or pickup are asked; a reply fills them in and only then the button appears', async () => {

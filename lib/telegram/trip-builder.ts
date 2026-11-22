@@ -37,6 +37,8 @@ export type BuilderDeps = { call?: ModelCall; locate?: (text: string) => Promise
   /** The hourly-rate price of a day (city text, hours, car); null when the area has no rate. */
   rate?: (city: string, hours: number, vehicle: string) => Promise<number | null>; today?: string };
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+/** Google Maps is set up. Without it /add_trip still works: the pickup and drop-off are kept as typed and only places in Admin → Attractions are used. */
+const mapsOn = () => Boolean(vars().GOOGLE_MAPS_SERVER_KEY);
 
 let ready: Promise<unknown> | null = null;
 function ensureTable() {
@@ -161,7 +163,8 @@ const defaultLocatePlace = async (text: string): Promise<{ lat: number; lng: num
 
 /** A pickup or drop-off on Google Maps (the same lookup as before for the same text, so a correction does not pay twice). */
 async function locate(text: string, previous: Located | null, deps: BuilderDeps): Promise<Located> {
-  if (previous && previous.text.toLowerCase() === text.toLowerCase()) return previous;
+  if (!mapsOn()) return { text, found: false, noMaps: true };
+  if (previous && previous.text.toLowerCase() === text.toLowerCase() && !(!previous.found && previous.noMaps)) return previous;
   const p = await (deps.locate ?? defaultLocatePlace)(text).catch(() => null) as { lat: number; lng: number; name?: string; address?: string } | null;
   return p ? { text, found: true, name: p.name || text, address: p.address || "", lat: p.lat, lng: p.lng } : { text, found: false };
 }
@@ -197,6 +200,7 @@ async function readTripDraft(lines: string[], replied: string, previous: TripDra
     if (row) { places.push({ ...base, name: row.customerName || row.name, attractionId: row.id, lat: row.latitude, lng: row.longitude, durationMin: row.durationMin }); continue; }
     const before = previous?.places.find((p) => p.fromGoogle !== undefined && p.name.toLowerCase() === s.name.toLowerCase());
     if (before) { places.push({ ...before, stopId: s.id }); continue; }
+    if (!mapsOn()) { places.push({ ...base, attractionId: null, lat: null, lng: null, notFound: true, notInList: true }); continue; }
     const info = await (deps.place ?? defaultPlaceInfo)([s.name, d.area].filter(Boolean).join(", ")).catch(() => null);
     places.push(info ? { ...base, attractionId: null, lat: info.lat, lng: info.lng, durationMin: 60, fromGoogle: { openTime: info.hours?.openTime ?? null, closeTime: info.hours?.closeTime ?? null,
       closedDays: info.hours?.closedDays ?? [], category: categoryFromGoogle(info.primaryType, info.types), area: areaOf(info.address) } }
@@ -247,7 +251,7 @@ async function planTripDraft(state: TripDraftState, deps: BuilderDeps): Promise<
   }
   const byId = new Map(state.places.map((p) => [p.stopId, p]));
   const places = [...ordered.stops.map((s) => byId.get(s.id)!), ...state.places.filter((p) => p.notFound)];
-  const warnings = [...new Set(plan.problems.filter((x) => !(x.message.startsWith("Pickup has no map location") && !state.pickup)).map((x) => x.message))];
+  const warnings = [...new Set(plan.problems.filter((x) => !(x.message.startsWith("Pickup has no map location") && (!state.pickup || (!state.pickup.found && state.pickup.noMaps)))).map((x) => x.message))];
   const rate = state.price == null ? await (deps.rate ?? defaultRate)(pickup?.text ?? state.pickup?.text ?? state.area, hours, state.car.vehicle) : null;
   return { ...state, hours, places, moved: ordered.moved, warnings, rate,
     times: plan.stops.map((s) => ({ stopId: s.id, arrival: fmt(s.start), end: fmt(s.end) })), endAt: fmt(plan.returnAt) };
@@ -443,7 +447,7 @@ export async function handleTripPackageChoice(q: { id: string; data?: string; me
 async function finishTrip(p: Pending, deps: BuilderDeps) {
   const reply = (text: string) => sendTo(p.chatId, text, undefined, p.messageId).catch(() => undefined);
   const known = p.input.pickupLat != null && p.input.pickupLng != null ? { lat: p.input.pickupLat, lng: p.input.pickupLng } : null;
-  const pickup = known ?? (p.input.pickupText ? await (deps.locate ?? defaultLocatePlace)(p.input.pickupText).catch(() => null) : null);
+  const pickup = known ?? (p.input.pickupText && mapsOn() ? await (deps.locate ?? defaultLocatePlace)(p.input.pickupText).catch(() => null) : null);
   let draftInput = { ...p.input, pickupLat: pickup?.lat ?? null, pickupLng: pickup?.lng ?? null, transportPrice: p.price ?? 0, holdDays: 7 };
   // A package time chosen after the summary can change the day: nearest-first again with the package times kept.
   if (!p.multiday && p.input.stops.some((s) => s.sessionTime)) {
