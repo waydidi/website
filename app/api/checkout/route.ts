@@ -51,7 +51,6 @@ import {
   hmacSha256,
 } from "@/lib/security";
 import { logOperationalError, monitoredHeaders, requestIdFor } from "@/lib/observability";
-import { lookupFlight, type FlightSnapshot } from "@/lib/aviationstack";
 import { expireAbandonedCheckouts } from "@/lib/booking-expiry";
 
 import { validHourlyQuoteWindow } from "@/lib/hourly-policy";
@@ -474,11 +473,6 @@ export async function POST(request: Request) {
     }
     const accessToken = recoveryToken;
     const now = new Date().toISOString();
-    let flight: FlightSnapshot | null = null;
-    if (input.flightNumber?.trim()) {
-      try { flight = await lookupFlight(input.flightNumber, input.pickupDate); }
-      catch { /* Flight data is helpful, but never blocks a valid booking. */ }
-    }
     const bookingInsert = getDb()
       .insert(bookings)
       .values({
@@ -494,13 +488,6 @@ export async function POST(request: Request) {
         passengers: input.passengers,
         luggage: input.luggage,
         flightNumber: input.flightNumber?.trim() || null,
-        flightStatus: flight?.status ?? null,
-        flightAirline: flight?.airline ?? null,
-        flightDepartureAirport: flight?.departureAirport ?? null,
-        flightArrivalAirport: flight?.arrivalAirport ?? null,
-        flightScheduledArrival: flight?.scheduledArrival ?? null,
-        flightEstimatedArrival: flight?.estimatedArrival ?? null,
-        flightLastCheckedAt: flight?.checkedAt ?? null,
         pickupSign: input.pickupSign?.trim() || null,
         pickupInstructions: input.pickupInstructions?.trim() || null,
         childSeats: input.childSeats,

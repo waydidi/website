@@ -615,10 +615,6 @@
     "text": "成为合作伙伴",
     "status": "machine"
   },
-  "footer.checkFlights": {
-    "text": "查询航班",
-    "status": "machine"
-  },
   "footer.luggagePolicy": {
     "text": "行李政策",
     "status": "machine"
@@ -1168,11 +1164,11 @@
     "status": "machine"
   },
   "faq.meeting.2.q": {
-    "text": "会跟踪我的航班吗？",
+    "text": "如果我的航班延误怎么办？",
     "status": "machine"
   },
   "faq.meeting.2.a": {
-    "text": "填写有效航班号后，我们会据此关注到达时间变化。如行程有重大变更，仍请告知我们。",
+    "text": "预订时请填写航班号；如到达时间有变，请告知我们，以便我们调整接机时间。",
     "status": "machine"
   },
   "faq.meeting.3.q": {

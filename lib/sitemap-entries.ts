@@ -52,7 +52,6 @@ export function sitemapEntries(input: {
     ...[...categories].map(([slug, date]) => page(`/blog/category/${slug}`, "weekly", .6, date)),
     ...posts.map((post) => page(`/blog/${post.slug}`, "monthly", .7, postDate(post))),
     page("/refund-policy", "yearly", .4),
-    page("/flights", "weekly", .5),
     page("/partners", "monthly", .4),
     page("/terms", "yearly", .3),
     page("/privacy", "yearly", .3),

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 
 // WCAG 2.1 AA scan of the key pages. Serious and critical problems fail the build.
 // Colour contrast is left out on purpose: the owner keeps the brand orange with white text as it is.
-const PAGES = ["/", "/flights", "/partners", "/destinations", "/blog", "/refund-policy", "/maintenance", "/account/sign-in", "/admin", "/booking/manage"];
+const PAGES = ["/", "/partners", "/destinations", "/blog", "/refund-policy", "/maintenance", "/account/sign-in", "/admin", "/booking/manage"];
 
 for (const path of PAGES) {
   test(`${path} meets WCAG 2.1 AA`, async ({ page }) => {

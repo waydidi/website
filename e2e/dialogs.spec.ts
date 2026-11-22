@@ -38,7 +38,7 @@ test("homepage under-development popup: WhatsApp link, focus kept inside, Esc cl
   }
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await page.goto("/flights");
+  await page.goto("/partners");
   await page.waitForLoadState("networkidle");
   await expect(devNotice(page)).toHaveCount(0);
 });

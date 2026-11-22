@@ -175,8 +175,6 @@ const worker = {
     if (controller.cron === "* * * * *") {
       ctx.waitUntil(import("../lib/chat-idle").then(async (m) => { const at = new Date(controller.scheduledTime); await m.sendIdleNudges(at); await m.closeIdleChats(at); await import("../lib/telegram/handover").then((h) => h.remindWaiting(at)); }).catch((e) => console.error("chat check-in failed", e)));
       ctx.waitUntil(import("../lib/telegram/driver-group").then(async m => {await m.recoverDriverGroup();await m.reopenLapsedSignups(new Date(controller.scheduledTime));}).catch((e) => console.error("driver group sign-up check failed", e)));
-      // Once a day (after 02:00 Thailand time): yesterday's flight stats for /flights.
-      ctx.waitUntil(import("../lib/aerodatabox").then((m) => m.dailyStatsIfDue(new Date(controller.scheduledTime))).catch(() => undefined));
       // Every 30 minutes: thank-you coupons for members whose invited friend has completed a ride.
       ctx.waitUntil(import("../lib/referrals").then((m) => m.referralRewardsIfDue(new Date(controller.scheduledTime))).catch((e) => console.error("referral rewards failed", e)));
       // "Ask me first": chats nobody chose for within the wait are given to Non.
@@ -194,8 +192,6 @@ const worker = {
       ctx.waitUntil(import("../lib/telegram/daily-jobs").then((m) => m.sendDailyJobs(new Date(controller.scheduledTime))).catch((e) => console.error("daily job list failed", e instanceof Error ? e.message : "unknown")));
       // A confirmed booking whose Telegram card was never posted gets one.
       ctx.waitUntil(import("../lib/telegram/bookings").then((m) => m.postMissingBookingCards(new Date(controller.scheduledTime))).catch((e) => console.error("missing booking cards failed", e)));
-      // Every 15 minutes: flights of upcoming airport pickups; the team is told about delays in Telegram.
-      ctx.waitUntil(import("../lib/flight-watch").then((m) => m.watchBookingFlights(new Date(controller.scheduledTime))).catch((e) => console.error("flight watch failed", e)));
       return;
     }
     ctx.waitUntil(import("../lib/trip-evidence").then(m=>m.cleanupTripEvidence()).catch(()=>console.error("Evidence retention cleanup failed")));

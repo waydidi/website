@@ -56,19 +56,6 @@ test('parallel place searches respect site, account and chat limits before provi
  await guard.saveLimits({siteDay:0});assert.equal((await guard.claimPlaceSearch('new','new','new')).ok,false);
 });
 
-test('zero flight budget blocks calls and every retry consumes budget',async()=>{
- const flights=await vite.ssrLoadModule('/lib/aerodatabox.ts');globalThis.__auditEnv.AERODATABOX_KEY='mock';let calls=0;
- globalThis.fetch=async()=>{calls++;return new Response(null,{status:429});};
- await d1.prepare('INSERT INTO flight_settings(id,daily_cap) VALUES(1,0)').run();
- await assert.rejects(()=>flights.flightStatus('TG101',date),/FLIGHT_API_LIMIT/);assert.equal(calls,0);
- await d1.prepare('UPDATE flight_settings SET daily_cap=1 WHERE id=1').run();
- await assert.rejects(()=>flights.flightStatus('TG102',date),/FLIGHT_API_LIMIT/);assert.equal(calls,1);assert.equal((await d1.prepare('SELECT calls FROM flight_api_usage').first()).calls,1);
- await d1.prepare('DELETE FROM flight_api_usage').run();await d1.prepare('UPDATE flight_settings SET daily_cap=2 WHERE id=1').run();calls=0;
- globalThis.fetch=async()=>{calls++;return new Response(null,{status:calls===1?429:204});};
- await assert.rejects(()=>flights.flightStatus('TG103',date),/FLIGHT_NOT_FOUND/);assert.equal(calls,2);assert.equal((await d1.prepare('SELECT calls FROM flight_api_usage').first()).calls,2);
- delete globalThis.__auditEnv.AERODATABOX_KEY;globalThis.fetch=async()=>{throw new Error('Unexpected external call');};
-});
-
 test('reschedules clear only the corresponding journey overrides atomically',async()=>{
  const journeys=await vite.ssrLoadModule('/lib/journey-legs.ts');
  for(const leg of ['outbound','return'])await db.insert(schema.journeyLegs).values({id:'ABCD23:'+leg,bookingReference:'ABCD23',leg,status:'confirmed',pickupDate:date,pickupTime:leg==='outbound'?'08:00':'19:00',createdAt:now,updatedAt:now});

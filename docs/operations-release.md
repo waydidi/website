@@ -15,7 +15,7 @@ This release adds guarded payment recovery, independent outbound/return dispatch
 
    The migration preserves existing assignments as outbound, revokes duplicate active legacy assignments while keeping the latest, and backfills journey records. Previously closed bookings with a future return become active again for that return. Historical closed returns stay closed. Existing cash collections and recorded refunds are preserved.
 3. Deploy the approved commit through the existing Cloudflare Workers Builds workflow. The Worker name, D1 binding, R2 fallback, and five-minute cron remain in place.
-4. Set `WAYDIDI_PUBLIC_URL` in the Worker settings to the live URL above so reminder and email links point to the correct site. Retain the existing Stripe secret/publishable keys and webhook signing secret. Flight refreshes require `AVIATIONSTACK_API_KEY`.
+4. Set `WAYDIDI_PUBLIC_URL` in the Worker settings to the live URL above so reminder and email links point to the correct site. Retain the existing Stripe secret/publishable keys and webhook signing secret.
 
 ## Operations usage
 
