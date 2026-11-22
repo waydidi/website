@@ -23,9 +23,8 @@ export default async function SettingsPage() {
     { title: "Data protection", rows: [
       ["Encrypted bank accounts and tax IDs", String((env as Record<string, unknown>).PII_ENCRYPTION_KEY ?? "").length >= 32, "PII_ENCRYPTION_KEY (a random secret, 32+ characters; keep a copy safe: without it encrypted numbers can't be read)"],
     ] },
-    { title: "Maps and flights", rows: [
+    { title: "Maps and analytics", rows: [
       ["Google Maps", set("GOOGLE_MAPS_SERVER_KEY"), "GOOGLE_MAPS_SERVER_KEY"],
-      ["Flight tracking", set("AVIATIONSTACK_API_KEY"), "AVIATIONSTACK_API_KEY"],
       ["Google Analytics", set("GA_MEASUREMENT_ID"), "GA_MEASUREMENT_ID (e.g. G-ABC123XYZ)"],
     ] },
     { title: "Customer sign-in", rows: [

@@ -25,7 +25,6 @@ export async function GET(request: Request) {
   const integrations = {
     googleMaps: Boolean(env.GOOGLE_MAPS_SERVER_KEY),
     stripe: Boolean(env.STRIPE_SECRET_KEY),
-    aviationstack: Boolean(env.AVIATIONSTACK_API_KEY),
     checkoutSecurity: Boolean(
       env.RATE_LIMIT_SALT || env.ADMIN_SESSION_SECRET || env.STRIPE_SECRET_KEY,
     ),

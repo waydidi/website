@@ -9,7 +9,7 @@ export const MONITORING_FILE_PATTERN = /^[A-Za-z0-9._-]{1,120}\.m?js$/;
 
 // Route templates only: booking references, tokens and slugs never leave the browser.
 const ROUTE_PATTERNS = [
-  ["/", /^\/$/], ["/about", /^\/about$/], ["/contact", /^\/contact$/], ["/help", /^\/help$/], ["/flights", /^\/flights$/],
+  ["/", /^\/$/], ["/about", /^\/about$/], ["/contact", /^\/contact$/], ["/help", /^\/help$/],
   ["/hourly", /^\/hourly$/], ["/tours", /^\/tours$/], ["/airport-transfer", /^\/airport-transfer$/],
   ["/destinations", /^\/destinations$/], ["/destinations/[slug]", /^\/destinations\/[^/]+$/],
   ["/blog", /^\/blog$/], ["/blog/[slug]", /^\/blog\/[^/]+$/],

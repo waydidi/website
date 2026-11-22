@@ -12,7 +12,7 @@ const pages = {
  noindexHeader: {path:'/about', head:'', headers:{'x-robots-tag':'noindex'}},
  self: {path:'/about', head:'<link rel="canonical" href="https://waydidi.com/about"><link rel="alternate" hreflang="th" href="https://waydidi.com/old">'},
  elsewhere: {path:'/blog/category/news', head:'<link rel="canonical" href="https://waydidi.com/blog">'},
- none: {path:'/flights', head:''},
+ none: {path:'/partners', head:''},
  external: {path:'/about', head:'<link rel="canonical" href="https://partner.example/about">'},
 };
 const bundled = await build({stdin:{contents:`import { localizePublicHtml } from './lib/language-html'; const pages=${JSON.stringify(pages)};
@@ -37,7 +37,7 @@ test('a public page has exactly one self canonical matching its language prefix 
  assert.equal(alt.en, 'https://waydidi.com/about');
  assert.equal(alt['x-default'], 'https://waydidi.com/about');
  assert.equal(Object.keys(alt).length, 13);
- assert.deepEqual(canonicals(await get('none')), ['https://waydidi.com/th/flights']);
+ assert.deepEqual(canonicals(await get('none')), ['https://waydidi.com/th/partners']);
 });
 test('a page-supplied canonical pointing elsewhere is kept, localized, with matching alternates', async () => {
  const html = await get('elsewhere');

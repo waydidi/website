@@ -151,11 +151,11 @@ test("only owner and finance staff can read the report", async () => {
 
 test("rows older than 30 days are deleted and newer ones stay", async () => {
   const now = new Date("2024-06-30T00:00:00.000Z");
-  await data.recordWebMonitoring(db, [vital({ route: "/flights" }), failure({ route: "/flights" })], new Date("2024-05-30T00:00:00.000Z"));
+  await data.recordWebMonitoring(db, [vital({ route: "/help" }), failure({ route: "/help" })], new Date("2024-05-30T00:00:00.000Z"));
   await data.recordWebMonitoring(db, [vital({ route: "/tours" }), failure({ route: "/tours" })], new Date("2024-06-29T00:00:00.000Z"));
   await data.purgeWebMonitoring(db, now);
   for (const table of ["web_vital_events", "web_error_events"]) {
-    assert.equal((await db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE route='/flights'`).first()).n, 0);
+    assert.equal((await db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE route='/help'`).first()).n, 0);
     assert.equal((await db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE route='/tours'`).first()).n, 1);
   }
 });

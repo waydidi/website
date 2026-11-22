@@ -23,7 +23,7 @@ test("public marketing pages are cached; tour packages refresh sooner", () => {
 });
 
 test("personal, signed-in and live pages are never cached", () => {
-  for (const path of ["/help", "/account", "/account/trips", "/booking/manage", "/trip/ABC", "/pay/ABC", "/liff", "/liff/trips", "/admin", "/driver", "/flights", "/api/account/session", "/destinations/phuket/extra", "/index.rsc", "/destinations.rsc"])
+  for (const path of ["/help", "/account", "/account/trips", "/booking/manage", "/trip/ABC", "/pay/ABC", "/liff", "/liff/trips", "/admin", "/driver", "/api/account/session", "/destinations/phuket/extra", "/index.rsc", "/destinations.rsc"])
     assert.equal(ttl(path), 0, path);
 });
 

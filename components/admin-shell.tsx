@@ -6,7 +6,7 @@ import {
   MapPinned,
   Users, MessageCircle,
   Newspaper,
-  TicketPercent, Gift, Route, Building2, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Plane, Search, Settings, Contrast } from "lucide-react";
+  TicketPercent, Gift, Route, Building2, LayoutDashboard, BarChart3, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Search, Settings, Contrast } from "lucide-react";
 import Link from "next/link";
 import { ChatSectionPicker } from "@/components/chat-admin/section-picker";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -23,7 +23,7 @@ const FINANCIAL_TABS = [{ href: "/admin/payments", label: "Payments" }, { href: 
 const isFinancialsPath = (pathname: string) => pathname === "/admin/financials" || FINANCIAL_TABS.some(t => pathname === t.href || pathname.startsWith(`${t.href}/`));
 const isActive = (pathname: string, href: string) => href === "/admin/trips" && isFinancialsPath(pathname) ? false : (href === "/admin" ? pathname === "/admin" : (href === "/admin/partners" && isPartnersPath(pathname)) || (href === "/admin/financials" && isFinancialsPath(pathname)) || pathname.startsWith(href) || (href === "/admin/pricing" && (pathname.startsWith("/admin/hourly") || pathname.startsWith("/admin/seasons"))));
 
-const DESKTOP_ONLY = ["/admin/blog", "/admin/gifts", "/admin/crm", "/admin/financials", "/admin/pricing", "/admin/translations", "/admin/flights", "/admin/writing-assistant", "/admin/trips/packages", "/admin/trips/live", "/admin/attractions", "/admin/suppliers"];
+const DESKTOP_ONLY = ["/admin/blog", "/admin/gifts", "/admin/crm", "/admin/financials", "/admin/pricing", "/admin/translations", "/admin/writing-assistant", "/admin/trips/packages", "/admin/trips/live", "/admin/attractions", "/admin/suppliers"];
 // Left out of the phone menu: Partners (desktop only now); the Planner tab takes its place.
 const PHONE_HIDDEN = ["/admin/partners"];
 const tabs = [
@@ -84,7 +84,6 @@ const tabs = [
   },
   { href: "/admin/profile", label: "Setting", mobileLabel: "Setting", title: "Setting", icon: Settings },
   { href: "/admin/translations", label: "Translations", mobileLabel: "Translate", title: "Website translations", icon: Newspaper },
-  { href: "/admin/flights", label: "Flights", mobileLabel: "Flights", title: "Flight data", icon: Plane },
   { href: "/admin/writing-assistant", label: "Writing assistant", mobileLabel: "Writing", title: "Writing assistant", icon: Newspaper },
   { href: "/admin/trips/packages", label: "Trip packages", mobileLabel: "Packages", title: "Trip packages", icon: Route },
   { href: "/admin/trips/live", label: "Live today", mobileLabel: "Live", title: "Live today", icon: Route },
@@ -110,7 +109,6 @@ const SECTIONS: { title?: string; items: NavGroup[] }[] = [
       { href: "/admin/bookings?type=hourly", label: "By the hour", match: (p, t) => p.startsWith("/admin/bookings") && t === "hourly" },
       { href: "/admin/bookings?type=tour", label: "Tour", match: (p, t) => p.startsWith("/admin/bookings") && t === "tour" },
     ] },
-    { href: "/admin/flights", label: "Flights", icon: Plane },
     { href: "/admin/writing-assistant", label: "Writing assistant", icon: Newspaper },
     { href: "/admin/trips", label: "Trip planner", icon: Route, children: [
       { href: "/admin/trips", label: "Smart trips", match: (p) => p === "/admin/trips" || (p.startsWith("/admin/trips/") && !p.startsWith("/admin/trips/live") && !p.startsWith("/admin/trips/commissions") && !p.startsWith("/admin/trips/packages")) },
