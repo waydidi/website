@@ -20,21 +20,74 @@
   };
 
   var replyStart = document.getElementById("replyStart"), replyStop = document.getElementById("replyStop");
-  var autoPost = document.getElementById("autoPost");
-  autoPost.addEventListener("change", function () { chrome.storage.local.set({ autoPost: autoPost.checked }); });
-  var likeFirst = document.getElementById("likeFirst");
-  likeFirst.addEventListener("change", function () { chrome.storage.local.set({ likeFirst: likeFirst.checked }); });
-  function renderReply() {
-    chrome.storage.local.get({ replyRun: {}, autoPost: false, likeFirst: true }, function (s) {
-      autoPost.checked = s.autoPost;
-      likeFirst.checked = s.likeFirst;
-      var r = s.replyRun || {}, d = new Date(), two = function (x) { return String(x).padStart(2, "0"); };
-      var today = d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
-      replyStart.hidden = Boolean(r.active); replyStop.hidden = !r.active;
-      document.getElementById("reply").textContent = (r.message || "") + (r.day === today && r.posted ? " Posted today through the queue: " + r.posted + "." : "");
+  var groupsBox = document.getElementById("groups"), per = document.getElementById("per");
+  var Plan = window.WaydidiPlan;
+  // The group list: saved order and ticks (chrome.storage "replyGroups"), merged with the groups the website says have
+  // comments waiting. Changes are saved at once; Start uses what is saved.
+  var rows = [], waiting = null, waitingNote = "", running = false, plan = null;
+
+  function saveGroups(then) {
+    chrome.storage.local.set({ replyGroups: { groups: rows.map(function (g) { return { key: g.key, name: g.name, on: g.on }; }), per: Plan.perOf(per.value) } }, then);
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+  function drawGroups() {
+    groupsBox.textContent = "";
+    if (!rows.length) { groupsBox.appendChild(el("div", "hint", waitingNote || (waiting ? "No drafted comments are waiting in any group." : "Loading…"))).style.padding = "6px 8px"; return; }
+    var now = running && plan ? Plan.current(plan) : null, n = 0;
+    var ticked = rows.filter(function (g) { return g.on; }), nowAt = now ? ticked.findIndex(function (g) { return g.key === now.key; }) : -1;
+    var next = nowAt >= 0 && ticked.length > 1 ? ticked[(nowAt + 1) % ticked.length] : null;
+    rows.forEach(function (g, i) {
+      var row = el("label", "g" + (g.on ? "" : " off") + (now && now.key === g.key ? " now" : ""));
+      var box = el("input"); box.type = "checkbox"; box.checked = g.on; box.disabled = running;
+      box.addEventListener("change", function () { g.on = box.checked; saveGroups(); drawGroups(); });
+      row.appendChild(box);
+      row.appendChild(el("span", "n", g.on ? String(++n) : "–"));
+      var name = el("span", "name", g.name);
+      var left = g.waiting + " waiting";
+      var sub = now && now.key === g.key ? "▶ Now · " + plan.count + " of " + plan.per + " posted" : next && next.key === g.key ? "Next · " + left : g.on ? left : left + " · not in this run";
+      name.appendChild(el("small", "", sub));
+      row.appendChild(name);
+      if (!running) {
+        [["▲", -1], ["▼", 1]].forEach(function (m) {
+          var b = el("button", "move", m[0]); b.type = "button"; b.title = m[1] < 0 ? "Earlier" : "Later";
+          b.disabled = i + m[1] < 0 || i + m[1] >= rows.length;
+          b.addEventListener("click", function (e) { e.preventDefault(); var j = i + m[1], t = rows[i]; rows[i] = rows[j]; rows[j] = t; saveGroups(); drawGroups(); });
+          row.appendChild(b);
+        });
+      }
+      groupsBox.appendChild(row);
     });
   }
-  replyStart.addEventListener("click", function () { chrome.runtime.sendMessage({ type: "reply-start" }); });
+  function loadGroups() {
+    chrome.runtime.sendMessage({ type: "reply-groups" }, function (res) {
+      if (chrome.runtime.lastError || !res) { waiting = []; waitingNote = "Could not load the groups. Reload the extension in chrome://extensions."; }
+      else if (!res.ok) { waiting = []; waitingNote = res.message; }
+      else { waiting = res.groups; waitingNote = ""; }
+      chrome.storage.local.get({ replyGroups: {} }, function (s) {
+        rows = Plan.mergeGroups((s.replyGroups || {}).groups, waiting);
+        drawGroups();
+      });
+    });
+  }
+  per.addEventListener("change", function () { per.value = Plan.perOf(per.value); saveGroups(); });
+
+  function renderReply() {
+    chrome.storage.local.get({ replyRun: {}, replyGroups: {} }, function (s) {
+      var r = s.replyRun || {}, d = new Date(), two = function (x) { return String(x).padStart(2, "0"); };
+      var today = d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
+      running = Boolean(r.active); plan = r.plan && r.plan.groups && r.plan.groups.length ? r.plan : null;
+      replyStart.hidden = running; replyStop.hidden = !running;
+      per.disabled = running;
+      if (document.activeElement !== per) per.value = Plan.perOf((s.replyGroups || {}).per);
+      document.getElementById("reply").textContent = (r.message || "") + (r.day === today && r.posted ? " Posted today through the queue: " + r.posted + "." : "");
+      drawGroups();
+    });
+  }
+  replyStart.addEventListener("click", function () {
+    if (rows.length && !rows.some(function (g) { return g.on; })) { document.getElementById("reply").textContent = "Tick at least one group first."; return; }
+    saveGroups(function () { chrome.runtime.sendMessage({ type: "reply-start" }); });
+  });
+  loadGroups();
   replyStop.addEventListener("click", function () { chrome.runtime.sendMessage({ type: "reply-stop" }); });
 
   function render() {

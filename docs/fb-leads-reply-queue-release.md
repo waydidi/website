@@ -35,8 +35,8 @@ No new Secret: the extension uses the existing `FB_LEADS_INGEST_TOKEN`.
 ## Send from Telegram
 
 1. Set `FB_LEADS_AUTO_POST_ENABLED=true`.
-2. In one browser that stays open, tick **Send from Telegram (ส่ง Comment)** in the extension popup (version 1.5.0), then
-   press **Start replying**.
+2. In one browser that stays open, press **Start replying** in the extension popup (since 1.8.0 Send from Telegram
+   and Like first are always on; choose the groups and their order in the popup first).
 3. In Telegram, a message "วางคอมเมนต์ใน Chrome แล้ว รอส่ง" appears under the lead. Tap **ส่ง Comment**. 15 seconds later
    the comment is sent, the message changes to "โพสต์บน Facebook แล้ว", the tab closes and the next lead opens.
 4. If the message instead says "Chrome ส่งคอมเมนต์ไม่ได้", Facebook's page differs from the tested shape: post it by hand,

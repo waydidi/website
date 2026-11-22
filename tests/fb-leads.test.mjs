@@ -353,6 +353,50 @@ test('reply queue: each lead is handed to one tab; two browsers at once get diff
   assert.ok((await fl.replyQueue({ action: 'next' }, at(16))).lead, 'the tab was left: back in the queue');
 });
 
+test('reply queue by group: groups lists the groups with comments ready; next with a group takes only that group', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+  const leads = [['khaolak', 'Khao Lak Community', 1], ['khaolak', 'Khao Lak Community', 2], ['katathani', 'Katathani Phuket Resort', 3]];
+  for (const [g, name, i] of leads) await fl.queueLeads([{ groupKey: g, postKey: String(1000000 + i), url: post(i).url.replace('thaitravel', g), text: post(i).text, groupName: name }], new Date(now.getTime() + i * 1000), { sort: null });
+  await fl.processLeads({ draft: draftOf(), send: sender().send, now: () => now, batch: 3 });
+  const listed = await (await replyCall({ action: 'groups' })).json();
+  assert.deepEqual(listed, { groups: [{ key: 'khaolak', name: 'Khao Lak Community', waiting: 2 }, { key: 'katathani', name: 'Katathani Phuket Resort', waiting: 1 }] });
+  const kata = await fl.replyQueue({ action: 'next', group: 'katathani' }, now);
+  assert.equal(kata.lead.id, (await lead(3)).id);
+  assert.equal(kata.lead.groupName, 'Katathani Phuket Resort');
+  assert.equal((await fl.replyQueue({ action: 'next', group: 'katathani' }, now)).wait, 'empty', 'that group has nothing else ready');
+  assert.deepEqual((await fl.replyQueue({ action: 'groups' }, now)).groups.map((g) => [g.key, g.waiting]), [['khaolak', 2]], 'a lead open in a tab is not waiting');
+  assert.equal((await fl.replyQueue({ action: 'next', group: 'nosuchgroup' }, now)).wait, 'empty');
+  // Two browsers asking for the same group at once get different leads.
+  const [a, b, c] = await Promise.all([1, 2, 3].map(() => fl.replyQueue({ action: 'next', group: 'khaolak' }, now)));
+  const ids = [a, b, c].filter((x) => x.lead).map((x) => x.lead.id);
+  assert.equal(ids.length, 2); assert.notEqual(ids[0], ids[1]);
+});
+
+test('reply queue by group: the gap and the daily cap still hold when a group is asked for', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true'; env.FB_LEADS_REPLY_GAP_MIN = '3';
+  await sentLeads(2);
+  const first = await fl.replyQueue({ action: 'next', group: 'thaitravel' }, now);
+  assert.deepEqual(await fl.replyQueue({ action: 'posted', id: first.lead.id }, now), { done: 'posted' });
+  assert.equal((await fl.replyQueue({ action: 'next', group: 'thaitravel' }, at(1))).wait, 'gap');
+  assert.ok((await fl.replyQueue({ action: 'next', group: 'thaitravel' }, at(4))).lead);
+  env.FB_LEADS_REPLY_DAILY_CAP = '1';
+  await db.prepare("UPDATE fb_leads SET reply_claimed_at=NULL").run();
+  assert.equal((await fl.replyQueue({ action: 'next', group: 'thaitravel' }, at(10))).wait, 'limit');
+});
+
+test('reply queue by group: a bad group or a group with another action is refused before anything is claimed', async () => {
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
+  await sentLeads(1);
+  for (const body of [{ action: 'next', group: '../x' }, { action: 'next', group: 5 }, { action: 'next', group: '' }, { action: 'posted', id: 'a'.repeat(16), group: 'thaitravel' }, { action: 'next', id: (await lead(1)).id, group: 'thaitravel' }, { action: 'groups', group: 'thaitravel' }]) {
+    const res = await replyCall(body);
+    assert.equal(res.status, 400, JSON.stringify(body));
+  }
+  assert.equal((await lead(1)).reply_claimed_at, null);
+  assert.equal((await replyCall({ action: 'groups' }, 'wrong')).status, 401, 'the group list needs the token');
+  env.FB_LEADS_REPLY_QUEUE_ENABLED = '';
+  assert.equal((await replyCall({ action: 'groups' })).status, 404, 'and the queue switch');
+});
+
 test('reply queue: newest of the strongest first; a lead not ready to post is never handed out', async () => {
   env.FB_LEADS_REPLY_QUEUE_ENABLED = 'true';
   await sentLeads(2);

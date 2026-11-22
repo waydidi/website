@@ -133,9 +133,20 @@ Facebook changes its page markup from time to time. If posts stop arriving while
 
 ## Reply queue (you press Post)
 
-Off until the owner sets `FB_LEADS_REPLY_QUEUE_ENABLED=true` on the website. Click the extension icon → **Start replying**:
+Off until the owner sets `FB_LEADS_REPLY_QUEUE_ENABLED=true` on the website.
 
-1. The next drafted lead (ready to post, strongest and newest first) opens in a new tab.
+**Groups, in order (1.8.0).** The popup lists the Facebook groups that have drafted comments ready, with how many are
+waiting in each. Tick the groups to reply in and put them in order with the arrows; set **Comments per group, then
+switch** (default 10, from 1 to 50). The queue works the first ticked group until that many comments are posted there
+(Skip and a post that is no longer available do not count), then the next group, and after the last one starts again
+at the first. A group with nothing ready is passed over; when every ticked group is empty, the run ends. The order and
+ticks are kept in this browser. Pressing Start again with the same groups and number carries on where the last run
+stopped; changing them starts from the first group. While it runs, the popup shows the group it is in ("Now · 3 of 10
+posted") and the next one. A group you have not seen before is added at the end, ticked.
+
+Click the extension icon → **Start replying**:
+
+1. The next drafted lead of the current group (ready to post, strongest and newest first) opens in a new tab.
 2. The draft is put in the post's comment box, and a small **Waydidi** bar appears at the bottom right.
 3. Read it, change it if needed, then press **Post on Facebook yourself**. The extension never presses Post, Enter or any
    Facebook button.
@@ -159,9 +170,9 @@ If the comment box is not found (comments turned off, or Facebook changed the pa
 
 ## Like first, page tag and QR picture
 
-**Like the post first** (popup, ticked by default): when a reply tab opens, the post's own Like button is pressed the
+**Like the post first** (always, since 1.8.0): when a reply tab opens, the post's own Like button is pressed the
 way a mouse does (never a comment's Like), and the comment is put in 5 to 12 seconds later, at random. A post that is
-already liked is not pressed again. Untick the box to comment without liking.
+already liked is not pressed again.
 
 After the draft is in the comment box, and before anything else happens:
 
@@ -187,8 +198,9 @@ and the file inputs near it. No post text, comment text or names.
 
 Off until the owner sets `FB_LEADS_AUTO_POST_ENABLED=true` (the reply queue must be on too).
 
-1. In the popup, tick **Send from Telegram (ส่ง Comment)**, then press **Start replying**. Keep this browser open and
-   signed in to the Facebook account that comments.
+1. Always on in the extension since 1.8.0 (there is no box to tick): press **Start replying**. Keep this browser open
+   and signed in to the Facebook account that comments. While `FB_LEADS_AUTO_POST_ENABLED` is off on the website, the bar
+   asks you to press Post yourself instead.
 2. The next lead opens and the draft is put in the comment box, as in the reply queue.
 3. The Comment group in Telegram gets a message under that lead: "วางคอมเมนต์ใน Chrome แล้ว รอส่ง", the comment, and
    two buttons, **ส่ง Comment** and **ข้าม**. Only people on the Waydidi Telegram team can use ส่ง Comment.
