@@ -43,6 +43,20 @@ Not built (decisions D16–D18): hourly quotes (go to staff), multi-leg quotes (
 
 To try it on the test number: set `SALES_AI_QUOTE_APPROVAL=whatsapp`, make sure your Telegram account is in the Telegram team list and linked to your owner staff account, then message the test number for a transfer price.
 
+## PR 4 (#326) and PR 5 (#327): stacked on #325, all off by default
+
+| Check | Result |
+|---|---|
+| PR 4 branch: lint, typecheck, build | pass (0 errors; same 65 warnings as `main`) |
+| PR 4 branch: full unit suite | 1217 / 1218; the one failure (a fetch redirect mode workerd refuses) was fixed and its test and the 14 PR 4 tests pass |
+| PR 5 branch (includes PR 4): typecheck, build | pass |
+| PR 5 branch: full unit suite | 1231 / 1231 |
+| PR 5 branch: lint | 5 errors (unescaped quotes on the new page) fixed afterwards; file lints clean |
+
+PR 4: several trips per draft, special requests, trip planning requests, WhatsApp photo/PDF reading (`SALES_AI_MEDIA=1`). PR 5: lead scores (`SALES_AI_LEADS=1`), follow-ups (`SALES_AI_FOLLOWUPS=1`), 7-day loss-reason card, on-demand lost-quote analysis. No daily or scheduled sales report anywhere.
+
+Not built: the 3-day follow-up (needs approved WhatsApp templates), voice-note transcription, package discounts across trips (prices only from the database, D20).
+
 ## Behaviour changes to know about
 
 - A staff reply on WhatsApp more than 24 hours after the customer's last message is no longer attempted (Meta would reject it). It is kept in the chat and logged, but the admin inbox does not yet show a "not sent" marker. **Follow-up:** show it in the inbox and offer a template once templates exist.
