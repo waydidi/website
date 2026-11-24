@@ -17,6 +17,10 @@
 | D13 | 2026-11-24 | Only the **owner** approves AI quotes in Telegram. Every approval action checks that the Telegram user is linked to an active staff account with role `owner`; support and operations are refused even if added to the group later | The owner is the only admin in the Telegram group | Owner |
 | D14 | 2026-11-24 | An approved WhatsApp quote stays valid for **3 hours** from approval. The website's 30-minute transfer quote (`lib/quote-validity.ts`) is unchanged. Price and availability are checked again when the customer books | Owner answer | Owner |
 | D15 | 2026-11-24 | Staff Telegram cards for Sales Intelligence stay in **English**. This is an owner exception to the repository rule "Staff-facing Telegram text is Thai" (`AGENTS.md`) | Owner answer | Owner |
+| D16 | 2026-11-24 | PR 2 drafts **transfer** quotes only. Hourly requests on approval channels go to staff, because CRM quotes open a transfer booking form | CRM quote acceptance is transfer-only today | Proposed (PR 2) |
+| D17 | 2026-11-24 | One pending draft per chat: a newer draft replaces the older one. Multi-leg quotes arrive with PR 4 | Keeps approval unambiguous until per-leg quotes exist | Proposed (PR 2) |
+| D18 | 2026-11-24 | "Ask customer" and "Edit message" buttons are not built: the owner uses **Take over** and types in the chat | The owner is the only approver; Take over already silences the assistant | Proposed (PR 2) |
+| D19 | 2026-11-24 | The approved quote's customer message is chosen by the script the customer writes in (Thai, Chinese, otherwise English) | Deterministic; no AI involved in the priced message | Proposed (PR 2) |
 
 ## Open questions for the owner
 

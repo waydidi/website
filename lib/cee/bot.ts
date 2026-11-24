@@ -13,6 +13,7 @@ import { PRICE_TABLE_VERSION, modelCost, resolveModels, type ModelPair, type Usa
 import { logActivity } from "@/lib/sales-ai/activity-log";
 import { disabledChannels } from "@/lib/sales-ai/whatsapp-rules";
 import { ASSISTANT_NAME } from "./name";
+import { draftFromQuote, quoteApprovalRequired } from "@/lib/sales-ai/quote-drafts";
 
 // Waydidi Assistant: Waydidi's chat assistant on the website, WhatsApp and LINE. It answers instantly, quotes only
 // from the site's own price tables (via tools), looks up staff-written knowledge, and hands the chat
@@ -68,6 +69,10 @@ How you work:
 // Website chat shows quotes and payment links as cards with buttons, so Waydidi Assistant's text stays short.
 const CARD_NOTE = `
 - On the website chat, quotes and payment links are shown to the customer as cards with buttons right after your message. So keep your text short: one friendly line (e.g. "Here are your options:" or "Here is your booking summary:") plus any question. Don't repeat the car list, prices or the link in your text.`;
+
+// Approval channels: prices are confirmed by the owner before the customer sees them.
+const APPROVAL_NOTE = `
+- In this chat every price is confirmed by the Waydidi team before it is sent. A quote tool will say the price is pending: then tell the customer, in one short line, that the confirmed price will be sent here shortly. Never state, estimate, round or compare a price yourself, and never send a booking or payment link.`;
 
 const ESCALATE_NOTE = `
 - You are the quick assistant. Call escalate (and nothing else) when the customer needs real trip planning: several places or days, an undecided or open-ended plan, comparing options, or a long or complicated request. Handle simple greetings, single transfers, prices, and rule questions yourself.`;
@@ -128,6 +133,8 @@ export type TurnOptions = {
   payLink?: PayLinkFn; tools?: CeeTools; now?: string; mode?: ModelMode; channel?: string; onProgress?: (text: string) => Promise<unknown>; models?: ModelPair;
   /** The team's active alerts (closures, flooding…): always in Waydidi Assistant's instructions, applied to quotes and places. */
   alerts?: Alert[];
+  /** Approval channels (SALES_AI_QUOTE_APPROVAL): transfer prices become an owner-approved draft instead of reaching the customer. */
+  quoteApproval?: (input: { pickup: string; dropoff: string; date: string; time: string; passengers: number; bags: number }, result: Awaited<ReturnType<typeof quoteTransfer>>) => Promise<string>;
   /** Limits for paid place searches in this chat. Without it (tests, previews) searches aren't limited. */
   placeGuard?: { conversationId: string; actor: string } };
 
@@ -159,7 +166,7 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
   const out: CeeTurn = { reply: null, handover: null, model, usd: 0, requests: 0, cards: [], costUsd: 0, inputTokens: 0, outputTokens: 0, smart };
   if (!messages.length || messages[messages.length - 1].role !== "user") return out;
   // Tools + system are identical on every call, so they're cached (cheaper and faster).
-  const system = [{ type: "text", text: systemPrompt(options.now ?? bangkokNow(), options.channel) + (options.payLink ? BOOKING_NOTE : "") + ((options.channel ?? "web") === "web" ? CARD_NOTE : "") + (canEscalate ? ESCALATE_NOTE : ""), cache_control: { type: "ephemeral" } }, ...(options.alerts?.length ? [{ type: "text", text: alertBrief(options.alerts) }] : [])];
+  const system = [{ type: "text", text: systemPrompt(options.now ?? bangkokNow(), options.channel) + (options.payLink ? BOOKING_NOTE : "") + ((options.channel ?? "web") === "web" ? CARD_NOTE : "") + (canEscalate ? ESCALATE_NOTE : "") + (options.quoteApproval ? APPROVAL_NOTE : ""), cache_control: { type: "ephemeral" } }, ...(options.alerts?.length ? [{ type: "text", text: alertBrief(options.alerts) }] : [])];
   let progressSent = false;
   for (let step = 0; step < 6; step++) {
     const res = await client.beta.messages.create({
@@ -191,6 +198,9 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
           const hits = q.ok ? alertsFor(options.alerts ?? [], i.pickup, i.dropoff, i.city, q.summary) : [];
           const stop = hits.find((a) => a.effect === "stop");
           if (q.ok && stop) content = JSON.stringify({ ok: false, reason: `Waydidi alert: ${stop.title}. ${stop.message} Don't quote this trip; explain the alert and hand over.`, handover: true });
+          // Approval channel: no price reaches the model or the customer; the owner approves a draft in Telegram.
+          else if (options.quoteApproval && u.name === "quote_transfer") content = await options.quoteApproval({ pickup: i.pickup, dropoff: i.dropoff, date: i.date, time: i.time, passengers: i.passengers, bags: i.bags }, q);
+          else if (options.quoteApproval) content = JSON.stringify(q.ok ? { ok: false, reason: "Hourly prices are confirmed by the team; hand over to staff.", handover: true } : q);
           else {
             const warn = hits.filter((a) => a.effect !== "info");
             if (q.ok) out.cards!.push(quoteCard({ ...q, notes: [...warn.map((a) => `⚠️ ${a.title}: ${a.message}`), ...q.notes] }));
@@ -330,7 +340,9 @@ async function answerOnce(conversationId: string, client?: Client, answeredUpTo 
   const channel = c.channel ?? "web";
   const turn = await ceeTurn(history, client ?? (new Anthropic({ apiKey: apiKey() }) as unknown as Client), {
     mode: await modelMode(), channel, tools, alerts: await activeAlerts(), placeGuard: { conversationId: c.id, actor: actorFor(c) },
-    payLink: chatPaymentsEnabled() ? (input) => createChatPaymentLink(c.id, input) : undefined,
+    // Approval channels never get an instant payment link: the owner approves the price first.
+    payLink: chatPaymentsEnabled() && !quoteApprovalRequired(channel) ? (input) => createChatPaymentLink(c.id, input) : undefined,
+    quoteApproval: quoteApprovalRequired(channel) ? (input, result) => draftFromQuote(c.id, channel, input, result) : undefined,
     // LINE: one free reply per customer message, so the whole answer goes in one message (LINE shows its own loading dots).
     onProgress: channel === "line" ? undefined : async (text) => { if (await stillMine()) await addBotMessage(c.id, text, null, NON_ONLY); },
   });

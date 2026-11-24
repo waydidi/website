@@ -1734,5 +1734,9 @@
   "trips.faq.cancel.a": {
     "text": "退款按您预订时显示的政策执行。当前条款请查看退款政策页面。",
     "status": "machine"
+  },
+  "salesQuote.message": {
+    "text": "这是您的 Waydidi 报价：\n{route}\n日期：{date} {time}\n乘客：{passengers} 位，行李：{bags} 件\n车型：{car}\n价格：每车 ฿{price}\n有效期至 {validUntil}（泰国时间）\n\n接受并预订：{url}",
+    "status": "machine"
   }
 }
