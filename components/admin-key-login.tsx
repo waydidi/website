@@ -2,7 +2,6 @@
 
 import { FormEvent, useState } from "react";
 import { KeyRound, LoaderCircle, UserRound } from "lucide-react";
-import { AnimatedScene } from "@/components/maintenance/animated-scene";
 import { WaydidiLogo } from "@/components/waydidi-logo";
 
 export function AdminKeyLogin({ configured }: { configured: boolean }) {
@@ -42,9 +41,8 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
   }
 
   return (
-    <AnimatedScene>
-      {/* Logo (bird + name) just above the box, 12px apart, both centred over the moving scene. */}
-      <div className="relative z-20 flex min-h-dvh flex-col items-center justify-center px-4 pb-[16vh] pt-10">
+    // Still Waydidi-orange background fading to white, top to bottom; logo (bird + name) 12px above the box.
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-gradient-to-b from-brand from-20% to-white px-4 pb-[16vh] pt-10">
       <WaydidiLogo className="h-[76px] w-auto text-white drop-shadow-[0_4px_12px_rgba(150,70,0,.3)]" />
       <section className="mt-3 w-full max-w-sm rounded-2xl bg-white p-6 text-plum shadow-2xl sm:p-7">
         <h1 className="text-[22px] font-bold">Admin sign in</h1>
@@ -96,7 +94,6 @@ export function AdminKeyLogin({ configured }: { configured: boolean }) {
           </button>
         </form>
       </section>
-      </div>
-    </AnimatedScene>
+    </main>
   );
 }
