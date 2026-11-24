@@ -21,8 +21,8 @@
 | D17 | 2026-11-24 | One pending draft per chat: a newer draft replaces the older one. Multi-leg quotes arrive with PR 4 | Keeps approval unambiguous until per-leg quotes exist | Proposed (PR 2) |
 | D18 | 2026-11-24 | "Ask customer" and "Edit message" buttons are not built: the owner uses **Take over** and types in the chat | The owner is the only approver; Take over already silences the assistant | Proposed (PR 2) |
 | D19 | 2026-11-24 | The approved quote's customer message is chosen by the script the customer writes in (Thai, Chinese, otherwise English) | Deterministic; no AI involved in the priced message | Proposed (PR 2) |
+| D20 | 2026-11-24 | **Prices come only from the website price database** (or a price the owner types on a draft). No target margin, no payment-fee figure, no `minimum_sell` floor and no cost-based or similar-route price estimation. PR 3 as planned (supplier rates and margin floor) is dropped | Owner answer | Owner |
 
 ## Open questions for the owner
 
-- Target margin and payment fee figures for the margin floor (PR 3).
 - Approved WhatsApp templates (needed before any follow-up outside 24 hours).

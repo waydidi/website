@@ -39,7 +39,7 @@ Implemented: transfer prices become owner-approved drafts on listed channels (th
 
 Tested: no price or link reaches the model; website chats unchanged when only WhatsApp is listed; operations, support, unknown users, bots and a deactivated owner refused; stale buttons refused; price prompt rules; concurrent double tap sends once; Thai message; superseded drafts; takeover/closed/expired blocks; outside-window approval recorded as not delivered; manual-price drafts; reject and take over; Telegram webhook secret and group check; retention.
 
-Not built (decisions D16–D18): hourly quotes (go to staff), multi-leg quotes (PR 4), "Ask customer" / "Edit message" buttons (use Take over), margin floor (PR 3).
+Not built (decisions D16–D18): hourly quotes (go to staff), multi-leg quotes (PR 4), "Ask customer" / "Edit message" buttons (use Take over), margin floor (dropped, D20).
 
 To try it on the test number: set `SALES_AI_QUOTE_APPROVAL=whatsapp`, make sure your Telegram account is in the Telegram team list and linked to your owner staff account, then message the test number for a transfer price.
 
@@ -52,12 +52,11 @@ To try it on the test number: set `SALES_AI_QUOTE_APPROVAL=whatsapp`, make sure 
 
 - WhatsApp is on a Meta test number. Live number +66 63 206 4884 and coexistence: not touched.
 - Approved WhatsApp templates: none yet (needed for follow-ups and messages outside 24 hours).
-- Supplier contract rates: none yet (PR 3 starts with empty tables).
-- Open questions in `decisions.md`: target margin and payment fee figures (PR 3), approved WhatsApp templates (PR 5).
+- Open question in `decisions.md`: approved WhatsApp templates (PR 5).
 
 ## Deferred to later PRs
 
-PR 3 supplier rates and margin floor; PR 4 multi-leg, images, itineraries; PR 5 lead scoring, follow-ups, lost-quote analysis. Daily Sales Report stays excluded.
+PR 4 multi-leg, images, itineraries; PR 5 lead scoring, follow-ups, lost-quote analysis. Daily Sales Report stays excluded.
 
 ## Worker variables (all optional; defaults keep today's behaviour)
 
