@@ -39,14 +39,6 @@
     "text": "เหมาะกับคุณที่สุด",
     "status": "machine"
   },
-  "vehicle.upgrade": {
-    "text": "อัปเกรดเป็น {name}",
-    "status": "machine"
-  },
-  "vehicle.upgradeNote": {
-    "text": "รถที่สะดวกสบายขึ้นและรองรับกลุ่มของคุณ แตะเพื่อเลือก",
-    "status": "machine"
-  },
   "transfers.title": {
     "text": "เส้นทางรถรับส่งส่วนตัว",
     "status": "machine"
@@ -1195,6 +1187,26 @@
     "text": "ข้อกำหนด",
     "status": "machine"
   },
+  "results.approxTime": {
+    "text": "เวลาโดยประมาณ",
+    "status": "machine"
+  },
+  "results.distance": {
+    "text": "ระยะทาง",
+    "status": "machine"
+  },
+  "results.hoursMinutes": {
+    "text": "{hours} ชม. {minutes} นาที",
+    "status": "machine"
+  },
+  "results.minutes": {
+    "text": "{minutes} นาที",
+    "status": "machine"
+  },
+  "results.km": {
+    "text": "{km} กม.",
+    "status": "machine"
+  },
   "addons.tag": {
     "text": "บริการเสริม",
     "status": "machine"
@@ -1733,6 +1745,14 @@
   },
   "trips.faq.cancel.a": {
     "text": "การคืนเงินเป็นไปตามนโยบายที่แสดงเมื่อคุณจอง ดูเงื่อนไขปัจจุบันได้ที่หน้านโยบายการคืนเงิน",
+    "status": "machine"
+  },
+  "ride.expired": {
+    "text": "ลิงก์การค้นหานี้หมดอายุแล้ว กรุณาค้นหาอีกครั้ง",
+    "status": "machine"
+  },
+  "results.chooseVehicle": {
+    "text": "เลือกรถของคุณ",
     "status": "machine"
   },
   "salesQuote.message": {

@@ -29,3 +29,8 @@ export function limitVehicles<T>(prices: Record<string, T>, from: Point, to: Poi
   delete rest.comfort_bmw;
   return rest;
 }
+
+/** Whether the transfer results list shows a car: only cars the quote priced; before a quote, never Comfort BMW (its route is not known yet). */
+export function transferVehicleListed(id: string, quotedPrices: Record<string, unknown> | null | undefined) {
+  return quotedPrices ? Object.hasOwn(quotedPrices, id) : id !== "comfort_bmw";
+}

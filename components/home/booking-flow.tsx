@@ -55,9 +55,10 @@ import { CancellationChoice } from "./cancellation-choice";
 import { MultiCityForm } from "./multi-city-form";
 import { RouteStopChoice } from "./route-stop-choice";
 import { selectedRouteStopIds, toggleRouteStop, type RouteStopCard, type RouteStopSelection } from "@/lib/route-stop-selection";
-import { VehicleUpgrade } from "./vehicle-upgrade";
 import { DateTimePicker } from "./date-time-picker";
 import { DurationPicker } from "./duration-picker";
+import { transferVehicleListed } from "@/lib/vehicle-routes";
+import { isRideId, parseRideSearch, rideSearchKey, rideUrl, type RideSearch } from "@/lib/ride-search-rules";
 import { AreaPicker } from "./area-picker";
 import { HourlyAreaMap } from "./hourly-area-map";
 const shortPlaceName = (v: string) => v.split(",")[0]?.trim() || v;
@@ -176,6 +177,8 @@ type BookingRecoveryDraft = {
   childPassengers: number;
   extraBagSets: number;
   checkoutAttemptId: string;
+  // Saved search behind /reservation?ride=… (older drafts may not have it).
+  ride?: { id: string; key: string } | null;
   quoteRequest?: boolean;
   demoRoute?: boolean;
 };
@@ -418,6 +421,8 @@ export function BookingFlow({
   const [minPickupTime, setMinPickupTime] = useState("");
   const checkoutAttemptRef = useRef("");
   const restoringDraftRef = useRef(false);
+  // Stage of this tab's unfinished booking restored on load (null when none).
+  const restoredStageRef = useRef<Stage | null>(null);
 
   useEffect(() => {
     if (restoringDraftRef.current) {
@@ -474,6 +479,7 @@ export function BookingFlow({
       const valid = draft?.version === 1 && Date.now() - draft.savedAt < RECOVERY_DRAFT_TTL;
       if (valid && draft) {
         restoringDraftRef.current = true;
+        restoredStageRef.current = draft.stage;
         // Restore one coherent browser-session snapshot after hydration.
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setStage(draft.stage);
@@ -500,6 +506,7 @@ export function BookingFlow({
         setQuoteRequest(Boolean(draft.quoteRequest));
         setDemoRoute(Boolean(draft.demoRoute));
         checkoutAttemptRef.current = draft.checkoutAttemptId;
+        rideRef.current = draft.ride ?? null;
       } else if (raw) {
         sessionStorage.removeItem(RECOVERY_DRAFT_KEY);
       }
@@ -606,6 +613,58 @@ export function BookingFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialRouteKey]);
   const chatAutoAdvance = useRef(false);
+  // /reservation?ride=…: the saved search behind this address, and a search
+  // waiting for the route picker to resolve its places before it is priced.
+  const rideRef = useRef<{ id: string; key: string } | null>(null);
+  const pendingRide = useRef<RideSearch | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("ride");
+    if (!isRideId(id)) return;
+    // This tab's own unfinished booking for the same ride wins (it has the prices and details typed).
+    try {
+      const raw = sessionStorage.getItem(RECOVERY_DRAFT_KEY);
+      const draft = raw ? (JSON.parse(raw) as BookingRecoveryDraft) : null;
+      if (draft?.version === 1 && Date.now() - draft.savedAt < RECOVERY_DRAFT_TTL && draft.ride?.id === id && draft.stage !== "search") return;
+    } catch { /* storage blocked: open the ride */ }
+    let active = true;
+    fetch(`/api/ride-search/${id}`, { cache: "no-store" })
+      .then(async (response) => {
+        const ride = response.ok ? parseRideSearch(((await response.json()) as { ride?: unknown }).ride) : null;
+        if (!active) return;
+        if (!ride) {
+          // This tab's own booking is showing: drop the dead link from the address and keep it.
+          if (restoredStageRef.current && restoredStageRef.current !== "search") window.history.replaceState(window.history.state, "", "/");
+          else setPricingMessage(t("ride.expired"));
+          return;
+        }
+        rideRef.current = { id, key: rideSearchKey(ride) };
+        pendingRide.current = ride;
+        setStage("search");
+        setServiceType("transfer");
+        setAdultPassengers(ride.adults);
+        setChildPassengers(ride.children);
+        setExtraBagSets(Math.max(0, ride.luggage - ride.adults - ride.children));
+        setReturnTrip(Boolean(ride.returnDate && ride.returnTime));
+        if (ride.returnDate && ride.returnTime) { setReturnDate(ride.returnDate); setReturnTime(ride.returnTime); }
+        setDepartureSelected(true);
+        setBooking((current) => ({ ...current, pickup: ride.pickup, dropoff: ride.dropoff, date: ride.date, time: ride.time, passengers: ride.adults + ride.children, luggage: ride.luggage }));
+        setFareQuote(null); setReturnFareQuote(null); setQuoteSummary(null); setHourlyQuote(null);
+        setRoutePrefill({ pickupPlaceId: ride.pickupPlaceId, dropoffPlaceId: ride.dropoffPlaceId, nonce: Date.now() });
+      })
+      .catch(() => { if (active) setPricingMessage(t("search.routeUnavailable")); });
+    return () => { active = false; };
+    // Opens once per page load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Once the picker has resolved the ride's places (and its first price check
+  // finished), run the normal search, which prices the trip and opens the results.
+  useEffect(() => {
+    const ride = pendingRide.current;
+    if (!ride || routeLoading || routeInfo?.pickupPlaceId !== ride.pickupPlaceId || routeInfo.dropoffPlaceId !== ride.dropoffPlaceId) return;
+    pendingRide.current = null;
+    void search({ preventDefault() {} } as FormEvent<HTMLFormElement>);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeInfo, routeLoading]);
   useEffect(() => {
     if (!chatAutoAdvance.current || stage !== "search" || !fareQuote?.prices?.[vehicle]) return;
     chatAutoAdvance.current = false;
@@ -699,6 +758,7 @@ export function BookingFlow({
       childPassengers,
       extraBagSets,
       checkoutAttemptId: checkoutAttemptRef.current,
+      ride: rideRef.current,
       quoteRequest,
       demoRoute,
     };
@@ -733,7 +793,10 @@ export function BookingFlow({
 
   const pricedVehicles = useMemo(
     () =>
-      vehicles.filter((item) => serviceType !== "hourly" || (HOURLY_VEHICLES.includes(item.id as typeof HOURLY_VEHICLES[number]) && (!hourlyQuote || Object.hasOwn(hourlyQuote.prices, item.id)))).map((item) => ({
+      vehicles.filter((item) => serviceType === "hourly"
+        ? HOURLY_VEHICLES.includes(item.id as typeof HOURLY_VEHICLES[number]) && (!hourlyQuote || Object.hasOwn(hourlyQuote.prices, item.id))
+        // Comfort BMW only on Bangkok ↔ airport: the quote leaves it out elsewhere.
+        : transferVehicleListed(item.id, fareQuote?.prices)).map((item) => ({
         ...item,
         passengers: VEHICLES[item.id as VehicleId].passengers,
         bags: VEHICLES[item.id as VehicleId].bags,
@@ -1086,6 +1149,32 @@ export function BookingFlow({
       }
     }
     goToStage("vehicle");
+    if (serviceType === "transfer" && routeInfo?.pickupPlaceId && routeInfo.dropoffPlaceId) void rememberRide(routeInfo);
+  }
+
+  // Gives the results their own address, /reservation?ride=…, so a refresh,
+  // Back or a shared link opens the same search (priced again).
+  async function rememberRide(info: RouteInfo) {
+    const ride = parseRideSearch({
+      pickupPlaceId: info.pickupPlaceId, dropoffPlaceId: info.dropoffPlaceId, pickup: booking.pickup, dropoff: booking.dropoff,
+      date: booking.date, time: booking.time, ...(returnTrip ? { returnDate, returnTime } : {}),
+      adults: adultPassengers, children: childPassengers, luggage: booking.luggage,
+    });
+    if (!ride) return;
+    const key = rideSearchKey(ride);
+    try {
+      let id = rideRef.current?.key === key ? rideRef.current.id : null;
+      if (!id) {
+        const response = await fetch("/api/ride-search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ride) });
+        if (!response.ok) return;
+        id = ((await response.json()) as { ride?: string }).ride ?? null;
+        if (!isRideId(id)) return;
+        rideRef.current = { id, key };
+      }
+      window.history.replaceState(window.history.state, "", rideUrl(id));
+    } catch {
+      // The results still work at the current address.
+    }
   }
 
   async function handleRouteChange(info: RouteInfo | null) {
@@ -1891,7 +1980,6 @@ export function BookingFlow({
           time={booking.time}
           vehicles={pricedVehicles.map(v=>({...v,bestForYou:v.id===recommendations.best}))}
           selectedVehicle={vehicle}
-          upgradeVehicle={recommendations.upgrade}
           quote={hourlyMap ? null : fareQuote}
           returnQuote={hourlyMap ? null : returnFareQuote}
           returnDate={returnDate}
@@ -1961,7 +2049,6 @@ export function BookingFlow({
               {hourlyQuote.cityToCity && <p className="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm text-ink">{hourlyQuote.area.name} · Same hourly price in both directions. Minimum 6 hours.</p>}
               <p className="mt-3 text-sm text-slate-600">Unlimited kilometres within the approved itinerary. Fuel, tolls, parking, ferries and driver return travel included. Overtime: {money(hourlyQuote.prices[chosenVehicle.id]?.extraHourRate ?? 0)}/hour; the first 15 minutes are free, then each started hour is charged.</p>
             </>; })()}
-            {hourlyQuote && recommendations.upgrade && (()=>{const upgrade=pricedVehicles.find(v=>v.id===recommendations.upgrade);return upgrade?<VehicleUpgrade name={upgrade.name} difference={upgrade.price-chosenVehicle.price} onSelect={()=>setVehicle(upgrade.id)}/>:null;})()}
             <h2 className="mt-8 text-sm font-black uppercase tracking-[.12em] text-ink">Choose your ride</h2>
             <div className="mt-3 space-y-3">
               {pricedVehicles.map((item) => (

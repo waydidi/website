@@ -1,20 +1,8 @@
-import { TransferLinks } from "./transfer-links";
 import { SHARE_IMAGE } from "@/components/seo";
-import { DestinationCards } from "./destination-cards";
-import { HowItWorks } from "@/components/home/how-it-works";
-import { HomeFaq } from "@/components/home/home-faq";
 import type { Metadata } from "next";
 import { getMessages, localeInfo, type Locale } from "@/lib/i18n";
 import { SITE_URL } from "@/lib/public-content";
-import { BookingFlow } from "./booking-flow";
-import { multiCityEnabled } from "@/lib/multi-city-server";
-import { ThailandDestinationMap } from "./destination-map";
-const SHOW_MAP: boolean = false;
-import { WaydidiFooter } from "./footer";
-import { FleetSection } from "./fleet-section";
-import { HomeTagline } from "./tagline";
-import { TransferPartners } from "./transfer-partners";
-import { DealsSection } from "./deals-section";
+import { HomeContent } from "./home-content";
 import { DevNotice } from "./dev-notice";
 import { WHATSAPP, WHATSAPP_URL } from "@/lib/contact";
 
@@ -38,27 +26,13 @@ export function homeMetadata(locale: Locale): Metadata {
   };
 }
 
-// The booking flow is interactive and owns the page; the marketing sections
-// below it render on the server and are handed in as children, so they ship
-// as HTML rather than as part of the client bundle.
 export function HomePage({ locale }: { locale: Locale }) {
   const messages = getMessages(locale);
   return (
-    <BookingFlow locale={locale} messages={messages} multiCity={multiCityEnabled()}>
+    <HomeContent locale={locale}>
       {/* Online booking is not ready yet: tell homepage visitors to book on WhatsApp. */}
       <DevNotice title={messages["devNotice.title"]} body={messages["devNotice.body"]} whatsapp={WHATSAPP} whatsappUrl={WHATSAPP_URL}
         contactLabel={messages["devNotice.contact"]} closeLabel={messages["devNotice.close"]} />
-      <HomeTagline locale={locale} />
-      <HowItWorks />
-      {/* Hidden for now: "Where Waydidi takes you" map. */}
-      {SHOW_MAP && <ThailandDestinationMap />}
-      <DestinationCards />
-      <FleetSection />
-      <TransferPartners />
-      <DealsSection />
-      <HomeFaq />
-      <TransferLinks />
-      <WaydidiFooter locale={locale} />
-    </BookingFlow>
+    </HomeContent>
   );
 }

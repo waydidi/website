@@ -39,14 +39,6 @@
     "text": "最适合您",
     "status": "machine"
   },
-  "vehicle.upgrade": {
-    "text": "升级为{name}",
-    "status": "machine"
-  },
-  "vehicle.upgradeNote": {
-    "text": "更舒适且可容纳您全组的车型。点击选择。",
-    "status": "machine"
-  },
   "transfers.title": {
     "text": "私人接送路线",
     "status": "machine"
@@ -1195,6 +1187,26 @@
     "text": "条款",
     "status": "machine"
   },
+  "results.approxTime": {
+    "text": "预计时间",
+    "status": "machine"
+  },
+  "results.distance": {
+    "text": "距离",
+    "status": "machine"
+  },
+  "results.hoursMinutes": {
+    "text": "{hours} 小时 {minutes} 分钟",
+    "status": "machine"
+  },
+  "results.minutes": {
+    "text": "{minutes} 分钟",
+    "status": "machine"
+  },
+  "results.km": {
+    "text": "{km} 公里",
+    "status": "machine"
+  },
   "addons.tag": {
     "text": "附加服务",
     "status": "machine"
@@ -1733,6 +1745,14 @@
   },
   "trips.faq.cancel.a": {
     "text": "退款按您预订时显示的政策执行。当前条款请查看退款政策页面。",
+    "status": "machine"
+  },
+  "ride.expired": {
+    "text": "此搜索链接已过期，请重新搜索。",
+    "status": "machine"
+  },
+  "results.chooseVehicle": {
+    "text": "选择您的车型",
     "status": "machine"
   },
   "salesQuote.message": {
