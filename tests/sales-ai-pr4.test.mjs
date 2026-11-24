@@ -259,3 +259,11 @@ test('WhatsApp webhook with SALES_AI_MEDIA=1: the photo note is in the customer 
   const row = await db.prepare("SELECT conversation_id,channel_message_id,read_status FROM whatsapp_media WHERE media_id='m-hook-1'").first();
   assert.equal(row.conversation_id, msgs[0].conversation_id); assert.equal(row.channel_message_id, 'wamid.photo1'); assert.equal(row.read_status, 'read');
 });
+
+test('a redirect from Meta is never followed', async () => {
+  const fetcher = async (u, init) => {
+    assert.equal(init.redirect, 'manual');
+    return String(u).startsWith('https://graph') ? Response.json({ url: 'https://lookaside.fbsbx.com/x', mime_type: 'image/jpeg' }) : new Response(null, { status: 302, headers: { location: 'https://169.254.169.254/' } });
+  };
+  assert.equal(await reader.readAttachment({ kind: 'image', mediaId: 'm-redirect', mimeType: 'image/jpeg', sha256: null, caption: null }, { fetcher }), null);
+});

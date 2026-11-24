@@ -49,13 +49,14 @@ const toBase64 = (bytes: Uint8Array) => { let s = ""; for (let i = 0; i < bytes.
 async function download(mediaId: string, fetcher: Fetcher): Promise<{ bytes: Uint8Array; mime: string | null } | { error: string }> {
   const version = /^v\d{1,3}\.\d{1,2}$/.test(vars().WHATSAPP_GRAPH_VERSION ?? "") ? vars().WHATSAPP_GRAPH_VERSION : "v21.0";
   const auth = { Authorization: `Bearer ${vars().WHATSAPP_TOKEN}` };
-  const metaRes = await fetcher(`https://graph.facebook.com/${version}/${encodeURIComponent(mediaId)}`, { headers: auth, signal: AbortSignal.timeout(6000), redirect: "error" }).catch(() => null);
-  if (!metaRes?.ok) return { error: "media details unavailable" };
+  // Redirect mode "manual" (workerd refuses the "error" mode): a redirect is never followed, and a 3xx is refused below.
+  const metaRes = await fetcher(`https://graph.facebook.com/${version}/${encodeURIComponent(mediaId)}`, { headers: auth, signal: AbortSignal.timeout(6000), redirect: "manual" }).catch(() => null);
+  if (!metaRes?.ok || metaRes.status >= 300) return { error: "media details unavailable" };
   const meta = await metaRes.json().catch(() => ({})) as { url?: unknown; mime_type?: unknown; file_size?: unknown };
   if (!allowedMediaUrl(meta.url)) return { error: "unexpected media location" };
   if (typeof meta.file_size === "number" && meta.file_size > MAX_MEDIA_BYTES) return { error: "file larger than 5 MB" };
-  const res = await fetcher(meta.url, { headers: auth, signal: AbortSignal.timeout(8000), redirect: "error" }).catch(() => null);
-  if (!res?.ok) return { error: "file download failed" };
+  const res = await fetcher(meta.url, { headers: auth, signal: AbortSignal.timeout(8000), redirect: "manual" }).catch(() => null);
+  if (!res?.ok || res.status >= 300) return { error: "file download failed" };
   if (Number(res.headers.get("content-length") ?? 0) > MAX_MEDIA_BYTES) return { error: "file larger than 5 MB" };
   const bytes = new Uint8Array(await res.arrayBuffer());
   return { bytes, mime: typeof meta.mime_type === "string" ? meta.mime_type : null };
