@@ -82,7 +82,7 @@ function Loss() {
     const out = await res.json().catch(() => ({})); if (!res.ok) { setError(out.error ?? "Not saved."); return; } setMsg("Saved."); await load(range);
   }
   return <section className="mt-4">
-    <p className="text-sm text-slate-600">Quotes sent after owner approval, counted once each (revisions and multi-trip quotes included). A quote with no answer is "Still open" for 7 days, then "No decision"; it is never counted as lost just for being quiet. Rates use closed quotes only.</p>
+    <p className="text-sm text-slate-600">Quotes sent after owner approval, counted once each (revisions and multi-trip quotes included). A quote with no answer is “Still open” for 7 days, then “No decision”; it is never counted as lost just for being quiet. Rates use closed quotes only.</p>
     <form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); void load(range); }}>
       <label className="grid gap-1 text-xs font-bold text-slate-700">From<input type="date" className={input} value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></label>
       <label className="grid gap-1 text-xs font-bold text-slate-700">To<input type="date" className={input} value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></label>
@@ -101,7 +101,7 @@ function Loss() {
       <Table title="By car" rows={data.byVehicle} /><Table title="By quote size" rows={data.bySize} /><Table title="By time to quote" rows={data.byLatency} />
       <section className="mt-6">
         <h2 className="text-base font-black text-plum">Quotes not booked</h2>
-        <p className="text-sm text-slate-600">Reason: your label, else a reason the customer's own words suggest (inferred), else unknown. Correct any of them.</p>
+        <p className="text-sm text-slate-600">Reason: your label, else a reason the customer’s own words suggest (inferred), else unknown. Correct any of them.</p>
         <ul className="mt-2 grid gap-2">{data.quotes.filter((q) => q.outcome === "declined" || q.outcome === "no_decision").map((q) => <li key={q.bundleId} className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
           <span className="font-bold text-plum">{q.route}</span><span className="text-slate-600">· {baht(q.totalThb)} · {q.trips} trip(s) · {bangkok(q.sentAt)} · {OUTCOME[q.outcome]}</span>
           <label className="ml-auto flex items-center gap-2 text-xs font-bold text-slate-700">Reason{q.reasonSource ? ` (${q.reasonSource})` : ""}
