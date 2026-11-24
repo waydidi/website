@@ -5,11 +5,16 @@ export type ModelPair = { fast: string; smart: string };
 export const DEFAULT_MODELS: ModelPair = { fast: "claude-haiku-4-5", smart: "claude-opus-5-5" };
 
 // US$ per million tokens: [input, output, cache read, cache write]. Update together with PRICE_TABLE_VERSION.
-export const PRICE_TABLE_VERSION = "2026-11-24";
+export const PRICE_TABLE_VERSION = "2026-11-25";
 export const MODEL_PRICES: Record<string, readonly [number, number, number, number]> = {
   "claude-haiku-4-5": [1, 5, 0.1, 1.25],
   "claude-opus-5-5": [4, 20, 0.2, 5],
+  "claude-haiku-5-5": [0.1, 0.5, 0.01, 0.125],
+  "claude-sonnet-5-5": [2, 10, 0.1, 2.5],
 };
+/** Reads customer photos and PDFs (AI_MODEL_VISION); a vision-capable model with structured outputs. */
+export const DEFAULT_VISION_MODEL = "claude-haiku-5-5";
+export const visionModel = (vars: Record<string, string | undefined>) => pick(vars.AI_MODEL_VISION, DEFAULT_VISION_MODEL);
 
 const MODEL_ID = /^[a-z0-9][a-z0-9.-]{2,80}$/;
 const pick = (value: string | undefined, fallback: string) => {

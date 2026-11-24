@@ -41,7 +41,7 @@ export const blankTrip = (): TripInput => ({
   notes: null, stops: [], transportPrice: 0, discount: 0, holdDays: 7, isTemplate: false, templateName: null,
 });
 
-export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode: Mode; tripId?: string; initialTemplate?: boolean }) {
+export function TripWorkspace({ mode, tripId, initialTemplate = false, initialChatText = "" }: { mode: Mode; tripId?: string; initialTemplate?: boolean; initialChatText?: string }) {
   const base = mode === "admin" ? "/api/admin" : "/api/agency";
   const home = mode === "admin" ? "/admin/trips" : "/agency/trips";
   const router = useRouter();
@@ -66,7 +66,7 @@ export function TripWorkspace({ mode, tripId, initialTemplate = false }: { mode:
   const [tab, setTab] = useState<Step>("setup");
   const [more, setMore] = useState(Boolean(tripId));
   // "Paste the customer's chat": the draft plan is made from it, with a progress bar while it works.
-  const [chatText, setChatText] = useState("");
+  const [chatText, setChatText] = useState(initialChatText);
   const [chatStage, setChatStage] = useState<0 | 1 | 2 | 3>(0);
   const [chatPct, setChatPct] = useState(0);
   const [chatError, setChatError] = useState("");
