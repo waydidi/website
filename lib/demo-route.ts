@@ -12,7 +12,7 @@ const FALLBACK_PATH: [number, number][] = [
 ];
 
 // Prototype fares in THB; not live pricing.
-export const DEMO_PRICES: Record<string, number> = { economy_sedan: 1400, comfort_bmw: 2000, comfort_suv: 1700, premium_minivan: 2400 };
+export const DEMO_PRICES: Record<string, number> = { economy_sedan: 1400, comfort_suv: 1700, premium_minivan: 2400 };
 
 // Koh Kood: the car drives to Laem Sok pier (Trat); the island hotel is the drop-off point.
 const KOH_KOOD = { latitude: 11.6560, longitude: 102.5620 };
@@ -21,7 +21,7 @@ const KOOD_FALLBACK: [number, number][] = [
   [13.69, 100.7501], [13.56, 100.88], [13.3, 100.985], [13.02, 100.95], [12.78, 101.2], [12.68, 101.6], [12.6, 102.0],
   [12.45, 102.25], [12.25, 102.5], [12.12, 102.56], [12.031, 102.585],
 ];
-const KOOD_PRICES: Record<string, number> = { economy_sedan: 5200, comfort_bmw: 7200, comfort_suv: 6200, premium_minivan: 8400 };
+const KOOD_PRICES: Record<string, number> = { economy_sedan: 5200, comfort_suv: 6200, premium_minivan: 8400 };
 
 export type DemoTrip = { id: "pattaya" | "koh-kood"; dropoff: { latitude: number; longitude: number }; driveTo: { latitude: number; longitude: number }; prices: Record<string, number>; fallback: [number, number][]; fallbackMeters: number; fallbackSeconds: number };
 

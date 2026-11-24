@@ -55,9 +55,9 @@ import { CancellationChoice } from "./cancellation-choice";
 import { MultiCityForm } from "./multi-city-form";
 import { RouteStopChoice } from "./route-stop-choice";
 import { selectedRouteStopIds, toggleRouteStop, type RouteStopCard, type RouteStopSelection } from "@/lib/route-stop-selection";
-import { VehicleUpgrade } from "./vehicle-upgrade";
 import { DateTimePicker } from "./date-time-picker";
 import { DurationPicker } from "./duration-picker";
+import { transferVehicleListed } from "@/lib/vehicle-routes";
 import { AreaPicker } from "./area-picker";
 import { HourlyAreaMap } from "./hourly-area-map";
 const shortPlaceName = (v: string) => v.split(",")[0]?.trim() || v;
@@ -733,7 +733,10 @@ export function BookingFlow({
 
   const pricedVehicles = useMemo(
     () =>
-      vehicles.filter((item) => serviceType !== "hourly" || (HOURLY_VEHICLES.includes(item.id as typeof HOURLY_VEHICLES[number]) && (!hourlyQuote || Object.hasOwn(hourlyQuote.prices, item.id)))).map((item) => ({
+      vehicles.filter((item) => serviceType === "hourly"
+        ? HOURLY_VEHICLES.includes(item.id as typeof HOURLY_VEHICLES[number]) && (!hourlyQuote || Object.hasOwn(hourlyQuote.prices, item.id))
+        // Comfort BMW only on Bangkok ↔ airport: the quote leaves it out elsewhere.
+        : transferVehicleListed(item.id, fareQuote?.prices)).map((item) => ({
         ...item,
         passengers: VEHICLES[item.id as VehicleId].passengers,
         bags: VEHICLES[item.id as VehicleId].bags,
@@ -1891,7 +1894,6 @@ export function BookingFlow({
           time={booking.time}
           vehicles={pricedVehicles.map(v=>({...v,bestForYou:v.id===recommendations.best}))}
           selectedVehicle={vehicle}
-          upgradeVehicle={recommendations.upgrade}
           quote={hourlyMap ? null : fareQuote}
           returnQuote={hourlyMap ? null : returnFareQuote}
           returnDate={returnDate}
@@ -1961,7 +1963,6 @@ export function BookingFlow({
               {hourlyQuote.cityToCity && <p className="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm text-ink">{hourlyQuote.area.name} · Same hourly price in both directions. Minimum 6 hours.</p>}
               <p className="mt-3 text-sm text-slate-600">Unlimited kilometres within the approved itinerary. Fuel, tolls, parking, ferries and driver return travel included. Overtime: {money(hourlyQuote.prices[chosenVehicle.id]?.extraHourRate ?? 0)}/hour; the first 15 minutes are free, then each started hour is charged.</p>
             </>; })()}
-            {hourlyQuote && recommendations.upgrade && (()=>{const upgrade=pricedVehicles.find(v=>v.id===recommendations.upgrade);return upgrade?<VehicleUpgrade name={upgrade.name} difference={upgrade.price-chosenVehicle.price} onSelect={()=>setVehicle(upgrade.id)}/>:null;})()}
             <h2 className="mt-8 text-sm font-black uppercase tracking-[.12em] text-ink">Choose your ride</h2>
             <div className="mt-3 space-y-3">
               {pricedVehicles.map((item) => (

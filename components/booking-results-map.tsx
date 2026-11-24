@@ -5,7 +5,6 @@ import { ArrowLeft, ArrowRightLeft, CarFront, Check, CheckCircle2, CircleHelp, F
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCurrency } from "@/components/use-currency";
 import { useI18n } from "@/components/i18n-provider";
-import { VehicleUpgrade } from "@/components/home/vehicle-upgrade";
 import { CancelCalendar3D } from "@/components/icons/cancel-calendar-3d";
 import { inclusionLines, parseInclusions, type Inclusions } from "@/lib/route-inclusions";
 import { waitingLine } from "@/lib/waiting-policy";
@@ -61,7 +60,6 @@ type Props = {
   time: string;
   vehicles: Vehicle[];
   selectedVehicle: string;
-  upgradeVehicle?: string | null;
   quote: MapQuote | null;
   returnQuote?: MapQuote | null;
   returnDate?: string;
@@ -150,31 +148,6 @@ function grabMarker(name: string, color: string, side: "right" | "left") {
 }
 export const grabPickup = (name: string) => grabMarker(name, "#E8543C", "right");
 export const grabDropoff = (name: string) => grabMarker(name, "#3478F6", "left");
-
-// Time/distance bubble beside the line: to the right of a mostly vertical
-// stretch, above a mostly horizontal one, never on top of the route.
-function grabBubble(minutes: number, km: number, placement: "right" | "above") {
-  const time = minutes >= 60 ? `${Math.floor(minutes / 60)} hr ${Math.round(minutes % 60)} min` : `${Math.max(1, Math.round(minutes))} min`;
-  const where = placement === "right"
-    ? "left:18px;top:0;transform:translateY(-50%)"
-    : "left:0;bottom:18px;transform:translateX(-50%)";
-  return `<div style="position:relative;width:0;height:0"><div style="position:absolute;${where};width:max-content;padding:8px 14px 9px;border-radius:14px;background:#00B14F;color:#fff;font:500 15px/1.25 ${GRAB_FONT};white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)"><div>Best</div><div style="font-size:13px;font-weight:400;opacity:.95">${time}·${km.toFixed(1)} km</div></div></div>`;
-}
-
-// Point halfway along the route by distance, and which side the bubble goes.
-function routeMiddle(path: [number, number][]) {
-  if (path.length < 2) return { point: path[0], placement: "right" as const };
-  const dist = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], (a[1] - b[1]) * Math.cos((a[0] * Math.PI) / 180));
-  const total = path.slice(1).reduce((sum, p, i) => sum + dist(path[i], p), 0);
-  let run = 0, i = 1;
-  for (; i < path.length; i++) { const step = dist(path[i - 1], path[i]); if (run + step >= total / 2) break; run += step; }
-  const at = Math.min(i, path.length - 1);
-  const before = path[Math.max(0, at - 3)], after = path[Math.min(path.length - 1, at + 3)];
-  const dLat = Math.abs(after[0] - before[0]), dLng = Math.abs((after[1] - before[1]) * Math.cos((after[0] * Math.PI) / 180));
-  return { point: path[at], placement: dLat >= dLng ? ("right" as const) : ("above" as const) };
-}
-
-
 
 // How far the sheet sits below its expanded position when collapsed: the
 // map fills 70% of the screen, less the sheet's rounded overlap.
@@ -401,10 +374,7 @@ export function BookingResultsMap(props: Props) {
       lines.push(new maps.Polyline({ map, path: route, strokeColor: TRAFFIC_CASING.NORMAL, strokeOpacity: 1, strokeWeight: 9 }));
       lines.push(new maps.Polyline({ map, path: route, strokeColor: TRAFFIC_COLORS.NORMAL, strokeOpacity: 1, strokeWeight: 6 }));
     }
-    const travel = traffic?.durationSeconds ? traffic.durationSeconds / 60 : props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
-    const middle = routeMiddle(route.map((p: any) => [p.lat(), p.lng()] as [number, number]));
     const overlays = [
-      htmlOverlay(maps, map, new maps.LatLng(middle.point[0], middle.point[1]), grabBubble(travel, props.quote.distanceMeters / 1000, middle.placement), "point"),
       htmlOverlay(maps, map, new maps.LatLng(dropoff), grabDropoff(shortPlace(props.dropoff)), "point"),
       htmlOverlay(maps, map, new maps.LatLng(pickup), grabPickup(shortPlace(props.pickup)), "point"),
     ];
@@ -434,10 +404,7 @@ export function BookingResultsMap(props: Props) {
     const segments = traffic ? trafficSegments(traffic.path, traffic.intervals) : [{ points: path, speed: "NORMAL" as const }];
     for (const segment of segments) L.polyline(segment.points, { color: TRAFFIC_CASING[segment.speed], weight: 9, opacity: 1, lineCap: "round", lineJoin: "round" }).addTo(map);
     for (const segment of segments) L.polyline(segment.points, { color: TRAFFIC_COLORS[segment.speed], weight: 6, opacity: 1, lineCap: "round", lineJoin: "round" }).addTo(map);
-    const travel = traffic?.durationSeconds ? traffic.durationSeconds / 60 : props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60;
     const icon = (html: string) => L.divIcon({ className: "", html, iconSize: [0, 0] });
-    const middle = routeMiddle(line);
-    L.marker(middle.point, { icon: icon(grabBubble(travel, props.quote.distanceMeters / 1000, middle.placement)), interactive: false }).addTo(map);
     L.marker(dropoff, { icon: icon(grabDropoff(shortPlace(props.dropoff))), interactive: false, zIndexOffset: 500 }).addTo(map);
     L.marker(pickup, { icon: icon(grabPickup(shortPlace(props.pickup))), interactive: false, zIndexOffset: 1000 }).addTo(map);
     const routeBounds = L.latLngBounds(line);
@@ -611,6 +578,12 @@ export function BookingResultsMap(props: Props) {
     return () => { [html.style.overflow, body.style.overflow, html.style.overscrollBehavior] = previous; };
   }, []);
 
+  // Time and distance under the search pill (live traffic time when we have it).
+  const travelMinutes = props.quote ? (traffic?.durationSeconds ? traffic.durationSeconds / 60 : props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60) : null;
+  const travelText = travelMinutes == null ? null : travelMinutes >= 60
+    ? t("results.hoursMinutes", { hours: Math.floor(travelMinutes / 60), minutes: Math.round(travelMinutes % 60) })
+    : t("results.minutes", { minutes: Math.max(1, Math.round(travelMinutes)) });
+
   // Priced and ready to show: a route quote, or (by the hour) the area.
   const ready = Boolean(props.quote || (props.area && props.checkoutReady !== false));
   const priceReady=ready&&!props.loading&&props.checkoutReady!==false;
@@ -632,6 +605,10 @@ export function BookingResultsMap(props: Props) {
       <button type="button" onClick={props.onEditTrip ?? props.onEdit} className="absolute left-1/2 top-[max(16px,env(safe-area-inset-top))] z-10 flex h-11 max-w-[calc(100%-140px)] -translate-x-1/2 items-center gap-2 rounded-full bg-white px-5 text-[16px] font-medium text-charcoal shadow-md" aria-label="Edit passengers, date and time">
         <Users size={20} className="shrink-0 text-brand" aria-hidden="true" /><span className="truncate">{passengers} · {pillLabel(props.date, props.time)}</span>
       </button>
+      {props.quote && travelText && <div className="absolute left-1/2 top-[calc(max(16px,env(safe-area-inset-top))+52px)] z-10 -translate-x-1/2 whitespace-nowrap rounded-2xl bg-white px-4 py-2 text-[14px] leading-5 text-charcoal shadow-md">
+        <p>{t("results.approxTime")}: <strong className="font-semibold">{travelText}</strong></p>
+        <p>{t("results.distance")}: <strong className="font-semibold">{t("results.km", { km: (props.quote.distanceMeters / 1000).toFixed(1) })}</strong></p>
+      </div>}
     </div>
 
     {/* Sheet */}
@@ -664,7 +641,7 @@ export function BookingResultsMap(props: Props) {
 
         {arrived && <p className="mb-1 flex items-center gap-2 truncate rounded-xl bg-[#ECFDF3] px-3 py-2 text-[13px] font-semibold text-[#067647]"><span className="size-2 shrink-0 rounded-full bg-[#00B14F] shadow-[0_0_0_3px_rgba(0,177,79,.2)]" aria-hidden="true" />{arrived}</p>}
 
-        <ul className="grid gap-3 pt-2.5">
+        <ul className="grid gap-3 pt-[15px]">
           {props.vehicles.map((item) => {
             const active = item.id === selected?.id;
             const off = !ready || item.fits === false;
@@ -702,7 +679,6 @@ export function BookingResultsMap(props: Props) {
           })}
         </ul>
 
-        {ready && priceReady && !props.quoteRequest && props.upgradeVehicle && (()=>{const upgrade=props.vehicles.find(v=>v.id===props.upgradeVehicle);return upgrade&&selected?<VehicleUpgrade name={upgrade.name} difference={upgrade.price-selected.price} onSelect={()=>props.onSelectVehicle(upgrade.id)}/>:null;})()}
         {/* Free cancellation before FULL_REFUND_HOURS; partial refund until PARTIAL_REFUND_HOURS (lib/refund-policy.ts). */}
         {ready && !props.quoteRequest && (cancelDeadlineAt(props.date, props.time) > clock ? <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[#BFE8CF] bg-gradient-to-br from-[#F1FBF5] to-[#E6F7EE] p-4 shadow-[0_4px_18px_rgba(22,120,70,.08)]">
           <CancelCalendar3D size={56} className="shrink-0" />
@@ -840,10 +816,10 @@ export function BookingResultsMap(props: Props) {
 
     <DialogPrimitive.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="font-home fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-[20px] bg-white text-charcoal shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:inset-x-auto sm:left-1/2 sm:w-[520px] sm:-translate-x-1/2">
-          <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-[#D9D9D9]" aria-hidden="true" />
-          <div className="flex items-start justify-between px-5 pt-4">
+        {/* Opens at once in the middle of the screen (no slide or fade). */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40" />
+        <DialogPrimitive.Content className="font-home fixed left-1/2 top-1/2 z-[81] flex max-h-[85dvh] w-[calc(100%-32px)] max-w-[520px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[20px] bg-white text-charcoal shadow-2xl outline-none">
+          <div className="flex items-start justify-between px-5 pt-5">
             <div>
               <DialogPrimitive.Title className="text-[26px] font-semibold leading-tight">Your Booking</DialogPrimitive.Title>
               <DialogPrimitive.Description className="sr-only">Trip details, price and route</DialogPrimitive.Description>

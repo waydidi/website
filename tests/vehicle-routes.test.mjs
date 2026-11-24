@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ALL_VEHICLES, bmwAllowed, limitVehicles, routeHasAllPrices } from '../lib/vehicle-routes.ts';
+import { ALL_VEHICLES, bmwAllowed, limitVehicles, routeHasAllPrices, transferVehicleListed } from '../lib/vehicle-routes.ts';
+import { DEMO_PRICES, demoTripFor } from '../lib/demo-route.ts';
 import { VEHICLES } from '../lib/vehicles.ts';
 const BKK={latitude:13.6900,longitude:100.7501},DMK={latitude:13.9126,longitude:100.6067},SUKHUMVIT={latitude:13.7376,longitude:100.5601},PATTAYA={latitude:12.9236,longitude:100.8825};
 test('Comfort BMW only between Bangkok and its airports',()=>{
@@ -17,4 +18,17 @@ test('a route needs a price for every car sold on it, and nothing more',()=>{
  assert.equal(routeHasAllPrices({...three,comfort_bmw:1},BKK,SUKHUMVIT),true);
  for(const id of Object.keys(three)){const missing={...three};delete missing[id];assert.equal(routeHasAllPrices(missing,BKK,PATTAYA),false,id);}
  assert.equal(routeHasAllPrices({},BKK,PATTAYA),false);
+});
+
+test('results list shows Comfort BMW only when the route quote priced it',()=>{
+ const pattaya=limitVehicles({economy_sedan:1,comfort_bmw:2,comfort_suv:3,premium_minivan:4},BKK,PATTAYA);
+ assert.deepEqual(ALL_VEHICLES.filter(id=>transferVehicleListed(id,pattaya)),['economy_sedan','comfort_suv','premium_minivan']);
+ const city=limitVehicles({economy_sedan:1,comfort_bmw:2,comfort_suv:3,premium_minivan:4},BKK,SUKHUMVIT);
+ assert.equal(transferVehicleListed('comfort_bmw',city),true);
+ assert.equal(transferVehicleListed('comfort_bmw',null),false);
+ assert.equal(transferVehicleListed('economy_sedan',null),true);
+});
+test('sample routes (Pattaya, Koh Kood) never price Comfort BMW',()=>{
+ assert.equal('comfort_bmw' in DEMO_PRICES,false);
+ assert.equal('comfort_bmw' in demoTripFor('Suvarnabhumi','Koh Kood').prices,false);
 });
