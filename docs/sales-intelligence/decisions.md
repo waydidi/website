@@ -12,12 +12,13 @@
 | D8 | 2026-11-24 | Activity log retention 180 days by default (`AI_ACTIVITY_RETENTION_DAYS`) | PDPA minimization; long enough to analyze lost quotes | Proposed (PR 1) |
 | D9 | 2026-11-24 | WhatsApp media is recorded by reference only in PR 1; nothing is downloaded until F01 | Media URLs need the access token and short-lived handling; reading comes with prompt-injection tests | Proposed (PR 1) |
 | D10 | 2026-11-24 | Similar-route pricing will only be a staff hint until a backtest against past bookings shows its error rate | Weights in the brief are unvalidated | Proposed |
-| D11 | 2026-11-24 | Staff Telegram text in Thai; customer text in en/th/zh through `messages/*.json` | Repository rules | Repository |
+| D11 | 2026-11-24 | Customer text in en/th/zh through `messages/*.json`. (Staff Telegram language: see D15) | Repository rules | Repository |
 | D12 | 2026-11-24 | The chat assistant is renamed from "Non" to "Waydidi Assistant" for customers and staff (`lib/cee/name.ts`). Older messages saved as "Non" are shown with the new name. Code paths keep their `cee` file names; the kill switch is `ASSISTANT_DISABLED_CHANNELS` | Owner request | Owner |
+| D13 | 2026-11-24 | Only the **owner** approves AI quotes in Telegram. Every approval action checks that the Telegram user is linked to an active staff account with role `owner`; support and operations are refused even if added to the group later | The owner is the only admin in the Telegram group | Owner |
+| D14 | 2026-11-24 | An approved WhatsApp quote stays valid for **3 hours** from approval. The website's 30-minute transfer quote (`lib/quote-validity.ts`) is unchanged. Price and availability are checked again when the customer books | Owner answer | Owner |
+| D15 | 2026-11-24 | Staff Telegram cards for Sales Intelligence stay in **English**. This is an owner exception to the repository rule "Staff-facing Telegram text is Thai" (`AGENTS.md`) | Owner answer | Owner |
 
 ## Open questions for the owner
 
-- Quote validity for AI drafts: keep the existing 30 minutes (`lib/quote-validity.ts`) or longer for approved WhatsApp quotes?
 - Target margin and payment fee figures for the margin floor (PR 3).
-- Which staff roles may approve quotes in Telegram: owner and operations, or support too?
 - Approved WhatsApp templates (needed before any follow-up outside 24 hours).
