@@ -9,8 +9,6 @@
   "cancellation.flexibleTerms": "Full refund at least {hours} hours before pickup; no refund after.",
   "cancellation.fareNote": "Fare before promo/member discounts and add-ons. Your selected policy covers the whole booking, including the return. Waydidi cancellations are fully refunded; no-shows are not.",
   "vehicle.bestForYou": "Best for you",
-  "vehicle.upgrade": "Upgrade to {name}",
-  "vehicle.upgradeNote": "A more comfortable class that fits your group. Tap to select.",
   "transfers.title": "Private transfer routes",
   "transfers.description": "Travel between Thai airports, cities and resorts in a private vehicle. Choose your pickup, destination and travel date to confirm availability and the exact fare.",
   "transfers.estimate": "Indicative base fares per vehicle for the estimated road distance. Exact addresses, date, seasonal adjustments and optional extras may change the final quote.",
@@ -298,6 +296,11 @@
   "promo.copyUse": "Copy & Use",
   "promo.copied": "Copied!",
   "promo.tc": "T&C",
+  "results.approxTime": "Approx time",
+  "results.distance": "Distance",
+  "results.hoursMinutes": "{hours} hr {minutes} min",
+  "results.minutes": "{minutes} min",
+  "results.km": "{km} km",
   "addons.tag": "Add-ons",
   "addons.title": "Additional services",
   "addons.subtitle": "Add extras to your ride. Your driver will have them ready.",
@@ -432,5 +435,7 @@
   "trips.faq.tickets.q": "Are tickets and meals included?",
   "trips.faq.tickets.a": "Check the Included and Not included lists on this page. Anything not listed as included is yours to pay on the day.",
   "trips.faq.cancel.q": "What if I need to cancel?",
-  "trips.faq.cancel.a": "Refunds follow the policy shown when you book. See our refund policy page for the current terms."
+  "trips.faq.cancel.a": "Refunds follow the policy shown when you book. See our refund policy page for the current terms.",
+  "ride.expired": "This search link has expired. Please search again.",
+  "results.chooseVehicle": "Choose your vehicle"
 }
