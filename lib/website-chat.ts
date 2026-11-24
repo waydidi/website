@@ -5,6 +5,7 @@ import { deliverToChannel } from "@/lib/channels";
 import { logActivity } from "@/lib/sales-ai/activity-log";
 import { whatsappWindowOpen } from "@/lib/sales-ai/whatsapp-rules";
 import { ASSISTANT_NAME } from "@/lib/cee/name";
+import { afterCustomerMessage } from "@/lib/sales-ai/leads";
 import { editCard, sendCard, sendPrivate, sendPreparedTelegram, telegramChatId as teamTelegramChatId, telegramConfigured, TelegramDeliveryError } from "@/lib/telegram/client";
 import { ensureTelegramMessages, readTelegramMessage, freezeTelegramMessage, ownsTelegramMessage, telegramMessageGuard, telegramMessageOutcome, purgeTelegramMessages, type PreparedTelegram } from "@/lib/telegram/message-store";
 import { telegramBudgetExpired, telegramNextAttempt, TELEGRAM_MAX_AGE_MS } from "@/lib/telegram/outbox-rules";
@@ -76,6 +77,8 @@ export async function addVisitorMessage(c: Conversation, body: string, clientId:
     return { duplicate: true as const };
   }
   await deliverVisitorMessage(c.id, id).catch(() => undefined);
+  // Lead signals and follow-up stop words (only with SALES_AI_LEADS / SALES_AI_FOLLOWUPS; never throws).
+  await afterCustomerMessage(c.id, id, body);
   return { duplicate: false as const, id };
 }
 

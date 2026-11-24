@@ -441,5 +441,7 @@
   "salesQuote.message": "Here is your Waydidi quote:\n{route}\nDate: {date} at {time}\nPassengers: {passengers}, bags: {bags}\nCar: {car}\nPrice: ฿{price} per car\nValid until {validUntil} (Thailand time)\n\nAccept and book here: {url}",
   "salesQuote.multiIntro": "Here is your Waydidi quote for {count} trips. You can accept each trip separately:",
   "salesQuote.multiLeg": "Trip {n}: {route}\nDate: {date} at {time}\nPassengers: {passengers}, bags: {bags}\nCar: {car}\nPrice: ฿{price} per car\nAccept and book: {url}",
-  "salesQuote.multiTotal": "Total for all trips: ฿{total}\nValid until {validUntil} (Thailand time)"
+  "salesQuote.multiTotal": "Total for all trips: ฿{total}\nValid until {validUntil} (Thailand time)",
+  "salesFollowup.validReminder": "Hi! Just a reminder that your Waydidi quote for {date} is valid until {validUntil} (Thailand time). You can accept it with the link above, or reply here with any questions.",
+  "salesFollowup.checkIn": "Hi! Just checking in about your trip on {date}. If you'd still like a car, reply here and we'll confirm an up-to-date price."
 }

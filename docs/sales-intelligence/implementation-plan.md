@@ -9,7 +9,7 @@ Six reviewable pull requests. Each one is off by default behind a Worker variabl
 | 2 | Quote drafts + Telegram approval: transfer prices become owner-approved drafts, `crm_quotes` with price source, English approval card (Approve & send / other car / Edit price / Reject / Take over), owner-only, single-use revisioned callbacks, superseding drafts, 3-hour validity | Yes, only after owner approval | `SALES_AI_QUOTE_APPROVAL=whatsapp` (channel list) |
 | ~~3~~ | ~~Supplier rates and margin floor~~: dropped (decision D20). Prices come only from the website price database or the owner's typed price | n/a | n/a |
 | 4 | Several trips in one draft (one approval, one CRM quote per trip), special requests flagged on the card, trip planning requests into the existing trip planner, reading WhatsApp photos/PDFs into checked fields (F01–F04) | Yes, after owner approval; file reading off by default | `SALES_AI_QUOTE_APPROVAL` (bundles), `SALES_AI_MEDIA=1` (files) |
-| 5 | Lead scoring, follow-ups, lost-quote analysis (F07, F10, F12) | Follow-ups only, off by default | `SALES_AI_FOLLOWUPS=1` |
+| 5 | Lead scoring with evidence and one hot-lead alert, follow-ups decided at send time, 7-day loss-reason card, on-demand lost-quote analysis with CSV (F07, F10, F12). No daily report | Follow-ups only, off by default | `SALES_AI_LEADS=1`, `SALES_AI_FOLLOWUPS=1`, `SALES_AI_FOLLOWUP_HOURS` |
 | later | Shadow-mode accuracy report and an approved autopilot policy (owner opt-in). No similar-route or cost-based pricing (D20) | Depends on owner approval | owner opt-in |
 
 ## PR 1 detail

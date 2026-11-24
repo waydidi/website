@@ -1770,5 +1770,13 @@
   "salesQuote.multiTotal": {
     "text": "รวมทุกเที่ยว: ฿{total}\nใช้ได้ถึง {validUntil} (เวลาประเทศไทย)",
     "status": "machine"
+  },
+  "salesFollowup.validReminder": {
+    "text": "สวัสดีครับ แจ้งเตือนว่าใบเสนอราคา Waydidi สำหรับวันที่ {date} ใช้ได้ถึง {validUntil} (เวลาประเทศไทย) ยืนยันได้จากลิงก์ด้านบน หรือตอบกลับที่นี่หากมีคำถาม",
+    "status": "machine"
+  },
+  "salesFollowup.checkIn": {
+    "text": "สวัสดีครับ ขอติดตามเรื่องการเดินทางวันที่ {date} หากยังต้องการรถ ตอบกลับที่นี่ได้เลย เราจะยืนยันราคาล่าสุดให้",
+    "status": "machine"
   }
 }

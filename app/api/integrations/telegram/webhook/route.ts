@@ -1,4 +1,5 @@
 import { handleQuoteCallback, handleQuotePriceReply } from "@/lib/sales-ai/quote-drafts";
+import { handleLossCallback } from "@/lib/sales-ai/loss";
 import { env } from "cloudflare:workers";
 import { answerInGroup, assistantConfigured } from "@/lib/telegram/assistant";
 import { answerJobLookup } from "@/lib/telegram/job-lookup";
@@ -97,6 +98,8 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   const admin = await approved(q.from);
   if (!admin) return answerCallback(q.id, `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: ${q.from.id}`, true);
   // Quote drafts from the assistant: owner only, checked again inside (decision D13).
+  // Loss reasons on a 7-day "no reply" card (owner only, checked inside).
+  if ((q.data ?? "").startsWith("sl:")) { const a = await handleLossCallback(q.data ?? "", q.from); return answerCallback(q.id, a.text, Boolean(a.alert)); }
   if ((q.data ?? "").startsWith("sq_")) { const a = await handleQuoteCallback(q.data ?? "", q.from, q.message?.message_id ?? null); return answerCallback(q.id, a.text, Boolean(a.alert)); }
   const [action, target, extra] = (q.data ?? "").split(":");
   if (!target || target.length > 60) return answerCallback(q.id, "Unknown action.");
