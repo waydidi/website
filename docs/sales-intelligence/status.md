@@ -53,7 +53,7 @@ To try it on the test number: set `SALES_AI_QUOTE_APPROVAL=whatsapp`, make sure 
 - WhatsApp is on a Meta test number. Live number +66 63 206 4884 and coexistence: not touched.
 - Approved WhatsApp templates: none yet (needed for follow-ups and messages outside 24 hours).
 - Supplier contract rates: none yet (PR 3 starts with empty tables).
-- Open questions in `decisions.md` (quote validity for AI drafts, margin and fee figures, which roles approve quotes).
+- Open questions in `decisions.md`: target margin and payment fee figures (PR 3), approved WhatsApp templates (PR 5).
 
 ## Deferred to later PRs
 
@@ -61,4 +61,4 @@ PR 3 supplier rates and margin floor; PR 4 multi-leg, images, itineraries; PR 5 
 
 ## Worker variables (all optional; defaults keep today's behaviour)
 
-`AI_MODEL_FAST`, `AI_MODEL_SMART`, `ASSISTANT_DISABLED_CHANNELS`, `AI_ACTIVITY_RETENTION_DAYS`, `WHATSAPP_GRAPH_VERSION`. The new tables are created on first use and by `drizzle/0127_sales_ai_foundations.sql`.
+`SALES_AI_QUOTE_APPROVAL` (PR 2), `AI_MODEL_FAST`, `AI_MODEL_SMART`, `ASSISTANT_DISABLED_CHANNELS`, `AI_ACTIVITY_RETENTION_DAYS`, `WHATSAPP_GRAPH_VERSION`. The new tables are created on first use and by `drizzle/0127_sales_ai_foundations.sql` and `drizzle/0128_ai_quote_drafts.sql`.
