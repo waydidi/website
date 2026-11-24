@@ -93,12 +93,15 @@ test('a takeover before Non saves its reply stops the reply: nothing stored, not
   const id = await conversation({ channel: 'whatsapp' });
   await db.prepare("UPDATE website_conversations SET assigned_name='Alice',assigned_staff_id='alice' WHERE id=?").bind(id).run();
   sent.length = 0;
-  assert.equal(await chat.addBotMessage(id, 'Price is ฿1,800'), null);
+  assert.equal(await chat.addBotMessage(id, 'Price is ฿1,800', null, { onlyWhileNonActive: true }), null);
   assert.equal((await botMessages(id)).length, 0);
   assert.equal(sent.length, 0);
   const [row] = await activity('send_suppressed', id);
   assert.equal(row.status, 'suppressed');
   assert.match(row.summary, /staff/i);
+  // System notices (payment received, "thanks for waiting") still reach the customer after a takeover.
+  assert.ok(await chat.addBotMessage(id, 'Payment received, thank you!'));
+  assert.equal(sent.length, 1);
 });
 
 test('staff taking over while the model is still thinking means Non stays silent', async () => {
@@ -202,4 +205,12 @@ test('a repeated dedupe key logs once and retention purges old rows', async () =
   await log.purgeActivity(new Date());
   assert.equal(await db.prepare("SELECT id FROM ai_activity_log WHERE id='old'").first(), null);
   assert.ok(await db.prepare("SELECT id FROM ai_activity_log WHERE dedupe_key='wa-in:dup'").first());
+});
+
+test('the AI activity page and API are refused for every role except owner', async () => {
+  const { allowedStaffRoute } = await vite.ssrLoadModule('/lib/staff-security.ts');
+  for (const path of ['/admin/ai-activity', '/api/admin/ai-activity', '/admin/ai-activity.rsc']) {
+    assert.equal(allowedStaffRoute('owner', path, 'GET'), true, path);
+    for (const role of ['operations', 'support', 'finance', 'editor']) assert.equal(allowedStaffRoute(role, path, 'GET'), false, `${role} ${path}`);
+  }
 });

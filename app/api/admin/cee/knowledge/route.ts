@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
-import { MODELS, ceeEnabled, modelMode, setModelMode, usageFor, type ModelMode } from "@/lib/cee/bot";
+import { activeModels, ceeEnabled, modelMode, setModelMode, usageFor, type ModelMode } from "@/lib/cee/bot";
 import { deleteNote, listNotes, parseMarkdown, saveNote, validNote } from "@/lib/cee/knowledge";
 import { lineConfigured, whatsappConfigured } from "@/lib/channels";
 import { assistantUsage } from "@/lib/telegram/assistant";
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const vars = env as unknown as Record<string, unknown>;
   return NextResponse.json({
     notes, owner: staff.role === "owner",
-    cee: { enabled: await ceeEnabled(), keySet: Boolean(vars.ANTHROPIC_API_KEY), mapsKeySet: Boolean(vars.GOOGLE_MAPS_SERVER_KEY), mode: await modelMode(), models: MODELS, usage: await usageFor() },
+    cee: { enabled: await ceeEnabled(), keySet: Boolean(vars.ANTHROPIC_API_KEY), mapsKeySet: Boolean(vars.GOOGLE_MAPS_SERVER_KEY), mode: await modelMode(), models: activeModels(), usage: await usageFor() },
     channels: { whatsapp: whatsappConfigured(), line: lineConfigured() },
     telegramAssistant: await assistantUsage(),
   }, { headers });

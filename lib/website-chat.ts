@@ -2,6 +2,8 @@ import { ensureReliabilityTables, reliabilityDb, rememberTelegramRoute } from ".
 import { env } from "cloudflare:workers";
 import { SITE_URL } from "@/lib/site";
 import { deliverToChannel } from "@/lib/channels";
+import { logActivity } from "@/lib/sales-ai/activity-log";
+import { whatsappWindowOpen } from "@/lib/sales-ai/whatsapp-rules";
 import { editCard, sendCard, sendPrivate, sendPreparedTelegram, telegramChatId as teamTelegramChatId, telegramConfigured, TelegramDeliveryError } from "@/lib/telegram/client";
 import { ensureTelegramMessages, readTelegramMessage, freezeTelegramMessage, ownsTelegramMessage, telegramMessageGuard, telegramMessageOutcome, purgeTelegramMessages, type PreparedTelegram } from "@/lib/telegram/message-store";
 import { telegramBudgetExpired, telegramNextAttempt, TELEGRAM_MAX_AGE_MS } from "@/lib/telegram/outbox-rules";
@@ -236,14 +238,26 @@ export async function addStaffMessage(conversationId: string, body: string, who:
   return { id };
 }
 
-/** Non's reply: shown as "Non", never assigns the conversation, mirrored to Telegram. */
-export async function addBotMessage(conversationId: string, rawBody: string, card?: object | null) {
+/**
+ * Non's reply: shown as "Non", never assigns the conversation, mirrored to Telegram.
+ * onlyWhileNonActive (Non's own answers): the insert itself checks that no person has taken the chat,
+ * Non isn't paused and the chat isn't closed, so a takeover at any moment before the insert stops the reply.
+ * System notices (payment received, "thanks for waiting", idle nudges) leave it off and are always sent.
+ */
+export async function addBotMessage(conversationId: string, rawBody: string, card?: object | null, options: { onlyWhileNonActive?: boolean } = {}) {
   const body = plainText(rawBody);
   const c = await conversationById(conversationId);
   if (!c) return null;
   const now = nowIso(), id = crypto.randomUUID();
   const website = (c.channel ?? "web") === "web";
-  await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot,card_json,telegram_status) VALUES(?,?,'staff',?,?,'Non',1,?,?)`).bind(id, c.id, body, now, card ? JSON.stringify(card) : null, website ? "pending" : "skipped").run();
+  const insert = await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot,card_json,telegram_status)
+    SELECT ?,?,'staff',?,?,'Non',1,?,? WHERE ?=0 OR EXISTS(SELECT 1 FROM website_conversations WHERE id=? AND status<>'closed' AND assigned_name IS NULL AND COALESCE(bot_paused,0)=0)`)
+    .bind(id, c.id, body, now, card ? JSON.stringify(card) : null, website ? "pending" : "skipped", options.onlyWhileNonActive ? 1 : 0, c.id).run();
+  if (!insert.meta.changes) {
+    await logActivity({ event: "send_suppressed", status: "suppressed", actor: "non", channel: c.channel ?? "web", conversationId: c.id,
+      summary: "Non's reply was not sent: a staff member took over, Non was paused or the chat closed while it was answering" });
+    return null;
+  }
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();
   await toChannel(c, id, body);
   if (website) await deliverBotMessage(c.id, id).catch(() => undefined);
@@ -262,6 +276,16 @@ async function toChannel(c: Conversation, messageId: string, body: string) {
       const fresh = new Date(Date.now() - 50000).toISOString();
       const row = await db().prepare("SELECT line_reply_token t FROM website_conversations WHERE id=? AND line_reply_token IS NOT NULL AND line_reply_token_at>?").bind(c.id, fresh).first<{ t: string }>();
       if (row && (await db().prepare("UPDATE website_conversations SET line_reply_token=NULL WHERE id=? AND line_reply_token=?").bind(c.id, row.t).run()).meta.changes) token = row.t;
+    }
+    if (c.channel === "whatsapp") {
+      // Meta allows free-form messages only within 24 hours of the customer's latest message, checked now (at send time).
+      const last = await db().prepare("SELECT MAX(created_at) at FROM website_chat_messages WHERE conversation_id=? AND sender='visitor'").bind(c.id).first<{ at: string | null }>();
+      if (!whatsappWindowOpen(last?.at)) {
+        await db().prepare("UPDATE website_chat_messages SET channel_message_id='outside_window' WHERE id=?").bind(messageId).run();
+        await logActivity({ event: "send_suppressed", status: "suppressed", actor: "system", channel: "whatsapp", conversationId: c.id, dedupeKey: `outside-window:${messageId}`,
+          summary: "WhatsApp message not sent: more than 24 hours since the customer's last message (an approved template is needed)" });
+        return;
+      }
     }
     const sentId = await deliverToChannel(c.channel, c.channel_user_id, body, token);
     await db().prepare("UPDATE website_chat_messages SET channel_message_id=COALESCE(?,'sent') WHERE id=?").bind(sentId, messageId).run();

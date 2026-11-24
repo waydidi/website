@@ -10,9 +10,10 @@ export const CHANNEL_LABEL: Record<Channel, string> = { web: "Website", whatsapp
 export const whatsappConfigured = () => Boolean(vars().WHATSAPP_TOKEN && vars().WHATSAPP_PHONE_NUMBER_ID && vars().WHATSAPP_APP_SECRET && vars().WHATSAPP_VERIFY_TOKEN);
 export const lineConfigured = () => Boolean(vars().LINE_CHANNEL_ACCESS_TOKEN && vars().LINE_CHANNEL_SECRET);
 
-const GRAPH = "https://graph.facebook.com/v21.0";
+// Graph API version: WHATSAPP_GRAPH_VERSION (e.g. "v23.0") pins a newer supported version without a code change.
+const graph = () => `https://graph.facebook.com/${/^v\d{1,3}\.\d{1,2}$/.test(vars().WHATSAPP_GRAPH_VERSION ?? "") ? vars().WHATSAPP_GRAPH_VERSION : "v21.0"}`;
 async function whatsapp(body: Record<string, unknown>) {
-  const res = await fetch(`${GRAPH}/${vars().WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+  const res = await fetch(`${graph()}/${vars().WHATSAPP_PHONE_NUMBER_ID}/messages`, {
     method: "POST", signal: AbortSignal.timeout(10000),
     headers: { Authorization: `Bearer ${vars().WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify({ messaging_product: "whatsapp", ...body }),

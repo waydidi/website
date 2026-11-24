@@ -9,6 +9,9 @@ import { findPlaces } from "./places";
 import { checkBooking } from "./booking-lookup";
 import { activeAlerts, actorFor, alertBrief, alertsFor, cachedSearch, logPlaceSearch, claimPlaceSearch, saveSearch, searchKey, type Alert } from "./guard";
 import { HOURLY_CITIES, findPackages, quoteHourly, quoteTransfer } from "./quotes";
+import { PRICE_TABLE_VERSION, modelCost, resolveModels, type ModelPair, type Usage } from "@/lib/sales-ai/model-config";
+import { logActivity } from "@/lib/sales-ai/activity-log";
+import { disabledChannels } from "@/lib/sales-ai/whatsapp-rules";
 
 // Non: Waydidi's chat assistant on the website, WhatsApp and LINE. It answers instantly, quotes only
 // from the site's own price tables (via tools), looks up staff-written knowledge, and hands the chat
@@ -17,10 +20,9 @@ import { HOURLY_CITIES, findPackages, quoteHourly, quoteTransfer } from "./quote
 export const CEE_NAME = "Non";
 // A fast, cheap model handles most messages; it passes harder ones (trip planning, undecided
 // customers, multi-stop days) to the stronger model by calling the "escalate" tool.
-export const MODELS = { fast: "claude-haiku-4-5", smart: "claude-opus-5-5" } as const;
+// Model ids come from AI_MODEL_FAST / AI_MODEL_SMART (lib/sales-ai/model-config.ts); prices live there too.
+export const activeModels = (): ModelPair => resolveModels(env as unknown as Record<string, string | undefined>);
 export type ModelMode = "auto" | "fast" | "smart";
-// US$ per million tokens: [input, output, cache read, cache write].
-const PRICE: Record<string, [number, number, number, number]> = { [MODELS.fast]: [1, 5, 0.1, 1.25], [MODELS.smart]: [4, 20, 0.2, 5] };
 
 type Db = { prepare: (sql: string) => { bind: (...v: unknown[]) => { first: <T>() => Promise<T | null>; run: () => Promise<unknown> } } };
 const db = () => env.DB as unknown as Db;
@@ -30,21 +32,18 @@ const putSetting = (key: string, value: string) => db().prepare("INSERT INTO app
 
 /** Global on/off switch (admin). On by default once an API key exists. */
 export async function ceeEnabled() { return Boolean(apiKey()) && (await setting("cee_enabled")) !== "0"; }
+/** Per-channel kill switch: NON_DISABLED_CHANNELS="whatsapp,line" keeps Non silent there (staff replies still work). */
+export const nonChannelOff = (channel: string | null | undefined) => disabledChannels((env as unknown as Record<string, string | undefined>).NON_DISABLED_CHANNELS).has(channel ?? "web");
 export const setCeeEnabled = (on: boolean) => putSetting("cee_enabled", on ? "1" : "0");
 // Default: Haiku 4.5 for every message. The owner can still opt into Auto/Smart on the knowledge tab.
 export async function modelMode(): Promise<ModelMode> { const v = await setting("cee_model_mode"); return v === "auto" || v === "smart" ? v : "fast"; }
 export const setModelMode = (mode: ModelMode) => putSetting("cee_model_mode", mode);
 
-type Usage = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null } | undefined;
 export type MonthUsage = { replies: number; requests: number; smart: number; usd: number };
 const month = () => new Date().toISOString().slice(0, 7);
 export async function usageFor(m = month()): Promise<MonthUsage> {
   try { return { replies: 0, requests: 0, smart: 0, usd: 0, ...JSON.parse((await setting(`cee_usage:${m}`)) ?? "{}") }; } catch { return { replies: 0, requests: 0, smart: 0, usd: 0 }; }
 }
-const cost = (model: string, u: Usage) => {
-  const p = PRICE[model] ?? PRICE[MODELS.smart];
-  return ((u?.input_tokens ?? 0) * p[0] + (u?.output_tokens ?? 0) * p[1] + (u?.cache_read_input_tokens ?? 0) * p[2] + (u?.cache_creation_input_tokens ?? 0) * p[3]) / 1e6;
-};
 
 const bangkokNow = () => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", dateStyle: "full", timeStyle: "short" }).format(new Date());
 
@@ -102,7 +101,10 @@ const realTools: CeeTools = { quoteTransfer, quoteHourly, findPackages, searchKn
 type Block = { type: string; [k: string]: unknown };
 type Client = { beta: { messages: { create: (body: Record<string, unknown>) => Promise<{ content: Block[]; stop_reason: string | null; usage?: Usage }> } } };
 
-export type CeeTurn = { reply: string | null; handover: { reason: string; summary: string } | null; model: string; usd: number; requests: number; cards?: ChatCard[] };
+// usd counts toward the monthly total (an unknown model counts at the highest known price); costUsd is the
+// real cost for the activity log, or null when the model has no price.
+export type CeeTurn = { reply: string | null; handover: { reason: string; summary: string } | null; model: string; usd: number; requests: number; cards?: ChatCard[];
+  costUsd?: number | null; inputTokens?: number; outputTokens?: number; smart?: boolean };
 export type PayLinkInput = { kind: "transfer" | "hourly"; pickup: string; dropoff: string; city: string; hours: number; date: string; time: string; passengers: number; bags: number; vehicle: string; leadName: string; leadPhone: string };
 export type PayLinkFn = (input: PayLinkInput) => Promise<{ ok: true; url: string; amount: number; car: string; summary: string; expiresInMinutes: number; card: PaymentCard } | { ok: false; reason: string }>;
 
@@ -122,7 +124,7 @@ Booking in the chat (you can take bookings):
 
 export type TurnOptions = {
   /** When set, Non may take bookings and send payment links. */
-  payLink?: PayLinkFn; tools?: CeeTools; now?: string; mode?: ModelMode; channel?: string; onProgress?: (text: string) => Promise<unknown>;
+  payLink?: PayLinkFn; tools?: CeeTools; now?: string; mode?: ModelMode; channel?: string; onProgress?: (text: string) => Promise<unknown>; models?: ModelPair;
   /** The team's active alerts (closures, flooding…): always in Non's instructions, applied to quotes and places. */
   alerts?: Alert[];
   /** Limits for paid place searches in this chat. Without it (tests, previews) searches aren't limited. */
@@ -143,20 +145,18 @@ function toMessages(history: { sender: "visitor" | "staff"; body: string }[]) {
 
 /** One Non turn over the chat history. Pure apart from the client and tools, so it's testable. */
 export async function ceeTurn(history: { sender: "visitor" | "staff"; body: string }[], client: Client, options: TurnOptions = {}): Promise<CeeTurn> {
-  const mode = options.mode ?? "fast";
-  const first = mode === "smart" ? MODELS.smart : MODELS.fast;
-  const result = await runLoop(history, client, options, first, mode === "auto");
+  const mode = options.mode ?? "fast", models = options.models ?? activeModels();
+  const result = await runLoop(history, client, options, mode === "smart" ? models.smart : models.fast, mode === "auto", mode === "smart");
   if (result !== "escalate") return result;
-  const smart = await runLoop(history, client, options, MODELS.smart, false);
-  return smart === "escalate" ? { reply: null, handover: null, model: MODELS.smart, usd: 0, requests: 0 } : smart;
+  const smart = await runLoop(history, client, options, models.smart, false, true);
+  return smart === "escalate" ? { reply: null, handover: null, model: models.smart, usd: 0, requests: 0, smart: true } : smart;
 }
 
-async function runLoop(history: { sender: "visitor" | "staff"; body: string }[], client: Client, options: TurnOptions, model: string, canEscalate: boolean): Promise<CeeTurn | "escalate"> {
+async function runLoop(history: { sender: "visitor" | "staff"; body: string }[], client: Client, options: TurnOptions, model: string, canEscalate: boolean, smart: boolean): Promise<CeeTurn | "escalate"> {
   const tools = options.tools ?? realTools;
   const messages = toMessages(history);
-  const out: CeeTurn = { reply: null, handover: null, model, usd: 0, requests: 0, cards: [] };
+  const out: CeeTurn = { reply: null, handover: null, model, usd: 0, requests: 0, cards: [], costUsd: 0, inputTokens: 0, outputTokens: 0, smart };
   if (!messages.length || messages[messages.length - 1].role !== "user") return out;
-  const smart = model === MODELS.smart;
   // Tools + system are identical on every call, so they're cached (cheaper and faster).
   const system = [{ type: "text", text: systemPrompt(options.now ?? bangkokNow(), options.channel) + (options.payLink ? BOOKING_NOTE : "") + ((options.channel ?? "web") === "web" ? CARD_NOTE : "") + (canEscalate ? ESCALATE_NOTE : ""), cache_control: { type: "ephemeral" } }, ...(options.alerts?.length ? [{ type: "text", text: alertBrief(options.alerts) }] : [])];
   let progressSent = false;
@@ -165,7 +165,10 @@ async function runLoop(history: { sender: "visitor" | "staff"; body: string }[],
       model, max_tokens: 2000, system, tools: [...TOOLS, ...(options.payLink ? [PAY_TOOL] : []), ...(canEscalate ? [ESCALATE] : [])], tool_choice: { type: "auto" }, messages,
       ...(smart ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default", output_config: { effort: "low" } } : {}),
     });
-    out.requests++; out.usd += cost(model, res.usage);
+    const c = modelCost(model, res.usage as Usage);
+    out.requests++; out.usd += c.budgetUsd;
+    out.costUsd = out.costUsd == null || c.usd == null ? null : out.costUsd + c.usd;
+    out.inputTokens! += res.usage?.input_tokens ?? 0; out.outputTokens! += res.usage?.output_tokens ?? 0;
     if (res.stop_reason === "refusal") return { ...out, reply: null, handover: { reason: "Assistant declined to answer", summary: "Non could not answer this message." } };
     const uses = res.content.filter((b) => b.type === "tool_use") as Array<{ type: "tool_use"; id: string; name: string; input: Record<string, unknown> }>;
     const text = res.content.filter((b) => b.type === "text").map((b) => b.text as string).join("\n").trim();
@@ -254,11 +257,12 @@ async function siteLimitAlert() {
   if (tg.telegramConfigured()) await tg.sendCard("<b>Daily place-search limit reached</b>\nNon will answer restaurant and place questions from your notes only until tomorrow. Change the limit in Admin → Website chat → Non knowledge.").catch(() => undefined);
 }
 
+const NON_ONLY = { onlyWhileNonActive: true } as const;
 const ASKS_FOR_HUMAN = /\b(human|real person|agent|staff|operator|someone real|talk to (a )?person)\b|เจ้าหน้าที่|คุยกับคน|人工|真人|客服/i;
 
 async function recordUsage(turn: CeeTurn) {
   const u = await usageFor();
-  await putSetting(`cee_usage:${month()}`, JSON.stringify({ replies: u.replies + 1, requests: u.requests + turn.requests, smart: u.smart + (turn.model === MODELS.smart ? 1 : 0), usd: Math.round((u.usd + turn.usd) * 1e5) / 1e5 }));
+  await putSetting(`cee_usage:${month()}`, JSON.stringify({ replies: u.replies + 1, requests: u.requests + turn.requests, smart: u.smart + (turn.smart ? 1 : 0), usd: Math.round((u.usd + turn.usd) * 1e5) / 1e5 }));
 }
 
 export const latestVisitorSeq = async (conversationId: string) =>
@@ -303,17 +307,23 @@ async function answerOnce(conversationId: string, client?: Client, answeredUpTo 
   if (!(await ceeEnabled())) return;
   const c = await conversationById(conversationId);
   if (!c || c.status === "closed" || c.assigned_name || c.bot_paused) return;
+  if (nonChannelOff(c.channel)) {
+    await logActivity({ event: "kill_switch", status: "skipped", actor: "non", channel: c.channel ?? "web", conversationId: c.id, dedupeKey: `kill:${c.id}:${await latestVisitorSeq(c.id)}`,
+      summary: `Non is switched off for ${c.channel ?? "web"} (NON_DISABLED_CHANNELS); the team answers this chat` });
+    return;
+  }
   const all = await messagesFor(c.id, 0, 40);
   const late = answeredUpTo ? all.filter((m) => m.sender === "visitor" && m.seq > answeredUpTo) : [];
   const history = [...all.filter((m) => !late.includes(m)), ...late].map((m) => ({ sender: m.sender, body: m.body }));
   if (history[history.length - 1]?.sender !== "visitor") return;
   const lastVisitor = history[history.length - 1];
   if (ASKS_FOR_HUMAN.test(lastVisitor.body)) {
-    await addBotMessage(c.id, "Sure, I'll pass you to the Waydidi team now. Someone will reply here soon.");
+    await addBotMessage(c.id, "Sure, I'll pass you to the Waydidi team now. Someone will reply here soon.", null, NON_ONLY);
     await handOver(c.id, "Customer asked for a person", lastVisitor.body);
     return;
   }
   await setBotThinking(c.id, true);
+  const started = Date.now();
   // A person may join while Non is thinking; never talk over them.
   const stillMine = async () => { const f = await conversationById(c.id); return Boolean(f && !f.assigned_name && !f.bot_paused); };
   const channel = c.channel ?? "web";
@@ -321,15 +331,23 @@ async function answerOnce(conversationId: string, client?: Client, answeredUpTo 
     mode: await modelMode(), channel, tools, alerts: await activeAlerts(), placeGuard: { conversationId: c.id, actor: actorFor(c) },
     payLink: chatPaymentsEnabled() ? (input) => createChatPaymentLink(c.id, input) : undefined,
     // LINE: one free reply per customer message, so the whole answer goes in one message (LINE shows its own loading dots).
-    onProgress: channel === "line" ? undefined : async (text) => { if (await stillMine()) await addBotMessage(c.id, text); },
+    onProgress: channel === "line" ? undefined : async (text) => { if (await stillMine()) await addBotMessage(c.id, text, null, NON_ONLY); },
   });
   await recordUsage(turn).catch(() => undefined);
-  if (!(await stillMine())) return;
-  if (turn.reply) await addBotMessage(c.id, turn.reply);
+  await logActivity({ event: "model_call", status: turn.reply || turn.handover ? "ok" : "skipped", actor: "non", channel, conversationId: c.id, model: turn.model,
+    latencyMs: Date.now() - started, inputTokens: turn.inputTokens, outputTokens: turn.outputTokens, costUsd: turn.costUsd ?? null, priceVersion: PRICE_TABLE_VERSION,
+    summary: `${turn.requests} model request(s); ${turn.handover ? "handed over" : turn.reply ? "replied" : "no reply"}${turn.cards?.length ? `; ${turn.cards.length} quote/payment card(s)` : ""}`,
+    detail: { requests: turn.requests, smart: Boolean(turn.smart), cards: turn.cards?.length ?? 0 } });
+  if (!(await stillMine())) {
+    await logActivity({ event: "send_suppressed", status: "suppressed", actor: "non", channel, conversationId: c.id, summary: "Non's reply was dropped: a staff member took over while it was answering" });
+    return;
+  }
+  // From here every message is inserted only if the chat is still Non's (a takeover in between stops it).
+  if (turn.reply) await addBotMessage(c.id, turn.reply, null, NON_ONLY);
   // Website: the quote / payment link as a rich card (other channels already have it in the text).
-  if (channel === "web") for (const card of turn.cards ?? []) await addBotMessage(c.id, cardText(card), card);
+  if (channel === "web") for (const card of turn.cards ?? []) await addBotMessage(c.id, cardText(card), card, NON_ONLY);
   if (turn.handover) {
-    if (!turn.reply) await addBotMessage(c.id, "I'll pass this to the Waydidi team. Someone will reply here soon.");
+    if (!turn.reply) await addBotMessage(c.id, "I'll pass this to the Waydidi team. Someone will reply here soon.", null, NON_ONLY);
     await handOver(c.id, turn.handover.reason, turn.handover.summary);
   }
 }
@@ -337,6 +355,7 @@ async function answerOnce(conversationId: string, client?: Client, answeredUpTo 
 async function handOver(conversationId: string, reason: string, summary: string) {
   const c = await conversationById(conversationId);
   if (!c) return;
+  await logActivity({ event: "handover", status: "ok", actor: "non", channel: c.channel ?? "web", conversationId: c.id, summary: `Handed to staff: ${reason}` });
   let prev: Record<string, unknown> = {};
   try { prev = JSON.parse(c.bot_state ?? "{}"); } catch { prev = {}; }
   // Non keeps answering until a person taps Assign; a handover never stops it on its own.
