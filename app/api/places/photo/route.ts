@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { PHOTO_NAME, photoSig } from "@/lib/cee/places";
 import { constantTimeEqual } from "@/lib/security";
 
-// Photo for a place card in the chat. Only links Non created (signed) work; the browser caches it.
+// Photo for a place card in the chat. Only links Waydidi Assistant created (signed) work; the browser caches it.
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const name = url.searchParams.get("n") ?? "", sig = url.searchParams.get("s") ?? "";

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { addBotMessage } from "@/lib/website-chat";
 
-// "Are you still with us?": when we (staff or Non) replied and the customer has been quiet for
+// "Are you still with us?": when we (staff or Waydidi Assistant) replied and the customer has been quiet for
 // 10 minutes, one polite check-in is sent. It is never repeated until the customer writes again.
 export const NUDGE_AFTER_MS = 10 * 60 * 1000;
 /** After this long with no messages at all, the inbox offers "Completed" / "Follow up". */

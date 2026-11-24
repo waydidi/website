@@ -4,6 +4,7 @@ import { SITE_URL } from "@/lib/site";
 import { deliverToChannel } from "@/lib/channels";
 import { logActivity } from "@/lib/sales-ai/activity-log";
 import { whatsappWindowOpen } from "@/lib/sales-ai/whatsapp-rules";
+import { ASSISTANT_NAME } from "@/lib/cee/name";
 import { editCard, sendCard, sendPrivate, sendPreparedTelegram, telegramChatId as teamTelegramChatId, telegramConfigured, TelegramDeliveryError } from "@/lib/telegram/client";
 import { ensureTelegramMessages, readTelegramMessage, freezeTelegramMessage, ownsTelegramMessage, telegramMessageGuard, telegramMessageOutcome, purgeTelegramMessages, type PreparedTelegram } from "@/lib/telegram/message-store";
 import { telegramBudgetExpired, telegramNextAttempt, TELEGRAM_MAX_AGE_MS } from "@/lib/telegram/outbox-rules";
@@ -141,7 +142,7 @@ async function deliverChatMessage(conversationId: string, messageId: string, bot
   try{
     if(!prepared){
       const non=await nonAnswering(c),dm=c.assigned_name?await assigneeTelegramId(c):null;
-      const groupPayload={chat_id:teamTelegramChatId(),text:root?conversationCard(c,{body:m.body,created_at:m.created_at,from:bot?"Non (AI)":"visitor"},true,non):bot?botEcho(c.public_id,m.body):customerMessage(c.public_id,c.customer_name,m.body),parse_mode:"HTML",disable_web_page_preview:true,
+      const groupPayload={chat_id:teamTelegramChatId(),text:root?conversationCard(c,{body:m.body,created_at:m.created_at,from:bot?`${ASSISTANT_NAME} (AI)`:"visitor"},true,non):bot?botEcho(c.public_id,m.body):customerMessage(c.public_id,c.customer_name,m.body),parse_mode:"HTML",disable_web_page_preview:true,
         ...(root?{reply_markup:{inline_keyboard:conversationKeyboard(c,adminUrl(c.id),non)}}:{reply_parameters:{message_id:c.telegram_message_id,allow_sending_without_reply:true}})};
       prepared=await freezeTelegramMessage(store,lease,{primary:dm?{chat_id:dm,text:bot?botEcho(c.public_id,m.body):esc(m.body.slice(0,4000)),parse_mode:"HTML"}:groupPayload,...(dm?{fallback:groupPayload}:{}),context:{group:teamTelegramChatId(),staffId:c.assigned_staff_id,telegramUser:c.assigned_telegram_user_id,assignedName:c.assigned_name,root,dm:Boolean(dm)}});
     }
@@ -239,9 +240,9 @@ export async function addStaffMessage(conversationId: string, body: string, who:
 }
 
 /**
- * Non's reply: shown as "Non", never assigns the conversation, mirrored to Telegram.
- * onlyWhileNonActive (Non's own answers): the insert itself checks that no person has taken the chat,
- * Non isn't paused and the chat isn't closed, so a takeover at any moment before the insert stops the reply.
+ * Waydidi Assistant's reply: shown as "Waydidi Assistant", never assigns the conversation, mirrored to Telegram.
+ * onlyWhileNonActive (Waydidi Assistant's own answers): the insert itself checks that no person has taken the chat,
+ * Waydidi Assistant isn't paused and the chat isn't closed, so a takeover at any moment before the insert stops the reply.
  * System notices (payment received, "thanks for waiting", idle nudges) leave it off and are always sent.
  */
 export async function addBotMessage(conversationId: string, rawBody: string, card?: object | null, options: { onlyWhileNonActive?: boolean } = {}) {
@@ -251,11 +252,11 @@ export async function addBotMessage(conversationId: string, rawBody: string, car
   const now = nowIso(), id = crypto.randomUUID();
   const website = (c.channel ?? "web") === "web";
   const insert = await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot,card_json,telegram_status)
-    SELECT ?,?,'staff',?,?,'Non',1,?,? WHERE ?=0 OR EXISTS(SELECT 1 FROM website_conversations WHERE id=? AND status<>'closed' AND assigned_name IS NULL AND COALESCE(bot_paused,0)=0)`)
-    .bind(id, c.id, body, now, card ? JSON.stringify(card) : null, website ? "pending" : "skipped", options.onlyWhileNonActive ? 1 : 0, c.id).run();
+    SELECT ?,?,'staff',?,?,?,1,?,? WHERE ?=0 OR EXISTS(SELECT 1 FROM website_conversations WHERE id=? AND status<>'closed' AND assigned_name IS NULL AND COALESCE(bot_paused,0)=0)`)
+    .bind(id, c.id, body, now, ASSISTANT_NAME, card ? JSON.stringify(card) : null, website ? "pending" : "skipped", options.onlyWhileNonActive ? 1 : 0, c.id).run();
   if (!insert.meta.changes) {
-    await logActivity({ event: "send_suppressed", status: "suppressed", actor: "non", channel: c.channel ?? "web", conversationId: c.id,
-      summary: "Non's reply was not sent: a staff member took over, Non was paused or the chat closed while it was answering" });
+    await logActivity({ event: "send_suppressed", status: "suppressed", actor: "assistant", channel: c.channel ?? "web", conversationId: c.id,
+      summary: "Waydidi Assistant's reply was not sent: a staff member took over, Waydidi Assistant was paused or the chat closed while it was answering" });
     return null;
   }
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();
@@ -295,7 +296,7 @@ async function toChannel(c: Conversation, messageId: string, body: string) {
   }
 }
 
-/** Marks Non as working on a reply, so the website can show "Non is typing…". */
+/** Marks Waydidi Assistant as working on a reply, so the website can show "Waydidi Assistant is typing…". */
 export const setBotThinking = (conversationId: string, on: boolean) =>
   db().prepare("UPDATE website_conversations SET bot_thinking_at=? WHERE id=?").bind(on ? nowIso() : null, conversationId).run();
 
@@ -307,7 +308,7 @@ export const saveLineReplyToken = (conversationId: string, token: string) =>
 export const conversationForChannelUser = (channel: string, userId: string) =>
   db().prepare("SELECT * FROM website_conversations WHERE channel=? AND channel_user_id=? AND expires_at>? ORDER BY created_at DESC LIMIT 1").bind(channel, userId, nowIso()).first<Conversation>();
 
-/** Stops (or resumes) Non in one conversation. */
+/** Stops (or resumes) Waydidi Assistant in one conversation. */
 export async function pauseBot(conversationId: string, paused: boolean, state?: string) {
   await db().prepare("UPDATE website_conversations SET bot_paused=?,bot_state=COALESCE(?,bot_state) WHERE id=?").bind(paused ? 1 : 0, state ?? null, conversationId).run();
 }
@@ -398,7 +399,7 @@ export async function conversationForTelegramMessage(messageId: number, chatId =
   return rows.length === 1 ? rows[0].id : null;
 }
 
-/** True while Non (the AI) is handling this chat: switched on, not paused, not handed to a person. */
+/** True while Waydidi Assistant (the AI) is handling this chat: switched on, not paused, not handed to a person. */
 export async function nonAnswering(c: Conversation) {
   if (c.status === "closed" || c.assigned_name || c.bot_paused) return false;
   if (!(env as unknown as Record<string, unknown>).ANTHROPIC_API_KEY) return false;
@@ -406,7 +407,7 @@ export async function nonAnswering(c: Conversation) {
   return row?.value !== "0";
 }
 
-/** Non writes plain text: markdown bold, headings and bullet marks are removed if they slip through. */
+/** Waydidi Assistant writes plain text: markdown bold, headings and bullet marks are removed if they slip through. */
 export const plainText = (t: string) => t
   .replace(/\*\*(.+?)\*\*/g, "$1").replace(/__(.+?)__/g, "$1")
   .replace(/^#{1,6}\s+/gm, "").replace(/^[ \t]*[•\-*][ \t]+/gm, "");

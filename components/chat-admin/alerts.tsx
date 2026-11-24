@@ -6,9 +6,9 @@ type Alert = { id: string; title: string; message: string; areas: string; effect
 type Limits = { perChat: number; perCustomerDay: number; siteDay: number; spamMessages: number; spamMinutes: number; spamPauseMinutes: number };
 type Data = { alerts: Alert[]; limits: Limits; today: { paid: number; cached: number; lastError: { status: number; detail: string; at: string } | null }; owner: boolean; now: string };
 const EFFECTS: [Alert["effect"], string, string][] = [
-  ["info", "Information", "Non mentions it when the topic comes up."],
+  ["info", "Information", "Waydidi Assistant mentions it when the topic comes up."],
   ["warn", "Warn customers", "Also shown as ⚠️ on price cards and place lists for these areas."],
-  ["stop", "Stop selling", "Non won't quote or send payment links for these areas; it explains and hands over."],
+  ["stop", "Stop selling", "Waydidi Assistant won't quote or send payment links for these areas; it explains and hands over."],
 ];
 const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 const EMPTY = { id: "", title: "", message: "", areas: "", effect: "warn" as Alert["effect"], startsAt: today(), endsAt: "", sourceUrl: "" };
@@ -37,7 +37,7 @@ export function ChatAlerts() {
       setMsg(done); await load(); return true;
     } catch (e) { setError(e instanceof Error ? e.message : "That didn't work."); return false; } finally { setBusy(false); }
   }
-  async function save(e: FormEvent) { e.preventDefault(); if (await post({ action: "save", ...form, id: form.id || undefined, endsAt: form.endsAt || null }, "Alert saved. Non uses it from the next message.")) setForm(EMPTY); }
+  async function save(e: FormEvent) { e.preventDefault(); if (await post({ action: "save", ...form, id: form.id || undefined, endsAt: form.endsAt || null }, "Alert saved. Waydidi Assistant uses it from the next message.")) setForm(EMPTY); }
   if (!data) return error ? <p role="alert" className="rounded-xl bg-red-50 p-3 text-red-700">{error}</p> : <p className="text-slate-500">Loading…</p>;
   const live = (a: Alert) => a.active && a.starts_at <= data.now && (!a.ends_at || a.ends_at > data.now);
   return <section className="grid gap-4 text-[14px]">
@@ -45,7 +45,7 @@ export function ChatAlerts() {
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="grid content-start gap-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4"><h2 className="text-[16px] font-bold">Alerts</h2>
-          <p className="text-slate-600">Closures, flooding, protests, holidays, road works… Non checks these first on the website, WhatsApp and LINE, before your notes, prices or Google.</p></div>
+          <p className="text-slate-600">Closures, flooding, protests, holidays, road works… Waydidi Assistant checks these first on the website, WhatsApp and LINE, before your notes, prices or Google.</p></div>
         {!data.alerts.length && <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-slate-500">No alerts. Add one when something affects trips.</p>}
         {data.alerts.map((a) => <article key={a.id} className={`rounded-2xl border bg-white p-4 ${live(a) ? "border-amber-300" : "border-slate-200 opacity-70"}`}>
           <div className="flex flex-wrap items-center gap-2"><b className="flex-1">{a.title}</b>

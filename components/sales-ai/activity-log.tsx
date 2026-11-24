@@ -43,7 +43,7 @@ export function AiActivityLog() {
   const set = (k: keyof Filters) => (e: { target: { value: string } }) => setFilters((f) => ({ ...f, [k]: e.target.value }));
   return <div className="mx-auto max-w-6xl">
     <h1 className="text-2xl font-black tracking-[-.035em] text-plum">AI activity</h1>
-    <p className="mt-1 text-sm text-slate-600">What Non and the WhatsApp channel did, newest first. Contact details and keys are removed before anything is stored. Kept for {data?.retentionDays ?? 180} days. Times are Bangkok time.</p>
+    <p className="mt-1 text-sm text-slate-600">What Waydidi Assistant and the WhatsApp channel did, newest first. Contact details and keys are removed before anything is stored. Kept for {data?.retentionDays ?? 180} days. Times are Bangkok time.</p>
 
     {data?.month && <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
       {[["AI calls this month", String(data.month.calls)], ["Estimated cost", usd(data.month.micros)], ["Calls with unknown cost", String(data.month.unknown_cost)], ["Tokens in / out", `${data.month.input_tokens.toLocaleString()} / ${data.month.output_tokens.toLocaleString()}`]].map(([k, v]) =>

@@ -6,6 +6,7 @@ import { isJsonRequest, sameOrigin, secureToken, sha256 } from "@/lib/security";
 import { parseCard } from "@/lib/chat-cards";
 import { googleReviewUrl, reviewForConversation } from "@/lib/support-reviews";
 import { scheduleNon } from "@/lib/cee/schedule";
+import { ASSISTANT_NAME } from "@/lib/cee/name";
 import { addVisitorMessage, conversationByTokenHash, createConversation, messagesFor, type Conversation } from "@/lib/website-chat";
 import { fullName } from "@/lib/person-name";
 
@@ -20,7 +21,7 @@ async function current(request: Request) {
   const token = readCookie(request, COOKIE);
   return /^[a-f0-9]{48}$/.test(token) ? conversationByTokenHash(await sha256(token)) : null;
 }
-// "Non is typing…" while a reply is being written (ignored after 90 s in case a run died).
+// "Waydidi Assistant is typing…" while a reply is being written (ignored after 90 s in case a run died).
 const view = (c: Conversation) => ({ publicId: c.public_id, status: c.status, agent: c.assigned_name, name: c.customer_name,
   typing: Boolean(c.bot_thinking_at && Date.now() - Date.parse(c.bot_thinking_at) < 90000) });
 /** Review state for a closed chat: whether it's been rated, and the Google link (shown to everyone). */
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
   if (!c) return NextResponse.json({ conversation: null, messages: [] }, { headers });
   const after = Math.max(0, Number(new URL(request.url).searchParams.get("after")) || 0);
   // Visitors see staff by their display name only, never staff ids or Telegram details.
-  const messages = (await messagesFor(c.id, after)).map((m) => ({ seq: m.seq, id: m.id, sender: m.sender, name: m.sender === "staff" ? m.sender_name : null, body: m.body, createdAt: m.created_at, clientId: m.client_id, card: parseCard(m.card_json) }));
+  const messages = (await messagesFor(c.id, after)).map((m) => ({ seq: m.seq, id: m.id, sender: m.sender, name: m.sender === "staff" ? (m.is_bot ? ASSISTANT_NAME : m.sender_name) : null, bot: Boolean(m.is_bot), body: m.body, createdAt: m.created_at, clientId: m.client_id, card: parseCard(m.card_json) }));
   return NextResponse.json({ conversation: { ...view(c), review: await reviewState(c) }, messages }, { headers });
 }
 
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
   await env.DB.prepare("UPDATE website_conversations SET customer_id=? WHERE id=?").bind(customerId, c.id).run();
   c = { ...c, customer_id: customerId };
   const result = await addVisitorMessage(c, message, clientId);
-  // Non answers in the background (after a 5 s pause for more messages), so sending never waits on it.
+  // Waydidi Assistant answers in the background (after a 5 s pause for more messages), so sending never waits on it.
   await scheduleNon(c.id).catch(() => undefined);
   const response = NextResponse.json({ ok: true, duplicate: result.duplicate, conversation: view(c) }, { headers });
   if (token) response.cookies.set(COOKIE, token, { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 30 * 86400 });

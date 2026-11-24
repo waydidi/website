@@ -8,7 +8,7 @@ import type { ChatCard } from "@/lib/chat-cards";
 
 // Ask Waydidi: a small always-loaded launcher. The full messenger panel is loaded only when opened.
 
-export type ChatMsg = { seq?: number; id: string; sender: "visitor" | "staff"; name: string | null; body: string; createdAt: string; clientId: string | null; state?: "sending" | "failed"; card?: ChatCard | null };
+export type ChatMsg = { seq?: number; id: string; sender: "visitor" | "staff"; name: string | null; bot?: boolean; body: string; createdAt: string; clientId: string | null; state?: "sending" | "failed"; card?: ChatCard | null };
 export type ChatReview = { submitted: boolean; rating: number | null; googleUrl: string | null } | null;
 export type ChatInfo = { publicId: string; status: string; agent: string | null; name: string | null; review?: ChatReview; typing?: boolean } | null;
 export type Context = { topic?: string | null; name?: string; email?: string; phone?: string };
@@ -75,7 +75,7 @@ export function WebsiteChat() {
     }
   }, []);
 
-  // Right after the visitor sends (and while Non is typing) check every second, so replies appear at once.
+  // Right after the visitor sends (and while Waydidi Assistant is typing) check every second, so replies appear at once.
   const fastUntil = useRef(0);
   const typing = Boolean(info?.typing);
   // The driver launcher steps aside while a popup or sheet (date, passengers, language…) or the site menu

@@ -1,4 +1,4 @@
-// Pure: which Claude models Non uses and what a call costs. Model ids come from Worker variables
+// Pure: which Claude models Waydidi Assistant uses and what a call costs. Model ids come from Worker variables
 // (AI_MODEL_FAST, AI_MODEL_SMART) so they change without a code release; the defaults are today's models.
 
 export type ModelPair = { fast: string; smart: string };

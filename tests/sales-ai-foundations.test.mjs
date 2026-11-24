@@ -89,7 +89,7 @@ test('WhatsApp window, delivery-status order, media references and the channel k
   assert.deepEqual([...wa.disabledChannels(' WhatsApp, line, sms ')], ['whatsapp', 'line']);
 });
 
-test('a takeover before Non saves its reply stops the reply: nothing stored, nothing sent, suppression logged', async () => {
+test('a takeover before Waydidi Assistant saves its reply stops the reply: nothing stored, nothing sent, suppression logged', async () => {
   const id = await conversation({ channel: 'whatsapp' });
   await db.prepare("UPDATE website_conversations SET assigned_name='Alice',assigned_staff_id='alice' WHERE id=?").bind(id).run();
   sent.length = 0;
@@ -104,7 +104,7 @@ test('a takeover before Non saves its reply stops the reply: nothing stored, not
   assert.equal(sent.length, 1);
 });
 
-test('staff taking over while the model is still thinking means Non stays silent', async () => {
+test('staff taking over while the model is still thinking means Waydidi Assistant stays silent', async () => {
   const id = await conversation({ channel: 'whatsapp', body: 'Price BKK to Pattaya tomorrow?' });
   sent.length = 0;
   const client = { beta: { messages: { create: async () => {
@@ -135,13 +135,13 @@ test('free-form WhatsApp replies outside the 24-hour window are not sent and are
   assert.match((await botMessages(open))[0].channel_message_id, /^wamid\.out/);
 });
 
-test('NON_DISABLED_CHANNELS stops Non on that channel without calling the model', async () => {
+test('ASSISTANT_DISABLED_CHANNELS stops Waydidi Assistant on that channel without calling the model', async () => {
   const id = await conversation({ channel: 'whatsapp' });
-  globalThis.__salesTest.env.NON_DISABLED_CHANNELS = 'whatsapp';
+  globalThis.__salesTest.env.ASSISTANT_DISABLED_CHANNELS = 'whatsapp';
   let calls = 0;
   try {
     await bot.runCee(id, { client: { beta: { messages: { create: async () => { calls++; return { stop_reason: 'end_turn', content: [{ type: 'text', text: 'hi' }] }; } } } } });
-  } finally { delete globalThis.__salesTest.env.NON_DISABLED_CHANNELS; }
+  } finally { delete globalThis.__salesTest.env.ASSISTANT_DISABLED_CHANNELS; }
   assert.equal(calls, 0);
   assert.equal((await botMessages(id)).length, 0);
   assert.equal((await activity('kill_switch', id)).length, 1);
@@ -149,7 +149,7 @@ test('NON_DISABLED_CHANNELS stops Non on that channel without calling the model'
 
 test('WhatsApp webhook: bad signature refused; media stored once by reference; statuses only move forward', async () => {
   assert.equal((await webhook.POST(new Request('https://example.invalid/x', { method: 'POST', body: '{}', headers: { 'x-hub-signature-256': 'sha256=00' } }))).status, 401);
-  const env = globalThis.__salesTest.env; delete env.ANTHROPIC_API_KEY; // Non off: no model, no scheduling
+  const env = globalThis.__salesTest.env; delete env.ANTHROPIC_API_KEY; // Waydidi Assistant off: no model, no scheduling
   try {
     const media = envelope({ contacts: [{ wa_id: '66999000111', profile: { name: 'Test' } }], messages: [{ from: '66999000111', id: 'wamid.in1', type: 'image', image: { id: 'media-1', mime_type: 'image/jpeg', sha256: 'abcdefghijklmnop1234' } }] });
     assert.equal((await webhook.POST(signed(media))).status, 200);

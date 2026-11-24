@@ -2,7 +2,7 @@
 
 | # | Date | Decision | Why | Confirmed by |
 |---|---|---|---|---|
-| D1 | 2026-11-24 | Extend Non and the existing conversation store, CRM quotes, pricing and payments; no second orchestrator or parallel tables | The brief forbids a competing source of truth; most of the workflow exists | Owner (plan accepted) |
+| D1 | 2026-11-24 | Extend Waydidi Assistant and the existing conversation store, CRM quotes, pricing and payments; no second orchestrator or parallel tables | The brief forbids a competing source of truth; most of the workflow exists | Owner (plan accepted) |
 | D2 | 2026-11-24 | Deliver in six small PRs, each off by default when it messages customers or moves money | `main` deploys straight to production | Owner |
 | D3 | 2026-11-24 | WhatsApp stays on the Meta test number; no number migration or coexistence change | Owner answer | Owner |
 | D4 | 2026-11-24 | Supplier rate tables start empty; no illustrative prices are seeded | No contract spreadsheet exists yet | Owner |
@@ -13,6 +13,7 @@
 | D9 | 2026-11-24 | WhatsApp media is recorded by reference only in PR 1; nothing is downloaded until F01 | Media URLs need the access token and short-lived handling; reading comes with prompt-injection tests | Proposed (PR 1) |
 | D10 | 2026-11-24 | Similar-route pricing will only be a staff hint until a backtest against past bookings shows its error rate | Weights in the brief are unvalidated | Proposed |
 | D11 | 2026-11-24 | Staff Telegram text in Thai; customer text in en/th/zh through `messages/*.json` | Repository rules | Repository |
+| D12 | 2026-11-24 | The chat assistant is renamed from "Non" to "Waydidi Assistant" for customers and staff (`lib/cee/name.ts`). Older messages saved as "Non" are shown with the new name. Code paths keep their `cee` file names; the kill switch is `ASSISTANT_DISABLED_CHANNELS` | Owner request | Owner |
 
 ## Open questions for the owner
 

@@ -4,7 +4,7 @@ import { createServer } from 'vite';
 import { Miniflare } from 'miniflare';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
-// Non (chat quote bot): the tool loop with a scripted model, and the rules for when Non speaks.
+// Waydidi Assistant (chat quote bot): the tool loop with a scripted model, and the rules for when Waydidi Assistant speaks.
 const root=fileURLToPath(new URL('..',import.meta.url));
 const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("test")}}',compatibilityDate:'2026-05-22',d1Databases:['DB']});
 const db=await mf.getD1Database('DB');
@@ -25,7 +25,7 @@ let n=0;
 const newChat=async(channel='web')=>chat.createConversation('h'+(++n).toString().padStart(8,'0'),{channel,channelUserId:channel==='web'?null:'u'+n});
 const row=(id)=>db.prepare('SELECT bot_paused,bot_state,assigned_name,status,created_at FROM website_conversations WHERE id=?').bind(id).first();
 
-test('off by default: a new chat is answered by Non as before',async()=>{
+test('off by default: a new chat is answered by Waydidi Assistant as before',async()=>{
  const c=await newChat();const r=await row(c.id);assert.equal(r.bot_paused,0);assert.equal(r.bot_state,null);
 });
 test('on: a new website, WhatsApp or LINE chat waits for a choice, and the card offers both buttons',async()=>{
@@ -54,7 +54,7 @@ test('a chat a person already took, or a closed one, is not given to the AI',asy
  const closed=await newChat();await db.prepare("UPDATE website_conversations SET status='closed' WHERE id=?").bind(closed.id).run();
  assert.equal(await ask.letAiAnswer(closed.id),false);
 });
-test('nobody chooses: after the wait Non answers by itself; newer chats keep waiting; the switch off stops it',async()=>{
+test('nobody chooses: after the wait Waydidi Assistant answers by itself; newer chats keep waiting; the switch off stops it',async()=>{
  const old=await newChat(),young=await newChat();
  await db.prepare("UPDATE website_conversations SET created_at=? WHERE id=?").bind(new Date(Date.now()-6*60000).toISOString(),old.id).run();
  globalThis.__scheduled=[];

@@ -18,7 +18,7 @@ const MODES: [Data["cee"]["mode"], string, string][] = [
 ];
 const input = "h-10 rounded-lg border border-slate-200 px-3 font-normal";
 
-// Non's brain: notes staff write (rules, FAQs, tips, places), Markdown/Obsidian import, model and cost.
+// Waydidi Assistant's brain: notes staff write (rules, FAQs, tips, places), Markdown/Obsidian import, model and cost.
 export function CeeKnowledge() {
   const [data, setData] = useState<Data | null>(null);
   const [q, setQ] = useState("");
@@ -33,7 +33,7 @@ export function CeeKnowledge() {
     const p = new URLSearchParams({ q, kind, active });
     const res = await fetch(`/api/admin/cee/knowledge?${p}`, { cache: "no-store" });
     const out = await res.json().catch(() => ({})) as Data & { error?: string };
-    if (!res.ok) { setError(out.error ?? "Couldn't load Non's knowledge."); return; }
+    if (!res.ok) { setError(out.error ?? "Couldn't load Waydidi Assistant's knowledge."); return; }
     setData(out);
   }, [q, kind, active]);
   useEffect(() => { const t = window.setTimeout(() => void load(), 200); return () => window.clearTimeout(t); }, [load]);
@@ -60,10 +60,10 @@ export function CeeKnowledge() {
   if (!data) return error ? <p role="alert" className="rounded-xl bg-red-50 p-3 text-red-700">{error}</p> : <p className="text-slate-500">Loading…</p>;
   const u = data.cee.usage;
   return <section className="grid gap-4">
-    <h2 className="sr-only">Non knowledge</h2>
+    <h2 className="sr-only">Waydidi Assistant knowledge</h2>
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 text-[14px]">
-        <p className="text-[13px] font-semibold text-slate-500">Non status</p>
+        <p className="text-[13px] font-semibold text-slate-500">Waydidi Assistant status</p>
         <ul className="mt-2 grid gap-1.5">
           <li>{data.cee.keySet ? (data.cee.enabled ? "🟢 Answering chats" : "⚪ Switched off") : "🔴 Off: add ANTHROPIC_API_KEY in Cloudflare"}</li>
           <li>{data.cee.mapsKeySet ? "🟢 Route prices connected" : "🔴 No GOOGLE_MAPS_SERVER_KEY: transfers go to staff"}</li>
@@ -103,7 +103,7 @@ export function CeeKnowledge() {
           {data.notes.map((n) => <li key={n.id} className={`rounded-2xl border bg-white p-4 text-[14px] ${n.active ? "border-slate-200" : "border-amber-200"}`}>
             <div className="flex flex-wrap items-center gap-2">
               <b className="min-w-0 flex-1">{n.title}</b>
-              {!n.active && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[12px] font-semibold text-amber-800">Draft: Non doesn&apos;t use it</span>}
+              {!n.active && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[12px] font-semibold text-amber-800">Draft: Waydidi Assistant doesn&apos;t use it</span>}
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px]">{KINDS.find(([k]) => k === n.kind)?.[1] ?? n.kind}{n.city ? ` · ${n.city}` : ""}</span>
             </div>
             <p className="mt-1.5 line-clamp-4 whitespace-pre-wrap text-slate-700">{n.body}</p>
@@ -125,8 +125,8 @@ export function CeeKnowledge() {
             <label className="grid gap-1 font-semibold">Type<select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} className={input}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
             <label className="grid gap-1 font-semibold">City (optional)<input maxLength={60} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="bangkok" className={input} /></label>
           </div>
-          <label className="grid gap-1 font-semibold">What Non should know<textarea required maxLength={4000} rows={6} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Child and baby seats: ฿300 each. Ask the age and weight. Add them on the booking page under Extras." className="rounded-lg border border-slate-200 p-3 font-normal" /></label>
-          <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="accent-brand" />Live (Non uses it)</label>
+          <label className="grid gap-1 font-semibold">What Waydidi Assistant should know<textarea required maxLength={4000} rows={6} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Child and baby seats: ฿300 each. Ask the age and weight. Add them on the booking page under Extras." className="rounded-lg border border-slate-200 p-3 font-normal" /></label>
+          <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="accent-brand" />Live (Waydidi Assistant uses it)</label>
           <div className="flex gap-2"><button disabled={busy} className="h-10 flex-1 rounded-full bg-brand font-bold text-white">{form.id ? "Save changes" : "Add note"}</button>{form.id && <button type="button" onClick={() => setForm(EMPTY)} className="h-10 rounded-full border border-slate-200 px-4 font-semibold">Cancel</button>}</div>
         </form>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 text-[13px]">

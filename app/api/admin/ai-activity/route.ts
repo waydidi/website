@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { ACTIVITY_EVENTS, activityCost, activityRetentionDays, listActivity } from "@/lib/sales-ai/activity-log";
 
-// AI activity log (owner only): what Non and the WhatsApp channel did, with model cost. Read-only:
+// AI activity log (owner only): what Waydidi Assistant and the WhatsApp channel did, with model cost. Read-only:
 // the log has no edit or delete action. allowedStaffRoute also refuses this path for every other role.
 const headers = { "Cache-Control": "no-store" };
 const STATUSES = ["ok", "error", "suppressed", "skipped"];

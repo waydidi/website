@@ -166,7 +166,7 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
     }
     case "chat_ai": {
       const done = await letAiAnswer(c.id);
-      return answerCallback(q.id, done ? "Non (AI) will answer." : c.assigned_name ? `Already assigned to ${c.assigned_name}.` : "Someone already chose.");
+      return answerCallback(q.id, done ? "Waydidi Assistant (AI) will answer." : c.assigned_name ? `Already assigned to ${c.assigned_name}.` : "Someone already chose.");
     }
     case "chat_wait": return answerCallback(q.id, await waitHandover(c.id, admin.display_name), true);
     case "chat_pending": await setStatus(c.id, "pending"); return answerCallback(q.id, "Marked pending.");

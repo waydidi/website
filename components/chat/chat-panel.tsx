@@ -119,11 +119,11 @@ export function ChatPanel({ info, messages, loadError, onRetryLoad, onSend, onCl
                 : time(m.createdAt)}</span>
             </div>
           : m.card
-            ? <div key={m.id} className={`flex flex-col items-start ${grouped ? "mt-1.5" : "mt-4"}`}>{!grouped && <span className="mb-1 ml-1 text-[12px] font-semibold text-slate-600">{`${m.name ?? "Waydidi team"} — Waydidi`}</span>}<RichCard card={m.card} onShareLocation={(t) => void onSend(t, { topic })} /><span className="ml-1 mt-1 text-[11.5px] text-slate-500">{time(m.createdAt)}</span></div>
-            : <Bubble key={m.id} side="left" who={grouped ? null : `${m.name ?? "Waydidi team"} — Waydidi`} at={time(m.createdAt)} tight={Boolean(grouped)}>{m.body}</Bubble>;
+            ? <div key={m.id} className={`flex flex-col items-start ${grouped ? "mt-1.5" : "mt-4"}`}>{!grouped && <span className="mb-1 ml-1 text-[12px] font-semibold text-slate-600">{who(m)}</span>}<RichCard card={m.card} onShareLocation={(t) => void onSend(t, { topic })} /><span className="ml-1 mt-1 text-[11.5px] text-slate-500">{time(m.createdAt)}</span></div>
+            : <Bubble key={m.id} side="left" who={grouped ? null : who(m)} at={time(m.createdAt)} tight={Boolean(grouped)}>{m.body}</Bubble>;
       })}
       {info?.typing && <p role="status" className="mt-4 inline-flex items-center gap-2 rounded-[18px] rounded-bl-md bg-white px-3.5 py-2.5 text-[13.5px] text-slate-500 shadow-sm">
-        <span className="inline-flex gap-1" aria-hidden="true">{[0, 150, 300].map((d) => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: `${d}ms` }} />)}</span>Non is typing…</p>}
+        <span className="inline-flex gap-1" aria-hidden="true">{[0, 150, 300].map((d) => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: `${d}ms` }} />)}</span>Waydidi Assistant is typing…</p>}
     </div>
     </>}
     {newBelow && <button type="button" onClick={() => { list.current!.scrollTop = list.current!.scrollHeight; setNewBelow(false); }} className="absolute bottom-[86px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-night px-3 py-1.5 text-[12.5px] font-semibold text-white shadow-lg"><ArrowDown size={14} />New message</button>}
@@ -159,6 +159,8 @@ function Bubble({ side, who, at, tight, children }: { side: "left"; who: string 
 }
 
 const LABEL = ["", "Very poor", "Poor", "Okay", "Good", "Excellent"];
+// The assistant already carries the brand in its name; people are shown as "Name — Waydidi".
+const who = (m: ChatMsg) => (m.bot && m.name ? m.name : `${m.name ?? "Waydidi team"} — Waydidi`);
 const event = (name: string) => fetch("/api/chat/review", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "event", event: name }) }).catch(() => undefined);
 
 /** Waydidi's own support rating. It is never sent to Google; the Google link is a separate, optional step for everyone. */
@@ -259,7 +261,7 @@ function StartForm({ question, setQuestion, email, setEmail, topic, setTopic, bu
   </form>;
 }
 
-/** "(Paid)" in Non's messages shows in green. */
+/** "(Paid)" in Waydidi Assistant's messages shows in green. */
 function highlightPaid(text: string) {
   const parts = text.split(/(\(Paid\))/);
   return parts.length === 1 ? text : parts.map((p, i) => p === "(Paid)" ? <span key={i} className="font-semibold text-line-green">(Paid)</span> : p);

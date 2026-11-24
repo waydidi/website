@@ -1,14 +1,14 @@
 # Sales Intelligence: architecture
 
-## Principle: extend Non, don't add a second assistant
+## Principle: extend Waydidi Assistant, don't add a second assistant
 
-There is one orchestrator (Non, `lib/cee/bot.ts`) and one conversation store (`lib/website-chat.ts`). New capabilities are added as narrow tools and deterministic services around them. The model may read messages, extract facts and draft text. Only server code prices, authorizes, verifies payments or creates bookings.
+There is one orchestrator (Waydidi Assistant, `lib/cee/bot.ts`) and one conversation store (`lib/website-chat.ts`). New capabilities are added as narrow tools and deterministic services around them. The model may read messages, extract facts and draft text. Only server code prices, authorizes, verifies payments or creates bookings.
 
 ```text
 WhatsApp / LINE / website
   -> webhook (signature check, dedup by message id, 503 => provider retries)
   -> website_conversations + website_chat_messages        (existing)
-  -> Non (lib/cee/bot.ts): tools only, schema-validated
+  -> Waydidi Assistant (lib/cee/bot.ts): tools only, schema-validated
        -> price tools: lib/pricing.ts, hourly, seasons     (existing)
        -> [PR 2] draft_quote -> crm_quotes revision -> Telegram approval card
   -> guarded send (refuses if staff took over / paused / closed)   [PR 1]
@@ -37,7 +37,7 @@ WhatsApp / LINE / website
 
 ## Send-time authorization (F11 foundation)
 
-Non's message insert carries the takeover check inside the same SQL statement:
+Waydidi Assistant's message insert carries the takeover check inside the same SQL statement:
 
 ```sql
 INSERT INTO website_chat_messages(...) SELECT ... WHERE EXISTS(

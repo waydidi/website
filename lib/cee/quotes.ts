@@ -10,9 +10,9 @@ import { SITE_URL } from "@/lib/site";
 import { limitVehicles } from "@/lib/vehicle-routes";
 import { VEHICLES, type VehicleId } from "@/lib/vehicles";
 
-// Non's prices. Every number here comes from the same pricing tables the booking form uses;
+// Waydidi Assistant's prices. Every number here comes from the same pricing tables the booking form uses;
 // the AI never calculates or invents a price. Anything that can't be priced returns a reason
-// so Non hands the chat to staff instead of guessing.
+// so Waydidi Assistant hands the chat to staff instead of guessing.
 
 export type Car = { vehicle: VehicleId; name: string; seats: number; bags: number; price: number; bookUrl: string };
 export type QuoteResult =
@@ -39,7 +39,7 @@ function fitting(prices: Record<string, { total: number }>, passengers: number, 
     .sort((a, b) => a.price - b.price);
 }
 
-/** Booking form link with everything Non already knows filled in. */
+/** Booking form link with everything Waydidi Assistant already knows filled in. */
 export function bookingLink(p: { service: "transfer" | "hourly"; pickup: string; dropoff?: string; date: string; time: string; passengers: number; luggage: number; vehicle: VehicleId; hours?: number; pickupPlaceId?: string; dropoffPlaceId?: string }) {
   const q = new URLSearchParams({ rebook: "chat", service: p.service, pickup: p.pickup, date: p.date, time: p.time, passengers: String(p.passengers), luggage: String(p.luggage), vehicle: p.vehicle });
   if (p.dropoff) q.set("dropoff", p.dropoff);

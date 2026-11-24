@@ -2,8 +2,8 @@ import { env } from "cloudflare:workers";
 import { sha256 } from "@/lib/security";
 import { findPlace } from "./quotes";
 
-// Live recommendations for Non: real restaurants, cafés, markets, attractions… from Google Maps,
-// with ratings and opening status. Only facts Google returns are passed on; Non never invents them.
+// Live recommendations for Waydidi Assistant: real restaurants, cafés, markets, attractions… from Google Maps,
+// with ratings and opening status. Only facts Google returns are passed on; Waydidi Assistant never invents them.
 
 export type FoundPlace = { name: string; kind: string | null; rating: number | null; reviews: number | null; price: string | null; address: string; openNow: boolean | null; mapsUrl: string; photo: string | null; summary: string | null; distanceKm: number | null };
 type GPlace = { id: string; displayName?: { text?: string }; formattedAddress?: string; rating?: number; userRatingCount?: number; priceLevel?: string; googleMapsUri?: string;

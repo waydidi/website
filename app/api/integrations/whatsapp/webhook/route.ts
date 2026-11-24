@@ -18,7 +18,7 @@ type Message = { from: string; id: string; type: string; text?: { body?: string 
 type Status = { id?: string; status?: string; errors?: { code?: number | string }[] };
 type Payload = { entry?: { changes?: { value?: { contacts?: { wa_id: string; profile?: { name?: string } }[]; messages?: Message[]; statuses?: Status[] } }[] }[] };
 
-const MEDIA_PLACEHOLDER = (type: string) => `[${type} message. Photos, voice notes and files aren't read by Non yet; please type your question.]`;
+const MEDIA_PLACEHOLDER = (type: string) => `[${type} message. Photos, voice notes and files aren't read by Waydidi Assistant yet; please type your question.]`;
 
 export async function POST(request: Request) {
   if (!whatsappConfigured()) return new Response("Not configured", { status: 404 });

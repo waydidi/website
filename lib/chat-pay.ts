@@ -8,7 +8,7 @@ import { VEHICLES, type VehicleId } from "@/lib/vehicles";
 import { addBotMessage, conversationById } from "@/lib/website-chat";
 import { cardText, type ConfirmedCard, type PaymentCard } from "@/lib/chat-cards";
 
-// Booking from the chat: Non (or staff) sends a payment link for a price the SERVER works out
+// Booking from the chat: Waydidi Assistant (or staff) sends a payment link for a price the SERVER works out
 // again from the price tables. Paying it creates a confirmed booking and tells the customer in
 // the same chat.
 //
@@ -38,7 +38,7 @@ export type Details = { pickup: string; dropoff: string; date: string; time: str
 export const linkUrl = (id: string) => `${SITE_URL}/chat-pay/${id}`;
 const token = () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
-/** Re-prices the trip and stores a payment link for this chat. Returns what Non tells the customer. */
+/** Re-prices the trip and stores a payment link for this chat. Returns what Waydidi Assistant tells the customer. */
 export async function createChatPaymentLink(conversationId: string, input: LinkInput, quotes = { quoteTransfer, quoteHourly }) {
   if (!chatPaymentsEnabled()) return { ok: false as const, reason: "Online payment in chat isn't switched on; hand over to staff to book." };
   const c = await conversationById(conversationId);

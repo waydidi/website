@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { DropdownMenu } from "radix-ui";
 
-export const CHAT_SECTIONS: [string, string][] = [["", "Inbox"], ["cee", "Non knowledge"], ["alerts", "Alerts & limits"], ["reviews", "Support reviews"], ["telegram", "Telegram team"]];
+export const CHAT_SECTIONS: [string, string][] = [["", "Inbox"], ["cee", "Waydidi Assistant knowledge"], ["alerts", "Alerts & limits"], ["reviews", "Support reviews"], ["telegram", "Telegram team"]];
 
 /** One pill next to the "Website chat" title: shows the section you're in, tap to pick another. */
 export function ChatSectionPicker() {

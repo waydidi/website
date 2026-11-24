@@ -48,7 +48,7 @@ export function whatsappMediaRef(msg: { type?: unknown } & Record<string, unknow
   return { kind, mediaId: m.id, mimeType, sha256, caption };
 }
 
-/** NON_DISABLED_CHANNELS="whatsapp,line": channels where Non must not answer (staff replies still work). */
+/** ASSISTANT_DISABLED_CHANNELS="whatsapp,line": channels where Waydidi Assistant must not answer (staff replies still work). */
 export function disabledChannels(value: string | undefined | null): Set<string> {
   return new Set((value ?? "").split(",").map((s) => s.trim().toLowerCase()).filter((s) => ["web", "whatsapp", "line"].includes(s)));
 }

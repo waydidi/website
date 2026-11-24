@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { redact, redactDetail } from "./redact";
 
-// AI activity log (F13): what Non and the WhatsApp channel did, why, and what it cost. Append-only from
+// AI activity log (F13): what Waydidi Assistant and the WhatsApp channel did, why, and what it cost. Append-only from
 // application code: there is no edit or delete path except the retention purge. Owner-only to read.
 // Writing never throws and never blocks the customer path; a failed log write is reported to the console only.
 

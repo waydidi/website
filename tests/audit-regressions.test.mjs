@@ -140,7 +140,7 @@ test('incremental chat polling reads all pages without skipping while initial hi
  const next=await chat.messagesFor('history',page.at(-1).seq,200);assert.equal(next.length,50);assert.equal(next.at(-1).body,'Message 250');
  const initial=await chat.messagesFor('history');assert.equal(initial.length,200);assert.equal(initial[0].body,'Message 51');
 });
-test('Non rejects past, short-notice and invalid-slot pickups that checkout cannot accept',async()=>{
+test('Waydidi Assistant rejects past, short-notice and invalid-slot pickups that checkout cannot accept',async()=>{
  for(const minutes of [-60,60,121]){
   const stamp=new Date(Date.now()+minutes*60000+7*3600000).toISOString();
   const result=await quotes.quoteHourly({city:'bangkok',pickup:'Bangkok hotel',hours:3,date:stamp.slice(0,10),time:stamp.slice(11,16),passengers:2,bags:1});assert.equal(result.ok,false);
