@@ -1746,5 +1746,13 @@
   "trips.faq.cancel.a": {
     "text": "退款按您预订时显示的政策执行。当前条款请查看退款政策页面。",
     "status": "machine"
+  },
+  "ride.expired": {
+    "text": "此搜索链接已过期，请重新搜索。",
+    "status": "machine"
+  },
+  "results.chooseVehicle": {
+    "text": "选择您的车型",
+    "status": "machine"
   }
 }

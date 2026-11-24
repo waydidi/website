@@ -165,6 +165,12 @@ function mapBottomPadding(expanded: boolean) {
   return Math.round(covered + (expanded ? 16 : 40));
 }
 
+// Side room for the pin labels; the narrower desktop map column (3 columns) gets less.
+function mapSidePadding() {
+  const wide = typeof window !== "undefined" && window.innerWidth >= 1280;
+  return wide ? { left: 40, right: 60 } : { left: 70, right: 110 };
+}
+
 // Room for the top buttons plus the pin's height above its point.
 function mapTopPadding(expanded: boolean) {
   return expanded ? 125 : 170;
@@ -381,7 +387,7 @@ export function BookingResultsMap(props: Props) {
     const bounds = new maps.LatLngBounds();
     route.forEach((point: any) => bounds.extend(point));
     bounds.extend(pickup); bounds.extend(dropoff);
-    fitRef.current = (bottom) => map.fitBounds(bounds, { top: mapTopPadding(expandedRef.current), right: 110, bottom, left: 70 });
+    fitRef.current = (bottom) => map.fitBounds(bounds, { top: mapTopPadding(expandedRef.current), right: mapSidePadding().right, bottom, left: mapSidePadding().left });
     fitRef.current(mapBottomPadding(expandedRef.current));
     return () => { fitRef.current = null; overlays.forEach((overlay) => overlay.setMap(null)); lines.forEach((line) => line.setMap(null)); };
   }, [mapReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
@@ -411,7 +417,7 @@ export function BookingResultsMap(props: Props) {
     let first = true;
     fitRef.current = (bottom) => {
       // Jump on first draw; afterwards glide to the new framing, like Grab.
-      const options = { paddingTopLeft: [70, mapTopPadding(expandedRef.current)], paddingBottomRight: [110, bottom] };
+      const options = { paddingTopLeft: [mapSidePadding().left, mapTopPadding(expandedRef.current)], paddingBottomRight: [mapSidePadding().right, bottom] };
       if (first) { map.fitBounds(routeBounds, options); first = false; }
       else map.flyToBounds(routeBounds, { ...options, duration: 0.45, easeLinearity: 0.3 });
     };
@@ -589,9 +595,38 @@ export function BookingResultsMap(props: Props) {
   const priceReady=ready&&!props.loading&&props.checkoutReady!==false;
   const disabled = !ready || props.loading || !selected || selected.fits === false || props.checkoutReady === false;
 
+  // Trip, route and total: the "Price and route" popup, and the right column on desktop.
+  const bookingSummary = <>
+            <div className="flex items-center justify-between">
+              <strong className="text-[18px] font-medium">{props.hourly ? `${props.hourly.hours}-hour private driver` : props.returnTrip ? "Return" : "One way"}</strong>
+              <span className="flex items-center gap-2 rounded-full border border-[#D9D9D9] px-4 py-1.5 text-[15px] font-medium"><Users size={18} aria-hidden="true" />{passengers} Passenger{passengers === 1 ? "" : "s"}</span>
+            </div>
+
+            <Leg title="Travel Date" date={props.date} time={props.time} from={props.pickup} to={props.dropoff} quote={props.quote} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
+            {props.returnTrip && props.returnDate && props.returnTime
+              ? <Leg title="Return" date={props.returnDate} time={props.returnTime} from={props.dropoff} to={props.pickup} quote={props.returnQuote ?? null} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
+              : !props.hourly && <button type="button" onClick={() => { setDetailsOpen(false); (props.onAddReturn ?? props.onEditRoute ?? props.onEdit)(); }} className="mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[#BDBDBD] text-[16px] text-charcoal"><ArrowRightLeft size={20} className="text-brand" aria-hidden="true" />Add return</button>}
+
+            <div className="mt-8 border-t border-[#E6E6E6] pt-6">
+              <h3 className="flex items-center gap-3 text-[19px] font-medium">Includes</h3>
+              {props.returnTrip && selected && props.priceBreakdown?.[selected.id] && <>
+                <p className="mt-5 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(props.priceBreakdown[selected.id].outbound)}</span></p>
+                <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>{money(props.priceBreakdown[selected.id].return)}</span></p>
+              </>}
+              {!props.quoteRequest && <p className="mt-4 flex items-center gap-2 text-[14px] text-grey-text"><Check size={16} className="shrink-0 text-line-green" aria-hidden="true" />All prices are fixed totals for your private ride</p>}
+              {lines.included.map((line) => <p key={line} className="mt-2 flex items-center gap-2 text-[14px] text-grey-text"><Check size={16} className="shrink-0 text-line-green" aria-hidden="true" />{line}</p>)}
+              {seats > 0 && <p className="mt-4 flex justify-between text-[16px] text-[#4A4A4A]"><span>Child seat × {seats}</span><span>{addonPrice(Math.max(0, seats - freeNow.childSeats) * CHILD_SEAT_THB)}</span></p>}
+              {ferryAvailable && ferry > 0 && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Ferry &amp; hotel transfer × {ferry}</span><span>{addonPrice(FERRY_HOTEL_THB * ferry)}</span></p>}
+              {exchange && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Currency exchange stop</span><span>{addonPrice(freeNow.exchangeStop ? 0 : EXCHANGE_STOP_THB)}</span></p>}
+              <p className="mt-4 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">{fareText(total)}</strong></p>
+              <p className="mt-1 text-right text-[14px] text-grey-soft">{!props.quoteRequest && priceReady && currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
+            </div>
+            </>;
+
   return <section className="fixed inset-0 z-30 overflow-hidden overscroll-none bg-white lg:relative lg:inset-auto lg:z-auto lg:h-[100svh]" aria-live="polite">
     {/* Map */}
-    <div className="absolute inset-x-0 top-0 h-[70svh] lg:inset-y-0 lg:left-[460px] lg:right-0 lg:h-auto">
+    {/* Phone: map on top, cars in a sheet. Laptop: cars left, map right. Desktop (xl): map | cars | Your Booking. */}
+    <div className="absolute inset-x-0 top-0 h-[70svh] lg:inset-y-0 lg:left-[460px] lg:right-0 lg:h-auto xl:inset-y-6 xl:left-6 xl:right-[892px] xl:overflow-hidden xl:rounded-[20px]">
       <div ref={mapRef} className="absolute inset-0 isolate z-0 bg-[#EDEDED]" aria-label={`Route map from ${props.pickup} to ${props.dropoff}`} />
       {!ready && !props.error && <div className="absolute inset-0 grid place-items-center bg-[#EDEDED]">
         <div className="rounded-2xl bg-white/95 px-6 py-5 text-center shadow-xl">
@@ -612,7 +647,7 @@ export function BookingResultsMap(props: Props) {
     </div>
 
     {/* Sheet */}
-    <div ref={sheetRef} className="absolute inset-x-0 bottom-0 top-[35svh] z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_16px_rgba(0,0,0,.08)] will-change-transform [transform:translate3d(0,var(--sheet-y,0px),0)] lg:inset-y-0 lg:left-0 lg:right-auto lg:top-0 lg:w-[460px] lg:rounded-none lg:[transform:none]">
+    <div ref={sheetRef} className="absolute inset-x-0 bottom-0 top-[35svh] z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_16px_rgba(0,0,0,.08)] will-change-transform [transform:translate3d(0,var(--sheet-y,0px),0)] lg:inset-y-0 lg:left-0 lg:right-auto lg:top-0 lg:w-[460px] lg:rounded-none lg:[transform:none] xl:left-auto xl:right-[428px] xl:w-[440px] xl:shadow-none">
       {/* Drag (or tap) the handle to pull the list up over the map and back down. */}
       <button
         type="button"
@@ -641,6 +676,7 @@ export function BookingResultsMap(props: Props) {
 
         {arrived && <p className="mb-1 flex items-center gap-2 truncate rounded-xl bg-[#ECFDF3] px-3 py-2 text-[13px] font-semibold text-[#067647]"><span className="size-2 shrink-0 rounded-full bg-[#00B14F] shadow-[0_0_0_3px_rgba(0,177,79,.2)]" aria-hidden="true" />{arrived}</p>}
 
+        <h1 className="hidden pt-6 text-[28px] font-semibold tracking-[-.02em] text-charcoal xl:block">{t("results.chooseVehicle")}</h1>
         <ul className="grid gap-3 pt-[15px]">
           {props.vehicles.map((item) => {
             const active = item.id === selected?.id;
@@ -698,10 +734,10 @@ export function BookingResultsMap(props: Props) {
     </div>
 
     {/* Bottom bar */}
-    <div ref={barRef} className="absolute inset-x-0 bottom-0 z-20 border-t border-[#EEEEEE] bg-white px-4 lg:right-auto lg:w-[460px] pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
+    <div ref={barRef} className="absolute inset-x-0 bottom-0 z-20 border-t border-[#EEEEEE] bg-white px-4 lg:right-auto lg:w-[460px] xl:left-auto xl:right-[428px] xl:w-[440px] pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
       <div className="flex items-center justify-between gap-3">
         <p className="flex min-w-0 items-center gap-2 leading-none"><span className="text-[15px] text-[#4A4A4A]">Total</span><strong className="whitespace-nowrap text-[17px] font-semibold text-charcoal">{fareText(total)}</strong>{!props.quoteRequest && priceReady && currency !== "THB" && <span className="whitespace-nowrap text-[13px] text-grey-soft">~{thb(total)}</span>}{extrasCount > 0 && <span className="min-w-0 touch-pan-x overflow-x-auto whitespace-nowrap text-[12px] font-medium text-[#D32F2F] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{t("addons.including", { items: [seats > 0 ? (seats > 1 ? t("addons.childSeats", { count: seats }) : t("addons.childSeat")) : null, exchange ? t("addons.exchange") : null, ferry > 0 ? `${t("addons.ferryHotel")} × ${ferry}` : null].filter(Boolean).join(", ") })}</span>}</p>
-        <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-charcoal"><Info size={18} aria-hidden="true" />Price and route</button>
+        <button type="button" onClick={() => setDetailsOpen(true)} className="flex shrink-0 items-center gap-1.5 text-[15px] text-charcoal xl:hidden"><Info size={18} aria-hidden="true" />Price and route</button>
       </div>
       <div className="mt-5 flex items-center gap-3">
         {props.onExtrasChange && <button type="button" onClick={() => setExtrasOpen(true)} aria-label="Additional services" className="relative grid size-12 shrink-0 place-items-center rounded-full bg-brand text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
@@ -712,6 +748,12 @@ export function BookingResultsMap(props: Props) {
       <button disabled={disabled} onClick={props.onContinue} className="flex h-12 min-w-0 flex-1 items-center justify-center rounded-full bg-brand text-[17px] font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50">{props.quoteRequest ? "Request a quote" : "Continue"}</button>
       </div>
     </div>
+
+    {/* Desktop: Your Booking always shown on the right. */}
+    <aside className="absolute inset-y-6 right-6 z-10 hidden w-[380px] flex-col overflow-hidden rounded-[20px] border border-[#E6E6E6] bg-white text-charcoal xl:flex" aria-label="Your Booking">
+      <h2 className="px-5 pt-5 text-[26px] font-semibold leading-tight">Your Booking</h2>
+      <div className="flex-1 overflow-y-auto px-5 pb-8 pt-1">{bookingSummary}</div>
+    </aside>
 
     {/* Additional services ("+" beside Continue), Grab style. */}
     <DialogPrimitive.Root open={extrasOpen} onOpenChange={setExtrasOpen}>
@@ -826,32 +868,7 @@ export function BookingResultsMap(props: Props) {
             </div>
             <DialogPrimitive.Close className="grid size-10 place-items-center rounded-full hover:bg-slate-100" aria-label="Close"><X size={24} /></DialogPrimitive.Close>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 pb-8 pt-5">
-            <div className="flex items-center justify-between">
-              <strong className="text-[18px] font-medium">{props.hourly ? `${props.hourly.hours}-hour private driver` : props.returnTrip ? "Return" : "One way"}</strong>
-              <span className="flex items-center gap-2 rounded-full border border-[#D9D9D9] px-4 py-1.5 text-[15px] font-medium"><Users size={18} aria-hidden="true" />{passengers} Passenger{passengers === 1 ? "" : "s"}</span>
-            </div>
-
-            <Leg title="Travel Date" date={props.date} time={props.time} from={props.pickup} to={props.dropoff} quote={props.quote} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
-            {props.returnTrip && props.returnDate && props.returnTime
-              ? <Leg title="Return" date={props.returnDate} time={props.returnTime} from={props.dropoff} to={props.pickup} quote={props.returnQuote ?? null} onEdit={() => { setDetailsOpen(false); (props.onEditRoute ?? props.onEdit)(); }} />
-              : !props.hourly && <button type="button" onClick={() => { setDetailsOpen(false); (props.onAddReturn ?? props.onEditRoute ?? props.onEdit)(); }} className="mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[#BDBDBD] text-[16px] text-charcoal"><ArrowRightLeft size={20} className="text-brand" aria-hidden="true" />Add return</button>}
-
-            <div className="mt-8 border-t border-[#E6E6E6] pt-6">
-              <h3 className="flex items-center gap-3 text-[19px] font-medium">Includes</h3>
-              {props.returnTrip && selected && props.priceBreakdown?.[selected.id] && <>
-                <p className="mt-5 flex justify-between text-[16px] text-[#4A4A4A]"><span>Outward</span><span>{money(props.priceBreakdown[selected.id].outbound)}</span></p>
-                <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Return</span><span>{money(props.priceBreakdown[selected.id].return)}</span></p>
-              </>}
-              {!props.quoteRequest && <p className="mt-4 flex items-center gap-2 text-[14px] text-grey-text"><Check size={16} className="shrink-0 text-line-green" aria-hidden="true" />All prices are fixed totals for your private ride</p>}
-              {lines.included.map((line) => <p key={line} className="mt-2 flex items-center gap-2 text-[14px] text-grey-text"><Check size={16} className="shrink-0 text-line-green" aria-hidden="true" />{line}</p>)}
-              {seats > 0 && <p className="mt-4 flex justify-between text-[16px] text-[#4A4A4A]"><span>Child seat × {seats}</span><span>{addonPrice(Math.max(0, seats - freeNow.childSeats) * CHILD_SEAT_THB)}</span></p>}
-              {ferryAvailable && ferry > 0 && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Ferry &amp; hotel transfer × {ferry}</span><span>{addonPrice(FERRY_HOTEL_THB * ferry)}</span></p>}
-              {exchange && <p className="mt-2 flex justify-between text-[16px] text-[#4A4A4A]"><span>Currency exchange stop</span><span>{addonPrice(freeNow.exchangeStop ? 0 : EXCHANGE_STOP_THB)}</span></p>}
-              <p className="mt-4 flex items-center justify-between"><span className="text-[17px]">Total</span><strong className="text-[26px] font-semibold">{fareText(total)}</strong></p>
-              <p className="mt-1 text-right text-[14px] text-grey-soft">{!props.quoteRequest && priceReady && currency !== "THB" ? `~${thb(total)} · charged in THB` : selected?.name}</p>
-            </div>
-          </div>
+          <div className="flex-1 overflow-y-auto px-5 pb-8 pt-5">{bookingSummary}</div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
