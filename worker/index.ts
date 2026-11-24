@@ -16,7 +16,7 @@ import { runCee } from "../lib/cee/bot";
 import { WAIT_MS } from "../lib/cee/schedule";
 
 /**
- * One per chat. Each new customer message pushes the alarm 5 s later; the alarm runs Non with no
+ * One per chat. Each new customer message pushes the alarm 5 s later; the alarm runs Waydidi Assistant with no
  * 30 s request limit, and Cloudflare runs one alarm at a time per chat.
  */
 export class NonChat extends DurableObject {
@@ -165,6 +165,7 @@ const worker = {
   },
   async scheduled(controller: { scheduledTime: number; cron?: string }, _env: Env, ctx: ExecutionContext): Promise<void> {
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) ctx.waitUntil(import("../lib/booking-funnel-db").then(m => m.purgeBookingFunnel(_env.DB, new Date(controller.scheduledTime))).catch(() => console.error("Booking funnel retention failed")));
+    if (new Date(controller.scheduledTime).getUTCMinutes() === 0) ctx.waitUntil(import("../lib/sales-ai/activity-log").then(m => m.purgeActivity(new Date(controller.scheduledTime))).catch(() => console.error("AI activity retention failed")));
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) ctx.waitUntil(import("../lib/web-monitoring-db").then(m => m.purgeWebMonitoring(_env.DB, new Date(controller.scheduledTime))).catch(() => console.error("Web monitoring retention failed")));
     ctx.waitUntil(import("../lib/telegram/trip-photos").then(m=>m.recoverTripNotifications()).catch(()=>console.error("Telegram trip notification recovery failed")));
     ctx.waitUntil(import("../lib/cancellation-requests").then(m=>m.recoverCancellationCards()).catch(()=>console.error("Cancellation notification recovery failed")));
@@ -177,7 +178,7 @@ const worker = {
       ctx.waitUntil(import("../lib/telegram/driver-group").then(async m => {await m.recoverDriverGroup();await m.reopenLapsedSignups(new Date(controller.scheduledTime));}).catch((e) => console.error("driver group sign-up check failed", e)));
       // Every 30 minutes: thank-you coupons for members whose invited friend has completed a ride.
       ctx.waitUntil(import("../lib/referrals").then((m) => m.referralRewardsIfDue(new Date(controller.scheduledTime))).catch((e) => console.error("referral rewards failed", e)));
-      // "Ask me first": chats nobody chose for within the wait are given to Non.
+      // "Ask me first": chats nobody chose for within the wait are given to Waydidi Assistant.
       ctx.waitUntil(import("../lib/cee/ask-first").then((m) => m.releaseWaitingChats(new Date(controller.scheduledTime))).catch((e) => console.error("ask-first release failed", e)));
       // The "/" command menu in the team group (registered once, again only when the list changes).
       ctx.waitUntil(import("../lib/telegram/commands").then((m) => m.syncBotCommands()).catch((e) => console.error("telegram command menu failed", e)));

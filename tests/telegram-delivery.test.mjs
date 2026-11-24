@@ -126,13 +126,13 @@ async function botConversation(channel='web') {
 test('website bot answer posts once under the conversation, clearly labelled and escaped',async()=>{
  const id=await botConversation(),count=sends.length;
  const message=await chat.addBotMessage(id,'The fare is < 1,000 & includes tolls',{type:'summary',text:'Trip quote'});
- const sent=sends.find((s,i)=>i>=count&&s.text?.includes('Non (AI)'));
+ const sent=sends.find((s,i)=>i>=count&&s.text?.includes('Waydidi Assistant (AI)'));
  assert.ok(sent);assert.equal(sent.chat_id,'-100');assert.equal(sent.reply_parameters.message_id,1234);
  assert.match(sent.text,/fare is &lt; 1,000 &amp;/);
  await Promise.all([chat.deliverBotMessage(id,message),chat.deliverBotMessage(id,message),chat.deliverVisitorMessage(id,message)]);
- assert.equal(sends.filter((s,i)=>i>=count&&s.text?.includes('Non (AI)')).length,1);
+ assert.equal(sends.filter((s,i)=>i>=count&&s.text?.includes('Waydidi Assistant (AI)')).length,1);
  const row=await d1.prepare('SELECT is_bot,sender_name,telegram_status,card_json FROM website_chat_messages WHERE id=?').bind(message).first();
- assert.equal(row.is_bot,1);assert.equal(row.sender_name,'Non');assert.equal(row.telegram_status,'sent');assert.equal(JSON.parse(row.card_json).type,'summary');
+ assert.equal(row.is_bot,1);assert.equal(row.sender_name,'Waydidi Assistant');assert.equal(row.telegram_status,'sent');assert.equal(JSON.parse(row.card_json).type,'summary');
  assert.equal((await chat.conversationById(id)).assigned_name,null);
 });
 test('website bot reply queues while disconnected and cron recovers it once',async()=>{

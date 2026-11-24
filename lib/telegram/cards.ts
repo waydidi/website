@@ -51,8 +51,8 @@ export function conversationCard(c: CardConversation, latest: { body: string; cr
     ...(c.customer_phone ? [`Phone: ${esc(c.customer_phone)}`] : []),
     "",
     c.assigned_name ? `Assigned to <b>${esc(c.assigned_name)}</b> · ${STATUS_LABEL[c.status]}`
-      : waitingForChoice(c) ? `<b>Who answers?</b> Tap Let AI answer (Non) or I'll answer. If nobody chooses, Non answers by itself after a few minutes.`
-      : nonAnswering ? `<b>Non (AI) is answering</b> · no action needed. Tap Take over to reply yourself.`
+      : waitingForChoice(c) ? `<b>Who answers?</b> Tap Let AI answer (Waydidi Assistant) or I'll answer. If nobody chooses, Waydidi Assistant answers by itself after a few minutes.`
+      : nonAnswering ? `<b>Waydidi Assistant (AI) is answering</b> · no action needed. Tap Take over to reply yourself.`
       : `Not assigned yet · ${STATUS_LABEL[c.status]}`,
   ];
   return lines.join("\n");
@@ -63,7 +63,7 @@ export function conversationKeyboard(c: CardConversation, adminUrl: string, nonA
   // A new chat: choose who answers (the AI stays quiet until then).
   if (waitingForChoice(c)) return [[{ text: "🤖 Let AI answer", callback_data: `chat_ai:${id}` }, { text: "🙋 I'll answer", callback_data: `chat_assign:${id}` }], [{ text: "Open in Admin", url: adminUrl }]];
   if (c.status === "closed") return [[{ text: "Reopen", callback_data: `chat_reopen:${id}` }, { text: "Open in Admin", url: adminUrl }]];
-  // Non is handling it: one button to step in (same as Assign: Non stops at once).
+  // Waydidi Assistant is handling it: one button to step in (same as Assign: Waydidi Assistant stops at once).
   if (!c.assigned_name && nonAnswering) return [[{ text: "Take over", callback_data: `chat_assign:${id}` }, { text: "Open in Admin", url: adminUrl }]];
   if (!c.assigned_name) return [
     [{ text: "Assign", callback_data: `chat_assign:${id}` }],
@@ -85,9 +85,9 @@ export const pickKeyboard = (conversationId: string, team: { telegram_user_id: s
 export const customerMessage = (publicId: string, name: string | null, body: string) =>
   `<b>${esc(publicId)}</b> · ${esc(name || "Website visitor")}\n<blockquote>${esc(clip(body, 3500))}</blockquote>`;
 
-/** Non's reply, posted under the card so staff can follow the conversation. */
+/** Waydidi Assistant's reply, posted under the card so staff can follow the conversation. */
 export const botEcho = (publicId: string, body: string) =>
-  `<b>Non (AI)</b> · ${esc(publicId)}\n<blockquote>${esc(clip(body, 3500))}</blockquote>`;
+  `<b>Waydidi Assistant (AI)</b> · ${esc(publicId)}\n<blockquote>${esc(clip(body, 3500))}</blockquote>`;
 
 /** A reply sent from the admin dashboard, mirrored so Telegram shows the whole thread. */
 export const staffEcho = (publicId: string, name: string, body: string) =>

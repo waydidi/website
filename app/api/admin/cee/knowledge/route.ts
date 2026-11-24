@@ -2,12 +2,12 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getWaydidiAdmin } from "@/lib/admin";
 import { isJsonRequest, sameOrigin } from "@/lib/security";
-import { MODELS, ceeEnabled, modelMode, setModelMode, usageFor, type ModelMode } from "@/lib/cee/bot";
+import { activeModels, ceeEnabled, modelMode, setModelMode, usageFor, type ModelMode } from "@/lib/cee/bot";
 import { deleteNote, listNotes, parseMarkdown, saveNote, validNote } from "@/lib/cee/knowledge";
 import { lineConfigured, whatsappConfigured } from "@/lib/channels";
 import { assistantUsage } from "@/lib/telegram/assistant";
 
-// Non's knowledge notes, model choice and monthly cost. Support staff edit notes; the owner picks the model.
+// Waydidi Assistant's knowledge notes, model choice and monthly cost. Support staff edit notes; the owner picks the model.
 const headers = { "Cache-Control": "no-store" };
 const reply = (error: string, status: number) => NextResponse.json({ error }, { status, headers });
 const allowed = (role: string) => ["owner", "support", "operations"].includes(role);
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const vars = env as unknown as Record<string, unknown>;
   return NextResponse.json({
     notes, owner: staff.role === "owner",
-    cee: { enabled: await ceeEnabled(), keySet: Boolean(vars.ANTHROPIC_API_KEY), mapsKeySet: Boolean(vars.GOOGLE_MAPS_SERVER_KEY), mode: await modelMode(), models: MODELS, usage: await usageFor() },
+    cee: { enabled: await ceeEnabled(), keySet: Boolean(vars.ANTHROPIC_API_KEY), mapsKeySet: Boolean(vars.GOOGLE_MAPS_SERVER_KEY), mode: await modelMode(), models: activeModels(), usage: await usageFor() },
     channels: { whatsapp: whatsappConfigured(), line: lineConfigured() },
     telegramAssistant: await assistantUsage(),
   }, { headers });
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, id }, { headers });
     }
     case "mode": {
-      if (staff.role !== "owner") return reply("Only the owner can change Non's model.", 403);
+      if (staff.role !== "owner") return reply("Only the owner can change Waydidi Assistant's model.", 403);
       if (!["auto", "fast", "smart"].includes(input.mode as string)) return reply("Unknown mode.", 400);
       await setModelMode(input.mode as ModelMode);
       return NextResponse.json({ ok: true }, { headers });

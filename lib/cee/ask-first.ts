@@ -3,7 +3,7 @@ import { refreshCard } from "@/lib/website-chat";
 import { scheduleNon } from "@/lib/cee/schedule";
 
 // "Ask me first": a new customer chat (website, WhatsApp or LINE) goes to Telegram with two buttons, Let AI answer
-// or I'll answer. Non (the AI) stays quiet until one is chosen, and answers by itself when nobody chooses in time,
+// or I'll answer. Waydidi Assistant (the AI) stays quiet until one is chosen, and answers by itself when nobody chooses in time,
 // so a customer is never left waiting. Off by default (switch in Admin → Website chat).
 type Db = { prepare: (sql: string) => { bind: (...v: unknown[]) => { first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<{ meta: { changes: number } }> } } };
 const db = () => env.DB as unknown as Db;
@@ -16,7 +16,7 @@ export const askFirstOn = async () => (await setting("cee_ask_first")) === "1";
 export const askFirstMinutes = async () => { const n = Number(await setting("cee_ask_first_minutes")); return Number.isInteger(n) && n >= 1 && n <= 60 ? n : DEFAULT_ASK_MINUTES; };
 export const setAskFirst = async (on: boolean, minutes?: number) => { await put("cee_ask_first", on ? "1" : "0"); if (minutes !== undefined && Number.isInteger(minutes) && minutes >= 1 && minutes <= 60) await put("cee_ask_first_minutes", String(minutes)); };
 
-/** A new chat waits for a choice (only while Non is on and the switch is on). */
+/** A new chat waits for a choice (only while Waydidi Assistant is on and the switch is on). */
 export async function gateNewConversation(conversationId: string) {
   if (!(env as unknown as Record<string, unknown>).ANTHROPIC_API_KEY || (await setting("cee_enabled")) === "0" || !(await askFirstOn())) return false;
   const r = await db().prepare("UPDATE website_conversations SET bot_paused=1,bot_state=? WHERE id=? AND assigned_name IS NULL AND status<>'closed'").bind(ASK_FIRST_STATE, conversationId).run();
@@ -33,7 +33,7 @@ export async function letAiAnswer(conversationId: string, how: "button" | "timeo
   return true;
 }
 
-/** Cron: chats nobody chose for within the wait are handed to Non. */
+/** Cron: chats nobody chose for within the wait are handed to Waydidi Assistant. */
 export async function releaseWaitingChats(now = new Date()) {
   if (!(await askFirstOn())) return 0;
   const cutoff = new Date(now.getTime() - (await askFirstMinutes()) * 60_000).toISOString();

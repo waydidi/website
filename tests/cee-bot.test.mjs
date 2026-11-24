@@ -4,7 +4,7 @@ import { createServer } from 'vite';
 import { Miniflare } from 'miniflare';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
-// Non (chat quote bot): the tool loop with a scripted model, and the rules for when Non speaks.
+// Waydidi Assistant (chat quote bot): the tool loop with a scripted model, and the rules for when Waydidi Assistant speaks.
 const root=fileURLToPath(new URL('..',import.meta.url));
 const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("test")}}',compatibilityDate:'2026-05-22',d1Databases:['DB']});
 const db=await mf.getD1Database('DB');
@@ -41,7 +41,7 @@ test('history alternates roles, merges repeats and drops a leading staff greetin
  await bot.ceeTurn([{sender:'staff',body:'Welcome'},{sender:'visitor',body:'a'},{sender:'visitor',body:'b'},{sender:'staff',body:'c'},{sender:'visitor',body:'d'}],c,{tools});
  assert.deepEqual(c.calls[0].messages.map((m)=>[m.role,m.content]),[['user','a\n\nb'],['assistant','c'],['user','d']]);
 });
-test('Non stays quiet when the last message is not from the customer',async()=>{
+test('Waydidi Assistant stays quiet when the last message is not from the customer',async()=>{
  const c=scripted();assert.equal((await bot.ceeTurn([{sender:'visitor',body:'hi'},{sender:'staff',body:'hello'}],c,{tools})).reply,null);assert.equal(c.calls.length,0);
 });
 test('prices come only from the quote tool result',async()=>{
@@ -74,13 +74,13 @@ async function conversation(text){const id=`cee-${++n}`;await db.prepare('INSERT
 const row=(id)=>db.prepare('SELECT assigned_name,bot_paused,bot_state FROM website_conversations WHERE id=?').bind(id).first();
 const replies=(id)=>db.prepare("SELECT sender_name,is_bot,body FROM website_chat_messages WHERE conversation_id=? AND sender='staff' ORDER BY rowid").bind(id).all().then((r)=>r.results);
 
-test('Non replies as "Non", marked as a bot, without taking the chat',async()=>{
+test('Waydidi Assistant replies as "Waydidi Assistant", marked as a bot, without taking the chat',async()=>{
  const id=await conversation('How much from BKK to Pattaya?');
  await bot.runCee(id,{client:scripted(say('Sure! What date and time?'))});
- assert.deepEqual(await replies(id),[{sender_name:'Non',is_bot:1,body:'Sure! What date and time?'}]);
+ assert.deepEqual(await replies(id),[{sender_name:'Waydidi Assistant',is_bot:1,body:'Sure! What date and time?'}]);
  assert.equal((await row(id)).assigned_name,null);
 });
-test('a staff reply or assignment silences Non in that chat',async()=>{
+test('a staff reply or assignment silences Waydidi Assistant in that chat',async()=>{
  const id=await conversation('hello');
  await chat.addStaffMessage(id,'Hi, Anna here',{name:'Anna',staffId:'anna'},'dashboard');
  assert.equal((await row(id)).bot_paused,1);
@@ -90,14 +90,14 @@ test('a staff reply or assignment silences Non in that chat',async()=>{
 test('asking for a person hands over without calling the model (English, Thai, Chinese)',async()=>{
  for(const text of ['Can I talk to a real person?','ขอคุยกับเจ้าหน้าที่','我要人工客服']){
   const id=await conversation(text);const c=scripted();await bot.runCee(id,{client:c});
-  assert.equal(c.calls.length,0);const r=await row(id);assert.equal(r.bot_paused,0);assert.match(r.bot_state,/Customer asked for a person/);assert.equal((await replies(id))[0].sender_name,'Non');
+  assert.equal(c.calls.length,0);const r=await row(id);assert.equal(r.bot_paused,0);assert.match(r.bot_state,/Customer asked for a person/);assert.equal((await replies(id))[0].sender_name,'Waydidi Assistant');
  }
 });
-test('a model error alerts staff, says nothing wrong to the customer, and Non keeps answering until someone assigns',async()=>{
+test('a model error alerts staff, says nothing wrong to the customer, and Waydidi Assistant keeps answering until someone assigns',async()=>{
  const id=await conversation('BKK to Pattaya');await bot.runCee(id,{client:scripted()});
- const r=await row(id);assert.equal(r.bot_paused,0);assert.match(r.bot_state,/Non error/);assert.equal((await replies(id)).length,0);
+ const r=await row(id);assert.equal(r.bot_paused,0);assert.match(r.bot_state,/Waydidi Assistant error/);assert.equal((await replies(id)).length,0);
 });
-test('Non is off without an API key or when switched off',async()=>{
+test('Waydidi Assistant is off without an API key or when switched off',async()=>{
  globalThis.__ceeTest.env.ANTHROPIC_API_KEY=undefined;assert.equal(await bot.ceeEnabled(),false);globalThis.__ceeTest.env.ANTHROPIC_API_KEY='test-key';
  await bot.setCeeEnabled(false);const id=await conversation('hi');const c=scripted(say('x'));await bot.runCee(id,{client:c});assert.equal(c.calls.length,0);
  await bot.setCeeEnabled(true);assert.equal(await bot.ceeEnabled(),true);
@@ -139,20 +139,20 @@ test('search_knowledge finds live notes and attractions, never drafts',async()=>
  assert.deepEqual(await know.searchKnowledge('zzzz'),{notes:[],places:[]});
 });
 
-test('the website shows "Non is typing…" while Non works',async()=>{
+test('the website shows "Waydidi Assistant is typing…" while Waydidi Assistant works',async()=>{
  const customer=await vite.ssrLoadModule('/app/api/chat/route.ts');const {sha256}=await vite.ssrLoadModule('/lib/security.ts');
  const token='c'.repeat(48);await db.prepare('INSERT INTO website_conversations(id,token_hash,expires_at,created_at,updated_at,public_id,status) VALUES(?,?,?,?,?,?,?)').bind('typing-1',await sha256(token),later,now,now,'WD-77777','open').run();
  const get=async()=>(await (await customer.GET(new Request('https://example.invalid/api/chat',{headers:{cookie:`waydidi_chat=${token}`}}))).json()).conversation.typing;
  assert.equal(await get(),false);await chat.setBotThinking('typing-1',true);assert.equal(await get(),true);await chat.setBotThinking('typing-1',false);assert.equal(await get(),false);
 });
 
-// WhatsApp and LINE: signed webhooks in, replies out through the same conversation and Non.
+// WhatsApp and LINE: signed webhooks in, replies out through the same conversation and Waydidi Assistant.
 const sent=[];const realFetch=globalThis.fetch;
 const tgCalls=[];let tg429=0;
 globalThis.fetch=async(url,init)=>{const u=String(url);if(u.startsWith('https://api.telegram.org')){const m=u.split('/').pop();if(tg429>0){tg429--;return new Response(JSON.stringify({ok:false,description:'Too Many Requests',parameters:{retry_after:1}}),{status:429});}tgCalls.push({method:m,body:JSON.parse(init.body)});return new Response(JSON.stringify({ok:true,result:{message_id:900+tgCalls.length,chat:{id:1}}}));}if(u.startsWith('https://graph.facebook.com')||u.startsWith('https://api.line.me')){sent.push({url:u,body:init?.body?JSON.parse(init.body):null});return new Response(JSON.stringify(u.includes('/profile/')?{displayName:'Nok'}:{messages:[{id:'wamid.out'}]}),{status:200});}return realFetch(url,init);};
 after(()=>{globalThis.fetch=realFetch;});
 const sign=async(secret,body,enc)=>{const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const mac=new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(body)));return enc==='hex'?[...mac].map((b)=>b.toString(16).padStart(2,'0')).join(''):btoa(String.fromCharCode(...mac));};
-test('WhatsApp: verification, signature check, one conversation per number, Non replies on WhatsApp',async()=>{
+test('WhatsApp: verification, signature check, one conversation per number, Waydidi Assistant replies on WhatsApp',async()=>{
  Object.assign(globalThis.__ceeTest.env,{WHATSAPP_TOKEN:'t',WHATSAPP_PHONE_NUMBER_ID:'123',WHATSAPP_APP_SECRET:'shh',WHATSAPP_VERIFY_TOKEN:'verify-me'});
  const wa=await vite.ssrLoadModule('/app/api/integrations/whatsapp/webhook/route.ts');
  assert.equal(await (await wa.GET(new Request('https://x/api/integrations/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=42'))).text(),'42');
@@ -185,8 +185,8 @@ test('LINE: signature check, display name, staff replies pushed to LINE',async()
  await bot.setCeeEnabled(true);
 });
 test('by default every message uses Haiku 4.5, with no escalation',async()=>{
- const c=scripted(say('Hi, I am Non!'));await bot.ceeTurn([{sender:'visitor',body:'hello'}],c,{tools});
- assert.equal(c.calls[0].model,'claude-haiku-4-5');assert.ok(!c.calls[0].tools.some((t)=>t.name==='escalate'));assert.match(c.calls[0].system[0].text,/^You are Non,/);
+ const c=scripted(say('Hi, I am Waydidi Assistant!'));await bot.ceeTurn([{sender:'visitor',body:'hello'}],c,{tools});
+ assert.equal(c.calls[0].model,'claude-haiku-4-5');assert.ok(!c.calls[0].tools.some((t)=>t.name==='escalate'));assert.match(c.calls[0].system[0].text,/^You are Waydidi Assistant,/);
  assert.equal(await bot.modelMode(),'fast');
 });
 
@@ -200,13 +200,13 @@ test('quick messages in a row get one reply: older scheduled runs stand down',as
  await Promise.all([bot.runCee(id,{client:c,expectSeq:s1}),bot.runCee(id,{client:c,expectSeq:s2}),bot.runCee(id,{client:c,expectSeq:s3})]);
  assert.equal(c.calls.length,1);assert.equal(c.calls[0].messages.at(-1).content,'hi\n\nto Pattaya\n\ntomorrow 10am');assert.equal((await replies(id)).length,1);
 });
-test('only one Non run per chat at a time',async()=>{
+test('only one Waydidi Assistant run per chat at a time',async()=>{
  const id=await conversation('BKK to Pattaya');const c=slow(150,say('When?'),say('second'));
  await Promise.all([bot.runCee(id,{client:c}),bot.runCee(id,{client:c})]);
  assert.equal(c.calls.length,1);assert.equal((await replies(id)).length,1);
  assert.equal((await db.prepare('SELECT bot_lock_until,bot_thinking_at FROM website_conversations WHERE id=?').bind(id).first()).bot_lock_until,null);
 });
-test('a message that arrives while Non is answering is answered next',async()=>{
+test('a message that arrives while Waydidi Assistant is answering is answered next',async()=>{
  const id=await conversation('BKK to Pattaya');const c=scripted(say('When are you travelling?'),say('Thanks! How many bags?'));
  const create=c.beta.messages.create;let first=true;c.beta.messages.create=async(b)=>{if(first){first=false;await visitor(id,'tomorrow 9am, 3 people');}return create(b);};
  await bot.runCee(id,{client:c});
@@ -219,7 +219,7 @@ test('scheduling hands the chat to its Durable Object and shows typing at once',
  assert.deepEqual(seen,[[id,id]]);assert.ok((await db.prepare('SELECT bot_thinking_at t FROM website_conversations WHERE id=?').bind(id).first()).t);
  delete globalThis.__ceeTest.env.NON_AGENT;assert.equal(schedule.WAIT_MS,5000);
 });
-test('website questions and Non replies notify Telegram; staff replies are mirrored',async()=>{
+test('website questions and Waydidi Assistant replies notify Telegram; staff replies are mirrored',async()=>{
  Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
  const id=await conversation('hi');tgCalls.length=0;
  await chat.addVisitorMessage(await db.prepare('SELECT * FROM website_conversations WHERE id=?').bind(id).first(),'How much to Pattaya?','c-skip-1');
@@ -230,8 +230,8 @@ test('website questions and Non replies notify Telegram; staff replies are mirro
  assert.equal(tgCalls.filter(c=>c.method==='sendMessage').length,1);
  await chat.addVisitorMessage(await chat.conversationById(id),'Can I add a child seat?','c-notify-2');
  assert.equal(tgCalls.filter(c=>c.method==='sendMessage').length,2);
- const botId=await chat.addBotMessage(id,'Hello from Non');assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,3);
- assert.ok(tgCalls.some(c=>c.method==='sendMessage' && c.body.text.includes('Non (AI)') && c.body.text.includes('Hello from Non')));
+ const botId=await chat.addBotMessage(id,'Hello from Waydidi Assistant');assert.equal(tgCalls.filter((c)=>c.method==='sendMessage').length,3);
+ assert.ok(tgCalls.some(c=>c.method==='sendMessage' && c.body.text.includes('Waydidi Assistant (AI)') && c.body.text.includes('Hello from Waydidi Assistant')));
  assert.equal((await db.prepare('SELECT telegram_status FROM website_chat_messages WHERE id=?').bind(botId).first()).telegram_status,'sent');
  await db.prepare('UPDATE website_conversations SET telegram_message_id=500 WHERE id=?').bind(id).run();
  tg429=1;await chat.addStaffMessage(id,'Anna here',{name:'Anna',staffId:'anna'},'dashboard');
@@ -290,7 +290,7 @@ test('website chat booking: summary → yes → payment link at the server price
  const pay=await vite.ssrLoadModule('/lib/chat-pay.ts');const route=await vite.ssrLoadModule('/app/api/chat-pay/[id]/route.ts');
  const id=await conversation('Hello, how much for BKK airport to Sheraton Grande Asok tomorrow 10am, 2 people 2 bags?');
  await db.prepare("UPDATE website_conversations SET customer_email='guest@example.com' WHERE id=?").bind(id).run();
- // Payments off: Non doesn't get the booking tool at all
+ // Payments off: Waydidi Assistant doesn't get the booking tool at all
  delete globalThis.__ceeTest.env.PAYSO_TEST_MODE;assert.equal(pay.chatPaymentsEnabled(),false);
  const off=scripted(say('ok'));await bot.ceeTurn([{sender:'visitor',body:'book it'}],off,{tools});assert.ok(!off.calls[0].tools.some((t)=>t.name==='send_payment_link'));
  globalThis.__ceeTest.env.PAYSO_TEST_MODE='1';
@@ -310,7 +310,7 @@ test('website chat booking: summary → yes → payment link at the server price
  const b=await db.prepare('SELECT * FROM bookings WHERE reference=?').bind(reference).first();
  assert.deepEqual([b.status,b.payment_status,b.total,b.amount_paid,b.vehicle,b.customer_name,b.customer_email],['confirmed','paid',1700,1700,'comfort_suv','Anna Lee','guest@example.com']);
  assert.equal((await db.prepare('SELECT source FROM booking_sources WHERE booking_reference=?').bind(reference).first()).source,'chat');
- const last=(await replies(id)).at(-1);assert.equal(last.sender_name,'Non');assert.match(last.body,new RegExp(`booking ${reference} is confirmed`));
+ const last=(await replies(id)).at(-1);assert.equal(last.sender_name,'Waydidi Assistant');assert.match(last.body,new RegExp(`booking ${reference} is confirmed`));
  // Paying twice doesn't book twice
  assert.equal((await post('test_pay')).status,410);assert.equal((await db.prepare('SELECT COUNT(*) n FROM bookings').first()).n,1);
  // Missing details are asked for, not guessed
@@ -345,10 +345,10 @@ test('website chat shows quotes, payment links and confirmations as rich cards (
  assert.equal(cards.parseCard('not json'),null);
 });
 
-test('while Non answers, the Telegram card says so and offers Take over; after a handover it asks for a person',async()=>{
+test('while Waydidi Assistant answers, the Telegram card says so and offers Take over; after a handover it asks for a person',async()=>{
  const cards=await vite.ssrLoadModule('/lib/telegram/cards.ts');
  const c={id:'c1',public_id:'WD_chat_1',status:'open',customer_name:null,customer_email:'a@b.co',customer_phone:null,source_title:null,source_url:null,topic:null,assigned_name:null,created_at:new Date().toISOString()};
- assert.match(cards.conversationCard(c,null,true,true),/Non \(AI\) is answering/);
+ assert.match(cards.conversationCard(c,null,true,true),/Waydidi Assistant \(AI\) is answering/);
  assert.deepEqual(cards.conversationKeyboard(c,'https://x',true).flat().map((b)=>b.text),['Take over','Open in Admin']);
  assert.deepEqual(cards.conversationKeyboard(c,'https://x',false).flat().map((b)=>b.text),['Assign','Let other assign']);
 });
@@ -359,7 +359,7 @@ test('handover: a "Needs a person" card with Assign and Wait; Wait tells the cus
  tgCalls.length=0;await bot.runCee(id,{client:scripted()});
  const card=tgCalls.find((c)=>c.method==='sendMessage'&&/Needs a person/.test(c.body.text));
  assert.ok(card);assert.deepEqual(card.body.reply_markup.inline_keyboard.flat().map((b)=>b.text),['Assign','Wait']);
- assert.equal((await row(id)).bot_paused,0); // Non keeps answering until someone assigns
+ assert.equal((await row(id)).bot_paused,0); // Waydidi Assistant keeps answering until someone assigns
  assert.match(await ho.waitHandover(id,'Alex'),/Reminder in 10 minutes/);
  const last=(await replies(id)).at(-1);assert.match(last.body,/Thanks for waiting/);
  tgCalls.length=0;assert.equal(await ho.remindWaiting(new Date()),0);
@@ -367,7 +367,7 @@ test('handover: a "Needs a person" card with Assign and Wait; Wait tells the cus
  assert.ok(tgCalls.some((c)=>c.method==='sendMessage'&&/reminder/.test(c.body.text)));
  delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
 });
-test('every message Non cannot answer posts its own Assign/Wait card',async()=>{
+test('every message Waydidi Assistant cannot answer posts its own Assign/Wait card',async()=>{
  Object.assign(globalThis.__ceeTest.env,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'-100'});
  const id=await conversation('Can I talk to a real person?');await db.prepare('UPDATE website_conversations SET telegram_message_id=701 WHERE id=?').bind(id).run();
  tgCalls.length=0;await bot.runCee(id,{client:scripted()});
@@ -377,7 +377,7 @@ test('every message Non cannot answer posts its own Assign/Wait card',async()=>{
  assert.equal(cards.length,2);for(const c of cards)assert.deepEqual(c.body.reply_markup.inline_keyboard.flat().map((b)=>b.text),['Assign','Wait']);
  delete globalThis.__ceeTest.env.TELEGRAM_BOT_TOKEN;delete globalThis.__ceeTest.env.TELEGRAM_CHAT_ID;
 });
-test('restaurant recommendations: Non uses find_places and the chat gets a places card with ratings and map links',async()=>{
+test('restaurant recommendations: Waydidi Assistant uses find_places and the chat gets a places card with ratings and map links',async()=>{
  const found={ok:true,places:[{name:'Baan Ice',kind:'Thai restaurant',rating:4.6,reviews:2100,price:'฿฿',address:'Sukhumvit 55, Bangkok',openNow:true,mapsUrl:'https://maps.google.com/?cid=1',photo:'/api/places/photo?n=x&s=y',summary:'Southern Thai home cooking'}]};
  const c=scripted({content:[{type:'tool_use',id:'t1',name:'find_places',input:{query:'authentic Thai restaurant',near:'CentralWorld Bangkok'}}],stop_reason:'tool_use'},say('My top pick is Baan Ice. Want a car there?'));
  const out=await bot.ceeTurn([{sender:'visitor',body:'Best authentic Thai restaurant near CentralWorld?'}],c,{tools:{...tools,findPlaces:async()=>found}});
@@ -403,12 +403,12 @@ test('alerts come first: stop-selling areas are not quoted, warn areas get a not
  const warn=await run('Pattaya');assert.match(warn.out.cards[0].notes[0],/⚠️ Songkran traffic/);
  assert.match(JSON.stringify(stop.calls[0].system),/ACTIVE WAYDIDI ALERTS/);
 });
-test('spam guard: too many messages in a few minutes pauses Non for that chat',async()=>{
+test('spam guard: too many messages in a few minutes pauses Waydidi Assistant for that chat',async()=>{
  const guard=await vite.ssrLoadModule('/lib/cee/guard.ts');
  const id=await conversation('hi');for(let i=0;i<21;i++)await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES(?,?,'visitor','x',?)").bind('sp'+i+id,id,new Date().toISOString()).run();
  assert.equal(await guard.spamPaused(id),true);
 });
-test('"near me": on the website Non shows a Share my location button; on WhatsApp it asks for the location pin',async()=>{
+test('"near me": on the website Waydidi Assistant shows a Share my location button; on WhatsApp it asks for the location pin',async()=>{
  const ask=(channel)=>bot.ceeTurn([{sender:'visitor',body:'good coffee near me?'}],scripted({content:[{type:'tool_use',id:'t',name:'ask_location',input:{reason:'coffee shops near you'}}],stop_reason:'tool_use'},say('Tap the button to share your location.')),{tools,channel});
  const web=await ask('web');assert.equal(web.cards[0].type,'location');assert.match(web.cards[0].text,/coffee shops near you/);
  const wa=await ask('whatsapp');assert.equal(wa.cards.length,0);

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { sha256 } from "@/lib/security";
 
-// Non's safety rails: limits on paid place searches, a spam guard, and the team's alerts
+// Waydidi Assistant's safety rails: limits on paid place searches, a spam guard, and the team's alerts
 // (closures, flooding, disasters) which always come before anything from the internet.
 
 type Stmt = { bind: (...v: unknown[]) => Stmt; first: <T>() => Promise<T | null>; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<{ meta: { changes: number } }> };
@@ -79,7 +79,7 @@ export async function placeSearchStats() {
   return { paid: r?.paid ?? 0, cached: r?.cached ?? 0, lastError };
 }
 
-/** Too many customer messages in a short time: Non pauses for this chat. Returns true when it should stay quiet. */
+/** Too many customer messages in a short time: Waydidi Assistant pauses for this chat. Returns true when it should stay quiet. */
 export async function spamPaused(conversationId: string) {
   const l = await getLimits();
   const since = new Date(Date.now() - l.spamMinutes * 60_000).toISOString();
@@ -97,7 +97,7 @@ export function alertsFor(alerts: Alert[], ...texts: (string | null | undefined)
   const hay = texts.filter(Boolean).join(" ").toLowerCase();
   return alerts.filter((a) => { const w = words(a); return !w.length || w.some((x) => hay.includes(x)); });
 }
-/** Lines for Non's instructions: every active alert, every reply. */
+/** Lines for Waydidi Assistant's instructions: every active alert, every reply. */
 export function alertBrief(alerts: Alert[]) {
   if (!alerts.length) return "";
   return `\n\nACTIVE WAYDIDI ALERTS (these override anything from Google or general knowledge; mention them whenever the customer's trip or question touches these areas):\n${alerts.map((a) =>

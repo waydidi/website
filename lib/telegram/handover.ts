@@ -4,7 +4,7 @@ import { addBotMessage, conversationById, messagesFor, setStatus, type Conversat
 import { esc } from "./cards";
 import { editCard, telegramChatId, telegramConfigured } from "./client";
 
-// When Non hands a chat to the team: a card in the group with [Assign] [Wait].
+// When Waydidi Assistant hands a chat to the team: a card in the group with [Assign] [Wait].
 // "Wait" tells the customer someone is coming, and the card comes back after 10 minutes if
 // nobody has taken the chat by then.
 
@@ -25,7 +25,7 @@ const text = (c: Conversation, s: State, extra = "", convo = "") => [
   `<b>Needs a person · ${esc(c.public_id)}</b>`,
   `${esc(c.customer_name || "Website visitor")}${c.customer_email ? ` · ${esc(c.customer_email)}` : ""}`,
   "",
-  `Reason: ${esc(s.handover ?? "Non handed over")}`,
+  `Reason: ${esc(s.handover ?? "Waydidi Assistant handed over")}`,
   ...(s.summary ? [`<blockquote>${esc(s.summary)}</blockquote>`] : []),
   ...(convo ? ["", "<b>Recent messages</b>", `<blockquote expandable>${esc(convo)}</blockquote>`] : []),
   extra,

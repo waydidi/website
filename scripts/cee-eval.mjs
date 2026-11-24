@@ -1,4 +1,4 @@
-// Runs Non's 100 planned questions against the real model, with fake price tools, and writes a
+// Runs Waydidi Assistant's 100 planned questions against the real model, with fake price tools, and writes a
 // report to read through by hand. Costs real API money (~100 short requests).
 //   ANTHROPIC_API_KEY=... node scripts/cee-eval.mjs [first-n]
 import { createServer } from 'vite';
@@ -30,7 +30,7 @@ for (const q of questions) {
   md += `## ${q.n}. ${q.group}: ${q.message}\nExpected: ${q.expect}\n\n${out.model ?? ''} · ${(ms / 1000).toFixed(1)} s · $${(out.usd ?? 0).toFixed(4)}\nTools: ${log.map(([n, i]) => `${n}(${JSON.stringify(i)})`).join(', ') || 'none'}${out.handover ? `\nHandover: ${out.handover.reason}` : ''}\n\n> ${(out.reply ?? '(no reply)').replace(/\n/g, '\n> ')}\n\n`;
   process.stdout.write('.');
 }
-md = `# Non eval\n\n${questions.length} questions · average ${(totalMs / questions.length / 1000).toFixed(1)} s · total $${totalUsd.toFixed(3)} (about ${totalUsd ? Math.round(questions.length / totalUsd) : '∞'} replies per $1)\n\n` + md;
+md = `# Waydidi Assistant eval\n\n${questions.length} questions · average ${(totalMs / questions.length / 1000).toFixed(1)} s · total $${totalUsd.toFixed(3)} (about ${totalUsd ? Math.round(questions.length / totalUsd) : '∞'} replies per $1)\n\n` + md;
 await writeFile(root + 'cee-eval-report.md', md);
 console.log('\nWrote cee-eval-report.md');
 await vite.close();

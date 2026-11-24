@@ -58,7 +58,7 @@ export const ASSISTANT_TOOLS: BetaTool[] = [
   tool("quote_transfer", "Live price for an A-to-B transfer from Waydidi's price tables.", { pickup: str, dropoff: str, date: { ...str, description: "YYYY-MM-DD" }, time: { ...str, description: "HH:MM" }, passengers: int, bags: int }),
   tool("quote_hourly", "Live price for hourly car with driver from Waydidi's price tables.", { city: str, pickup: str, hours: int, date: { ...str, description: "YYYY-MM-DD" }, time: { ...str, description: "HH:MM" }, passengers: int, bags: int }),
   tool("find_packages", "Published day trips and tour packages in a city, with prices.", { city: str }),
-  tool("search_knowledge", "The team's written notes (Admin → Chat → Non knowledge) and the attractions database.", { query: str, city: { ...str, description: "City or empty string" } }),
+  tool("search_knowledge", "The team's written notes (Admin → Chat → Waydidi Assistant knowledge) and the attractions database.", { query: str, city: { ...str, description: "City or empty string" } }),
 ];
 
 type BookingRow = Record<string, string | number | null>;

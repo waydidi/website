@@ -63,7 +63,7 @@ export function ChatInbox() {
   async function saveAsKnowledge(messageId: string) {
     const res = await fetch("/api/admin/cee/knowledge", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "from_chat", messageId }) });
     setError(res.ok ? "" : ((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't save.");
-    if (res.ok) window.alert("Saved as a draft note. Check it under Non knowledge and make it live.");
+    if (res.ok) window.alert("Saved as a draft note. Check it under Waydidi Assistant knowledge and make it live.");
   }
   async function send(e: FormEvent) { e.preventDefault(); if (text.trim() && await act({ action: "reply", message: text.trim() })) setText(""); }
 
@@ -110,10 +110,10 @@ export function ChatInbox() {
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto bg-[#F7F8FA] p-4" aria-live="polite">
             {data?.messages.map((m) => <div key={m.id} className={`mb-3 flex flex-col ${m.sender === "staff" ? "items-end" : "items-start"}`}>
-              <span className="mb-1 text-[11.5px] font-semibold text-slate-500">{m.sender === "staff" ? (m.is_bot ? "🤖 Non (bot)" : m.sender_name ?? "Waydidi team") : "Customer"} · {when(m.created_at)}</span>
+              <span className="mb-1 text-[11.5px] font-semibold text-slate-500">{m.sender === "staff" ? (m.is_bot ? "🤖 Waydidi Assistant (bot)" : m.sender_name ?? "Waydidi team") : "Customer"} · {when(m.created_at)}</span>
               <p className={`max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-[14px] ${m.sender === "staff" ? (m.is_bot ? "rounded-br-md bg-slate-700 text-white" : "rounded-br-md bg-brand text-white") : "rounded-bl-md border border-slate-200 bg-white"}`}>{m.body}</p>
               {m.sender === "visitor" && c?.read_by && m.seq === c.read_seq && <span className="mt-1 text-[11.5px] font-semibold text-sky-700">✓ Read by {c.read_by}{c.read_at ? ` · ${when(c.read_at)}` : ""}</span>}
-              {m.sender === "staff" && !m.is_bot && <button type="button" onClick={() => void saveAsKnowledge(m.id)} className="mt-1 text-[11.5px] font-semibold text-slate-500 underline">Save as Non knowledge</button>}
+              {m.sender === "staff" && !m.is_bot && <button type="button" onClick={() => void saveAsKnowledge(m.id)} className="mt-1 text-[11.5px] font-semibold text-slate-500 underline">Save as Waydidi Assistant knowledge</button>}
               {m.sender === "visitor" && m.telegram_status === "failed" && <button type="button" onClick={() => void act({ action: "retry_telegram", messageId: m.id })} className="mt-1 text-[11.5px] font-semibold text-red-600 underline">Not on Telegram yet · retry</button>}
             </div>)}
             <div ref={bottom} />
@@ -151,14 +151,14 @@ export function ChatInbox() {
           <div className="mt-2 flex gap-2"><button type="button" disabled={busy} onClick={() => void act({ action: "complete" })} className="h-9 flex-1 rounded-full bg-emerald-600 px-3 text-[13px] font-semibold text-white">✓ Completed</button><button type="button" disabled={busy} onClick={() => { const due=window.prompt("Follow up date and time in Thailand (YYYY-MM-DD HH:mm)"); if(due && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(due)) void act({action:"follow_up",dueAt:new Date(due.replace(' ','T')+':00+07:00').toISOString()}); }} className="h-9 flex-1 rounded-full border border-violet-300 bg-white px-3 text-[13px] font-semibold text-violet-800">Follow up</button></div>
         </div>}
         {c.follow_up_at && c.status !== "closed" && <p className="mt-3 rounded-lg bg-violet-50 p-2 text-[12.5px] font-semibold text-violet-800">Marked for follow-up {new Date(c.follow_up_at).toLocaleString()}</p>}
-        <h3 className="mt-5 text-[12px] font-bold uppercase tracking-wide text-slate-500">Non (quote bot)</h3>
-        {!data?.cee?.keySet ? <p className="mt-2 text-slate-600">Off: add ANTHROPIC_API_KEY in Cloudflare to turn Non on.</p> : <>
-          <p className="mt-2 text-slate-600">{!data.cee.enabled ? "Non is off for all chats." : c.assigned_name || c.bot_paused ? "Non is quiet in this chat (a person has it)." : "Non is answering this chat."}</p>
-          {data.cee.enabled && !c.assigned_name && <button type="button" disabled={busy} onClick={() => void act({ action: c.bot_paused ? "cee_resume" : "cee_pause" })} className="mt-2 h-9 rounded-full border border-slate-200 bg-white px-3 font-semibold">{c.bot_paused ? "Let Non answer again" : "Stop Non in this chat"}</button>}
-          <label className="mt-2 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={data.cee.enabled} disabled={busy} onChange={(e) => void act({ action: "cee_enabled", on: e.target.checked })} className="accent-brand" />Non on for all chats (owner)</label>
+        <h3 className="mt-5 text-[12px] font-bold uppercase tracking-wide text-slate-500">Waydidi Assistant (quote bot)</h3>
+        {!data?.cee?.keySet ? <p className="mt-2 text-slate-600">Off: add ANTHROPIC_API_KEY in Cloudflare to turn Waydidi Assistant on.</p> : <>
+          <p className="mt-2 text-slate-600">{!data.cee.enabled ? "Waydidi Assistant is off for all chats." : c.assigned_name || c.bot_paused ? "Waydidi Assistant is quiet in this chat (a person has it)." : "Waydidi Assistant is answering this chat."}</p>
+          {data.cee.enabled && !c.assigned_name && <button type="button" disabled={busy} onClick={() => void act({ action: c.bot_paused ? "cee_resume" : "cee_pause" })} className="mt-2 h-9 rounded-full border border-slate-200 bg-white px-3 font-semibold">{c.bot_paused ? "Let Waydidi Assistant answer again" : "Stop Waydidi Assistant in this chat"}</button>}
+          <label className="mt-2 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={data.cee.enabled} disabled={busy} onChange={(e) => void act({ action: "cee_enabled", on: e.target.checked })} className="accent-brand" />Waydidi Assistant on for all chats (owner)</label>
           {data.cee.enabled && <>
             <label className="mt-2 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={Boolean(data.cee?.askFirst)} disabled={busy} onChange={(e) => void act({ action: "ask_first", on: e.target.checked, minutes: data.cee?.askMinutes })} className="accent-brand" />Ask me first in Telegram: Let AI answer or I&apos;ll answer (owner)</label>
-            {data.cee?.askFirst && <label className="mt-1 flex items-center gap-2 text-[12.5px] text-slate-600">If nobody chooses, Non answers after <input type="number" min={1} max={60} defaultValue={data.cee?.askMinutes ?? 5} disabled={busy} onBlur={(e) => { const n = Math.round(Number(e.target.value)); if (n >= 1 && n <= 60 && n !== data.cee?.askMinutes) void act({ action: "ask_first", on: true, minutes: n }); }} className="h-8 w-16 rounded-lg border border-slate-200 px-2" /> min</label>}
+            {data.cee?.askFirst && <label className="mt-1 flex items-center gap-2 text-[12.5px] text-slate-600">If nobody chooses, Waydidi Assistant answers after <input type="number" min={1} max={60} defaultValue={data.cee?.askMinutes ?? 5} disabled={busy} onBlur={(e) => { const n = Math.round(Number(e.target.value)); if (n >= 1 && n <= 60 && n !== data.cee?.askMinutes) void act({ action: "ask_first", on: true, minutes: n }); }} className="h-8 w-16 rounded-lg border border-slate-200 px-2" /> min</label>}
           </>}
         </>}
         <p className="mt-5 text-[12px] text-slate-500">{c.public_id} · started {new Date(c.created_at).toLocaleString()}</p>

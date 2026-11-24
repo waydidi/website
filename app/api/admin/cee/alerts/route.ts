@@ -7,7 +7,7 @@ import { esc } from "@/lib/telegram/cards";
 import { sendCard, telegramConfigured } from "@/lib/telegram/client";
 
 // Admin → Website chat → Alerts & limits: the team's notices (closures, flooding, disasters) that
-// Non always checks first, and the limits on paid place searches.
+// Waydidi Assistant always checks first, and the limits on paid place searches.
 const headers = { "Cache-Control": "no-store" };
 const reply = (error: string, status: number) => NextResponse.json({ error }, { status, headers });
 const allowed = (role: string) => ["owner", "support", "operations"].includes(role);
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     await db().prepare(`INSERT INTO chat_alerts(id,title,message,areas,effect,starts_at,ends_at,source_url,active,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,?,?,?)
       ON CONFLICT(id) DO UPDATE SET title=excluded.title,message=excluded.message,areas=excluded.areas,effect=excluded.effect,starts_at=excluded.starts_at,ends_at=excluded.ends_at,source_url=excluded.source_url,active=1,updated_at=excluded.updated_at`)
       .bind(id, title, message, areas, effect, startsAt, endsAt, source, who, now, now).run();
-    if (telegramConfigured()) await sendCard([`<b>Chat alert ${input.id ? "updated" : "added"}: ${esc(title)}</b>`, `${LABEL[effect]} · ${areas ? esc(areas) : "everywhere"}`, `${startsAt.slice(0, 10)} → ${endsAt ? endsAt.slice(0, 10) : "until ended"}`, `<blockquote>${esc(message)}</blockquote>`, `Non tells customers this from now on. By ${esc(who)}.`].join("\n")).catch(() => undefined);
+    if (telegramConfigured()) await sendCard([`<b>Chat alert ${input.id ? "updated" : "added"}: ${esc(title)}</b>`, `${LABEL[effect]} · ${areas ? esc(areas) : "everywhere"}`, `${startsAt.slice(0, 10)} → ${endsAt ? endsAt.slice(0, 10) : "until ended"}`, `<blockquote>${esc(message)}</blockquote>`, `Waydidi Assistant tells customers this from now on. By ${esc(who)}.`].join("\n")).catch(() => undefined);
     return NextResponse.json({ ok: true, id }, { headers });
   }
   if (input.action === "end" && typeof input.id === "string") {

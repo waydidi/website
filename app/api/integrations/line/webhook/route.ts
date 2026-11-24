@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const m = e.message;
     const text = m.type === "location" && m.latitude !== undefined && m.longitude !== undefined
       ? `📍 My location: ${m.latitude.toFixed(5)},${m.longitude.toFixed(5)}${m.title || m.address ? ` (${[m.title, m.address].filter(Boolean).join(", ")})` : ""}`
-      : e.message.type === "text" ? e.message.text ?? "" : `[${e.message.type} message. Photos, stickers and files aren't read by Non yet; please type your question.]`;
+      : e.message.type === "text" ? e.message.text ?? "" : `[${e.message.type} message. Photos, stickers and files aren't read by Waydidi Assistant yet; please type your question.]`;
     await receiveChannelMessage({ channel: "line", userId: e.source.userId, messageId: e.message.id, text, name: await lineDisplayName(e.source.userId), lineReplyToken: e.replyToken ?? null })
       .catch((err) => { failed = true; console.error("line inbound failed", err instanceof Error ? err.message : "unknown"); });
   }

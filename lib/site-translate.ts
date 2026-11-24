@@ -45,7 +45,7 @@ Style: ${STYLE[lang as Exclude<SiteLang, "en">]}
 Write the way a professional native-speaking travel company would: accurate, natural, polite and reassuring. Never add, drop or soften information: prices, times, refund percentages, deadlines and conditions must mean exactly the same as the English.
 
 Rules:
-- Keep unchanged: the brand names "Waydidi" and "Non", booking references (e.g. MC7Q2P), email addresses, phone numbers, URLs, currency codes (THB, USD), numbers, dates, times and {placeholders} in braces.
+- Keep unchanged: the brand names "Waydidi" and "Waydidi Assistant", booking references (e.g. MC7Q2P), email addresses, phone numbers, URLs, currency codes (THB, USD), numbers, dates, times and {placeholders} in braces.
 - Place names: use the standard name travellers from that language know (e.g. official exonyms); if there is none, keep the English.
 - Car models and flight numbers stay as written.
 - Short UI labels (buttons, menu items, table headings) stay short; match the capitalisation conventions of ${name}.

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-// WhatsApp (Meta Cloud API) and LINE (Messaging API): the same chat, Non and inbox as the website;
+// WhatsApp (Meta Cloud API) and LINE (Messaging API): the same chat, Waydidi Assistant and inbox as the website;
 // these are only the doors in and out. Keys live in Cloudflare secrets, never in the code.
 
 export type Channel = "web" | "whatsapp" | "line";
@@ -10,9 +10,10 @@ export const CHANNEL_LABEL: Record<Channel, string> = { web: "Website", whatsapp
 export const whatsappConfigured = () => Boolean(vars().WHATSAPP_TOKEN && vars().WHATSAPP_PHONE_NUMBER_ID && vars().WHATSAPP_APP_SECRET && vars().WHATSAPP_VERIFY_TOKEN);
 export const lineConfigured = () => Boolean(vars().LINE_CHANNEL_ACCESS_TOKEN && vars().LINE_CHANNEL_SECRET);
 
-const GRAPH = "https://graph.facebook.com/v21.0";
+// Graph API version: WHATSAPP_GRAPH_VERSION (e.g. "v23.0") pins a newer supported version without a code change.
+const graph = () => `https://graph.facebook.com/${/^v\d{1,3}\.\d{1,2}$/.test(vars().WHATSAPP_GRAPH_VERSION ?? "") ? vars().WHATSAPP_GRAPH_VERSION : "v21.0"}`;
 async function whatsapp(body: Record<string, unknown>) {
-  const res = await fetch(`${GRAPH}/${vars().WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+  const res = await fetch(`${graph()}/${vars().WHATSAPP_PHONE_NUMBER_ID}/messages`, {
     method: "POST", signal: AbortSignal.timeout(10000),
     headers: { Authorization: `Bearer ${vars().WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify({ messaging_product: "whatsapp", ...body }),
@@ -29,7 +30,7 @@ async function line(path: string, body: Record<string, unknown>) {
   if (!res.ok) throw new Error(`LINE: ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`);
 }
 
-/** Sends a staff or Non message to the customer's WhatsApp/LINE. Website chats need nothing. */
+/** Sends a staff or Waydidi Assistant message to the customer's WhatsApp/LINE. Website chats need nothing. */
 export async function deliverToChannel(channel: string | null | undefined, userId: string | null | undefined, text: string, lineReplyToken?: string | null) {
   if (!userId) return null;
   if (channel === "whatsapp" && whatsappConfigured())
@@ -43,7 +44,7 @@ export async function deliverToChannel(channel: string | null | undefined, userI
   return null;
 }
 
-/** "Typing…" on the customer's phone while Non works (and marks their message read on WhatsApp). */
+/** "Typing…" on the customer's phone while Waydidi Assistant works (and marks their message read on WhatsApp). */
 export async function showTyping(channel: string, userId: string, messageId: string | null) {
   if (channel === "whatsapp" && whatsappConfigured() && messageId) await whatsapp({ status: "read", message_id: messageId, typing_indicator: { type: "text" } });
   if (channel === "line" && lineConfigured()) await line("chat/loading/start", { chatId: userId, loadingSeconds: 20 });
