@@ -13,7 +13,7 @@ const EVENT_LABEL: Record<string, string> = {
   inbound_message: "Customer message", media_received: "Photo / file received", delivery_status: "Delivery status", model_call: "AI reply",
   handover: "Handed to staff", send_suppressed: "Send stopped", send_failed: "Send failed", kill_switch: "Channel switched off",
   quote_drafted: "Quote draft", quote_price_edited: "Quote price edited", quote_approved: "Quote approval", quote_sent: "Quote sent", quote_rejected: "Quote rejected",
-  mode_change: "Chat taken over", security: "Security",
+  mode_change: "Chat taken over", security: "Security", trip_plan_requested: "Trip plan requested", attachment_read: "Photo / file read",
 };
 const STATUS_STYLE: Record<string, string> = {
   ok: "bg-success-soft text-success", error: "bg-danger-soft text-danger", suppressed: "bg-warning-soft text-warning", skipped: "bg-slate-100 text-slate-700",

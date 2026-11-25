@@ -10,10 +10,12 @@ const db = () => env.DB as unknown as { prepare: (sql: string) => Stmt };
 /** Records a media reference once per media id (a webhook retry does not duplicate it). Nothing is downloaded. */
 export async function recordWhatsappMedia(ref: MediaRef, channelMessageId: string, conversationId: string | null) {
   await ensureFoundationTables();
-  const res = await db().prepare("INSERT INTO whatsapp_media(media_id,conversation_id,channel_message_id,kind,mime_type,sha256,received_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(media_id) DO NOTHING")
+  // A file read before its message was saved (lib/sales-ai/media-reader.ts) already has a row: link it to the chat once.
+  const res = await db().prepare(`INSERT INTO whatsapp_media(media_id,conversation_id,channel_message_id,kind,mime_type,sha256,received_at) VALUES(?,?,?,?,?,?,?)
+    ON CONFLICT(media_id) DO UPDATE SET conversation_id=excluded.conversation_id,channel_message_id=excluded.channel_message_id WHERE whatsapp_media.conversation_id IS NULL`)
     .bind(ref.mediaId, conversationId, channelMessageId, ref.kind, ref.mimeType, ref.sha256, new Date().toISOString()).run();
   if (res.meta.changes) await logActivity({ event: "media_received", status: "ok", actor: "whatsapp", channel: "whatsapp", conversationId, dedupeKey: `wa-media:${ref.mediaId}`,
-    summary: `Customer sent ${ref.kind}${ref.mimeType ? ` (${ref.mimeType})` : ""}; stored as a reference, not read yet`, detail: { kind: ref.kind, mimeType: ref.mimeType } });
+    summary: `Customer sent ${ref.kind}${ref.mimeType ? ` (${ref.mimeType})` : ""}; the file itself is not stored`, detail: { kind: ref.kind, mimeType: ref.mimeType } });
 }
 
 /**

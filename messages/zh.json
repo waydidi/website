@@ -1758,5 +1758,17 @@
   "salesQuote.message": {
     "text": "这是您的 Waydidi 报价：\n{route}\n日期：{date} {time}\n乘客：{passengers} 位，行李：{bags} 件\n车型：{car}\n价格：每车 ฿{price}\n有效期至 {validUntil}（泰国时间）\n\n接受并预订：{url}",
     "status": "machine"
+  },
+  "salesQuote.multiIntro": {
+    "text": "这是您的 Waydidi {count} 趟行程报价。每趟行程可以分别接受：",
+    "status": "machine"
+  },
+  "salesQuote.multiLeg": {
+    "text": "第 {n} 趟：{route}\n日期：{date} {time}\n乘客：{passengers} 位，行李：{bags} 件\n车型：{car}\n价格：每车 ฿{price}\n接受并预订：{url}",
+    "status": "machine"
+  },
+  "salesQuote.multiTotal": {
+    "text": "所有行程合计：฿{total}\n有效期至 {validUntil}（泰国时间）",
+    "status": "machine"
   }
 }

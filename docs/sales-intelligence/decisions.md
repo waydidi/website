@@ -22,6 +22,10 @@
 | D18 | 2026-11-24 | "Ask customer" and "Edit message" buttons are not built: the owner uses **Take over** and types in the chat | The owner is the only approver; Take over already silences the assistant | Proposed (PR 2) |
 | D19 | 2026-11-24 | The approved quote's customer message is chosen by the script the customer writes in (Thai, Chinese, otherwise English) | Deterministic; no AI involved in the priced message | Proposed (PR 2) |
 | D20 | 2026-11-24 | **Prices come only from the website price database** (or a price the owner types on a draft). No target margin, no payment-fee figure, no `minimum_sell` floor and no cost-based or similar-route price estimation. PR 3 as planned (supplier rates and margin floor) is dropped | Owner answer | Owner |
+| D21 | 2026-11-25 | PR 4 and PR 5 go to their own branches (`claude/sales-ai-pr4`, `claude/sales-ai-pr5`), stacked on the previous PR | Owner answer | Owner |
+| D22 | 2026-11-25 | Multi-trip quotes: all transfers quoted in one assistant reply form one bundle (max 6). One approval, one customer message, one CRM quote per trip so the customer can accept trips separately. Per-trip price edits; no car switching on bundles. Package discounts are not offered (prices come only from the database, D20) | Reuses CRM quotes and their acceptance page; partial acceptance comes for free | Proposed (PR 4) |
+| D23 | 2026-11-25 | Multi-day itineraries are not priced by the assistant: a Trip planning request card opens the existing trip planner with the chat loaded; the planner's own AI step and staff do the plan | The trip planner already handles stops, opening hours, driver hours and PDFs | Proposed (PR 4) |
+| D24 | 2026-11-25 | WhatsApp photos/PDFs are read before the message is saved (bounded to about 25 s; a slow read falls back to the placeholder and Meta retries are deduplicated) and only the validated fields are kept; the file is not stored. Voice notes are not read | Simplest flow that lets the assistant use the facts; PDPA minimization | Proposed (PR 4) |
 
 ## Open questions for the owner
 
