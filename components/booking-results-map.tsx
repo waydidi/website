@@ -9,6 +9,7 @@ import { CancelCalendar3D } from "@/components/icons/cancel-calendar-3d";
 import { inclusionLines, parseInclusions, type Inclusions } from "@/lib/route-inclusions";
 import { waitingLine } from "@/lib/waiting-policy";
 import { decodePolyline } from "@/lib/demo-route";
+import { routeMidpoint } from "@/lib/route-midpoint";
 import { addonsTotal, CHILD_SEAT_THB, EXCHANGE_STOP_THB, FERRY_HOTEL_THB } from "@/lib/addons";
 import { tierFreeAddons, type Tier } from "@/lib/member-tier-rules";
 import { freeAddonsWithGifts } from "@/lib/gift-rules";
@@ -98,7 +99,7 @@ export function shortPlace(value: string) {
 
 
 // Map pins and the labels beside them are plain HTML placed over the map.
-function htmlOverlay(maps: any, map: any, position: any, html: string, anchor: "pin" | "bubble" | "chip" | "point") {
+function htmlOverlay(maps: any, map: any, position: any, html: string, anchor: "pin" | "bubble" | "chip" | "point" | "centre") {
   const Overlay = class extends maps.OverlayView {
     div?: HTMLDivElement;
     onAdd() { this.div = document.createElement("div"); this.div.style.position = "absolute"; this.div.innerHTML = html; this.getPanes().floatPane.appendChild(this.div); }
@@ -107,6 +108,7 @@ function htmlOverlay(maps: any, map: any, position: any, html: string, anchor: "
       if (!point || !this.div) return;
       if (anchor === "point") { this.div.style.left = `${point.x}px`; this.div.style.top = `${point.y}px`; return; }
       const { offsetWidth: w, offsetHeight: h } = this.div;
+      if (anchor === "centre") { this.div.style.left = `${point.x - w / 2}px`; this.div.style.top = `${point.y - h / 2}px`; return; }
       this.div.style.left = `${point.x - (anchor === "chip" ? 18 : anchor === "bubble" ? 0 : w / 2)}px`;
       this.div.style.top = `${point.y - (anchor === "chip" ? h / 2 : h)}px`;
     }
@@ -122,7 +124,8 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.ch
 
 // Grab-style markers. Each is a zero-size box at the map point; its parts are
 // placed around that point.
-const GRAB_FONT = `-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif`;
+// Single quotes: this goes inside style="…" attributes.
+const GRAB_FONT = `-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Helvetica,Arial,sans-serif`;
 
 function teardrop(fill: string) {
   return `<svg width="32" height="40" viewBox="0 0 40 50" style="display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.28))"><path d="M20 49c-.9 0-1.6-.7-2.2-1.6C12.6 39.6 2.5 31.8 2.5 20 2.5 10.3 10.3 2.5 20 2.5S37.5 10.3 37.5 20c0 11.8-10.1 19.6-15.3 27.4-.6.9-1.3 1.6-2.2 1.6Z" fill="${fill}" stroke="#fff" stroke-width="2.5"/><circle cx="20" cy="20" r="7.5" fill="#fff"/></svg>`;
@@ -361,6 +364,15 @@ export function BookingResultsMap(props: Props) {
     return () => { cancelled = true; };
   }, []);
 
+  // Time and distance card, pinned halfway along the route line (live traffic time when we have it).
+  const travelMinutes = props.quote ? (traffic?.durationSeconds ? traffic.durationSeconds / 60 : props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60) : null;
+  const travelText = travelMinutes == null ? null : travelMinutes >= 60
+    ? t("results.hoursMinutes", { hours: Math.floor(travelMinutes / 60), minutes: Math.round(travelMinutes % 60) })
+    : t("results.minutes", { minutes: Math.max(1, Math.round(travelMinutes)) });
+  const routeCard = props.quote && travelText ? `<div style="white-space:nowrap;border-radius:16px;background:var(--line-green,#06c755);padding:8px 16px;font:14px/20px ${GRAB_FONT};color:#0b2b16;box-shadow:0 4px 12px rgba(0,0,0,.18)">`
+    + `<p>${escapeHtml(t("results.approxTime"))}: <strong style="font-weight:600">${escapeHtml(travelText)}</strong></p>`
+    + `<p>${escapeHtml(t("results.distance"))}: <strong style="font-weight:600">${escapeHtml(t("results.km", { km: (props.quote.distanceMeters / 1000).toFixed(1) }))}</strong></p></div>` : "";
+
   useEffect(() => {
     if (!mapReady || !mapRef.current || !props.quote?.pickup || !props.quote.dropoff || !window.google?.maps) return;
     const maps = window.google.maps;
@@ -384,13 +396,15 @@ export function BookingResultsMap(props: Props) {
       htmlOverlay(maps, map, new maps.LatLng(dropoff), grabDropoff(shortPlace(props.dropoff)), "point"),
       htmlOverlay(maps, map, new maps.LatLng(pickup), grabPickup(shortPlace(props.pickup)), "point"),
     ];
+    const middle = routeCard && routeMidpoint(route.map((point: any) => [point.lat(), point.lng()] as [number, number]));
+    if (middle) overlays.push(htmlOverlay(maps, map, new maps.LatLng(middle[0], middle[1]), routeCard, "centre"));
     const bounds = new maps.LatLngBounds();
     route.forEach((point: any) => bounds.extend(point));
     bounds.extend(pickup); bounds.extend(dropoff);
     fitRef.current = (bottom) => map.fitBounds(bounds, { top: mapTopPadding(expandedRef.current), right: mapSidePadding().right, bottom, left: mapSidePadding().left });
     fitRef.current(mapBottomPadding(expandedRef.current));
     return () => { fitRef.current = null; overlays.forEach((overlay) => overlay.setMap(null)); lines.forEach((line) => line.setMap(null)); };
-  }, [mapReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
+  }, [mapReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic, routeCard]);
 
 
   // Without a Google key: free Leaflet map with CARTO light tiles.
@@ -413,6 +427,8 @@ export function BookingResultsMap(props: Props) {
     const icon = (html: string) => L.divIcon({ className: "", html, iconSize: [0, 0] });
     L.marker(dropoff, { icon: icon(grabDropoff(shortPlace(props.dropoff))), interactive: false, zIndexOffset: 500 }).addTo(map);
     L.marker(pickup, { icon: icon(grabPickup(shortPlace(props.pickup))), interactive: false, zIndexOffset: 1000 }).addTo(map);
+    const middle = routeCard && routeMidpoint(line);
+    if (middle) L.marker(middle, { icon: icon(`<div style="position:absolute;transform:translate(-50%,-50%)">${routeCard}</div>`), interactive: false, zIndexOffset: 1500 }).addTo(map);
     const routeBounds = L.latLngBounds(line);
     let first = true;
     fitRef.current = (bottom) => {
@@ -423,7 +439,7 @@ export function BookingResultsMap(props: Props) {
     };
     fitRef.current(mapBottomPadding(expandedRef.current));
     return () => { fitRef.current = null; map.remove(); };
-  }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic]);
+  }, [leafletReady, props.quote, props.pickup, props.dropoff, props.date, props.time, traffic, routeCard]);
 
   // By the hour: the chosen area's border (orange, 70% line, light tint) with the
   // pickup pin, and the drop-off pin only when it is a different place.
@@ -584,12 +600,6 @@ export function BookingResultsMap(props: Props) {
     return () => { [html.style.overflow, body.style.overflow, html.style.overscrollBehavior] = previous; };
   }, []);
 
-  // Time and distance under the search pill (live traffic time when we have it).
-  const travelMinutes = props.quote ? (traffic?.durationSeconds ? traffic.durationSeconds / 60 : props.quote.averageDurationMinutes ?? props.quote.durationSeconds / 60) : null;
-  const travelText = travelMinutes == null ? null : travelMinutes >= 60
-    ? t("results.hoursMinutes", { hours: Math.floor(travelMinutes / 60), minutes: Math.round(travelMinutes % 60) })
-    : t("results.minutes", { minutes: Math.max(1, Math.round(travelMinutes)) });
-
   // Priced and ready to show: a route quote, or (by the hour) the area.
   const ready = Boolean(props.quote || (props.area && props.checkoutReady !== false));
   const priceReady=ready&&!props.loading&&props.checkoutReady!==false;
@@ -640,10 +650,6 @@ export function BookingResultsMap(props: Props) {
       <button type="button" onClick={props.onEditTrip ?? props.onEdit} className="absolute left-1/2 top-[max(16px,env(safe-area-inset-top))] z-10 flex h-11 max-w-[calc(100%-140px)] -translate-x-1/2 items-center gap-2 rounded-full bg-white px-5 text-[16px] font-medium text-charcoal shadow-md" aria-label="Edit passengers, date and time">
         <Users size={20} className="shrink-0 text-brand" aria-hidden="true" /><span className="truncate">{passengers} · {pillLabel(props.date, props.time)}</span>
       </button>
-      {props.quote && travelText && <div className="absolute left-1/2 top-[calc(max(16px,env(safe-area-inset-top))+52px)] z-10 -translate-x-1/2 whitespace-nowrap rounded-2xl bg-white px-4 py-2 text-[14px] leading-5 text-charcoal shadow-md">
-        <p>{t("results.approxTime")}: <strong className="font-semibold">{travelText}</strong></p>
-        <p>{t("results.distance")}: <strong className="font-semibold">{t("results.km", { km: (props.quote.distanceMeters / 1000).toFixed(1) })}</strong></p>
-      </div>}
     </div>
 
     {/* Sheet */}
@@ -683,11 +689,11 @@ export function BookingResultsMap(props: Props) {
             const off = !ready || item.fits === false;
             const badge = !priceReady || item.fits === false ? null : item.bestForYou ? "best" : item.popular ? "popular" : null;
             return <li key={item.id}>
-              <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`relative grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-[15px] text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-brand bg-white" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
-                <span className="grid h-14 place-items-center">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className={`max-h-14 w-full object-contain ${item.id === "comfort_suv" ? "scale-110" : ""}`} /> : <CarFront size={44} className="text-[#9A9A9A]" aria-hidden="true" />}</span>
+              <button type="button" disabled={off} aria-pressed={active} onClick={() => props.onSelectVehicle(item.id)} className={`relative grid w-full grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-2 px-3 py-[15px] text-left lg:grid-cols-[110px_minmax(0,1fr)_auto] lg:gap-[14px] lg:px-[14px] lg:py-[18px] transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-brand bg-white" : "border-transparent enabled:hover:bg-[#FAFAFA]"}`}>
+                <span className="grid h-14 place-items-center lg:h-[67px]">{item.image ? <Image src={item.image} alt="" width={184} height={156} unoptimized className={`max-h-14 w-full lg:max-h-[67px] object-contain ${item.id === "comfort_suv" ? "scale-110" : ""}`} /> : <CarFront size={44} className="text-[#9A9A9A]" aria-hidden="true" />}</span>
                 <span className="min-w-0">
-                  <strong className="block text-[17px] font-semibold leading-tight text-charcoal">{item.name}</strong>
-                  <span className="mt-1 flex items-center gap-1.5 text-[15px] text-grey-text">
+                  <strong className="block text-[17px] font-semibold leading-tight text-charcoal lg:text-[20px]">{item.name}</strong>
+                  <span className="mt-1 flex items-center gap-1.5 text-[15px] text-grey-text lg:text-[18px] [&_svg]:lg:size-[22px]">
                     {item.passengers !== undefined && <><span>{item.passengers}</span><Users size={18} className="text-charcoal" aria-label="passengers" /></>}
                     {item.bags !== undefined && <><span className="ml-2">{item.bags}</span><Luggage size={18} className="text-charcoal" aria-label="bags" /></>}
                     <span
@@ -706,9 +712,9 @@ export function BookingResultsMap(props: Props) {
                     : badge === "popular" ? <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full border border-[#FF1F2D] bg-[#FF1F2D] px-2 py-px text-[12px] font-medium text-white"><Flame size={12} aria-hidden="true" />Most popular</span> : null}
                 </span>
                 <span className="self-start text-right">
-                  <span className="block whitespace-nowrap text-charcoal">{!props.quoteRequest && <span className="text-[13px] text-[#4A4A4A]">{code} </span>}<strong className="text-[17px] font-semibold">{props.quoteRequest ? "On request" : !priceReady ? <span role="status" aria-label="Loading quote" className="inline-block h-5 w-24 animate-pulse rounded bg-slate-200" /> : amount(item.price)}</strong></span>
-                  {!props.quoteRequest && priceReady && currency !== "THB" && <span className="mt-0.5 block text-[12px] text-grey-soft">~{thb(item.price)}</span>}
-                  <span className="mt-0.5 block text-[12px] text-grey-soft">{props.hourly ? `${props.hourly.hours} hours` : props.returnTrip ? t("results.roundTrip") : t("results.totalPrice")}</span>
+                  <span className="block whitespace-nowrap text-charcoal">{!props.quoteRequest && <span className="text-[13px] text-[#4A4A4A] lg:text-[16px]">{code} </span>}<strong className="text-[17px] font-semibold lg:text-[20px]">{props.quoteRequest ? "On request" : !priceReady ? <span role="status" aria-label="Loading quote" className="inline-block h-5 w-24 animate-pulse rounded bg-slate-200" /> : amount(item.price)}</strong></span>
+                  {!props.quoteRequest && priceReady && currency !== "THB" && <span className="mt-0.5 block text-[12px] text-grey-soft lg:text-[14px]">~{thb(item.price)}</span>}
+                  <span className="mt-0.5 block text-[12px] text-grey-soft lg:text-[14px]">{props.hourly ? `${props.hourly.hours} hours` : props.returnTrip ? t("results.roundTrip") : t("results.totalPrice")}</span>
                 </span>
               </button>
             </li>;
@@ -725,10 +731,7 @@ export function BookingResultsMap(props: Props) {
         </div> : cancelDeadlineAt(props.date, props.time, PARTIAL_REFUND_HOURS) >= clock ? <div className="mt-6 rounded-2xl border border-[#F5D9A8] bg-[#FFF8EC] p-4">
           <p className="text-[17px] font-semibold text-[#7A4A00]">{PARTIAL_REFUND_PERCENT}% refundable</p>
           <p className="mt-1.5 text-[14px] leading-6 text-[#6B4A16]">Pickup is {PARTIAL_REFUND_HOURS}–{FULL_REFUND_HOURS} hours away. If you cancel before <strong className="font-semibold">{cancelDeadline(props.date, props.time, PARTIAL_REFUND_HOURS)}</strong>, {PARTIAL_REFUND_PERCENT}% is refunded. <a href="/refund-policy" target="_blank" className="underline underline-offset-2">Policy</a></p>
-        </div> : <div className="mt-6 rounded-2xl border border-[#E6E6E6] bg-[#F7F7F7] p-4">
-          <p className="text-[17px] font-semibold text-charcoal">Non-refundable</p>
-          <p className="mt-1.5 text-[14px] leading-6 text-[#4A4A4A]">Pickup is less than {PARTIAL_REFUND_HOURS} hours away, so this booking can&apos;t be refunded if cancelled. <a href="/refund-policy" target="_blank" className="underline underline-offset-2">Policy</a></p>
-        </div>)}
+        </div> : null)}
       </div>
 
     </div>
