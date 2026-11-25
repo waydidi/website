@@ -15,6 +15,7 @@ const EVENT_LABEL: Record<string, string> = {
   quote_drafted: "Quote draft", quote_price_edited: "Quote price edited", quote_approved: "Quote approval", quote_sent: "Quote sent", quote_rejected: "Quote rejected",
   mode_change: "Chat taken over", security: "Security", trip_plan_requested: "Trip plan requested", attachment_read: "Photo / file read",
   lead_hot: "Hot lead", followup_sent: "Follow-up sent", followup_skipped: "Follow-up not sent", quote_review: "7-day quote review", loss_labeled: "Loss reason saved",
+  template_consent: "Reminder: customer said YES", template_sent: "3-day reminder sent", template_skipped: "3-day reminder not sent", template_status: "WhatsApp template status",
 };
 const STATUS_STYLE: Record<string, string> = {
   ok: "bg-success-soft text-success", error: "bg-danger-soft text-danger", suppressed: "bg-warning-soft text-warning", skipped: "bg-slate-100 text-slate-700",

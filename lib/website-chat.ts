@@ -79,6 +79,9 @@ export async function addVisitorMessage(c: Conversation, body: string, clientId:
   await deliverVisitorMessage(c.id, id).catch(() => undefined);
   // Lead signals and follow-up stop words (only with SALES_AI_LEADS / SALES_AI_FOLLOWUPS; never throws).
   await afterCustomerMessage(c.id, id, body);
+  // A YES to "Would you like a reminder in 3 days?" (only with SALES_AI_TEMPLATE_FOLLOWUPS=1; loaded on demand, never throws).
+  if ((env as unknown as Record<string, string | undefined>).SALES_AI_TEMPLATE_FOLLOWUPS === "1")
+    await import("@/lib/sales-ai/reminders").then((m) => m.afterReminderReply(c.id, id, body)).catch(() => undefined);
   return { duplicate: false as const, id };
 }
 
@@ -265,6 +268,19 @@ export async function addBotMessage(conversationId: string, rawBody: string, car
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();
   await toChannel(c, id, body);
   if (website) await deliverBotMessage(c.id, id).catch(() => undefined);
+  return id;
+}
+
+/**
+ * A WhatsApp template the system already sent (lib/sales-ai/reminders.ts): shown in the chat as Waydidi Assistant's,
+ * with its WhatsApp id, and never sent again as free text (that would be refused outside the 24-hour window).
+ */
+export async function addTemplateMessage(conversationId: string, body: string, channelMessageId: string) {
+  const now = nowIso(), id = crypto.randomUUID();
+  await db().batch([
+    db().prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot,telegram_status,channel_message_id) VALUES(?,?,'staff',?,?,?,1,'skipped',?)").bind(id, conversationId, plainText(body), now, ASSISTANT_NAME, channelMessageId),
+    db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, conversationId),
+  ]);
   return id;
 }
 

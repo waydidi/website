@@ -10,6 +10,7 @@ Six reviewable pull requests. Each one is off by default behind a Worker variabl
 | ~~3~~ | ~~Supplier rates and margin floor~~: dropped (decision D20). Prices come only from the website price database or the owner's typed price | n/a | n/a |
 | 4 | Several trips in one draft (one approval, one CRM quote per trip), special requests flagged on the card, trip planning requests into the existing trip planner, reading WhatsApp photos/PDFs into checked fields (F01–F04) | Yes, after owner approval; file reading off by default | `SALES_AI_QUOTE_APPROVAL` (bundles), `SALES_AI_MEDIA=1` (files) |
 | 5 | Lead scoring with evidence and one hot-lead alert, follow-ups decided at send time, 7-day loss-reason card, on-demand lost-quote analysis with CSV (F07, F10, F12). No daily report | Follow-ups only, off by default | `SALES_AI_LEADS=1`, `SALES_AI_FOLLOWUPS=1`, `SALES_AI_FOLLOWUP_HOURS` |
+| 6 | 3-day quote reminder as an approved WhatsApp template, only after the customer's YES; template approval status from Meta's webhook | Yes, after consent | `SALES_AI_TEMPLATE_FOLLOWUPS=1`, `WHATSAPP_TEMPLATE_QUOTE_REMINDER`, `WHATSAPP_TEMPLATE_LANGUAGES` |
 | later | Shadow-mode accuracy report and an approved autopilot policy (owner opt-in). No similar-route or cost-based pricing (D20) | Depends on owner approval | owner opt-in |
 
 ## PR 1 detail

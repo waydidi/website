@@ -1778,5 +1778,13 @@
   "salesFollowup.checkIn": {
     "text": "您好！想跟进一下您 {date} 的行程。如果仍需要用车，请在此回复，我们会为您确认最新价格。",
     "status": "machine"
+  },
+  "salesQuote.reminderOptIn": {
+    "text": "需要我们在 3 天后提醒您这趟行程吗？请回复 YES。",
+    "status": "machine"
+  },
+  "salesReminder.templateCopy": {
+    "text": "您好！您 {date} 的 Waydidi 接送报价仍然有效。回复此消息，我们将为您确认最新价格。回复 STOP 停止提醒。",
+    "status": "machine"
   }
 }
