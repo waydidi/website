@@ -6,11 +6,11 @@ Six reviewable pull requests. Each one is off by default behind a Worker variabl
 |---|---|---|---|
 | 0 | Audit, architecture, plan, decisions, status docs | No | none |
 | 1 | Foundations: AI activity log (F13 core), configurable models with unknown-cost state, guarded AI send (F11 core), WhatsApp media references and delivery status, 24h window check, per-channel kill switch | No new messages. Only suppresses sends that would fail or would talk over staff | `ASSISTANT_DISABLED_CHANNELS` (kill switch), `AI_MODEL_FAST`, `AI_MODEL_SMART`, `AI_ACTIVITY_RETENTION_DAYS` |
-| 2 | Quote drafts + Telegram approval: `draft_quote` tool, schema-validated extraction, `crm_quotes` revision with price snapshot and source, Thai approval card (Approve & Send / Edit price / Ask customer / Take over / Reject), single-use expiring callbacks, stale-revision rejection | Yes, only after staff approval | `SALES_AI_QUOTE_APPROVAL=1` |
-| 3 | Supplier rates and margin floor (F05, §3.4): versioned supplier rates, CSV import with dry run, `minimum_sell` in satang, cost/margin on the approval card | Staff only | `SALES_AI_SUPPLIER_COSTS=1` |
+| 2 | Quote drafts + Telegram approval: transfer prices become owner-approved drafts, `crm_quotes` with price source, English approval card (Approve & send / other car / Edit price / Reject / Take over), owner-only, single-use revisioned callbacks, superseding drafts, 3-hour validity | Yes, only after owner approval | `SALES_AI_QUOTE_APPROVAL=whatsapp` (channel list) |
+| ~~3~~ | ~~Supplier rates and margin floor~~: dropped (decision D20). Prices come only from the website price database or the owner's typed price | n/a | n/a |
 | 4 | Multi-leg quotes, images, itineraries (F01–F04): per-leg lines, partial acceptance bound to a revision, WhatsApp image/PDF reading (never marks payment), vehicle constraints, itinerary drafts into the trip builder | Yes, after approval | `SALES_AI_MEDIA=1` |
 | 5 | Lead scoring, follow-ups, lost-quote analysis (F07, F10, F12) | Follow-ups only, off by default | `SALES_AI_FOLLOWUPS=1` |
-| later | Similar-route pricing as a staff hint (after a backtest), shadow-mode accuracy report, approved autopilot policy | Depends on owner approval | owner opt-in |
+| later | Shadow-mode accuracy report and an approved autopilot policy (owner opt-in). No similar-route or cost-based pricing (D20) | Depends on owner approval | owner opt-in |
 
 ## PR 1 detail
 

@@ -1754,5 +1754,9 @@
   "results.chooseVehicle": {
     "text": "เลือกรถของคุณ",
     "status": "machine"
+  },
+  "salesQuote.message": {
+    "text": "นี่คือใบเสนอราคาจาก Waydidi:\n{route}\nวันที่: {date} เวลา {time}\nผู้โดยสาร: {passengers} คน, กระเป๋า: {bags} ใบ\nรถ: {car}\nราคา: ฿{price} ต่อคัน\nใช้ได้ถึง {validUntil} (เวลาประเทศไทย)\n\nยืนยันและจองได้ที่: {url}",
+    "status": "machine"
   }
 }

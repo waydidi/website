@@ -437,5 +437,6 @@
   "trips.faq.cancel.q": "What if I need to cancel?",
   "trips.faq.cancel.a": "Refunds follow the policy shown when you book. See our refund policy page for the current terms.",
   "ride.expired": "This search link has expired. Please search again.",
-  "results.chooseVehicle": "Choose your vehicle"
+  "results.chooseVehicle": "Choose your vehicle",
+  "salesQuote.message": "Here is your Waydidi quote:\n{route}\nDate: {date} at {time}\nPassengers: {passengers}, bags: {bags}\nCar: {car}\nPrice: ฿{price} per car\nValid until {validUntil} (Thailand time)\n\nAccept and book here: {url}"
 }

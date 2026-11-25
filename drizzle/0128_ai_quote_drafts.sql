@@ -1,0 +1,7 @@
+-- Sales Intelligence PR 2 (additive): assistant quote drafts approved by the owner in Telegram.
+-- Also created on first use by lib/sales-ai/quote-drafts.ts, because Workers Builds does not apply D1 migrations.
+CREATE TABLE IF NOT EXISTS ai_quote_drafts(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,channel TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('pending','approving','sending','sent','undelivered','rejected','superseded','taken_over','expired')),revision INTEGER NOT NULL DEFAULT 1,pickup TEXT NOT NULL,dropoff TEXT NOT NULL,trip_date TEXT NOT NULL,trip_time TEXT NOT NULL,passengers INTEGER NOT NULL,bags INTEGER NOT NULL,summary TEXT NOT NULL,price_source TEXT NOT NULL CHECK(price_source IN ('price_table','manual')),options_json TEXT NOT NULL,selected INTEGER NOT NULL DEFAULT 0,price_thb INTEGER,table_price_thb INTEGER,edited_by TEXT,visitor_seq INTEGER NOT NULL,telegram_message_id INTEGER,crm_quote_id TEXT,note TEXT,quote_expires_at TEXT,decided_by TEXT,decided_at TEXT,expires_at TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS ai_quote_drafts_conversation ON ai_quote_drafts(conversation_id,status);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS ai_quote_prompts(telegram_message_id INTEGER PRIMARY KEY,draft_id TEXT NOT NULL,revision INTEGER NOT NULL,telegram_user_id TEXT NOT NULL,created_at TEXT NOT NULL);

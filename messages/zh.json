@@ -1754,5 +1754,9 @@
   "results.chooseVehicle": {
     "text": "选择您的车型",
     "status": "machine"
+  },
+  "salesQuote.message": {
+    "text": "这是您的 Waydidi 报价：\n{route}\n日期：{date} {time}\n乘客：{passengers} 位，行李：{bags} 件\n车型：{car}\n价格：每车 ฿{price}\n有效期至 {validUntil}（泰国时间）\n\n接受并预订：{url}",
+    "status": "machine"
   }
 }

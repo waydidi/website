@@ -1,3 +1,4 @@
+import { handleQuoteCallback, handleQuotePriceReply } from "@/lib/sales-ai/quote-drafts";
 import { env } from "cloudflare:workers";
 import { answerInGroup, assistantConfigured } from "@/lib/telegram/assistant";
 import { answerJobLookup } from "@/lib/telegram/job-lookup";
@@ -95,6 +96,8 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   if (String(q.message?.chat.id ?? "") !== telegramChatId()) return answerCallback(q.id, "This chat isn't connected to Waydidi.", true);
   const admin = await approved(q.from);
   if (!admin) return answerCallback(q.id, `You're not on the Waydidi Telegram team yet. Ask the owner to add your Telegram ID: ${q.from.id}`, true);
+  // Quote drafts from the assistant: owner only, checked again inside (decision D13).
+  if ((q.data ?? "").startsWith("sq_")) { const a = await handleQuoteCallback(q.data ?? "", q.from, q.message?.message_id ?? null); return answerCallback(q.id, a.text, Boolean(a.alert)); }
   const [action, target, extra] = (q.data ?? "").split(":");
   if (!target || target.length > 60) return answerCallback(q.id, "Unknown action.");
   // A package choice under a /add_trip question (the team member is checked above).
@@ -266,6 +269,8 @@ async function handleMessage(m: TelegramMessage) {
   if (postRoute === "run") { await handlePostCommand(text, m.message_id, m.reply_to_message?.text ?? null, telegramChatId(), { id: String(m.from!.id) }); return; }
   if (postRoute === "redirect") { await sendCard("Facebook comment drafts now live in the Comment group. Send /c there.", undefined, m.message_id); return; }
   if (teamMember && await handleBookingAnswer(m, teamMember.display_name, refreshBookingCard)) return;
+  // A reply to an assistant quote draft's "Edit price" prompt (owner only, checked inside).
+  if (await handleQuotePriceReply(m)) return;
   // "ราคา" + "REF cost" lines: driver costs for many bookings at once; each then goes to the driver group.
   const bulk = teamMember ? parseBulkCost(text) : null;
   if (bulk && teamMember) { await setCostsFromMessage(bulk, teamMember.display_name, m.message_id); return; }
