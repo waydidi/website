@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, X } from "lucide-react";
 import { useState } from "react";
 import {
   Sheet,
@@ -63,11 +63,12 @@ export function DateTimePicker({
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="max-h-[96dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-ink data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:max-h-[92dvh] md:w-[min(92vw,720px)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[32px] md:pb-8 md:pt-6 md:shadow-2xl md:data-[state=open]:slide-in-from-bottom-0 md:data-[state=closed]:slide-out-to-bottom-0 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:zoom-out-95 md:data-[state=open]:duration-200"
+        className="max-h-[96dvh] overflow-y-auto rounded-t-[32px] border-0 bg-white px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-3 text-ink data-[state=open]:duration-500 motion-reduce:duration-0 sm:px-8 md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:max-h-[92dvh] md:w-[min(94vw,880px)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[32px] md:px-8 md:pb-6 md:pt-8 md:shadow-2xl md:data-[state=open]:slide-in-from-bottom-0 md:data-[state=closed]:slide-out-to-bottom-0 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:zoom-out-95 md:data-[state=open]:duration-200"
       >
         {/* Grab handle: the picker is a bottom sheet on phones and a centred popup from tablet up. */}
         <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300 md:hidden" aria-hidden="true" />
-        <SheetHeader className="flex-row items-center justify-between px-0 pb-3 pt-5 text-left md:pt-0">
+        {/* From tablet up the popup is two months and a bottom bar; the title stays for screen readers. */}
+        <SheetHeader className="flex-row items-center justify-between px-0 pb-3 pt-5 text-left md:sr-only">
           <SheetTitle className="text-[28px] font-semibold tracking-[-.03em] sm:text-[34px]">
             {title}
           </SheetTitle>
@@ -80,31 +81,42 @@ export function DateTimePicker({
             <X size={25} />
           </button>
         </SheetHeader>
-        <div className="py-2 sm:px-4">
+        <div className="grid gap-10 py-2 sm:px-4 md:grid-cols-2 md:px-0 md:py-0">
           <CalendarMonth
             month={visibleMonth}
             selected={date}
             onSelect={onDateChange}
             onPrevious={() => moveMonth(-1)}
             onNext={() => moveMonth(1)}
+            nextMobileOnly
             min={min}
           />
+          <div className="hidden md:block">
+            <CalendarMonth
+              month={new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1)}
+              selected={date}
+              onSelect={onDateChange}
+              onNext={() => moveMonth(1)}
+              min={min}
+            />
+          </div>
         </div>
-        <div className="mt-5 grid overflow-hidden rounded-2xl border border-slate-200 grid-cols-2">
-          <div className="px-5 py-3">
-            <span className="block text-sm font-semibold text-slate-500">
+        <div className="md:-mx-8 md:mt-6 md:flex md:items-center md:justify-between md:gap-6 md:border-t md:border-slate-200 md:px-8 md:pt-5">
+        <div className="mt-5 grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 p-1 md:mt-0 md:w-[340px] md:rounded-xl">
+          <div className="flex min-h-[60px] flex-col justify-center px-4 py-2">
+            <span className="block text-[13px] font-semibold leading-5 text-slate-500">
               {t(departure ? "picker.departureDate" : "picker.returnDate")}
             </span>
-            <strong className="font-semibold">{formatDate(date)}</strong>
+            <strong className="block text-[16px] font-semibold leading-6">{formatDate(date)}</strong>
           </div>
-          <label className="bg-slate-100 px-5 py-3">
-            <span className="block text-sm font-semibold text-slate-500">
+          <label className="relative flex min-h-[60px] cursor-pointer flex-col justify-center rounded-xl bg-slate-100 py-2 pl-4 pr-9">
+            <span className="block text-[13px] font-semibold leading-5 text-slate-500">
               {t(departure ? "picker.departureTime" : "picker.returnTime")}
             </span>
             <select
               value={effectiveTime}
               onChange={(event) => onTimeChange(event.target.value)}
-              className="w-full bg-transparent text-[16px] font-semibold outline-none"
+              className="w-full cursor-pointer appearance-none bg-transparent text-[16px] font-semibold leading-6 outline-none"
             >
               {selectableTimes.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -112,6 +124,7 @@ export function DateTimePicker({
                 </option>
               ))}
             </select>
+            <ChevronDown size={20} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
           </label>
         </div>
         <button
@@ -120,10 +133,11 @@ export function DateTimePicker({
             if (effectiveTime !== time) onTimeChange(effectiveTime);
             onDone();
           }}
-          className="mt-6 min-h-14 w-full rounded-full bg-brand px-7 text-lg font-bold text-white transition hover:bg-brand-hover"
+          className="mt-6 min-h-14 w-full rounded-full bg-brand px-7 text-lg font-bold text-white transition hover:bg-brand-hover md:mt-0 md:min-h-12 md:w-auto md:px-6"
         >
           {t("common.done")}
         </button>
+        </div>
       </SheetContent>
     </Sheet>
   );
