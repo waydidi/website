@@ -29,7 +29,10 @@
 | D25 | 2026-11-25 | Lead scores use the brief's weights, each signal once per chat with its message as evidence, minus 3 points a day after 3 quiet days. Signals come from fixed word lists (English, Thai, Chinese) and the database, not from AI | Reproducible, explainable, cheap; no protected traits | Proposed (PR 5) |
 | D26 | 2026-11-25 | Follow-ups at 2 h and 22 h (inside WhatsApp's 24 hours, since there are no approved templates yet), at most 2 a week and 6 hours apart, never in 21:00–08:00 Bangkok. The 3-day follow-up from the brief waits for templates. A 7-day "no reply" card asks the owner for a loss reason (per quote, not a report) | Owner answer: no templates yet | Proposed (PR 5) |
 | D27 | 2026-11-25 | Lost-quote analysis counts sent bundles once; unanswered quotes are "Still open" for 7 days, then "No decision"; only the owner's label or the customer's own words give a reason | The brief: never assume inactivity means loss, never fabricate a reason | Proposed (PR 5) |
+| D28 | 2026-11-25 | The 3-day follow-up is an approved WhatsApp template sent only to customers who replied YES to a reminder offer under their quote (one reminder per quote, at most one a week). Built in PR 6, branch `claude/sales-ai-pr6` | Owner answer | Owner |
+| D29 | 2026-11-25 | Voice notes are not transcribed | Owner answer | Owner |
+| D30 | 2026-11-25 | No automatic package discounts: the owner lowers a trip's price on the Telegram card when a discount is wanted (prices still come only from the database or the owner, D20) | Owner answer | Owner |
 
 ## Open questions for the owner
 
-- Approved WhatsApp templates (needed before any follow-up outside 24 hours).
+- Create and get approval for the `quote_reminder` template (`whatsapp-templates.md`).

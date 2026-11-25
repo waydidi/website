@@ -5,6 +5,7 @@ import { logActivity } from "@/lib/sales-ai/activity-log";
 import { recordDeliveryStatus, recordWhatsappMedia } from "@/lib/sales-ai/channel-events";
 import { whatsappMediaRef } from "@/lib/sales-ai/whatsapp-rules";
 import { mediaReadingEnabled, readAttachment } from "@/lib/sales-ai/media-reader";
+import { recordTemplateStatus } from "@/lib/sales-ai/reminders";
 
 // Meta WhatsApp Cloud API webhook. GET is Meta's one-time verification; POST carries messages and
 // delivery statuses. Everything is saved before the 200; any failure answers 503 so Meta retries,
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
 
 type Message = { from: string; id: string; type: string; text?: { body?: string }; button?: { text?: string }; interactive?: { button_reply?: { title?: string }; list_reply?: { title?: string } }; location?: { latitude?: number; longitude?: number; name?: string; address?: string } } & Record<string, unknown>;
 type Status = { id?: string; status?: string; errors?: { code?: number | string }[] };
-type Payload = { entry?: { changes?: { value?: { contacts?: { wa_id: string; profile?: { name?: string } }[]; messages?: Message[]; statuses?: Status[] } }[] }[] };
+type Payload = { entry?: { changes?: { field?: string; value?: { event?: string; message_template_name?: string; message_template_language?: string; contacts?: { wa_id: string; profile?: { name?: string } }[]; messages?: Message[]; statuses?: Status[] } }[] }[] };
 
 const MEDIA_PLACEHOLDER = (type: string) => `[${type} message. Photos, voice notes and files aren't read by Waydidi Assistant yet; please type your question.]`;
 
@@ -31,6 +32,8 @@ export async function POST(request: Request) {
   const fail = (what: string) => (e: unknown) => { failed = true; console.error(`whatsapp ${what} failed`, e instanceof Error ? e.message : "unknown"); };
   for (const change of payload.entry?.flatMap((e) => e.changes ?? []) ?? []) {
     const v = change.value;
+    // Template approvals, rejections and pauses (subscribe to "message_template_status_update" in the Meta app).
+    if (change.field === "message_template_status_update") { await recordTemplateStatus(v?.message_template_name, v?.message_template_language, v?.event).catch(fail("template status")); continue; }
     for (const msg of v?.messages ?? []) {
       if (typeof msg.id !== "string" || typeof msg.from !== "string") continue;
       const name = v?.contacts?.find((c) => c.wa_id === msg.from)?.profile?.name ?? null;

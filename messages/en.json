@@ -443,5 +443,7 @@
   "salesQuote.multiLeg": "Trip {n}: {route}\nDate: {date} at {time}\nPassengers: {passengers}, bags: {bags}\nCar: {car}\nPrice: ฿{price} per car\nAccept and book: {url}",
   "salesQuote.multiTotal": "Total for all trips: ฿{total}\nValid until {validUntil} (Thailand time)",
   "salesFollowup.validReminder": "Hi! Just a reminder that your Waydidi quote for {date} is valid until {validUntil} (Thailand time). You can accept it with the link above, or reply here with any questions.",
-  "salesFollowup.checkIn": "Hi! Just checking in about your trip on {date}. If you'd still like a car, reply here and we'll confirm an up-to-date price."
+  "salesFollowup.checkIn": "Hi! Just checking in about your trip on {date}. If you'd still like a car, reply here and we'll confirm an up-to-date price.",
+  "salesQuote.reminderOptIn": "Would you like a reminder about this trip in 3 days? Reply YES.",
+  "salesReminder.templateCopy": "Hi! Your Waydidi transfer quote for {date} is still open. Reply to this message and we will confirm an up-to-date price for you. Reply STOP to stop reminders."
 }

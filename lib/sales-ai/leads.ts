@@ -13,8 +13,8 @@ type Db = { prepare: (sql: string) => Stmt; batch: (s: Stmt[]) => Promise<{ meta
 const db = () => env.DB as unknown as Db;
 const vars = () => env as unknown as Record<string, string | undefined>;
 export const leadsEnabled = () => vars().SALES_AI_LEADS === "1";
-/** Message signals are also needed by follow-ups (declined, opted out). */
-const signalsNeeded = () => leadsEnabled() || vars().SALES_AI_FOLLOWUPS === "1";
+/** Message signals are also needed by follow-ups and template reminders (declined, opted out). */
+const signalsNeeded = () => leadsEnabled() || vars().SALES_AI_FOLLOWUPS === "1" || vars().SALES_AI_TEMPLATE_FOLLOWUPS === "1";
 
 // Same statements as drizzle/0131_sales_leads_followups.sql (Workers Builds does not apply D1 migrations).
 export const LEAD_TABLES = [

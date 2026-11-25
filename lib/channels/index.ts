@@ -22,6 +22,22 @@ async function whatsapp(body: Record<string, unknown>) {
   if (!res.ok) throw new Error(`WhatsApp: ${out.error?.message ?? res.status}`);
   return out.messages?.[0]?.id ?? null;
 }
+/**
+ * Sends an approved WhatsApp template (the only kind of message allowed more than 24 hours after the customer's last
+ * message). Returns the WhatsApp message id; throws with Meta's error code so callers can record why it failed.
+ */
+export async function sendWhatsappTemplate(to: string, name: string, languageCode: string, bodyParams: string[]) {
+  if (!whatsappConfigured()) throw new Error("WhatsApp is not configured");
+  const res = await fetch(`${graph()}/${vars().WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+    method: "POST", signal: AbortSignal.timeout(10000),
+    headers: { Authorization: `Bearer ${vars().WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ messaging_product: "whatsapp", to, type: "template", template: { name, language: { code: languageCode },
+      components: bodyParams.length ? [{ type: "body", parameters: bodyParams.map((text) => ({ type: "text", text: text.slice(0, 1000) })) }] : [] } }),
+  });
+  const out = await res.json().catch(() => ({})) as { messages?: { id: string }[]; error?: { message?: string; code?: number } };
+  if (!res.ok) throw new Error(`WhatsApp template: ${out.error?.code ?? res.status} ${(out.error?.message ?? "").slice(0, 120)}`.trim());
+  return out.messages?.[0]?.id ?? null;
+}
 async function line(path: string, body: Record<string, unknown>) {
   const res = await fetch(`https://api.line.me/v2/bot/${path}`, {
     method: "POST", signal: AbortSignal.timeout(10000),

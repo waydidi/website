@@ -55,7 +55,7 @@ To try it on the test number: set `SALES_AI_QUOTE_APPROVAL=whatsapp`, make sure 
 
 PR 4: several trips per draft, special requests, trip planning requests, WhatsApp photo/PDF reading (`SALES_AI_MEDIA=1`). PR 5: lead scores (`SALES_AI_LEADS=1`), follow-ups (`SALES_AI_FOLLOWUPS=1`), 7-day loss-reason card, on-demand lost-quote analysis. No daily or scheduled sales report anywhere.
 
-Not built: the 3-day follow-up (needs approved WhatsApp templates), voice-note transcription, package discounts across trips (prices only from the database, D20).
+PR 6 (#328, stacked on #327): the 3-day reminder as an approved WhatsApp template after the customer's YES; waits for the owner to create `quote_reminder` (`whatsapp-templates.md`). Not built by owner decision: voice-note transcription (D29), automatic package discounts (D30; lower a trip's price on the card instead).
 
 ## Behaviour changes to know about
 

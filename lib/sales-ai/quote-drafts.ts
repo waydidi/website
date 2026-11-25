@@ -8,6 +8,7 @@ import { editCard, sendCard, telegramChatId, telegramConfigured, tg, type Telegr
 import { activityRetentionDays, logActivity } from "./activity-log";
 import { rescore } from "./leads";
 import { scheduleFollowups } from "./followups";
+import { reminderOffered } from "./reminders";
 import {
   QUOTE_VALID_MS, DRAFT_REVIEW_MS, MAX_LEGS, approvalBlocker, approvalChannels, baht, bundleTotal, customerLocale, draftCard, draftKeyboard, options,
   parsePriceReply, parseQuoteCallback, specialNeeds, type Draft, type DraftOption,
@@ -218,13 +219,15 @@ export async function handleQuoteCallback(data: string, from: TelegramUser, card
 const bangkokTime = (iso: string, locale: string) => new Intl.DateTimeFormat(locale === "th" ? "th-TH-u-ca-gregory" : locale === "zh" ? "zh-CN" : "en-GB", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
 /** The customer's message: the single-trip text, or one block per trip with its own link and the total. */
-function customerMessage(legs: Draft[], urls: string[], locale: "en" | "th" | "zh") {
+function customerMessage(legs: Draft[], urls: string[], locale: "en" | "th" | "zh", offerReminder = false) {
   const m = getMessages(locale), t = (k: MessageKey, v: Record<string, string | number>) => translate(m, k, v);
   const fields = (l: Draft) => { const o = options(l)[l.selected]; return { route: `${l.pickup} → ${l.dropoff}`, date: l.trip_date, time: l.trip_time, passengers: l.passengers, bags: l.bags, car: VEHICLES[o.vehicle as VehicleId]?.name ?? o.name, price: l.price_thb!.toLocaleString("en-US") }; };
   const validUntil = bangkokTime(legs[0].quote_expires_at!, locale);
-  if (legs.length === 1) return t("salesQuote.message", { ...fields(legs[0]), validUntil, url: urls[0] });
+  // WhatsApp with template reminders on: ask for consent to a 3-day reminder (only a YES queues it).
+  const optIn = offerReminder ? `\n\n${t("salesQuote.reminderOptIn", {})}` : "";
+  if (legs.length === 1) return t("salesQuote.message", { ...fields(legs[0]), validUntil, url: urls[0] }) + optIn;
   return [t("salesQuote.multiIntro", { count: legs.length }), ...legs.map((l, i) => t("salesQuote.multiLeg", { n: l.leg_no, ...fields(l), url: urls[i] })),
-    t("salesQuote.multiTotal", { total: bundleTotal(legs)!.toLocaleString("en-US"), validUntil })].join("\n\n");
+    t("salesQuote.multiTotal", { total: bundleTotal(legs)!.toLocaleString("en-US"), validUntil })].join("\n\n") + optIn;
 }
 
 /** Approved: one CRM quote per leg (once each), then a single customer message. Never sends twice; an interrupted send is reported, not retried. */
@@ -261,7 +264,7 @@ async function finishApproval(bundleId: string, owner: { name: string; staff_id:
   const last = await db().prepare("SELECT body FROM website_chat_messages WHERE conversation_id=? AND sender='visitor' ORDER BY rowid DESC LIMIT 1").bind(d.conversation_id).first<{ body: string }>();
   // The quote's validity is the earliest leg's (a leg may end sooner because its pickup is sooner).
   const earliest = legs.map((l) => l.quote_expires_at!).sort()[0];
-  const text = customerMessage(legs.map((l) => ({ ...l, quote_expires_at: earliest })), urls, customerLocale(last?.body));
+  const text = customerMessage(legs.map((l) => ({ ...l, quote_expires_at: earliest })), urls, customerLocale(last?.body), reminderOffered(d.channel));
   const messageId = await addBotMessage(d.conversation_id, text);
   const delivery = messageId ? await db().prepare("SELECT channel_message_id FROM website_chat_messages WHERE id=?").bind(messageId).first<{ channel_message_id: string | null }>() : null;
   const failed = !messageId ? "The message could not be saved." : delivery?.channel_message_id === "outside_window" ? "More than 24 hours since the customer's last WhatsApp message." : delivery?.channel_message_id === "failed" ? "The channel rejected the message." : null;
