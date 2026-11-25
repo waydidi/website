@@ -6,6 +6,8 @@ import { recommendVehicles } from "@/lib/vehicle-recommendation";
 import { addBotMessage, assign } from "@/lib/website-chat";
 import { editCard, sendCard, telegramChatId, telegramConfigured, tg, type TelegramMessage, type TelegramUser } from "@/lib/telegram/client";
 import { activityRetentionDays, logActivity } from "./activity-log";
+import { rescore } from "./leads";
+import { scheduleFollowups } from "./followups";
 import {
   QUOTE_VALID_MS, DRAFT_REVIEW_MS, MAX_LEGS, approvalBlocker, approvalChannels, baht, bundleTotal, customerLocale, draftCard, draftKeyboard, options,
   parsePriceReply, parseQuoteCallback, specialNeeds, type Draft, type DraftOption,
@@ -104,6 +106,7 @@ export async function draftFromQuote(conversationId: string, channel: string, in
     ]);
     if (!added.meta.changes) return JSON.stringify({ ok: false, reason: "The earlier price in this reply was already handled; hand over to staff.", handover: true });
     await refreshCard(leader.bundle_id);
+    await rescore(conversationId).catch(() => undefined);
     await logActivity({ event: "quote_drafted", status: "ok", actor: "assistant", channel, conversationId, correlationId: leader.bundle_id,
       summary: `Trip ${legNo} added to quote draft ${leader.bundle_id} (${source === "manual" ? "needs a price" : `${opts.length} car option(s) from price tables`})`,
       detail: { draft: leader.bundle_id, leg: legNo, source, options: opts.map((o) => ({ vehicle: o.vehicle, price: o.price })) } });
@@ -133,6 +136,7 @@ export async function draftFromQuote(conversationId: string, channel: string, in
   await logActivity({ event: "quote_drafted", status: "ok", actor: "assistant", channel, conversationId, correlationId: id,
     summary: `Quote draft ${id} for owner approval (${source === "manual" ? "needs a price" : `${opts.length} car option(s) from price tables`})${needs ? "; customer has special requests" : ""}`,
     detail: { draft: id, leg: 1, source, options: opts.map((o) => ({ vehicle: o.vehicle, price: o.price })), specialRequests: Boolean(needs) } });
+  await rescore(conversationId).catch(() => undefined);
   return PENDING_REPLY;
 }
 
@@ -267,6 +271,8 @@ async function finishApproval(bundleId: string, owner: { name: string; staff_id:
     summary: failed ? `Quote ${bundleId} approved but not delivered: ${failed}` : `Quote ${bundleId} approved and sent: ${legs.length > 1 ? `${legs.length} trips, total ` : `${options(d)[d.selected]?.name} `}${baht(total)}${legs.some((l) => l.edited_by) ? " (price edited by owner)" : ""}, valid 3 hours`,
     detail: { draft: bundleId, priceThb: total, legs: legs.map((l) => ({ leg: l.leg_no, crmQuote: l.crm_quote_id, vehicle: options(l)[l.selected]?.vehicle, priceThb: l.price_thb, tablePriceThb: l.table_price_thb, source: l.price_source, edited: Boolean(l.edited_by) })) } });
   await refreshCard(bundleId);
+  // Follow-ups (SALES_AI_FOLLOWUPS) and the 7-day review (SALES_AI_LEADS) only for quotes that reached the customer.
+  if (!failed) await scheduleFollowups(bundleId, d.conversation_id).catch((e) => console.error("follow-up scheduling failed", e instanceof Error ? e.message : "unknown"));
   return failed ? { text: `Approved, but not delivered: ${failed}`, alert: true } : { text: "Sent to the customer." };
 }
 

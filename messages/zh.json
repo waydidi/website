@@ -1770,5 +1770,13 @@
   "salesQuote.multiTotal": {
     "text": "所有行程合计：฿{total}\n有效期至 {validUntil}（泰国时间）",
     "status": "machine"
+  },
+  "salesFollowup.validReminder": {
+    "text": "您好！提醒您，您 {date} 的 Waydidi 报价有效期至 {validUntil}（泰国时间）。您可以通过上方链接接受报价，或在此回复提问。",
+    "status": "machine"
+  },
+  "salesFollowup.checkIn": {
+    "text": "您好！想跟进一下您 {date} 的行程。如果仍需要用车，请在此回复，我们会为您确认最新价格。",
+    "status": "machine"
   }
 }

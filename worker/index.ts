@@ -167,6 +167,7 @@ const worker = {
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) ctx.waitUntil(import("../lib/booking-funnel-db").then(m => m.purgeBookingFunnel(_env.DB, new Date(controller.scheduledTime))).catch(() => console.error("Booking funnel retention failed")));
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) ctx.waitUntil(import("../lib/sales-ai/activity-log").then(m => m.purgeActivity(new Date(controller.scheduledTime))).catch(() => console.error("AI activity retention failed")));
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) ctx.waitUntil(import("../lib/sales-ai/quote-drafts").then(m => m.purgeQuoteDrafts(new Date(controller.scheduledTime))).catch(() => console.error("Quote draft retention failed")));
+    if (new Date(controller.scheduledTime).getUTCMinutes() === 0) ctx.waitUntil(Promise.all([import("../lib/sales-ai/followups"), import("../lib/sales-ai/activity-log")]).then(([f, a]) => f.purgeFollowups(a.activityRetentionDays(), new Date(controller.scheduledTime))).catch(() => console.error("Follow-up retention failed")));
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) ctx.waitUntil(import("../lib/web-monitoring-db").then(m => m.purgeWebMonitoring(_env.DB, new Date(controller.scheduledTime))).catch(() => console.error("Web monitoring retention failed")));
     ctx.waitUntil(import("../lib/telegram/trip-photos").then(m=>m.recoverTripNotifications()).catch(()=>console.error("Telegram trip notification recovery failed")));
     ctx.waitUntil(import("../lib/cancellation-requests").then(m=>m.recoverCancellationCards()).catch(()=>console.error("Cancellation notification recovery failed")));
@@ -181,6 +182,8 @@ const worker = {
       ctx.waitUntil(import("../lib/referrals").then((m) => m.referralRewardsIfDue(new Date(controller.scheduledTime))).catch((e) => console.error("referral rewards failed", e)));
       // "Ask me first": chats nobody chose for within the wait are given to Waydidi Assistant.
       ctx.waitUntil(import("../lib/cee/ask-first").then((m) => m.releaseWaitingChats(new Date(controller.scheduledTime))).catch((e) => console.error("ask-first release failed", e)));
+      // Sales follow-ups and 7-day quote reviews (off unless SALES_AI_FOLLOWUPS / SALES_AI_LEADS).
+      ctx.waitUntil(import("../lib/sales-ai/followups").then((m) => m.runFollowups(new Date(controller.scheduledTime))).catch((e) => console.error("sales follow-ups failed", e)));
       // The "/" command menu in the team group (registered once, again only when the list changes).
       ctx.waitUntil(import("../lib/telegram/commands").then((m) => m.syncBotCommands()).catch((e) => console.error("telegram command menu failed", e)));
       // Post helper: saved knowledge is refreshed after 10 January and 10 July; pasted posts are kept 7 days.
