@@ -22,6 +22,13 @@ async function whatsapp(body: Record<string, unknown>) {
   if (!res.ok) throw new Error(`WhatsApp: ${out.error?.message ?? res.status}`);
   return out.messages?.[0]?.id ?? null;
 }
+/** Sends an operator-configured, Meta-approved template with no parameters. */
+export async function deliverWhatsAppTemplate(userId: string, template: { name: string; language: string }) {
+  if (!whatsappConfigured() || !/^\d{5,20}$/.test(userId)) return null;
+  const id = await whatsapp({ to: userId, type: "template", template: { name: template.name, language: { code: template.language } } });
+  return typeof id === "string" && /^wamid\.[A-Za-z0-9_+\/=-]{1,512}$/.test(id) ? id : null;
+}
+
 async function line(path: string, body: Record<string, unknown>) {
   const res = await fetch(`https://api.line.me/v2/bot/${path}`, {
     method: "POST", signal: AbortSignal.timeout(10000),

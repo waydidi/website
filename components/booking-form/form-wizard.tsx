@@ -62,6 +62,9 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
   const locked = (k: keyof FormPrefill) => prefill[k] !== undefined;
   const withPrefill = (x: Answers): Answers => ({
     ...x,
+    passengers: prefill.passengers ?? x.passengers,
+    luggage: prefill.luggage ?? x.luggage,
+    childSeats: prefill.childSeats ?? x.childSeats,
     ...(prefill.pickup ? { pickup: prefill.pickup } : {}), ...(prefill.dropoff ? { dropoff: prefill.dropoff } : {}),
     ...(prefill.hours ? { hours: prefill.hours } : {}), ...(prefill.date ? { date: prefill.date } : {}),
     ...(prefill.time ? { time: prefill.time } : {}), ...(prefill.vehicle ? { vehicle: prefill.vehicle as VehicleId } : {}),
@@ -224,8 +227,8 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
         {step === "ride" && <>
           <h1 className="text-[27px] font-bold leading-tight tracking-[-.01em] sm:text-[32px]">Your ride</h1>
           <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 rounded-2xl border border-[#F0E3D4] bg-white px-5 py-4">
-            <span className="flex items-center gap-3"><UsersRound size={24} aria-label="Passengers" /><Stepper value={a.passengers} set={(n) => setGroup(n, a.luggage)} min={1} max={20} label="passengers" /></span>
-            <span className="flex items-center gap-3"><Luggage size={24} aria-label="Bags" /><Stepper value={a.luggage} set={(n) => setGroup(a.passengers, n)} min={0} max={30} label="bags" /></span>
+            <span className="flex items-center gap-3"><UsersRound size={24} aria-label="Passengers" />{locked("passengers") ? <span className="text-[19px] text-plum">{a.passengers} passengers</span> : <Stepper value={a.passengers} set={(n) => setGroup(n, a.luggage)} min={1} max={20} label="passengers" />}</span>
+            <span className="flex items-center gap-3"><Luggage size={24} aria-label="Bags" />{locked("luggage") ? <span className="text-[19px] text-plum">{a.luggage} bags</span> : <Stepper value={a.luggage} set={(n) => setGroup(a.passengers, n)} min={0} max={30} label="bags" />}</span>
           </div>
 
           <p className="mt-7 text-[16px] font-semibold">Choose your car</p>
@@ -254,7 +257,7 @@ export function FormWizard({ token, service, prefill = {} }: { token: string; se
             <li className="flex items-center gap-3 py-3">
               <Image src="/addon-child-seat.webp" alt="" width={44} height={44} unoptimized className="size-11 object-contain" />
               <span className="flex-1"><span className="block font-medium">Child seat</span><span className="text-[13px] text-[#6B6170]">+THB {CHILD_SEAT_THB.toLocaleString()} each</span></span>
-              <Stepper value={a.childSeats} set={(n) => set("childSeats", n)} min={0} max={Math.min(4, a.passengers)} label="child seats" />
+              {locked("childSeats") ? <span className="text-[19px] text-plum">{a.childSeats} child seats</span> : <Stepper value={a.childSeats} set={(n) => set("childSeats", n)} min={0} max={Math.min(4, a.passengers)} label="child seats" />}
             </li>
             <li>
               <label className="flex cursor-pointer items-center gap-3 py-3">

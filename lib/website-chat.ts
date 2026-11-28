@@ -243,20 +243,42 @@ export async function addStaffMessage(conversationId: string, body: string, who:
  * Waydidi Assistant's reply: shown as "Waydidi Assistant", never assigns the conversation, mirrored to Telegram.
  * onlyWhileNonActive (Waydidi Assistant's own answers): the insert itself checks that no person has taken the chat,
  * Waydidi Assistant isn't paused and the chat isn't closed, so a takeover at any moment before the insert stops the reply.
- * System notices (payment received, "thanks for waiting", idle nudges) leave it off and are always sent.
+ * Idle check-ins set it too. System notices (payment received, "thanks for waiting") leave it off and are always sent.
  */
-export async function addBotMessage(conversationId: string, rawBody: string, card?: object | null, options: { onlyWhileNonActive?: boolean } = {}) {
+export async function addBotMessage(conversationId: string, rawBody: string, card?: object | null, options: {
+  onlyWhileNonActive?: boolean;
+  visitorSeq?: number;
+  approvedQuote?: { id: string; revision: number; staffId: string; visitorSeq: number; issued: { quoteId: string; version: number; tokenHash: string }[] };
+} = {}) {
   const body = plainText(rawBody);
   const c = await conversationById(conversationId);
   if (!c) return null;
   const now = nowIso(), id = crypto.randomUUID();
   const website = (c.channel ?? "web") === "web";
+  const approved = options.approvedQuote;
+  const visitorGuard = options.visitorSeq === undefined ? "" : `AND ?=(SELECT COALESCE(MAX(rowid),0)
+    FROM website_chat_messages WHERE conversation_id=? AND sender='visitor')`;
+  // Keep the quote revision, chat ownership and latest customer message current at the insert.
+  const quoteGuard = approved ? `AND EXISTS(SELECT 1 FROM ai_quote_drafts d
+    JOIN website_conversations c ON c.id=d.conversation_id
+    WHERE d.id=? AND d.revision=? AND d.status='sending' AND c.id=? AND c.status<>'closed'
+      AND (c.assigned_name IS NULL OR c.assigned_staff_id=?)
+      AND ?=(SELECT COALESCE(MAX(rowid),0) FROM website_chat_messages WHERE conversation_id=c.id AND sender='visitor')
+      AND NOT EXISTS(SELECT 1 FROM json_each(?) issued
+        LEFT JOIN crm_quotes q ON q.id=json_extract(issued.value,'$.quoteId')
+        WHERE q.id IS NULL OR q.version<>json_extract(issued.value,'$.version') OR q.status<>'sent'
+          OR q.token_hash IS NOT json_extract(issued.value,'$.tokenHash')))` : "";
   const insert = await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot,card_json,telegram_status)
-    SELECT ?,?,'staff',?,?,?,1,?,? WHERE ?=0 OR EXISTS(SELECT 1 FROM website_conversations WHERE id=? AND status<>'closed' AND assigned_name IS NULL AND COALESCE(bot_paused,0)=0)`)
-    .bind(id, c.id, body, now, ASSISTANT_NAME, card ? JSON.stringify(card) : null, website ? "pending" : "skipped", options.onlyWhileNonActive ? 1 : 0, c.id).run();
+    SELECT ?,?,'staff',?,?,?,1,?,? WHERE (?=0 OR EXISTS(SELECT 1 FROM website_conversations WHERE id=? AND status<>'closed' AND assigned_name IS NULL AND COALESCE(bot_paused,0)=0))
+    ${visitorGuard} ${quoteGuard}`)
+    .bind(id, c.id, body, now, ASSISTANT_NAME, card ? JSON.stringify(card) : null, website ? "pending" : "skipped", options.onlyWhileNonActive ? 1 : 0, c.id,
+      ...(options.visitorSeq === undefined ? [] : [options.visitorSeq, c.id]),
+      ...(approved ? [approved.id, approved.revision, c.id, approved.staffId, approved.visitorSeq, JSON.stringify(approved.issued)] : [])).run();
   if (!insert.meta.changes) {
     await logActivity({ event: "send_suppressed", status: "suppressed", actor: "assistant", channel: c.channel ?? "web", conversationId: c.id,
-      summary: "Waydidi Assistant's reply was not sent: a staff member took over, Waydidi Assistant was paused or the chat closed while it was answering" });
+      summary: approved ? "The quote or chat changed before the approved quote was sent"
+        : options.visitorSeq !== undefined ? "The chat changed before the fixed reply was sent"
+        : "Waydidi Assistant's reply was not sent: a staff member took over, Waydidi Assistant was paused or the chat closed while it was answering" });
     return null;
   }
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();

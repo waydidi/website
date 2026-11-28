@@ -1,4 +1,10 @@
 {
+  "assistant.faq.contact": "Contact Waydidi at {email} or on WhatsApp at {whatsapp}.",
+  "assistant.faq.card": "card online",
+  "assistant.faq.cash": "cash to the driver",
+  "assistant.faq.transfer": "bank transfer with a slip uploaded from your booking (where offered)",
+  "assistant.faq.payso": "PaySo when offered in website chat",
+  "assistant.faq.payment": "Depending on your booking, you can pay by {methods}. Check your booking for the available options.",
   "cancellation.changeUnavailable": "Online journey changes are unavailable for this cancellation option. Contact Waydidi for help.",
   "cancellation.choose": "Cancellation option",
   "cancellation.standard": "Standard",
@@ -438,5 +444,9 @@
   "trips.faq.cancel.a": "Refunds follow the policy shown when you book. See our refund policy page for the current terms.",
   "ride.expired": "This search link has expired. Please search again.",
   "results.chooseVehicle": "Choose your vehicle",
-  "salesQuote.message": "Here is your Waydidi quote:\n{route}\nDate: {date} at {time}\nPassengers: {passengers}, bags: {bags}\nCar: {car}\nPrice: ฿{price} per car\nValid until {validUntil} (Thailand time)\n\nAccept and book here: {url}"
+  "salesQuote.followup": "Do you have any questions about your Waydidi quote? Reply here if you’d like help. Reply STOP to stop reminders.",
+  "salesQuote.message": "Here is your Waydidi quote:\n{route}\nDate: {date} at {time}\nPassengers: {passengers}, bags: {bags}\nCar: {car}\nPrice: ฿{price} per car\nValid until {validUntil} (Thailand time)\n\nAccept and book here: {url}",
+  "salesQuote.multiMessage": "Here is your Waydidi quote for several trips:\n\n{legs}\n\nTotal if you book every leg: THB {total}. Choose any of the links above. Valid until {validUntil} (Thailand time).",
+  "salesQuote.leg": "Leg {number}: {route}\n{date} at {time} | {passengers} passengers, {bags} bags\n{car} | THB {price}\nAccept this leg: {url}",
+  "salesQuote.childSeats": "Child seats requested: {count}. The booking form lists the existing add-on at THB {price} each."
 }

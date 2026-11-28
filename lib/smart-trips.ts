@@ -128,23 +128,28 @@ export async function suggestedTransport(pickup: string, hours: number, vehicle:
   return { total: priceForHours(area?.rates[v] ?? DEFAULT_AREA_RATES[v], Math.max(HOURLY_MIN_HOURS, hours)), city: slug };
 }
 
-export async function saveTrip(input: TripInput, by: { name: string; agencyId?: string | null; commissionPercent?: number }) {
-  const now = new Date().toISOString();
-  const planned = await planFor(input);
-  const values = {
+function tripValues(input: TripInput, now: string, includedFees: number, total: number) {
+  return {
     title: input.title, area: input.area, tripDate: input.tripDate ?? null, startTime: input.startTime,
     pickupText: input.pickupText, pickupLat: input.pickupLat, pickupLng: input.pickupLng,
     endText: input.endText, endLat: input.endLat, endLng: input.endLng, durationHours: input.durationHours,
     adults: input.adults, children: input.children, bags: input.bags, vehicle: input.vehicle, language: input.language,
     customerName: input.customerName, customerEmail: input.customerEmail ?? null, customerPhone: input.customerPhone, notes: input.notes,
-    stopsJson: JSON.stringify(input.stops), transportPrice: input.transportPrice, feesTotal: planned.fees.included,
-    discount: input.discount, holdDays: input.holdDays, total: planned.total, isTemplate: input.isTemplate, templateName: input.templateName, updatedAt: now,
+    stopsJson: JSON.stringify(input.stops), transportPrice: input.transportPrice, feesTotal: includedFees,
+    discount: input.discount, holdDays: input.holdDays, total, isTemplate: input.isTemplate, templateName: input.templateName, updatedAt: now,
   };
+}
+
+export async function saveTrip(input: TripInput, by: { name: string; agencyId?: string | null; commissionPercent?: number; newId?: string }) {
+  const now = new Date().toISOString();
+  const planned = await planFor(input);
+  const values = tripValues(input, now, planned.fees.included, planned.total);
   if (input.id) {
     const scope = by.agencyId ? and(eq(smartTrips.id, input.id), eq(smartTrips.agencyId, by.agencyId)) : eq(smartTrips.id, input.id);
     const [existing] = await getDb().select().from(smartTrips).where(scope).limit(1);
     if (!existing) throw new Error("NOT_FOUND");
     if (existing.status === "accepted") throw new Error("LOCKED");
+    if (input.isTemplate && isSalesTrip(existing)) throw new Error("SALES_TRIP_TEMPLATE");
     // Compare and write in one statement: a payment or another editor may have won since the read.
     const [saved] = await getDb().update(smartTrips).set({ ...values, updatedAt: new Date(Math.max(Date.now(), Date.parse(existing.updatedAt) + 1)).toISOString() })
       .where(and(scope, ne(smartTrips.status, "accepted"), eq(smartTrips.updatedAt, input.expectedUpdatedAt ?? existing.updatedAt)))
@@ -152,11 +157,30 @@ export async function saveTrip(input: TripInput, by: { name: string; agencyId?: 
     if (!saved) throw new Error("CONFLICT");
     return { id: input.id, ref: existing.ref };
   }
-  const id = crypto.randomUUID(), ref = await newRef();
+  const id = by.newId ?? crypto.randomUUID(), ref = await newRef();
   await getDb().insert(smartTrips).values({ ...values, id, ref, token: tripToken(), status: "draft", createdBy: by.name,
     agencyId: by.agencyId ?? null, commissionPercent: by.commissionPercent ?? 0, createdAt: now });
   return { id, ref };
 }
+
+/** Create an unpriced itinerary for staff to review. All days are inserted together. */
+export async function saveSalesTripDays(id: string, days: [TripInput, ...TripInput[]]) {
+  // Do not recreate days an owner removed from an already reviewed draft.
+  if (await getTrip(id)) return;
+  const db = getDb(), now = new Date().toISOString();
+  const refs = await Promise.all(days.map(() => newRef()));
+  const inserts = days.map((day, i) => db.insert(smartTrips).values({
+    ...tripValues(day, now, 0, 0), id: i ? `${id}-${i + 1}` : id, groupId: days.length > 1 ? id : null, dayNumber: i + 1,
+    ref: refs[i], token: tripToken(), status: "draft", createdBy: "Waydidi Assistant", createdAt: now,
+  }));
+  try { await db.batch([inserts[0], ...inserts.slice(1)]); }
+  catch (error) {
+    if (/UNIQUE constraint failed: smart_trips\.id/.test(String(error)) && await getTrip(id)) return;
+    throw error;
+  }
+}
+
+export const isSalesTrip = (t: Pick<TripRow, "id" | "groupId">) => (t.groupId ?? t.id).startsWith("sales-plan-");
 
 export async function getTrip(id: string, agencyId?: string | null) {
   const where = agencyId ? and(eq(smartTrips.id, id), eq(smartTrips.agencyId, agencyId)) : eq(smartTrips.id, id);
@@ -307,8 +331,17 @@ export async function sendTripDays(days: TripRow[], by: string, note?: string | 
 /** A copy for another customer or date: new reference, new link, back to draft. */
 export async function duplicateTrip(trip: TripRow, by: { name: string; agencyId?: string | null; commissionPercent?: number }, asTemplate = false) {
   const input = inputFromRow(trip);
+  if (asTemplate && isSalesTrip(trip)) {
+    // Keep catalog stops only: customer chat can put private details in the title, notes and custom stops.
+    return saveTrip({ ...input, id: undefined, isTemplate: true, title: "Itinerary template", templateName: "Itinerary template",
+      customerName: null, customerEmail: null, customerPhone: null, tripDate: null, notes: null, pickupText: "", pickupLat: null, pickupLng: null,
+      endText: null, endLat: null, endLng: null, transportPrice: 0, discount: 0,
+      stops: input.stops.filter((stop) => stop.kind === "attraction").map((stop) => ({ ...stop, note: undefined })) }, by);
+  }
   return saveTrip({ ...input, id: undefined, isTemplate: asTemplate, title: asTemplate ? (trip.templateName || trip.title) : `${trip.title} (copy)`, templateName: asTemplate ? (trip.templateName || trip.title) : null,
-    ...(asTemplate ? { customerName: null, customerEmail: null, customerPhone: null, tripDate: null } : {}) }, by);
+    ...(asTemplate ? { customerName: null, customerEmail: null, customerPhone: null, tripDate: null } : {}) },
+    // A plain copy still carries the chat's details, so its id keeps the private marker.
+    !asTemplate && isSalesTrip(trip) ? { ...by, newId: `sales-plan-${crypto.randomUUID().replaceAll("-", "")}` } : by);
 }
 
 /** An agency's day trips: how many are out with guests, how many paid, and commission earned. */

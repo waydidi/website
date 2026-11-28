@@ -54,7 +54,7 @@ function pages(dir = join(root, 'app'), out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const file = join(dir, entry.name);
     if (entry.isDirectory()) pages(file, out);
-    else if (/^(page|layout)\.tsx$/.test(entry.name)) out.push('/' + relative(root, file));
+    else if (/^(page|layout)\.tsx$/.test(entry.name)) out.push('/' + relative(root, file).replaceAll('\\', '/'));
   }
   return out;
 }

@@ -10,7 +10,7 @@ type Data = { rows: Row[]; next: string | null; events: string[]; retentionDays:
 type Filters = { event: string; status: string; conversation: string; from: string; to: string };
 
 const EVENT_LABEL: Record<string, string> = {
-  inbound_message: "Customer message", media_received: "Photo / file received", delivery_status: "Delivery status", model_call: "AI reply",
+  inbound_message: "Customer message", media_received: "Photo / file received", delivery_status: "Delivery status", model_call: "AI reply", fixed_reply: "Fixed reply (AI call saved)",
   handover: "Handed to staff", send_suppressed: "Send stopped", send_failed: "Send failed", kill_switch: "Channel switched off",
   quote_drafted: "Quote draft", quote_price_edited: "Quote price edited", quote_approved: "Quote approval", quote_sent: "Quote sent", quote_rejected: "Quote rejected",
   mode_change: "Chat taken over", security: "Security",

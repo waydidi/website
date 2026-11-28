@@ -56,8 +56,22 @@ To try it on the test number: set `SALES_AI_QUOTE_APPROVAL=whatsapp`, make sure 
 
 ## Deferred to later PRs
 
-PR 4 multi-leg, images, itineraries; PR 5 lead scoring, follow-ups, lost-quote analysis. Daily Sales Report stays excluded.
+Daily Sales Report stays excluded.
+
+## PR 5: lead priority, follow-ups and lost quotes
+
+CRM shows open-enquiry priority with evidence from its current stage and quote status. The dashboard counts lost and expired quotes by staff reason or the quote events on record. WhatsApp reminders require owner-recorded consent, approved templates and an explicit enable flag. See [the PR 5 release guide](pr5-followups.md).
 
 ## Worker variables (all optional; defaults keep today's behaviour)
 
 `SALES_AI_QUOTE_APPROVAL` (PR 2), `AI_MODEL_FAST`, `AI_MODEL_SMART`, `ASSISTANT_DISABLED_CHANNELS`, `AI_ACTIVITY_RETENTION_DAYS`, `WHATSAPP_GRAPH_VERSION`. The new tables are created on first use and by `drizzle/0127_sales_ai_foundations.sql` and `drizzle/0128_ai_quote_drafts.sql`.
+
+## PR 4 for the current main branch
+
+Implemented behind `SALES_AI_MEDIA=1`: WhatsApp image and PDF trip facts with bounded downloads and private storage, owner-approved multi-leg transfer drafts and independent leg acceptance, structured vehicle needs, and a multi-day itinerary handoff to the existing trip builder. Multi-leg quotes and planner cards also require the channel to be listed in `SALES_AI_QUOTE_APPROVAL`. The additive migration `0129_sales_ai_media.sql` matches first-use table creation. See the [owner test guide](pr4-owner-test.md).
+
+## Fixed answers and media storage readiness
+
+`ASSISTANT_FIXED_REPLIES=1` enables deterministic replies to standalone contact, payment and verified hours questions in English, Thai and Chinese. The default is off. Answers use public contact constants, actually enabled payment adapters and explicitly published language-specific hours notes. Missing hours and mixed trip/booking/price questions retain the existing AI path. Each fixed reply records a zero-cost activity event without conversation/customer details. The existing five-second batching and assistant switches apply; a latest-visitor guard also suppresses a fixed answer when a newer message arrives.
+
+R2 is optional: private uploads already fall back to `stored_file_parts` in D1. Media intake now checks that a storage path is configured before attempting attachment reading and logs a clear skipped reason when it is not. The live fallback schema, account bindings and token permissions have not been inspected or changed. The [owner test guide](pr4-owner-test.md#production-media-checklist-instructions-only-not-executed) includes the production setup checklist.
