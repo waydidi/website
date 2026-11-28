@@ -4,6 +4,7 @@ import { contactInput, taskInput, quoteInput, STAGES, normalizePhone, csvCell } 
 import { secureToken, sha256 } from "./security";
 import { VEHICLES } from "./vehicles";
 import { leadPriority } from "./sales-ai/lead-priority";
+import { STOP_REMINDER_SQL } from "./sales-ai/followup-rules";
 import { formToken } from "./booking-form";
 import { SITE_URL } from "./site";
 import type { SecurityDatabase } from "./worker-db";
@@ -180,7 +181,12 @@ export async function profile(id: string) {
         rows("SELECT * FROM crm_sources WHERE contact_id=?", id),
         rows("SELECT b.reference,b.pickup,b.dropoff,b.pickup_date,b.pickup_time,b.status,b.payment_status,b.refund_status,b.refund_amount,b.total FROM bookings b JOIN crm_sources s ON s.kind='booking' AND s.source_id=b.reference WHERE s.contact_id=? ORDER BY b.pickup_date DESC LIMIT 100", id),
         rows(`SELECT w.id,w.public_id,w.channel,w.status,w.last_message_at,
-          (SELECT e.body FROM crm_events e WHERE e.contact_id=s.contact_id AND e.entity_id=w.id AND e.kind='whatsapp_quote_followup_consent' ORDER BY e.rowid DESC LIMIT 1) quote_followup_consent
+          (SELECT CASE WHEN e.body='Opted in' AND EXISTS (
+              SELECT 1 FROM website_chat_messages m WHERE m.conversation_id=w.id AND m.sender='visitor'
+                AND m.created_at>=e.created_at AND ${STOP_REMINDER_SQL}
+            ) THEN 'Opted out' ELSE e.body END
+            FROM crm_events e WHERE e.contact_id=s.contact_id AND e.entity_id=w.id AND e.kind='whatsapp_quote_followup_consent'
+            ORDER BY e.rowid DESC LIMIT 1) quote_followup_consent
           FROM website_conversations w JOIN crm_sources s ON s.kind='chat' AND s.source_id=w.id WHERE s.contact_id=? ORDER BY w.created_at DESC LIMIT 100`, id),
         rows("SELECT * FROM crm_leads WHERE contact_id=? ORDER BY updated_at DESC LIMIT 100", id), rows("SELECT * FROM crm_tasks WHERE contact_id=? ORDER BY due_at DESC LIMIT 100", id),
         rows("SELECT id,title,status,amount_minor,version,booking_reference FROM crm_quotes WHERE contact_id=? ORDER BY created_at DESC LIMIT 100", id),

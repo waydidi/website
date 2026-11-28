@@ -332,6 +332,13 @@ test('quote reminders stop after opt-out, a customer reply, staff takeover, or e
   await reminderConsent(responded.conversation_id);
   await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('followup-visitor-reply',?,'visitor','No thanks',?)")
     .bind(responded.conversation_id, new Date().toISOString()).run();
+  await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('followup-visitor-stop',?,'visitor','STOP',?),('followup-visitor-next',?,'visitor','New transfer quote please',?)")
+    .bind(responded.conversation_id, new Date().toISOString(), responded.conversation_id, new Date().toISOString()).run();
+  const next = await makeDraft(responded.conversation_id);
+  assert.equal((await tap(cb(next.draft, 'ok'))).text, 'Sent to the customer.');
+  await reminderAge(next.draft, 70);
+  assert.equal((await crm.profile(`chat:${responded.conversation_id}`)).chats[0].quote_followup_consent, 'Opted out');
+
   const takenOver = await reminderQuote();
   await reminderConsent(takenOver.conversation_id);
   await db.prepare("UPDATE website_conversations SET assigned_name='Owner' WHERE id=?").bind(takenOver.conversation_id).run();

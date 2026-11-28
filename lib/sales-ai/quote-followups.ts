@@ -4,7 +4,7 @@ import { crmDb } from "@/lib/crm";
 import { translate, getMessages } from "@/lib/i18n";
 import { ASSISTANT_NAME } from "@/lib/cee/name";
 import { ensureFoundationTables, logActivity } from "./activity-log";
-import { followupTemplate, quoteFollowupStep, FOLLOWUP_INTERVAL_MS } from "./followup-rules";
+import { followupTemplate, quoteFollowupStep, FOLLOWUP_INTERVAL_MS, STOP_REMINDER_SQL } from "./followup-rules";
 import { ensureQuoteTables } from "./quote-drafts";
 import { customerLocale } from "./quote-rules";
 import { disabledChannels } from "./whatsapp-rules";
@@ -28,6 +28,11 @@ const eligibleQuote = `
   JOIN crm_sources source ON source.kind='chat' AND source.source_id=c.id AND source.contact_id=q.contact_id
   JOIN website_chat_messages v ON v.rowid=d.visitor_seq AND v.conversation_id=c.id AND v.sender='visitor'
   JOIN ai_activity_log a ON a.correlation_id=d.id AND a.event='quote_sent' AND a.status='ok'
+  JOIN crm_events consent ON consent.rowid=(
+    SELECT e.rowid FROM crm_events e
+    WHERE e.contact_id=q.contact_id AND e.entity_id=c.id AND e.kind='whatsapp_quote_followup_consent'
+    ORDER BY e.rowid DESC LIMIT 1
+  ) AND consent.body='Opted in'
   WHERE q.status='sent' AND q.version=1 AND q.token_hash IS NOT NULL AND q.expires_at>? AND d.quote_expires_at>? AND q.updated_at<=d.updated_at
     AND d.status='sent' AND d.channel='whatsapp' AND c.channel='whatsapp' AND c.status='open' AND c.expires_at>?
     AND c.channel_user_id IS NOT NULL AND c.assigned_name IS NULL AND c.assigned_staff_id IS NULL
@@ -39,10 +44,9 @@ const eligibleQuote = `
         AND instr(m.body,'/quote/')>0 AND m.channel_message_id LIKE 'wamid.%'
         AND NOT EXISTS (SELECT 1 FROM channel_delivery_status s WHERE s.channel_message_id=m.channel_message_id AND s.status='failed')
     )
-    AND 'Opted in' = (
-      SELECT e.body FROM crm_events e
-      WHERE e.contact_id=q.contact_id AND e.entity_id=c.id AND e.kind='whatsapp_quote_followup_consent'
-      ORDER BY e.rowid DESC LIMIT 1
+    AND NOT EXISTS (
+      SELECT 1 FROM website_chat_messages m WHERE m.conversation_id=c.id AND m.sender='visitor'
+        AND m.created_at>=consent.created_at AND ${STOP_REMINDER_SQL}
     )
     AND NOT EXISTS (SELECT 1 FROM crm_leads l WHERE l.id=q.lead_id AND l.stage IN ('awaiting_payment','won','lost','cancelled'))
     AND NOT EXISTS (SELECT 1 FROM ai_quote_drafts n WHERE n.conversation_id=c.id AND n.rowid>d.rowid)

@@ -1,5 +1,8 @@
 export const FOLLOWUP_INTERVAL_MS = 60 * 60 * 1000;
 
+// This SQL compares the customer message body only. It never interpolates user input.
+export const STOP_REMINDER_SQL = "trim(upper(m.body),' .!?') IN ('STOP','UNSUBSCRIBE','หยุด','停止')";
+
 export function quoteFollowupStep(sentAt: string, now: number): 1 | 2 | null {
   const age = now - Date.parse(sentAt);
   if (age >= FOLLOWUP_INTERVAL_MS && age < 2 * FOLLOWUP_INTERVAL_MS) return 1;
