@@ -6,6 +6,7 @@ import { recordDeliveryStatus, recordWhatsappMedia } from "@/lib/sales-ai/channe
 import { salesMediaOn } from "@/lib/sales-ai/media-flag";
 import { readableType } from "@/lib/sales-ai/media-rules";
 import { whatsappMediaRef } from "@/lib/sales-ai/whatsapp-rules";
+import { privateFileStorageReady } from "@/lib/file-store";
 
 // Meta WhatsApp Cloud API webhook. GET is Meta's one-time verification; POST carries messages and
 // delivery statuses. Everything is saved before the 200; any failure answers 503 so Meta retries,
@@ -38,7 +39,9 @@ export async function POST(request: Request) {
       const pin = msg.location?.latitude !== undefined && msg.location.longitude !== undefined
         ? `📍 My location: ${msg.location.latitude.toFixed(5)},${msg.location.longitude.toFixed(5)}${msg.location.name || msg.location.address ? ` (${[msg.location.name, msg.location.address].filter(Boolean).join(", ")})` : ""}` : null;
       const media = whatsappMediaRef(msg);
-      const placeholder = salesMediaOn() && (media?.kind === "image" || media?.kind === "document") && readableType(media.mimeType)
+      const canReadType = salesMediaOn() && (media?.kind === "image" || media?.kind === "document") && Boolean(readableType(media.mimeType));
+      const storageReady = canReadType && await privateFileStorageReady();
+      const placeholder = storageReady && (env as unknown as Record<string, unknown>).ANTHROPIC_API_KEY
         ? "[WhatsApp attachment]" : MEDIA_PLACEHOLDER(msg.type);
       const text = pin ?? msg.text?.body ?? msg.button?.text ?? msg.interactive?.button_reply?.title ?? msg.interactive?.list_reply?.title
         ?? (media?.caption ? `${media.caption}\n${placeholder}` : placeholder);
@@ -46,6 +49,10 @@ export async function POST(request: Request) {
         beforeSchedule: media ? (id) => recordWhatsappMedia(media, msg.id, id) : undefined,
       }).catch(fail("inbound"));
       if (!saved) continue;
+      if (canReadType && !storageReady) {
+        await logActivity({ event: "media_received", status: "skipped", actor: "assistant", channel: "whatsapp", conversationId: saved.conversationId,
+          dedupeKey: `wa-storage:${msg.id}`, summary: "WhatsApp file not read: private storage unavailable (check BUCKET or D1 migration 0047)" });
+      }
       await logActivity({ event: "inbound_message", status: "ok", actor: "whatsapp", channel: "whatsapp", conversationId: saved.conversationId, dedupeKey: `wa-in:${msg.id}`,
         summary: `Customer message (${msg.type})`, detail: { type: msg.type } });
     }

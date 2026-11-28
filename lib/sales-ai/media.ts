@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { deleteFile, putFile } from "@/lib/file-store";
+import { deleteFile, privateFileStorageReady, putFile } from "@/lib/file-store";
 import { ensureFoundationTables, activityRetentionDays, logActivity } from "./activity-log";
 import { modelCost, PRICE_TABLE_VERSION, type Usage } from "./model-config";
 import {
@@ -90,6 +90,11 @@ export async function readConversationMedia(conversationId: string, client: Mode
     const rows = (await db().prepare(`SELECT m.media_id,m.channel_message_id,m.mime_type,m.sha256,r.status,r.facts_json,r.attempts FROM whatsapp_media m LEFT JOIN whatsapp_media_reads r ON r.media_id=m.media_id
       WHERE m.conversation_id=? AND m.channel_message_id IN (${messageIds.map(() => "?").join(",")}) AND m.kind IN ('image','document') ORDER BY m.received_at DESC LIMIT 40`).bind(conversationId, ...messageIds)
       .all<{ media_id: string; channel_message_id: string; mime_type: string | null; sha256: string | null; status: string | null; facts_json: string | null; attempts: number | null }>()).results;
+    if (rows.some((row) => readableType(row.mime_type)) && !(await privateFileStorageReady())) {
+      await logActivity({ event: "media_received", status: "skipped", actor: "assistant", channel: "whatsapp", conversationId,
+        summary: "WhatsApp files were not read: private storage unavailable (check BUCKET or D1 migration 0047)" });
+      return out;
+    }
     let fresh = 0;
     for (const row of rows) {
       if (row.status === "read" && row.facts_json) {

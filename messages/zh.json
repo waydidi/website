@@ -1,4 +1,28 @@
 {
+  "assistant.faq.contact": {
+    "text": "您可以发邮件至 {email}，或通过 WhatsApp {whatsapp} 联系 Waydidi。",
+    "status": "machine"
+  },
+  "assistant.faq.card": {
+    "text": "在线刷卡",
+    "status": "machine"
+  },
+  "assistant.faq.cash": {
+    "text": "向司机支付现金",
+    "status": "machine"
+  },
+  "assistant.faq.transfer": {
+    "text": "银行转账后在订单页面上传凭证（适用于支持此方式的订单）",
+    "status": "machine"
+  },
+  "assistant.faq.payso": {
+    "text": "PaySo（网站聊天提供此方式时）",
+    "status": "machine"
+  },
+  "assistant.faq.payment": {
+    "text": "视订单而定，您可选择{methods}。请在订单页面查看可用的付款方式。",
+    "status": "machine"
+  },
   "cancellation.changeUnavailable": {
     "text": "此取消选项不支持在线更改行程。请联系 Waydidi 获取帮助。",
     "status": "machine"

@@ -19,6 +19,7 @@ import { requestTripPlan } from "@/lib/sales-ai/trip-planning";
 import { parseNeeds, type VehicleNeeds } from "@/lib/sales-ai/vehicle-needs";
 import { MAX_LEGS } from "@/lib/sales-ai/quote-rules";
 import { draftFromLegs, draftFromQuote, quoteApprovalRequired } from "@/lib/sales-ai/quote-drafts";
+import { fixedRepliesOn, fixedReply } from "./fixed-reply";
 
 // Waydidi Assistant: Waydidi's chat assistant on the website, WhatsApp and LINE. It answers instantly, quotes only
 // from the site's own price tables (via tools), looks up staff-written knowledge, and hands the chat
@@ -37,8 +38,8 @@ const apiKey = () => (env as unknown as Record<string, string | undefined>).ANTH
 const setting = async (key: string) => (await db().prepare("SELECT value FROM app_settings WHERE key=?").bind(key).first<{ value: string }>().catch(() => null))?.value ?? null;
 const putSetting = (key: string, value: string) => db().prepare("INSERT INTO app_settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(key, value, new Date().toISOString()).run();
 
-/** Global on/off switch (admin). On by default once an API key exists. */
-export async function ceeEnabled() { return Boolean(apiKey()) && (await setting("cee_enabled")) !== "0"; }
+/** Global on/off switch (admin). Either an API key or fixed replies can enable the assistant. */
+export async function ceeEnabled() { return (Boolean(apiKey()) || fixedRepliesOn()) && (await setting("cee_enabled")) !== "0"; }
 /** Per-channel kill switch: ASSISTANT_DISABLED_CHANNELS="whatsapp,line" keeps Waydidi Assistant silent there (staff replies still work). */
 export const nonChannelOff = (channel: string | null | undefined) => disabledChannels((env as unknown as Record<string, string | undefined>).ASSISTANT_DISABLED_CHANNELS).has(channel ?? "web");
 export const setCeeEnabled = (on: boolean) => putSetting("cee_enabled", on ? "1" : "0");
@@ -393,11 +394,23 @@ async function answerOnce(conversationId: string, client?: Client, answeredUpTo 
     await handOver(c.id, "Customer asked for a person", lastVisitor.body);
     return;
   }
+  const channel = c.channel ?? "web";
+  const preceding = ordered.at(-2);
+  // A second unanswered message may supply trip details or another question.
+  if (fixedRepliesOn() && (preceding?.sender !== "visitor" || preceding.seq <= answeredUpTo)) {
+    const answer = await fixedReply(lastVisitor.body, channel);
+    if (answer) {
+      const sent = await addBotMessage(c.id, answer.reply, null, { ...NON_ONLY, visitorSeq: ordered[ordered.length - 1].seq });
+      if (sent) await logActivity({ event: "fixed_reply", status: "ok", actor: "assistant", channel,
+        costUsd: 0, summary: `Fixed reply for ${answer.kind}`, detail: { kind: answer.kind } });
+      return;
+    }
+  }
+  if (!apiKey()) return;
   await setBotThinking(c.id, true);
   const started = Date.now();
   // A person may join while Waydidi Assistant is thinking; never talk over them.
   const stillMine = async () => { const f = await conversationById(c.id); return Boolean(f && !f.assigned_name && !f.bot_paused); };
-  const channel = c.channel ?? "web";
   const approval = quoteApprovalRequired(channel);
   const enhanced = salesMediaOn() && approval;
   const api = client ?? (new Anthropic({ apiKey: apiKey() }) as unknown as Client);

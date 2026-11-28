@@ -1,4 +1,10 @@
 {
+  "assistant.faq.contact": "Contact Waydidi at {email} or on WhatsApp at {whatsapp}.",
+  "assistant.faq.card": "card online",
+  "assistant.faq.cash": "cash to the driver",
+  "assistant.faq.transfer": "bank transfer with a slip uploaded from your booking (where offered)",
+  "assistant.faq.payso": "PaySo when offered in website chat",
+  "assistant.faq.payment": "Depending on your booking, you can pay by {methods}. Check your booking for the available options.",
   "cancellation.changeUnavailable": "Online journey changes are unavailable for this cancellation option. Contact Waydidi for help.",
   "cancellation.choose": "Cancellation option",
   "cancellation.standard": "Standard",

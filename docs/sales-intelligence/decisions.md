@@ -30,6 +30,7 @@
 | D26 | 2026-11-28 | Queue at most two WhatsApp reminders, at one and two hours after an owner-approved quote. Require conversation-specific consent and an approved template. | Keep reminders within the quote's validity and respect customer preferences | Owner |
 | D27 | 2026-11-28 | Report explicit staff reasons and observable quote outcomes. Do not infer a customer's reason from silence. | A quote expiring without acceptance does not tell us why | Owner |
 | D28 | 2026-11-28 | Keep #331 (PR 4) and #330 (PR 5). Do not merge or recover the earlier #326–#328 branches | #326–#328 never reached `main`; keeping one implementation avoids two competing versions | Owner |
+| D29 | 2026-11-28 | Use fixed replies for standalone contact, payment and published business hours questions when `ASSISTANT_FIXED_REPLIES=1`. Preserve the normal assistant path for mixed questions and missing information | Save model calls without guessing facts or overriding the team | Proposed |
 
 ## Open questions for the owner
 

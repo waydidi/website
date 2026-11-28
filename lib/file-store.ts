@@ -9,6 +9,17 @@ type Row = { content_type: string; data: ArrayBuffer | number[] };
 type Stmt = { bind: (...v: unknown[]) => Stmt; all: <T>() => Promise<{ results: T[] }>; run: () => Promise<unknown> };
 const db = () => env.DB as { prepare: (sql: string) => Stmt; batch: (s: Stmt[]) => Promise<unknown> };
 
+/** Confirm the D1 fallback schema without reading any files. */
+export async function privateFileStorageReady() {
+  if (env.BUCKET) return true;
+  try {
+    await db().prepare("SELECT key, part, content_type, data, created_at FROM stored_file_parts LIMIT 0").all();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function putFile(key: string, bytes: ArrayBuffer | Uint8Array, contentType: string) {
   if (env.BUCKET) { await env.BUCKET.put(key, bytes, { httpMetadata: { contentType, cacheControl: "private, no-store" } }); return; }
   const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);

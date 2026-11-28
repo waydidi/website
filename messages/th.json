@@ -1,4 +1,28 @@
 {
+  "assistant.faq.contact": {
+    "text": "ติดต่อ Waydidi ทางอีเมล {email} หรือ WhatsApp ที่ {whatsapp}",
+    "status": "machine"
+  },
+  "assistant.faq.card": {
+    "text": "จ่ายออนไลน์ด้วยบัตร",
+    "status": "machine"
+  },
+  "assistant.faq.cash": {
+    "text": "จ่ายเงินสดกับคนขับ",
+    "status": "machine"
+  },
+  "assistant.faq.transfer": {
+    "text": "โอนเงินแล้วอัปโหลดสลิปจากหน้าการจอง (หากการจองรองรับ)",
+    "status": "machine"
+  },
+  "assistant.faq.payso": {
+    "text": "PaySo (หากมีตัวเลือกในแชทบนเว็บไซต์)",
+    "status": "machine"
+  },
+  "assistant.faq.payment": {
+    "text": "วิธีชำระเงินขึ้นอยู่กับการจองของคุณ ได้แก่ {methods} ดูตัวเลือกที่ใช้ได้จากหน้าการจอง",
+    "status": "machine"
+  },
   "cancellation.changeUnavailable": {
     "text": "ไม่สามารถเปลี่ยนการเดินทางออนไลน์สำหรับตัวเลือกการยกเลิกนี้ กรุณาติดต่อ Waydidi เพื่อขอความช่วยเหลือ",
     "status": "machine"

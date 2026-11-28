@@ -247,6 +247,7 @@ export async function addStaffMessage(conversationId: string, body: string, who:
  */
 export async function addBotMessage(conversationId: string, rawBody: string, card?: object | null, options: {
   onlyWhileNonActive?: boolean;
+  visitorSeq?: number;
   approvedQuote?: { id: string; revision: number; staffId: string; visitorSeq: number; issued: { quoteId: string; version: number; tokenHash: string }[] };
 } = {}) {
   const body = plainText(rawBody);
@@ -255,6 +256,8 @@ export async function addBotMessage(conversationId: string, rawBody: string, car
   const now = nowIso(), id = crypto.randomUUID();
   const website = (c.channel ?? "web") === "web";
   const approved = options.approvedQuote;
+  const visitorGuard = options.visitorSeq === undefined ? "" : `AND ?=(SELECT COALESCE(MAX(rowid),0)
+    FROM website_chat_messages WHERE conversation_id=? AND sender='visitor')`;
   // Keep the quote revision, chat ownership and latest customer message current at the insert.
   const quoteGuard = approved ? `AND EXISTS(SELECT 1 FROM ai_quote_drafts d
     JOIN website_conversations c ON c.id=d.conversation_id
@@ -267,12 +270,15 @@ export async function addBotMessage(conversationId: string, rawBody: string, car
           OR q.token_hash IS NOT json_extract(issued.value,'$.tokenHash')))` : "";
   const insert = await db().prepare(`INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,sender_name,is_bot,card_json,telegram_status)
     SELECT ?,?,'staff',?,?,?,1,?,? WHERE (?=0 OR EXISTS(SELECT 1 FROM website_conversations WHERE id=? AND status<>'closed' AND assigned_name IS NULL AND COALESCE(bot_paused,0)=0))
-    ${quoteGuard}`)
+    ${visitorGuard} ${quoteGuard}`)
     .bind(id, c.id, body, now, ASSISTANT_NAME, card ? JSON.stringify(card) : null, website ? "pending" : "skipped", options.onlyWhileNonActive ? 1 : 0, c.id,
+      ...(options.visitorSeq === undefined ? [] : [options.visitorSeq, c.id]),
       ...(approved ? [approved.id, approved.revision, c.id, approved.staffId, approved.visitorSeq, JSON.stringify(approved.issued)] : [])).run();
   if (!insert.meta.changes) {
     await logActivity({ event: "send_suppressed", status: "suppressed", actor: "assistant", channel: c.channel ?? "web", conversationId: c.id,
-      summary: approved ? "The quote or chat changed before the approved quote was sent" : "Waydidi Assistant's reply was not sent: a staff member took over, Waydidi Assistant was paused or the chat closed while it was answering" });
+      summary: approved ? "The quote or chat changed before the approved quote was sent"
+        : options.visitorSeq !== undefined ? "The chat changed before the fixed reply was sent"
+        : "Waydidi Assistant's reply was not sent: a staff member took over, Waydidi Assistant was paused or the chat closed while it was answering" });
     return null;
   }
   await db().prepare("UPDATE website_conversations SET updated_at=?,last_message_at=? WHERE id=?").bind(now, now, c.id).run();

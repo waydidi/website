@@ -689,6 +689,55 @@ test('PR 4: a WhatsApp PDF is hashed, stored privately and read once before its 
   }
 }));
 
+test('WhatsApp reading falls back to private D1 storage and skips when it is unavailable', withMedia(async () => {
+  const id = await chat(), mediaId = 'fallback-pdf', messageId = 'wamid.fallback-test';
+  const bytes = new TextEncoder().encode('%PDF-1.7\nSynthetic itinerary');
+  const mediaEvents = await vite.ssrLoadModule('/lib/sales-ai/channel-events.ts');
+  const files = await vite.ssrLoadModule('/lib/file-store.ts');
+  await mediaEvents.recordWhatsappMedia({ mediaId, kind: 'document', mimeType: 'application/pdf', sha256: null }, messageId, id);
+  const vars = globalThis.__quoteTest.env;
+  const fake = globalThis.fetch;
+  let downloads = 0, callsToModel = 0;
+  const client = { beta: { messages: { create: async () => {
+    callsToModel++;
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"kind":"trip","passengers":2}' }] };
+  } } } };
+  try {
+    globalThis.fetch = async (url, options) => {
+      if (String(url).endsWith('/' + mediaId)) {
+        downloads++;
+        return Response.json({ url: 'https://lookaside.fbsbx.com/fallback.pdf', mime_type: 'application/pdf' });
+      }
+      if (String(url) === 'https://lookaside.fbsbx.com/fallback.pdf') return new Response(bytes);
+      return fake(url, options);
+    };
+    vars.DB = {
+      prepare(sql) {
+        if (sql.includes('FROM stored_file_parts LIMIT 0')) throw new Error('test: missing file table');
+        return db.prepare(sql);
+      },
+      batch: db.batch.bind(db),
+    };
+    const blocked = await media.readConversationMedia(id, client, 'claude-haiku-4-5', [messageId]);
+    assert.equal(blocked.notes.size, 0);
+    assert.equal(downloads, 0);
+    assert.equal(callsToModel, 0);
+    const event = await db.prepare("SELECT summary FROM ai_activity_log WHERE conversation_id=? AND status='skipped'").bind(id).first();
+    assert.match(event.summary, /private storage unavailable/);
+
+    vars.DB = db;
+    const ready = await media.readConversationMedia(id, client, 'claude-haiku-4-5', [messageId]);
+    assert.equal(ready.notes.size, 1);
+    assert.equal(downloads, 1);
+    assert.equal(callsToModel, 1);
+    const row = await db.prepare("SELECT file_key FROM whatsapp_media_reads WHERE media_id=?").bind(mediaId).first();
+    assert.deepEqual(new Uint8Array((await files.getFile(row.file_key)).body), bytes);
+  } finally {
+    vars.DB = db;
+    globalThis.fetch = fake;
+  }
+}));
+
 test('PR 4 + PR 5: a response to any leg stops reminders for the whole quote', withMedia(async () => {
   reminderVars.SALES_AI_FOLLOWUPS = '1';
   reminderVars.SALES_AI_FOLLOWUP_TEMPLATE = 'quote_reminder';

@@ -69,3 +69,9 @@ CRM shows open-enquiry priority with evidence from its current stage and quote s
 ## PR 4 for the current main branch
 
 Implemented behind `SALES_AI_MEDIA=1`: WhatsApp image and PDF trip facts with bounded downloads and private storage, owner-approved multi-leg transfer drafts and independent leg acceptance, structured vehicle needs, and a multi-day itinerary handoff to the existing trip builder. Multi-leg quotes and planner cards also require the channel to be listed in `SALES_AI_QUOTE_APPROVAL`. The additive migration `0129_sales_ai_media.sql` matches first-use table creation. See the [owner test guide](pr4-owner-test.md).
+
+## Fixed answers and media storage readiness
+
+`ASSISTANT_FIXED_REPLIES=1` enables deterministic replies to standalone contact, payment and verified hours questions in English, Thai and Chinese. The default is off. Answers use public contact constants, actually enabled payment adapters and explicitly published language-specific hours notes. Missing hours and mixed trip/booking/price questions retain the existing AI path. Each fixed reply records a zero-cost activity event without conversation/customer details. The existing five-second batching and assistant switches apply; a latest-visitor guard also suppresses a fixed answer when a newer message arrives.
+
+R2 is optional: private uploads already fall back to `stored_file_parts` in D1. Media intake now checks that a storage path is configured before attempting attachment reading and logs a clear skipped reason when it is not. The live fallback schema, account bindings and token permissions have not been inspected or changed. The [owner test guide](pr4-owner-test.md#production-media-checklist-instructions-only-not-executed) includes the production setup checklist.

@@ -33,6 +33,14 @@ export async function saveNote(input: NoteInput, id?: string) {
 }
 export const deleteNote = (id: string) => db().prepare("DELETE FROM cee_knowledge WHERE id=?").bind(id).run();
 
+/** Only use an explicitly published, language-specific answer for company hours. */
+export async function publicHoursReply(locale: "en" | "th" | "zh") {
+  const rows = await db().prepare("SELECT body FROM cee_knowledge WHERE kind='faq' AND active=1 AND city IS NULL AND title=? LIMIT 2")
+    .bind(`Waydidi public hours (${locale})`).all<{ body: string }>().catch(() => null);
+  const reply = rows?.results.length === 1 ? rows.results[0].body.trim() : "";
+  return reply && reply.length <= 500 ? reply : null;
+}
+
 export async function listNotes(q = "", filter: { kind?: string; active?: string } = {}) {
   const where: string[] = [], binds: unknown[] = [];
   if (q) { where.push("(title LIKE ? OR body LIKE ? OR city LIKE ?)"); binds.push(`%${q}%`, `%${q}%`, `%${q}%`); }
