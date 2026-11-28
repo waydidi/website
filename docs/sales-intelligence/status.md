@@ -56,7 +56,11 @@ To try it on the test number: set `SALES_AI_QUOTE_APPROVAL=whatsapp`, make sure 
 
 ## Deferred to later PRs
 
-PR 5 lead scoring, follow-ups, lost-quote analysis. Daily Sales Report stays excluded.
+Daily Sales Report stays excluded.
+
+## PR 5: lead priority, follow-ups and lost quotes
+
+CRM shows open-enquiry priority with evidence from its current stage and quote status. The dashboard counts lost and expired quotes by staff reason or the quote events on record. WhatsApp reminders require owner-recorded consent, approved templates and an explicit enable flag. See [the PR 5 release guide](pr5-followups.md).
 
 ## Worker variables (all optional; defaults keep today's behaviour)
 
@@ -65,5 +69,3 @@ PR 5 lead scoring, follow-ups, lost-quote analysis. Daily Sales Report stays exc
 ## PR 4 for the current main branch
 
 Implemented behind `SALES_AI_MEDIA=1`: WhatsApp image and PDF trip facts with bounded downloads and private storage, owner-approved multi-leg transfer drafts and independent leg acceptance, structured vehicle needs, and a multi-day itinerary handoff to the existing trip builder. Multi-leg quotes and planner cards also require the channel to be listed in `SALES_AI_QUOTE_APPROVAL`. The additive migration `0129_sales_ai_media.sql` matches first-use table creation. See the [owner test guide](pr4-owner-test.md).
-
-Focused sales, inbox and translation checks: 46 passing, including 13 new PR 4 tests. Independent review findings were reproduced and covered by regressions for atomic itinerary saves, private templates and stale quote delivery. Live WhatsApp and Telegram are covered by the owner test guide.

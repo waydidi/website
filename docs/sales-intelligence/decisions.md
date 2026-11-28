@@ -26,6 +26,9 @@
 | D21 | 2026-11-28 | One draft contains 2–6 transfer legs. Each can be accepted through its existing CRM quote link. Editing any CRM leg invalidates unaccepted links for the earlier bundle revision | Customers can book only the transfers they need. Accepted legs keep their existing booking forms | Proposed (PR 4) |
 | D22 | 2026-11-28 | WhatsApp image/PDF bytes use private file storage; validated trip fields go to the assistant as unverified facts. File reads follow the AI activity retention setting | Keeps provider files and extracted data private. An attachment never verifies a payment | Proposed (PR 4) |
 | D23 | 2026-11-28 | Multi-day sightseeing is saved as grouped, unpriced drafts in the existing trip planner for owner approval. Child seats use the existing add-on, and oversized luggage or accessibility needs require fit and price review | Reuses published prices and existing staff tools. Hourly hire stays with staff | Proposed (PR 4) |
+| D25 | 2026-11-28 | Score open enquiries only, using their CRM stage and whether their linked quote is valid or accepted | Staff can explain the score without profiling a customer | Proposed (PR 5) |
+| D26 | 2026-11-28 | Queue at most two WhatsApp reminders, at one and two hours after an owner-approved quote. Require conversation-specific consent and an approved template. | Keep reminders within the quote's validity and respect customer preferences | Proposed (PR 5) |
+| D27 | 2026-11-28 | Report explicit staff reasons and observable quote outcomes. Do not infer a customer's reason from silence. | A quote expiring without acceptance does not tell us why | Proposed (PR 5) |
 
 ## Open questions for the owner
 

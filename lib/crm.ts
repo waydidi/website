@@ -4,6 +4,8 @@ import { z } from "zod";
 import { contactInput, taskInput, quoteInput, STAGES, normalizePhone, csvCell } from "./crm-rules";
 import { secureToken, sha256 } from "./security";
 import { VEHICLES } from "./vehicles";
+import { leadPriority } from "./sales-ai/lead-priority";
+import { STOP_REMINDER_SQL } from "./sales-ai/followup-rules";
 import { formToken } from "./booking-form";
 import { SITE_URL } from "./site";
 import type { SecurityDatabase } from "./worker-db";
@@ -82,7 +84,10 @@ export async function crmList(view: string, search: string, page: number, filter
             where += ' AND l.stage=?';
             args.push(filter);
         }
-        select = 'SELECT l.*,c.name,c.email FROM ' + from;
+        select = `SELECT l.*,c.name,c.email,
+          EXISTS(SELECT 1 FROM crm_quotes q WHERE q.lead_id=l.id AND q.contact_id=l.contact_id AND q.status='sent' AND q.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) active_quote,
+          EXISTS(SELECT 1 FROM crm_quotes q WHERE q.lead_id=l.id AND q.contact_id=l.contact_id AND q.status='accepted') accepted_quote
+          FROM ${from}`;
     }
     if (view === 'tasks') {
         from = 'crm_tasks t LEFT JOIN crm_contacts c ON c.id=t.contact_id LEFT JOIN staff_accounts a ON a.id=t.owner_id';
@@ -133,26 +138,57 @@ export async function crmList(view: string, search: string, page: number, filter
     const [items, total, team] = await Promise.all([rows(select + ' WHERE ' + where + ' ORDER BY ' + (view === 'tasks' ? 't.due_at ASC' : view === 'pipeline' ? 'l.updated_at DESC' : view === 'partners' ? 't.created_at DESC' : view === 'customers' ? 'c.updated_at DESC' : 't.created_at DESC') + ' LIMIT 25 OFFSET ?', ...args, offset), first<{
             n: number;
         }>('SELECT count(*) n FROM ' + from + ' WHERE ' + where, ...args), rows("SELECT id,display_name name FROM staff_accounts WHERE active=1 AND role IN ('owner','operations','support') ORDER BY display_name")]);
-    return { items, total: total?.n ?? 0, page, team };
+    const scored = view === 'pipeline' ? items.map(({ active_quote, accepted_quote, ...lead }) => ({
+        ...lead, ...leadPriority(String(lead.stage), Number(active_quote) === 1, Number(accepted_quote) === 1),
+    })) : items;
+    return { items: scored, total: total?.n ?? 0, page, team };
 }
 export async function crmDashboard() {
-    const [contacts, stages, tasks, quotes, sources, retention, service] = await Promise.all([
+    const [contacts, stages, tasks, quotes, sources, retention, service, quoteLoss] = await Promise.all([
         first("SELECT count(*) total,sum(member_id IS NOT NULL) members,sum(member_id IS NULL) guests FROM crm_contacts WHERE merged_into IS NULL"),
         rows("SELECT stage,count(*) count,sum(value_minor) value_minor FROM crm_leads GROUP BY stage"),
         first("SELECT count(*) open,sum(due_at<?) overdue FROM crm_tasks WHERE status='open'", nowIso()),
         rows("SELECT status,count(*) count FROM crm_quotes GROUP BY status"),
         rows("SELECT source,count(*) leads,sum(stage='won') won,sum(CASE WHEN stage='won' THEN value_minor ELSE 0 END) revenue_minor FROM crm_leads GROUP BY source"),
         rows("SELECT status,count(*) count FROM crm_outbox GROUP BY status"),
-        first(`SELECT (SELECT count(*) FROM crm_contacts c WHERE c.merged_into IS NULL AND (SELECT count(*) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN (${COMMITTED_SQL}))>=2) repeat_customers,avg((julianday((SELECT min(m.created_at) FROM website_chat_messages m WHERE m.conversation_id=w.id AND m.sender='staff' AND m.is_bot=0 AND m.created_at>=(SELECT min(v.created_at) FROM website_chat_messages v WHERE v.conversation_id=w.id AND v.sender='visitor')))-julianday((SELECT min(v.created_at) FROM website_chat_messages v WHERE v.conversation_id=w.id AND v.sender='visitor')))*1440) response_minutes FROM website_conversations w`)
+        first(`SELECT (SELECT count(*) FROM crm_contacts c WHERE c.merged_into IS NULL AND (SELECT count(*) FROM crm_sources s JOIN bookings b ON s.kind='booking' AND b.reference=s.source_id WHERE s.contact_id=c.id AND b.status IN (${COMMITTED_SQL}))>=2) repeat_customers,avg((julianday((SELECT min(m.created_at) FROM website_chat_messages m WHERE m.conversation_id=w.id AND m.sender='staff' AND m.is_bot=0 AND m.created_at>=(SELECT min(v.created_at) FROM website_chat_messages v WHERE v.conversation_id=w.id AND v.sender='visitor')))-julianday((SELECT min(v.created_at) FROM website_chat_messages v WHERE v.conversation_id=w.id AND v.sender='visitor')))*1440) response_minutes FROM website_conversations w`),
+        rows(`SELECT evidence,count(*) count FROM (
+          SELECT CASE
+            WHEN l.stage='lost' AND lower(trim(l.loss_reason)) IN ('price','budget') THEN 'staff_price'
+            WHEN l.stage='lost' AND lower(trim(l.loss_reason))='availability' THEN 'staff_availability'
+            WHEN l.stage='lost' AND lower(trim(l.loss_reason))='timing' THEN 'staff_timing'
+            WHEN l.stage='lost' AND lower(trim(l.loss_reason))='booked elsewhere' THEN 'staff_booked_elsewhere'
+            WHEN l.stage='lost' AND lower(trim(l.loss_reason))='trip cancelled' THEN 'staff_trip_cancelled'
+            WHEN l.stage='lost' AND trim(coalesce(l.loss_reason,''))<>'' THEN 'staff_reason_recorded'
+            WHEN l.stage='lost' THEN 'staff_reason_missing'
+            WHEN l.stage='cancelled' THEN 'enquiry_cancelled'
+            WHEN q.accepted_at IS NOT NULL THEN 'accepted_without_booking'
+            WHEN EXISTS (
+              SELECT 1 FROM crm_events e JOIN crm_quote_versions v ON v.quote_id=q.id AND v.version=q.version
+              WHERE e.entity_id=q.id AND e.kind='quote' AND e.body='Quote link issued' AND e.created_at>=v.created_at
+            ) THEN 'link_issued_expired_without_acceptance'
+            ELSE 'expired_without_current_link'
+          END evidence
+          FROM crm_quotes q JOIN crm_contacts c ON c.id=q.contact_id AND c.merged_into IS NULL
+          LEFT JOIN crm_leads l ON l.id=q.lead_id AND l.contact_id=q.contact_id
+          WHERE q.status<>'converted' AND coalesce(l.stage,'')<>'won' AND (q.status='expired' OR (q.status='accepted' AND q.expires_at<=?) OR l.stage IN ('lost','cancelled'))
+        ) GROUP BY evidence ORDER BY count DESC,evidence`, nowIso()),
     ]);
-    return { contacts, stages, tasks, quotes, sources, retention, service };
+    return { contacts, stages, tasks, quotes, sources, retention, service, quoteLoss };
 }
 export async function profile(id: string) {
     const c = await contact(id);
     const [sources, bookings, chats, leads, tasks, quotes, events, matches] = await Promise.all([
         rows("SELECT * FROM crm_sources WHERE contact_id=?", id),
         rows("SELECT b.reference,b.pickup,b.dropoff,b.pickup_date,b.pickup_time,b.status,b.payment_status,b.refund_status,b.refund_amount,b.total FROM bookings b JOIN crm_sources s ON s.kind='booking' AND s.source_id=b.reference WHERE s.contact_id=? ORDER BY b.pickup_date DESC LIMIT 100", id),
-        rows("SELECT w.id,w.public_id,w.channel,w.status,w.last_message_at FROM website_conversations w JOIN crm_sources s ON s.kind='chat' AND s.source_id=w.id WHERE s.contact_id=? ORDER BY w.created_at DESC LIMIT 100", id),
+        rows(`SELECT w.id,w.public_id,w.channel,w.status,w.last_message_at,
+          (SELECT CASE WHEN e.body='Opted in' AND EXISTS (
+              SELECT 1 FROM website_chat_messages m WHERE m.conversation_id=w.id AND m.sender='visitor'
+                AND m.created_at>=e.created_at AND ${STOP_REMINDER_SQL}
+            ) THEN 'Opted out' ELSE e.body END
+            FROM crm_events e WHERE e.contact_id=s.contact_id AND e.entity_id=w.id AND e.kind='whatsapp_quote_followup_consent'
+            ORDER BY e.rowid DESC LIMIT 1) quote_followup_consent
+          FROM website_conversations w JOIN crm_sources s ON s.kind='chat' AND s.source_id=w.id WHERE s.contact_id=? ORDER BY w.created_at DESC LIMIT 100`, id),
         rows("SELECT * FROM crm_leads WHERE contact_id=? ORDER BY updated_at DESC LIMIT 100", id), rows("SELECT * FROM crm_tasks WHERE contact_id=? ORDER BY due_at DESC LIMIT 100", id),
         rows("SELECT id,title,status,amount_minor,version,booking_reference FROM crm_quotes WHERE contact_id=? ORDER BY created_at DESC LIMIT 100", id),
         rows("SELECT e.*,a.display_name staff_name FROM crm_events e LEFT JOIN staff_accounts a ON a.id=e.staff_id WHERE e.contact_id=? ORDER BY e.created_at DESC LIMIT 100", id),
@@ -179,6 +215,20 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
             throw new CrmError('Member consent is managed in their account.');
         await db.batch([db.prepare('UPDATE crm_contacts SET marketing_opt_in=?,consent_at=?,consent_source=?,updated_at=? WHERE id=?').bind(Number(p.optIn), stamp, p.source, stamp, id), eventStatement(id, id, 'consent', `${p.optIn ? 'Opted in' : 'Opted out'}: ${p.source}`, staffId)]);
         return { id };
+    }
+    if (action === 'quote_followup_consent') {
+        if (role !== 'owner')
+            throw new CrmError('Only the owner can record WhatsApp reminder consent.', 403);
+        const p = z.object({ contactId: z.string().min(1).max(150), conversationId: z.string().min(1).max(150), optIn: z.boolean() }).parse(input);
+        const result = await db.prepare(`INSERT INTO crm_events(id,contact_id,entity_id,kind,body,staff_id,created_at)
+          SELECT ?,s.contact_id,w.id,'whatsapp_quote_followup_consent',?,?,?
+          FROM crm_sources s JOIN website_conversations w ON s.source_id=w.id AND w.channel='whatsapp'
+          JOIN crm_contacts c ON c.id=s.contact_id AND c.merged_into IS NULL
+          WHERE s.kind='chat' AND s.contact_id=? AND w.id=?`)
+          .bind(crypto.randomUUID(), p.optIn ? 'Opted in' : 'Opted out', staffId, stamp, p.contactId, p.conversationId).run();
+        if (!result.meta.changes)
+            throw new CrmError('WhatsApp conversation not found for this customer.', 404);
+        return { ok: true };
     }
     if (action === 'merge') {
         if (role !== 'owner')

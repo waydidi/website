@@ -218,6 +218,7 @@ export async function runOperationsAutomation(at = new Date()): Promise<Automati
   // Members who stopped at payment get one reminder; never blocks the rest of the run.
   summary.notificationsSent += await sendUnfinishedBookingReminders(at).catch(() => 0);
   summary.notificationsSent += await sendRewardEmails(at).catch(() => 0);
+  summary.notificationsSent += await import("@/lib/sales-ai/quote-followups").then(m => m.runQuoteFollowups(at)).catch(() => { console.error("Quote follow-up scan failed"); return 0; });
   summary.notificationsSent += await import("@/lib/crm-automation").then(m => m.runCrmAutomation(at)).catch(error => { console.error("CRM automation failed",error); return 0; });
   return summary;
 }
