@@ -807,3 +807,31 @@ test('any staff role can record a reminder opt-out; only the owner can record co
   }
   await assert.rejects(reminderConsent(d.conversation_id, false, 'viewer'), /CRM access/);
 });
+
+test('PR 4: a duplicate of a private itinerary stays private and cannot become a shared template', withMedia(async () => {
+  const id = await chat({ body: 'Please plan two days around Chiang Mai' });
+  await planning.requestTripPlan(id, 'whatsapp', { days: 2 }, async () => JSON.stringify({
+    title: 'Private anniversary trip', notes: 'Private chat notes', days: 2, stops: [{ name: 'Private home', day: 1 }],
+  }));
+  const card = calls.findLast((c) => c.body?.text?.includes?.('Itinerary draft ready'));
+  const tid = card.body.reply_markup.inline_keyboard[0][0].url.split('/').at(-1);
+  const trip = await vite.ssrLoadModule('/lib/smart-trips.ts');
+  const api = await vite.ssrLoadModule('/lib/trip-api.ts');
+  const post = (path, body) => new Request('https://waydidi.com' + path, { method: 'POST',
+    headers: { origin: 'https://waydidi.com', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const owner = { kind: 'admin', name: 'Owner', role: 'owner' };
+  const operations = { kind: 'admin', name: 'Ops', role: 'operations' };
+  const duplicate = async (from) => (await (await api.handleAction(post('/api/admin/trips/' + from, { action: 'duplicate' }), from, owner)).json()).id;
+
+  const first = await duplicate(tid);
+  for (const copyId of [first, await duplicate(first)]) {
+    const copy = await trip.getTrip(copyId);
+    assert.equal(trip.isSalesTrip(copy), true);
+    for (const actor of [owner, operations]) {
+      const saved = await api.handleSave(post('/api/admin/trips', { ...trip.inputFromRow(copy), isTemplate: true }), actor);
+      assert.equal(saved.status, 403);
+    }
+    assert.equal((await trip.getTrip(copyId)).isTemplate, false);
+    assert.equal((await api.handleAction(post('/api/admin/trips/' + copyId, { action: 'duplicate' }), copyId, operations)).status, 403);
+  }
+}));

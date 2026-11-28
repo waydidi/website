@@ -140,7 +140,7 @@ function tripValues(input: TripInput, now: string, includedFees: number, total: 
   };
 }
 
-export async function saveTrip(input: TripInput, by: { name: string; agencyId?: string | null; commissionPercent?: number }) {
+export async function saveTrip(input: TripInput, by: { name: string; agencyId?: string | null; commissionPercent?: number; newId?: string }) {
   const now = new Date().toISOString();
   const planned = await planFor(input);
   const values = tripValues(input, now, planned.fees.included, planned.total);
@@ -157,7 +157,7 @@ export async function saveTrip(input: TripInput, by: { name: string; agencyId?: 
     if (!saved) throw new Error("CONFLICT");
     return { id: input.id, ref: existing.ref };
   }
-  const id = crypto.randomUUID(), ref = await newRef();
+  const id = by.newId ?? crypto.randomUUID(), ref = await newRef();
   await getDb().insert(smartTrips).values({ ...values, id, ref, token: tripToken(), status: "draft", createdBy: by.name,
     agencyId: by.agencyId ?? null, commissionPercent: by.commissionPercent ?? 0, createdAt: now });
   return { id, ref };
@@ -339,7 +339,9 @@ export async function duplicateTrip(trip: TripRow, by: { name: string; agencyId?
       stops: input.stops.filter((stop) => stop.kind === "attraction").map((stop) => ({ ...stop, note: undefined })) }, by);
   }
   return saveTrip({ ...input, id: undefined, isTemplate: asTemplate, title: asTemplate ? (trip.templateName || trip.title) : `${trip.title} (copy)`, templateName: asTemplate ? (trip.templateName || trip.title) : null,
-    ...(asTemplate ? { customerName: null, customerEmail: null, customerPhone: null, tripDate: null } : {}) }, by);
+    ...(asTemplate ? { customerName: null, customerEmail: null, customerPhone: null, tripDate: null } : {}) },
+    // A plain copy still carries the chat's details, so its id keeps the private marker.
+    !asTemplate && isSalesTrip(trip) ? { ...by, newId: `sales-plan-${crypto.randomUUID().replaceAll("-", "")}` } : by);
 }
 
 /** An agency's day trips: how many are out with guests, how many paid, and commission earned. */
