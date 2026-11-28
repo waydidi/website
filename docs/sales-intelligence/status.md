@@ -56,7 +56,7 @@ To try it on the test number: set `SALES_AI_QUOTE_APPROVAL=whatsapp`, make sure 
 
 ## Deferred to later PRs
 
-PR 4 multi-leg, images, itineraries. Daily Sales Report stays excluded.
+Daily Sales Report stays excluded.
 
 ## PR 5: lead priority, follow-ups and lost quotes
 
@@ -65,3 +65,7 @@ CRM shows open-enquiry priority with evidence from its current stage and quote s
 ## Worker variables (all optional; defaults keep today's behaviour)
 
 `SALES_AI_QUOTE_APPROVAL` (PR 2), `AI_MODEL_FAST`, `AI_MODEL_SMART`, `ASSISTANT_DISABLED_CHANNELS`, `AI_ACTIVITY_RETENTION_DAYS`, `WHATSAPP_GRAPH_VERSION`. The new tables are created on first use and by `drizzle/0127_sales_ai_foundations.sql` and `drizzle/0128_ai_quote_drafts.sql`.
+
+## PR 4 for the current main branch
+
+Implemented behind `SALES_AI_MEDIA=1`: WhatsApp image and PDF trip facts with bounded downloads and private storage, owner-approved multi-leg transfer drafts and independent leg acceptance, structured vehicle needs, and a multi-day itinerary handoff to the existing trip builder. Multi-leg quotes and planner cards also require the channel to be listed in `SALES_AI_QUOTE_APPROVAL`. The additive migration `0129_sales_ai_media.sql` matches first-use table creation. See the [owner test guide](pr4-owner-test.md).

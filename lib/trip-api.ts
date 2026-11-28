@@ -7,7 +7,7 @@ import { agencyForCustomer } from "@/lib/agency";
 import { listAttractions } from "@/lib/attractions";
 import { customerFromRequest } from "@/lib/customer-auth";
 import { isJsonRequest, safeOrigin, sameOrigin } from "@/lib/security";
-import { addDay, arrange, splitTrip, duplicateTrip, groupDays, removeDay, getTrip, inputFromRow, listTrips, planFor, saveTrip, sendTripDays, time, tripDate, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
+import { addDay, arrange, splitTrip, isSalesTrip, duplicateTrip, groupDays, removeDay, getTrip, inputFromRow, listTrips, planFor, saveTrip, sendTripDays, time, tripDate, tripSchema, tripVersions, type TripRow } from "@/lib/smart-trips";
 import { notifyAgencyPriced, notifyTripSent } from "@/lib/trip-notify";
 import { alertStaff } from "@/lib/staff-alert";
 import { esc } from "@/lib/telegram/cards";
@@ -26,12 +26,12 @@ const quoteSchema = z.object({
 });
 
 /** Who is planning: Waydidi staff, or an approved travel agency (limited to its own trips). */
-export type TripActor = { kind: "admin"; name: string } | { kind: "agency"; name: string; agencyId: string; agencyName: string };
+export type TripActor = { kind: "admin"; name: string; role?: string } | { kind: "agency"; name: string; agencyId: string; agencyName: string };
 export const AGENCY_COMMISSION_PERCENT = 10;
 
 export async function adminActor(): Promise<TripActor | null> {
   const admin = await getWaydidiAdmin();
-  return admin ? { kind: "admin", name: admin.displayName || admin.email } : null;
+  return admin ? { kind: "admin", name: admin.displayName || admin.email, role: admin.role } : null;
 }
 export async function agencyActor(request: Request): Promise<TripActor | null> {
   const session = await customerFromRequest(request);
@@ -54,7 +54,7 @@ export async function handleList(request: Request, actor: TripActor | null) {
   const templates = new URL(request.url).searchParams.get("view") === "templates";
   const rows = await listTrips({ templates, agencyId: agencyIdOf(actor) });
   // Agencies may also start from Waydidi's own templates.
-  const shared = templates && actor.kind === "agency" ? (await listTrips({ templates: true })).filter((t) => !t.agencyId) : [];
+  const shared = templates && actor.kind === "agency" ? (await listTrips({ templates: true })).filter((t) => !t.agencyId && !isSalesTrip(t)) : [];
   const agencyNames = actor.kind === "admin" ? Object.fromEntries((await getDb().select({ id: agencyApplications.id, name: agencyApplications.agencyName }).from(agencyApplications)).map((a) => [a.id, a.name])) : {};
   return NextResponse.json({ trips: [...rows, ...shared].map((t) => ({ ...publicRow(t, actor), stopCount: (JSON.parse(t.stopsJson) as unknown[]).length, agencyName: t.agencyId ? agencyNames[t.agencyId] ?? null : null, shared: shared.includes(t) })) }, { headers: noStore });
 }
@@ -74,6 +74,8 @@ export async function handleSave(request: Request, actor: TripActor | null) {
   }
   try {
     const before = actor.kind === "admin" && input.id ? await getTrip(input.id) : null;
+    if (before && isSalesTrip(before) && actor.kind === "admin" && actor.role !== "owner" && input.transportPrice !== before.transportPrice)
+      return NextResponse.json({ error: "Only the owner can price an assistant draft." }, { status: 403 });
     const saved = await saveTrip(input, { name: actor.name, agencyId: agencyIdOf(actor), commissionPercent: actor.kind === "agency" ? AGENCY_COMMISSION_PERCENT : 0 });
     // Staff priced a trip an agency was waiting on: back to draft, and tell the agency.
     if (before?.status === "pricing" && before.agencyId && input.transportPrice > 0) {
@@ -86,6 +88,7 @@ export async function handleSave(request: Request, actor: TripActor | null) {
     const code = (error as Error).message;
     if (code === "CONFLICT") return NextResponse.json({ error: "This trip changed in another session. Your edits are still here. Reload and compare before saving again." }, { status: 409 });
     if (code === "LOCKED") return NextResponse.json({ error: "This trip is paid. Duplicate it to make changes." }, { status: 409 });
+    if (code === "SALES_TRIP_TEMPLATE") return NextResponse.json({ error: "A private assistant draft cannot become a shared template. The owner can make a template copy." }, { status: 403 });
     if (code === "NOT_FOUND") return NextResponse.json({ error: "Trip not found." }, { status: 404 });
     throw error;
   }
@@ -143,9 +146,11 @@ export async function handleAction(request: Request, id: string, actor: TripActo
   // Agencies may quote from (or copy) Waydidi's own templates.
   if (!trip && actor.kind === "agency" && (action === "quote" || action === "duplicate")) {
     const shared = await getTrip(id);
-    if (shared?.isTemplate && !shared.agencyId) trip = shared;
+    if (shared?.isTemplate && !shared.agencyId && !isSalesTrip(shared)) trip = shared;
   }
   if (!trip) return NextResponse.json({ error: "Trip not found." }, { status: 404 });
+  if (isSalesTrip(trip) && (action === "send" || action === "duplicate" || action === "template") && (actor.kind !== "admin" || actor.role !== "owner"))
+    return NextResponse.json({ error: "Only the owner can publish or copy this assistant draft." }, { status: 403 });
   const by = { name: actor.name, agencyId: agencyIdOf(actor), commissionPercent: actor.kind === "agency" ? AGENCY_COMMISSION_PERCENT : 0 };
   const now = new Date().toISOString();
   const origin = safeOrigin(request);
@@ -158,7 +163,7 @@ export async function handleAction(request: Request, id: string, actor: TripActo
       for (const d of days) {
         const label = days.length > 1 ? `Day ${d.dayNumber}: ` : "";
         if (!d.tripDate) return NextResponse.json({ error: `${label}set the trip date first.` }, { status: 400 });
-        if (d.total <= 0 && d.transportPrice <= 0) return NextResponse.json({ error: `${label}${actor.kind === "agency" ? "this trip needs a price from Waydidi first. Use “Ask Waydidi for a price”." : "set the transport price first."}` }, { status: 400 });
+        if (d.transportPrice <= 0 && (isSalesTrip(d) || d.total <= 0)) return NextResponse.json({ error: `${label}${actor.kind === "agency" ? "this trip needs a price from Waydidi first. Use “Ask Waydidi for a price”." : "set the transport price first."}` }, { status: 400 });
       }
       let sent: Awaited<ReturnType<typeof sendTripDays>>;
       try { sent = await sendTripDays(days, actor.name, note); }

@@ -44,8 +44,18 @@ export function customerLocale(text: string | null | undefined): "en" | "th" | "
   return "en";
 }
 
-export type QuoteAction = "ok" | "car" | "edit" | "no" | "take";
-const ACTIONS: Record<string, QuoteAction> = { sq_ok: "ok", sq_car: "car", sq_edit: "edit", sq_no: "no", sq_take: "take" };
+// "legcar" and "legedit" carry the leg number where "car" carries the option (multi-leg drafts, PR 4).
+export type QuoteAction = "ok" | "car" | "edit" | "no" | "take" | "legcar" | "legedit";
+const ACTIONS: Record<string, QuoteAction> = { sq_ok: "ok", sq_car: "car", sq_edit: "edit", sq_no: "no", sq_take: "take", sq_lcar: "legcar", sq_ledit: "legedit" };
+
+export const MAX_LEGS = 6;
+export type DraftLeg = {
+  draft_id: string; leg_no: number; pickup: string; dropoff: string; trip_date: string; trip_time: string; passengers: number; bags: number;
+  options_json: string; selected: number; price_thb: number | null; table_price_thb: number | null; edited: number;
+  crm_quote_id: string | null; crm_version: number | null;
+};
+/** The total of the legs, or null while any leg still needs a price. */
+export const legsTotal = (legs: Pick<DraftLeg, "price_thb">[]) => legs.every((l) => l.price_thb !== null) ? legs.reduce((sum, l) => sum + l.price_thb!, 0) : null;
 const ID = /^[a-f0-9]{16}$/;
 
 /** Telegram callback data, at most 64 bytes: "sq_ok:<16 hex>:<revision>" or "sq_car:<id>:<revision>-<option>". */
@@ -88,14 +98,27 @@ const baht = (n: number) => `฿${n.toLocaleString("en-US")}`;
 const bangkok = (iso: string) => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
 /** The owner's Telegram card (English, owner decision D15). Customer contact details are not shown. */
-export function draftCard(d: Draft, publicId: string | null, latestVisitorSeq: number) {
+export function draftCard(d: Draft, publicId: string | null, latestVisitorSeq: number, legs: DraftLeg[] = []) {
   const opts = options(d);
-  const lines = [
+  const total = legsTotal(legs);
+  const lines = legs.length ? [
+    `<b>Quote draft · ${legs.length} legs${total === null ? " · needs your price" : ""}</b> · ${esc(publicId ?? d.conversation_id.slice(0, 8))} · ${esc(d.channel)}`,
+    esc(d.summary),
+    "",
+    ...legs.flatMap((l) => {
+      const o = options(l)[l.selected];
+      return [`<b>Leg ${l.leg_no}</b> ${esc(l.pickup.slice(0, 150))} → ${esc(l.dropoff.slice(0, 150))}`, `   ${esc(l.trip_date)} ${esc(l.trip_time)} · ${l.passengers} passenger(s), ${l.bags} bag(s) · ${esc(o?.name ?? "car")}: ${l.price_thb === null ? "no price" : baht(l.price_thb)}${l.edited ? " (your price)" : ""}`];
+    }),
+    "",
+    total === null ? "Price every leg before approving." : `Total of all legs: ${baht(total)}`,
+    "Prices: website price tables unless marked. The customer gets one link per leg and can accept any of them.",
+    "Valid for 3 hours after you approve.",
+  ] : [
     `<b>Quote draft${d.price_source === "manual" ? " · needs your price" : ""}</b> · ${esc(publicId ?? d.conversation_id.slice(0, 8))} · ${esc(d.channel)}`,
     esc(d.summary),
     `${d.passengers} passenger(s), ${d.bags} bag(s)`,
     "",
-    d.price_source === "manual" ? "Price source: none (no published price for this route)" : "Price source: website price tables",
+    d.price_source === "manual" ? "Price source: needs an owner-entered price" : "Price source: website price tables",
     ...opts.map((o, i) => `${i === d.selected ? "▶" : "•"} ${esc(o.name)}: ${o.price === null ? "no price" : baht(o.price)}`),
     ...(d.edited_by && d.price_thb !== null ? [`Edited price: <b>${baht(d.price_thb)}</b> (by ${esc(d.edited_by)}${d.table_price_thb !== null ? `, table ${baht(d.table_price_thb)}` : ""})`] : []),
     `Valid for 3 hours after you approve.`,
@@ -116,8 +139,19 @@ export function draftCard(d: Draft, publicId: string | null, latestVisitorSeq: n
   return lines.join("\n");
 }
 
-export function draftKeyboard(d: Draft) {
+export function draftKeyboard(d: Draft, legs: DraftLeg[] = []) {
   if (d.status !== "pending") return [];
+  if (legs.length) {
+    const rows: { text: string; callback_data: string }[][] = [];
+    const total = legsTotal(legs);
+    if (total !== null) rows.push([{ text: `✅ Approve & send ${legs.length} legs ${baht(total)}`, callback_data: quoteCallback("ok", d.id, d.revision) }]);
+    for (const l of legs) {
+      const priced = options(l).filter((o) => o.price !== null).length;
+      rows.push([...(priced > 1 ? [{ text: `🚗 Leg ${l.leg_no} car`, callback_data: quoteCallback("legcar", d.id, d.revision, l.leg_no) }] : []), { text: `✏️ Leg ${l.leg_no} price`, callback_data: quoteCallback("legedit", d.id, d.revision, l.leg_no) }]);
+    }
+    rows.push([{ text: "❌ Reject", callback_data: quoteCallback("no", d.id, d.revision) }, { text: "🙋 Take over", callback_data: quoteCallback("take", d.id, d.revision) }]);
+    return rows;
+  }
   const opts = options(d), chosen = opts[d.selected];
   const rows: { text: string; callback_data: string }[][] = [];
   if (chosen && d.price_thb !== null) rows.push([{ text: `✅ Approve & send ${chosen.name} ${baht(d.price_thb)}`, callback_data: quoteCallback("ok", d.id, d.revision) }]);
