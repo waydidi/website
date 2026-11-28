@@ -217,9 +217,12 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
         return { id };
     }
     if (action === 'quote_followup_consent') {
-        if (role !== 'owner')
-            throw new CrmError('Only the owner can record WhatsApp reminder consent.', 403);
         const p = z.object({ contactId: z.string().min(1).max(150), conversationId: z.string().min(1).max(150), optIn: z.boolean() }).parse(input);
+        // Anyone on staff may stop reminders; only the owner may start them.
+        if (!['owner', 'operations', 'support'].includes(role))
+            throw new CrmError('CRM access required.', 403);
+        if (p.optIn && role !== 'owner')
+            throw new CrmError('Only the owner can record WhatsApp reminder consent.', 403);
         const result = await db.prepare(`INSERT INTO crm_events(id,contact_id,entity_id,kind,body,staff_id,created_at)
           SELECT ?,s.contact_id,w.id,'whatsapp_quote_followup_consent',?,?,?
           FROM crm_sources s JOIN website_conversations w ON s.source_id=w.id AND w.channel='whatsapp'

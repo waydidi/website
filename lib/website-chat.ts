@@ -243,7 +243,7 @@ export async function addStaffMessage(conversationId: string, body: string, who:
  * Waydidi Assistant's reply: shown as "Waydidi Assistant", never assigns the conversation, mirrored to Telegram.
  * onlyWhileNonActive (Waydidi Assistant's own answers): the insert itself checks that no person has taken the chat,
  * Waydidi Assistant isn't paused and the chat isn't closed, so a takeover at any moment before the insert stops the reply.
- * System notices (payment received, "thanks for waiting", idle nudges) leave it off and are always sent.
+ * Idle check-ins set it too. System notices (payment received, "thanks for waiting") leave it off and are always sent.
  */
 export async function addBotMessage(conversationId: string, rawBody: string, card?: object | null, options: {
   onlyWhileNonActive?: boolean;

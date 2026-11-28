@@ -730,3 +730,80 @@ test('PR 4 + PR 5: a response to any leg stops reminders for the whole quote', w
     delete reminderVars.SALES_AI_FOLLOWUP_TEMPLATE;
   }
 }));
+
+const idle = await vite.ssrLoadModule('/lib/chat-idle.ts');
+// Eleven minutes from now: every message written by the test is old enough for a check-in.
+const runNudges = () => idle.sendIdleNudges(new Date(Date.now() + 11 * 60_000), 1000);
+const nudgeCount = async (id) => (await db.prepare("SELECT count(*) n FROM website_chat_messages WHERE conversation_id=? AND body=?").bind(id, idle.NUDGE_TEXT).first()).n;
+const lastMessage = (id) => db.prepare('SELECT id,sender,channel_message_id FROM website_chat_messages WHERE conversation_id=? ORDER BY rowid DESC LIMIT 1').bind(id).first();
+
+async function withReminders(fn) {
+  reminderVars.SALES_AI_FOLLOWUPS = '1';
+  reminderVars.SALES_AI_FOLLOWUP_TEMPLATE = 'quote_reminder';
+  try { await fn(); } finally {
+    delete reminderVars.SALES_AI_FOLLOWUPS;
+    delete reminderVars.SALES_AI_FOLLOWUP_TEMPLATE;
+  }
+}
+
+test('a failed quote reminder is never followed by a free-form check-in', () => withReminders(async () => {
+  const d = await reminderQuote();
+  await reminderConsent(d.conversation_id);
+  const normal = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (typeof init?.body === 'string' && init.body.includes('"template"')) throw new Error('template not approved');
+    return normal(url, init);
+  };
+  try { await followups.runQuoteFollowups(); } finally { globalThis.fetch = normal; }
+  assert.equal((await lastMessage(d.conversation_id)).channel_message_id, 'failed');
+  calls.length = 0;
+  await runNudges();
+  assert.equal(await nudgeCount(d.conversation_id), 0);
+}));
+
+test('a quote reminder suppressed just before dispatch is never followed by a free-form check-in', () => withReminders(async () => {
+  const d = await reminderQuote();
+  await reminderConsent(d.conversation_id);
+  // The opt-out lands between the reservation and the send.
+  await db.prepare(`CREATE TRIGGER late_opt_out AFTER INSERT ON website_chat_messages WHEN NEW.id LIKE 'quote-followup:%' BEGIN
+    INSERT INTO crm_events(id,contact_id,entity_id,kind,body,created_at)
+    VALUES('late-opt-out','chat:'||NEW.conversation_id,NEW.conversation_id,'whatsapp_quote_followup_consent','Opted out',NEW.created_at); END`).run();
+  try { await followups.runQuoteFollowups(); } finally { await db.prepare('DROP TRIGGER late_opt_out').run(); }
+  assert.equal((await lastMessage(d.conversation_id)).channel_message_id, 'suppressed');
+  await runNudges();
+  assert.equal(await nudgeCount(d.conversation_id), 0);
+}));
+
+test('idle check-ins stop after a staff takeover or an assistant pause', async () => {
+  const replied = async () => {
+    const id = await chat();
+    await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at,is_bot) VALUES(?,?,'staff','How can we help?',?,1)")
+      .bind(crypto.randomUUID(), id, new Date().toISOString()).run();
+    return id;
+  };
+  const open = await replied();
+  const paused = await replied();
+  await db.prepare('UPDATE website_conversations SET bot_paused=1 WHERE id=?').bind(paused).run();
+  const taken = [];
+  for (const column of ['assigned_name', 'assigned_staff_id', 'assigned_telegram_user_id']) {
+    const id = await replied();
+    await db.prepare(`UPDATE website_conversations SET ${column}='someone' WHERE id=?`).bind(id).run();
+    taken.push(id);
+  }
+  await runNudges();
+  assert.equal(await nudgeCount(open), 1, 'an assistant chat still gets its check-in');
+  for (const id of [paused, ...taken]) assert.equal(await nudgeCount(id), 0);
+});
+
+test('any staff role can record a reminder opt-out; only the owner can record consent', async () => {
+  const d = await reminderQuote();
+  const state = async () => (await crm.profile(`chat:${d.conversation_id}`)).chats[0].quote_followup_consent;
+  for (const role of ['operations', 'support']) {
+    await reminderConsent(d.conversation_id);
+    await reminderConsent(d.conversation_id, false, role);
+    assert.equal(await state(), 'Opted out');
+    await assert.rejects(reminderConsent(d.conversation_id, true, role), /Only the owner/);
+    assert.equal(await state(), 'Opted out');
+  }
+  await assert.rejects(reminderConsent(d.conversation_id, false, 'viewer'), /CRM access/);
+});
