@@ -23,6 +23,10 @@
 | D19 | 2026-11-24 | The approved quote's customer message is chosen by the script the customer writes in (Thai, Chinese, otherwise English) | Deterministic; no AI involved in the priced message | Proposed (PR 2) |
 | D20 | 2026-11-24 | **Prices come only from the website price database** (or a price the owner types on a draft). No target margin, no payment-fee figure, no `minimum_sell` floor and no cost-based or similar-route price estimation. PR 3 as planned (supplier rates and margin floor) is dropped | Owner answer | Owner |
 
+| D25 | 2026-11-28 | Score open enquiries only, using their CRM stage and whether their linked quote is valid or accepted | Staff can explain the score without profiling a customer | Proposed (PR 5) |
+| D26 | 2026-11-28 | Queue at most two WhatsApp reminders, at one and two hours after an owner-approved quote. Require conversation-specific consent and an approved template. | Keep reminders within the quote's validity and respect customer preferences | Proposed (PR 5) |
+| D27 | 2026-11-28 | Report explicit staff reasons and observable quote outcomes. Do not infer a customer's reason from silence. | A quote expiring without acceptance does not tell us why | Proposed (PR 5) |
+
 ## Open questions for the owner
 
 - Approved WhatsApp templates (needed before any follow-up outside 24 hours).

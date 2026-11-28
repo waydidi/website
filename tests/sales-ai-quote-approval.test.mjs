@@ -272,3 +272,115 @@ test('retention removes old prompts and drafts but never one that is mid-send', 
   assert.ok(await fresh(busy));
   assert.equal(await db.prepare('SELECT * FROM ai_quote_prompts WHERE telegram_message_id=1').first(), null);
 });
+
+const followups = await vite.ssrLoadModule('/lib/sales-ai/quote-followups.ts');
+const crm = await vite.ssrLoadModule('/lib/crm.ts');
+const reminderVars = globalThis.__quoteTest.env;
+const templateCalls = () => calls.filter(c => c.body?.type === 'template');
+const reminderConsent = (id, optIn = true, role = 'owner', contactId = `chat:${id}`) =>
+  crm.crmAction('quote_followup_consent', { contactId, conversationId: id, optIn }, 'own1', role);
+async function reminderQuote(body = 'Please quote this transfer') {
+  const id = await chat({ body });
+  const { draft } = await makeDraft(id);
+  assert.equal((await tap(cb(draft, 'ok'))).text, 'Sent to the customer.');
+  const d = await fresh(draft);
+  await reminderAge(d, 70);
+  return d;
+}
+const reminderAge = (d, mins) => db.prepare("UPDATE ai_activity_log SET created_at=? WHERE correlation_id=? AND event='quote_sent'")
+  .bind(new Date(Date.now() - mins * 60_000).toISOString(), d.id).run();
+
+test('WhatsApp reminder needs the flag, approved-template name and owner-recorded consent', async () => {
+  const d = await reminderQuote('ขอราคารถไปพัทยา');
+  calls.length = 0;
+  await assert.rejects(reminderConsent(d.conversation_id, true, 'support'), /Only the owner/);
+  await assert.rejects(reminderConsent(d.conversation_id, true, 'owner', 'someone-else'), /not found/);
+  assert.equal(await followups.runQuoteFollowups(), 0);
+  reminderVars.SALES_AI_FOLLOWUPS = '1';
+  assert.equal(await followups.runQuoteFollowups(), 0, 'a template is required');
+  reminderVars.SALES_AI_FOLLOWUP_TEMPLATE = 'quote_reminder';
+  assert.equal(await followups.runQuoteFollowups(), 0, 'inbound quote request is not reminder consent');
+  assert.equal(templateCalls().length, 0);
+  await reminderConsent(d.conversation_id);
+  reminderVars.ASSISTANT_DISABLED_CHANNELS = 'whatsapp';
+  assert.equal(await followups.runQuoteFollowups(), 0, 'the existing kill switch also stops reminders');
+  delete reminderVars.ASSISTANT_DISABLED_CHANNELS;
+  await db.prepare("UPDATE website_chat_messages SET created_at=? WHERE rowid=?")
+    .bind(new Date(Date.now() - 25 * 3600_000).toISOString(), d.visitor_seq).run();
+  const count = await Promise.all(Array.from({ length: 5 }, () => followups.runQuoteFollowups()));
+  assert.equal(count.reduce((a, b) => a + b, 0), 1);
+  assert.equal(templateCalls().length, 1);
+  assert.deepEqual(templateCalls()[0].body.template, { name: 'quote_reminder', language: { code: 'th' } });
+  assert.doesNotMatch(JSON.stringify(templateCalls()[0].body.template), /\/quote\/|1800/);
+  assert.match((await botBodies(d.conversation_id)).at(-1).body, /ใบเสนอราคา/);
+
+  await reminderAge(d, 125);
+  assert.equal(await followups.runQuoteFollowups(), 0, 'reminders must be separated by at least one hour');
+  await db.prepare("UPDATE website_chat_messages SET created_at=? WHERE id=?")
+    .bind(new Date(Date.now() - 65 * 60_000).toISOString(), `quote-followup:${d.crm_quote_id}:1`).run();
+  assert.equal(await followups.runQuoteFollowups(), 1);
+  assert.equal(await followups.runQuoteFollowups(), 0);
+  assert.equal(templateCalls().length, 2);
+  assert.equal((await db.prepare("SELECT count(*) n FROM ai_activity_log WHERE event='quote_followup' AND correlation_id=?").bind(d.id).first()).n, 2);
+});
+
+test('quote reminders stop after opt-out, a customer reply, staff takeover, or expired or revised quotes', async () => {
+  const revoked = await reminderQuote();
+  await reminderConsent(revoked.conversation_id);
+  await reminderConsent(revoked.conversation_id, false);
+  const responded = await reminderQuote();
+  await reminderConsent(responded.conversation_id);
+  await db.prepare("INSERT INTO website_chat_messages(id,conversation_id,sender,body,created_at) VALUES('followup-visitor-reply',?,'visitor','No thanks',?)")
+    .bind(responded.conversation_id, new Date().toISOString()).run();
+  const takenOver = await reminderQuote();
+  await reminderConsent(takenOver.conversation_id);
+  await db.prepare("UPDATE website_conversations SET assigned_name='Owner' WHERE id=?").bind(takenOver.conversation_id).run();
+  const expired = await reminderQuote();
+  await reminderConsent(expired.conversation_id);
+  await db.prepare("UPDATE crm_quotes SET status='expired',token_hash=NULL WHERE id=?").bind(expired.crm_quote_id).run();
+  const revised = await reminderQuote();
+  await reminderConsent(revised.conversation_id);
+  await db.prepare("UPDATE crm_quotes SET version=2 WHERE id=?").bind(revised.crm_quote_id).run();
+  calls.length = 0;
+  assert.equal(await followups.runQuoteFollowups(), 0);
+  assert.equal(templateCalls().length, 0);
+});
+
+test('an unconfirmed first reminder is never retried and does not trigger a second one', async () => {
+  const d = await reminderQuote();
+  await reminderConsent(d.conversation_id);
+  calls.length = 0;
+  const normal = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const body = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
+    if (body?.type === 'template') {
+      calls.push({ url: String(url), body });
+      throw new Error('simulated timeout after the request was dispatched');
+    }
+    return normal(url, init);
+  };
+  try {
+    assert.equal(await followups.runQuoteFollowups(), 0);
+    assert.equal(await followups.runQuoteFollowups(), 0);
+    await reminderAge(d, 125);
+    assert.equal(await followups.runQuoteFollowups(), 0);
+    assert.equal(templateCalls().length, 1);
+    assert.equal((await botBodies(d.conversation_id)).at(-1).channel_message_id, 'failed');
+  } finally { globalThis.fetch = normal; }
+});
+
+test('CRM priority and lost-quote evidence use quote and enquiry states', async () => {
+  const d = await reminderQuote();
+  const { lead_id: leadId } = await db.prepare("SELECT lead_id FROM crm_quotes WHERE id=?").bind(d.crm_quote_id).first();
+  const findLead = async () => (await crm.crmList('pipeline', '', 1, 'quoted')).items.find(row => row.id === leadId);
+  assert.equal((await findLead()).score, 60);
+  assert.equal((await findLead()).reasons, 'Quote still valid');
+  await db.prepare("UPDATE crm_quotes SET status='expired',token_hash=NULL WHERE id=?").bind(d.crm_quote_id).run();
+  assert.equal((await findLead()).score, 30);
+  assert.ok((await crm.crmDashboard()).quoteLoss.some(row => row.evidence === 'link_issued_expired_without_acceptance' && row.count > 0));
+  const lead = await db.prepare("SELECT version FROM crm_leads WHERE id=?").bind(leadId).first();
+  await crm.crmAction('stage', { id: leadId, stage: 'lost', version: lead.version, lossReason: 'Customer cancelled their trip' }, 'own1', 'owner');
+  assert.ok((await crm.crmDashboard()).quoteLoss.some(row => row.evidence === 'staff_reason_recorded' && row.count > 0));
+  const lost = (await crm.crmList('pipeline', '', 1, 'lost')).items.find(row => row.id === leadId);
+  assert.equal(lost.score, null);
+});

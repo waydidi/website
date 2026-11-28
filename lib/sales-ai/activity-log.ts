@@ -27,7 +27,7 @@ export function ensureFoundationTables() {
   return ready;
 }
 
-export const ACTIVITY_EVENTS = ["inbound_message", "media_received", "delivery_status", "model_call", "handover", "send_suppressed", "send_failed", "kill_switch", "quote_drafted", "quote_price_edited", "quote_approved", "quote_sent", "quote_rejected", "mode_change", "security"] as const;
+export const ACTIVITY_EVENTS = ["inbound_message", "media_received", "delivery_status", "model_call", "handover", "send_suppressed", "send_failed", "kill_switch", "quote_drafted", "quote_price_edited", "quote_approved", "quote_sent", "quote_rejected", "quote_followup", "mode_change", "security"] as const;
 export type ActivityEvent = (typeof ACTIVITY_EVENTS)[number];
 export type ActivityStatus = "ok" | "error" | "suppressed" | "skipped";
 

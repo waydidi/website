@@ -56,7 +56,11 @@ To try it on the test number: set `SALES_AI_QUOTE_APPROVAL=whatsapp`, make sure 
 
 ## Deferred to later PRs
 
-PR 4 multi-leg, images, itineraries; PR 5 lead scoring, follow-ups, lost-quote analysis. Daily Sales Report stays excluded.
+PR 4 multi-leg, images, itineraries. Daily Sales Report stays excluded.
+
+## PR 5: lead priority, follow-ups and lost quotes
+
+CRM shows open-enquiry priority with evidence from its current stage and quote status. The dashboard counts lost and expired quotes by staff reason or the quote events on record. WhatsApp reminders require owner-recorded consent, approved templates and an explicit enable flag. See [the PR 5 release guide](pr5-followups.md).
 
 ## Worker variables (all optional; defaults keep today's behaviour)
 
