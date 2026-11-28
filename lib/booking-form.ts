@@ -38,6 +38,9 @@ export const formPrefillSchema = z.object({
   time: time.optional(),
   vehicle: z.enum(Object.keys(VEHICLES) as [string, ...string[]]).optional(),
   price: z.number().int().min(0).max(1_000_000).optional(),
+  passengers: z.number().int().min(1).max(20).optional(),
+  luggage: z.number().int().min(0).max(30).optional(),
+  childSeats: z.number().int().min(0).max(4).optional(),
 });
 export type FormPrefill = z.infer<typeof formPrefillSchema>;
 

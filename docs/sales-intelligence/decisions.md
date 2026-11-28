@@ -23,6 +23,10 @@
 | D19 | 2026-11-24 | The approved quote's customer message is chosen by the script the customer writes in (Thai, Chinese, otherwise English) | Deterministic; no AI involved in the priced message | Proposed (PR 2) |
 | D20 | 2026-11-24 | **Prices come only from the website price database** (or a price the owner types on a draft). No target margin, no payment-fee figure, no `minimum_sell` floor and no cost-based or similar-route price estimation. PR 3 as planned (supplier rates and margin floor) is dropped | Owner answer | Owner |
 
+| D21 | 2026-11-28 | One draft contains 2–6 transfer legs. Each can be accepted through its existing CRM quote link. Editing any CRM leg invalidates unaccepted links for the earlier bundle revision | Customers can book only the transfers they need. Accepted legs keep their existing booking forms | Proposed (PR 4) |
+| D22 | 2026-11-28 | WhatsApp image/PDF bytes use private file storage; validated trip fields go to the assistant as unverified facts. File reads follow the AI activity retention setting | Keeps provider files and extracted data private. An attachment never verifies a payment | Proposed (PR 4) |
+| D23 | 2026-11-28 | Multi-day sightseeing is saved as grouped, unpriced drafts in the existing trip planner for owner approval. Child seats use the existing add-on, and oversized luggage or accessibility needs require fit and price review | Reuses published prices and existing staff tools. Hourly hire stays with staff | Proposed (PR 4) |
+
 ## Open questions for the owner
 
 - Approved WhatsApp templates (needed before any follow-up outside 24 hours).

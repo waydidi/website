@@ -1758,5 +1758,17 @@
   "salesQuote.message": {
     "text": "นี่คือใบเสนอราคาจาก Waydidi:\n{route}\nวันที่: {date} เวลา {time}\nผู้โดยสาร: {passengers} คน, กระเป๋า: {bags} ใบ\nรถ: {car}\nราคา: ฿{price} ต่อคัน\nใช้ได้ถึง {validUntil} (เวลาประเทศไทย)\n\nยืนยันและจองได้ที่: {url}",
     "status": "machine"
+  },
+  "salesQuote.multiMessage": {
+    "text": "ใบเสนอราคา Waydidi สำหรับหลายเที่ยว:\n\n{legs}\n\nราคารวมทุกเที่ยว {total} บาท เลือกจองเฉพาะเที่ยวที่ต้องการได้ ใช้ได้ถึง {validUntil} (เวลาไทย)",
+    "status": "machine"
+  },
+  "salesQuote.leg": {
+    "text": "เที่ยวที่ {number}: {route}\n{date} เวลา {time} | ผู้โดยสาร {passengers} คน สัมภาระ {bags} ใบ\n{car} | {price} บาท\nตอบรับเที่ยวนี้: {url}",
+    "status": "machine"
+  },
+  "salesQuote.childSeats": {
+    "text": "ขอที่นั่งเด็ก {count} ที่ แบบฟอร์มจองแสดงค่าบริการเพิ่มที่ละ {price} บาท",
+    "status": "machine"
   }
 }

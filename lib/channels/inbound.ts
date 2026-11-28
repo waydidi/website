@@ -4,7 +4,7 @@ import { addVisitorMessage, conversationForChannelUser, createConversation, save
 import { CHANNEL_LABEL, showTyping, type Channel } from ".";
 
 /** A customer message from WhatsApp or LINE: same conversation store, inbox, Telegram card and Waydidi Assistant. */
-export async function receiveChannelMessage(m: { channel: Exclude<Channel, "web">; userId: string; messageId: string; text: string; name?: string | null; phone?: string | null; lineReplyToken?: string | null }) {
+export async function receiveChannelMessage(m: { channel: Exclude<Channel, "web">; userId: string; messageId: string; text: string; name?: string | null; phone?: string | null; lineReplyToken?: string | null; beforeSchedule?: (conversationId: string) => Promise<unknown> }) {
   const text = m.text.trim().slice(0, 2000);
   if (!text) return null;
   let c = await conversationForChannelUser(m.channel, m.userId);
@@ -17,6 +17,7 @@ export async function receiveChannelMessage(m: { channel: Exclude<Channel, "web"
   // against answering the same visitor message twice.
   if (m.lineReplyToken) await saveLineReplyToken(c.id, m.lineReplyToken);
   if (!saved.duplicate) await showTyping(m.channel, m.userId, m.messageId).catch(() => undefined);
+  await m.beforeSchedule?.(c.id);
   await scheduleNon(c.id).catch(() => undefined);
   return { conversationId: c.id, duplicate: saved.duplicate };
 }

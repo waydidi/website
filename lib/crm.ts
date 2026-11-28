@@ -1,3 +1,4 @@
+import { LEG_ACCEPT_GUARD, ensureQuoteTables } from "@/lib/sales-ai/quote-drafts";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { contactInput, taskInput, quoteInput, STAGES, normalizePhone, csvCell } from "./crm-rules";
@@ -267,7 +268,7 @@ export async function crmAction(action: string, input: Record<string, unknown>, 
     }
     if (action === 'quote_share') {
         const q = await first<Quote>('SELECT * FROM crm_quotes WHERE id=?', id);
-        if (!q || !['draft', 'sent'].includes(q.status) || q.expires_at <= stamp)
+        if (!q || !['draft', 'sent'].includes(q.status) || q.expires_at <= stamp || (input.expectedVersion !== undefined && input.expectedVersion !== q.version))
             throw new CrmError('Quote is unavailable or expired.');
         const token = secureToken(), tokenHash = await sha256(token);
         const result = await db.batch([
@@ -336,7 +337,10 @@ export async function exportContacts(search: string) { const q = `%${search}%`; 
 export async function publicQuote(token: string) {
     if (!/^[a-f0-9]{48,128}$/.test(token))
         return null;
-    return first<Quote>("SELECT id,contact_id,lead_id,version,status,title,pickup,dropoff,trip_date,trip_time,vehicle,amount_minor,expires_at,form_token,booking_reference,accepted_at FROM crm_quotes WHERE token_hash=? AND expires_at>? AND julianday(trip_date || 'T' || trip_time || ':00+07:00')>julianday('now') AND status IN ('sent','accepted')", await sha256(token), nowIso());
+    await ensureQuoteTables();
+    return first<Quote>(`SELECT id,contact_id,lead_id,version,status,title,pickup,dropoff,trip_date,trip_time,vehicle,amount_minor,expires_at,form_token,booking_reference,accepted_at FROM crm_quotes
+      WHERE token_hash=? AND expires_at>? AND julianday(trip_date || 'T' || trip_time || ':00+07:00')>julianday('now')
+      AND (status='accepted' OR (status='sent' AND ${LEG_ACCEPT_GUARD}))`, await sha256(token), nowIso());
 }
 export async function acceptQuote(token: string) {
     const q = await publicQuote(token);
@@ -345,8 +349,13 @@ export async function acceptQuote(token: string) {
     if (q.status === 'accepted')
         return { path: `/f/${q.form_token}` };
     const tokenHash = await sha256(token), ft = formToken(), stamp = nowIso();
-    const prefill = JSON.stringify({ pickup: q.pickup, dropoff: q.dropoff, date: q.trip_date, time: q.trip_time, vehicle: q.vehicle, price: q.amount_minor / 100 });
-    await crmDb().batch([crmDb().prepare("UPDATE crm_quotes SET status='accepted',accepted_at=?,form_token=?,updated_at=? WHERE id=? AND version=? AND token_hash=? AND status='sent' AND expires_at>?").bind(stamp, ft, stamp, q.id, q.version, tokenHash, stamp), crmDb().prepare("INSERT INTO booking_forms(token,service_type,note,status,prefill,created_at,expires_at) SELECT ?, 'transfer', ?, 'waiting', ?, ?, ? FROM crm_quotes WHERE id=? AND form_token=? AND status='accepted'").bind(ft, q.title, prefill, stamp, q.expires_at, q.id, ft), crmDb().prepare("INSERT INTO crm_events(id,contact_id,entity_id,kind,body,created_at) SELECT ?,contact_id,id,'quote','Customer accepted quote',? FROM crm_quotes WHERE id=? AND form_token=?").bind(crypto.randomUUID(), stamp, q.id, ft)]);
+    const extras = await first<{ passengers: number; bags: number; child_seats: number | null }>(`SELECT l.passengers,l.bags,n.child_seats FROM ai_quote_legs l
+        LEFT JOIN ai_quote_needs n ON n.draft_id=l.draft_id WHERE l.crm_quote_id=? UNION ALL
+        SELECT d.passengers,d.bags,n.child_seats FROM ai_quote_drafts d JOIN ai_quote_needs n ON n.draft_id=d.id
+        WHERE d.crm_quote_id=? AND NOT EXISTS(SELECT 1 FROM ai_quote_legs WHERE draft_id=d.id) LIMIT 1`, q.id, q.id);
+    const prefill = JSON.stringify({ ...(extras ? { passengers: extras.passengers, luggage: extras.bags,
+        ...(extras.child_seats ? { childSeats: extras.child_seats } : {}) } : {}), pickup: q.pickup, dropoff: q.dropoff, date: q.trip_date, time: q.trip_time, vehicle: q.vehicle, price: q.amount_minor / 100 });
+    await crmDb().batch([crmDb().prepare(`UPDATE crm_quotes SET status='accepted',accepted_at=?,form_token=?,updated_at=? WHERE id=? AND version=? AND token_hash=? AND status='sent' AND expires_at>? AND ${LEG_ACCEPT_GUARD}`).bind(stamp, ft, stamp, q.id, q.version, tokenHash, stamp), crmDb().prepare("INSERT INTO booking_forms(token,service_type,note,status,prefill,created_at,expires_at) SELECT ?, 'transfer', ?, 'waiting', ?, ?, ? FROM crm_quotes WHERE id=? AND form_token=? AND status='accepted'").bind(ft, q.title, prefill, stamp, q.expires_at, q.id, ft), crmDb().prepare("INSERT INTO crm_events(id,contact_id,entity_id,kind,body,created_at) SELECT ?,contact_id,id,'quote','Customer accepted quote',? FROM crm_quotes WHERE id=? AND form_token=?").bind(crypto.randomUUID(), stamp, q.id, ft)]);
     const current = await publicQuote(token);
     if (!current?.form_token)
         throw new CrmError('Quote changed. Refresh and try again.', 409);

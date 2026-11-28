@@ -3,6 +3,8 @@ import { receiveChannelMessage } from "@/lib/channels/inbound";
 import { validWhatsappSignature, whatsappConfigured } from "@/lib/channels";
 import { logActivity } from "@/lib/sales-ai/activity-log";
 import { recordDeliveryStatus, recordWhatsappMedia } from "@/lib/sales-ai/channel-events";
+import { salesMediaOn } from "@/lib/sales-ai/media-flag";
+import { readableType } from "@/lib/sales-ai/media-rules";
 import { whatsappMediaRef } from "@/lib/sales-ai/whatsapp-rules";
 
 // Meta WhatsApp Cloud API webhook. GET is Meta's one-time verification; POST carries messages and
@@ -36,13 +38,16 @@ export async function POST(request: Request) {
       const pin = msg.location?.latitude !== undefined && msg.location.longitude !== undefined
         ? `📍 My location: ${msg.location.latitude.toFixed(5)},${msg.location.longitude.toFixed(5)}${msg.location.name || msg.location.address ? ` (${[msg.location.name, msg.location.address].filter(Boolean).join(", ")})` : ""}` : null;
       const media = whatsappMediaRef(msg);
+      const placeholder = salesMediaOn() && (media?.kind === "image" || media?.kind === "document") && readableType(media.mimeType)
+        ? "[WhatsApp attachment]" : MEDIA_PLACEHOLDER(msg.type);
       const text = pin ?? msg.text?.body ?? msg.button?.text ?? msg.interactive?.button_reply?.title ?? msg.interactive?.list_reply?.title
-        ?? (media?.caption ? `${media.caption}\n${MEDIA_PLACEHOLDER(msg.type)}` : MEDIA_PLACEHOLDER(msg.type));
-      const saved = await receiveChannelMessage({ channel: "whatsapp", userId: msg.from, messageId: msg.id, text, name, phone: `+${msg.from}` }).catch(fail("inbound"));
+        ?? (media?.caption ? `${media.caption}\n${placeholder}` : placeholder);
+      const saved = await receiveChannelMessage({ channel: "whatsapp", userId: msg.from, messageId: msg.id, text, name, phone: `+${msg.from}`,
+        beforeSchedule: media ? (id) => recordWhatsappMedia(media, msg.id, id) : undefined,
+      }).catch(fail("inbound"));
       if (!saved) continue;
       await logActivity({ event: "inbound_message", status: "ok", actor: "whatsapp", channel: "whatsapp", conversationId: saved.conversationId, dedupeKey: `wa-in:${msg.id}`,
         summary: `Customer message (${msg.type})`, detail: { type: msg.type } });
-      if (media) await recordWhatsappMedia(media, msg.id, saved.conversationId).catch(fail("media"));
     }
     for (const s of v?.statuses ?? []) {
       if (typeof s.id !== "string" || typeof s.status !== "string") continue;
