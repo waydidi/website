@@ -144,10 +144,10 @@ test('fixed question matching accepts only standalone questions in the customer 
 test('fixed payment answers include only configured providers and never the PaySo test mode', async () => {
  const vars = globalThis.__ceeTest.env;
  const { fixedReply } = await vite.ssrLoadModule('/lib/cee/fixed-reply.ts');
- const keys = ['STRIPE_SECRET_KEY', 'WAYDIDI_SLIP_PAYEE_NAMES', 'CHAT_PAYMENT_TEST_MODE', 'PAYSO_MERCHANT_ID', 'PAYSO_SECRET_KEY'];
+ const keys = ['STRIPE_SECRET_KEY', 'WAYDIDI_SLIP_PAYEE_NAMES', 'PAYSO_TEST_MODE', 'PAYSO_MERCHANT_ID', 'PAYSO_SECRET_KEY'];
  const old = Object.fromEntries(keys.map(key => [key, vars[key]]));
  try {
-  Object.assign(vars, { STRIPE_SECRET_KEY: 'test-only', WAYDIDI_SLIP_PAYEE_NAMES: 'Synthetic Payee', CHAT_PAYMENT_TEST_MODE: '1', PAYSO_MERCHANT_ID: 'test-only', PAYSO_SECRET_KEY: 'test-only' });
+  Object.assign(vars, { STRIPE_SECRET_KEY: 'test-only', WAYDIDI_SLIP_PAYEE_NAMES: 'Synthetic Payee', PAYSO_TEST_MODE: '1', PAYSO_MERCHANT_ID: 'test-only', PAYSO_SECRET_KEY: 'test-only' });
   const answer = await fixedReply('How do I pay?', 'web');
   assert.match(answer.reply, /card online/);
   assert.match(answer.reply, /cash to the driver/);
